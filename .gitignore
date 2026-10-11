@@ -1,0 +1,32 @@
+# Default deny: only source and reviewed assets are versioned.
+/*
+!/.gitignore
+!/.gitattributes
+!/*.py
+!/*.ps1
+!/*.md
+!/requirements*.txt
+!/market_index.html
+!/market_ui.js
+!/market_ui.css
+!/market_dashboard.html
+!/item_catalog_template.html
+!/maple_crypto_constants.cs
+!/maple_aes.cs
+!/COPYING.MapleLib
+!/tools/
+/tools/*
+!/tools/market_bot_templates/
+!/msnet_reference/
+__pycache__/
+*.pyc
+.env*
+*.pem
+*.key
+*.log
+*.sqlite*
+*.pcap*
+*.etl
+
+# Personal session analysis remains local.
+/network_research.md

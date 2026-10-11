@@ -1,0 +1,5 @@
+-r requirements-market.txt
+opencv-python-headless>=4.10,<6
+PyAutoGUI>=0.9.54,<1
+Pillow>=10,<13
+numpy>=2,<3
