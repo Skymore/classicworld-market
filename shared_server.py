@@ -84,9 +84,11 @@ def create_app(store, hostname='mxd.ruit.me', public_read=False):
         return jsonify(ok=True,duplicate=not created),201 if created else 200
 
     @app.get('/')
+    @app.get('/alerts')
     def index():
         if not public_read and not member():return send_file(ROOT/'shared_login.html')
-        return send_file(ROOT/'market_index.html')
+        page=(ROOT/'market_index.html').read_text(encoding='utf-8')
+        return page.replace('<body>', '<body class="alerts-page">' if request.path=='/alerts' else '<body class="market-page">')
 
     @app.get('/<asset>')
     def asset(asset):

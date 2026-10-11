@@ -251,8 +251,8 @@ def main():
                         self.wfile.flush()
                 except (OSError,ConnectionError):pass
                 return
-            if path=='/':
-                body=(ROOT/'market_index.html').read_bytes(); kind='text/html; charset=utf-8'
+            if path in ('/','/alerts'):
+                body=(ROOT/'market_index.html').read_text(encoding='utf-8').replace('<body>', '<body class="alerts-page">' if path=='/alerts' else '<body class="market-page">').encode(); kind='text/html; charset=utf-8'
             elif path in ('/market_ui.js','/market_ui.css'):
                 body=(ROOT/path[1:]).read_bytes()
                 kind='text/javascript; charset=utf-8' if path.endswith('.js') else 'text/css; charset=utf-8'

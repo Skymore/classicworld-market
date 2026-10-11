@@ -21,16 +21,33 @@ $('coverage').textContent=`已保留 ${data.manual_visits} 次手动访问、${d
 }
 function subtypes(){let old=$('subtype').value,values=[...new Set(data.products.filter(r=>category==='全部'||r.category===category).map(r=>r.subcategory))].sort();$('subtype').innerHTML='<option value="">全部部位 / 子分类</option>'+values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');if(values.includes(old))$('subtype').value=old}
 let loading=false,pendingLoad=false,eventStream=null,pushConnected=false;const alertStart=Date.now()/1000,seenDeals=new Map();
+function readAlertStorage(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}}
+function writeAlertStorage(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch{}}
+let alertArchive=readAlertStorage('market.alertArchive',[]);
+$('alertsEnabled').checked=readAlertStorage('market.alertsEnabled',true);
+$('pageAlertsEnabled').checked=readAlertStorage('market.pageAlertsEnabled',true);
+$('alertsEnabled').onchange=()=>writeAlertStorage('market.alertsEnabled',$('alertsEnabled').checked);
+$('pageAlertsEnabled').onchange=()=>writeAlertStorage('market.pageAlertsEnabled',$('pageAlertsEnabled').checked);
+$('alertView').onchange=()=>renderOpportunities();
 function renderOpportunities(){
- const panel=$('opportunityPanel');panel.hidden=!!data.shared;if(data.shared)return;
- const alerts=(data.opportunities||[]).filter(a=>Date.now()/1000-a.observed<=120);
- $('opportunities').innerHTML=alerts.map(a=>`<div class="deal"><b>${esc(a.name)}</b> · ${esc(a.shop)} · ${esc(locationText(a.location))}<p>买价 ${num(a.buy)}/件（每组 ${num(a.bundle_cost)}，${num(a.bundle)}件） · Q1 ${num(a.q1)} · 参考卖价 ${num(a.sell)} · 扣手续费后估算差价 ${num(a.profit)}/件（${num(a.margin)}%）</p><small>${a.shops}个报价摊位 · ${num(a.listing_count)}条在售挂单 · 库存合计 ${num(a.listed_quantity)}。${esc(a.basis)}</small><button data-deal-item="${a.item_id}">查看商品依据</button></div>`).join('')||'<p>最近两分钟没有满足条件的低价商品。不会用旧挂单反复提醒。</p>';
- const fresh=alerts.filter(a=>a.observed>=alertStart&&Date.now()-(seenDeals.get(a.id)||0)>1800000);
- fresh.forEach(a=>seenDeals.set(a.id,Date.now()));
- if(!fresh.length||!$('alertsEnabled').checked)return;
- const a=fresh[0],message=`${a.name}：买价 ${num(a.buy)}，参考卖价 ${num(a.sell)}；扣3%后估算差价 ${num(a.profit)}/件。${esc(a.shop)}，${locationText(a.location)}。低于Q1 ${num(a.q1)}，${a.shops}个在售摊位、${num(a.listing_count)}条挂单，库存合计 ${num(a.listed_quantity)}，非保证利润。`;
- $('dealToast').innerHTML=`<b>发现 ${fresh.length} 件可关注的低价商品</b><p>${esc(message)}</p><button id="dismissDeal">知道了</button>`;$('dealToast').hidden=false;$('dismissDeal').onclick=()=>$('dealToast').hidden=true;
- if('Notification' in window&&Notification.permission==='granted')try{new Notification('枫叶市集：低价提醒',{body:message,tag:a.id})}catch{}
+ if(data.shared){$('opportunities').innerHTML='<p>实时逛摊提醒在采集电脑的 <a href="http://127.0.0.1:8765/alerts">本地提醒页</a> 使用，公开站不把别人的观察当作你的当前摊位。</p>';return}
+ const now=Date.now(),alerts=(data.opportunities||[]).filter(a=>now/1000-a.observed<=120);
+ const merged=new Map(readAlertStorage('market.alertArchive',alertArchive).map(a=>[a.id,a]));
+ alerts.forEach(a=>merged.set(a.id,a));
+ alertArchive=[...merged.values()].filter(a=>now/1000-a.observed<86400).sort((a,b)=>b.observed-a.observed).slice(0,200);
+ writeAlertStorage('market.alertArchive',alertArchive);
+ const shown=$('alertView').value==='live'?alerts:alertArchive;
+ $('alertSummary').textContent=`当前 ${alerts.length} 条 · 最近记录 ${alertArchive.length} 条（此浏览器保留24小时，最多200条）`;
+ $('opportunities').innerHTML=shown.map(a=>`<div class="deal"><b>${esc(a.name)}</b> · ${esc(a.shop)} · ${esc(locationText(a.location))}<p class="${now/1000-a.observed>120?'stale':'source'}">${date(a.observed)} · ${now/1000-a.observed>120?'历史发现，请重新开摊确认库存和价格':'最近发现'}</p><p>买价 ${num(a.buy)}/件（每组 ${num(a.bundle_cost)}，${num(a.bundle)}件） · Q1 ${num(a.q1)} · 参考卖价 ${num(a.sell)} · 扣手续费后估算差价 ${num(a.profit)}/件（${num(a.margin)}%）</p><small>${a.shops}个报价摊位 · ${num(a.listing_count)}条在售挂单 · 库存合计 ${num(a.listed_quantity)}。${esc(a.basis)}</small><button data-deal-item="${a.item_id}">查看商品依据</button></div>`).join('')||'<p>暂无符合条件的商品。保持网页打开，继续手动逛摊即可。</p>';
+ if(!$('alertsEnabled').checked)return;
+ const seen=readAlertStorage('market.alertSeen',{});
+ const fresh=alerts.filter(a=>a.observed>=alertStart&&now-(seen[a.id]||0)>1800000);
+ if(!fresh.length)return;
+ fresh.forEach(a=>seen[a.id]=now);
+ writeAlertStorage('market.alertSeen',Object.fromEntries(Object.entries(seen).filter(([,t])=>now-t<1800000)));
+ const a=fresh[0],message=`${a.name}：买价 ${num(a.buy)}，参考卖价 ${num(a.sell)}；扣3%后估算差价 ${num(a.profit)}/件。${a.shop}，${locationText(a.location)}。低于Q1 ${num(a.q1)}，${a.shops}个在售摊位。`;
+ if($('pageAlertsEnabled').checked){$('dealToast').innerHTML=`<b>发现 ${fresh.length} 件低价商品</b><p>${esc(message)}</p><a href="/alerts">查看全部提醒与依据</a> <button id="dismissDeal">知道了</button>`;$('dealToast').hidden=false;$('dismissDeal').onclick=()=>$('dealToast').hidden=true}
+ if('Notification' in window&&Notification.permission==='granted')try{let notice=new Notification('枫叶市集：低价提醒',{body:message,tag:a.id});notice.onclick=()=>{window.focus();location.href='/alerts'}}catch{}
 }
 $('opportunities').onclick=e=>{let b=e.target.closest('[data-deal-item]');if(b)showItem(Number(b.dataset.dealItem))};
 $('enableDesktop').onclick=async()=>{if(!('Notification' in window)){$('alertStatus').textContent='当前浏览器不支持桌面通知；网页内弹窗仍可使用。';return}try{const permission=await Notification.requestPermission();$('alertStatus').textContent=permission==='granted'?'桌面通知已开启，请保持本地网页打开。':'未获桌面通知权限；网页内弹窗仍可使用。'}catch{$('alertStatus').textContent='此浏览器无法开启桌面通知；请使用系统浏览器打开本地网页。'}};

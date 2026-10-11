@@ -3,3 +3,5 @@
 .equip-stats{display:flex;flex-wrap:wrap;gap:5px 10px;min-width:240px;max-width:400px}.equip-stats span{font-size:12px;background:#eef5ee;border-radius:4px;padding:3px 6px}
 
 [hidden]{display:none!important}.deal{padding:12px;border-top:1px solid #dbe4d7}.deal small{display:block;color:#68796f}#dealToast{position:fixed;right:20px;bottom:20px;width:min(440px,90vw);padding:20px;background:#fffbea;border:1px solid #d3b870;border-radius:12px;box-shadow:0 10px 40px #233c3644;z-index:20}#dealToast p{font-size:13px;line-height:1.7}
+
+.page-nav{display:flex;gap:16px;font-size:13px}.alerts-page main>.hero,.alerts-page main>.metrics,.alerts-page main>.market,.alerts-page main>.method{display:none}.market-page #opportunityPanel{display:none}.alerts-page #opportunityPanel{padding:28px}.alerts-page .deal{margin-top:16px;border:1px solid #dbe4d7;border-radius:10px;background:white;padding:20px}.alerts-page .deal p{font-size:14px}.deal .stale{color:#987445}#opportunityPanel label{display:inline-block;margin:12px 12px 12px 0}#opportunityPanel h1{margin-bottom:8px}
