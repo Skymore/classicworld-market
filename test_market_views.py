@@ -34,6 +34,11 @@ class OpportunityTests(unittest.TestCase):
         data=self.fixture();data['products'][0]['quotes'].pop(0)
         self.assertEqual(opportunities(data,1000),[])
 
+    def test_normal_profit_alone_does_not_trigger(self):
+        data=self.fixture()
+        for sale in data['products'][0]['sales']:sale['sale_unit_price']=60
+        self.assertEqual(opportunities(data,1000),[])
+
     def test_summary_drops_bulk_and_detail_is_scoped(self):
         data=self.fixture();data['history']=[dict(item_id=4000000),dict(item_id=1)]
         result=view(data,summary=True)

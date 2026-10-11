@@ -37,18 +37,23 @@ class PricingTests(unittest.TestCase):
         p=self.product([200]*8)
         p['sales']=[dict(shop_key='sold'+str(i),slot=1,sale_unit_price=100) for i in range(5)]
         result=recommend(p)
-        self.assertEqual(result['sold_weight'],.7)
-        self.assertEqual(result['price'],129)
+        self.assertEqual(result['fast_price'],99)
+        self.assertEqual(result['price'],149)
         p['sales']*=20
-        self.assertEqual(recommend(p)['price'],129)
+        self.assertEqual(recommend(p)['price'],149)
         self.assertEqual(recommend(p)['sold_shop_count'],5)
 
     def test_sparse_sold_samples_and_sold_only(self):
         p=self.product([200]*8);p['sales']=[dict(shop_key='sold',sale_unit_price=100)]
-        self.assertEqual(recommend(p)['sold_weight'],.25)
+        self.assertEqual(recommend(p)['normal_price'],149)
         p['quotes']=[]
-        self.assertEqual(recommend(p)['sold_weight'],1)
+        self.assertEqual(recommend(p)['fast_price'],99)
         self.assertEqual(recommend(p)['price'],99)
+
+    def test_current_asking_below_sold_reference(self):
+        p=self.product([100]*8);p['sales']=[dict(shop_key='s',sale_unit_price=200)]
+        r=recommend(p)
+        self.assertEqual((r['fast_price'],r['normal_price']),(99,99))
 
     def test_scrolled_sold_equipment_is_excluded(self):
         p=self.product([]);p['category']='装备'

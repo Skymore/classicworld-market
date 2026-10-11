@@ -24,16 +24,17 @@ def opportunities(report, now=None):
             listed_quantity=sum(r['stock'] for r in listed)
             q1=percentile(values,.25);buy=row['unit_price']
             prior_sales=[s for s in product.get('sales',[]) if s.get('shop_key')!=row['shop_key'] and s.get('time',0)<row['time']]
-            sell=recommend(dict(product,quotes=others,sales=prior_sales))['price']
+            recommendation=recommend(dict(product,quotes=others,sales=prior_sales))
+            sell=recommendation.get('fast_price');normal_sell=recommendation.get('normal_price')
             if not buy or not sell or buy>=q1:continue
             net=sell*.97;profit=net-buy
             if profit/buy<.15:continue
             found.append(dict(id=f"{row['shop_key']}:{row['slot']}:{row['item_id']}:{buy}",
                 item_id=row['item_id'],name=product['name_zh'],shop=row['shop'],location=row['location'],
                 observed=row['time'],buy=buy,bundle=row['bundle'],bundle_cost=row['price'],stock=row['stock'],
-                q1=q1,sell=sell,profit=round(profit,2),margin=round(profit/buy*100,1),
+                q1=q1,sell=sell,fast_sell=sell,normal_sell=normal_sell,pricing_version=2,normal_profit=round(normal_sell*.97-buy,2),normal_margin=round((normal_sell*.97/buy-1)*100,1),profit=round(profit,2),margin=round(profit/buy*100,1),
                 shops=len(values),listing_count=len(listed),listed_quantity=listed_quantity,fee_percent=3,
-                basis='排除当前摊位，按其他摊位的更早报价比较，卖价综合售光推定与在售报价；列出在售摊位、挂单和库存数量，价差已扣除3%手续费。'))
+                basis='排除当前摊位，按其他摊位的更早报价比较，快卖价用于触发提醒，正常卖价用于较高报价参考；列出在售摊位、挂单和库存数量，价差已扣除3%手续费。'))
     return sorted(found,key=lambda a:(a['observed'],a['margin']),reverse=True)[:20]
 
 

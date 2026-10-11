@@ -53,23 +53,30 @@ def recommend(product):
             sold_removed=len(sold_values)-len(kept);sold_values=kept
     sold_reference=statistics.median(sold_values) if sold_values else None
     ask_reference=percentile(values,.4) if values else None
-    sold_weight=(.7 if len(sold_values)>=5 else .5 if len(sold_values)>=3 else .25) if sold_values else 0
-    if not values:sold_weight=1
-    target=(sold_reference or 0)*sold_weight+(ask_reference or 0)*(1-sold_weight)
-    step=Decimal(str(10**max(-2,math.floor(math.log10(target))-1)))
-    price=float((Decimal(str(target))/step).quantize(Decimal('1'),rounding=ROUND_HALF_UP)*step)
     low,high=(percentile(values,.25),percentile(values,.5)) if values else (None,None)
-    # Use the nearest lower 9-ending integer. Tiny unit prices retain cents.
-    if price>=9:
-        price=float(max(9, math.floor(price/10)*10-1 if int(price)%10<9 else math.floor(price)))
+    if sold_reference is not None and ask_reference is not None:
+        fast_target=min(sold_reference,ask_reference)
+        normal_target=min((sold_reference+ask_reference)/2,ask_reference)
+    elif ask_reference is not None:
+        fast_target=low;normal_target=ask_reference
     else:
-        price=float(max(Decimal('0.09'), (Decimal(str(price))*10).to_integral_value(rounding='ROUND_CEILING')/10-Decimal('0.01')))
+        fast_target=normal_target=sold_reference
+    def ending_nine(target):
+        step=Decimal(str(10**max(-2,math.floor(math.log10(target))-1)))
+        rounded=float((Decimal(str(target))/step).quantize(Decimal('1'),rounding=ROUND_HALF_UP)*step)
+        if rounded>=9:return float(max(9,math.floor(rounded/10)*10-1 if int(rounded)%10<9 else math.floor(rounded)))
+        return float(max(Decimal('0.09'),(Decimal(str(rounded))*10).to_integral_value(rounding='ROUND_CEILING')/10-Decimal('0.01')))
+    fast_price=ending_nine(fast_target);price=max(fast_price,ending_nine(normal_target))
     basis=equipment_basis+[f'近24小时在售报价来自 {count} 个摊位，售光推定来自 {sold_count} 个摊位；每摊先取中位数，同一售光挂单重复观察不增加权重。',
            f'在售报价排除 {removed} 个异常摊位样本，售光推定排除 {sold_removed} 个异常摊位样本。']
-    if sold_reference is not None:basis.append(f'售光推定参考价 {sold_reference:g}，占 {sold_weight:.0%}；采用发现售光时记录的单位价。')
-    if ask_reference is not None:basis.append(f'在售报价第40百分位 {ask_reference:g}，占 {1-sold_weight:.0%}。')
-    basis.append(f'加权参考价 {target:g}，整理为易输入且尾数为9的建议价。')
+    if sold_reference is not None:basis.append(f'售光推定参考价 {sold_reference:g}；采用发现售光时记录的单位价。')
+    if ask_reference is not None:basis.append(f'在售报价第40百分位 {ask_reference:g}。')
+    if sold_reference is not None and ask_reference is not None:
+        basis.append('快卖价贴近售光参考；正常卖价取售光参考与在售第40百分位的中点。若当前挂价更低，两档均跟随当前挂价。')
+    elif ask_reference is not None:basis.append('暂无售光参考：快卖取在售第25百分位，正常卖取第40百分位。')
+    else:basis.append('暂无在售报价，两档暂用售光参考价。')
+    basis.append(f'快卖参考 {fast_target:g}、正常卖参考 {normal_target:g}，两档均整理为尾数9。')
     if max(count,sold_count)<3:basis.append('当前仅有少量摊位样本。')
     if price<1: basis.append(f'单价低于1金币：可按100件一组，参考整组价 {math.ceil(price*100)} 金币；上架时核对每组数量。')
-    return dict(price=price,label='普通属性建议价' if equipment else '建议试挂价',confidence='样本少' if max(count,sold_count)<3 else '售光与在售综合' if sold_count else '在售参考',
-                shop_count=count,sold_shop_count=sold_count,sold_weight=sold_weight,sold_reference=sold_reference,ask_reference=ask_reference,excluded_outliers=removed,reference_low=low,reference_high=high,basis=basis)
+    return dict(price=price,normal_price=price,fast_price=fast_price,pricing_version=2,label='普通属性建议价' if equipment else '建议试挂价',confidence='样本少' if max(count,sold_count)<3 else '售光与在售综合' if sold_count else '在售参考',
+                shop_count=count,sold_shop_count=sold_count,sold_reference=sold_reference,ask_reference=ask_reference,excluded_outliers=removed,reference_low=low,reference_high=high,basis=basis)
