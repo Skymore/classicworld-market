@@ -23,7 +23,8 @@ def opportunities(report, now=None):
             listed=[r for r in others if (r.get('unit_price') or 0)>0 and (r.get('stock') or 0)>0]
             listed_quantity=sum(r['stock'] for r in listed)
             q1=percentile(values,.25);buy=row['unit_price']
-            sell=recommend(dict(product,quotes=others))['price']
+            prior_sales=[s for s in product.get('sales',[]) if s.get('shop_key')!=row['shop_key'] and s.get('time',0)<row['time']]
+            sell=recommend(dict(product,quotes=others,sales=prior_sales))['price']
             if not buy or not sell or buy>=q1:continue
             net=sell*.97;profit=net-buy
             if profit/buy<.15:continue
@@ -32,7 +33,7 @@ def opportunities(report, now=None):
                 observed=row['time'],buy=buy,bundle=row['bundle'],bundle_cost=row['price'],stock=row['stock'],
                 q1=q1,sell=sell,profit=round(profit,2),margin=round(profit/buy*100,1),
                 shops=len(values),listing_count=len(listed),listed_quantity=listed_quantity,fee_percent=3,
-                basis='排除当前摊位，按其他摊位的更早报价比较；列出在售摊位、挂单和库存数量，价差已扣除3%手续费。'))
+                basis='排除当前摊位，按其他摊位的更早报价比较，卖价综合售光推定与在售报价；列出在售摊位、挂单和库存数量，价差已扣除3%手续费。'))
     return sorted(found,key=lambda a:(a['observed'],a['margin']),reverse=True)[:20]
 
 

@@ -33,6 +33,28 @@ class PricingTests(unittest.TestCase):
         p['quotes'] += [dict(p['quotes'][0]) for _ in range(50)]
         self.assertEqual(recommend(p)['price'],base)
 
+    def test_sold_prices_dominate_with_enough_distinct_shops(self):
+        p=self.product([200]*8)
+        p['sales']=[dict(shop_key='sold'+str(i),slot=1,sale_unit_price=100) for i in range(5)]
+        result=recommend(p)
+        self.assertEqual(result['sold_weight'],.7)
+        self.assertEqual(result['price'],129)
+        p['sales']*=20
+        self.assertEqual(recommend(p)['price'],129)
+        self.assertEqual(recommend(p)['sold_shop_count'],5)
+
+    def test_sparse_sold_samples_and_sold_only(self):
+        p=self.product([200]*8);p['sales']=[dict(shop_key='sold',sale_unit_price=100)]
+        self.assertEqual(recommend(p)['sold_weight'],.25)
+        p['quotes']=[]
+        self.assertEqual(recommend(p)['sold_weight'],1)
+        self.assertEqual(recommend(p)['price'],99)
+
+    def test_scrolled_sold_equipment_is_excluded(self):
+        p=self.product([]);p['category']='装备'
+        p['sales']=[dict(shop_key='s',sale_unit_price=100,equipment=dict(enhancements=4,remaining_upgrades=0))]
+        self.assertIsNone(recommend(p)['price'])
+
     def test_no_sample_and_fractional_prices(self):
         self.assertIsNone(recommend(self.product([]))['price'])
         self.assertEqual(recommend(self.product([.4]))['price'],.39)

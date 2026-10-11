@@ -26,28 +26,50 @@ def recommend(product):
         if isinstance(value,(int,float)) and math.isfinite(value) and value>0:
             shops[r['shop_key']].append(value)
     values=[statistics.median(v) for v in shops.values()]
-    if not values:
-        return dict(price=None,label='暂无普通装备样本' if equipment else '暂无可用报价',confidence='样本不足',basis=equipment_basis+['近24小时没有符合条件的在售报价，暂不编造推荐价格。'])
+    sold_by_shop=defaultdict(dict)
+    for row in product.get('sales',[]):
+        eq=row.get('equipment') or {}
+        if equipment and not (eq.get('enhancements')==0 and (eq.get('remaining_upgrades') or 0)>0):continue
+        value=row.get('sale_unit_price')
+        if not isinstance(value,(int,float)) or not math.isfinite(value) or value<=0:continue
+        # Repeated observations of the same sold listing carry no extra weight.
+        key=(row.get('slot'),row.get('variant'),value)
+        sold_by_shop[row['shop_key']][key]=value
+    sold_values=[statistics.median(list(rows.values())) for rows in sold_by_shop.values()]
+    if not values and not sold_values:
+        return dict(price=None,label='暂无普通装备样本' if equipment else '暂无可用报价',confidence='样本不足',basis=equipment_basis+['近24小时没有符合条件的在售或售光推定样本。'])
     count=len(values); removed=0
     if count>=5:
         q1,q3=percentile(values,.25),percentile(values,.75);width=q3-q1
         if width>0:
             kept=[v for v in values if q1-1.5*width<=v<=q3+1.5*width]
             removed=len(values)-len(kept);values=kept
-    target=percentile(values,.4)
+    sold_count=len(sold_values)
+    sold_removed=0
+    if sold_count>=5:
+        q1,q3=percentile(sold_values,.25),percentile(sold_values,.75);width=q3-q1
+        if width>0:
+            kept=[v for v in sold_values if q1-1.5*width<=v<=q3+1.5*width]
+            sold_removed=len(sold_values)-len(kept);sold_values=kept
+    sold_reference=statistics.median(sold_values) if sold_values else None
+    ask_reference=percentile(values,.4) if values else None
+    sold_weight=(.7 if len(sold_values)>=5 else .5 if len(sold_values)>=3 else .25) if sold_values else 0
+    if not values:sold_weight=1
+    target=(sold_reference or 0)*sold_weight+(ask_reference or 0)*(1-sold_weight)
     step=Decimal(str(10**max(-2,math.floor(math.log10(target))-1)))
     price=float((Decimal(str(target))/step).quantize(Decimal('1'),rounding=ROUND_HALF_UP)*step)
-    low,high=percentile(values,.25),percentile(values,.5)
+    low,high=(percentile(values,.25),percentile(values,.5)) if values else (None,None)
     # Use the nearest lower 9-ending integer. Tiny unit prices retain cents.
     if price>=9:
         price=float(max(9, math.floor(price/10)*10-1 if int(price)%10<9 else math.floor(price)))
     else:
         price=float(max(Decimal('0.09'), (Decimal(str(price))*10).to_integral_value(rounding='ROUND_CEILING')/10-Decimal('0.01')))
-    basis=equipment_basis+[f'近24小时 {count} 个摊位，每摊先取单位报价中位数，避免重复挂单影响权重。',
-           f'排除 {removed} 个四分位距异常报价后，取第40百分位取整后向下调整为尾数9的价格（低于9金币的单位价保留小数，末位为9）。',
-           f'参考报价中位数 {statistics.median(values):g}，中低位区间 {low:g}–{high:g} 金币/件。',
-           '售光推定仅旁列参考，不作为真实成交样本参与计算。']
-    if count<3: basis.append('不足3个摊位：仅为试挂参考，建议先核对游戏中的同类报价。')
+    basis=equipment_basis+[f'近24小时在售报价来自 {count} 个摊位，售光推定来自 {sold_count} 个摊位；每摊先取中位数，同一售光挂单重复观察不增加权重。',
+           f'在售报价排除 {removed} 个异常摊位样本，售光推定排除 {sold_removed} 个异常摊位样本。']
+    if sold_reference is not None:basis.append(f'售光推定参考价 {sold_reference:g}，占 {sold_weight:.0%}；采用发现售光时记录的单位价。')
+    if ask_reference is not None:basis.append(f'在售报价第40百分位 {ask_reference:g}，占 {1-sold_weight:.0%}。')
+    basis.append(f'加权参考价 {target:g}，整理为易输入且尾数为9的建议价。')
+    if max(count,sold_count)<3:basis.append('当前仅有少量摊位样本。')
     if price<1: basis.append(f'单价低于1金币：可按100件一组，参考整组价 {math.ceil(price*100)} 金币；上架时核对每组数量。')
-    return dict(price=price,label='普通属性建议价' if equipment else '建议试挂价',confidence='样本少' if count<3 else '参考建议',
-                shop_count=count,excluded_outliers=removed,reference_low=low,reference_high=high,basis=basis)
+    return dict(price=price,label='普通属性建议价' if equipment else '建议试挂价',confidence='样本少' if max(count,sold_count)<3 else '售光与在售综合' if sold_count else '在售参考',
+                shop_count=count,sold_shop_count=sold_count,sold_weight=sold_weight,sold_reference=sold_reference,ask_reference=ask_reference,excluded_outliers=removed,reference_low=low,reference_high=high,basis=basis)
