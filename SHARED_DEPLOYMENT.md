@@ -31,7 +31,7 @@ Cloudflare 隧道凭据放在用户 `.cloudflared`，项目的 `shared_data/tunn
 
 ## 客户端构建
 
-安装 `requirements-shared.txt`，运行 `build_shared_client.ps1`。生成独立 Windows x64 目录和 ZIP。发行时附 SHA256、对应 Git 标签源码和第三方许可；不要将本地凭据打包。客户端使用官方自备 Proxifier；旁路采集尚未成为实时共享适配器。
+安装 `requirements-shared.txt`，运行 `build_shared_client.ps1`（自动调用 fetch_windivert.ps1 校验并准备官方驱动和源码）。生成独立 Windows x64 目录和 ZIP。发行时附 SHA256、对应 Git 标签源码和第三方许可；不要将本地凭据打包。客户端默认 WinDivert 旁路采集；Proxifier 仅供可选旧代理模式。驱动只读加载需管理员权限，默认只处理游戏 IPv4 连接。
 
 ## 容量与后续
 

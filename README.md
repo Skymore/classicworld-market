@@ -1,6 +1,6 @@
 # ClassicWorld Market
 
-本地优先的冒险岛市场观察、报价统计与物品图鉴项目。默认使用本机 SOCKS5 被动转发采集；玩家手动逛摊，商品观察写入 SQLite，网页按商品聚合。
+本地优先的冒险岛市场观察、报价统计与物品图鉴项目。默认使用 WinDivert 只读旁路采集；玩家手动逛摊，商品观察写入 SQLite，网页按商品聚合。
 
 ## 已实现
 
@@ -11,7 +11,13 @@
 - 公开共享网页、结构化数据上传、多人快照去重与 Windows 采集器构建。
 - 当前画面键鼠逛摊 MVP，尚未完成连续实机验证。
 
-## 快速开始（Windows / Python 3.12）
+## Windows 朋友版
+
+完整解压发行 ZIP，双击 ClassicWorldCollector.exe 并允许管理员权限。无需 Proxifier。首次使用前先退出旧代理和游戏，看到 capture_started 后重新进入游戏，手动逛摊即可；随机采集身份自动保存。具体步骤和限制见 [客户端指南](SHARED_CLIENT_GUIDE.md)。
+
+旁路仅捕获游戏连接的网络包副本，使用官方 WinDivert 的 SNIFF | RECV_ONLY 模式。包含对应源码和许可，未调用发包接口。游戏连接必须从握手开始观察；遇到缺包停止解析，提示重连。
+
+## 开发启动（Windows / Python 3.12）
 
 ```powershell
 py -3.12 -m venv .venv

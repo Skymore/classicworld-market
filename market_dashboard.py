@@ -19,6 +19,14 @@ ROOT = Path(__file__).resolve().parent
 CATEGORIES = {1:'装备',2:'消耗品',3:'装饰',4:'其他',5:'商城物品',6:'其他'}
 
 
+def equipment_jobs(record):
+    mask=((record.get('mapledex_reference') or {}).get('data') or {}).get('reqJob')
+    if mask is None:return []
+    if mask==0:return ['通用']
+    if mask==-1:return ['新手']
+    return [label for bit,label in ((1,'战士'),(2,'魔法师'),(4,'弓箭手'),(8,'飞侠'),(16,'海盗')) if mask&bit]
+
+
 class Repository:
     def __init__(self, folder, catalog=ROOT/'item_database/items.sqlite'):
         self.folder = Path(folder)
@@ -58,7 +66,7 @@ class Repository:
         if self.catalog.exists():
             with closing(sqlite3.connect(self.catalog)) as db:
                 names = {r[0]:dict(name_zh=r[1], name_en=r[2], icon_url=r[3],
-                                  level=json.loads(r[4]).get('level'),subcategory=r[5])
+                                  level=json.loads(r[4]).get('level'),jobs=equipment_jobs(json.loads(r[4])),subcategory=r[5])
                          for r in db.execute('SELECT item_id,name_zh,name_en,icon_url,record_json,category FROM items')}
         with self.connect() as db:
             visits = db.execute('SELECT id,collector,world,observed,shop_key,source,payload FROM visits ORDER BY observed,id').fetchall()
@@ -81,6 +89,7 @@ class Repository:
                     price=price,bundle=bundle,unit_price=price/bundle if bundle else None,stock=stock,
                     name_zh=names.get(iid,{}).get('name_zh') or str(iid),name_en=names.get(iid,{}).get('name_en') or '',
                     icon_url=names.get(iid,{}).get('icon_url'),level=names.get(iid,{}).get('level'),
+                    jobs=names.get(iid,{}).get('jobs',[]),
                     subcategory=names.get(iid,{}).get('subcategory','未知'),
                     experimental=experimental,requires_validation=d.get('prices_require_screen_validation',True),
                     source=source,raw_source=d.get('raw_source'),raw_available=bool(raw),shop_key=shop)
@@ -122,7 +131,7 @@ class Repository:
             if r['experimental']: continue
             key=(r['world'],r['item_id'])
             if key not in products:
-                products[key]=dict({k:r[k] for k in ('world','item_id','name_zh','name_en','category','icon_url','level','subcategory')},
+                products[key]=dict({k:r[k] for k in ('world','item_id','name_zh','name_en','category','icon_url','level','jobs','subcategory')},
                                    last_seen=r['time'],quotes=[],variants=[],sales=[])
             products[key]['last_seen']=max(products[key]['last_seen'],r['time'])
         for a in aggregates:
@@ -167,7 +176,29 @@ def main():
             except (OSError,ValueError): capture_status={}
             connection_health.clear()
             connection_health.update(classify(capture_status,records,network_error))
-            for directory in (ROOT/'network_captures/proxy_live',ROOT/'network_captures/market_live'):
+            directories=[ROOT/'network_captures/proxy_live',ROOT/'network_captures/market_live',ROOT/'network_captures/market_passive_live']
+            try:directories.extend(Path(p) for p in json.loads((repo.folder/'capture_sources.json').read_text(encoding='utf-8-sig')))
+            except (OSError,ValueError):pass
+            passive=[]
+            for directory in dict.fromkeys(directories):
+                try:
+                    state=json.loads((directory/'passive_status.json').read_text(encoding='utf-8'))
+                    if time.time()-state['time']<10:
+                        if state.get('decoding'):
+                            try:
+                                entries=(directory/'map_observations.jsonl').read_text(encoding='utf-8').splitlines()
+                                state['location']=json.loads(entries[-1]).get('location') if entries else None
+                            except (OSError,ValueError):pass
+                        passive.append(state)
+                except (OSError,ValueError,KeyError):pass
+            if passive:
+                decoding=sum(s.get('decoding',0) for s in passive)
+                connection_health.clear()
+                connection_health.update(state='ready' if decoding else 'waiting_handshake',
+                    message='旁路采集正常，正在统计商品' if decoding else '旁路已启动，等待游戏重新建立频道连接')
+                active=sorted((s for s in passive if s.get('decoding')),key=lambda s:s['time'])
+                if active:connection_health['location']=active[-1].get('location')
+            for directory in dict.fromkeys(directories):
                 for path in directory.glob('shop_*.json'):
                     if path.stem.endswith('_zh'): continue
                     try: repo.ingest(path)

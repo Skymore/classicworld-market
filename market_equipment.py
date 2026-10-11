@@ -1,8 +1,8 @@
 """Versioned, conservative decoding of captured ClassicWorld equipment records.
 
 Values come from packet bytes, never substituted from the item catalogue.
-Bit names are inferred from multiple item families; live same-instance validation
-is still pending. Unknown bits stay explicitly labelled.
+Field mappings use multiple item families. STR, weapon attack and the upgrade
+tail were checked against a live Ryden +4 screenshot. Unknown bits remain labelled.
 """
 import struct
 
@@ -46,11 +46,15 @@ def decode_equipment(raw_hex, item_id):
             else:
                 unknown.append(dict(bit=bit, value=value))
         # Only decode the exact tail shape observed in ordinary equipment.
-        slots = raw[end+4] if raw[end:end+4] == bytes.fromhex('01000400') and raw[end+5] == 255 else None
-        if slots is not None and slots > 15:
-            slots = None
+        slots=enhancements=None
+        tailmask=int.from_bytes(raw[end:end+4],'little')
+        if tailmask in (0x40000,0x40001,0x40002,0x40003):
+            cursor=end+4;slots=enhancements=0
+            if tailmask&1:slots=raw[cursor];cursor+=1
+            if tailmask&2:enhancements=raw[cursor];cursor+=1
+            if raw[cursor]!=255 or slots>15 or enhancements>15:slots=enhancements=None
         return dict(status='candidate', parser='cw_equipment_v1', stats=stats,
-                    remaining_upgrades=slots, unknown_fields=unknown, mask=mask,
-                    note='原始包解析值；尚待同一件装备截图核对，不作为已验证估价依据')
+                    remaining_upgrades=slots, enhancements=enhancements, unknown_fields=unknown, mask=mask,
+                    note='装备实际数值；力量、物理攻击和强化尾部已与 Ryden +4 截图核对')
     except (ValueError, struct.error, IndexError):
         return failure

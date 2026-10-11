@@ -68,6 +68,8 @@ def validate(data, now=None):
                 item['equipment']=dict(status='candidate',parser='cw_equipment_v1',
                     stats=sorted(stats,key=lambda s:s['key']),remaining_upgrades=upgrades,
                     unknown_fields=sorted(unknown,key=lambda s:s['bit']),note='包内解析值，待同件截图核对')
+                if eq.get('enhancements') is not None:
+                    item['equipment']['enhancements']=integer(eq['enhancements'],0,15)
         result['items'].append(item)
     result['items'].sort(key=lambda r:(r['category'],r['slot']))
     return result

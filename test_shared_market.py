@@ -23,7 +23,7 @@ class SharedTests(unittest.TestCase):
 
     def test_public_read_and_automatic_identity(self):
         public=create_app(self.store,public_read=True).test_client()
-        self.assertEqual(public.get('/').status_code,200)
+        response=public.get('/');self.assertEqual(response.status_code,200);response.close()
         self.assertTrue(public.get('/api/v1/market').get_json()['public_read'])
         self.assertEqual(self.client.post('/api/v1/register').status_code,403)
         first=public.post('/api/v1/register').get_json()

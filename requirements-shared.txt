@@ -3,3 +3,4 @@ Flask>=3.1,<4
 waitress>=3,<4
 pyinstaller>=6,<7
 truststore>=0.10,<1
+psutil>=7,<8

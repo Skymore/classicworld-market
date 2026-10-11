@@ -7,6 +7,18 @@ ROW = '010008000100000001000000a00f000000000000010190e20f0000008005bb46e61702fff
 
 
 class EquipmentTests(unittest.TestCase):
+    def test_screenshot_ryden_plus_four(self):
+        raw='010001000100000001000000d0dd0600000000000101e427160000008005bb46e61702ffffffff010100010001003c000200040004ff000000000000'
+        eq=decode_equipment(raw,1452004)
+        self.assertEqual({s['key']:s['value'] for s in eq['stats']},dict(str=1,weapon_attack=60))
+        self.assertEqual(eq['remaining_upgrades'],0)
+        self.assertEqual(eq['enhancements'],4)
+
+    def test_job_mask_preserves_universal_and_unknown(self):
+        from market_dashboard import equipment_jobs
+        self.assertEqual(equipment_jobs({}),[])
+        self.assertEqual(equipment_jobs({'mapledex_reference':{'data':{'reqJob':0}}}),['通用'])
+        self.assertEqual(equipment_jobs({'mapledex_reference':{'data':{'reqJob':4}}}),['弓箭手'])
     def test_captured_top(self):
         result = decode_equipment(ROW, 1041040)
         self.assertEqual({s['key']: s['value'] for s in result['stats']},

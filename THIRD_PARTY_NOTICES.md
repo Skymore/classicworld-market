@@ -6,3 +6,5 @@
 - Item names, icons, and catalogue data remain subject to their original sources' terms. Downloaded catalogues and third-party website copies are not included in this repository.
 
 No blanket license for original project code is selected yet. Review third-party obligations before any public redistribution.
+
+- WinDivert 2.2.2, Copyright Basil (basil00), dynamically loaded under LGPL-3.0: https://github.com/basil00/WinDivert/tree/v2.2.2 . Windows bundles include the unmodified official x64 DLL/driver, COPYING.WinDivert and the corresponding source archive. fetch_windivert.ps1 pins archive hashes; only SNIFF | RECV_ONLY is used.

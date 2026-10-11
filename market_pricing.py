@@ -14,7 +14,7 @@ def recommend(product):
     if product['category']=='装备':
         return dict(price=None,label='需按实际属性估价',confidence='不可混合估价',
                     basis=['同名装备可能有不同随机属性、强化值和剩余升级次数。',
-                           '各件装备分开列价；实际属性尚未可靠解析，不把同名中位价作为建议售价。'])
+                           '各件装备分开列价；需匹配实际属性与强化程度后比较，不把同名中位价作为建议售价。'])
     shops=defaultdict(list)
     for r in product['quotes']:
         value=r.get('unit_price')

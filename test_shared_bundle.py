@@ -42,6 +42,8 @@ class UploadIntegration(unittest.TestCase):
                 self.assertEqual(upload_once(captures,cfg,root/'queue.sqlite'),1)
                 self.assertEqual(upload_once(captures,cfg,root/'queue.sqlite'),0)
                 exe=Path('dist/ClassicWorldCollector/ClassicWorldCollector.exe').resolve()
+                manifest=Path('dist/bundle-path.txt')
+                if manifest.exists():exe=Path(manifest.read_text(encoding='utf-8-sig').strip())/'ClassicWorldCollector.exe'
                 if exe.exists():
                     check=subprocess.run([str(exe),'--self-test','--home',str(root/'selftest')],capture_output=True,timeout=30)
                     self.assertIn(b'Codec self-test passed',check.stdout,check.stderr.decode(errors='replace'))

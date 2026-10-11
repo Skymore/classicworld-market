@@ -1,4 +1,4 @@
-"""Windows collector: local-only SOCKS relay plus structured HTTPS uploads."""
+"""Windows collector: passive packet copies plus structured HTTPS uploads."""
 import argparse
 import asyncio
 import getpass
@@ -108,6 +108,9 @@ def main():
     parser.add_argument('--config',type=Path)
     parser.add_argument('--folder',type=Path)
     parser.add_argument('--upload-only',action='store_true',help='Use an already-running collector')
+    parser.add_argument('--proxy',action='store_true',help='Legacy SOCKS mode; requires Proxifier')
+    parser.add_argument('--capture-only',action='store_true',help='Local passive diagnostics, no upload')
+    parser.add_argument('--seconds',type=int,default=0,help='Limit passive diagnostics duration')
     parser.add_argument('--once',action='store_true')
     parser.add_argument('--setup',action='store_true')
     parser.add_argument('--self-test',action='store_true',help='Check bundled codec without game or credentials')
@@ -119,11 +122,24 @@ def main():
         assert aes_payload(aes_payload(plain,iv),iv)==plain
         assert len(advance(iv))==4
         print('Codec self-test passed');return
+    if not (args.once or args.upload_only or args.proxy):
+        import ctypes
+        if os.name=='nt' and not ctypes.windll.shell32.IsUserAnAdmin():
+            if getattr(sys,'frozen',False):
+                import subprocess
+                result=ctypes.windll.shell32.ShellExecuteW(None,'runas',sys.executable,
+                    subprocess.list2cmdline(sys.argv[1:]),None,1)
+                if result<=32:raise PermissionError('Administrator permission was declined')
+                return
+            raise PermissionError('Run Python as administrator for passive capture')
+    if args.capture_only:
+        from market_passive import run
+        run(args.folder or args.home/'captures',args.seconds);return
     config_path=args.config or args.home/'member.json'
     new_identity=not config_path.exists()
     config=ensure_identity(config_path)
     print('Collector ID: '+config.get('member_id','existing'),flush=True)
-    if args.setup or new_identity or not (args.home/'ClassicWorldMarket.ppx').exists():
+    if args.proxy and (args.setup or new_identity or not (args.home/'ClassicWorldMarket.ppx').exists()):
         profile(args.home/'ClassicWorldMarket.ppx')
         print('Saved private local settings. Import ClassicWorldMarket.ppx in Proxifier. Proxifier is separate software and may require a license.')
         if args.setup:return
@@ -133,14 +149,22 @@ def main():
         while True:
             try:
                 count=upload_once(folder,config,ledger)
+                for extra in config.get('extra_folders',[]):
+                    import hashlib
+                    source=Path(extra)
+                    extra_ledger=args.home/('upload_'+hashlib.sha256(str(source.resolve()).encode()).hexdigest()[:12]+'.sqlite')
+                    count+=upload_once(source,config,extra_ledger)
                 if count:print(f'Uploaded {count} observations.',flush=True)
             except Exception as error:print(f'Upload unavailable ({type(error).__name__}); will retry.',flush=True)
             if args.once:break
             time.sleep(5)
     if args.once or args.upload_only:worker();return
-    from market_proxy import Proxy
-    # No --allow-requests option is exposed in the distributed collector.
     threading.Thread(target=worker,daemon=True).start()
+    if not args.proxy:
+        from market_passive import run
+        print('Passive capture: no Proxifier needed. Disable its game rule, reconnect once, then browse manually.',flush=True)
+        run(folder,args.seconds);return
+    from market_proxy import Proxy
     print('Local proxy 127.0.0.1:1088. Reconnect game channel after importing profile. Browse manually. Close game session before stopping collector.',flush=True)
     asyncio.run(Proxy(folder,allow_requests=False,market_only=True).run())
 
