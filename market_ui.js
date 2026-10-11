@@ -47,7 +47,7 @@ function renderOpportunities(){
  fresh.forEach(a=>seen[a.id]=now);
  writeAlertStorage('market.alertSeen',Object.fromEntries(Object.entries(seen).filter(([,t])=>now-t<1800000)));
  const a=fresh[0],message=`${a.name}：买价 ${num(a.buy)}，参考卖价 ${num(a.sell)}；扣3%后估算差价 ${num(a.profit)}/件。${a.shop}，${locationText(a.location)}。低于Q1 ${num(a.q1)}，${a.shops}个在售摊位。`;
- if($('pageAlertsEnabled').checked){$('dealToast').innerHTML=`<b>发现 ${fresh.length} 件低价商品</b><p>${esc(message)}</p><button id="viewDealDetails">查看详情</button> <a href="/alerts">全部提醒</a> <button id="dismissDeal">知道了</button>`;$('dealToast').hidden=false;$('dismissDeal').onclick=()=>$('dealToast').hidden=true;$('viewDealDetails').onclick=()=>{$('dealToast').hidden=true;showItem(a.item_id)}}
+ if($('pageAlertsEnabled').checked){$('dealToast').innerHTML=`<b>发现 ${fresh.length} 件低价商品</b><p>${esc(message)}</p><div class="toast-actions"><button id="viewDealDetails" class="toast-primary">查看详情</button><a class="toast-secondary" href="/alerts">全部提醒</a><button id="dismissDeal" class="toast-dismiss">知道了</button></div>`;$('dealToast').hidden=false;$('dismissDeal').onclick=()=>$('dealToast').hidden=true;$('viewDealDetails').onclick=()=>{$('dealToast').hidden=true;showItem(a.item_id)}}
 }
 $('opportunities').onclick=e=>{let b=e.target.closest('[data-deal-item]');if(b)showItem(Number(b.dataset.dealItem))};
 function connectRealtime(){

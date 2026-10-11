@@ -5,3 +5,13 @@
 [hidden]{display:none!important}.deal{padding:12px;border-top:1px solid #dbe4d7}.deal small{display:block;color:#68796f}#dealToast{position:fixed;right:20px;bottom:20px;width:min(440px,90vw);padding:20px;background:#fffbea;border:1px solid #d3b870;border-radius:12px;box-shadow:0 10px 40px #233c3644;z-index:20}#dealToast p{font-size:13px;line-height:1.7}
 
 .page-nav{display:flex;gap:16px;font-size:13px}.alerts-page main>.hero,.alerts-page main>.metrics,.alerts-page main>.market,.alerts-page main>.method{display:none}.market-page #opportunityPanel{display:none}.alerts-page #opportunityPanel{padding:28px}.alerts-page .deal{margin-top:16px;border:1px solid #dbe4d7;border-radius:10px;background:white;padding:20px}.alerts-page .deal p{font-size:14px}.deal .stale{color:#987445}#opportunityPanel label{display:inline-block;margin:12px 12px 12px 0}#opportunityPanel h1{margin-bottom:8px}
+
+#dealToast .toast-actions{display:flex;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap}
+#dealToast .toast-actions button,#dealToast .toast-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:36px;box-sizing:border-box;padding:0 14px;border-radius:8px;font:inherit;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer;transition:background .15s,border-color .15s}
+#dealToast .toast-primary{background:#28624e;border:1px solid #28624e;color:#fff}
+#dealToast .toast-primary:hover{background:#1d4e3d;border-color:#1d4e3d}
+#dealToast .toast-secondary{background:#fff;border:1px solid #dce3d8;color:#345b4c}
+#dealToast .toast-secondary:hover{background:#f0f5ec;border-color:#b8cbbd}
+#dealToast .toast-dismiss{margin-left:auto;background:transparent;border:1px solid transparent;color:#718077}
+#dealToast .toast-dismiss:hover{background:#f0eedf;color:#345b4c}
+#dealToast .toast-actions :focus-visible{outline:2px solid #28624e;outline-offset:3px}
