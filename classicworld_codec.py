@@ -9,7 +9,10 @@ import struct
 from pathlib import Path
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.decrepit.ciphers.algorithms import TripleDES
-from cryptography.hazmat.decrepit.ciphers.modes import OFB
+try:
+    from cryptography.hazmat.decrepit.ciphers.modes import OFB
+except ImportError:
+    from cryptography.hazmat.primitives.ciphers.modes import OFB
 from probe_session_crypto import advance
 
 AES_KEY = bytes.fromhex('0f0000001b000000c500000046000000f3000000be000000ff00000075000000')

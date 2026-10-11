@@ -75,7 +75,7 @@ class Repository:
                 iid=r['item_id']; price=r['price_mesos_candidate']; bundle=r['bundle_quantity_candidate']; stock=r['available_quantity_candidate']
                 raw=r.get('raw_record_hex','')
                 # Equipment with different serialized attributes remains separate.
-                variant=hashlib.sha256(bytes.fromhex(raw)[20:]).hexdigest()[:16] if iid//1000000==1 and raw else ('unknown' if iid//1000000==1 else 'standard')
+                variant=r.get('shared_variant') or (hashlib.sha256(bytes.fromhex(raw)[20:]).hexdigest()[:16] if iid//1000000==1 and raw else ('unknown' if iid//1000000==1 else 'standard'))
                 row=dict(visit_id=vid,collector=collector,world=world,time=observed,shop=d['title'],shop_id=d['shop_id'],
                     item_id=iid,category=CATEGORIES.get(iid//1000000,'未知'),variant=variant,slot=r['slot'],
                     price=price,bundle=bundle,unit_price=price/bundle if bundle else None,stock=stock,
@@ -84,7 +84,7 @@ class Repository:
                     subcategory=names.get(iid,{}).get('subcategory','未知'),
                     experimental=experimental,requires_validation=d.get('prices_require_screen_validation',True),
                     source=source,raw_source=d.get('raw_source'),raw_available=bool(raw),shop_key=shop)
-                row['equipment']=decode_equipment(raw, iid)
+                row['equipment']=r.get('shared_equipment') or decode_equipment(raw, iid)
                 row['location']=locations.resolve(d['session'], observed, d.get('market_location'))
                 row['server_endpoint']=f"{d.get('host','未知')}:{d.get('port','未知')}"
                 history.append(row); items.append(row)

@@ -30,3 +30,5 @@ __pycache__/
 
 # Personal session analysis remains local.
 /network_research.md
+
+!/shared_login.html
