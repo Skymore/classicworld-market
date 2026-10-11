@@ -46,11 +46,9 @@ function renderOpportunities(){
  fresh.forEach(a=>seen[a.id]=now);
  writeAlertStorage('market.alertSeen',Object.fromEntries(Object.entries(seen).filter(([,t])=>now-t<1800000)));
  const a=fresh[0],message=`${a.name}：买价 ${num(a.buy)}，参考卖价 ${num(a.sell)}；扣3%后估算差价 ${num(a.profit)}/件。${a.shop}，${locationText(a.location)}。低于Q1 ${num(a.q1)}，${a.shops}个在售摊位。`;
- if($('pageAlertsEnabled').checked){$('dealToast').innerHTML=`<b>发现 ${fresh.length} 件低价商品</b><p>${esc(message)}</p><a href="/alerts">查看全部提醒与依据</a> <button id="dismissDeal">知道了</button>`;$('dealToast').hidden=false;$('dismissDeal').onclick=()=>$('dealToast').hidden=true}
- if('Notification' in window&&Notification.permission==='granted')try{let notice=new Notification('枫叶市集：低价提醒',{body:message,tag:a.id});notice.onclick=()=>{window.focus();location.href='/alerts'}}catch{}
+ if($('pageAlertsEnabled').checked){$('dealToast').innerHTML=`<b>发现 ${fresh.length} 件低价商品</b><p>${esc(message)}</p><button id="viewDealDetails">查看详情</button> <a href="/alerts">全部提醒</a> <button id="dismissDeal">知道了</button>`;$('dealToast').hidden=false;$('dismissDeal').onclick=()=>$('dealToast').hidden=true;$('viewDealDetails').onclick=()=>{$('dealToast').hidden=true;showItem(a.item_id)}}
 }
 $('opportunities').onclick=e=>{let b=e.target.closest('[data-deal-item]');if(b)showItem(Number(b.dataset.dealItem))};
-$('enableDesktop').onclick=async()=>{if(!('Notification' in window)){$('alertStatus').textContent='当前浏览器不支持桌面通知；网页内弹窗仍可使用。';return}try{const permission=await Notification.requestPermission();$('alertStatus').textContent=permission==='granted'?'桌面通知已开启，请保持本地网页打开。':'未获桌面通知权限；网页内弹窗仍可使用。'}catch{$('alertStatus').textContent='此浏览器无法开启桌面通知；请使用系统浏览器打开本地网页。'}};
 function connectRealtime(){
  if(!data?.realtime||eventStream||!('EventSource' in window))return;
  eventStream=new EventSource('/api/v1/events');
