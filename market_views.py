@@ -32,7 +32,7 @@ def opportunities(report, now=None):
                 observed=row['time'],buy=buy,bundle=row['bundle'],bundle_cost=row['price'],stock=row['stock'],
                 q1=q1,sell=sell,profit=round(profit,2),margin=round(profit/buy*100,1),
                 shops=len(values),listing_count=len(listed),listed_quantity=listed_quantity,fee_percent=3,
-                basis='排除当前摊位；按其他摊位的更早报价比较。参考在售摊位、挂单和库存数量，不使用售光活跃度门槛。在售数量是供给量，不代表成交量；参考卖价不能保证成交。'))
+                basis='排除当前摊位，按其他摊位的更早报价比较；列出在售摊位、挂单和库存数量，价差已扣除3%手续费。'))
     return sorted(found,key=lambda a:(a['observed'],a['margin']),reverse=True)[:20]
 
 

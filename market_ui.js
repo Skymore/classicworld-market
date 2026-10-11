@@ -21,6 +21,7 @@ $('coverage').textContent=`已保留 ${data.manual_visits} 次手动访问、${d
 }
 function subtypes(){let old=$('subtype').value,values=[...new Set(data.products.filter(r=>category==='全部'||r.category===category).map(r=>r.subcategory))].sort();$('subtype').innerHTML='<option value="">全部部位 / 子分类</option>'+values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');if(values.includes(old))$('subtype').value=old}
 let loading=false,pendingLoad=false,eventStream=null,pushConnected=false;const alertStart=Date.now()/1000,seenDeals=new Map();
+function cleanAlertCopy(text){return String(text||'').replace(/[，,]非保证利润[。.]?/g,'').replace(/[；;]参考卖价不能保证成交[。.]?/g,'。')}
 function readAlertStorage(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}}
 function writeAlertStorage(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch{}}
 let alertArchive=readAlertStorage('market.alertArchive',[]);
@@ -38,7 +39,7 @@ function renderOpportunities(){
  writeAlertStorage('market.alertArchive',alertArchive);
  const shown=$('alertView').value==='live'?alerts:alertArchive;
  $('alertSummary').textContent=`当前 ${alerts.length} 条 · 最近记录 ${alertArchive.length} 条（此浏览器保留24小时，最多200条）`;
- $('opportunities').innerHTML=shown.map(a=>`<div class="deal"><b>${esc(a.name)}</b> · ${esc(a.shop)} · ${esc(locationText(a.location))}<p class="${now/1000-a.observed>120?'stale':'source'}">${date(a.observed)} · ${now/1000-a.observed>120?'历史发现，请重新开摊确认库存和价格':'最近发现'}</p><p>买价 ${num(a.buy)}/件（每组 ${num(a.bundle_cost)}，${num(a.bundle)}件） · Q1 ${num(a.q1)} · 参考卖价 ${num(a.sell)} · 扣手续费后估算差价 ${num(a.profit)}/件（${num(a.margin)}%）</p><small>${a.shops}个报价摊位 · ${num(a.listing_count)}条在售挂单 · 库存合计 ${num(a.listed_quantity)}。${esc(a.basis)}</small><button data-deal-item="${a.item_id}">查看商品依据</button></div>`).join('')||'<p>暂无符合条件的商品。保持网页打开，继续手动逛摊即可。</p>';
+ $('opportunities').innerHTML=shown.map(a=>`<div class="deal"><b>${esc(a.name)}</b> · ${esc(a.shop)} · ${esc(locationText(a.location))}<p class="${now/1000-a.observed>120?'stale':'source'}">${date(a.observed)} · ${now/1000-a.observed>120?'历史发现，请重新开摊确认库存和价格':'最近发现'}</p><p>买价 ${num(a.buy)}/件（每组 ${num(a.bundle_cost)}，${num(a.bundle)}件） · Q1 ${num(a.q1)} · 参考卖价 ${num(a.sell)} · 扣手续费后估算差价 ${num(a.profit)}/件（${num(a.margin)}%）</p><small>${a.shops}个报价摊位 · ${num(a.listing_count)}条在售挂单 · 库存合计 ${num(a.listed_quantity)}。${esc(cleanAlertCopy(a.basis))}</small><button data-deal-item="${a.item_id}">查看商品依据</button></div>`).join('')||'<p>暂无符合条件的商品。保持网页打开，继续手动逛摊即可。</p>';
  if(!$('alertsEnabled').checked)return;
  const seen=readAlertStorage('market.alertSeen',{});
  const fresh=alerts.filter(a=>a.observed>=alertStart&&now-(seen[a.id]||0)>1800000);

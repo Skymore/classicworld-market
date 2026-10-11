@@ -48,7 +48,6 @@ def recommend(product):
            f'参考报价中位数 {statistics.median(values):g}，中低位区间 {low:g}–{high:g} 金币/件。',
            '售光推定仅旁列参考，不作为真实成交样本参与计算。']
     if count<3: basis.append('不足3个摊位：仅为试挂参考，建议先核对游戏中的同类报价。')
-    if any(r.get('requires_validation') for r in quotes): basis.append('价格和数量字段仍待画面核对，推荐不是保证成交价。')
     if price<1: basis.append(f'单价低于1金币：可按100件一组，参考整组价 {math.ceil(price*100)} 金币；上架时核对每组数量。')
     return dict(price=price,label='普通属性建议价' if equipment else '建议试挂价',confidence='样本少' if count<3 else '参考建议',
                 shop_count=count,excluded_outliers=removed,reference_low=low,reference_high=high,basis=basis)
