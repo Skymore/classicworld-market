@@ -30,6 +30,27 @@ def upload_opener():
     return opener
 
 
+def ensure_identity(config_path,endpoint='https://mxd.ruit.me'):
+    if config_path.exists():return json.loads(config_path.read_text(encoding='utf-8'))
+    if endpoint!='https://mxd.ruit.me' and not endpoint.startswith('http://127.0.0.1:'):
+        raise ValueError('Unsupported registration endpoint')
+    request=urllib.request.Request(endpoint+'/api/v1/register',data=b'{}',
+        headers={'Content-Type':'application/json'},method='POST')
+    with upload_opener().open(request,timeout=20) as response:config=json.load(response)
+    if not isinstance(config.get('token'),str) or len(config['token'])<30 or not config.get('member_id'):
+        raise ValueError('Invalid registration response')
+    config['endpoint']=endpoint
+    config_path.parent.mkdir(parents=True,exist_ok=True)
+    # Exclusive creation prevents simultaneous launches from replacing an identity.
+    try:
+        with config_path.open('x',encoding='utf-8') as f:json.dump(config,f)
+    except FileExistsError:return json.loads(config_path.read_text(encoding='utf-8'))
+    if os.name=='nt':
+        import subprocess
+        subprocess.run(['icacls',str(config_path),'/inheritance:r','/grant:r',getpass.getuser()+':F'],capture_output=True,check=True)
+    return config
+
+
 def upload_once(folder, config, ledger, endpoint=None):
     destination=(endpoint or config['endpoint']).rstrip('/')
     if destination!='https://mxd.ruit.me' and not destination.startswith('http://127.0.0.1:'):
@@ -99,18 +120,13 @@ def main():
         assert len(advance(iv))==4
         print('Codec self-test passed');return
     config_path=args.config or args.home/'member.json'
-    if args.setup or not config_path.exists():
-        print('Shared market: https://mxd.ruit.me. Paste your own invitation code (hidden).')
-        token=getpass.getpass('Member code: ').strip()
-        if len(token)<30:raise ValueError('Invalid member code')
-        config_path.write_text(json.dumps(dict(endpoint='https://mxd.ruit.me',token=token)),encoding='utf-8')
-        if os.name=='nt':
-            import subprocess
-            subprocess.run(['icacls',str(config_path),'/inheritance:r','/grant:r',getpass.getuser()+':F'],capture_output=True,check=True)
+    new_identity=not config_path.exists()
+    config=ensure_identity(config_path)
+    print('Collector ID: '+config.get('member_id','existing'),flush=True)
+    if args.setup or new_identity or not (args.home/'ClassicWorldMarket.ppx').exists():
         profile(args.home/'ClassicWorldMarket.ppx')
         print('Saved private local settings. Import ClassicWorldMarket.ppx in Proxifier. Proxifier is separate software and may require a license.')
         if args.setup:return
-    config=json.loads(config_path.read_text(encoding='utf-8'))
     folder=args.folder or args.home/'captures';folder.mkdir(parents=True,exist_ok=True)
     ledger=args.home/'upload.sqlite'
     def worker():

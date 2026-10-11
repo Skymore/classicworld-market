@@ -2,19 +2,20 @@
 
 Windows 原生 Python + Waitress + SQLite WAL，Cloudflare Tunnel 仅映射共享 HTTP 服务 `127.0.0.1:8766`。原本的 8765 私人网页、1088 代理与游戏连接不对公网开放。不需要 WSL 或端口转发。
 
-## 成员与数据
+## 采集身份与数据
 
-默认邀请制。服务端只保存随机访问码的 SHA256；浏览器使用 Secure/HttpOnly/SameSite cookie，每次访问检查成员是否已撤销。采集客户端使用 Authorization Bearer，各成员独立身份；上传和登录有速率及大小限制。访问码同时允许看价和上传，请一人一个，勿共享群访问码。
+默认公开查看价格，不需要访问码。采集端通过 `/api/v1/register` 自动领取随机 ID 和上传凭据，并保存到本机 member.json，以后沿用。注册、读取和上传均有限流。随机 ID 代表设备配置，不是实名认证；换电脑或清空配置会产生新 ID，也不能阻止一个人注册多个身份。
+
+已有上传身份继续有效。服务器只存凭据的 SHA256，自动凭据用于防止其他人冒用同一 ID 上传；用户无需手动复制。公开报表不返回凭据、原始抓包或本机路径。
 
 ```powershell
-python shared_server.py --invite friend-name --token-out shared_data/friend-name.json
 python shared_server.py --revoke MEMBER_ID
 python shared_server.py --backup shared_data/backups/manual.sqlite
 ```
 
-生成文件内的 `token` 是访问码，请私下交给对应朋友。不要上传这个文件到 GitHub。`shared_data/owner.json` 为站长凭据。自己浏览器访问网站后粘贴其中访问码即可。
+站长旧凭据继续保存在 shared_data/owner.json，供本机上传使用，无需发给朋友。`--private` 可恢复邀请模式并关闭公开注册；该模式下保留旧的邀请管理命令。
 
-成员配置、数据库、隧道配置、日志和备份全部在被 Git 忽略的目录内。SQLite backup API 用于一致性备份，不能只复制正在运行的主数据库文件而丢掉 WAL。
+数据库、凭据、日志、隧道配置和备份都被 Git 忽略。SQLite backup API 用于一致性备份，不能只复制运行中的主数据库而丢掉 WAL。
 
 ## 启停
 

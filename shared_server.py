@@ -1,4 +1,4 @@
-"""Invite-only shared market; run behind Cloudflare Tunnel on loopback."""
+"""Shared market with public viewing and automatically registered collectors."""
 import argparse
 import json
 import threading
@@ -32,6 +32,16 @@ def create_app(store, hostname='mxd.ruit.me', public_read=False):
 
     def member():return store.authenticate(bearer() or request.cookies.get('fm_session'))
 
+    def address():return request.headers.get('CF-Connecting-IP',request.remote_addr)
+
+    @app.post('/api/v1/register')
+    def register():
+        if not public_read:return jsonify(error='Registration disabled'),403
+        if not allowed('register:'+str(address()),5) or not allowed('register:global',60):
+            return jsonify(error='稍后再试'),429
+        identity,token=store.invite('anonymous')
+        return jsonify(endpoint=f'https://{hostname}',member_id=identity,token=token),201
+
     @app.after_request
     def headers(response):
         response.headers.update({'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',
@@ -62,6 +72,7 @@ def create_app(store, hostname='mxd.ruit.me', public_read=False):
 
     @app.post('/api/v1/observations')
     def upload():
+        if not allowed('upload-ip:'+str(address()),240):return jsonify(error='Rate limited'),429
         who=store.authenticate(bearer())
         if not who:return jsonify(error='Collector token required'),401
         if not allowed('upload:'+who,120):return jsonify(error='Rate limited'),429
@@ -85,12 +96,12 @@ def create_app(store, hostname='mxd.ruit.me', public_read=False):
     def market():
         who=member()
         if not public_read and not who:return jsonify(error='请登录'),401
-        if not allowed('read:'+str(who or request.remote_addr),60):return jsonify(error='Rate limited'),429
+        if not allowed('read:'+str(who or address()),60):return jsonify(error='Rate limited'),429
         with lock:
             if time.monotonic()-cache['at']>5:
                 cache['data']=store.report();cache['at']=time.monotonic()
             result=cache['data']
-        return jsonify(result)
+        return jsonify(dict(result,public_read=public_read))
 
     @app.get('/api/v1/items/<int:item_id>')
     def item(item_id):
@@ -107,6 +118,7 @@ def main():
     parser.add_argument('--hostname',default='mxd.ruit.me')
     parser.add_argument('--port',type=int,default=8766)
     parser.add_argument('--public-read',action='store_true')
+    parser.add_argument('--private',action='store_true',help='Require invitations and disable automatic registration')
     parser.add_argument('--invite',metavar='NAME')
     parser.add_argument('--token-out',type=Path)
     parser.add_argument('--revoke',metavar='MEMBER_ID')
@@ -127,7 +139,7 @@ def main():
         print('Backup complete');return
     from waitress import serve
     print(f'Shared market listening on 127.0.0.1:{args.port}',flush=True)
-    serve(create_app(store,args.hostname,args.public_read),host='127.0.0.1',port=args.port,threads=6,
+    serve(create_app(store,args.hostname,not args.private),host='127.0.0.1',port=args.port,threads=6,
           max_request_body_size=256*1024,channel_timeout=30,connection_limit=80)
 
 

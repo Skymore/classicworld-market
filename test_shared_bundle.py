@@ -9,10 +9,23 @@ from pathlib import Path
 from werkzeug.serving import make_server
 from shared_store import SharedStore
 from shared_server import create_app
-from shared_client import upload_once
+from shared_client import upload_once, ensure_identity
 
 
 class UploadIntegration(unittest.TestCase):
+    def test_identity_is_automatically_created_and_reused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);store=SharedStore(root/'server',root/'no_catalog')
+            server=make_server('127.0.0.1',0,create_app(store,public_read=True))
+            thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+            try:
+                endpoint=f'http://127.0.0.1:{server.server_port}'
+                first=ensure_identity(root/'member.json',endpoint)
+                second=ensure_identity(root/'member.json',endpoint)
+                self.assertEqual(first,second)
+                with store.repo.connect() as db:self.assertEqual(db.execute('SELECT COUNT(*) FROM members').fetchone()[0],1)
+            finally:server.shutdown();server.server_close();thread.join(timeout=5)
+
     def test_http_and_optional_windows_bundle(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);store=SharedStore(root/'server',root/'no_catalog')

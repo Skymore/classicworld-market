@@ -21,6 +21,28 @@ class SharedTests(unittest.TestCase):
 
     def tearDown(self):self.tmp.cleanup()
 
+    def test_public_read_and_automatic_identity(self):
+        public=create_app(self.store,public_read=True).test_client()
+        self.assertEqual(public.get('/').status_code,200)
+        self.assertTrue(public.get('/api/v1/market').get_json()['public_read'])
+        self.assertEqual(self.client.post('/api/v1/register').status_code,403)
+        first=public.post('/api/v1/register').get_json()
+        second=public.post('/api/v1/register').get_json()
+        self.assertNotEqual(first['member_id'],second['member_id'])
+        self.assertEqual(self.store.authenticate(first['token']),first['member_id'])
+        self.assertEqual(public.post('/api/v1/observations',json=self.data).status_code,401)
+        headers={'Authorization':'Bearer '+first['token']}
+        self.assertEqual(public.post('/api/v1/observations',json=self.data,headers=headers).status_code,201)
+        self.assertEqual(public.post('/api/v1/observations',json=self.data,headers=headers).status_code,200)
+        self.store.revoke(first['member_id'])
+        self.assertEqual(public.post('/api/v1/observations',json=self.data,headers=headers).status_code,401)
+
+    def test_public_limits_are_per_client_address(self):
+        public=create_app(self.store,public_read=True).test_client()
+        for _ in range(5):self.assertEqual(public.post('/api/v1/register').status_code,201)
+        self.assertEqual(public.post('/api/v1/register').status_code,429)
+        self.assertEqual(public.post('/api/v1/register',headers={'CF-Connecting-IP':'192.0.2.10'}).status_code,201)
+
     def test_retry_and_conflict(self):
         self.assertTrue(self.store.upload(self.a,self.data));self.assertFalse(self.store.upload(self.a,self.data))
         changed=copy.deepcopy(self.data);changed['items'][0]['price']=700
