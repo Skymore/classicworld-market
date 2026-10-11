@@ -12,6 +12,8 @@ from pathlib import Path
 from market_health import classify
 from monitor_market import connections
 from market_pricing import recommend
+from market_views import view, opportunities
+from urllib.parse import urlsplit, parse_qs
 from market_equipment import decode_equipment
 from market_location import LocationTimeline
 
@@ -164,13 +166,18 @@ def main():
     repo=Repository(ROOT/'market_data')
     health={'last_scan':None,'errors':[]}
     connection_health={}
+    cached={'report':None,'at':0}
+    scanned={}
+    last_network_check=0
+    records=[];network_error=None
     def scan():
+        nonlocal last_network_check,records,network_error
         while True:
-            errors=[]
-            try:
-                _,records=connections(); network_error=None
-            except Exception as exc:
-                records=[]; network_error=str(exc)
+            errors=[];changed=False
+            if time.monotonic()-last_network_check>30:
+                try:_,records=connections();network_error=None
+                except Exception as exc:records=[];network_error=str(exc)
+                last_network_check=time.monotonic()
             try:
                 capture_status=json.loads((ROOT/'network_captures/market_live/status.json').read_text())
             except (OSError,ValueError): capture_status={}
@@ -201,15 +208,19 @@ def main():
             for directory in dict.fromkeys(directories):
                 for path in directory.glob('shop_*.json'):
                     if path.stem.endswith('_zh'): continue
-                    try: repo.ingest(path)
+                    try:
+                        stat=path.stat();signature=(stat.st_mtime_ns,stat.st_size)
+                        if scanned.get(path)==signature:continue
+                        repo.ingest(path);scanned[path]=signature
+                        changed=True
                     except Exception as exc: errors.append(dict(file=path.name,error=str(exc)))
             health.update(last_scan=time.time(),errors=errors[-20:])
             try:
-                data=json.dumps(repo.report(),ensure_ascii=False)
-                temp=repo.folder/'latest.tmp'
-                temp.write_text(data,encoding='utf-8');temp.replace(repo.folder/'latest.json')
+                if changed or cached['report'] is None or time.time()-cached['at']>30:
+                    report=repo.report();report['opportunities']=opportunities(report)
+                    cached.update(report=report,at=time.time())
             except Exception as exc: health['errors'].append(dict(error=str(exc)))
-            time.sleep(5)
+            time.sleep(1)
     threading.Thread(target=scan,daemon=True).start()
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -225,7 +236,12 @@ def main():
                     self.send_error(404);return
                 body=json.dumps(detail,ensure_ascii=False).encode();kind='application/json; charset=utf-8'
             elif path=='/api/v1/market':
-                data=repo.report();data['health']=dict(health)
+                base=cached['report']
+                if base is None:
+                    self.send_error(503,'Market warming up');return
+                query=parse_qs(urlsplit(self.path).query)
+                item=query.get('item_id',[''])[0]
+                data=dict(view(base,summary=query.get('summary')==['1'],item_id=int(item) if item.isdigit() else None));data['health']=dict(health)
                 data['connection_health']=dict(connection_health)
                 status=ROOT/'network_captures/market_live/status.json'
                 try:

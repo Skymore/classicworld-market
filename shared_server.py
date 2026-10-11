@@ -1,4 +1,5 @@
 """Shared market with public viewing and automatically registered collectors."""
+from market_views import view
 import argparse
 import json
 import threading
@@ -101,7 +102,8 @@ def create_app(store, hostname='mxd.ruit.me', public_read=False):
             if time.monotonic()-cache['at']>5:
                 cache['data']=store.report();cache['at']=time.monotonic()
             result=cache['data']
-        return jsonify(dict(result,public_read=public_read))
+        item=request.args.get('item_id','')
+        return jsonify(dict(view(result,summary=request.args.get('summary')=='1',item_id=int(item) if item.isdigit() else None),public_read=public_read))
 
     @app.get('/api/v1/items/<int:item_id>')
     def item(item_id):
