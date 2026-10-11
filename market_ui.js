@@ -46,8 +46,19 @@ function renderOpportunities(){
  if(!fresh.length)return;
  fresh.forEach(a=>seen[a.id]=now);
  writeAlertStorage('market.alertSeen',Object.fromEntries(Object.entries(seen).filter(([,t])=>now-t<1800000)));
- const a=fresh[0],message=`${a.name}：买价 ${num(a.buy)}，参考卖价 ${num(a.sell)}；扣3%后估算差价 ${num(a.profit)}/件。${a.shop}，${locationText(a.location)}。低于Q1 ${num(a.q1)}，${a.shops}个在售摊位。`;
- if($('pageAlertsEnabled').checked){$('dealToast').innerHTML=`<b>发现 ${fresh.length} 件低价商品</b><p>${esc(message)}</p><div class="toast-actions"><button id="viewDealDetails" class="toast-primary">查看详情</button><a class="toast-secondary" href="/alerts">全部提醒</a><button id="dismissDeal" class="toast-dismiss">知道了</button></div>`;$('dealToast').hidden=false;$('dismissDeal').onclick=()=>$('dealToast').hidden=true;$('viewDealDetails').onclick=()=>{$('dealToast').hidden=true;showItem(a.item_id)}}
+ const a=fresh[0];
+ if($('pageAlertsEnabled').checked){
+  const rows=fresh.map(deal=>{
+   const product=data.products.find(p=>p.item_id===deal.item_id)||{name_zh:deal.name};
+   return `<tr><td><div class="toast-product">${icon(product)}<button class="name" data-toast-item="${deal.item_id}">${esc(deal.name)}</button></div></td><td class="toast-shop">${esc(deal.shop)}<small>${esc(locationText(deal.location))}</small></td><td>${num(deal.buy)}<small>每组 ${num(deal.bundle_cost)} / ${num(deal.bundle)}件</small></td><td>${num(deal.sell)}</td><td class="toast-profit">+${num(deal.profit)}<small>${num(deal.margin)}%</small></td><td>Q1 ${num(deal.q1)}<small>${num(deal.shops)} 个在售摊位</small></td></tr>`
+  }).join('');
+  $('dealToast').innerHTML=`<b>发现 ${fresh.length} 件低价商品</b><div class="toast-table-wrap"><table aria-label="低价商品提醒"><thead><tr><th>商品</th><th>商店名 / 位置</th><th>买价 / 件</th><th>参考卖价 / 件</th><th>扣3%后价差 / 件</th><th>比较依据</th></tr></thead><tbody>${rows}</tbody></table></div><div class="toast-actions"><button id="viewDealDetails" class="toast-primary">查看详情</button><a class="toast-secondary" href="/alerts">全部提醒</a><button id="dismissDeal" class="toast-dismiss">知道了</button></div>`;
+  $('dealToast').hidden=false;
+  $('dismissDeal').onclick=()=>$('dealToast').hidden=true;
+  $('viewDealDetails').onclick=()=>{$('dealToast').hidden=true;showItem(a.item_id)};
+  $('dealToast').onclick=e=>{const button=e.target.closest('[data-toast-item]');if(button){$('dealToast').hidden=true;showItem(Number(button.dataset.toastItem))}};
+ }
+
 }
 $('opportunities').onclick=e=>{let b=e.target.closest('[data-deal-item]');if(b)showItem(Number(b.dataset.dealItem))};
 function connectRealtime(){
