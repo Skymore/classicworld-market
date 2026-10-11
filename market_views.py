@@ -19,9 +19,9 @@ def opportunities(report, now=None):
                 if r.get('unit_price',0)>0:shops[r['shop_key']].append(r['unit_price'])
             values=[statistics.median(v) for v in shops.values()]
             if len(values)<8:continue
-            sold={s['shop_key'] for s in product['sales'] if s.get('previous_time') is not None
-                  and s['shop_key']!=row['shop_key'] and now-86400<=s['time']<row['time']}
-            if len(sold)<5:continue
+            # Current supply is evidence of listings, never of completed sales.
+            listed=[r for r in others if (r.get('unit_price') or 0)>0 and (r.get('stock') or 0)>0]
+            listed_quantity=sum(r['stock'] for r in listed)
             q1=percentile(values,.25);buy=row['unit_price']
             sell=recommend(dict(product,quotes=others))['price']
             if not buy or not sell or buy>=q1:continue
@@ -31,8 +31,8 @@ def opportunities(report, now=None):
                 item_id=row['item_id'],name=product['name_zh'],shop=row['shop'],location=row['location'],
                 observed=row['time'],buy=buy,bundle=row['bundle'],bundle_cost=row['price'],stock=row['stock'],
                 q1=q1,sell=sell,profit=round(profit,2),margin=round(profit/buy*100,1),
-                shops=len(values),sold_shops=len(sold),fee_percent=3,
-                basis='排除当前摊位；按其他摊位的更早报价比较。售光变化是活跃度代理，不是真实成交量；参考卖价不能保证成交。'))
+                shops=len(values),listing_count=len(listed),listed_quantity=listed_quantity,fee_percent=3,
+                basis='排除当前摊位；按其他摊位的更早报价比较。参考在售摊位、挂单和库存数量，不使用售光活跃度门槛。在售数量是供给量，不代表成交量；参考卖价不能保证成交。'))
     return sorted(found,key=lambda a:(a['observed'],a['margin']),reverse=True)[:20]
 
 

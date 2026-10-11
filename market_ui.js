@@ -24,11 +24,11 @@ let loading=false,pendingLoad=false,eventStream=null,pushConnected=false;const a
 function renderOpportunities(){
  const panel=$('opportunityPanel');panel.hidden=!!data.shared;if(data.shared)return;
  const alerts=(data.opportunities||[]).filter(a=>Date.now()/1000-a.observed<=120);
- $('opportunities').innerHTML=alerts.map(a=>`<div class="deal"><b>${esc(a.name)}</b> · ${esc(a.shop)} · ${esc(locationText(a.location))}<p>买价 ${num(a.buy)}/件（每组 ${num(a.bundle_cost)}，${num(a.bundle)}件） · Q1 ${num(a.q1)} · 参考卖价 ${num(a.sell)} · 扣手续费后估算差价 ${num(a.profit)}/件（${num(a.margin)}%）</p><small>${a.shops}个报价摊位、${a.sold_shops}个摊位发生售光变化。${esc(a.basis)}</small><button data-deal-item="${a.item_id}">查看商品依据</button></div>`).join('')||'<p>最近两分钟没有满足条件的低价商品。不会用旧挂单反复提醒。</p>';
+ $('opportunities').innerHTML=alerts.map(a=>`<div class="deal"><b>${esc(a.name)}</b> · ${esc(a.shop)} · ${esc(locationText(a.location))}<p>买价 ${num(a.buy)}/件（每组 ${num(a.bundle_cost)}，${num(a.bundle)}件） · Q1 ${num(a.q1)} · 参考卖价 ${num(a.sell)} · 扣手续费后估算差价 ${num(a.profit)}/件（${num(a.margin)}%）</p><small>${a.shops}个报价摊位 · ${num(a.listing_count)}条在售挂单 · 库存合计 ${num(a.listed_quantity)}。${esc(a.basis)}</small><button data-deal-item="${a.item_id}">查看商品依据</button></div>`).join('')||'<p>最近两分钟没有满足条件的低价商品。不会用旧挂单反复提醒。</p>';
  const fresh=alerts.filter(a=>a.observed>=alertStart&&Date.now()-(seenDeals.get(a.id)||0)>1800000);
  fresh.forEach(a=>seenDeals.set(a.id,Date.now()));
  if(!fresh.length||!$('alertsEnabled').checked)return;
- const a=fresh[0],message=`${a.name}：买价 ${num(a.buy)}，参考卖价 ${num(a.sell)}；扣3%后估算差价 ${num(a.profit)}/件。${esc(a.shop)}，${locationText(a.location)}。低于Q1 ${num(a.q1)}，${a.sold_shops}个摊位售光变化，非保证利润。`;
+ const a=fresh[0],message=`${a.name}：买价 ${num(a.buy)}，参考卖价 ${num(a.sell)}；扣3%后估算差价 ${num(a.profit)}/件。${esc(a.shop)}，${locationText(a.location)}。低于Q1 ${num(a.q1)}，${a.shops}个在售摊位、${num(a.listing_count)}条挂单，库存合计 ${num(a.listed_quantity)}，非保证利润。`;
  $('dealToast').innerHTML=`<b>发现 ${fresh.length} 件可关注的低价商品</b><p>${esc(message)}</p><button id="dismissDeal">知道了</button>`;$('dealToast').hidden=false;$('dismissDeal').onclick=()=>$('dealToast').hidden=true;
  if('Notification' in window&&Notification.permission==='granted')try{new Notification('枫叶市集：低价提醒',{body:message,tag:a.id})}catch{}
 }
