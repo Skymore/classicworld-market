@@ -28,3 +28,5 @@
 #dealToast .toast-shop{min-width:130px;max-width:180px;overflow-wrap:anywhere}
 #dealToast td small{display:block;margin-top:5px;font-size:11px;color:#7b887e;line-height:1.4}
 #dealToast .toast-profit{color:#28624e;font-weight:650;white-space:nowrap}
+
+.deal-returns{display:block;font-size:15px;font-weight:700;color:#28624e;line-height:1.7}.deal .deal-returns{margin-top:10px;font-size:18px}#dealToast .toast-profit small{font-weight:400;font-size:10px}
