@@ -168,10 +168,13 @@ def main():
     connection_health={}
     cached={'report':None,'at':0}
     scanned={}
+    updates=threading.Condition()
+    revision=0
+    last_state=None
     last_network_check=0
     records=[];network_error=None
     def scan():
-        nonlocal last_network_check,records,network_error
+        nonlocal last_network_check,records,network_error,revision,last_state
         while True:
             errors=[];changed=False
             if time.monotonic()-last_network_check>30:
@@ -220,11 +223,34 @@ def main():
                     report=repo.report();report['opportunities']=opportunities(report)
                     cached.update(report=report,at=time.time())
             except Exception as exc: health['errors'].append(dict(error=str(exc)))
-            time.sleep(1)
+            state=(cached['at'],connection_health.get('state'),json.dumps(connection_health.get('location'),sort_keys=True))
+            if state!=last_state:
+                with updates:
+                    revision+=1;last_state=state;updates.notify_all()
+            time.sleep(.25)
     threading.Thread(target=scan,daemon=True).start()
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             path=self.path.split('?')[0]
+            if path=='/api/v1/events':
+                self.send_response(200)
+                self.send_header('Content-Type','text/event-stream')
+                self.send_header('Cache-Control','no-cache')
+                self.send_header('X-Accel-Buffering','no')
+                self.end_headers()
+                self.connection.settimeout(20)
+                seen=-1
+                try:
+                    while True:
+                        with updates:
+                            updates.wait_for(lambda: revision!=seen,timeout=15)
+                            current=revision
+                        if current!=seen:
+                            self.wfile.write(f'event: market\ndata: {current}\n\n'.encode());seen=current
+                        else:self.wfile.write(b': heartbeat\n\n')
+                        self.wfile.flush()
+                except (OSError,ConnectionError):pass
+                return
             if path=='/':
                 body=(ROOT/'market_index.html').read_bytes(); kind='text/html; charset=utf-8'
             elif path in ('/market_ui.js','/market_ui.css'):
@@ -243,6 +269,7 @@ def main():
                 item=query.get('item_id',[''])[0]
                 data=dict(view(base,summary=query.get('summary')==['1'],item_id=int(item) if item.isdigit() else None));data['health']=dict(health)
                 data['connection_health']=dict(connection_health)
+                data['realtime']=True
                 status=ROOT/'network_captures/market_live/status.json'
                 try:
                     s=json.loads(status.read_text()); locations=LocationTimeline(status.parent/'map_observations.jsonl'); data['capture']=dict(updated_at=s['updated_at'],fresh=time.time()-s['updated_at']<5,
