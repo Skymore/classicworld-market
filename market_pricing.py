@@ -11,6 +11,7 @@ def percentile(values, fraction):
 
 
 def recommend(product):
+    window='全部记录' if product.get('hours',72) is None else f"近{product.get('hours',72)}小时"
     equipment=product['category']=='装备'
     quotes=product['quotes']
     equipment_basis=[]
@@ -37,7 +38,7 @@ def recommend(product):
         sold_by_shop[row['shop_key']][key]=value
     sold_values=[statistics.median(list(rows.values())) for rows in sold_by_shop.values()]
     if not values and not sold_values:
-        return dict(price=None,label='暂无普通装备样本' if equipment else '暂无可用报价',confidence='样本不足',basis=equipment_basis+['近24小时没有符合条件的在售或售光推定样本。'])
+        return dict(price=None,label='暂无普通装备样本' if equipment else '暂无可用报价',confidence='样本不足',basis=equipment_basis+[f'{window}没有符合条件的在售或售光推定样本。'])
     count=len(values); removed=0
     if count>=5:
         q1,q3=percentile(values,.25),percentile(values,.75);width=q3-q1
@@ -67,7 +68,7 @@ def recommend(product):
         if rounded>=9:return float(max(9,math.floor(rounded/10)*10-1 if int(rounded)%10<9 else math.floor(rounded)))
         return float(max(Decimal('0.09'),(Decimal(str(rounded))*10).to_integral_value(rounding='ROUND_CEILING')/10-Decimal('0.01')))
     fast_price=ending_nine(fast_target);price=max(fast_price,ending_nine(normal_target))
-    basis=equipment_basis+[f'近24小时在售报价来自 {count} 个摊位，售光推定来自 {sold_count} 个摊位；每摊先取中位数，同一售光挂单重复观察不增加权重。',
+    basis=equipment_basis+[f'{window}在售报价来自 {count} 个摊位，售光推定来自 {sold_count} 个摊位；每摊先取中位数，同一售光挂单重复观察不增加权重。',
            f'在售报价排除 {removed} 个异常摊位样本，售光推定排除 {sold_removed} 个异常摊位样本。']
     if sold_reference is not None:basis.append(f'售光推定参考价 {sold_reference:g}；采用发现售光时记录的单位价。')
     if ask_reference is not None:basis.append(f'在售报价第40百分位 {ask_reference:g}。')

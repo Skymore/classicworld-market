@@ -48,7 +48,10 @@ def opcode_table(plain):
     if size != len(plain) - 6 or size % 8:
         raise ValueError('Invalid encrypted map size')
     cipher = Cipher(TripleDES(DES_KEY + DES_KEY[:8]), modes.ECB()).decryptor()
-    raw = (cipher.update(plain[6:]) + cipher.finalize()).rstrip(b'\0 ')
+    # The text is NUL terminated; the last DES block can contain nonzero
+    # bytes after that terminator (observed in the 2026-10-11 session).
+    # Count/uniqueness validation below still covers the entire text table.
+    raw = (cipher.update(plain[6:]) + cipher.finalize()).split(b'\0', 1)[0].rstrip(b' ')
     fields = raw.split(b'|')
     if not all(v.isdigit() for v in fields):
         raise ValueError('Invalid map text')

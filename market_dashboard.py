@@ -2,10 +2,13 @@
 import argparse
 import hashlib
 import json
+import multiprocessing
 import sqlite3
 import statistics
 import threading
 import time
+from collections import deque
+from concurrent.futures import ProcessPoolExecutor
 from contextlib import contextmanager, closing
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -16,6 +19,7 @@ from market_views import view, opportunities
 from urllib.parse import urlsplit, parse_qs
 from market_equipment import decode_equipment
 from market_location import LocationTimeline
+from market_watchlist import search_catalog,report_listings,parse_item_ids
 
 ROOT = Path(__file__).resolve().parent
 CATEGORIES = {1:'装备',2:'消耗品',3:'装饰',4:'其他',5:'商城物品',6:'其他'}
@@ -63,7 +67,7 @@ class Repository:
             row=db.execute('SELECT record_json FROM items WHERE item_id=?',(item_id,)).fetchone()
         return json.loads(row[0]) if row else None
 
-    def report(self, hours=24):
+    def report(self, hours=72):
         names = {}
         if self.catalog.exists():
             with closing(sqlite3.connect(self.catalog)) as db:
@@ -111,7 +115,7 @@ class Repository:
                     previous[key]=row
             if not experimental:
                 latest[shop]=(observed,items)
-        cutoff=time.time()-hours*3600
+        cutoff=time.time()-hours*3600 if hours is not None else float("-inf")
         groups={}
         for observed,items in latest.values():
             if observed<cutoff: continue
@@ -148,6 +152,7 @@ class Repository:
             p.update(low=min(values) if values else None,median=statistics.median(values) if values else None,
                      high=max(values) if values else None,listings=len(values),shops=len({r['shop_key'] for r in p['quotes']}),
                      sold_out_count=len(inferred),sold_out_median=statistics.median(inferred) if inferred else None)
+            p['hours']=hours
             p['recommendation']=recommend(p)
         return dict(schema_version=1,generated_at=time.time(),hours=hours,visits=len(visits),
             manual_visits=len(visits)-excluded,experimental_visits=excluded,observations=len(history),
@@ -159,11 +164,25 @@ class Repository:
             limitation='仅覆盖手动访问并成功解析的摊位；不是全市场。报价与库存字段待画面核对。装备不同序列化记录分组，属性未完整解析。售光是推定，不是成交回执。')
 
 
+def build_reports(folder, catalog):
+    """Run bulk pricing outside the process serving latency-sensitive alerts."""
+    repo=Repository(Path(folder),Path(catalog))
+    reports={}
+    for window in (72,None):
+        report=repo.report(window)
+        report['opportunities']=opportunities(report)
+        reports[window]=report
+    from market_selling import catalog as selling_catalog
+    reports['selling']=selling_catalog(reports[72])
+    return reports
+
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--port',type=int,default=8765)
     args=parser.parse_args()
     repo=Repository(ROOT/'market_data')
+    report_worker=ProcessPoolExecutor(max_workers=1,mp_context=multiprocessing.get_context('spawn'))
     health={'last_scan':None,'errors':[]}
     connection_health={}
     cached={'report':None,'at':0}
@@ -173,6 +192,19 @@ def main():
     last_state=None
     last_network_check=0
     records=[];network_error=None
+    deal_events=deque(maxlen=128)
+    deal_revision=0
+    def emit_deals(payload):
+        nonlocal deal_revision
+        with updates:
+            deal_revision+=1;deal_events.append((deal_revision,payload));updates.notify_all()
+    watch_dirs=[ROOT/'network_captures/proxy_live',ROOT/'network_captures/market_live',ROOT/'network_captures/market_passive_live']
+    try:watch_dirs.extend(Path(p) for p in json.loads((repo.folder/'capture_sources.json').read_text(encoding='utf-8-sig')))
+    except (OSError,ValueError):pass
+    try:
+        from market_realtime_alerts import start_alert_watcher
+        alert_watcher=start_alert_watcher(watch_dirs,lambda:cached['report'],emit_deals,health)
+    except Exception as error:health['fast_alert_error']=str(error)
     def scan():
         nonlocal last_network_check,records,network_error,revision,last_state
         while True:
@@ -220,8 +252,10 @@ def main():
             health.update(last_scan=time.time(),errors=errors[-20:])
             try:
                 if changed or cached['report'] is None or time.time()-cached['at']>30:
-                    report=repo.report();report['opportunities']=opportunities(report)
-                    cached.update(report=report,at=time.time())
+                    started=time.perf_counter()
+                    reports=report_worker.submit(build_reports,str(repo.folder),str(repo.catalog)).result()
+                    cached.update(report=reports,at=time.time())
+                    health['report_build_ms']=round((time.perf_counter()-started)*1000,1)
             except Exception as exc: health['errors'].append(dict(error=str(exc)))
             state=(cached['at'],connection_health.get('state'),json.dumps(connection_health.get('location'),sort_keys=True))
             if state!=last_state:
@@ -230,6 +264,9 @@ def main():
             time.sleep(.25)
     threading.Thread(target=scan,daemon=True).start()
     class Handler(BaseHTTPRequestHandler):
+        # Flush small SSE frames immediately, even with another frame in flight.
+        disable_nagle_algorithm=True
+
         def do_GET(self):
             path=self.path.split('?')[0]
             if path=='/api/v1/events':
@@ -240,11 +277,16 @@ def main():
                 self.end_headers()
                 self.connection.settimeout(20)
                 seen=-1
+                seen_deal=0
                 try:
                     while True:
                         with updates:
-                            updates.wait_for(lambda: revision!=seen,timeout=15)
+                            updates.wait_for(lambda: revision!=seen or deal_revision!=seen_deal,timeout=15)
                             current=revision
+                            fast=[(n,p) for n,p in deal_events if n>seen_deal]
+                            seen_deal=deal_revision
+                        for _,payload in fast:
+                            self.wfile.write(('event: deals\ndata: '+json.dumps(payload,ensure_ascii=False)+'\n\n').encode('utf-8'))
                         if current!=seen:
                             self.wfile.write(f'event: market\ndata: {current}\n\n'.encode());seen=current
                         else:self.wfile.write(b': heartbeat\n\n')
@@ -253,7 +295,9 @@ def main():
                 return
             if path in ('/','/alerts'):
                 body=(ROOT/'market_index.html').read_text(encoding='utf-8').replace('<body>', '<body class="alerts-page">' if path=='/alerts' else '<body class="market-page">').encode(); kind='text/html; charset=utf-8'
-            elif path in ('/market_ui.js','/market_ui.css'):
+            elif path=='/selling':
+                body=(ROOT/'market_selling.html').read_bytes();kind='text/html; charset=utf-8'
+            elif path in ('/market_ui.js','/market_ui.css','/market_selling_ui.js','/market_i18n.js','/market_watchlist.js'):
                 body=(ROOT/path[1:]).read_bytes()
                 kind='text/javascript; charset=utf-8' if path.endswith('.js') else 'text/css; charset=utf-8'
             elif path.startswith('/api/v1/items/') and path.rsplit('/',1)[-1].isdigit():
@@ -261,11 +305,31 @@ def main():
                 if detail is None:
                     self.send_error(404);return
                 body=json.dumps(detail,ensure_ascii=False).encode();kind='application/json; charset=utf-8'
+            elif path=='/api/v1/watchlist/catalog':
+                query=parse_qs(urlsplit(self.path).query).get('q',[''])[0]
+                body=json.dumps(search_catalog(repo.catalog,query),ensure_ascii=False).encode();kind='application/json; charset=utf-8'
+            elif path=='/api/v1/watchlist/listings':
+                try:ids=parse_item_ids(parse_qs(urlsplit(self.path).query).get('ids',[''])[0])
+                except ValueError:
+                    self.send_error(400,'Invalid item IDs');return
+                reports=cached['report']
+                if reports is None:
+                    self.send_error(503,'Market warming up');return
+                body=json.dumps(report_listings(reports[72],ids),ensure_ascii=False).encode();kind='application/json; charset=utf-8'
+            elif path=='/api/v1/selling':
+                reports=cached['report']
+                if reports is None:
+                    self.send_error(503,'Market warming up');return
+                body=json.dumps(reports['selling'],ensure_ascii=False).encode();kind='application/json; charset=utf-8'
             elif path=='/api/v1/market':
-                base=cached['report']
-                if base is None:
+                reports=cached['report']
+                if reports is None:
                     self.send_error(503,'Market warming up');return
                 query=parse_qs(urlsplit(self.path).query)
+                window=query.get('hours',['72'])[0]
+                if window not in ('72','all'):
+                    self.send_error(400,'hours must be 72 or all');return
+                base=reports[None if window=='all' else 72]
                 item=query.get('item_id',[''])[0]
                 data=dict(view(base,summary=query.get('summary')==['1'],item_id=int(item) if item.isdigit() else None));data['health']=dict(health)
                 data['connection_health']=dict(connection_health)
@@ -284,7 +348,13 @@ def main():
             self.end_headers();self.wfile.write(body)
         def log_message(self,*args): pass
     print(f'http://127.0.0.1:{args.port}',flush=True)
-    ThreadingHTTPServer(('127.0.0.1',args.port),Handler).serve_forever()
+    try:
+        ThreadingHTTPServer(('127.0.0.1',args.port),Handler).serve_forever()
+    finally:
+        if 'alert_watcher' in locals():alert_watcher.stop()
+        report_worker.shutdown(wait=False,cancel_futures=True)
 
 
-if __name__=='__main__': main()
+if __name__=='__main__':
+    multiprocessing.freeze_support()
+    main()

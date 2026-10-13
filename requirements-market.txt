@@ -1,1 +1,2 @@
 cryptography>=43,<47
+watchdog>=6,<7

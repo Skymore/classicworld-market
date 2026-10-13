@@ -7,6 +7,20 @@ from market_dashboard import Repository
 
 
 class RepositoryTests(unittest.TestCase):
+    def test_default_72_hours_and_all_preserve_latest_shop_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);repo=Repository(root,root/'absent');now=time.time()
+            for i,(shop,hours,price) in enumerate(((1,48,100),(2,100,200),(2,90,250))):
+                path=root/f'{i}.json'
+                path.write_text(json.dumps(dict(session='s',time=now-hours*3600,title=str(shop),shop_id=shop,
+                    items=[dict(item_id=4000008,slot=1,available_quantity_candidate=5,
+                                bundle_quantity_candidate=1,price_mesos_candidate=price)])))
+                repo.ingest(path)
+            recent=repo.report();all_data=repo.report(None)
+            self.assertEqual(recent['hours'],72)
+            self.assertEqual(recent['active_shops'],1)
+            self.assertEqual(all_data['active_shops'],2)
+            self.assertEqual(sorted(r['unit_price'] for r in all_data['products'][0]['quotes']),[100,250])
     def test_history_dedup_latest_and_sold_out_inference(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp); repo=Repository(root,root/'absent.sqlite'); now=time.time()

@@ -9,6 +9,11 @@
 !/market_index.html
 !/market_ui.js
 !/market_ui.css
+!/market_selling.html
+!/market_selling_ui.js
+!/market_i18n.js
+!/market_watchlist.js
+!/test_market_watchlist.mjs
 !/market_dashboard.html
 !/item_catalog_template.html
 !/maple_crypto_constants.cs
@@ -32,3 +37,6 @@ __pycache__/
 /network_research.md
 
 !/shared_login.html
+
+# Market and catalogue snapshots remain local.
+/data/

@@ -165,7 +165,11 @@ class Collector:
 
 
 class Sniffer:
-    def __init__(self):
+    def __init__(self, capture_filter=FILTER):
+        # Validate ownership lookup before reporting a running capture.
+        try:import psutil
+        except ImportError as error:
+            raise RuntimeError('Missing psutil. Install requirements-shared.txt in the collector Python environment.') from error
         if sys.platform!='win32':raise RuntimeError('Windows is required')
         if not ctypes.windll.shell32.IsUserAnAdmin():raise PermissionError('Run collector as administrator')
         root=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent))
@@ -178,7 +182,7 @@ class Sniffer:
         self.dll.WinDivertRecv.restype=ctypes.c_bool
         self.dll.WinDivertShutdown.argtypes=[ctypes.c_void_p,ctypes.c_int]
         self.dll.WinDivertClose.argtypes=[ctypes.c_void_p]
-        self.handle=self.dll.WinDivertOpen(FILTER.encode(),0,0,SNIFF_RECV_ONLY)
+        self.handle=self.dll.WinDivertOpen(capture_filter.encode(),0,0,SNIFF_RECV_ONLY)
         if self.handle==ctypes.c_void_p(-1).value:raise ctypes.WinError(ctypes.get_last_error())
         # Intentionally never bind or call WinDivertSend.
     def recv(self):

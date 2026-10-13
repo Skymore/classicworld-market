@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+
+const context=vm.createContext({});
+vm.runInContext(readFileSync(new URL('./market_watchlist.js',import.meta.url),'utf8'),context);
+const {notifications}=context.WatchlistCore;
+const watch=[{item_id:1452003,added_at:100,max_price:null}];
+const row={id:'offer-a',item_id:1452003,unit_price:10000,stock:1,observed:101};
+let seen=new Map();
+assert.equal(notifications([row],watch,seen,100,102).length,1,'equipment should notify without a bargain threshold');
+assert.equal(notifications([{...row,stock:2,observed:103}],watch,seen,100,104).length,0,'same offer should not notify again');
+assert.equal(notifications([{...row,id:'offer-cheaper',unit_price:9000,observed:104}],watch,seen,100,105).length,1,'a changed price should notify');
+assert.equal(notifications([{...row,id:'other-item',item_id:1462004}],watch,new Map(),100,102).length,0);
+assert.equal(notifications([row],[{...watch[0],max_price:9999}],new Map(),100,102).length,0,'respect maximum unit price');
+assert.equal(notifications([row],[{...watch[0],max_price:10000}],new Map(),100,102).length,1,'price limit is inclusive');
+assert.equal(notifications([{...row,observed:99}],watch,new Map(),100,102).length,0,'adding a watch must not pop up historical offers');
+assert.equal(notifications([row],watch,new Map(),100,250).length,0,'stale offers are not live alerts');
+assert.equal(notifications([{...row,stock:0}],watch,new Map(),100,102).length,0);
+assert.equal(notifications([{...row,unit_price:NaN}],watch,new Map(),100,102).length,0);
+console.log('Watchlist notification regression checks passed (10 cases)');

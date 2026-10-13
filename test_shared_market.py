@@ -21,6 +21,30 @@ class SharedTests(unittest.TestCase):
 
     def tearDown(self):self.tmp.cleanup()
 
+    def test_page_script_dependencies_are_available(self):
+        from html.parser import HTMLParser
+
+        class Scripts(HTMLParser):
+            def __init__(self):
+                super().__init__();self.sources=[]
+            def handle_starttag(self,tag,attrs):
+                if tag=='script' and dict(attrs).get('src'):
+                    self.sources.append(dict(attrs)['src'])
+
+        public=create_app(self.store,public_read=True).test_client()
+        for client,path in ((public,'/'),(public,'/alerts'),(self.client,'/')):
+            page=client.get(path)
+            self.assertEqual(page.status_code,200)
+            scripts=Scripts();scripts.feed(page.get_data(as_text=True));page.close()
+            self.assertIn('/market_i18n.js',scripts.sources)
+            for source in scripts.sources:
+                with self.subTest(page=path,script=source):
+                    asset=client.get(source)
+                    self.assertEqual(asset.status_code,200)
+                    self.assertIn('javascript',asset.content_type)
+                    self.assertGreater(len(asset.data),0)
+                    asset.close()
+
     def test_public_read_and_automatic_identity(self):
         public=create_app(self.store,public_read=True).test_client()
         response=public.get('/');self.assertEqual(response.status_code,200);response.close()
@@ -36,6 +60,19 @@ class SharedTests(unittest.TestCase):
         self.assertEqual(public.post('/api/v1/observations',json=self.data,headers=headers).status_code,200)
         self.store.revoke(first['member_id'])
         self.assertEqual(public.post('/api/v1/observations',json=self.data,headers=headers).status_code,401)
+
+    def test_watchlist_routes_respect_access_and_filter_items(self):
+        for path in ('/api/v1/watchlist/catalog','/api/v1/watchlist/listings?ids=4010001'):
+            self.assertEqual(self.client.get(path).status_code,401)
+        self.store.upload(self.a,self.data)
+        public=create_app(self.store,public_read=True).test_client()
+        result=public.get('/api/v1/watchlist/listings?ids=4010001').get_json()
+        self.assertEqual(result['total'],1)
+        self.assertEqual(result['listings'][0]['item_id'],4010001)
+        self.assertEqual(public.get('/api/v1/watchlist/listings?ids=1452003').get_json()['total'],0)
+        self.assertEqual(public.get('/api/v1/watchlist/listings?ids=evil').status_code,400)
+        self.assertNotIn('raw_source',json.dumps(result))
+        self.assertEqual(public.get('/api/v1/watchlist/catalog').status_code,200)
 
     def test_public_limits_are_per_client_address(self):
         public=create_app(self.store,public_read=True).test_client()

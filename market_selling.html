@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>背包与摆摊 · 枫叶市集</title><link rel="stylesheet" href="/market_ui.css">
+<style>.selling-grid{display:grid;grid-template-columns:2fr 1fr;gap:24px}.selling-panel{background:white;border:1px solid #e4e1da;border-radius:16px;padding:24px;margin:20px 0}.selling-panel input[type=number]{width:95px}.selling-panel td{vertical-align:top}.selling-panel label{display:inline-flex;gap:8px;align-items:center;margin:8px}.selling-note{color:#6c685e;line-height:1.7}.selling-error{color:#a5352e}#bagRows input{max-width:85px}button:disabled{opacity:.5}@media(max-width:1000px){.selling-grid{grid-template-columns:1fr}}</style></head>
+<body><header><div class="brand"><span class="leaf">枫</span><b>枫叶市集 · 背包与摆摊</b></div><nav class="page-nav"><a href="/">商品价格库</a><a href="/alerts">低价提醒</a><a href="/selling">背包与摆摊</a></nav></header>
+<main><div class="hero"><div><h1>选好要卖的，再定价。</h1><p class="sub">普通个人商店 · 快卖价、正常价与中位价 · 保留自用数量</p></div><button id="exportPlan">导出摆摊计划</button></div>
+<p id="sellingStatus" role="status">正在读取市场数据…</p>
+<div class="selling-grid"><section class="selling-panel"><h2>我的背包</h2><p class="selling-note">目前由你登记数量并保存在当前浏览器。尚未连接游戏背包；市场中出现的物品不会自动算作你拥有的物品。</p>
+<form id="addInventory"><label>物品 <input id="itemSearch" list="marketItems" placeholder="搜索名称或物品 ID" required><datalist id="marketItems"></datalist></label><label>数量 <input id="itemQuantity" type="number" min="1" step="1" required value="1"></label><button>登记 / 更新数量</button></form>
+<div class="filters"><label>出售预设 <select id="preset"></select></label><button id="applyPreset" type="button">仅选择背包中匹配的物品</button></div>
+<div class="table-wrap"><table><thead><tr><th>出售</th><th>物品 / 数量</th><th>保留</th><th>每组 / 组数</th><th>策略</th><th>底价 / 件</th><th>计划组价</th><th></th></tr></thead><tbody id="bagRows"></tbody></table></div>
+<p class="selling-note">预设依据在售摊位覆盖度，不代表销量。装备属性比较尚未完成，暂不生成自动定价。底价由你填写，不会替你猜最低可接受售价。</p></section>
+<aside class="selling-panel"><h2>优先考察的位置</h2><p id="venueBasis" class="selling-note"></p><ol id="venueList"></ol><p class="selling-note">坐标将按入口附近、可达平台排序，并需现场确认空位。当前候选不表示已找到可摆摊位置。</p><h3>执行状态</h3><p>背包同步、空位确认和个人商店上架尚未完成实机验证。此页可维护清单、选择预设和导出计划，暂不执行自动上架。</p></aside></div>
+<p id="sellingError" class="selling-error" role="alert"></p></main><script src="/market_i18n.js"></script><script src="/market_selling_ui.js"></script></body></html>

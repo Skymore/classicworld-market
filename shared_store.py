@@ -64,8 +64,8 @@ class SharedStore:
             db.execute('INSERT INTO visits VALUES (?,?,?,?,?,?,?)',(vid,member,'ClassicWorld',clean['observed_at'],shop,'shared',json.dumps(payload,ensure_ascii=False)))
         return True
 
-    def report(self):
-        data=self.repo.report()
+    def report(self, hours=72):
+        data=self.repo.report(hours)
         # Report includes provenance fields useful locally, never serve those paths.
         def scrub(value):
             if isinstance(value,dict):return {k:scrub(v) for k,v in value.items() if k not in ('source','raw_source','server_endpoint','collector','session')}
