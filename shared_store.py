@@ -75,3 +75,35 @@ class SharedStore:
         data.update(health=dict(errors=[]),capture=None,connection_health=dict(state='ready',message='共享市场 · 成员观察数据'),
                     shared=True,dedup_note='同位置/摊位ID/名称/UTC日期的最新快照合并；缺少摊主稳定ID，跨日不合并。')
         return data
+
+    def personal_alerts(self, member, reference, now=None):
+        """Only this authenticated collector's recent uploads are candidates."""
+        from market_realtime_alerts import visit_opportunities
+        now = time.time() if now is None else now
+        with self.repo.connect() as db:
+            uploads = db.execute('SELECT payload FROM uploads WHERE member=? AND received>=? ORDER BY received DESC LIMIT 256',
+                                 (member, now-120)).fetchall()
+        latest = {}
+        for (blob,) in uploads:
+            clean = json.loads(blob)
+            location = clean['location'] or {}
+            key = (clean['world'], int(clean['observed_at']//86400), clean['shop_id'], clean['title'],
+                   location.get('channel'), location.get('room'))
+            if key not in latest or clean['observed_at'] > latest[key]['observed_at']:
+                latest[key] = clean
+        found = {}
+        for clean in latest.values():
+            visit = dict(time=clean['observed_at'], title=clean['title'], shop_id=clean['shop_id'],
+                         market_location=clean['location'], host='shared', port=0, items=[])
+            occurrences = {}
+            for row in clean['items']:
+                base = row['category']*1000+row['slot']
+                occurrence = occurrences.get(base, 0)
+                occurrences[base] = occurrence+1
+                visit['items'].append(dict(item_id=row['item_id'], slot=base+occurrence*1000000,
+                    price_mesos_candidate=row['price'], bundle_quantity_candidate=row['bundle'],
+                    available_quantity_candidate=row['stock']))
+            for deal in visit_opportunities(reference, visit, now):
+                if deal['id'] not in found or deal['observed'] > found[deal['id']]['observed']:
+                    found[deal['id']] = deal
+        return sorted(found.values(), key=lambda deal: (deal['observed'], deal['margin']), reverse=True)[:20]

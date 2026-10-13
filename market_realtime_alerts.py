@@ -9,6 +9,17 @@ from market_views import opportunities
 from market_watchlist import visit_listings
 
 
+def same_shop(row, visit):
+    """Match a local visit to shared evidence without relying on server addresses."""
+    if (row.get('shop_id') != visit.get('shop_id') or row.get('shop') != visit.get('title')
+            or int(row.get('time', 0)//86400) != int(visit['time']//86400)):
+        return False
+    left, right = row.get('location'), visit.get('market_location')
+    if left and right:
+        return all(left.get(key) == right.get(key) for key in ('channel', 'room'))
+    return True
+
+
 def visit_opportunities(report, visit, now=None):
     now=time.time() if now is None else now
     if visit.get('triggered_by_python') or not 0<=now-visit['time']<=120:return []
@@ -29,9 +40,9 @@ def visit_opportunities(report, visit, now=None):
         # Existing recent rows remain pricing evidence, but only this visit is
         # eligible as the alert candidate in this event.
         prior=[dict(r,collector='reference') for r in product['quotes']
-               if r['shop_key']!=shop and r['time']>=cutoff]
+               if r['shop_key']!=shop and not same_shop(r,visit) and r['time']>=cutoff]
         products.append(dict(product,quotes=prior+current,
-                             sales=[r for r in product.get('sales',[]) if r['time']>=cutoff]))
+                             sales=[r for r in product.get('sales',[]) if not same_shop(r,visit) and r['time']>=cutoff]))
     found=opportunities(dict(products=products),now=now)
     for deal in found:deal['reference_generated_at']=report.get('generated_at')
     return found

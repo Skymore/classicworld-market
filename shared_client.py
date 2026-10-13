@@ -9,6 +9,7 @@ import ssl
 import sys
 import threading
 import time
+import subprocess
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -101,6 +102,44 @@ def profile(path):
 </RuleList></ProxifierProfile>''',encoding='utf-8')
 
 
+def start_dashboard(home, config_path, folder, port=8780, open_browser=True):
+    import uuid
+    instance=uuid.uuid4().hex
+    home=Path(home);home.mkdir(parents=True,exist_ok=True)
+    command=[sys.executable]
+    if not getattr(sys,'frozen',False):command.append(str(Path(__file__).resolve()))
+    command.extend(['--dashboard-only','--home',str(home),'--config',str(config_path),
+                    '--folder',str(folder),'--dashboard-port',str(port),'--dashboard-instance',instance,'--no-browser'])
+    with (home/'dashboard.log').open('a',encoding='utf-8') as log:
+        process=subprocess.Popen(command,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
+    deadline=time.monotonic()+10
+    while time.monotonic()<deadline and process.poll() is None:
+        try:
+            ready=json.loads((home/'dashboard.json').read_text(encoding='utf-8'))
+            if ready.get('instance')==instance:
+                print('Personal alerts: '+ready['url'],flush=True)
+                if open_browser:
+                    import webbrowser
+                    webbrowser.open(ready['url'])
+                return process
+        except (OSError,ValueError,KeyError):pass
+        time.sleep(.05)
+    stop_dashboard(process)
+    raise RuntimeError('Personal dashboard did not start; see dashboard.log')
+
+
+def stop_dashboard(process):
+    if process is None or process.poll() is not None:return
+    if os.name=='nt':
+        # The Windows venv launcher can have a different PID from Python itself.
+        # Stop only this spawned dashboard's process tree, never the collector/game.
+        subprocess.run(['taskkill','/PID',str(process.pid),'/T','/F'],capture_output=True)
+    else:process.terminate()
+    try:process.wait(timeout=5)
+    except subprocess.TimeoutExpired:process.kill();process.wait(timeout=5)
+
+
 def main():
     default=Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'ClassicWorldMarket'
     parser=argparse.ArgumentParser()
@@ -114,7 +153,17 @@ def main():
     parser.add_argument('--once',action='store_true')
     parser.add_argument('--setup',action='store_true')
     parser.add_argument('--self-test',action='store_true',help='Check bundled codec without game or credentials')
+    parser.add_argument('--dashboard-only',action='store_true',help='Open personal alerts without loading the capture driver')
+    parser.add_argument('--dashboard-port',type=int,default=8780)
+    parser.add_argument('--dashboard-instance',default='',help=argparse.SUPPRESS)
+    parser.add_argument('--no-dashboard',action='store_true')
+    parser.add_argument('--no-browser',action='store_true')
     args=parser.parse_args();args.home.mkdir(parents=True,exist_ok=True)
+    if args.dashboard_only:
+        from collector_dashboard import run
+        config=json.loads((args.config or args.home/'member.json').read_text(encoding='utf-8'))
+        run(args.home,config,args.folder or args.home/'captures',args.dashboard_port,args.dashboard_instance)
+        return
     if args.self_test:
         from market_proxy import Proxy, allowed_destination
         from classicworld_codec import aes_payload, advance
@@ -158,15 +207,22 @@ def main():
             except Exception as error:print(f'Upload unavailable ({type(error).__name__}); will retry.',flush=True)
             if args.once:break
             time.sleep(5)
-    if args.once or args.upload_only:worker();return
-    threading.Thread(target=worker,daemon=True).start()
-    if not args.proxy:
-        from market_passive import run
-        print('Passive capture: no Proxifier needed. Disable its game rule, reconnect once, then browse manually.',flush=True)
-        run(folder,args.seconds);return
-    from market_proxy import Proxy
-    print('Local proxy 127.0.0.1:1088. Reconnect game channel after importing profile. Browse manually. Close game session before stopping collector.',flush=True)
-    asyncio.run(Proxy(folder,allow_requests=False,market_only=True).run())
+    if args.once:worker();return
+    dashboard=None
+    if not args.no_dashboard:
+        try:dashboard=start_dashboard(args.home,config_path,folder,args.dashboard_port,not args.no_browser)
+        except Exception as error:print(f'Personal alerts unavailable ({type(error).__name__}); see dashboard.log.',flush=True)
+    try:
+        if args.upload_only:worker();return
+        threading.Thread(target=worker,daemon=True).start()
+        if not args.proxy:
+            from market_passive import run
+            print('Passive capture: no Proxifier needed. Disable its game rule, reconnect once, then browse manually.',flush=True)
+            run(folder,args.seconds);return
+        from market_proxy import Proxy
+        print('Local proxy 127.0.0.1:1088. Reconnect game channel after importing profile. Browse manually. Close game session before stopping collector.',flush=True)
+        asyncio.run(Proxy(folder,allow_requests=False,market_only=True).run())
+    finally:stop_dashboard(dashboard)
 
 
 if __name__=='__main__':

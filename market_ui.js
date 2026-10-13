@@ -28,8 +28,9 @@ function subtypes(){let old=$('subtype').value,values=[...new Set(data.products.
 let loading=false,pendingLoad=false,eventStream=null,pushConnected=false;const alertStart=Date.now()/1000,seenDeals=new Map();
 function dealName(deal){const item=data?.products.find(p=>p.item_id===deal.item_id);return item?I18n.name(item):deal.name}
 function cleanAlertCopy(text){return String(text||'').replace(/[，,]非保证利润[。.]?/g,'').replace(/[；;]参考卖价不能保证成交[。.]?/g,'。')}
-function readAlertStorage(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}}
-function writeAlertStorage(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch{}}
+let alertNamespace='';
+function readAlertStorage(key,fallback){try{return JSON.parse(localStorage.getItem(alertNamespace?key+':'+alertNamespace:key))??fallback}catch{return fallback}}
+function writeAlertStorage(key,value){try{localStorage.setItem(alertNamespace?key+':'+alertNamespace:key,JSON.stringify(value))}catch{}}
 let alertArchive=readAlertStorage('market.alertArchive',[]);
 $('alertsEnabled').checked=readAlertStorage('market.alertsEnabled',true);
 $('pageAlertsEnabled').checked=readAlertStorage('market.pageAlertsEnabled',true);
@@ -37,7 +38,7 @@ $('alertsEnabled').onchange=()=>writeAlertStorage('market.alertsEnabled',$('aler
 $('pageAlertsEnabled').onchange=()=>writeAlertStorage('market.pageAlertsEnabled',$('pageAlertsEnabled').checked);
 $('alertView').onchange=()=>renderOpportunities();
 function renderOpportunities(){
- if(data.shared){$('opportunities').innerHTML='<p>实时逛摊提醒在采集电脑的 <a href="http://127.0.0.1:8765/alerts">本地提醒页</a> 使用，公开站不把别人的观察当作你的当前摊位。</p>';I18n.apply($('opportunities'));return}
+ if(data.shared&&!data.personal_alerts){$('opportunities').innerHTML='<p>个人低价提醒请运行新版采集器，启动后会自动打开本机提醒页。只对你新采集到的商品提醒，使用共享报价作比较。</p>';I18n.apply($('opportunities'));return}
  const now=Date.now(),alerts=(data.opportunities||[]).filter(a=>now/1000-a.observed<=120);
  const merged=new Map(readAlertStorage('market.alertArchive',alertArchive).map(a=>[a.id,a]));
  alerts.forEach(a=>merged.set(a.id,a));
@@ -77,7 +78,7 @@ function connectRealtime(){
  eventStream.addEventListener('deals',event=>{if(!data||data.shared)return;try{const packet=JSON.parse(event.data);window.MarketWatchlist?.consume(packet.watch_listings);const deals=packet.windows[$('quoteWindow').value]||[];data.opportunities=[...deals,...(data.opportunities||[]).filter(old=>!deals.some(fresh=>fresh.id===old.id))];renderOpportunities()}catch(error){console.warn('Deal update failed',error)}});
  eventStream.onerror=()=>{pushConnected=false;render()};
 }
-async function load(){if(loading){pendingLoad=true;return}loading=true;try{let response=await fetch('/api/v1/market?summary=1&hours='+windowQuery());if(response.status===401){location.replace('/');return}if(!response.ok)throw Error(response.status);data=await response.json();connectRealtime();subtypes();render();renderOpportunities()}catch(e){$('status').textContent=I18n.t('本地服务暂未连接；正在等待恢复')}finally{loading=false;if(pendingLoad){pendingLoad=false;setTimeout(load,0)}}}
+async function load(){if(loading){pendingLoad=true;return}loading=true;try{let response=await fetch('/api/v1/market?summary=1&hours='+windowQuery());if(response.status===401){location.replace('/');return}if(!response.ok)throw Error(response.status);data=await response.json();const namespace=data.alert_namespace||'';if(namespace!==alertNamespace){alertNamespace=namespace;alertArchive=readAlertStorage('market.alertArchive',[]);$('alertsEnabled').checked=readAlertStorage('market.alertsEnabled',true);$('pageAlertsEnabled').checked=readAlertStorage('market.pageAlertsEnabled',true)}connectRealtime();subtypes();render();renderOpportunities()}catch(e){$('status').textContent=I18n.t('本地服务暂未连接；正在等待恢复')}finally{loading=false;if(pendingLoad){pendingLoad=false;setTimeout(load,0)}}}
 function kv(pairs){return '<div class="kv">'+pairs.map(([k,v])=>`<div><span>${esc(k)}</span><b>${esc(v??'未提供')}</b></div>`).join('')+'</div>'}
 function job(mask){if(mask==null)return '未提供';if(mask===0)return '全职业';if(mask===-1)return '初心者';return [[1,'战士'],[2,'魔法师'],[4,'弓箭手'],[8,'飞侠'],[16,'海盗']].filter(([b])=>mask&b).map(([,s])=>s).join(' / ')||`职业代码 ${mask}`}
 const statLabels={incSTR:'力量',incDEX:'敏捷',incINT:'智力',incLUK:'运气',incPAD:'物理攻击',incMAD:'魔法攻击',incPDD:'物理防御',incMDD:'魔法防御',incACC:'命中',incEVA:'回避',incMHP:'HP',incMMP:'MP',incSpeed:'移动速度',incJump:'跳跃',tuc:'基础升级次数',attackSpeed:'攻击速度代码',success:'成功率（%）'};

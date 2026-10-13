@@ -5,6 +5,8 @@ import tempfile
 import threading
 import time
 import unittest
+import os
+import urllib.request
 from pathlib import Path
 from werkzeug.serving import make_server
 from shared_store import SharedStore
@@ -52,6 +54,26 @@ class UploadIntegration(unittest.TestCase):
                         '--config',str(config),'--folder',str(captures)],capture_output=True,timeout=30)
                     self.assertEqual(result.returncode,0,result.stderr.decode(errors='replace'))
                     self.assertIn(b'Uploaded 1',result.stdout)
+                    # Actual packaged UI entry: no registration or capture driver.
+                    gui_home=root/'bundle-ui';gui_home.mkdir()
+                    with (gui_home/'child.log').open('w') as log:
+                        process=subprocess.Popen([str(exe),'--dashboard-only','--no-browser',
+                            '--dashboard-port','0','--home',str(gui_home),'--config',str(config),
+                            '--folder',str(captures)],stdout=log,stderr=subprocess.STDOUT,
+                            creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
+                    try:
+                        ready=gui_home/'dashboard.json';deadline=time.monotonic()+15
+                        while not ready.exists() and process.poll() is None and time.monotonic()<deadline:time.sleep(.05)
+                        self.assertTrue(ready.exists(),(gui_home/'child.log').read_text(errors='replace'))
+                        url=json.loads(ready.read_text())['url'].removesuffix('/alerts')
+                        for path in ('/alerts','/market_ui.js','/market_i18n.js','/market_watchlist.js'):
+                            with urllib.request.urlopen(url+path,timeout=10) as response:
+                                self.assertEqual(response.status,200)
+                                self.assertNotIn(token.encode(),response.read())
+                        with urllib.request.urlopen(url+'/api/v1/market?summary=1',timeout=10) as response:
+                            self.assertTrue(json.load(response)['personal_alerts'])
+                    finally:
+                        process.terminate();process.wait(timeout=5)
                 self.assertEqual(store.report()['manual_visits'],1)
                 with store.repo.connect() as db:payload=db.execute('SELECT payload FROM uploads').fetchone()[0]
                 self.assertNotIn('DO_NOT_UPLOAD',payload)

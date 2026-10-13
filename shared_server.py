@@ -85,8 +85,31 @@ def create_app(store, hostname='mxd.ruit.me', public_read=False):
         try:created=store.upload(who,request.get_json())
         except Conflict:return jsonify(error='Observation ID content conflict'),409
         except (ValueError,KeyError,TypeError,OverflowError):return jsonify(error='Invalid observation schema'),400
-        with lock:cache.clear()
+        with lock:
+            # Personal candidates come directly from immutable uploads. Keep a
+            # short-lived comparison reference so browsing does not rebuild it
+            # for every shop opened by every collector.
+            for key in ('72','all'):cache.pop(key,None)
         return jsonify(ok=True,duplicate=not created),201 if created else 200
+
+    @app.get('/api/v1/collector/alerts')
+    def personal_alerts():
+        who=store.authenticate(bearer())
+        if not who:return jsonify(error='Collector token required'),401
+        if not allowed('personal-alerts:'+who,60):return jsonify(error='Rate limited'),429
+        window=request.args.get('hours','72')
+        if window not in ('72','all'):return jsonify(error='hours must be 72 or all'),400
+        key='personal-reference:'+window
+        with lock:
+            entry=cache.get(key)
+            if entry is None or time.monotonic()-entry['at']>30:
+                entry=cache.get(window)
+                if entry is None or time.monotonic()-entry['at']>30:
+                    entry=dict(data=store.report(None if window=='all' else 72),at=time.monotonic())
+                cache[key]=entry
+            reference=entry['data']
+        return jsonify(personal_alerts=True,generated_at=time.time(),
+                       opportunities=store.personal_alerts(who,reference))
 
     @app.get('/')
     @app.get('/alerts')
