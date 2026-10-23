@@ -1,0 +1,20 @@
+[package]
+name = "market-reader-wasm"
+description = "The screen reader of market-core compiled to WASM for the browser collector."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+market-core = { path = "../market-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Only the wasm32 build needs the JS bindings; native builds and tests do not.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "=0.2.129"
+js-sys = "=0.3.106"

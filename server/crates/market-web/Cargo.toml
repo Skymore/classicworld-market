@@ -1,0 +1,48 @@
+[package]
+name = "market-web"
+description = "axum service: market JSON API, bestiary pages, collector uploads."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+# CI and compose run the service with a bare `cargo run -p market-web`.
+default-run = "market-web"
+
+[[bin]]
+name = "market-web"
+path = "src/main.rs"
+
+# Tools in src/bin/ (import_catalog, import_portals, reachability) are
+# discovered automatically.
+
+[dependencies]
+market-core = { path = "../market-core" }
+
+anyhow = { workspace = true }
+axum = "0.8"
+base64 = "0.22"
+# zlib-rs: about twice as fast as the default backend; tower-http's gzip uses it too.
+flate2 = { version = "1", features = ["zlib-rs"] }
+getrandom = "0.2"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+hex = "0.4"
+jsonwebtoken = "9"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+url = "2"
+# Reads the legacy SQLite stores in the seed and replay tools.
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = "0.10"
+thiserror = { workspace = true }
+# sqlite: import_catalog reads data/fixture/items.sqlite; json: item_records.
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "sqlite", "migrate", "macros", "chrono", "json"] }
+maud = "0.27"
+tokio = { workspace = true }
+tower-http = { version = "0.6", features = ["trace", "compression-gzip", "set-header", "fs"] }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+[dev-dependencies]
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }

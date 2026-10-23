@@ -1,0 +1,2 @@
+# Maintainer-only publishing dependency; not installed by the collector.
+boto3>=1.40,<2

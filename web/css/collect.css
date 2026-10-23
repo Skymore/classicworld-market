@@ -1,0 +1,89 @@
+/* 屏幕采集页 /collect。只用 base.css 的令牌和组件（.stall、.btn、.verdict），这里只加本页布局。
+   页面自己的类名带 c- 前缀；tag / sold / exact / tags / rej / num / empty / warn / done / ok / err 由 collect.js 生成，名字不能改。
+   断点和全站一致：≤640 手机，641–1100 平板，≥1101 桌面。 */
+
+/* ---------- 页面外框 ---------- */
+.c-page{display:grid;gap:var(--gap)}
+.c-grid{display:grid;gap:var(--gap);grid-template-columns:minmax(0,1fr);align-items:start}
+@media (max-width:640px){.c-page{padding-top:4px}}
+@media (min-width:1101px){
+  .c-page,.c-grid{gap:16px}
+  .c-grid{grid-template-columns:minmax(0,5fr) minmax(0,7fr);grid-template-areas:"share shop" "logs shop" "report video"}
+  .c-share{grid-area:share}
+  .c-shop{grid-area:shop}
+  .c-logs{grid-area:logs}
+  .c-report{grid-area:report}
+  .c-video{grid-area:video}
+}
+
+/* ---------- 页头：标题 + 电脑专用提示 ---------- */
+.c-hero{display:grid;gap:12px;padding:14px 12px}
+.c-hero h1{font-size:21px;font-weight:800;line-height:1.2}
+.c-hero-text p{margin-top:4px;font-size:14px;color:var(--ink-2)}
+.c-hero .verdict{margin:0}
+.c-hero-text .c-ver{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--ink-3)}
+.c-ver i{flex:none;width:6px;height:6px;background:var(--bar);box-shadow:0 0 0 1px var(--sheet-hi),0 0 0 2px var(--edge)}
+@media (min-width:1101px){
+  .c-hero{grid-template-columns:minmax(0,1fr) minmax(0,460px);align-items:center;gap:24px;padding:20px 24px}
+  .c-hero h1{font-size:24px}
+}
+
+/* ---------- 面板内容 ---------- */
+.c-body{display:grid;gap:10px;padding:12px}
+.c-note{font-size:13px;color:var(--ink-2)}
+.c-note b{color:var(--ink)}
+.c-note:empty,.c-shophead:empty,.c-frames:empty{display:none}
+.c-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.btn:disabled{opacity:.55;cursor:default}
+.c-error{padding:10px 12px;border:2px solid var(--maple);border-radius:2px;background:var(--maple-tint);color:var(--ink);font-size:14px}
+
+/* 健康读数：一格一个数，没读到的频道 / 地图用红字（collect.js 给 .c-stat 加 .warn） */
+.c-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:6px;margin:0}
+@media (max-width:640px){.c-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.c-stat{min-width:0;padding:6px 8px;background:var(--sheet-hi);border:1px solid var(--rule);border-radius:2px;box-shadow:inset 1px 1px 0 var(--bevel-hi)}
+.c-stat dt{font-size:12px;color:var(--ink-3)}
+.c-stat dd{margin:0;font-weight:700;color:var(--ink);overflow-wrap:anywhere}
+.c-stat.warn dd{color:var(--maple-ink)}
+
+/* ---------- 当前商店 ---------- */
+.c-shophead{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--ink-2)}
+.c-shophead strong{color:var(--ink)}
+.c-meter{height:10px;background:var(--hole);border:1px solid var(--edge);border-radius:2px}
+.c-meter i{display:block;width:0;height:100%;background:var(--bar-hi);transition:width .2s}
+.c-meter.done i{background:var(--bar)}
+.c-tablewrap{overflow-x:auto;border-top:1px solid var(--rule)}
+.c-table{width:100%;border-collapse:collapse;font-size:14px}
+.c-table th{height:32px;padding:0 10px;background:var(--sheet-lo);font-size:12px;font-weight:600;color:var(--ink-3);text-align:left;white-space:nowrap;border-bottom:1px solid var(--rule)}
+.c-table td{height:44px;padding:0 10px;border-bottom:1px solid var(--rule)}
+.c-table tbody tr:last-child td{border-bottom:0}
+.c-table tbody tr:nth-child(even){background:var(--sheet-hi)}
+.c-table .num{text-align:right;white-space:nowrap}
+.c-table tr:not(.rej) td:nth-child(3){font-weight:700}
+.c-table tr.rej td{color:var(--ink-3)}
+.c-table td.empty{height:72px;text-align:center;color:var(--ink-3)}
+/* base.css 的 .tags 是物品页标签行（flex），这里是表格单元格 */
+.c-table td.tags{display:table-cell;margin:0;white-space:nowrap}
+.c-table .tag{display:inline-flex;align-items:center;height:22px;padding:0 6px;font-size:12px;border:1px solid var(--rule);border-radius:2px;background:var(--sheet-hi);color:var(--ink-2)}
+.c-table .tag.sold{color:var(--maple-ink);border-color:var(--maple);background:var(--maple-tint)}
+.c-table .tag.exact{color:var(--bar-text);border-color:var(--bar);background:var(--bar-soft)}
+
+/* ---------- 记录 ---------- */
+.c-log{list-style:none;margin:0;padding:0 12px;max-height:280px;overflow:auto;font-size:13px}
+.c-log li{display:flex;align-items:baseline;gap:10px;padding:8px 0;border-top:1px solid var(--rule)}
+.c-log li:first-child{border-top:0}
+.c-log time{flex:none;font-size:12px;color:var(--ink-3)}
+.c-log .err{color:var(--maple-ink)}
+.c-log .ok{color:var(--bar-text)}
+.c-log:empty::before{content:"开始读取后，上传和出错都会记在这里。";display:block;padding:20px 0;text-align:center;color:var(--ink-3)}
+
+/* ---------- 报告问题：最近 6 帧 ---------- */
+.c-frames{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.c-frames figure{margin:0;background:#000;border:1px solid var(--edge);border-radius:2px;box-shadow:var(--hard)}
+.c-frames canvas{display:block;width:100%;height:auto}
+.c-frames figcaption{padding:2px 6px;font-size:12px;background:var(--sheet-hi);color:var(--ink-2);border-top:1px solid var(--edge)}
+
+/* ---------- 上传录像 ---------- */
+.c-upload{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}
+.c-file{display:grid;gap:6px;min-width:0;max-width:100%;font-size:13px;color:var(--ink-2)}
+.c-file input{max-width:100%;min-height:44px;font:inherit;font-size:14px;color:var(--ink-2)}
+.c-file input::file-selector-button{min-height:44px;margin-right:10px;padding:0 14px;border:2px solid var(--edge);border-radius:2px;background:var(--sheet-hi);color:var(--ink);font:inherit;font-weight:700;box-shadow:inset 1px 1px 0 var(--bevel-hi),inset -1px -1px 0 var(--bevel-lo),var(--hard);cursor:pointer}

@@ -1,0 +1,460 @@
+//! Routes for the bestiary pages. Pages are public and anonymous by design
+//! (a game database); they carry edge-cache headers, search does not.
+
+use axum::{
+    extract::{Path, Query, State},
+    http::{header, HeaderValue, StatusCode},
+    response::{IntoResponse, Response},
+    routing::get,
+    Router,
+};
+use maud::Markup;
+use serde::Deserialize;
+
+use super::assets::CSS;
+use super::dex_api;
+use super::model::{RouteEnd, RouteOutcome, RoutePage, Step};
+use super::pages;
+use super::queries::{self, Resolution};
+use super::route::Graph;
+use crate::AppState;
+
+// Page context: language, device hint, render time.
+use std::convert::Infallible;
+
+use axum::{extract::FromRequestParts, http::request::Parts};
+use sqlx::types::chrono::Utc;
+
+use super::format::Lang;
+use super::model::SearchKind;
+use super::pages::{Ctx, Device};
+use crate::unix_now;
+
+/// Bestiary data only changes on import, which purges the edge cache.
+pub const EDGE_CACHE: &str = "public, s-maxage=86400";
+/// The item page carries market numbers; `item.js` refreshes them anyway.
+pub const ITEM_CACHE: &str = "public, max-age=0, s-maxage=60";
+/// Mob pages show typical prices next to their drops.
+pub const MOB_CACHE: &str = "public, s-maxage=600";
+const NOT_FOUND_CACHE: &str = "public, s-maxage=600";
+const NO_STORE: &str = "no-store";
+/// Scripts and fetches only from this origin; no inline styles (sizes are
+/// classes), images from the item and mob CDNs.
+const CSP: &str =
+    "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' https:; \
+                   style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+const MAX_QUERY_CHARS: usize = 64;
+
+pub fn routes() -> Router<AppState> {
+    Router::new()
+        .route("/item/{id}", get(item))
+        .route("/mob/{id}", get(mob))
+        .route("/map/{id}", get(map))
+        .route("/route", get(route))
+        .route("/search", get(search))
+        .route("/static/bestiary.css", get(css))
+        .route("/api/v1/dex/dropped-items", get(dex_api::dropped_items))
+        .route("/api/v1/dex/counts", get(dex_api::counts))
+        .route(
+            "/api/v1/market/period-default",
+            get(dex_api::period_default),
+        )
+}
+
+fn html(status: StatusCode, cache: &'static str, markup: Markup) -> Response {
+    (
+        status,
+        [
+            (
+                header::CONTENT_TYPE,
+                HeaderValue::from_static("text/html; charset=utf-8"),
+            ),
+            (header::CACHE_CONTROL, HeaderValue::from_static(cache)),
+            (
+                header::CONTENT_SECURITY_POLICY,
+                HeaderValue::from_static(CSP),
+            ),
+            // The first paint's layout follows the hint (see `Device`).
+            (header::VARY, HeaderValue::from_static("Sec-CH-UA-Mobile")),
+        ],
+        markup.into_string(),
+    )
+        .into_response()
+}
+
+/// Language from `?lang=`, layout hint from `Sec-CH-UA-Mobile`, and this
+/// page's own URL for the language switch.
+pub struct PageCtx(pub Ctx);
+
+impl<S: Send + Sync> FromRequestParts<S> for PageCtx {
+    type Rejection = Infallible;
+
+    async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
+        let mut lang = Lang::Zh;
+        let mut kept: Vec<&str> = Vec::new();
+        for pair in parts.uri.query().unwrap_or("").split('&') {
+            match pair.split_once('=').map_or(pair, |(k, _)| k) {
+                "" | "part" => {}
+                "lang" => lang = Lang::parse(pair.split_once('=').map(|(_, v)| v)),
+                _ => kept.push(pair),
+            }
+        }
+        let mut here = parts.uri.path().to_string();
+        if !kept.is_empty() {
+            here = format!("{here}?{}", kept.join("&"));
+        }
+        let hint = parts
+            .headers
+            .get("sec-ch-ua-mobile")
+            .and_then(|v| v.to_str().ok());
+        Ok(Self(Ctx {
+            lang,
+            device: Device::from_mobile_hint(hint),
+            here,
+            now: Utc::now(),
+        }))
+    }
+}
+
+/// What a missing page was, in both languages.
+type What = (&'static str, &'static str);
+const ITEM: What = ("物品", "item");
+const MOB: What = ("怪物", "monster");
+const MAP: What = ("地图", "map");
+
+fn not_found(what: What, ctx: &Ctx) -> Response {
+    html(
+        StatusCode::NOT_FOUND,
+        NOT_FOUND_CACHE,
+        pages::not_found_page(what.0, what.1, ctx),
+    )
+}
+
+fn server_error(err: sqlx::Error, ctx: &Ctx) -> Response {
+    tracing::error!(error = %err, "bestiary query failed");
+    html(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        NO_STORE,
+        pages::error_page(ctx),
+    )
+}
+
+/// Game ids are positive integers; anything else is a 404, not a 400.
+fn parse_id(raw: &str) -> Option<i32> {
+    if raw.is_empty() || !raw.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    raw.parse().ok()
+}
+
+/// Shared shape of the detail pages.
+fn detail<T>(
+    found: sqlx::Result<Option<T>>,
+    ctx: &Ctx,
+    what: What,
+    cache: &'static str,
+    render: fn(&T, &Ctx) -> Markup,
+) -> Response {
+    match found {
+        Ok(Some(page)) => html(StatusCode::OK, cache, render(&page, ctx)),
+        Ok(None) => not_found(what, ctx),
+        Err(err) => server_error(err, ctx),
+    }
+}
+
+#[derive(Deserialize)]
+struct ItemParams {
+    /// `market`: only the market sections, for `item.js` after a poll.
+    #[serde(default)]
+    part: String,
+    #[serde(default)]
+    hours: String,
+}
+
+async fn item(
+    State(state): State<AppState>,
+    Path(raw): Path<String>,
+    PageCtx(ctx): PageCtx,
+    Query(params): Query<ItemParams>,
+) -> Response {
+    let Some(id) = parse_id(&raw) else {
+        return not_found(ITEM, &ctx);
+    };
+    let found = queries::item_page_window(&state.db, id, unix_now(), params.hours == "all").await;
+    if params.part == "market" {
+        return detail(found, &ctx, ITEM, NO_STORE, pages::item_market_fragment);
+    }
+    if params.part == "preview" {
+        return detail(found, &ctx, ITEM, NO_STORE, pages::item_preview);
+    }
+    detail(found, &ctx, ITEM, ITEM_CACHE, pages::item_page)
+}
+
+async fn mob(
+    State(state): State<AppState>,
+    Path(raw): Path<String>,
+    PageCtx(ctx): PageCtx,
+) -> Response {
+    let Some(id) = parse_id(&raw) else {
+        return not_found(MOB, &ctx);
+    };
+    detail(
+        queries::mob_page(&state.db, id).await,
+        &ctx,
+        MOB,
+        MOB_CACHE,
+        pages::mob_page,
+    )
+}
+
+async fn map(
+    State(state): State<AppState>,
+    Path(raw): Path<String>,
+    PageCtx(ctx): PageCtx,
+) -> Response {
+    let Some(id) = parse_id(&raw) else {
+        return not_found(MAP, &ctx);
+    };
+    detail(
+        queries::map_page(&state.db, id).await,
+        &ctx,
+        MAP,
+        EDGE_CACHE,
+        pages::map_page,
+    )
+}
+
+#[derive(Deserialize)]
+struct RouteParams {
+    #[serde(default)]
+    from: String,
+    #[serde(default)]
+    to: String,
+}
+
+async fn route(
+    State(state): State<AppState>,
+    PageCtx(ctx): PageCtx,
+    Query(params): Query<RouteParams>,
+) -> Response {
+    let from = clip(&params.from);
+    let to = clip(&params.to);
+    match route_page(&state, from, to).await {
+        Ok(page) => html(StatusCode::OK, EDGE_CACHE, pages::route_page(&page, &ctx)),
+        Err(err) => server_error(err, &ctx),
+    }
+}
+
+async fn route_page(state: &AppState, from_input: &str, to_input: &str) -> sqlx::Result<RoutePage> {
+    let edges = queries::load_edges(&state.db).await?;
+    let mut page = RoutePage {
+        from_input: from_input.to_string(),
+        to_input: to_input.to_string(),
+        known_edges: edges.len(),
+        outcome: RouteOutcome::Form,
+    };
+    if from_input.is_empty() && to_input.is_empty() {
+        return Ok(page);
+    }
+    let from = match resolve(state, from_input, RouteEnd::From).await? {
+        Ok(map) => map,
+        Err(outcome) => {
+            page.outcome = outcome;
+            return Ok(page);
+        }
+    };
+    let to = match resolve(state, to_input, RouteEnd::To).await? {
+        Ok(map) => map,
+        Err(outcome) => {
+            page.outcome = outcome;
+            return Ok(page);
+        }
+    };
+    if from.id == to.id {
+        page.outcome = RouteOutcome::Same(from);
+        return Ok(page);
+    }
+    let graph = Graph::new(edges);
+    page.outcome = match graph.shortest_path(from.id, to.id) {
+        None => RouteOutcome::NoPath { from, to },
+        Some(path) => {
+            let mut ids: Vec<i32> = path.iter().flat_map(|e| [e.from, e.to]).collect();
+            ids.sort_unstable();
+            ids.dedup();
+            let names = queries::map_refs(&state.db, &ids).await?;
+            let steps = path
+                .iter()
+                .map(|e| Step {
+                    from: names[&e.from].clone(),
+                    to: names[&e.to].clone(),
+                    kind: e.kind,
+                    portal_name: e.portal_name.clone(),
+                })
+                .collect();
+            RouteOutcome::Found { from, to, steps }
+        }
+    };
+    Ok(page)
+}
+
+/// `Ok(map)` or the outcome to show instead.
+async fn resolve(
+    state: &AppState,
+    input: &str,
+    end: RouteEnd,
+) -> sqlx::Result<Result<super::model::MapRef, RouteOutcome>> {
+    if input.is_empty() {
+        return Ok(Err(RouteOutcome::Unresolved {
+            end,
+            query: String::new(),
+            candidates: Vec::new(),
+        }));
+    }
+    Ok(match queries::resolve_map(&state.db, input).await? {
+        Resolution::One(map) => Ok(map),
+        Resolution::Many(candidates) => Err(RouteOutcome::Unresolved {
+            end,
+            query: input.to_string(),
+            candidates,
+        }),
+    })
+}
+
+#[derive(Deserialize)]
+struct SearchParams {
+    #[serde(default)]
+    region: String,
+    #[serde(default)]
+    area: String,
+    #[serde(default)]
+    cat: String,
+    #[serde(default)]
+    job: String,
+    #[serde(default)]
+    min_level: String,
+    #[serde(default)]
+    max_level: String,
+    #[serde(default)]
+    q: String,
+    /// `item`, `mob` or `map`; anything else searches all three.
+    #[serde(default)]
+    kind: String,
+    #[serde(default)]
+    page: u32,
+}
+
+// Browsing selects one catalogue; a nonempty query always searches all three.
+fn search_kind(query: &str, requested: &str) -> Option<SearchKind> {
+    if query.is_empty() {
+        Some(SearchKind::parse(requested).unwrap_or(SearchKind::Item))
+    } else {
+        None
+    }
+}
+
+async fn search(
+    State(state): State<AppState>,
+    PageCtx(ctx): PageCtx,
+    Query(params): Query<SearchParams>,
+) -> Response {
+    let q = clip(&params.q);
+    let kind = search_kind(q, &params.kind);
+    let limit = if kind.is_some() {
+        queries::SEARCH_KIND_LIMIT
+    } else {
+        queries::SEARCH_LIMIT
+    };
+    let offset = i64::from(params.page.saturating_sub(1).min(10000)) * limit;
+    let mut filters = super::model::ItemFilters {
+        cat: params.cat,
+        job: params.job.parse().unwrap_or(0),
+        min_level: params.min_level.parse().ok(),
+        max_level: params.max_level.parse().ok(),
+    };
+    filters.normalize();
+    let page = queries::search_places(
+        &state.db,
+        q,
+        kind,
+        offset,
+        filters,
+        &params.region,
+        &params.area,
+    )
+    .await;
+    match page {
+        Ok(page) => html(StatusCode::OK, NO_STORE, pages::search_page(&page, &ctx)),
+        Err(err) => server_error(err, &ctx),
+    }
+}
+
+/// Trimmed and capped, so a long query string costs nothing.
+fn clip(text: &str) -> &str {
+    let text = text.trim();
+    match text.char_indices().nth(MAX_QUERY_CHARS) {
+        Some((end, _)) => &text[..end],
+        None => text,
+    }
+}
+
+/// The R3 stylesheet URL, kept so cached old pages do not 404; styles now
+/// live in `web/css/`.
+async fn css() -> impl IntoResponse {
+    (
+        [
+            (header::CONTENT_TYPE, "text/css; charset=utf-8"),
+            (
+                header::CACHE_CONTROL,
+                "public, max-age=86400, s-maxage=86400",
+            ),
+        ],
+        CSS,
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn search_crosses_catalogues_only_when_typing() {
+        assert_eq!(search_kind("", ""), Some(SearchKind::Item));
+        assert_eq!(search_kind("", "mob"), Some(SearchKind::Mob));
+        assert_eq!(search_kind("", "map"), Some(SearchKind::Map));
+        for kind in ["", "item", "mob", "map"] {
+            assert_eq!(search_kind("蜗牛", kind), None);
+        }
+    }
+
+    #[test]
+    fn ids_and_clipping() {
+        assert_eq!(parse_id("10001000"), Some(10001000));
+        assert_eq!(parse_id("-1"), None);
+        assert_eq!(parse_id("1e3"), None);
+        assert_eq!(parse_id("99999999999"), None);
+        assert_eq!(clip("  射手村  "), "射手村");
+        assert_eq!(clip(&"字".repeat(100)).chars().count(), MAX_QUERY_CHARS);
+    }
+
+    async fn ctx_of(uri: &str, mobile: Option<&str>) -> Ctx {
+        let mut req = axum::http::Request::get(uri);
+        if let Some(m) = mobile {
+            req = req.header("sec-ch-ua-mobile", m);
+        }
+        let (mut parts, _) = req.body(()).unwrap().into_parts();
+        PageCtx::from_request_parts(&mut parts, &())
+            .await
+            .unwrap()
+            .0
+    }
+
+    #[tokio::test]
+    async fn page_context_from_the_request() {
+        let ctx = ctx_of("/route?from=1&lang=en&to=2", Some("?0")).await;
+        assert_eq!(ctx.lang, Lang::En);
+        assert_eq!(ctx.device, Device::Desktop);
+        assert_eq!(ctx.here, "/route?from=1&to=2");
+        let ctx = ctx_of("/item/4?part=market", None).await;
+        assert_eq!((ctx.lang, ctx.device), (Lang::Zh, Device::Phone));
+        assert_eq!(ctx.here, "/item/4");
+    }
+}

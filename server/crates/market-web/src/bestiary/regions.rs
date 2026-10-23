@@ -1,0 +1,48 @@
+//! Regions of the currently imported Classic World map catalogue.
+//! Classic World uses its own map IDs (not the GMS numbering scheme).
+pub const REGIONS: &[(&str, &str, &str)] = &[
+    ("maple", "彩虹岛", "Maple Island"),
+    ("victoria", "金银岛", "Victoria Island"),
+    ("orbis", "天空之城", "Orbis"),
+    ("elnath", "冰峰雪域", "El Nath"),
+    ("market", "自由市场", "Free Market"),
+    ("special", "活动／特殊地图", "Events / special maps"),
+    ("other", "其他／待归类", "Other / unclassified"),
+];
+
+pub fn normalize(region: &str) -> String {
+    if REGIONS.iter().any(|r| r.0 == region) {
+        region.into()
+    } else {
+        String::new()
+    }
+}
+
+/// Shared by map filtering, mob spawn filtering and the area option list.
+pub fn region_sql(alias: &str) -> String {
+    format!("CASE
+        WHEN {alias}.id BETWEEN 0 AND 9999999 THEN 'maple'
+        WHEN {alias}.id BETWEEN 10000000 AND 19999999 OR {alias}.street_zh='金银岛' OR {alias}.street_en='Victoria Road' THEN 'victoria'
+        WHEN {alias}.id BETWEEN 20000000 AND 20000999 THEN 'orbis'
+        WHEN {alias}.id BETWEEN 20001000 AND 20001999 THEN 'elnath'
+        WHEN {alias}.id BETWEEN 80002000 AND 80002999 THEN 'market'
+        WHEN {alias}.id BETWEEN 90000000 AND 99999999 OR {alias}.id=89000000 OR {alias}.id BETWEEN 900000000 AND 999999999 THEN 'special'
+        ELSE 'other' END")
+}
+
+pub fn area_sql(alias: &str) -> String {
+    // The same localized area can have multiple English spellings in the
+    // source catalogue. Prefer its localized key so one area stays together.
+    format!("COALESCE(NULLIF({alias}.street_zh,''),NULLIF({alias}.street_en,''),'')")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn region_values_are_allowlisted() {
+        assert_eq!(normalize("victoria"), "victoria");
+        assert_eq!(normalize("<script>"), "");
+        assert!(region_sql("mp").contains("mp.id BETWEEN 20001000 AND 20001999"));
+    }
+}

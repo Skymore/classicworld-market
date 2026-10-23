@@ -1,0 +1,77 @@
+{
+  "note": "Game sprites belong to NEXON and its affiliates. Source images matched to Classic World mob IDs; mob 800022 shares 700003.",
+  "images": [
+    {
+      "cw_mob_id": 54,
+      "image": "54.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000054.img.move.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=54"
+    },
+    {
+      "cw_mob_id": 55,
+      "image": "55.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000055.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=55"
+    },
+    {
+      "cw_mob_id": 56,
+      "image": "56.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000056.img.fly.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=56"
+    },
+    {
+      "cw_mob_id": 57,
+      "image": "57.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000057.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=57"
+    },
+    {
+      "cw_mob_id": 58,
+      "image": "58.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000058.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=58"
+    },
+    {
+      "cw_mob_id": 59,
+      "image": "59.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000059.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=59"
+    },
+    {
+      "cw_mob_id": 60,
+      "image": "60.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000060.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=60"
+    },
+    {
+      "cw_mob_id": 61,
+      "image": "61.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000061.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=61"
+    },
+    {
+      "cw_mob_id": 62,
+      "image": "62.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000062.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=62"
+    },
+    {
+      "cw_mob_id": 63,
+      "image": "63.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000063.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=63"
+    },
+    {
+      "cw_mob_id": 700003,
+      "image": "700003.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0700003.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=700003"
+    },
+    {
+      "cw_mob_id": 1059,
+      "image": "1059.png",
+      "source_url": "https://meowdb.com/msclassic/monsters/sprites/mob_1059.png",
+      "source_page": "https://meowdb.com/msclassic/monsters/1059"
+    }
+  ]
+}

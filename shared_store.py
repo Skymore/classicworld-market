@@ -1,0 +1,113 @@
+"""SQLite WAL shared MVP: immutable uploads and conservative quote projections."""
+import hashlib
+import json
+import secrets
+import time
+from pathlib import Path
+from shared_protocol import validate, digest
+from market_dashboard import Repository
+
+
+class Conflict(ValueError):pass
+
+
+class SharedStore:
+    def __init__(self, folder, catalog=None):
+        self.repo=Repository(Path(folder),**({'catalog':Path(catalog)} if catalog else {}))
+        with self.repo.connect() as db:
+            db.execute('PRAGMA journal_mode=WAL')
+            db.execute('CREATE TABLE IF NOT EXISTS members (id TEXT PRIMARY KEY, name TEXT, hash TEXT UNIQUE, active INTEGER, created REAL)')
+            db.execute('CREATE TABLE IF NOT EXISTS uploads (member TEXT, oid TEXT, hash TEXT, received REAL, payload TEXT, PRIMARY KEY(member,oid))')
+
+    def invite(self,name):
+        token=secrets.token_urlsafe(32);member=secrets.token_hex(12)
+        with self.repo.connect() as db:
+            db.execute('INSERT INTO members VALUES (?,?,?,?,?)',(member,name,hashlib.sha256(token.encode()).hexdigest(),1,time.time()))
+        return member,token
+
+    def authenticate(self,token):
+        if not isinstance(token,str) or not 30<=len(token)<=128:return None
+        with self.repo.connect() as db:
+            row=db.execute('SELECT id FROM members WHERE hash=? AND active=1',(hashlib.sha256(token.encode()).hexdigest(),)).fetchone()
+        return row[0] if row else None
+
+    def revoke(self,member):
+        with self.repo.connect() as db:db.execute('UPDATE members SET active=0 WHERE id=?',(member,))
+
+    def upload(self,member,data):
+        clean=validate(data);encoded=json.dumps(clean,ensure_ascii=False,sort_keys=True);fingerprint=digest(clean)
+        with self.repo.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            old=db.execute('SELECT hash,payload FROM uploads WHERE member=? AND oid=?',(member,clean['observation_id'])).fetchone()
+            if old:
+                if old[0]!=fingerprint and digest(validate(json.loads(old[1])))!=fingerprint:
+                    raise Conflict('Observation ID reused with different content')
+                return False
+            db.execute('INSERT INTO uploads VALUES (?,?,?,?,?)',(member,clean['observation_id'],fingerprint,time.time(),encoded))
+            # Immutable per-observer evidence. The stored shop key keeps the UTC
+            # day; reports derive a day-independent listing identity from the
+            # payload (market_dashboard.listing_shop).
+            location=clean['location'];epoch=int(clean['observed_at']//86400)
+            shop=digest(['shared-v1',clean['world'],location,clean['shop_id'],clean['title'],epoch,
+                         None if location else member])
+            items=[];occurrences={}
+            for row in clean['items']:
+                eq=row.get('equipment')
+                variant=digest(eq)[:16] if eq and eq['status']=='candidate' else ('unknown' if eq else 'standard')
+                base_slot=row['category']*1000+row['slot']
+                occurrence=occurrences.get(base_slot,0);occurrences[base_slot]=occurrence+1
+                items.append(dict(item_id=row['item_id'],slot=base_slot+occurrence*1000000,
+                    price_mesos_candidate=row['price'],bundle_quantity_candidate=row['bundle'],
+                    available_quantity_candidate=row['stock'],shared_equipment=eq,shared_variant=variant))
+            payload=dict(session=member,time=clean['observed_at'],title=clean['title'],shop_id=clean['shop_id'],
+                         market_location=location,items=items,prices_require_screen_validation=True)
+            vid=digest([member,clean['observation_id']])
+            db.execute('INSERT INTO visits VALUES (?,?,?,?,?,?,?)',(vid,member,'ClassicWorld',clean['observed_at'],shop,'shared',json.dumps(payload,ensure_ascii=False)))
+        return True
+
+    def report(self, hours=72):
+        data=self.repo.report(hours)
+        # Report includes provenance fields useful locally, never serve those paths.
+        # Rows are shared between history, quotes, items and sales, so stripping
+        # the row dicts in place covers every view of them.
+        private=('source','raw_source','server_endpoint','collector','session')
+        for row in data['history']:
+            for key in private:row.pop(key,None)
+        for row in data['sales']:
+            for key in private:row.pop(key,None)
+        for key in private:data.pop(key,None)
+        data.update(health=dict(errors=[]),capture=None,connection_health=dict(state='ready',message='共享市场 · 成员观察数据'),
+                    shared=True,dedup_note='同位置/摊位ID/名称的最新快照合并，跨UTC日期同样合并；没有位置时按采集者隔离；缺少摊主稳定ID。')
+        return data
+
+    def personal_alerts(self, member, reference, now=None):
+        """Only this authenticated collector's recent uploads are candidates."""
+        from market_realtime_alerts import visit_opportunities
+        now = time.time() if now is None else now
+        with self.repo.connect() as db:
+            uploads = db.execute('SELECT payload FROM uploads WHERE member=? AND received>=? ORDER BY received DESC LIMIT 256',
+                                 (member, now-120)).fetchall()
+        latest = {}
+        for (blob,) in uploads:
+            clean = json.loads(blob)
+            location = clean['location'] or {}
+            key = (clean['world'], int(clean['observed_at']//86400), clean['shop_id'], clean['title'],
+                   location.get('channel'), location.get('room'))
+            if key not in latest or clean['observed_at'] > latest[key]['observed_at']:
+                latest[key] = clean
+        found = {}
+        for clean in latest.values():
+            visit = dict(time=clean['observed_at'], title=clean['title'], shop_id=clean['shop_id'],
+                         market_location=clean['location'], host='shared', port=0, items=[])
+            occurrences = {}
+            for row in clean['items']:
+                base = row['category']*1000+row['slot']
+                occurrence = occurrences.get(base, 0)
+                occurrences[base] = occurrence+1
+                visit['items'].append(dict(item_id=row['item_id'], slot=base+occurrence*1000000,
+                    price_mesos_candidate=row['price'], bundle_quantity_candidate=row['bundle'],
+                    available_quantity_candidate=row['stock']))
+            for deal in visit_opportunities(reference, visit, now):
+                if deal['id'] not in found or deal['observed'] > found[deal['id']]['observed']:
+                    found[deal['id']] = deal
+        return sorted(found.values(), key=lambda deal: (deal['observed'], deal['margin']), reverse=True)[:20]

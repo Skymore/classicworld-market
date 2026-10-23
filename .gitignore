@@ -1,0 +1,62 @@
+# Default deny: only source and reviewed assets are versioned.
+/*
+!/.gitignore
+!/.gitattributes
+!/.dockerignore
+!/*.py
+!/*.ps1
+!/*.md
+!/requirements*.txt
+!/COLLECTOR_QUICK_START.txt
+!/market_index.html
+!/market_ui.js
+!/market_ui.css
+!/market_selling.html
+!/market_selling_ui.js
+!/market_i18n.js
+!/market_watchlist.js
+!/test_market_watchlist.mjs
+!/market_dashboard.html
+!/item_catalog_template.html
+!/maple_crypto_constants.cs
+!/maple_aes.cs
+!/COPYING.MapleLib
+!/tools/
+/tools/*
+!/tools/market_bot_templates/
+!/tools/ui_screens.mjs
+!/tools/niadb_portals.py
+!/web/
+!/design/
+!/server/
+/server/target/
+/server/.env
+!/.github/
+!/msnet_reference/
+__pycache__/
+*.pyc
+.env*
+*.pem
+# Disposable signing fixture, accepted only by synthetic OIDC tests.
+!/server/crates/market-web/tests/fixtures/test-only-oidc.pem
+*.key
+*.log
+*.sqlite*
+*.pcap*
+*.etl
+
+# Personal session analysis remains local.
+/network_research.md
+
+!/shared_login.html
+
+# Market and catalogue snapshots remain local.
+/data/
+!/data/
+/data/*
+!/data/reference/
+/data/reference/mesowatch-market/
+
+# Built by server/tools/build_reader_wasm.sh.
+/web/collect/pkg/
+/web/releases/

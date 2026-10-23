@@ -1,0 +1,152 @@
+/* Server-rendered pages (item, mob, map, route, search). Loaded after base.css on every SSR page:
+   the shell bits app.js does for the SPA, size classes (the CSP forbids inline styles), and the bestiary pages.
+   Item-page styles live in item.css. */
+
+/* ---------- shell ---------- */
+html:not([data-device=desktop]) .on-desktop{display:none!important}
+html[data-device=desktop] .on-phone{display:none!important}
+a.iconbtn{display:inline-flex;align-items:center;justify-content:center}
+.ptop .brand{flex:none}
+.ptop .fresh{min-width:0}
+.ptop .fresh span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html[data-device=phone] .dwrap{padding:4px 0 12px}
+html[data-device=tablet] .dwrap{padding:12px}
+:focus-visible{outline:3px solid var(--maple);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+
+.slot.s28{--s:28px}
+.slot.s44{--s:44px}
+.slot.s56{--s:56px}
+.slot.coin{font-size:12px;font-weight:800;color:var(--maple-ink)}
+.well .note{margin:10px}
+.sub-h.ruled{border-top:1px solid var(--rule)}
+.chips a.chip{display:inline-flex;align-items:center}
+
+/* ---------- one row for every bestiary list ---------- */
+.drow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;min-height:52px;padding:4px 10px;border-top:1px solid var(--rule)}
+.well-h+.drow,.sub-h+.drow{border-top:0}
+a.drow:hover{background:var(--bar-soft)}
+.drow .t{min-width:0;overflow-wrap:anywhere}
+.drow .t b{font-weight:700}
+.drow .s{display:block;font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drow .r{font-size:13px;font-weight:700;color:var(--ink-2);white-space:nowrap}
+.drow .mobpic{width:44px;height:44px;background:var(--sheet-lo);border:1px solid var(--rule);border-radius:2px}
+.drow .mobpic img{max-width:40px;max-height:40px}
+.glyph{display:grid;place-items:center;width:32px;height:32px;margin:0 6px;color:var(--bar);background:var(--sheet-lo);border:1px solid var(--rule);border-radius:2px;font-size:13px;font-weight:800}
+
+/* ---------- mob and map pages ---------- */
+.dex .ihead.solo{grid-template-columns:minmax(0,1fr)}
+.mobpic.big{width:76px;height:76px;background:var(--sheet-hi);border:2px solid var(--edge);border-radius:2px;box-shadow:inset 1px 1px 0 var(--bevel-hi),inset -1px -1px 0 var(--bevel-lo)}
+.mobpic.big img{max-width:68px;max-height:68px}
+.tagx.hot{background:var(--maple);color:#fff;border-color:var(--edge)}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;border-top:2px solid var(--edge)}
+html[data-device=desktop] .stats{grid-template-columns:repeat(5,minmax(0,1fr))}
+.stats div{display:flex;justify-content:space-between;gap:8px;padding:8px 12px;border-bottom:1px solid var(--rule)}
+.stats div:nth-child(odd){background:var(--sheet-hi)}
+.stats dt{font-size:13px;color:var(--ink-3)}
+.stats dd{margin:0;font-weight:700}
+.desc{display:grid;gap:4px;padding:10px 12px;font-size:14px;color:var(--ink-2)}
+.dgrid{display:grid;gap:12px;padding:12px;border-top:2px solid var(--edge)}
+html[data-device=desktop] .dgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:16px;align-items:start}
+.actions{display:flex;flex-wrap:wrap;gap:8px;padding:0 12px 12px}
+.actions .btn{white-space:normal;text-align:center}
+.minimap{display:block;max-width:calc(100% - 24px);margin:0 12px 12px;border:2px solid var(--edge);background:var(--sheet-lo)}
+.dcol{display:grid;gap:12px;align-content:start;min-width:0}
+html[data-device=desktop] .dcol{gap:16px}
+.townlist{padding:4px 10px 12px;font-size:14px;line-height:1.9;color:var(--ink-3)}
+.townlist a{color:var(--bar-text);font-weight:600}
+.dbody{display:grid;gap:12px;padding:12px}
+
+/* ---------- route ---------- */
+.route-form{display:grid;gap:8px;padding:12px;border-bottom:2px solid var(--edge)}
+html[data-device=desktop] .route-form{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}
+.field{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 10px;background:var(--sheet-hi);border:2px solid var(--edge);border-radius:2px;box-shadow:inset 2px 2px 0 var(--bevel-lo)}
+.field span{flex:none;font-size:13px;color:var(--ink-3)}
+.field input{flex:1;min-width:0;height:44px;border:0;background:none;font:inherit;font-size:15px;color:var(--ink);outline:none}
+.steps{list-style:none;margin:0;padding:0}
+.step a{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;align-items:center;min-height:56px;padding:6px 10px;border-top:1px solid var(--rule)}
+.step:first-child a{border-top:0}
+.step a:hover{background:var(--bar-soft)}
+.step .t{display:flex;flex-direction:column;min-width:0}
+.step .t b{font-weight:700}
+.step .s{font-size:12px;color:var(--ink-3)}
+.step .no{display:grid;place-items:center;width:28px;height:28px;background:var(--bar);color:#fff;font-weight:800;border:1px solid var(--edge);box-shadow:inset 0 1px 0 var(--bar-hi)}
+/* A return scroll is not a walk: tinted row, red step number, dashed tag. */
+.step.scroll a{background:var(--maple-tint)}
+.step.scroll .no{background:var(--maple)}
+.step .kind{font-size:12px;font-weight:700;padding:0 6px;line-height:20px;border:1px dashed var(--maple-ink);color:var(--maple-ink);white-space:nowrap}
+
+/* ---------- search ---------- */
+.finder.in-page{margin:12px 12px 0}
+.kinds{flex-wrap:nowrap;overflow-x:auto;padding:10px 12px 0;scrollbar-width:none}
+.kinds::-webkit-scrollbar{display:none}
+.empty{display:grid;justify-items:center;gap:8px;padding:28px 12px;text-align:center;color:var(--ink-2)}
+.empty img{width:72px;height:72px;object-fit:contain}
+.empty .hint{font-size:13px;color:var(--ink-3)}
+
+[data-search-results] section[id]{scroll-margin-top:80px}
+
+/* Page counters use the same centered alignment as adjacent links. */
+.kinds>.chip{display:inline-flex;align-items:center;justify-content:center}
+
+.catalogue-tools{padding:12px;border-bottom:1px solid var(--rule)}
+.catalogue-cats{display:flex;gap:6px;flex-wrap:wrap}
+.catalogue-cats label{position:relative;cursor:pointer}
+.catalogue-cats input{position:absolute;opacity:0;width:1px;height:1px}
+.catalogue-cats span{display:flex;align-items:center;justify-content:center;min-height:40px;padding:0 10px;background:var(--sheet-hi);border:2px solid var(--edge);font-size:13px;font-weight:600}
+.catalogue-cats input:checked+span{background:var(--maple);color:#fff}
+.catalogue-cats input:focus-visible+span{outline:3px solid var(--focus);outline-offset:2px}
+.catalogue-filter{margin-top:10px}
+.catalogue-filter>summary{cursor:pointer;width:max-content;padding:8px 12px;border:1px solid var(--edge);font-weight:600}
+.catalogue-panel{display:flex;align-items:end;flex-wrap:wrap;gap:12px;margin-top:10px;padding:12px;background:var(--sheet-hi);border:1px solid var(--rule)}
+.catalogue-panel label{display:grid;gap:5px;font-size:13px}
+.catalogue-panel select,.catalogue-panel input{min-height:40px;max-width:160px;background:var(--sheet);color:var(--ink);border:1px solid var(--edge);padding:6px 8px;font:inherit}
+.catalogue-levels{display:flex;align-items:end;gap:8px}
+.catalogue-levels input{width:100px}.catalogue-levels>span{padding-bottom:12px}
+.catalogue-presets{display:flex;gap:6px;flex-wrap:wrap;flex-basis:100%}
+.catalogue-presets .chip{padding:0 10px;min-height:36px;font-size:13px}
+.catalogue-panel .fnote{flex-basis:100%;margin:0}
+@media(max-width:640px){.catalogue-cats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.catalogue-cats span{padding:0 4px}.catalogue-panel{gap:10px}.catalogue-levels input{width:88px}}
+
+.mobile-item-search{display:none}
+@media(max-width:640px){.mobile-item-search{display:flex;width:100%;margin-bottom:12px;min-width:0}.mobile-item-search .quick-search{min-width:0;width:auto;max-height:60vh}}
+.map-preview-missing{padding:24px;border:1px dashed var(--rule);text-align:center}
+.place-tools{display:flex;align-items:end;flex-wrap:wrap;gap:10px;padding:10px 12px;border-bottom:1px solid var(--rule);background:var(--sheet-hi)}
+.place-tools label{display:grid;gap:4px;min-width:0;font-size:13px}
+.place-tools select{height:40px;max-width:240px;min-width:150px;padding:0 8px;background:var(--sheet);color:var(--ink);border:1px solid var(--edge);font:inherit}
+.place-tools .chip{min-height:40px}
+.place-hint{flex:1;min-width:200px;align-self:center;font-size:12px;color:var(--ink-3)}
+.place-scope{font-size:13px;align-self:center}
+@media(max-width:640px){.place-tools{gap:8px}.place-tools label{flex:1}.place-tools select{min-width:0;width:100%;max-width:100%}.place-tools>.chip{padding:0 8px}.place-hint{flex-basis:100%;min-width:0}}
+
+/* Keep browse navigation, paging and collapsed filters compact. */
+[data-search-results]{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start}
+[data-search-results]>.kinds{margin:0;padding-bottom:0}
+[data-search-results]>.kinds+.kinds{justify-content:flex-end;padding-left:8px}
+[data-search-results]>.dbody{grid-column:1/-1}
+.catalogue-tools{display:block;position:relative;padding:10px 12px}
+.catalogue-cats{display:flex;flex:1;min-width:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin}
+.catalogue-cats label{flex:none;white-space:nowrap}
+.catalogue-filter{flex:none;margin:0}
+.catalogue-tools>.catalogue-cats{margin-right:96px}
+.catalogue-filter>summary{position:absolute;top:10px;right:12px;width:88px;min-height:40px;display:list-item;padding:8px;white-space:nowrap}
+.catalogue-filter[open]{min-width:0}
+/* Compact catalogue cards; detail-page lists keep their row layout. */
+.catalogue-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:10px}
+.catalogue-grid>.drow{grid-template-columns:auto minmax(0,1fr);gap:8px;align-content:center;min-width:0;min-height:72px;padding:8px;border:1px solid var(--rule);background:var(--sheet-hi)}
+.catalogue-grid>.drow:hover{border-color:var(--bar);background:var(--bar-soft)}
+.catalogue-grid>.drow:focus-visible{outline:3px solid var(--focus);outline-offset:1px}
+.catalogue-grid .t{font-size:13px;line-height:1.4}
+.catalogue-grid .s{white-space:normal;overflow:visible;font-size:11px;line-height:1.35}
+.catalogue-grid .lv{display:inline-block;font-size:11px;white-space:nowrap}
+.catalogue-grid .glyph{margin:0}
+@media(max-width:1050px){.catalogue-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){.catalogue-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:8px}.catalogue-grid>.drow{gap:6px;padding:7px;min-height:76px}.catalogue-grid .mobpic{width:32px;height:32px}.catalogue-grid .mobpic img{max-width:30px;max-height:30px}}
+@media(max-width:359px){.catalogue-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:640px){
+  .catalogue-cats{display:flex;grid-template-columns:none}
+  .catalogue-cats span{padding:0 8px}
+  [data-search-results]>.kinds{gap:5px;padding-left:12px}
+  [data-search-results]>.kinds+.kinds{padding-left:4px}
+  [data-search-results]>.kinds>.chip{padding-left:9px;padding-right:9px;white-space:nowrap}
+}

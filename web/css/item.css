@@ -1,0 +1,135 @@
+/* /item/<id>. Phone and desktop share one DOM (server-rendered); this file places it per html[data-device]
+   and maps the size classes the server emits instead of inline custom properties (CSP: style-src 'self'). */
+
+/* ---------- bar and head ---------- */
+.star-btn>span{display:inline-flex;align-items:center;gap:4px}
+html:not([data-device=desktop]) .item-stall .star-btn{margin-left:auto}
+.star-btn[aria-pressed=false] .when-on,.star-btn[aria-pressed=true] .when-off{display:none}
+.item-stall .stall-bar h2{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html:not([data-device=desktop]) .iprice-d{display:none}
+html[data-device=desktop] .iprice{display:none}
+html[data-device=desktop] .ipage .ihead{border-bottom:2px solid var(--edge)}
+.few{display:inline-flex;align-items:center;height:22px;padding:0 6px;font-size:12px;border:1px dashed var(--ink-3);color:var(--ink-2);white-space:nowrap}
+.iprice .few{align-self:center}
+
+/* ---------- body: one column on phones, the mockup's grid on desktop ---------- */
+.ibox{display:grid;gap:12px;padding:12px}
+html[data-device=desktop] .ibox{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:16px;padding:16px;align-items:start}
+html[data-device=desktop] .ibox>.src-box{grid-column:1;grid-row:1}
+html[data-device=desktop] .ibox>[data-market=tabs]{grid-column:2;grid-row:1}
+html[data-device=desktop] .ibox>[data-market=where],
+html[data-device=desktop] .ibox>[data-market=equip],
+html[data-device=desktop] .ibox>[data-market=sales]{grid-column:1/-1}
+
+/* "more" lists: .xp hides past the phone count, .xd past the desktop count, .extra on both;
+   item.js adds .all to the well. */
+html:not([data-device=desktop]) .well:not(.all) .xp,
+html[data-device=desktop] .well:not(.all) .xd,
+.well:not(.all) .extra{display:none}
+.well.all [data-more]{display:none}
+.more .px{margin-left:2px}
+
+.mob-t{min-width:0}
+
+/* ---------- where to buy ---------- */
+.where-well .sortb{cursor:default}
+.where-well [data-offer-sort]{min-height:36px;max-width:100%;font:inherit;padding:4px 6px;border:1px solid var(--edge);background:var(--sheet);color:var(--ink);cursor:pointer}
+.lrow .lshop{min-width:0}
+.where-well.recent-order .lrow{grid-template-columns:minmax(0,1fr) auto 80px 48px 90px}
+@media(max-width:640px){
+ .where-well.recent-order .lrow{grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:'shop shop price' 'place stock time';gap:4px 8px;padding:8px 10px}
+ .recent-offers .lshop{grid-area:shop}.recent-offers .lroom{grid-area:place}.recent-offers .lp{grid-area:price}.recent-offers .lq{grid-area:stock}.recent-offers .la{grid-area:time}
+}
+
+/* ---------- price ladder ---------- */
+.rung-h .l{text-align:right;padding-right:8px}
+.rung-l i.f0{--f:0}.rung-l i.f1{--f:.05}.rung-l i.f2{--f:.1}.rung-l i.f3{--f:.15}.rung-l i.f4{--f:.2}
+.rung-l i.f5{--f:.25}.rung-l i.f6{--f:.3}.rung-l i.f7{--f:.35}.rung-l i.f8{--f:.4}.rung-l i.f9{--f:.45}
+.rung-l i.f10{--f:.5}.rung-l i.f11{--f:.55}.rung-l i.f12{--f:.6}.rung-l i.f13{--f:.65}.rung-l i.f14{--f:.7}
+.rung-l i.f15{--f:.75}.rung-l i.f16{--f:.8}.rung-l i.f17{--f:.85}.rung-l i.f18{--f:.9}.rung-l i.f19{--f:.95}
+.rung-l i.f20{--f:1}
+.rung-r i.d5{--d:5px}.rung-r i.d6{--d:6px}.rung-r i.d7{--d:7px}.rung-r i.d8{--d:8px}
+.rung-r i.d9{--d:9px}.rung-r i.d10{--d:10px}.rung-r i.d11{--d:11px}.rung-r i.d12{--d:12px}
+.rung-r i.d13{--d:13px}.rung-r i.d14{--d:14px}.rung-r i.d15{--d:15px}.rung-r i.d16{--d:16px}
+.ladder-read[hidden]{display:none}
+
+/* ---------- trend ---------- */
+.trend .lg{flex-wrap:wrap}
+.trend .lg .k-med{background:var(--mark)}
+.trend .lg .k-span{background:var(--mark);opacity:.35}
+.trend .lg .k-count{background:var(--ink-3);opacity:.3}
+.trend-hit{cursor:crosshair}
+.trend{position:relative}
+.trend svg{max-height:260px}
+.trend-tooltip{position:absolute;top:8px;right:8px;z-index:2;max-width:calc(100% - 16px);padding:8px 10px;background:var(--sheet-hi);color:var(--ink);border:1px solid var(--edge);box-shadow:var(--hard);font-size:12px;line-height:1.6;font-variant-numeric:tabular-nums;white-space:pre-line;pointer-events:none}
+.trend-tooltip[hidden]{display:none}
+[data-trend-marker]{display:none;pointer-events:none}
+[data-trend-marker].selected{display:block}
+.trend-days{display:flex;gap:4px;overflow-x:auto;padding:4px 0}
+.trend-days button{flex:1;min-width:44px;min-height:44px;padding:4px;background:var(--sheet-hi);border:1px solid var(--rule);color:var(--ink);font:inherit;font-size:12px;cursor:pointer}
+.trend-days button[aria-pressed=true]{background:var(--bar);color:#fff;border-color:var(--edge);font-weight:700}
+.trend-days button:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}
+.trend-readout{padding:10px;margin-top:6px;background:var(--sheet-hi);border:1px solid var(--rule);font-variant-numeric:tabular-nums}
+.trend-range{min-height:36px;font-size:12px;color:var(--ink-2);overflow-wrap:anywhere}
+.trend-readout dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:8px 0 0}
+.trend-readout dt{font-size:12px;color:var(--ink-3)}
+.trend-readout dd{margin:2px 0 0;font-weight:700;overflow-wrap:anywhere}
+@media(max-width:640px){.trend-readout dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ---------- recent sales ---------- */
+.pane .sale-note{margin-top:8px}
+.well>.sale-note,.well>.more+.sale-note{padding:0 10px 10px}
+/* Two newspaper columns instead of the mockup's grid-auto-flow with an inline row count. */
+.salegrid{display:block;columns:2;column-gap:24px;padding:0 10px}
+.salegrid .sale{break-inside:avoid}
+/* English evidence labels ("seen sold out") need a wider first column. */
+html[lang=en] .sale{grid-template-columns:96px minmax(0,1fr) auto 60px}
+html[lang=en] .salegrid .sale{grid-template-columns:96px minmax(0,1fr) auto minmax(0,140px) 70px}
+
+/* ---------- equipment: the game's tooltip box ---------- */
+.item-stall.bonus-only [data-bonus="0"]{display:none}
+.equip-well .toggle{min-height:44px}
+.tips{display:grid;grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:8px;padding:10px}
+.tip{display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:#1b2231;color:#eef1f6;border:1px solid #8a9bb4;border-radius:3px;box-shadow:inset 0 0 0 1px #0b0e14,var(--hard);font-size:13px}
+.tip-h{display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding-bottom:4px;border-bottom:1px dashed #56657c}
+.tip-h b{font-size:14px;color:#fff}
+.tip-up{font-weight:800;color:#ffd35c}
+.tip ul{list-style:none;margin:0;padding:0;display:grid;gap:1px}
+.tip li{display:flex;align-items:baseline;gap:6px}
+.tip li span{flex:1;color:#c9d2df}
+.tip li b{font-weight:700}
+.tip li.up b{color:#ffd35c}
+.tip li i{font-style:normal;font-size:12px;color:#9fd486}
+.tip-s{font-size:12px;color:#aab6c7}
+.tip-f{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:auto;padding-top:6px;border-top:1px dashed #56657c;font-size:12px;color:#c9d2df}
+.tip-f b{color:#fff}
+.tip-f .loc{background:#263047;border-color:#56657c;color:#dfe5ee}
+.tip-f .loc b{color:#bcd3f0;border-color:#56657c}
+
+/* Per-offer equipment disclosure keeps the exact instance beside its shop. */
+.listing-offer{border-top:1px solid var(--rule)}
+.listing-offer:first-child{border-top:0}
+.listing-offer>summary.lrow{cursor:pointer;list-style:none;min-height:44px;border-top:0}
+.listing-offer>summary::-webkit-details-marker{display:none}
+.listing-offer[open]>summary{background:var(--sheet-hi)}
+.offer-body{display:grid;gap:10px;padding:12px;border-top:1px dashed var(--rule)}
+.offer-body .tip{width:min(100%,360px)}
+.listing-offer>summary:focus-visible{outline:2px solid var(--maple-ink);outline-offset:-2px}
+
+.listing-offer>summary .lshop{display:flex;flex-direction:row;align-items:center;gap:8px;min-width:0;padding:8px 0}
+.listing-offer>summary .lshop>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.offer-chevron{display:inline-block;flex:0 0 14px;text-align:center;font-size:22px;line-height:1;color:var(--ink-2);transition:transform .12s ease}
+.listing-offer[open]>summary .offer-chevron{transform:rotate(90deg)}
+.listing-offer>summary:hover{background:var(--sheet-hi)}
+@media (prefers-reduced-motion:reduce){.offer-chevron{transition:none}}
+
+/* A dedicated search row above the mobile item card. */
+.mobile-item-search{display:none}
+@media (max-width:640px){
+  .mobile-item-search{display:flex;width:100%;margin-bottom:12px;min-width:0}
+  .mobile-item-search .quick-search{min-width:0;width:auto;max-height:min(60vh,420px)}
+}
+
+.item-period select{height:32px;color:var(--bar-ink);background:transparent;border:1px solid currentColor;padding:0 5px}
+.item-period option{color:var(--ink);background:var(--sheet)}
+.item-period .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}

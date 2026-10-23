@@ -1,0 +1,27 @@
+name: Notify collectors of a stable release
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published stable version (v0.5.8)
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: collector-release-notice
+  cancel-in-progress: false
+jobs:
+  notify:
+    if: github.event_name == 'workflow_dispatch' || (!github.event.release.prerelease && !github.event.release.draft)
+    runs-on: [self-hosted, Windows, X64, mxd-production]
+    timeout-minutes: 3
+    steps:
+      # Run only the installed publisher, never arbitrary release contents.
+      - name: Verify release and notify connected collectors
+        shell: cmd
+        env:
+          COLLECTOR_RELEASE: ${{ github.event.release.tag_name || inputs.version }}
+        run: |
+          "%MXD_DEPLOY_ROOT%\.venv\Scripts\python.exe" "%MXD_DEPLOY_ROOT%\announce_collector_update.py"

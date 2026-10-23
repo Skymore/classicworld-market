@@ -1,0 +1,22 @@
+.item-peek{position:fixed;z-index:110;width:320px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain;background:#1b2231;color:#eef1f6;border:2px solid #8199bb;border-radius:4px;box-shadow:0 6px 20px #0006;font-size:13px;line-height:1.4;font-variant-numeric:tabular-nums}
+.item-peek[hidden],.peek-scrim[hidden]{display:none}
+.peek-scrim{position:fixed;inset:0;z-index:109;background:var(--scrim)}
+.item-peek.is-mobile{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));width:auto;max-width:420px;margin-inline:auto}
+.item-peek.is-mobile .peek-close{width:44px;min-height:44px}
+.item-peek.is-mobile .peek-head{padding-right:54px}
+html:has(.item-peek.is-mobile:not([hidden])){overflow:hidden}
+.peek-close{position:absolute;top:4px;right:4px;z-index:2;display:grid;place-items:center;width:36px;min-height:36px;color:#fff;background:#263650;border:1px solid #8199bb;border-radius:2px;font-size:24px;cursor:pointer}
+.peek-head{display:flex;align-items:center;gap:10px;padding:12px 46px 10px 12px;background:#2c3e5b}
+.peek-head .slot{--s:44px;flex:none}
+.peek-head>div{min-width:0}.peek-head h2{font-size:15px;line-height:1.35;margin:0;overflow-wrap:anywhere;color:#fff}
+.peek-secondary{font-size:12px;margin:2px 0;color:#b9cee9;overflow-wrap:anywhere}
+.peek-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}.peek-tags span{background:#435775;color:#f2e8d1;border:1px solid #7188a8;padding:1px 5px;font-size:11px;border-radius:2px}
+.peek-section{padding:10px 12px;border-top:1px solid #56657c}.peek-section h3{margin:0 0 6px;font-size:12px;color:#b9cee9;font-weight:600}
+.peek-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 16px;margin:0}
+.peek-stats>div{display:flex;align-items:baseline;justify-content:space-between;gap:6px;min-width:0}.peek-stats dt{font-size:12px;color:#c9d2df;overflow-wrap:anywhere}.peek-stats dd{margin:0;color:#fff;font-weight:700;overflow-wrap:anywhere}
+.peek-price{color:#ffd35a;font-size:24px;font-weight:800;margin-bottom:8px;overflow-wrap:anywhere}.peek-price small{display:block;color:#c9d2df;font-size:11px;font-weight:400}
+.peek-note{font-size:11px;color:#b1bfd3;margin:7px 0 0}.peek-content>p.peek-note{padding:8px 12px}.peek-warning{font-size:12px;color:#ffd35a;margin:7px 0 0}
+.peek-footer{padding:10px 12px;background:#263650;border-top:1px solid #56657c}.peek-footer a,.peek-loading a{display:flex;min-height:36px;align-items:center;justify-content:center;color:#fff;font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.peek-loading{padding:18px 44px 18px 12px;min-height:90px}.peek-loading h2{font-size:14px}
+.item-peek :focus-visible{outline:3px solid #ffd35a;outline-offset:-3px}
+@media(pointer:coarse){.peek-close{min-height:44px;width:44px}.peek-head{padding-right:54px}}

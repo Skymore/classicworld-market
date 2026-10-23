@@ -1,0 +1,193 @@
+/* 成交 / 关注 / 捡漏三页的样式（R5-C）。只用 base.css 的令牌和组件类，这里只加列表页自己的布局。
+   断点和 app.js 一致：≤640 手机，641–1100 平板，≥1101 桌面。用媒体查询，不依赖 html[data-device]。 */
+
+/* ---------- 页面外框 ---------- */
+.lwrap>.stall+.stall{margin-top:var(--gap)}
+.watch-offer-tools{margin-left:auto;display:flex;align-items:center;gap:8px;min-width:0;padding-right:4px}
+.watch-offer-tools .bar-meta{margin:0;padding:0}
+.watch-offer-tools select{min-height:32px;max-width:160px;padding:3px 5px;font:inherit;font-size:13px;color:var(--bar-ink);background:transparent;border:1px solid currentColor;cursor:pointer}
+.watch-offer-tools option{color:var(--ink);background:var(--sheet)}
+@media(max-width:400px){.wmatches .stall-bar{gap:4px;padding-left:8px}.watch-offer-tools{gap:4px}.watch-offer-tools select{font-size:12px;max-width:138px}}
+@media (max-width:640px){
+  .lpage{margin:0 calc(-1 * var(--gap));border-left:0;border-right:0;border-radius:0}
+}
+@media (min-width:641px){
+  .lwrap{max-width:1280px;margin:0 auto;padding:16px}
+}
+@media (min-width:1101px){
+  .lwrap{padding:24px}
+}
+
+/* 吸顶：标题栏 + 工具栏。桌面和平板的顶栏 .dhead 高 60px 且吸顶。 */
+.lhead{position:sticky;top:0;z-index:20;background:var(--sheet);border-bottom:2px solid var(--edge);box-shadow:var(--hard)}
+@media (min-width:641px){.lhead{top:60px}}
+
+.ltools{position:relative;display:flex;align-items:center;gap:8px;padding:8px 12px}
+.ltools .cats{flex:1;min-width:0;-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}
+.ltools .sp{display:none}
+.lwide{display:none}
+.fcount{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:2px;padding:0 4px;background:var(--maple);color:#fff;font-size:12px;line-height:1;border:1px solid var(--edge)}
+.fcount[hidden]{display:none}
+@media (min-width:641px){
+  .ltools .cats{flex:none;overflow:visible;-webkit-mask-image:none;mask-image:none}
+  .ltools .sp{display:block;flex:1}
+  .lwide{display:inline}
+  .ltools .toggle.lwide{display:inline-flex}
+  .lnarrow{display:none}
+  /* 平板也用下拉面板；手机是 base.css 的底部弹出面板 */
+  .ltools .fpanel{position:absolute;right:12px;top:calc(100% + 6px);z-index:25;width:380px}
+  #filter-root .scrim{display:none}
+}
+
+.llist{background:var(--sheet)}
+.lfoot:empty{display:none}
+.lend{padding:14px 12px;text-align:center;font-size:13px;color:var(--ink-3);border-top:1px solid var(--rule)}
+.lpage>.sale-note{margin:0;padding:10px 12px;border-top:1px solid var(--rule)}
+.lempty{display:grid;justify-items:center;gap:8px;padding:32px 16px;text-align:center;color:var(--ink-3)}
+.lempty img{width:48px;height:48px;object-fit:contain}
+.lempty p{max-width:36em;font-size:14px}
+
+/* ---------- 成交行：手机两行（mockup 的 ware two），桌面一行（ware one 加证据和数量） ---------- */
+.srow{grid-template-columns:auto minmax(0,1fr) auto;min-height:56px}
+.srow .w-sub{gap:6px}
+.srow .evi{padding:0 6px;height:20px}
+.srow .sa{font-size:12px;color:var(--ink-3)}
+.srow .s-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:64px}
+.srow .sq{margin-left:4px;font-size:12px;font-weight:400;color:var(--ink-3);white-space:nowrap}
+.srow .s-right .sa{white-space:nowrap}
+.srow .ss,.dc-where .ss,.tmeta .ss{font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:14em}
+.srow:hover{background:var(--bar-soft)}
+/* 桌面一行：图标 | 物品 | 证据 | 位置 | 单价 ×数量 | 时间；关注页多一列摊位名 */
+@media (min-width:1101px){
+  .srow{grid-template-columns:auto minmax(0,1fr) 88px 130px 120px 96px;min-height:48px}
+  .srow .w-main,.srow .w-sub,.srow .s-right{display:contents}
+  .srow .evi,.srow .loc{justify-self:start}
+  .srow .sa,.srow .ware-price{text-align:right}
+  .wrow{grid-template-columns:auto minmax(0,1fr) minmax(0,200px) 130px 120px 96px}
+  .wrow .ss{max-width:none}
+}
+
+/* ---------- 关注 ---------- */
+.wadd{display:flex;flex-wrap:wrap;gap:8px;padding:12px;border-bottom:1px solid var(--rule)}
+.wadd .finder{flex:1 1 260px;height:48px}
+.wadd .btn{flex:none}
+.wadd .btn[hidden]{display:none}
+.wadd .btn:disabled{opacity:.55;cursor:default}
+.wresults{border-bottom:1px solid var(--rule);max-height:min(50vh,420px);overflow:auto}
+.ware.wres{width:100%;text-align:left;grid-template-columns:auto minmax(0,1fr) auto}
+.wres-act{font-size:13px;font-weight:700;color:var(--ink-3);white-space:nowrap}
+.wres-act.go{color:var(--bar-text)}
+.wres[aria-disabled=true]{cursor:default}
+.wstatus{padding:8px 12px;font-size:13px;color:var(--ink-2);border-bottom:1px solid var(--rule)}
+.wstatus:empty{display:none}
+
+.wcards{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--gap);padding:var(--gap)}
+@media (min-width:641px){.wcards{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}}
+.wcards>.lempty{grid-column:1/-1}
+.wcard{display:flex;flex-direction:column;min-width:0}
+.wc-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:6px 4px 6px 10px;border-bottom:1px solid var(--rule)}
+.wc-name{display:flex;flex-direction:column;justify-content:center;min-width:0;min-height:44px}
+.wc-name b{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wc-name small{font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wc-head .bar-btn{color:var(--ink-3)}
+.wc-head .bar-btn:hover{color:var(--ink)}
+.wc-nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--rule)}
+.wc-nums>span{display:flex;flex-direction:column;gap:1px;min-width:0;padding:8px 10px;background:var(--sheet-hi)}
+.wc-nums small{font-size:12px;color:var(--ink-3)}
+.wc-nums b{font-size:17px;font-weight:800}
+.wc-nums em{font-style:normal;font-size:12px;color:var(--ink-3)}
+.wc-nums .hit b{color:var(--maple-ink)}
+.wc-set{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:auto;padding:8px 10px;border-top:1px solid var(--rule)}
+.wc-cap{flex:1 1 140px;min-width:0;display:flex;align-items:center;gap:8px;height:44px;padding:0 10px;border:2px solid var(--edge);border-radius:2px;background:var(--sheet);font-size:13px;color:var(--ink-3)}
+.wc-cap>span{flex:none;white-space:nowrap}
+.wc-cap input{flex:1;width:0;min-width:0;height:100%;padding:0;border:0;border-radius:0;background:none;font:inherit;font-size:15px;color:var(--ink);text-align:right;outline:none;appearance:textfield;-moz-appearance:textfield}
+.wc-cap input::-webkit-inner-spin-button,.wc-cap input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.wc-set>.toggle{flex:none;gap:6px;padding:0 2px;font-size:13px;white-space:nowrap}
+.wc-cap:focus-within{outline:3px solid var(--maple-ink);outline-offset:2px}
+/* 手机：一屏放 4 张卡。上限和提醒折叠到标题行的"上限 X"按钮，数字行收紧 */
+.wc-edit{display:none}
+@media (max-width:640px){
+  .wc-head{grid-template-columns:auto minmax(0,1fr) auto auto;gap:6px;padding:4px 4px 4px 10px}
+  .wc-edit{display:inline-flex;align-items:center;min-height:44px;padding:0 10px;font-size:13px;white-space:nowrap}
+  .wcard:not(.open) .wc-set{display:none}
+  .wc-nums>span{flex-direction:row;align-items:baseline;justify-content:space-between;gap:4px;padding:6px 8px}
+  .wc-nums b{font-size:15px}
+}
+
+/* ---------- 捡漏 ---------- */
+.atools{flex-wrap:wrap;border-bottom:1px solid var(--rule)}
+.alabel{font-size:12px;font-weight:700;color:var(--ink-3)}
+.astatus{font-size:12px;color:var(--ink-3)}
+@media (max-width:640px){.astatus{flex-basis:100%}}
+.dc-margin{padding:2px 8px;margin-right:8px;background:var(--maple);color:#fff;font-size:16px;font-weight:800;border:1px solid var(--edge);white-space:nowrap}
+.dc-where{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:8px 10px;font-size:12px;color:var(--ink-3);border-top:1px solid var(--rule)}
+.dc-basis{display:grid;gap:4px;padding:0 10px 10px;font-size:12px;line-height:1.5;color:var(--ink-3)}
+.dc-basis b{font-weight:600;color:var(--ink-2)}
+.asetup{display:grid;gap:12px;padding:16px 12px}
+.asetup h2{font-size:17px;font-weight:800}
+.asetup>p{font-size:14px;color:var(--ink-2)}
+.astep{display:grid;gap:8px;justify-items:start;padding:10px 12px}
+.astep h3{font-size:15px;font-weight:800}
+.astep p{font-size:14px;color:var(--ink-2)}
+.awarn{padding:8px 10px;font-size:14px;border-left:4px solid var(--maple);background:var(--maple-tint)}
+.amanual{padding:10px 12px}
+.amanual summary{cursor:pointer;font-size:14px;font-weight:700}
+.amanual>p{margin-top:12px;font-size:14px;color:var(--ink-2)}
+.amanual .atoken{padding:12px 0 0}
+.atoken label{font-size:14px}
+.atoken .arow{display:flex;gap:8px;width:100%}
+.atoken input{flex:1;min-width:0;height:44px;padding:0 10px;border:2px solid var(--edge);border-radius:2px;background:var(--sheet-hi);font:inherit;font-size:15px;color:var(--ink)}
+.atoken .fnote{margin-top:0}
+@media (max-width:480px){.atoken .arow{flex-direction:column}.atoken input{flex:auto;width:100%}}
+
+/* ---------- 游戏公告式提示：最多 5 条，新的在上 ---------- */
+.toasts{position:fixed;z-index:60;top:calc(env(safe-area-inset-top) + 8px);left:8px;right:8px;display:grid;gap:8px;pointer-events:none}
+@media (min-width:641px){.toasts{left:auto;right:16px;top:72px;width:360px}}
+.toast{pointer-events:auto;background:var(--sheet);border:2px solid var(--edge);border-radius:2px;box-shadow:inset 1px 1px 0 var(--bevel-hi),inset -1px -1px 0 var(--bevel-lo),0 4px 0 rgba(46,42,36,.3);animation:toast-in .18s ease-out}
+.toast .stall-bar h2{display:flex;align-items:center;gap:6px;font-size:14px}
+.toast .stall-bar h2 .px{color:#ffd43b}
+.toast .stall-bar .bar-btn{margin-left:auto}
+.toast-body{display:grid;gap:2px;padding:8px 12px 10px;font-size:14px}
+.toast-body b{font-size:15px}
+.offer-equipment{display:block;font-size:12px;line-height:1.5;overflow-wrap:anywhere;color:var(--ink)}
+.toast .offer-equipment{border-top:1px solid var(--rule);margin-top:4px;padding-top:5px}
+.toasts{max-height:calc(100dvh - 88px);overflow-y:auto;overscroll-behavior:contain}
+.tmeta{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-3)}
+@keyframes toast-in{from{transform:translateY(-8px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}}
+
+/* 焦点：base.css 里没有通用焦点样式时也可见 */
+.lpage :focus-visible,.toast :focus-visible{outline:3px solid var(--maple-ink);outline-offset:2px}
+.lpage .wc-cap input:focus-visible{outline:none}
+.lpage .ware:focus-visible{outline-offset:-3px}
+.lpage .stall-bar :focus-visible,.toast .stall-bar :focus-visible{outline-color:var(--bar-ink);outline-offset:-4px}
+
+.wresults{max-height:480px;overflow:auto}
+
+/* Keep each sales filter group on one row, including narrow popovers. */
+.sales-page .fpanel .chips{flex-wrap:nowrap;overflow-x:auto}
+.sales-page .fpanel .chips .chip{flex:1 0 auto;padding-inline:8px;font-size:14px}
+
+.sales-embedded.lwrap{padding:0;margin:0;max-width:none}
+.sales-embedded .lpage{margin:0;border:0;box-shadow:none}
+.sales-embedded .lhead{position:relative;top:auto;z-index:1}
+
+/* The shared page container owns spacing; lists stay inside their cards. */
+main>.lwrap{padding:0;max-width:none}
+.watch-help{margin:0 12px 10px;color:var(--ink-2);font-size:13px}
+.watch-help>summary{cursor:pointer;min-height:36px;align-content:center;width:max-content}
+.watch-help>p{margin:4px 0 0;padding:10px;background:var(--sheet-hi);border:1px solid var(--rule);line-height:1.6}
+html:has(.fpanel[aria-modal=true]){overflow:hidden}
+.fpanel{overscroll-behavior:contain}
+@media(max-width:640px){
+  .lhead:has(.fpanel[aria-modal=true]){z-index:60}
+  .ltools .fpanel[aria-modal=true]{display:flex;flex-direction:column;max-height:88vh;max-height:88dvh;overflow:hidden}
+  .ltools .fpanel[aria-modal=true]>[data-fbody]{min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  .ltools .fpanel[aria-modal=true]>.fhead,.ltools .fpanel[aria-modal=true]>.ffoot{flex-shrink:0}
+  .lwrap:not(.sales-embedded)>.lpage{margin:0;border:2px solid var(--edge);border-radius:2px;box-shadow:var(--hard)}
+}
+
+.deal-toolbar{padding:12px;display:grid;gap:10px;border-bottom:1px solid var(--rule)}
+.deal-switches{display:flex;align-items:center;gap:6px 20px;flex-wrap:wrap}.deal-switches label{display:inline-flex;align-items:center;gap:8px;min-height:44px;cursor:pointer}.deal-switches input{width:18px;height:18px;accent-color:var(--maple)}
+.deal-help{font-size:12px;line-height:1.6;color:var(--ink-2)}.collector-status{display:flex;gap:6px 18px;flex-wrap:wrap;padding:12px;background:var(--sheet-hi);border-bottom:1px solid var(--rule);font-size:13px}.collector-status small{width:100%;color:var(--ink-2)}.deal-history-note{padding:8px 12px;color:var(--ink-2);font-size:12px;border-top:1px dashed var(--rule)}
+@media(max-width:640px){.deal-switches{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.deal-switches label:first-child{grid-column:1/-1}.deal-toolbar .chips{flex-wrap:nowrap}.deal-toolbar .chip{flex:1;white-space:nowrap}.collector-status{gap:6px 12px}}

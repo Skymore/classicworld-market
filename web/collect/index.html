@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN" data-lang="zh" data-device="phone" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#3b5f8a">
+  <meta name="referrer" content="no-referrer">
+  <title>屏幕采集 · 枫叶市集</title>
+  <link rel="icon" href="/web/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/web/css/base.css?v=20261023-header-icons-2">
+  <link rel="stylesheet" href="/web/css/collect.css">
+  <script src="/web/js/lib/boot.js"></script>
+</head>
+<body>
+<div id="app" class="app">
+  <!-- Same chrome as the server-rendered pages (server/crates/market-web/src/bestiary/pages/shell.rs).
+       Chinese only, so there is no language switch; no data here, so no "data updated" chip. -->
+  <header class="ptop">
+    <a class="brand" href="/"><svg class="px" viewBox="0 0 11 11" width="22" height="22" shape-rendering="crispEdges" aria-hidden="true"><rect x="5" y="0" width="1" height="1" fill="var(--maple)"/><rect x="4" y="1" width="3" height="1" fill="var(--maple)"/><rect x="1" y="2" width="1" height="1" fill="var(--maple)"/><rect x="4" y="2" width="3" height="1" fill="var(--maple)"/><rect x="9" y="2" width="1" height="1" fill="var(--maple)"/><rect x="1" y="3" width="2" height="1" fill="var(--maple)"/><rect x="4" y="3" width="3" height="1" fill="var(--maple)"/><rect x="8" y="3" width="2" height="1" fill="var(--maple)"/><rect x="1" y="4" width="9" height="1" fill="var(--maple)"/><rect x="0" y="5" width="11" height="1" fill="var(--maple)"/><rect x="1" y="6" width="9" height="1" fill="var(--maple)"/><rect x="2" y="7" width="7" height="1" fill="var(--maple)"/><rect x="1" y="8" width="2" height="1" fill="var(--maple)"/><rect x="4" y="8" width="1" height="1" fill="var(--maple)"/><rect x="5" y="8" width="1" height="1" fill="var(--edge)"/><rect x="6" y="8" width="1" height="1" fill="var(--maple)"/><rect x="8" y="8" width="2" height="1" fill="var(--maple)"/><rect x="5" y="9" width="1" height="1" fill="var(--edge)"/><rect x="4" y="10" width="1" height="1" fill="var(--edge)"/></svg><span>枫叶市集</span></a>
+    <span class="prefs"><button class="iconbtn" type="button" data-theme-toggle aria-label="切换夜市主题" title="切换夜市主题"><span class="pref-glyph pref-theme" aria-hidden="true"></span></button></span>
+  </header>
+  <header class="dhead"><div class="in">
+    <a class="brand" href="/"><svg class="px" viewBox="0 0 11 11" width="26" height="26" shape-rendering="crispEdges" aria-hidden="true"><rect x="5" y="0" width="1" height="1" fill="var(--maple)"/><rect x="4" y="1" width="3" height="1" fill="var(--maple)"/><rect x="1" y="2" width="1" height="1" fill="var(--maple)"/><rect x="4" y="2" width="3" height="1" fill="var(--maple)"/><rect x="9" y="2" width="1" height="1" fill="var(--maple)"/><rect x="1" y="3" width="2" height="1" fill="var(--maple)"/><rect x="4" y="3" width="3" height="1" fill="var(--maple)"/><rect x="8" y="3" width="2" height="1" fill="var(--maple)"/><rect x="1" y="4" width="9" height="1" fill="var(--maple)"/><rect x="0" y="5" width="11" height="1" fill="var(--maple)"/><rect x="1" y="6" width="9" height="1" fill="var(--maple)"/><rect x="2" y="7" width="7" height="1" fill="var(--maple)"/><rect x="1" y="8" width="2" height="1" fill="var(--maple)"/><rect x="4" y="8" width="1" height="1" fill="var(--maple)"/><rect x="5" y="8" width="1" height="1" fill="var(--edge)"/><rect x="6" y="8" width="1" height="1" fill="var(--maple)"/><rect x="8" y="8" width="2" height="1" fill="var(--maple)"/><rect x="5" y="9" width="1" height="1" fill="var(--edge)"/><rect x="4" y="10" width="1" height="1" fill="var(--edge)"/></svg><span>枫叶市集</span></a>
+    <nav class="dnav" aria-label="主导航"><a href="/">首页</a><a href="/prices">价格表</a><a href="/search?kind=item">图鉴</a><a href="/watch">关注</a><a href="/alerts">捡漏</a></nav>
+    <form class="finder" action="/search" method="get" role="search"><svg class="px" viewBox="0 0 12 12" width="18" height="18" shape-rendering="crispEdges" aria-hidden="true"><rect x="2" y="0" width="5" height="1" fill="currentColor"/><rect x="1" y="1" width="2" height="1" fill="currentColor"/><rect x="6" y="1" width="2" height="1" fill="currentColor"/><rect x="0" y="2" width="2" height="1" fill="currentColor"/><rect x="7" y="2" width="2" height="1" fill="currentColor"/><rect x="0" y="3" width="1" height="1" fill="currentColor"/><rect x="8" y="3" width="1" height="1" fill="currentColor"/><rect x="0" y="4" width="1" height="1" fill="currentColor"/><rect x="8" y="4" width="1" height="1" fill="currentColor"/><rect x="0" y="5" width="2" height="1" fill="currentColor"/><rect x="7" y="5" width="2" height="1" fill="currentColor"/><rect x="1" y="6" width="2" height="1" fill="currentColor"/><rect x="6" y="6" width="2" height="1" fill="currentColor"/><rect x="2" y="7" width="7" height="1" fill="currentColor"/><rect x="7" y="8" width="3" height="1" fill="currentColor"/><rect x="8" y="9" width="3" height="1" fill="currentColor"/><rect x="9" y="10" width="3" height="1" fill="currentColor"/><rect x="10" y="11" width="2" height="1" fill="currentColor"/></svg><input type="search" name="q" value="" placeholder="搜索物品、怪物、地图" aria-label="搜索"><kbd>/</kbd></form>
+    <span class="prefs"><button class="iconbtn" type="button" data-theme-toggle aria-label="切换夜市主题" title="切换夜市主题"><span class="pref-glyph pref-theme" aria-hidden="true"></span></button></span>
+  </div></header>
+
+  <main class="pmain dwrap c-page" id="main">
+    <section class="stall c-hero" aria-labelledby="h-page">
+      <div class="c-hero-text">
+        <h1 id="h-page">屏幕采集</h1>
+        <p>在电脑上共享游戏窗口，逛摊时读到的商店会自动上传到市集。</p>
+        <p><a class="btn" href="/web/download.html">下载 Windows 采集器与使用说明</a></p>
+        <p class="c-ver"><i></i><span id="ver">读取器加载中…</span></p>
+      </div>
+      <div class="verdict c-device">
+        <b>电脑专用</b>
+        <strong>手机浏览器不能共享屏幕</strong>
+        <small>请在电脑上用 Chrome、Edge 或 Firefox 打开这个页面。</small>
+      </div>
+    </section>
+
+    <div class="c-grid">
+      <section class="stall c-share" aria-labelledby="h-share">
+        <div class="stall-bar"><h2 id="h-share">共享游戏窗口</h2><span class="bar-meta" id="state">未开始</span></div>
+        <div class="stall-body c-body">
+          <p class="c-note">画面只在本机读取，<b>不会上传视频或截图</b>。读到的商店在内容稳定 2 秒后上传：物品、价格、每组数量、频道和洞号。</p>
+          <div class="c-actions">
+            <button class="btn primary" id="start" type="button" disabled>共享游戏窗口</button>
+            <button class="btn" id="stop" type="button" hidden>停止</button>
+          </div>
+          <dl class="c-stats" aria-live="polite">
+            <div class="c-stat"><dt>帧率</dt><dd id="c-fps">–</dd></div>
+            <div class="c-stat"><dt>找窗口</dt><dd id="c-find">–</dd></div>
+            <div class="c-stat"><dt>读一帧</dt><dd id="c-read">–</dd></div>
+            <div class="c-stat"><dt>缩放</dt><dd id="c-scale">–</dd></div>
+            <div class="c-stat"><dt>频道</dt><dd id="c-channel">未读到</dd></div>
+            <div class="c-stat"><dt>地图</dt><dd id="c-map">未读到</dd></div>
+            <div class="c-stat"><dt>已上传</dt><dd id="c-sent">0 家店</dd></div>
+          </dl>
+          <p class="c-note" id="hint">打开游戏里的“切换频道”菜单一次以读取频道；小地图展开或收起成一行都可以读地图。</p>
+          <div class="c-error" id="error" role="alert" hidden></div>
+        </div>
+      </section>
+
+      <section class="stall c-shop" aria-labelledby="h-shop">
+        <div class="stall-bar"><h2 id="h-shop">当前商店</h2><span class="bar-meta" id="shop-id">未打开商店</span></div>
+        <div class="stall-body">
+          <div class="c-body">
+            <div class="c-shophead" id="shop-head"></div>
+            <div class="c-meter" id="meter" title="内容稳定 2 秒后上传"><i></i></div>
+            <p class="c-note" id="waiting"></p>
+          </div>
+          <div class="c-tablewrap">
+            <table class="c-table" aria-label="读到的行">
+              <thead><tr><th>格</th><th>物品</th><th class="num">价格</th><th class="num">每组</th><th>状态</th><th class="num">置信度</th></tr></thead>
+              <tbody id="rows"><tr><td colspan="6" class="empty">打开一家商店，读到的行会显示在这里</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="stall c-logs" aria-labelledby="h-log">
+        <div class="stall-bar"><h2 id="h-log">记录</h2></div>
+        <div class="stall-body"><ul class="c-log" id="log" aria-live="polite"></ul></div>
+      </section>
+
+      <section class="stall c-report" aria-labelledby="h-report">
+        <div class="stall-bar"><h2 id="h-report">报告问题</h2><span class="bar-meta">最近 6 帧，只存在本机</span></div>
+        <div class="stall-body c-body">
+          <p class="c-note">读错或读不出时，点“保存最近 6 帧”。截图只保存在这个页面里，可以下载后自己发给站长；不会自动上传。</p>
+          <div class="c-actions">
+            <button class="btn" id="snap" type="button" disabled>保存最近 6 帧</button>
+            <button class="btn" id="download" type="button" hidden>下载为 PNG</button>
+          </div>
+          <div class="c-frames" id="frames"></div>
+        </div>
+      </section>
+
+      <section class="stall c-video" aria-labelledby="h-video">
+        <div class="stall-bar"><h2 id="h-video">上传录像</h2><span class="bar-meta">服务端处理尚未上线</span></div>
+        <div class="stall-body c-body">
+          <p class="c-note">录像由服务器用同一读取器处理，每段不超过 10 分钟。<b>服务端接口 /api/v1/upload/video 还没有上线</b>，现在提交会失败；这里先放表单。</p>
+          <form id="video-form" class="c-upload" action="/api/v1/upload/video" method="post" enctype="multipart/form-data">
+            <label class="c-file">录像文件<input type="file" name="video" accept="video/*" required></label>
+            <button class="btn" type="submit">上传录像</button>
+          </form>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <nav class="dock" aria-label="主导航">
+    <a href="/"><svg class="px" viewBox="0 0 12 12" width="24" height="24" shape-rendering="crispEdges" aria-hidden="true"><rect x="5" y="0" width="2" height="1" fill="currentColor"/><rect x="4" y="1" width="4" height="1" fill="currentColor"/><rect x="3" y="2" width="6" height="1" fill="currentColor"/><rect x="2" y="3" width="8" height="1" fill="currentColor"/><rect x="1" y="4" width="10" height="1" fill="currentColor"/><rect x="0" y="5" width="12" height="1" fill="currentColor"/><rect x="1" y="6" width="2" height="1" fill="currentColor"/><rect x="9" y="6" width="2" height="1" fill="currentColor"/><rect x="1" y="7" width="2" height="1" fill="currentColor"/><rect x="4" y="7" width="4" height="1" fill="currentColor"/><rect x="9" y="7" width="2" height="1" fill="currentColor"/><rect x="1" y="8" width="2" height="1" fill="currentColor"/><rect x="4" y="8" width="1" height="1" fill="currentColor"/><rect x="7" y="8" width="1" height="1" fill="currentColor"/><rect x="9" y="8" width="2" height="1" fill="currentColor"/><rect x="1" y="9" width="2" height="1" fill="currentColor"/><rect x="4" y="9" width="1" height="1" fill="currentColor"/><rect x="7" y="9" width="1" height="1" fill="currentColor"/><rect x="9" y="9" width="2" height="1" fill="currentColor"/><rect x="1" y="10" width="2" height="1" fill="currentColor"/><rect x="4" y="10" width="1" height="1" fill="currentColor"/><rect x="7" y="10" width="1" height="1" fill="currentColor"/><rect x="9" y="10" width="2" height="1" fill="currentColor"/><rect x="1" y="11" width="10" height="1" fill="currentColor"/></svg><span>首页</span><span class="badge" data-badge="home" hidden></span></a>
+    <a href="/prices"><svg class="px" viewBox="0 0 12 12" width="24" height="24" shape-rendering="crispEdges" aria-hidden="true"><rect x="5" y="0" width="7" height="1" fill="currentColor"/><rect x="4" y="1" width="2" height="1" fill="currentColor"/><rect x="11" y="1" width="1" height="1" fill="currentColor"/><rect x="3" y="2" width="2" height="1" fill="currentColor"/><rect x="7" y="2" width="2" height="1" fill="currentColor"/><rect x="11" y="2" width="1" height="1" fill="currentColor"/><rect x="2" y="3" width="2" height="1" fill="currentColor"/><rect x="7" y="3" width="2" height="1" fill="currentColor"/><rect x="11" y="3" width="1" height="1" fill="currentColor"/><rect x="1" y="4" width="2" height="1" fill="currentColor"/><rect x="11" y="4" width="1" height="1" fill="currentColor"/><rect x="0" y="5" width="2" height="1" fill="currentColor"/><rect x="10" y="5" width="2" height="1" fill="currentColor"/><rect x="0" y="6" width="1" height="1" fill="currentColor"/><rect x="9" y="6" width="2" height="1" fill="currentColor"/><rect x="0" y="7" width="2" height="1" fill="currentColor"/><rect x="8" y="7" width="2" height="1" fill="currentColor"/><rect x="1" y="8" width="2" height="1" fill="currentColor"/><rect x="7" y="8" width="2" height="1" fill="currentColor"/><rect x="2" y="9" width="2" height="1" fill="currentColor"/><rect x="6" y="9" width="2" height="1" fill="currentColor"/><rect x="3" y="10" width="4" height="1" fill="currentColor"/><rect x="4" y="11" width="2" height="1" fill="currentColor"/></svg><span>价格</span><span class="badge" data-badge="prices" hidden></span></a>
+    <a href="/search?kind=item"><svg class="px" viewBox="0 0 12 12" width="24" height="24" shape-rendering="crispEdges" aria-hidden="true"><rect x="1" y="1" width="4" height="1" fill="currentColor"/><rect x="7" y="1" width="4" height="1" fill="currentColor"/><rect x="0" y="2" width="1" height="1" fill="currentColor"/><rect x="5" y="2" width="2" height="1" fill="currentColor"/><rect x="11" y="2" width="1" height="1" fill="currentColor"/><rect x="0" y="3" width="1" height="1" fill="currentColor"/><rect x="2" y="3" width="2" height="1" fill="currentColor"/><rect x="5" y="3" width="2" height="1" fill="currentColor"/><rect x="8" y="3" width="2" height="1" fill="currentColor"/><rect x="11" y="3" width="1" height="1" fill="currentColor"/><rect x="0" y="4" width="1" height="1" fill="currentColor"/><rect x="5" y="4" width="2" height="1" fill="currentColor"/><rect x="11" y="4" width="1" height="1" fill="currentColor"/><rect x="0" y="5" width="1" height="1" fill="currentColor"/><rect x="2" y="5" width="2" height="1" fill="currentColor"/><rect x="5" y="5" width="2" height="1" fill="currentColor"/><rect x="8" y="5" width="2" height="1" fill="currentColor"/><rect x="11" y="5" width="1" height="1" fill="currentColor"/><rect x="0" y="6" width="1" height="1" fill="currentColor"/><rect x="5" y="6" width="2" height="1" fill="currentColor"/><rect x="11" y="6" width="1" height="1" fill="currentColor"/><rect x="0" y="7" width="1" height="1" fill="currentColor"/><rect x="2" y="7" width="2" height="1" fill="currentColor"/><rect x="5" y="7" width="2" height="1" fill="currentColor"/><rect x="8" y="7" width="2" height="1" fill="currentColor"/><rect x="11" y="7" width="1" height="1" fill="currentColor"/><rect x="0" y="8" width="1" height="1" fill="currentColor"/><rect x="5" y="8" width="2" height="1" fill="currentColor"/><rect x="11" y="8" width="1" height="1" fill="currentColor"/><rect x="1" y="9" width="4" height="1" fill="currentColor"/><rect x="7" y="9" width="4" height="1" fill="currentColor"/><rect x="5" y="10" width="2" height="1" fill="currentColor"/></svg><span>图鉴</span><span class="badge" data-badge="dex" hidden></span></a>
+    <a href="/watch"><svg class="px" viewBox="0 0 12 12" width="24" height="24" shape-rendering="crispEdges" aria-hidden="true"><rect x="5" y="0" width="2" height="1" fill="currentColor"/><rect x="5" y="1" width="2" height="1" fill="currentColor"/><rect x="4" y="2" width="4" height="1" fill="currentColor"/><rect x="4" y="3" width="4" height="1" fill="currentColor"/><rect x="0" y="4" width="12" height="1" fill="currentColor"/><rect x="1" y="5" width="10" height="1" fill="currentColor"/><rect x="2" y="6" width="8" height="1" fill="currentColor"/><rect x="3" y="7" width="6" height="1" fill="currentColor"/><rect x="3" y="8" width="6" height="1" fill="currentColor"/><rect x="2" y="9" width="3" height="1" fill="currentColor"/><rect x="7" y="9" width="3" height="1" fill="currentColor"/><rect x="2" y="10" width="2" height="1" fill="currentColor"/><rect x="8" y="10" width="2" height="1" fill="currentColor"/><rect x="1" y="11" width="2" height="1" fill="currentColor"/><rect x="9" y="11" width="2" height="1" fill="currentColor"/></svg><span>关注</span><span class="badge" data-badge="watch" hidden></span></a>
+    <a href="/alerts"><svg class="px" viewBox="0 0 12 12" width="24" height="24" shape-rendering="crispEdges" aria-hidden="true"><rect x="4" y="0" width="4" height="1" fill="currentColor"/><rect x="2" y="1" width="8" height="1" fill="currentColor"/><rect x="1" y="2" width="4" height="1" fill="currentColor"/><rect x="7" y="2" width="4" height="1" fill="currentColor"/><rect x="1" y="3" width="3" height="1" fill="currentColor"/><rect x="5" y="3" width="2" height="1" fill="currentColor"/><rect x="8" y="3" width="3" height="1" fill="currentColor"/><rect x="0" y="4" width="4" height="1" fill="currentColor"/><rect x="5" y="4" width="2" height="1" fill="currentColor"/><rect x="8" y="4" width="4" height="1" fill="currentColor"/><rect x="0" y="5" width="4" height="1" fill="currentColor"/><rect x="5" y="5" width="2" height="1" fill="currentColor"/><rect x="8" y="5" width="4" height="1" fill="currentColor"/><rect x="0" y="6" width="4" height="1" fill="currentColor"/><rect x="5" y="6" width="2" height="1" fill="currentColor"/><rect x="8" y="6" width="4" height="1" fill="currentColor"/><rect x="0" y="7" width="4" height="1" fill="currentColor"/><rect x="5" y="7" width="2" height="1" fill="currentColor"/><rect x="8" y="7" width="4" height="1" fill="currentColor"/><rect x="1" y="8" width="3" height="1" fill="currentColor"/><rect x="5" y="8" width="2" height="1" fill="currentColor"/><rect x="8" y="8" width="3" height="1" fill="currentColor"/><rect x="1" y="9" width="4" height="1" fill="currentColor"/><rect x="7" y="9" width="4" height="1" fill="currentColor"/><rect x="2" y="10" width="8" height="1" fill="currentColor"/><rect x="4" y="11" width="4" height="1" fill="currentColor"/></svg><span>捡漏</span><span class="badge" data-badge="alerts" hidden></span></a>
+  </nav>
+</div>
+<script type="module" src="/collect/header.js?v=20261023-header-icons-2"></script>
+<script type="module" src="/collect/collect.js?v=20261023-channels-v2"></script>
+</body>
+</html>

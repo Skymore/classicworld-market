@@ -1,0 +1,74 @@
+/* 价格表私有样式。行（.prow / .ptable / .ware）、筛选面板（.fpanel）、抽屉（.drawer）在 base.css。 */
+
+/* 排序菜单 */
+[data-price-tools][hidden],.active-price-filters[hidden],.sortwrap[hidden]{display:none}
+.active-price-filters{display:flex;gap:6px;align-items:center;overflow-x:auto;padding:6px 12px;border-top:1px solid var(--rule);scrollbar-width:thin}
+.active-price-filters>button{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:34px;padding:3px 9px;background:var(--sheet-hi);border:1px solid var(--rule);font:inherit;font-size:12px;color:var(--ink);white-space:nowrap;cursor:pointer}
+.active-price-filters .clear-price-filters{border-color:transparent;background:transparent;text-decoration:underline;text-underline-offset:3px}
+.filter-empty-action{display:flex;justify-content:center;padding:0 12px 20px}
+.quote-value{display:inline-flex;flex-direction:column;align-items:flex-end;gap:2px}
+.sample-badge{display:block;padding:0 4px;border:1px solid var(--rule);border-radius:2px;background:var(--sheet-lo);font-size:11px;font-weight:500;line-height:1.4;color:var(--ink-2);white-space:nowrap}
+@media(max-width:640px){.active-price-filters>button{min-height:40px}.quote-value{justify-content:center}}
+.sortwrap{position:relative;flex:none;display:inline-flex}
+.sortmenu{position:absolute;right:0;top:calc(100% + 4px);z-index:30;min-width:184px;padding:4px 0;background:var(--sheet);border:2px solid var(--edge);border-radius:2px;box-shadow:var(--hard)}
+.sortmenu button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px;padding:0 12px;font-weight:600;color:var(--ink-2);text-align:left;white-space:nowrap}
+.sortmenu button:hover{background:var(--bar-soft)}
+.sortmenu [aria-checked=true]{color:var(--maple-ink)}
+.dir{font-size:12px;line-height:1}
+
+/* 筛选按钮：设了几项就挂个数字 */
+#prices-filter-root .scrim{z-index:45}
+.fbtn{position:relative}
+.fbtn.on{border-color:var(--maple);color:var(--maple-ink)}
+.fcount{position:absolute;top:-8px;right:-8px;min-width:20px;height:20px;padding:0 5px;background:var(--maple);color:#fff;font-size:12px;line-height:18px;text-align:center;border:1px solid var(--edge)}
+
+/* 桌面表头排序 */
+.th-sort{display:inline-flex;align-items:center;gap:4px;min-height:36px;font-weight:600;color:inherit;white-space:nowrap}
+.th-sort:hover,.th-sort.on{color:var(--ink)}
+.ptable th[aria-sort]{color:var(--ink)}
+.ptable .c-star{width:52px}
+/* 名称列限宽，长英文名截断，表格不撑出横向滚动 */
+.ptable .it>span{min-width:0;max-width:300px}
+.ptable .it b,.ptable .it small{overflow:hidden;text-overflow:ellipsis}
+
+/* 刚刚成交：证据标签 */
+.ware .evi{padding:0 6px}
+.ware .w-sub .evi{height:20px}
+.ware.one.evid{grid-template-columns:auto minmax(0,1fr) auto auto 72px 64px}
+.sales-pane .sale-note{margin:0;padding:10px var(--gap) 14px}
+.sales-pane .more{border-bottom:0}
+
+/* 列表下方的空、出错状态和表格之间留出边线 */
+[data-empty]:not(:empty){border-top:1px solid var(--rule)}
+
+/* 平板：表格去掉走势和最近成交两列，工具栏换行，控件保持 44px */
+@media (min-width:641px) and (max-width:1100px){
+  .ptable .c-spark,.ptable .c-last{display:none}
+  .ptools{flex-wrap:wrap}
+  .ptools .finder{flex:1 1 260px;width:auto;height:48px}
+  .ptools .cats{order:5;flex:1 1 100%;overflow-x:auto}
+  .ptools .sp{display:none}
+  .th-sort{min-height:44px;min-width:44px;justify-content:flex-end}
+  .ptable th.l .th-sort{justify-content:flex-start}
+  .ptable th,.ptable td{padding:0 6px}
+  .ptable .it>span{max-width:190px}
+}
+
+.stall-bar>.period-inline{margin-left:auto;flex-shrink:0;color:var(--bar-ink)}
+.stall-bar>.bar-meta+.period-inline{margin-left:4px}
+.period-inline select{min-height:32px;padding:3px 7px;font-size:12px;color:var(--bar-ink);background:transparent;border-color:currentColor;cursor:pointer}
+.period-inline option{color:var(--ink);background:var(--sheet)}
+
+@media(max-width:640px){
+  .pp-sticky:has(.fpanel[aria-modal=true]){z-index:60}
+  html:has(.pp .fpanel[aria-modal=true]){overflow:hidden}
+  .pp .fpanel{overscroll-behavior:contain}
+  .pp .fpanel[aria-modal=true]{display:flex;flex-direction:column;max-height:88vh;max-height:88dvh;overflow:hidden}
+  .pp .fpanel[aria-modal=true]>[data-fbody]{min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  .pp .fpanel[aria-modal=true]>.fhead,.pp .fpanel[aria-modal=true]>.ffoot{flex-shrink:0}
+  .pp .fpanel .chips{flex-wrap:nowrap;overflow-x:auto}
+  .pp .fpanel .chips>.chip{flex-shrink:0}
+  .pp>.pp-sticky,.pp>.plist{margin:0}
+  .pp>.pp-sticky .stall-bar{border-radius:0}
+  .pp>.plist:last-child{border-bottom:0}
+}

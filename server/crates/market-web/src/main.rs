@@ -1,0 +1,81 @@
+use std::net::SocketAddr;
+use std::time::Duration;
+
+use anyhow::{Context, Result};
+use market_web::{app_with_web, config::Config, stats, unix_now, AppState, MIGRATOR};
+use sqlx::{postgres::PgPoolOptions, PgPool};
+use tracing_subscriber::EnvFilter;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| "info,sqlx=warn".into()),
+        )
+        .init();
+
+    let config = Config::from_env()?;
+    let db = PgPoolOptions::new()
+        .max_connections(config.db_max_connections)
+        .connect(&config.database_url)
+        .await
+        .context("connecting to Postgres")?;
+    MIGRATOR.run(&db).await.context("running migrations")?;
+    tokio::spawn(refresh_stats(db.clone(), config.stats_refresh));
+
+    let mut state = AppState::new(db, config.settings.clone());
+    state.google = market_web::contributors::GoogleOAuth::load(
+        config.web_dir.as_deref(),
+        &config.settings.hostname,
+    )?
+    .map(std::sync::Arc::new);
+    tokio::spawn(market_web::realtime::listen(
+        state.db.clone(),
+        state.events.clone(),
+        state.collector_updates.clone(),
+    ));
+    let listener = tokio::net::TcpListener::bind(config.bind)
+        .await
+        .with_context(|| format!("binding {}", config.bind))?;
+    tracing::info!(bind = %config.bind, public_read = config.settings.public_read, "market-web listening");
+    axum::serve(
+        listener,
+        app_with_web(state, config.web_dir.as_deref())
+            .into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .context("serving")?;
+    Ok(())
+}
+
+/// Keeps untouched items current as the sale anchor and the 72-hour window move.
+async fn refresh_stats(db: PgPool, every: Duration) {
+    let mut tick = tokio::time::interval(every);
+    loop {
+        tick.tick().await;
+        match stats::refresh_if_due(&db, unix_now()).await {
+            Ok(true) => tracing::info!("item stats refreshed"),
+            Ok(false) => {}
+            Err(err) => tracing::warn!(error = %err, "item stats refresh failed"),
+        }
+    }
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = tokio::signal::ctrl_c();
+    #[cfg(unix)]
+    {
+        let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("install SIGTERM handler");
+        tokio::select! {
+            _ = ctrl_c => {},
+            _ = term.recv() => {},
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = ctrl_c.await;
+    }
+    tracing::info!("shutting down");
+}

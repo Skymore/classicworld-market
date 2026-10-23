@@ -1,0 +1,148 @@
+name: server
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUTF8: '1'
+
+concurrency:
+  group: market-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: market
+          POSTGRES_USER: market
+          POSTGRES_PASSWORD: market
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U market -d market"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgres://market:market@localhost:5432/market
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+      - name: migrations apply to an empty database and the service becomes ready
+        run: |
+          cargo run --locked -p market-web &
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8080/readyz && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080/readyz
+          kill %1
+        env:
+          BIND: 127.0.0.1:8080
+
+  client:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements-shared.txt
+      - name: Python synthetic regression tests
+        run: >-
+          python -m unittest test_collector_history test_collector_push
+          test_collector_update test_market_protocol_compat test_mesowatch_convert
+          test_mesowatch_points test_native_firewall test_market_location
+          test_market_passive test_shared_bundle test_shared_market test_web_assets
+          test_market_deploy
+      - name: Browser module regression tests
+        run: node --test web/tests/*.test.mjs
+
+  build:
+    if: github.ref == 'refs/heads/deploy' && github.event_name != 'pull_request'
+    needs: [test, client]
+    runs-on: windows-latest
+    env:
+      CARGO_PROFILE_RELEASE_STRIP: symbols
+      # The host should not need a separately installed Visual C++ runtime.
+      RUSTFLAGS: -C target-feature=+crt-static
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server
+          key: production-windows
+      - name: Build Windows service
+        working-directory: server
+        run: cargo build --release --locked -p market-web --bin market-web
+      - name: Build browser reader
+        working-directory: server
+        shell: pwsh
+        env:
+          RUSTFLAGS: ''
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cargo build --release --locked --target wasm32-unknown-unknown -p market-reader-wasm
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $archive = 'wasm-bindgen-0.2.129-x86_64-pc-windows-msvc.tar.gz'
+          gh release download 0.2.129 --repo wasm-bindgen/wasm-bindgen --pattern $archive --dir $env:RUNNER_TEMP
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          tar -xzf (Join-Path $env:RUNNER_TEMP $archive) -C $env:RUNNER_TEMP
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & (Join-Path $env:RUNNER_TEMP 'wasm-bindgen-0.2.129-x86_64-pc-windows-msvc/wasm-bindgen.exe') --target web --no-typescript --out-dir ../web/collect/pkg target/wasm32-unknown-unknown/release/market_reader_wasm.wasm
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Package exactly this commit
+        run: python deploy_market.py package --binary server/target/release/market-web.exe --output build/production --commit $env:GITHUB_SHA
+      - uses: actions/upload-artifact@v4
+        with:
+          name: market-production-${{ github.sha }}
+          path: build/production/
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy:
+    if: github.ref == 'refs/heads/deploy' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: [self-hosted, Windows, X64, mxd-production]
+    timeout-minutes: 10
+    concurrency:
+      group: mxd-production
+      cancel-in-progress: false
+    steps:
+      # No source checkout or tests on the production machine.
+      - uses: actions/download-artifact@v4
+        with:
+          name: market-production-${{ github.sha }}
+          path: ${{ runner.temp }}/market-production-${{ github.sha }}
+      - name: Deploy and verify readiness
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & "$env:MXD_DEPLOY_ROOT\.venv\Scripts\python.exe" "$env:MXD_DEPLOY_ROOT\deploy_market.py" deploy --artifact "$env:RUNNER_TEMP\market-production-$env:GITHUB_SHA" --commit $env:GITHUB_SHA
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }

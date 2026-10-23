@@ -1,0 +1,17 @@
+.selling-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px;align-items:start}
+.selling-layout>.stall{min-width:0}.selling-body{padding:16px}.selling-intro{color:var(--ink-2);margin:0 0 16px}
+.selling-layout .stall-bar .btn{color:var(--ink);margin-left:auto;white-space:nowrap}
+.bag-summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}.bag-summary>span{background:var(--sheet-hi);border:1px solid var(--rule);padding:10px 16px}.bag-summary b{font-size:22px;color:var(--bar-text);margin-right:8px}
+.bagform,.bag-controls{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:16px}.bagform label,.bag-controls label{display:grid;gap:6px;font-size:13px;color:var(--ink-2)}
+.bagform label:first-child{flex:1;min-width:180px}.bagform input,.bag-controls select,.selling-table input,.selling-table select{background:var(--sheet-hi);color:var(--ink);border:1px solid var(--edge);border-radius:0;padding:8px;font:inherit;min-height:38px}
+.bagform input[type=number]{width:90px}.selling-table-wrap{overflow:auto;border:1px solid var(--rule)}.selling-table{width:100%;min-width:820px;border-collapse:collapse;font-size:13px}.selling-table th{background:var(--sheet-lo);text-align:left;white-space:nowrap;padding:10px;border-bottom:1px solid var(--edge)}
+.selling-table td{padding:10px;border-bottom:1px solid var(--rule);vertical-align:top}.selling-table input[type=number]{width:78px}.selling-table td:nth-child(2){min-width:170px}.selling-table td small{display:block;color:var(--ink-3);margin:5px 0}.selling-table input[type=checkbox]{min-height:0;width:18px;height:18px;accent-color:var(--maple)}
+.selling-table .pair{display:grid;gap:5px}.selling-note{font-size:13px;color:var(--ink-3);line-height:1.7}.selling-error{color:var(--maple-ink)}.selling-status{margin:0 0 12px;font-size:13px;color:var(--ink-3)}.selling-venues{padding-left:22px}.selling-venues li{padding:10px 0;border-bottom:1px solid var(--rule)}.selling-venues small{display:block;color:var(--ink-3)}.selling-body h3{font-size:15px;border-top:1px solid var(--rule);padding-top:14px}
+@media(max-width:1100px){.selling-layout{grid-template-columns:1fr}.selling-layout aside{width:100%}}
+html[data-page=selling] .dwrap{max-width:1280px}
+
+.bagform .bag-picker{position:relative;flex:1;min-width:180px}.bag-picker label{width:100%}
+#bagSuggestions .quick-row{width:100%;background:transparent;border:0;border-bottom:1px solid var(--rule);text-align:left;font:inherit;cursor:pointer}
+#bagSuggestions .quick-row:hover{background:var(--bar-soft)}
+
+.bag-transfer{border:1px solid var(--rule);padding:10px;margin:12px 0;font-size:13px}.bag-transfer summary{cursor:pointer;font-weight:700}.bag-transfer .btn{margin:4px 4px 4px 0}.bag-transfer input[type=file]{max-width:100%}
