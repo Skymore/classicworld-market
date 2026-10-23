@@ -10,7 +10,10 @@ from publish_collector_release import publish
 
 
 def upload(archive, root, config, source=None):
+    import truststore
+    truststore.inject_into_ssl()
     import boto3
+    from botocore.config import Config
     from botocore.exceptions import ClientError
 
     archive, root = Path(archive), Path(root)
@@ -22,6 +25,7 @@ def upload(archive, root, config, source=None):
     bucket = 'classicworld-releases'
     client = boto3.client('s3',
         endpoint_url=f'https://{account}.r2.cloudflarestorage.com', region_name='auto',
+        config=Config(connect_timeout=10, read_timeout=45, retries={'total_max_attempts': 2}),
         aws_access_key_id=credentials['access_key_id'],
         aws_secret_access_key=credentials['secret_access_key'])
     manifest = publish(archive, root)

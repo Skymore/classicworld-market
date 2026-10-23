@@ -1,2 +1,3 @@
 # Maintainer-only publishing dependency; not installed by the collector.
 boto3>=1.40,<2
+truststore>=0.10,<1

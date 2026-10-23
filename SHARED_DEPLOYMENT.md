@@ -24,7 +24,8 @@ R2 发布配置在本机 `shared_data/r2-publisher.json`，仅含 `account_id`�
 成功后运行 `announce_collector_update.py --version v0.5.10` 通知在线采集器。
 源码包必须只包含审查过的源码和项目资源；密钥不写入 Git 或发行 ZIP。
 
-下面的 GitHub Actions 发布链路是原部署记录。GitLab 仓库及流水线尚未完成配置，
+源码迁往 GitLab，安装包已在 Cloudflare R2 发布，公开下载域名为 `download.ruit.me`。
+下面的 GitHub Actions 发布链路是原部署记录；GitLab CI 流水线尚未配置，
 不要把旧 Actions 的配置文件视为已经恢复自动部署。当前在线服务继续由本机 supervisor 维持。
 
 ## RoomTalk 自动发布（当前原生 Rust 服务）

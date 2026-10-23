@@ -1,8 +1,8 @@
 import { renderChrome } from './lib/chrome.js?v=20261023-header-icons-2';
 import { lang } from './lib/i18n.js';
-const release='/web/releases/v0.5.10/release-notes.txt';
-const zip='/web/releases/v0.5.10/ClassicWorldCollector-windows-x64-v0.5.10.zip';
-const guide='/web/releases/v0.5.10/guide.txt';
+const release='https://download.ruit.me/collector/v0.5.10/release-notes.txt';
+const zip='https://download.ruit.me/collector/v0.5.10/ClassicWorldCollector-windows-x64-v0.5.10.zip';
+const guide='https://download.ruit.me/collector/v0.5.10/guide.txt';
 function render(){
  const en=lang==='en',root=document.getElementById('app');
  renderChrome(root,'download');
