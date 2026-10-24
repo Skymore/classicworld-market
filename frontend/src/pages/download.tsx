@@ -1,6 +1,6 @@
 import { usePreferences } from "../providers";
 import { usePageReady } from "../components/shared";
-const base = "https://download.ruit.me/collector/v0.6.0/";
+const base = "https://download.ruit.me/collector/v0.6.1/";
 export default function Page() {
   usePageReady();
   const { language } = usePreferences();
@@ -18,8 +18,8 @@ export default function Page() {
     <section className="stall"><div className="stall-bar"><h1>{en ? "Scanner & collector" : "扫描与采集"}</h1></div><div className="download-body">
       <h2>{en ? "One app for manual collection and automatic scanning" : "手动逛摊、自动扫描，一个程序就够"}</h2>
       <p>{en ? "Capture, uploads, alerts and updates are built in. No separate collector is needed. Signing in is optional." : "已内置采集、上传、提醒和自动更新，不需要另开采集器。不登录也能使用。"}</p>
-      <div className="download-actions"><a className="btn primary" href={base + "ClassicWorldCollector-windows-x64-v0.6.0.zip"}>{en ? "Download for Windows" : "下载 Windows 合并版"}</a><a href="/collect/">{en ? "Browser capture" : "使用浏览器采集"}</a></div>
-      <p className="download-meta">v0.6.0 · Windows 10 / 11 64 位 · {en ? "about 75 MB" : "约 75 MB"}</p>
+      <div className="download-actions"><a className="btn primary" href={base + "ClassicWorldCollector-windows-x64-v0.6.1.zip"}>{en ? "Download for Windows" : "下载 Windows 合并版"}</a><a href="/collect/">{en ? "Browser capture" : "使用浏览器采集"}</a></div>
+      <p className="download-meta">v0.6.1 · Windows 10 / 11 64 位 · {en ? "about 75 MB" : "约 75 MB"}</p>
     </div></section>
     <section className="stall"><div className="stall-bar"><h2>{en ? "Get started" : "三步开始使用"}</h2></div><div className="download-body"><ol className="download-steps">{steps.map(([title, body]) => <li key={title}><b>{title}</b>{body}</li>)}</ol><p>{en ? "Keep the game window visible. F9 stops scanning; manual collection stays available." : "自动扫描时保持游戏窗口可见，不要移动或缩放窗口。F9 可停止扫描，手动采集仍可继续使用。"}</p></div></section>
     <section className="stall"><div className="stall-bar"><h2>{en ? "Common questions" : "常见问题"}</h2></div><div className="download-body">

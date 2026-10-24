@@ -1,6 +1,6 @@
 import { renderChrome } from './lib/chrome.js?v=20261023-header-icons-2';
 import { lang } from './lib/i18n.js';
-const base='https://download.ruit.me/collector/v0.6.0/';
+const base='https://download.ruit.me/collector/v0.6.1/';
 function render(){
  const en=lang==='en',root=document.getElementById('app');
  renderChrome(root,'download');
@@ -19,8 +19,8 @@ function render(){
  main.innerHTML=`<section class="stall"><div class="stall-bar"><h1>${title}</h1></div><div class="download-body">
  <h2>${en?'One app for manual collection and automatic scanning':'手动逛摊、自动扫描，一个程序就够'}</h2>
  <p>${en?'Capture, uploads, alerts and updates are built in. No separate collector is needed. Signing in is optional.':'已内置采集、上传、提醒和自动更新，不需要另开采集器。不登录也能使用。'}</p>
- <div class="download-actions"><a class="btn primary" href="${base}ClassicWorldCollector-windows-x64-v0.6.0.zip">${en?'Download for Windows':'下载 Windows 合并版'}</a><a href="/collect/">${en?'Browser capture':'使用浏览器采集'}</a></div>
- <p class="download-meta">v0.6.0 · Windows 10 / 11 ${en?'64-bit · about 75 MB':'64 位 · 约 75 MB'}</p></div></section>
+ <div class="download-actions"><a class="btn primary" href="${base}ClassicWorldCollector-windows-x64-v0.6.1.zip">${en?'Download for Windows':'下载 Windows 合并版'}</a><a href="/collect/">${en?'Browser capture':'使用浏览器采集'}</a></div>
+ <p class="download-meta">v0.6.1 · Windows 10 / 11 ${en?'64-bit · about 75 MB':'64 位 · 约 75 MB'}</p></div></section>
  <section class="stall"><div class="stall-bar"><h2>${en?'Get started':'三步开始使用'}</h2></div><div class="download-body"><ol class="download-steps">${steps.map(([title,body])=>`<li><b>${title}</b>${body}</li>`).join('')}</ol><p>${en?'Keep the game window visible. F9 stops scanning; manual collection stays available.':'自动扫描时保持游戏窗口可见，不要移动或缩放窗口。F9 可停止扫描，手动采集仍可继续使用。'}</p></div></section>
  <section class="stall"><div class="stall-bar"><h2>${en?'Common questions':'常见问题'}</h2></div><div class="download-body">
  <details><summary>${en?'Will people scan the same room?':'多人一起扫，会重复吗？'}</summary><p>${en?'Each scanner gets one room at a time and claims its next room after finishing. Paused or disconnected tasks become available to others.':'每人一次领取一个洞，扫完再领下一个。暂停或断线后，任务会交给其他在线扫描器。'}</p></details>
