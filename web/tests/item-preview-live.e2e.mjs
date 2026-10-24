@@ -11,9 +11,21 @@ const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODUL
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const streams = new Set();
 let phase = 0, salesReads = 0, previewDelay = 0;
+let accountRecords = [];
 const json = (res, data) => { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
+  if (url.pathname === '/api/v1/account/data') {
+    if (req.method === 'POST') {
+      assert.equal(req.headers['x-csrf-token'], 'preview-fixture');
+      let raw = ''; for await (const chunk of req) raw += chunk;
+      for (const operation of JSON.parse(raw).operations) {
+        accountRecords = accountRecords.filter(record => record.kind !== operation.kind || record.key !== operation.key);
+        if (operation.value !== null) accountRecords.push({ ...operation, version: operation.version + 1 });
+      }
+    }
+    return json(res, { records: accountRecords });
+  }
   if (url.pathname === '/api/v1/events') {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' });
     res.write(': connected\n\n'); streams.add(res); req.on('close', () => streams.delete(res)); return;
@@ -55,7 +67,7 @@ let browser;
 try {
   browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   for (const mobile of [true, false]) {
-    phase = 0; previewDelay = 0;
+    phase = 0; previewDelay = 0; accountRecords = [];
     const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 640 } : { width: 1280, height: 900 }, isMobile: mobile, hasTouch: mobile });
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.clock.install();
@@ -65,6 +77,31 @@ try {
     if (mobile) await row.tap(); else { await row.focus(); await page.keyboard.press('Alt+ArrowDown'); }
     const popup = page.locator('#item-quick-preview');
     await popup.locator('[data-preview-item="1462004"]').waitFor();
+    const watch = popup.locator('[data-preview-watch="1462004"]');
+    await watch.click();
+    assert.equal(await watch.getAttribute('aria-pressed'), 'true');
+    assert.match(await watch.textContent(), mobile ? /Watching/ : /已关注/);
+    assert.equal(await popup.isVisible(), true, 'watching must keep the preview open');
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('watchlist'))), [1462004]);
+    await watch.click();
+    assert.equal(await watch.getAttribute('aria-pressed'), 'false');
+    const setWatches = ids => page.evaluate(ids => {
+      localStorage.setItem('watchlist', JSON.stringify(ids));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'watchlist' }));
+    }, ids);
+    await setWatches([1462004]);
+    await page.waitForFunction(() => document.querySelector('[data-preview-watch]').getAttribute('aria-pressed') === 'true');
+    const fullList = Array.from({ length: 100 }, (_, i) => 2000000 + i);
+    await setWatches(fullList);
+    await page.waitForFunction(() => document.querySelector('[data-preview-watch]').disabled);
+    assert.equal(await watch.isDisabled(), true, 'a full list cannot add a new item');
+    await setWatches([1462004, ...fullList.slice(0, 99)]);
+    await page.waitForFunction(() => !document.querySelector('[data-preview-watch]').disabled);
+    await watch.click();
+    assert.equal(await watch.getAttribute('aria-pressed'), 'false', 'a full list can still remove a watched item');
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('watchlist')).length), 99);
+    await setWatches([1462004]);
+    await popup.locator('.peek-close').focus();
     await popup.evaluate(el => { window.savedPreview = el.firstElementChild.nextElementSibling; window.savedFocus = document.activeElement; el.scrollTop = 200; });
     const before = await popup.evaluate(el => ({ scroll: el.scrollTop, y: scrollY }));
     // The age-only render used to remove the anchor and close the preview too.
@@ -76,6 +113,7 @@ try {
     await page.waitForFunction(() => !document.querySelector('.home-market a[href*="/item/1462004"]'));
     assert(salesReads > reads, 'the background list must still refresh from SSE');
     assert.equal(await popup.isVisible(), true, 'SSE must not close an item that leaves recent sales');
+    assert.equal(await watch.getAttribute('aria-pressed'), 'true', 'SSE preserves the watch state');
     assert.deepEqual(await popup.evaluate(el => ({ same: window.savedPreview === el.firstElementChild.nextElementSibling, scroll: el.scrollTop })), { same: true, scroll: before.scroll });
     assert.equal(await page.evaluate(() => window.savedFocus === document.activeElement), true, 'list refresh must not steal preview focus');
     assert.equal(await page.evaluate(() => scrollY), before.y, 'list refresh must not move the underlying page');
@@ -85,12 +123,23 @@ try {
       await page.keyboard.press('Tab');
       assert.equal(await popup.evaluate(el => el.contains(document.activeElement)), true, 'mobile focus stays inside the preview');
     }
+    await page.evaluate(async () => {
+      const { adoptAccount } = await import('/web/js/lib/user-data.js');
+      await adoptAccount({ signed_in: true, public_id: 'preview-account', csrf: 'preview-fixture' });
+    });
+    assert.equal(await watch.getAttribute('aria-pressed'), 'false', 'account watches are isolated from guest watches');
+    await watch.click();
+    await page.evaluate(async () => (await import('/web/js/lib/user-data.js')).flush());
+    assert(accountRecords.some(record => record.kind === 'watch' && record.key === '1462004'), 'preview watches sync through the account API');
+    await page.evaluate(async () => (await import('/web/js/lib/user-data.js')).adoptAccount({ signed_in: false }));
+    assert.equal(await watch.getAttribute('aria-pressed'), 'true', 'signing out restores the guest watch state');
     await page.keyboard.press('Escape');
     assert.equal(await popup.isVisible(), false, 'Escape closes the preview');
     assert.equal(await page.locator('.peek-scrim').isVisible(), false);
     const next = page.locator('.home-market [data-item-row]').first();
     if (mobile) await next.tap(); else { await next.focus(); await page.keyboard.press('Alt+ArrowDown'); }
     await popup.locator('[data-preview-item]').waitFor();
+    assert.equal(await popup.locator('[data-preview-watch]').getAttribute('aria-pressed'), 'false', 'another item gets its own watch state');
     await popup.locator('.peek-close').click();
     assert.equal(await popup.isVisible(), false, 'close button stays functional');
     assert.equal(await next.evaluate(el => el === document.activeElement), true, 'close returns focus to a current row');
@@ -112,13 +161,14 @@ try {
     await page.waitForFunction(() => !document.querySelector('.home-market a[href*="/item/1462004"]'));
     await popup.locator('[data-preview-item="1462004"]').waitFor();
     assert.equal(await popup.isVisible(), true, 'in-flight preview survives a replaced list');
+    assert.equal(await popup.locator('[data-preview-watch]').getAttribute('aria-pressed'), 'true', 'watch state survives reload');
     await popup.locator('.peek-footer a').click();
     await page.waitForURL(url => url.pathname === '/item/1462004' && url.searchParams.get('hours') === 'all');
     await page.locator('.item-stall h1').waitFor();
     assert.match(await page.locator('.item-stall h1').textContent(), /Eagle Crow|鹰弩/);
     assert.deepEqual(errors, []);
     await page.close();
-    console.log(`PASS ${mobile ? 'mobile / English' : 'desktop / Chinese'}: time tick, SSE, removal, scrolling, dismissal and full-page navigation`);
+    console.log(`PASS ${mobile ? 'mobile / English' : 'desktop / Chinese'}: preview watches, account sync, limits, persistence, time tick, SSE, scrolling, dismissal and full-page navigation`);
   }
 } finally {
   await browser?.close();

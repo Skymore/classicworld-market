@@ -4,10 +4,11 @@ import { useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { readPeriod } from "/web/js/lib/period.js?v=20261022-regressions-1";
 import { trapFocus } from "/web/js/lib/dialog.js";
+import { watchIds, toggleWatch } from "/web/js/lib/watch-ids.js";
 import { loadCatalog, catalogKey } from "../lib/catalog";
 import { timestamp } from "../lib/item-market";
 import { usePreferences, useWords } from "../providers";
-import { Slot, RelativeTime } from "./shared";
+import { Icon, Slot, RelativeTime } from "./shared";
 import { ensureStyle } from "../lib/styles";
 type Hit = {
   anchor: HTMLElement;
@@ -53,6 +54,18 @@ export default function ItemPreview() {
     route = useLocation();
   const [hit, setHit] = useState<Hit | null>(null),
     [position, setPosition] = useState({ left: 12, top: 12 });
+  const [watched, setWatched] = useState<number[]>(watchIds);
+  const watching = !!hit && watched.includes(hit.id);
+  const watchFull = !watching && watched.length >= 100;
+  useEffect(() => {
+    const update = () => setWatched(watchIds());
+    document.addEventListener("watchchange", update);
+    window.addEventListener("storage", update);
+    return () => {
+      document.removeEventListener("watchchange", update);
+      window.removeEventListener("storage", update);
+    };
+  }, []);
   const active = useRef(hit),
     popup = useRef<HTMLElement>(null),
     restoring = useRef(false);
@@ -425,6 +438,26 @@ export default function ItemPreview() {
               </section>
             )}
             <footer className="peek-footer">
+              <button
+                type="button"
+                className={"peek-watch" + (watching ? " on" : "")}
+                data-preview-watch={item.id}
+                aria-pressed={watching}
+                disabled={watchFull}
+                title={
+                  watchFull
+                    ? words("最多关注 100 件物品", "Watch up to 100 items")
+                    : undefined
+                }
+                onClick={() => toggleWatch(item.id)}
+              >
+                <Icon name={watching ? "starSm" : "starO"} />
+                {watching
+                  ? words("已关注", "Watching")
+                  : watchFull
+                    ? words("关注已满", "Watch limit")
+                    : words("关注", "Watch")}
+              </button>
               <a href={url} onClick={() => close()}>
                 {words("查看完整详情 →", "Open full details →")}
               </a>
