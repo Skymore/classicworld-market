@@ -15,7 +15,8 @@ export default defineConfig(({ command }) => ({
   },
   build: {
     outDir: "../web/react",
-    emptyOutDir: true,
+    // Keep immutable hashed chunks for already-open pages with cached entry modules.
+    emptyOutDir: false,
     cssCodeSplit: false,
     manifest: true,
     rollupOptions: {
