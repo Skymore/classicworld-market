@@ -28,7 +28,7 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/api/v1/market') return json(res, { products: [product, {...product,item_id:1002001,name_zh:'贝雷帽',name_en:'Beret'}], as_of: now });
   if (url.pathname === '/api/v1/market/period-default') return json(res, { default_hours: 'all' });
   if (url.pathname === '/api/v1/sales/recent') return json(res, { sales, generated_at: now });
-  if (url.pathname === '/api/v1/quotes/recent') return json(res, { listings: quotes, generated_at: now });
+  if (url.pathname === '/api/v1/quotes/recent') return json(res, { listings: quotes, grouped_listings: quotes.map((row,i)=>i===0?{...row,stock:7,merged_count:2}:row), generated_at: now });
   if (url.pathname === '/api/v1/market/records') return json(res, {records:url.searchParams.get('kind')==='sales'?sales:[quotes[0]]});
   if (url.pathname === '/api/v1/watchlist/catalog') return json(res, { items: [product], presets: [{ id: 'fixture', name_zh: '测试关注', name_en: 'Preset', items: [product] }] });
   if (url.pathname === '/api/v1/watchlist/listings') return json(res, { listings: quotes.slice(0,2).map(row => ({ ...row, stock: row.stock ?? 2 })), generated_at: now });
@@ -84,6 +84,7 @@ try {
       assert.equal(await offers.first().locator('.loc b').textContent(), 'CH 23');
       assert.match(await offers.first().locator('.loc-room').textContent(), /9/);
       assert.equal(await offers.first().locator('[data-relative-time]').getAttribute('data-relative-time'), String(now));
+      assert.match(await offers.first().locator('.record-stock').textContent(), /7$/,'home uses the complete API group stock');
       assert.match(await offers.nth(1).locator('.record-stock').textContent(), /—$/);
       assert.match(await offers.nth(1).locator('.loc').textContent(), /CH —FM —/,'unknown channel and FM stay explicit');
       async function checkLayout(row) {
@@ -110,8 +111,11 @@ try {
       assert(await offers.locator('.loc-shop').evaluateAll(nodes=>nodes.every(node=>{const cells=[...node.children].map(child=>child.getBoundingClientRect().width);return cells[0]===50&&cells[1]===44&&Math.abs(cells.reduce((a,b)=>a+b,0)-node.clientWidth)<1;})),'CH and FM retain the same column widths across rows while shop uses the remaining space');
       assert.equal(await offers.first().locator('.loc-room').textContent(),'FM9');
       const longShop=offers.first().locator('.record-shop');
+      const naturalShop=await longShop.evaluate(node=>{node.textContent='hi';node.title='hi';const frame=node.parentElement.getBoundingClientRect();return {width:frame.width,available:node.closest('.record-meta').getBoundingClientRect().width,shopWidth:node.getBoundingClientRect().width};});
+      assert(naturalShop.width<naturalShop.available-10&&naturalShop.shopWidth<30,'short shop names keep the frame fitted to their content');
       await longShop.evaluate(node=>{node.textContent='A very long shop title that must not expand the row';node.title=node.textContent;});
       assert(await longShop.evaluate(node=>{const s=getComputedStyle(node);return s.textOverflow==='ellipsis'&&s.whiteSpace==='nowrap'&&node.scrollWidth>node.clientWidth;}),'long shop titles clip with ellipsis inside the third cell');
+      assert(await longShop.evaluate((node,shortWidth)=>node.parentElement.getBoundingClientRect().width>shortWidth,naturalShop.width),'the shop cell grows for longer titles');
       await longShop.evaluate(node=>{node.textContent='First shop';node.title='First shop';});
       assert.match(await offers.nth(2).locator('.offer-equipment').textContent(), /可升 5|Upgrades left 5/);
       assert.equal(await offers.nth(2).locator('.offer-equipment').evaluate(node=>getComputedStyle(node).fontSize), '11px');

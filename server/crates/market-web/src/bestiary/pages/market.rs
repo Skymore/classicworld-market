@@ -1013,6 +1013,7 @@ mod tests {
 
     fn listing(channel: Option<i16>, room: i16, price: f64, age_hours: i64) -> Listing {
         Listing {
+            grouping: None,
             shop: format!("shop{room}"),
             channel,
             room: Some(room),

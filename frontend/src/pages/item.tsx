@@ -1,3 +1,4 @@
+import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261024-groups-1";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "/web/js/lib/i18n.js";
@@ -419,9 +420,12 @@ export default function Item({ page }: { page: any }) {
   const tokens = offerFilterTokens(filters, language === "en");
   const rows = useMemo(
     () =>
-      market.listings.map((row: any, i: number) => ({
+      mergeShopOffers(market.listings.map((row: any, i: number) => ({
         ...row,
+        item_id: item.id,
         key: JSON.stringify([
+          row.shop_key,
+          row.slot ?? i,
           row.shop,
           row.channel,
           row.room,
@@ -435,8 +439,8 @@ export default function Item({ page }: { page: any }) {
         hasStats: !!row.variant,
         bonus: hasBonus(row.variant, market.base_stats || []),
         index: i,
-      })),
-    [market, equipment],
+      }))),
+    [market, equipment, item.id],
   );
   const filtered = filterOffers(rows, sort, filters);
   const groups = offerGroups(filtered.rows, false);
@@ -1255,8 +1259,8 @@ export default function Item({ page }: { page: any }) {
                               </b>{" "}
                               ·{" "}
                               {words(
-                                `${offers.length} 件`,
-                                `${offers.length} listed`,
+                                `${offers.reduce((n: number, row: any) => n + (row.merged_count || 1), 0)} 件`,
+                                `${offers.reduce((n: number, row: any) => n + (row.merged_count || 1), 0)} listed`,
                               )}{" "}
                               · <Location value={cheapest} />
                             </div>

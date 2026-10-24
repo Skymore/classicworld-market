@@ -1,3 +1,4 @@
+import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261024-groups-1";
 import { useQueries } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api, getJson, qs } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
@@ -172,7 +173,7 @@ export default function Watch() {
   );
   const listings = shared.data?.listings || [];
   const summary = Core.summary(listings, ids, settings);
-  const baseMatches = Core.matching(listings, ids, settings).map(
+  const baseMatches = Core.matching(shared.data?.grouped_listings ?? mergeShopOffers(listings), ids, settings).map(
     (row: any) => ({ ...row, price: row.unit_price }),
   );
   function filterWatchRows(rows: any[], filters: any) {
@@ -304,9 +305,9 @@ export default function Watch() {
         source,
         identity,
       );
-      for (const row of [
+      for (const row of mergeShopOffers([
         ...new Map(fresh.map((row: any) => [row.id, row])).values(),
-      ].slice(0, 5) as any[]) {
+      ]).slice(0, 5) as any[]) {
         if (settings[row.item_id]?.notify === false) continue;
         const item = { ...items.get(row.item_id), ...row };
         const title = t("watch.toast_title"),

@@ -1,3 +1,4 @@
+import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261024-groups-1";
 import { useState } from "react";
 import {
   byChange,
@@ -45,7 +46,7 @@ export default function Home() {
   const sales = useMarketQuery<{ sales: Sale[]; generated_at: number }>(
     "/api/v1/sales/recent?limit=8",
   );
-  const quotes = useMarketQuery<{ listings: any[] }>(
+  const quotes = useMarketQuery<{ listings: any[]; grouped_listings?: any[] }>(
     `/api/v1/quotes/recent?limit=8&hours=${period.hours}`,
     period.ready && tab === "quotes",
   );
@@ -71,7 +72,7 @@ export default function Home() {
         .filter((row) => inPeriod(row.time, period.hours))
         .slice(0, 8);
       return rows.length ? (
-        rows.map((row) => (
+        rows.map((row: any) => (
           <OfferRow
             key={row.id}
             row={row}
@@ -87,16 +88,16 @@ export default function Home() {
       if (quotes.isError)
         return <ErrorState retry={() => void quotes.refetch()} />;
       if (!quotes.data) return <Loading />;
-      const rows = (quotes.data.listings || [])
+      const rows = (quotes.data.grouped_listings ?? mergeShopOffers(quotes.data.listings || []))
         .filter(
-          (row) =>
+          (row: any) =>
             row.observed > 0 &&
             inPeriod(row.observed, period.hours) &&
             (row.stock == null || row.stock > 0),
         )
         .slice(0, 8);
       return rows.length ? (
-        rows.map((row) => (
+        rows.map((row: any) => (
           <OfferRow
             key={row.id}
             row={row}

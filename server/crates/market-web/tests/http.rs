@@ -437,6 +437,11 @@ async fn watchlist_routes_filter_items() {
     .await;
     assert_eq!(result["total"], 1);
     assert_eq!(result["listings"][0]["item_id"], 4010001);
+    assert_eq!(result["grouped_listings"].as_array().unwrap().len(), 1);
+    let live = &result["listings"][0];
+    assert!(live["shop_key"].as_str().is_some_and(|s| !s.is_empty()));
+    assert!(live["visit_id"].as_str().is_some_and(|s| !s.is_empty()));
+    assert!(live["slot"].is_i64());
     assert_eq!(
         json_body(
             client
@@ -467,6 +472,58 @@ async fn watchlist_routes_filter_items() {
         client.get("/api/v1/items/abc", &[]).await.status(),
         StatusCode::NOT_FOUND
     );
+    db.close().await;
+}
+
+#[tokio::test]
+async fn same_shop_quotes_group_before_limit_without_changing_notification_rows() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let (client, token) = market(&db).await;
+    let mut value = observation("multiple-slots", unix_now() - 1., 1);
+    value["items"] = json!([
+        {"item_id":4010001,"category":4,"slot":1,"price":500,"bundle":1,"stock":1},
+        {"item_id":4010001,"category":4,"slot":2,"price":500,"bundle":1,"stock":3},
+        {"item_id":4010001,"category":4,"slot":3,"price":600,"bundle":1,"stock":2}
+    ]);
+    assert_eq!(
+        client
+            .post(
+                "/api/v1/observations",
+                &value,
+                &[("authorization", &format!("Bearer {token}"))]
+            )
+            .await
+            .status(),
+        StatusCode::CREATED
+    );
+    let watch = json_body(
+        client
+            .get("/api/v1/watchlist/listings?ids=4010001", &[])
+            .await,
+    )
+    .await;
+    assert_eq!(watch["listings"].as_array().unwrap().len(), 3);
+    let grouped = watch["grouped_listings"].as_array().unwrap();
+    assert_eq!(grouped.len(), 2);
+    let group = grouped
+        .iter()
+        .find(|row| row["unit_price"] == 500.)
+        .unwrap();
+    assert_eq!(group["stock"], 4);
+    assert_eq!(group["merged_count"], 2);
+    let recent = json_body(
+        client
+            .get("/api/v1/quotes/recent?limit=1&hours=all", &[])
+            .await,
+    )
+    .await;
+    assert_eq!(recent["listings"].as_array().unwrap().len(), 1);
+    assert_eq!(recent["grouped_listings"].as_array().unwrap().len(), 1);
+    let group = &recent["grouped_listings"][0];
+    let expected = if group["unit_price"] == 500. { 4 } else { 2 };
+    assert_eq!(group["stock"], expected);
     db.close().await;
 }
 

@@ -778,8 +778,76 @@ fn watch_listing(row: &Value) -> Value {
         "observed": observed, "shop": row["shop"], "location": row["location"], "price": row["price"],
         "bundle": row["bundle"], "unit_price": row["unit_price"], "stock": row["stock"],
         "equipment": row["equipment"], "name_zh": row["name_zh"], "name_en": row["name_en"],
+        "shop_key": row["shop_key"], "visit_id": row["visit_id"], "source": row["source"],
+        "variant": row["variant"], "unit_basis": row["unit_basis"], "icon_url": row["icon_url"],
         "requires_validation": true,
     })
+}
+
+/// Group presentation rows before applying the public list limit. Raw rows stay
+/// available to the notification deduplicator and market statistics unchanged.
+fn grouped_quotes(rows: &[Value], limit: usize) -> Vec<Value> {
+    use std::collections::{HashMap, HashSet};
+    let mut groups: HashMap<String, (usize, HashSet<i64>)> = HashMap::new();
+    let mut output: Vec<Value> = Vec::new();
+    for row in rows {
+        let equipment = &row["equipment"];
+        let gear = row["item_id"]
+            .as_i64()
+            .is_some_and(|id| id / 1_000_000 == 1);
+        let known_gear = equipment["status"] == "candidate"
+            && equipment["stats"].is_array()
+            && equipment["unknown_fields"]
+                .as_array()
+                .is_none_or(Vec::is_empty);
+        let valid = row["shop_key"].as_str().is_some_and(|s| !s.is_empty())
+            && row["visit_id"].as_str().is_some_and(|s| !s.is_empty())
+            && row["slot"].is_i64()
+            && row["observed"].as_f64().is_some_and(|v| v > 0.)
+            && row["unit_price"]
+                .as_f64()
+                .is_some_and(|v| v.is_finite() && v >= 0.)
+            && row["bundle"].as_i64().is_some_and(|v| v > 0)
+            && (!gear || known_gear);
+        if !valid {
+            output.push(row.clone());
+            continue;
+        }
+        let key = json!([
+            row["world"],
+            row["source"],
+            row["shop_key"],
+            row["visit_id"],
+            row["observed"],
+            row["item_id"],
+            row["unit_price"],
+            row["bundle"],
+            row["unit_basis"],
+            if gear { equipment.clone() } else { Value::Null }
+        ])
+        .to_string();
+        let slot = row["slot"].as_i64().unwrap();
+        if let Some((index, slots)) = groups.get_mut(&key) {
+            if !slots.insert(slot) {
+                continue;
+            }
+            let target = &mut output[*index];
+            target["stock"] = match (target["stock"].as_i64(), row["stock"].as_i64()) {
+                (Some(a), Some(b)) if a >= 0 && b >= 0 => {
+                    a.checked_add(b).map_or(Value::Null, Value::from)
+                }
+                _ => Value::Null,
+            };
+            target["merged_count"] = json!(slots.len());
+        } else {
+            groups.insert(key, (output.len(), HashSet::from([slot])));
+            let mut first = row.clone();
+            first["merged_count"] = json!(1);
+            output.push(first);
+        }
+    }
+    output.truncate(limit);
+    output
 }
 
 /// `report_listings` over the 72-hour window.
@@ -795,9 +863,10 @@ pub async fn watch_listings(db: &PgPool, items: &[i32], now: f64) -> sqlx::Resul
             .then_with(|| a["id"].as_str().cmp(&b["id"].as_str()))
     });
     let total = found.len();
+    let grouped = grouped_quotes(&found, WATCH_LIMIT);
     found.truncate(WATCH_LIMIT);
     Ok(
-        json!({"listings": found, "total": total, "truncated": total > WATCH_LIMIT,
+        json!({"listings": found, "grouped_listings": grouped, "total": total, "truncated": total > WATCH_LIMIT,
               "generated_at": now, "hours": RECENT_HOURS}),
     )
 }
@@ -926,8 +995,9 @@ pub async fn recent_quotes(db: &PgPool, hours: Hours, limit: i64, now: f64) -> s
             .total_cmp(&a["observed"].as_f64().unwrap_or(0.0))
             .then_with(|| a["id"].as_str().cmp(&b["id"].as_str()))
     });
+    let grouped = grouped_quotes(&rows, limit as usize);
     rows.truncate(limit as usize);
-    Ok(json!({"listings":rows,"generated_at":now,"hours":hours.json()}))
+    Ok(json!({"listings":rows,"grouped_listings":grouped,"generated_at":now,"hours":hours.json()}))
 }
 
 /// Fresh observations received from the signed-in collector.
@@ -1223,13 +1293,58 @@ mod tests {
     }
 
     #[test]
+    fn quote_groups_sum_all_slots_before_limiting_and_preserve_raw_rows() {
+        let row = json!({"shop_key":"shop","visit_id":"visit","observed":12345.,"item_id":5680001,
+            "slot":1,"id":"one","unit_price":40000.,"stock":1,"bundle":1});
+        let mut second = row.clone();
+        second["slot"] = json!(2);
+        second["id"] = json!("two");
+        let mut other = row.clone();
+        other["shop_key"] = json!("other");
+        let raw = vec![row.clone(), other, second.clone(), row.clone()];
+        let grouped = grouped_quotes(&raw, 1);
+        assert_eq!(grouped.len(), 1);
+        assert_eq!(grouped[0]["stock"], 2);
+        assert_eq!(grouped[0]["merged_count"], 2);
+        assert_eq!(raw[0]["stock"], 1);
+        for (key, value) in [
+            ("visit_id", json!("new")),
+            ("unit_price", json!(45000.)),
+            ("bundle", json!(2)),
+        ] {
+            let mut changed = second.clone();
+            changed[key] = value;
+            assert_eq!(grouped_quotes(&[row.clone(), changed], 200).len(), 2);
+        }
+        let mut gear = row.clone();
+        gear["item_id"] = json!(1452003);
+        let mut gear2 = gear.clone();
+        gear2["slot"] = json!(2);
+        assert_eq!(grouped_quotes(&[gear.clone(), gear2.clone()], 200).len(), 2);
+        let eq = json!({"status":"candidate","stats":[{"key":"weapon_attack","value":50}],"unknown_fields":[]});
+        gear["equipment"] = eq.clone();
+        gear2["equipment"] = eq;
+        assert_eq!(
+            grouped_quotes(&[gear.clone(), gear2.clone()], 200)[0]["stock"],
+            2
+        );
+        gear2["equipment"]["stats"][0]["value"] = json!(51);
+        assert_eq!(grouped_quotes(&[gear, gear2], 200).len(), 2);
+    }
+
+    #[test]
     fn watch_listing_ids_match_python() {
         // market_watchlist.listing(dict(world=..., shop_key='k', time=86400.5, item_id=4010001, slot=4001,
         //   variant='standard', price=500, bundle=1, stock=8, shop='Shop'))['id' / 'listing_key']
         let row = json!({"shop_key": "k", "time": 86400.5, "item_id": 4010001, "slot": 4001, "variant": "standard",
-                         "price": 500, "bundle": 1, "stock": 8, "shop": "Shop", "unit_price": 500.0});
+                         "price": 500, "bundle": 1, "stock": 8, "shop": "Shop", "unit_price": 500.0,
+                         "visit_id": "visit", "source": "packet"});
         let listing = watch_listing(&row);
         assert_eq!(listing["listing_key"], "ce2a01ff19180d0cbf9e9c9b");
         assert_eq!(listing["id"], "718651cd4234c9a7c142fbf6");
+        assert_eq!(listing["shop_key"], "k");
+        assert_eq!(listing["visit_id"], "visit");
+        assert_eq!(listing["slot"], 4001);
+        assert_eq!(listing["source"], "packet");
     }
 }

@@ -167,7 +167,18 @@ pub struct ItemMarket {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ListingIdentity {
+    pub shop_key: String,
+    pub slot: i32,
+    pub visit_id: String,
+    pub bundle: i32,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Listing {
+    #[serde(flatten)]
+    pub grouping: Option<ListingIdentity>,
     pub shop: String,
     pub channel: Option<i16>,
     pub room: Option<i16>,

@@ -106,6 +106,7 @@ fn listing(
     seen: DateTime<Utc>,
 ) -> Listing {
     Listing {
+        grouping: None,
         shop: shop.into(),
         channel,
         room: Some(room),

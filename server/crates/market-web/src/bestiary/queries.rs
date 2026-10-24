@@ -375,6 +375,11 @@ fn parse_variant(id: i64, value: &Value) -> Variant {
 async fn item_market(db: &PgPool, id: i32, now: f64) -> sqlx::Result<ItemMarket> {
     #[derive(FromRow)]
     struct ListingRow {
+        shop_key: String,
+        slot: i32,
+        visit_key: String,
+        bundle: i32,
+        source: String,
         title: String,
         channel: Option<i16>,
         room: Option<i16>,
@@ -400,7 +405,8 @@ async fn item_market(db: &PgPool, id: i32, now: f64) -> sqlx::Result<ItemMarket>
     let as_of = sqlx::query_scalar::<_, Option<DateTime<Utc>>>("SELECT as_of FROM market_state")
         .fetch_optional(db);
     let listings = sqlx::query_as::<_, ListingRow>(
-        "SELECT sh.title, sh.channel, sh.room, market_unit_price(l.item_id,l.price,l.bundle) AS unit_price, l.stock,
+        "SELECT sh.public_key AS shop_key, l.slot, o.visit_key, l.bundle, o.source,
+                sh.title, sh.channel, sh.room, market_unit_price(l.item_id,l.price,l.bundle) AS unit_price, l.stock,
                 o.observed_at, l.variant_id, v.stats
          FROM listings l
          JOIN shops sh ON sh.id = l.shop_id JOIN observations o ON o.id = l.observation_id
@@ -434,6 +440,13 @@ async fn item_market(db: &PgPool, id: i32, now: f64) -> sqlx::Result<ItemMarket>
     let mut listings: Vec<Listing> = listings
         .into_iter()
         .map(|r| Listing {
+            grouping: Some(ListingIdentity {
+                shop_key: r.shop_key,
+                slot: r.slot,
+                visit_id: r.visit_key,
+                bundle: r.bundle,
+                source: r.source,
+            }),
             shop: r.title,
             channel: r.channel,
             room: r.room,
@@ -448,6 +461,7 @@ async fn item_market(db: &PgPool, id: i32, now: f64) -> sqlx::Result<ItemMarket>
             DateTime::from_timestamp(row["time"].as_f64().unwrap_or(0.) as i64, 0)
         {
             listings.push(Listing {
+                grouping: None,
                 shop: row["shop"].as_str().unwrap_or("").to_owned(),
                 channel: row["location"]["channel"].as_i64().map(|v| v as i16),
                 room: row["location"]["room"].as_i64().map(|v| v as i16),

@@ -34,7 +34,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/v1/catalog/page') {
       const target = new URL(url.searchParams.get('url'), 'http://localhost');
       const id = Number(target.pathname.split('/').at(-1));
-      data = { kind: 'item', page: { item: { id, name_en: catalog.items[id]?.name_en || 'Red Potion', category: '装备' }, stats: null, droppers: [], npc_offers: [], npc_sell: null, market: { as_of: now, base_stats: [], days, sale_points: days.map((_,day)=>({day,price:8000+day*100})), listings: [3000,6000].map((price,i)=>({shop:'Fixture shop '+i,channel:24,room:10,unit_price:price,stock:1+i,seen_at:new Date((now-i*60)*1000).toISOString(),variant:{id:'variant-'+i,stats:[{key:'weapon_attack',value:50+i},{key:'dex',value:2}],remaining_upgrades:7,enhancements:1}})), sales: [] } } };
+      data = { kind: 'item', page: { item: { id, name_en: catalog.items[id]?.name_en || 'Red Potion', category: '装备' }, stats: null, droppers: [], npc_offers: [], npc_sell: null, market: { as_of: now, base_stats: [], days, sale_points: days.map((_,day)=>({day,price:8000+day*100})), listings: [3000,6000,3000].map((price,index)=>{const i=index===2?0:index;return {shop_key:'fixture-'+i,visit_id:'snapshot-'+i,slot:index,bundle:1,source:'packet',shop:'Fixture shop '+i,channel:24,room:10,unit_price:price,stock:1+i,seen_at:new Date((now-i*60)*1000).toISOString(),variant:{id:'variant-'+i,stats:[{key:'weapon_attack',value:50+i},{key:'dex',value:2}],remaining_upgrades:7,enhancements:1}}}), sales: [] } } };
     }
     res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(data));
   }
@@ -57,6 +57,8 @@ try {
     await page.goto(origin + '/item/1452003?lang=en');
     const source=page.locator('details.src-well'),where=page.locator('details.where-well');
     await source.waitFor();
+    assert.equal(await page.locator('.where-well .market-record').count(),2,'identical slots merge while different equipment remains separate');
+    assert.equal(await page.locator('.where-well .record-stock').first().textContent(),'Stock 2');
     for(const section of [source,where]){
       assert(await section.evaluate(node=>node.open),'item sections start expanded');
       await section.locator(':scope > summary').click();assert.equal(await section.getAttribute('open'),null);
@@ -72,11 +74,15 @@ try {
     await page.locator('[data-offer-sort]').selectOption('recent');
     const quotes=where.locator('.variant-record');assert.equal(await quotes.count(),2);
     const quote=quotes.first();assert.equal(await quote.locator('.slot,.ware-name,.name-secondary').count(),0,'same-item variant rows omit repeated identity');
-    assert.equal(await quote.locator('.record-shop').textContent(),'Fixture shop 0');assert.equal(await quote.locator('.loc b').textContent(),'CH 24');assert.equal(await quote.locator('.ware-price').textContent(),'3K');assert.match(await quote.locator('.record-stock').textContent(),/1$/);
+    assert.equal(await quote.locator('.record-shop').textContent(),'Fixture shop 0');assert.equal(await quote.locator('.loc b').textContent(),'CH 24');assert.equal(await quote.locator('.ware-price').textContent(),'3K');assert.match(await quote.locator('.record-stock').textContent(),/2$/);
     assert.match(await quote.locator('.offer-equipment').textContent(),/物攻|Weapon ATK/);
     assert.equal(await quote.locator('.loc-room').textContent(),'FM10');
     assert(await quotes.locator('.loc-shop').evaluateAll(nodes=>nodes.every(node=>{const widths=[...node.children].map(child=>child.getBoundingClientRect().width);return widths.length===3&&widths[0]===50&&widths[1]===44&&Math.abs(widths.reduce((a,b)=>a+b,0)-node.clientWidth)<1;})),'compact variants align CH/FM columns across rows and let the shop column fill the remaining frame');
     assert.deepEqual(await quote.locator('.record-value').evaluate(node=>[...node.children].map(child=>child.className)),['ware-price','record-stock'],'variant price and stock occupy only two lines');
+    const compactShop=quote.locator('.record-shop'),originalShop=await compactShop.textContent();
+    await compactShop.evaluate(node=>node.textContent='hi');
+    assert(await compactShop.evaluate(node=>node.getBoundingClientRect().width<30&&node.parentElement.getBoundingClientRect().width<node.closest('.record-meta').getBoundingClientRect().width-10),'compact shop cells also fit short names');
+    await compactShop.evaluate((node,title)=>node.textContent=title,originalShop);
     for(const width of mobile?[320,390,430]:[1280]){
       await page.setViewportSize({width,height:844});
       assert(await quotes.evaluateAll(nodes=>nodes.every(node=>{
