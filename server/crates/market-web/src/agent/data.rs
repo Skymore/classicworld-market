@@ -251,7 +251,9 @@ async fn search(db: &PgPool, a: Search) -> sqlx::Result<Value> {
          extract(epoch FROM st.as_of)::float8 AS market_observed_at
          FROM items i LEFT JOIN item_stats st ON st.item_id=i.id
          WHERE {filter}
-         AND ($2::text IS NULL OR i.subcategory=$2)
+         AND ($2::text IS NULL OR i.subcategory=$2
+              OR ($2='弓' AND i.id/10000=145)
+              OR ($2='弩' AND i.id/10000=146))
          AND ($3::int2 IS NULL OR i.req_job_mask IS NULL OR i.req_job_mask=0 OR
               ($3=-1 AND i.req_job_mask=-1) OR ($3>0 AND i.req_job_mask>0 AND (i.req_job_mask & $3)>0))
          AND ($4::int2 IS NULL OR i.req_level >= $4)
@@ -278,7 +280,7 @@ async fn search(db: &PgPool, a: Search) -> sqlx::Result<Value> {
     }
     Ok(json!({"items":rows,"truncated":truncated,
         "filters":{"query":a.query,"subcategory":a.subcategory,"job":a.job,"min_level":a.min_level,"max_level":a.max_level},
-        "search_hint":"If no results, simplify name keywords or relax filters. Jobs and levels are requirements, not item name keywords. Multiple equipment candidates are options to compare, not ambiguous item identity."}))
+        "search_hint":"Bow (弓) and crossbow (弩) are weapon-type filters; matching catalogue rows display 武器 as their subcategory. If no results, simplify name keywords or relax filters. Jobs and levels are requirements, not item name keywords. Multiple equipment candidates are options to compare, not ambiguous item identity."}))
 }
 
 // Expose explicit counts instead of the legacy UI's ambiguous stock/bundle fields.
