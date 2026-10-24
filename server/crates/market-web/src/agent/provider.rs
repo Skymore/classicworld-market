@@ -175,7 +175,8 @@ impl OpenRouter {
         let mut trace = vec![];
         let mut sources = std::collections::BTreeSet::new();
         for round in 0..5 {
-            let mut answer = self.completion(&messages, round == 4).await?;
+            let final_turn = round == 4 || trace.len() >= 10;
+            let mut answer = self.completion(&messages, final_turn).await?;
             let mut calls = answer["tool_calls"].as_array().cloned().unwrap_or_default();
             // Some providers emit their training-time XML protocol as content.
             // Normalize only fully parsed, allowlisted read-only calls; never show code as an answer.
@@ -201,7 +202,7 @@ impl OpenRouter {
                 return Ok(json!({"answer":text,"model":self.model,"tool_calls":trace,
                     "sources":sources,"generated_at":crate::unix_now()}));
             }
-            if round == 4 || calls.len() > 4 || trace.len() + calls.len() > 10 {
+            if final_turn || calls.len() > 32 {
                 return Err((StatusCode::BAD_GATEWAY, "agent_tool_limit"));
             }
             // Validate the tool-call envelope before replaying it to the provider.
@@ -221,6 +222,11 @@ impl OpenRouter {
             }
             messages.push(answer);
             for call in calls {
+                if trace.len() >= 10 {
+                    messages.push(json!({"role":"tool","tool_call_id":call["id"],
+                        "content":json!({"error":"tool_budget_exhausted","instruction":"Use the evidence already collected to answer now. Unqueried candidates remain unknown."}).to_string()}));
+                    continue;
+                }
                 let name = call["function"]["name"].as_str().unwrap();
                 let args =
                     serde_json::from_str::<Value>(call["function"]["arguments"].as_str().unwrap())
@@ -389,6 +395,34 @@ mod tests {
         for model in ["openrouter/auto", "openai/gpt-4o", "", "vendor/name:free\n"] {
             assert!(OpenRouter::new("secret".into(), model.into(), ENDPOINT.into()).is_err());
         }
+    }
+
+    #[tokio::test]
+    async fn regression_parallel_calls_keep_collected_evidence_within_budget() {
+        let calls: Vec<Value> = (0..11)
+            .map(|i| {
+                json!({"id":format!("call_{i}"),"type":"function",
+            "function":{"name":"unknown_tool","arguments":"{}"}})
+            })
+            .collect();
+        let (url, seen, job) = mock(vec![
+            reply(json!({"content":null,"tool_calls":calls})),
+            reply(json!({"content":"查询额度已用完，请根据现有信息核对物品。"})),
+        ])
+        .await;
+        let provider =
+            OpenRouter::new("fixture-key".into(), "openai/gpt-6-luna".into(), url).unwrap();
+        let answer = provider.chat(&pool(), request()).await.unwrap();
+        assert_eq!(answer["tool_calls"].as_array().unwrap().len(), 10);
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen.1[1]["tool_choice"], "none");
+        let messages = seen.1[1]["messages"].as_array().unwrap();
+        assert_eq!(messages.iter().filter(|m| m["role"] == "tool").count(), 11);
+        assert!(messages.last().unwrap()["content"]
+            .as_str()
+            .unwrap()
+            .contains("tool_budget_exhausted"));
+        job.abort();
     }
 
     #[tokio::test]
