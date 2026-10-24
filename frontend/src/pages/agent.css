@@ -27,12 +27,22 @@
 .chat-guide-refresh {border-left: 3px solid var(--mark); padding-left: 10px;}
 .chat-top {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
 .chat-top h1 {
   font-size: 16px;
   margin-right: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.chat-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 .chat-top button {
   display: inline-flex;
@@ -40,6 +50,18 @@
   gap: 5px;
   min-height: 36px;
   padding: 4px 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.chat-top button svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.chat-top .chat-action-label {
+  display: block;
+  line-height: 20px;
 }
 .chat-model {
   font-size: 12px;
@@ -359,9 +381,6 @@
   }
 }
 @media (max-width: 640px) {
-  .chat-guide-toggle span {
-    display: none;
-  }
   .chat-history-toggle {
     display: inline-flex !important;
   }

@@ -34,9 +34,22 @@ try{browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||undef
  assert.equal(await page.locator('.chat-footnote').count(),0,'redundant account/source footnote is removed');
  for(const width of mobile?[320,375]:[1440]){
   await page.setViewportSize({width,height:900});
+  assert.equal(await page.locator('.chat-guide-toggle .chat-action-label').isVisible(),true,'Guides has a visible text label on phones');
+  const actions=await page.locator('.chat-actions button:visible').evaluateAll(nodes=>nodes.map(node=>{
+   const svg=node.querySelector('svg').getBoundingClientRect(),label=node.querySelector('.chat-action-label').getBoundingClientRect(),box=node.getBoundingClientRect();
+   const range=document.createRange();range.selectNodeContents(node.querySelector('.chat-action-label'));const text=range.getBoundingClientRect();
+   return {icon:svg.width===16&&svg.height===16,centered:Math.abs((svg.top+svg.bottom-label.top-label.bottom)/2)<1,iconTop:svg.top,textTop:text.top,inside:box.left>=0&&box.right<=innerWidth};
+  }));
+  assert(actions.every(action=>action.icon&&action.centered&&action.inside),'header actions have aligned 16px icons and visible text');
+  assert(actions.every(action=>Math.abs(action.iconTop-actions[0].iconTop)<1&&Math.abs(action.textTop-actions[0].textTop)<1),'all header icons and text align across buttons');
   const buttons=page.locator('.chat-examples button');assert.equal(await buttons.count(),4);
   assert(await buttons.evaluateAll(nodes=>nodes.every(node=>{const b=node.getBoundingClientRect();return b.height<=36&&b.width<node.parentElement.clientWidth&&b.right<=innerWidth;})),'example pills stay compact and fit');
   assert(await input.evaluate(node=>{const s=getComputedStyle(node),ctx=document.createElement('canvas').getContext('2d');ctx.font=s.font;return s.whiteSpace==='nowrap'&&ctx.measureText(node.placeholder).width<=node.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight);}), 'placeholder fits on one line without shrinking editable text');
+ }
+ if(mobile){
+  await page.goto(origin+'/agent?lang=en');await page.locator('[data-agent-chat]').waitFor();
+  for(const width of [320,375]){await page.setViewportSize({width,height:900});assert(await page.locator('.chat-guide-toggle .chat-action-label').isVisible());assert(await page.locator('.chat-actions').evaluate(node=>{const b=node.getBoundingClientRect();return b.left>=0&&b.right<=innerWidth;}),'English action group stays together inside a narrow viewport');assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));}
+  await page.goto(origin+'/agent?lang=zh');await page.locator('[data-agent-chat]').waitFor();
  }
  const first=page.locator('.chat-examples button').first(),prompt=await first.getAttribute('title');await first.click();assert.equal(await input.inputValue(),prompt,'compact labels still insert the complete question');
  await input.fill('one\ntwo\nthree');assert(await input.evaluate(node=>node.getBoundingClientRect().height>60),'real multiline questions grow the composer');await input.fill('');

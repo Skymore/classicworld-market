@@ -115,7 +115,7 @@ h1,h2,h3,p{margin:0}
 .ptop{display:flex;align-items:center;gap:8px;height:52px}
 .brand{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-weight:800;font-size:18px;letter-spacing:.04em}
 .fresh{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-3)}
-.fresh i{width:6px;height:6px;background:var(--bar);box-shadow:0 0 0 1px var(--sheet-hi),0 0 0 2px var(--edge)}
+.fresh i{flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:var(--bar)}
 .dock{position:fixed;left:0;right:0;bottom:0;z-index:40;display:grid;grid-template-columns:repeat(5,1fr);height:calc(var(--dock-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--sheet);border-top:2px solid var(--edge);box-shadow:inset 0 1px 0 var(--bevel-hi)}
 .dock a{position:relative;display:grid;grid-template-rows:28px 16px;align-content:center;justify-items:center;align-items:center;gap:4px;min-height:44px;min-width:0;font-size:12px;color:var(--ink-2)}
 .dock .dock-icon{display:grid;place-items:center;width:28px;height:28px;line-height:0}
@@ -538,7 +538,7 @@ html{scrollbar-gutter:stable}
 .pref-language{--pref-icon:url('/web/img/ui/language.svg')}
 .pref-theme{--pref-icon:url('/web/img/ui/theme.svg')}
 .pref-account{--pref-icon:url('/web/img/ui/account.svg')}
-.ptop .brand{flex-shrink:0}.ptop .fresh{flex:0 1 auto;overflow:hidden}.ptop .fresh i{flex-shrink:0}
+.ptop .brand{flex-shrink:0}.ptop .fresh{flex:0 1 auto;min-width:8px;overflow:hidden}.ptop .fresh i{flex-shrink:0}
 @media(max-width:380px){.ptop{gap:4px}.ptop .prefs{margin-left:auto}.ptop .fresh span{display:none}.ptop .brand{gap:5px;font-size:17px}}
 
 .craft-label{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:3px;font-size:11px;line-height:1.35}
@@ -546,3 +546,5 @@ html{scrollbar-gutter:stable}
 .craft-cost{color:var(--ink-2);font-variant-numeric:tabular-nums}
 html[data-theme=dark] .craft-tag{color:#9fd486;border-color:#6c9e71}
 .prow:has(.craft-label){min-height:72px;height:auto;padding-top:7px;padding-bottom:7px}
+
+@media(max-width:380px){.ptop .brand{flex-shrink:1;min-width:0}.ptop .brand>.px{flex-shrink:0}.ptop .brand>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis}.ptop .prefs{flex-shrink:0}}

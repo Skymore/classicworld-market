@@ -3,8 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "/web/js/lib/i18n.js";
 import { meso, fullTime } from "/web/js/lib/format.js";
 import {
-  OFFER_HOURS,
-  OFFER_PERCENTILES,
   normalizeOfferFilters,
   filterOffers,
   offerFilterTokens,
@@ -28,7 +26,8 @@ import {
   usePeriod,
   Search as QuickSearch,
 } from "../components/shared";
-import { Location } from "../components/list-rows";
+import { Location, OfferRow } from "../components/list-rows";
+import OfferFilterDialog from "../components/offer-filters";
 import { Well, MobPicture, Secondary, useNames } from "./catalogue";
 import Crafting from "../components/crafting";
 import ItemTrend from "../components/item-trend";
@@ -405,10 +404,8 @@ export default function Item({ page }: { page: any }) {
     [bonus, setBonus] = useState(false),
     [offersOpen, setOffersOpen] = useState<Set<string>>(new Set()),
     [filterOpen, setFilterOpen] = useState(false),
-    [draft, setDraft] = useState<any>({}),
     [, tick] = useState(0);
-  const dialog = useRef<HTMLDialogElement>(null),
-    opener = useRef<HTMLButtonElement>(null);
+  const opener = useRef<HTMLButtonElement>(null);
   const filters = useMemo(() => {
     try {
       return normalizeOfferFilters({
@@ -441,8 +438,7 @@ export default function Item({ page }: { page: any }) {
       })),
     [market, equipment],
   );
-  const filtered = filterOffers(rows, sort, filters),
-    preview = filterOffers(rows, sort, draft);
+  const filtered = filterOffers(rows, sort, filters);
   const groups = offerGroups(filtered.rows, false);
   const flat = [...filtered.rows].sort(
     (a, b) =>
@@ -480,13 +476,6 @@ export default function Item({ page }: { page: any }) {
       navigate(route.pathname + "?" + params, { replace: true });
     }
   }, [period.ready, period.hours, route.pathname]);
-  useEffect(() => {
-    if (filterOpen) {
-      setDraft({ ...filters });
-      dialog.current?.showModal();
-      opener.current?.setAttribute("aria-expanded", "true");
-    } else if (dialog.current?.open) dialog.current.close();
-  }, [filterOpen]);
   const show = (key: string) => setMore((old) => new Set([...old, key]));
   const range = (
     <>
@@ -516,38 +505,19 @@ export default function Item({ page }: { page: any }) {
   function quote(row: any, recent = false) {
     const stale = Date.now() / 1000 - row.observed > 48 * 3600,
       content = (
-        <>
-          <span className="lshop">
-            {equipment && (
-              <span className="offer-chevron" aria-hidden="true">
-                ›
-              </span>
-            )}
-            <span>{row.shop}</span>
-          </span>
-          <span className="lroom">
-            {recent
-              ? (row.channel == null
-                  ? words("频道未知", "Channel ?")
-                  : "CH " + row.channel) + " · "
-              : ""}
-            {row.room != null
-              ? words(`${row.room}洞`, `room ${row.room}`)
-              : words("洞未知", "room ?")}
-          </span>
-          <span className="lp">
-            <Price value={row.unit_price} />
-          </span>
-          <span
-            className="lq"
-            title={words("库存数量，未知时显示 —", "Stock; — means unknown")}
-          >
-            {row.stock != null ? "×" + row.stock : "—"}
-          </span>
-          <span className="la">
-            <RelativeTime at={row.observed} />
-          </span>
-        </>
+        <OfferRow
+          plain
+          hideIdentity
+          row={{
+            ...row,
+            id: row.key,
+            item_id: item.id,
+            location: { channel: row.channel, room: row.room },
+            equipment: row.variant
+              ? { ...row.variant, status: "candidate" }
+              : undefined,
+          }}
+        />
       );
     return equipment ? (
       <details
@@ -569,7 +539,12 @@ export default function Item({ page }: { page: any }) {
           });
         }}
       >
-        <summary className="lrow">{content}</summary>
+        <summary className="variant-summary">
+          {content}
+          <span className="variant-chevron" aria-hidden="true">
+            ›
+          </span>
+        </summary>
         <div className="offer-body">
           {row.variant ? (
             <div className="tip">
@@ -588,7 +563,7 @@ export default function Item({ page }: { page: any }) {
     ) : (
       <div
         key={row.key}
-        className={"lrow " + (stale ? "stale" : "")}
+        className={"variant-offer " + (stale ? "stale" : "")}
         data-quote={row.key}
         data-observed={row.observed}
         data-unit-price={row.unit_price}
@@ -670,46 +645,6 @@ export default function Item({ page }: { page: any }) {
         .map((row: any) => [row.variant.id, row.variant]),
     ).values(),
   ] as any[];
-  const field = (
-    key: string,
-    title: string,
-    options?: [string, string][],
-    min = 0,
-  ) => (
-    <label className="offer-field">
-      <span>{title}</span>
-      {options ? (
-        <select
-          data-offer-hours={key === "hours" ? "" : undefined}
-          data-offer-percentile={key === "percentile" ? "" : undefined}
-          name={key}
-          value={draft[key] ?? "all"}
-          onChange={(event) =>
-            setDraft((old: any) => ({ ...old, [key]: event.target.value }))
-          }
-        >
-          {options.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          type="number"
-          name={key}
-          min={min}
-          step={key === "minStock" ? "1" : "any"}
-          inputMode="decimal"
-          value={draft[key] ?? ""}
-          placeholder={words("不限", "Any")}
-          onChange={(event) =>
-            setDraft((old: any) => ({ ...old, [key]: event.target.value }))
-          }
-        />
-      )}
-    </label>
-  );
   return (
     <>
       <div className="mobile-item-search">
@@ -1410,165 +1345,17 @@ export default function Item({ page }: { page: any }) {
             </Well>
           </div>
         </div>
-        <dialog
-          id="offer-filter-dialog"
-          className="offer-filter-dialog"
-          ref={dialog}
-          aria-labelledby="offer-filter-title"
+        <OfferFilterDialog
+          open={filterOpen}
           onClose={() => {
             setFilterOpen(false);
             opener.current?.focus({ preventScroll: true });
           }}
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              const rect = event.currentTarget.getBoundingClientRect();
-              if (
-                event.clientX < rect.left ||
-                event.clientX > rect.right ||
-                event.clientY < rect.top ||
-                event.clientY > rect.bottom
-              )
-                setFilterOpen(false);
-            }
-          }}
-        >
-          <form
-            className="offer-filter-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              saveFilters(JSON.stringify(normalizeOfferFilters(draft)));
-              setFilterOpen(false);
-            }}
-          >
-            <header className="offer-filter-head">
-              <div>
-                <h3 id="offer-filter-title">
-                  {words("筛选报价", "Filter offers")}
-                </h3>
-                <p>
-                  {words(
-                    "组合条件，找到合适的报价",
-                    "Combine conditions to find the right offer",
-                  )}
-                </p>
-              </div>
-              <button
-                type="button"
-                data-offer-close
-                autoFocus
-                aria-label={words("关闭筛选", "Close filters")}
-                onClick={() => setFilterOpen(false)}
-              >
-                ×
-              </button>
-            </header>
-            <div className="offer-filter-body">
-              <fieldset>
-                <legend>{words("时间与价格", "Time and price")}</legend>
-                <div className="offer-field-grid">
-                  {field(
-                    "hours",
-                    words("报价时间", "Last observed"),
-                    OFFER_HOURS.map((value: string) => [
-                      value,
-                      value === "all"
-                        ? words("全部时间", "Any time")
-                        : value === "168"
-                          ? words("最近 7 天", "Last 7 days")
-                          : words(
-                              `最近 ${value} 小时`,
-                              `Last ${value} ${value === "1" ? "hour" : "hours"}`,
-                            ),
-                    ]),
-                  )}
-                  {field(
-                    "percentile",
-                    words("价格百分位", "Price percentile"),
-                    OFFER_PERCENTILES.map((value: string) => [
-                      value,
-                      value === "all"
-                        ? words("全部价格", "Any price")
-                        : words(`最低 ${value}%`, `Lowest ${value}%`),
-                    ]),
-                  )}
-                  {field(
-                    "minPrice",
-                    words("最低单价（金币）", "Min unit price (mesos)"),
-                  )}
-                  {field(
-                    "maxPrice",
-                    words("最高单价（金币）", "Max unit price (mesos)"),
-                  )}
-                </div>
-                <p className="offer-field-hint">
-                  {words(
-                    "百分位按本物品全部挂单的单价计算，临界同价挂单一起保留。",
-                    "Percentiles use all offers for this item; ties at the cutoff are included.",
-                  )}
-                </p>
-              </fieldset>
-              <fieldset>
-                <legend>{words("库存与属性", "Stock and stats")}</legend>
-                <div className="offer-field-grid">
-                  {field("stock", words("库存信息", "Stock information"), [
-                    ["all", words("全部库存", "Any stock")],
-                    ["known", words("仅库存已知", "Known stock only")],
-                    ["unknown", words("仅库存未知", "Unknown stock only")],
-                  ])}
-                  {field(
-                    "minStock",
-                    words("最低库存数量", "Minimum stock"),
-                    undefined,
-                    1,
-                  )}
-                  {equipment &&
-                    field(
-                      "equipment",
-                      words("装备实际属性", "Captured equipment stats"),
-                      [
-                        ["all", words("全部属性", "Any stats")],
-                        ["captured", words("已采集实际属性", "Stats captured")],
-                        [
-                          "missing",
-                          words("未采集实际属性", "Stats not captured"),
-                        ],
-                        ["bonus", words("只看有加成属性", "Bonus stats only")],
-                      ],
-                    )}
-                </div>
-              </fieldset>
-            </div>
-            <footer className="offer-filter-foot">
-              <p data-offer-preview role="status" aria-live="polite">
-                {preview.cap == null
-                  ? words(
-                      "所有条件同时生效，排序方式不影响筛选。",
-                      "All conditions apply together, regardless of sort order.",
-                    )
-                  : words(
-                      `价格百分位上限：单价 ${preview.cap.toLocaleString("zh-CN")}，含同价挂单。`,
-                      `Percentile cutoff: unit price ${preview.cap.toLocaleString("en-US")}, including ties.`,
-                    )}
-              </p>
-              <div>
-                <button
-                  type="button"
-                  className="btn"
-                  data-offer-reset
-                  onClick={() => setDraft(normalizeOfferFilters())}
-                >
-                  {words("重置条件", "Reset filters")}
-                </button>
-                <button type="submit" className="btn primary" data-offer-apply>
-                  {words(
-                    `显示 ${preview.rows.length} 条报价`,
-                    `Show ${preview.rows.length} offers`,
-                  )}
-                </button>
-              </div>
-            </footer>
-          </form>
-        </dialog>
+          onApply={(value) => saveFilters(JSON.stringify(value))}
+          filters={filters}
+          rows={rows}
+          equipment={equipment}
+        />
       </section>
     </>
   );

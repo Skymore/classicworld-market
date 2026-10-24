@@ -34,7 +34,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/v1/catalog/page') {
       const target = new URL(url.searchParams.get('url'), 'http://localhost');
       const id = Number(target.pathname.split('/').at(-1));
-      data = { kind: 'item', page: { item: { id, name_en: catalog.items[id]?.name_en || 'Red Potion', category: '装备' }, stats: null, droppers: [], npc_offers: [], npc_sell: null, market: { as_of: now, base_stats: [], days, sale_points: days.map((_,day)=>({day,price:8000+day*100})), listings: [], sales: [] } } };
+      data = { kind: 'item', page: { item: { id, name_en: catalog.items[id]?.name_en || 'Red Potion', category: '装备' }, stats: null, droppers: [], npc_offers: [], npc_sell: null, market: { as_of: now, base_stats: [], days, sale_points: days.map((_,day)=>({day,price:8000+day*100})), listings: [3000,6000].map((price,i)=>({shop:'Fixture shop '+i,channel:24,room:10,unit_price:price,stock:1+i,seen_at:new Date((now-i*60)*1000).toISOString(),variant:{id:'variant-'+i,stats:[{key:'weapon_attack',value:50+i},{key:'dex',value:2}],remaining_upgrades:7,enhancements:1}})), sales: [] } } };
     }
     res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(data));
   }
@@ -67,6 +67,17 @@ try {
       assert(await page.locator('.mobile-item-search').evaluate(node=>{const outer=node.getBoundingClientRect(),inner=node.querySelector('.finder').getBoundingClientRect();return Math.abs(outer.left-inner.left)<1&&Math.abs(outer.right-inner.right)<1;}),'item search fills the entire available width');
     }
     await page.setViewportSize({width:mobile?390:1280,height:844});
+    assert.equal(await where.locator('.where-tools').evaluate(node=>getComputedStyle(node).display),'grid','sorting and filters share a compact aligned toolbar');
+    if(mobile)assert.equal(await page.locator('[data-offer-sort]').evaluate(node=>getComputedStyle(node).fontSize),'16px','native sort controls do not zoom the phone viewport');
+    await page.locator('[data-offer-sort]').selectOption('recent');
+    const quotes=where.locator('.variant-record');assert.equal(await quotes.count(),2);
+    const quote=quotes.first();assert.equal(await quote.locator('.slot,.ware-name,.name-secondary').count(),0,'same-item variant rows omit repeated identity');
+    assert.equal(await quote.locator('.record-shop').textContent(),'Fixture shop 0');assert.equal(await quote.locator('.loc b').textContent(),'CH 24');assert.equal(await quote.locator('.ware-price').textContent(),'3K');assert.match(await quote.locator('.record-stock').textContent(),/1$/);
+    assert.match(await quote.locator('.offer-equipment').textContent(),/物攻|Weapon ATK/);
+    await where.locator('.variant-summary').first().click();assert(await where.locator('.listing-offer').first().evaluate(node=>node.open),'captured full stats still expand');
+    await page.locator('[data-offer-filter-open]').click();const dialog=page.locator('#offer-filter-dialog');await dialog.locator('[name=maxPrice]').fill('4000');
+    await dialog.locator('[data-offer-apply]').click();assert.equal(await where.locator('.variant-record').count(),1);
+    await page.locator('[data-offer-clear=all]').click();assert.equal(await where.locator('.variant-record').count(),2);
     const craft=page.locator('.src-well details[data-crafting="1452003"]');
     const total=craft.locator('[data-craft-total]');
     await page.waitForFunction(()=>document.querySelector('[data-craft-total]')?.title==='17150');

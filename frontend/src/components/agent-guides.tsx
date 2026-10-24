@@ -36,7 +36,7 @@ export function AgentGuides({en}:{en:boolean}) {
   const word=(zh:string,english:string)=>en?english:zh;
   const visible=guides.filter(g=>(category==="all"||g.category===category)&&(g.title+g.tags.join(" ")+g.summary).toLowerCase().includes(filter.trim().toLowerCase()));
   return <>
-    <button className="chat-guide-toggle" onClick={()=>{setSelected(null);setFilter("");setCategory("all");setOpen(true);}} title={word("浏览内置指南","Browse built-in guides")} aria-label={word("浏览内置指南","Browse built-in guides")}><BookOpen size={16}/><span>{word("指南","Guides")}</span></button>
+    <button className="chat-guide-toggle" onClick={()=>{setSelected(null);setFilter("");setCategory("all");setOpen(true);}} title={word("浏览内置指南","Browse built-in guides")} aria-label={word("浏览内置指南","Browse built-in guides")}><BookOpen size={16}/><span className="chat-action-label">{word("指南","Guides")}</span></button>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="chat-guide-dialog">
         <DialogTitle className="chat-guide-title">{detail?.title||word("内置冒险指南","Built-in adventure guides")}</DialogTitle>

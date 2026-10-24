@@ -565,3 +565,19 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
   margin-left: 0;
   align-self: center;
 }
+
+.market-record.variant-record{grid-template-columns:minmax(0,1fr) auto;min-height:62px;padding:8px 10px}
+.variant-record .record-meta{margin-top:0}
+.variant-summary{position:relative;list-style:none;padding-right:24px;cursor:pointer}
+.variant-summary::-webkit-details-marker{display:none}
+.variant-chevron{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:22px;color:var(--ink-3)}
+.listing-offer[open]>.variant-summary .variant-chevron{transform:translateY(-50%) rotate(90deg)}
+.variant-offer,.listing-offer{border-top:1px solid var(--rule)}
+.where-well .where-tools,.watch-list-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:8px 10px;align-items:center;border-bottom:1px solid var(--rule)}
+.where-well .where-tools .sortb{min-height:36px;min-width:0;display:block}
+.where-well .where-tools [data-offer-sort],.watch-list-tools select{width:100%;min-width:0;min-height:36px;padding:5px 8px;border:1px solid var(--rule);border-radius:2px;background:var(--sheet-hi);color:var(--ink);font:inherit;font-size:13px}
+.where-well .where-tools .offer-filter-trigger,.watch-list-tools .offer-filter-trigger{min-height:36px;padding:5px 10px}
+.where-well .offer-filter-summary,.watch-page .offer-filter-summary{gap:5px;padding:6px 10px}
+.where-well .offer-filter-summary button,.watch-page .offer-filter-summary button{padding:3px 6px;font-size:11px}
+.where-well .offer-filter-summary small,.watch-page .offer-filter-summary small{flex-basis:100%;font-size:11px}
+@media(max-width:640px){.where-well .where-tools [data-offer-sort],.watch-list-tools select{font-size:16px}}

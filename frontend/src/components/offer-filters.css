@@ -1,0 +1,207 @@
+.offer-filter-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 5px 9px;
+  border: 1px solid var(--edge);
+  background: var(--sheet);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.offer-filter-trigger.on {
+  border-color: var(--mark);
+  color: var(--mark);
+  background: var(--bar-soft);
+}
+.offer-filter-trigger b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 3px;
+  background: var(--mark);
+  color: var(--sheet-hi);
+  font-size: 11px;
+  border-radius: 2px;
+}
+.offer-filter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--rule);
+  align-items: center;
+}
+.offer-filter-summary button {
+  max-width: 100%;
+  padding: 4px 7px;
+  border: 1px solid var(--rule);
+  background: var(--sheet-hi);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.offer-filter-summary button span {
+  margin-left: 4px;
+  color: var(--ink-3);
+}
+.offer-filter-summary .offer-clear-all {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-3);
+  text-decoration: underline;
+}
+.offer-filter-summary small {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.offer-filter-dialog {
+  width: min(600px, calc(100vw - 24px));
+  max-width: none;
+  max-height: 85dvh;
+  padding: 0;
+  border: 2px solid var(--edge);
+  border-radius: 3px;
+  background: var(--sheet);
+  color: var(--ink);
+  box-shadow: var(--hard);
+  overflow: hidden;
+}
+.offer-filter-dialog::backdrop {
+  background: var(--scrim);
+}
+.offer-filter-form {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(85dvh - 4px);
+  min-height: 0;
+}
+.offer-filter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--sheet-hi);
+  flex-shrink: 0;
+}
+.offer-filter-head h3 {
+  font-size: 18px;
+  font-weight: 800;
+}
+.offer-filter-head p {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-top: 3px;
+}
+.offer-filter-head button {
+  width: 40px;
+  height: 40px;
+  font-size: 26px;
+  flex-shrink: 0;
+  border: 1px solid var(--rule);
+}
+.offer-filter-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+  min-height: 0;
+  flex: 1;
+}
+.offer-filter-body fieldset {
+  min-width: 0;
+  margin: 0 0 20px;
+  padding: 0;
+  border: 0;
+}
+.offer-filter-body fieldset:last-child {
+  margin-bottom: 0;
+}
+.offer-filter-body legend {
+  margin-bottom: 10px;
+  padding: 0;
+  font-weight: 750;
+  font-size: 14px;
+}
+.offer-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.offer-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.offer-field-wide {
+  grid-column: 1/-1;
+}
+.offer-field input,
+.offer-field select {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  padding: 7px 9px;
+  border: 1px solid var(--edge);
+  border-radius: 2px;
+  background: var(--sheet-hi);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+.offer-field-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.offer-filter-foot {
+  flex-shrink: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--rule);
+  background: var(--sheet-hi);
+}
+.offer-filter-foot p {
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.offer-filter-foot > div {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+.offer-filter-foot .btn {
+  min-height: 42px;
+  justify-content: center;
+}
+.offer-filter-foot .primary {
+  flex: 1;
+  max-width: 260px;
+}
+.offer-filter-trigger:focus-visible,
+.offer-filter-summary button:focus-visible,
+.offer-filter-dialog :focus-visible {
+  outline: 2px solid var(--mark);
+  outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  .offer-filter-dialog {
+    position: fixed;
+    inset: auto 0 0;
+    width: 100%;
+    max-height: 90dvh;
+    margin: auto auto 0;
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+  }
+  .offer-filter-form {
+    max-height: calc(90dvh - 2px);
+  }
+  .offer-filter-foot {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}

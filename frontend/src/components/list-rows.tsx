@@ -37,11 +37,15 @@ export function OfferRow({
   item,
   sale = false,
   href,
+  hideIdentity = false,
+  plain = false,
 }: {
   row: any;
   item?: any;
   sale?: boolean;
   href?: string;
+  hideIdentity?: boolean;
+  plain?: boolean;
 }) {
   const words = useWords();
   const equip = equipmentSummary(row, document.documentElement.lang === "en");
@@ -51,33 +55,28 @@ export function OfferRow({
       : row.kind === "drop"
         ? words("卖出", "Sold")
         : words("已售", "Sold");
-  return (
-    <SiteLink
-      className="ware market-record"
-      href={href || "/item/" + Number(row.item_id)}
-      data-item-row
-      data-id={row.id}
-      data-record-kind={sale ? "sale" : "quote"}
-      title={row.shop || undefined}
-    >
-      <Slot url={row.icon_url || item?.icon_url} />
+  const content = (
+    <>
+      {!hideIdentity && <Slot url={row.icon_url || item?.icon_url} />}
       <span className="w-main">
-        <span className="ware-name">
-          <ItemNames
-            row={{ ...item, ...row }}
-            suffix={
-              sale ? (
-                <span
-                  className={"evi " + (row.kind || "")}
-                  title={row.kind ? t("evidence." + row.kind) : undefined}
-                >
-                  {status}
-                  {row.quantity != null && ` ×${row.quantity}`}
-                </span>
-              ) : undefined
-            }
-          />
-        </span>
+        {!hideIdentity && (
+          <span className="ware-name">
+            <ItemNames
+              row={{ ...item, ...row }}
+              suffix={
+                sale ? (
+                  <span
+                    className={"evi " + (row.kind || "")}
+                    title={row.kind ? t("evidence." + row.kind) : undefined}
+                  >
+                    {status}
+                    {row.quantity != null && ` ×${row.quantity}`}
+                  </span>
+                ) : undefined
+              }
+            />
+          </span>
+        )}
         <span className="record-meta">
           <Location value={row.location} />
           {row.shop && (
@@ -91,7 +90,11 @@ export function OfferRow({
             </span>
           )}
         </span>
-        {equip && <span className="offer-equipment" title={equip}>{equip}</span>}
+        {equip && (
+          <span className="offer-equipment" title={equip}>
+            {equip}
+          </span>
+        )}
       </span>
       <span className="record-value">
         <span className="record-time">
@@ -105,6 +108,20 @@ export function OfferRow({
           {words("库存", "Stock")} {row.stock ?? "—"}
         </span>
       </span>
+    </>
+  );
+  const props = {
+    className: "ware market-record" + (hideIdentity ? " variant-record" : ""),
+    "data-item-row": "",
+    "data-id": row.id,
+    "data-record-kind": sale ? "sale" : "quote",
+    title: row.shop || undefined,
+  };
+  return plain ? (
+    <span {...props}>{content}</span>
+  ) : (
+    <SiteLink {...props} href={href || "/item/" + Number(row.item_id)}>
+      {content}
     </SiteLink>
   );
 }

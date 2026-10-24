@@ -60,6 +60,12 @@ try {
       assert.equal(await page.locator('.hero [data-count=mobs]').textContent(),lang==='zh'?'物品·怪物·地图':'Items · Mobs · Maps');
       const sold = page.locator('[data-pane=recent] .market-record');
       await sold.waitFor();
+      const dot=page.locator(width<640?'.ptop .fresh i':'.dhead .fresh i');
+      await dot.waitFor();
+      assert(await dot.evaluate(node=>{
+        const dot=node.getBoundingClientRect(),label=node.parentElement.getBoundingClientRect(),style=getComputedStyle(node);
+        return dot.width===dot.height&&dot.width>=8&&parseFloat(style.borderRadius)>=50&&style.boxShadow==='none'&&dot.left>=label.left&&dot.right<=label.right&&dot.top>=label.top&&dot.bottom<=label.bottom;
+      }),'the complete blue status dot fits inside the clipped freshness label');
       assert.match(await sold.locator('.name-primary .evi').textContent(), /×2/);
       assert.equal(await sold.locator('.ware-price').textContent(), '850');
       assert.match(await sold.locator('.record-stock').textContent(), /3$/);
@@ -95,7 +101,8 @@ try {
         assert.equal(result.columns, 3, 'icon, names/metadata and a separate value column');
         assert(result.centered, 'price and stock are vertically centered on the right');
         assert.equal(result.secondaryWrap, 'normal', 'long translations remain readable');
-        assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no horizontal page overflow');
+        const viewport=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));
+        assert(viewport.scroll<=viewport.width,'no horizontal page overflow: '+JSON.stringify(viewport));
       }
       await checkLayout(offers.first());
       assert.match(await offers.nth(2).locator('.offer-equipment').textContent(), /可升 5|Upgrades left 5/);
@@ -133,6 +140,14 @@ try {
       await page.locator('[data-watch-sort]').selectOption('price');
       await page.waitForFunction(() => document.querySelector('[data-matches] [data-item-row]')?.dataset.id === 'unknown-stock');
       assert.equal(await matches.first().getAttribute('data-id'), 'unknown-stock');
+      await page.locator('[data-watch-filter]').click();const watchFilters=page.locator('#offer-filter-dialog');
+      await watchFilters.locator('[name=minPrice]').fill('100');await watchFilters.locator('[data-offer-apply]').click();
+      assert.equal(await matches.count(),1);assert.equal(await matches.first().getAttribute('data-id'),'recent-expensive');
+      await page.reload();await matches.first().waitFor();assert.equal(await matches.count(),1,'watch view filters survive reload');
+      await page.locator('[data-watch-clear=all]').click();assert.equal(await matches.count(),2);
+      await page.locator('[data-watch-filter]').click();await watchFilters.locator('[name=percentile]').selectOption('50');await watchFilters.locator('[data-offer-apply]').click();
+      assert.equal(await matches.count(),1);assert.equal(await matches.first().getAttribute('data-id'),'unknown-stock','percentile keeps the cheaper matching quote');
+      await page.locator('[data-watch-clear=all]').click();
       if (screenshots) await page.screenshot({ path: path.join(screenshots, `watch-${width}-${lang}.png`) });
 
       for (const mode of ['recent', 'lastsale']) {

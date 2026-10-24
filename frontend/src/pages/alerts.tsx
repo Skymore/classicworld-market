@@ -13,7 +13,7 @@ import { useMarketQuery } from "../lib/query";
 import { useWords } from "../providers";
 import { Slot, Price, Empty, usePageReady } from "../components/shared";
 import { Location } from "../components/list-rows";
-import { announce } from "../components/toasts";
+import { announce, OfferReminder } from "../components/toasts";
 import "../lib/list-copy";
 const pct = (value: number) =>
   `${value >= 0 ? "+" : ""}${Number(value).toFixed(1)}%`;
@@ -210,14 +210,7 @@ export default function Alerts() {
         announce(
           title,
           "/item/" + row.item_id,
-          <>
-            <b>{row.name}</b>
-            <span>{line}</span>
-            <span className="tmeta">
-              <span className="ss">{row.shop}</span>
-              <Location value={row.location} />
-            </span>
-          </>,
+          <OfferReminder row={{ ...row, name_zh: row.name, unit_price: row.buy }} />,
         );
       if (
         settings.desktop &&

@@ -2,6 +2,21 @@ import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "./shared";
 import { useWords } from "../providers";
+import { OfferRow } from "./list-rows";
+import { useMarketQuery } from "../lib/query";
+import { api, qs } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
+
+export function OfferReminder({ row, item }: { row: any; item?: any }) {
+  const catalog = useMarketQuery<any>(
+    api.watchCatalog() + qs({ q: row.item_id }),
+    !row.icon_url && !item?.icon_url,
+    false,
+  );
+  const known = catalog.data?.items?.find(
+    (entry: any) => entry.item_id === row.item_id,
+  );
+  return <OfferRow row={row} item={{ ...known, ...item }} />;
+}
 type Toast = { id: number; title: string; href: string; body: ReactNode };
 export function announce(
   title: string,
@@ -65,9 +80,7 @@ export function ToastHost() {
               <Icon name="close" />
             </button>
           </div>
-          <a className="toast-body" href={toast.href}>
-            {toast.body}
-          </a>
+          <div className="toast-body">{toast.body}</div>
         </section>
       ))}
     </div>,

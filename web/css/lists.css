@@ -147,10 +147,9 @@
 .toast .stall-bar h2{display:flex;align-items:center;gap:6px;font-size:14px}
 .toast .stall-bar h2 .px{color:#ffd43b}
 .toast .stall-bar .bar-btn{margin-left:auto}
-.toast-body{display:grid;gap:2px;padding:8px 12px 10px;font-size:14px}
-.toast-body b{font-size:15px}
+.toast-body{min-width:0}
 .offer-equipment{display:block;font-size:12px;line-height:1.5;overflow-wrap:anywhere;color:var(--ink)}
-.toast .offer-equipment{border-top:1px solid var(--rule);margin-top:4px;padding-top:5px}
+
 .toasts{max-height:calc(100dvh - 88px);overflow-y:auto;overscroll-behavior:contain}
 .tmeta{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-3)}
 @keyframes toast-in{from{transform:translateY(-8px);opacity:0}to{transform:none;opacity:1}}

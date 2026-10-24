@@ -20,8 +20,15 @@ import {
   Slot,
   usePageReady,
 } from "../components/shared";
+import OfferFilterDialog from "../components/offer-filters";
+import {
+  normalizeOfferFilters,
+  filterOffers,
+  offerFilterTokens,
+  clearOfferFilter,
+} from "/web/js/lib/item-offer-filters.js?v=20261023-advanced-offers-1";
 import { OfferRow, Location } from "../components/list-rows";
-import { announce } from "../components/toasts";
+import { announce, OfferReminder } from "../components/toasts";
 import "../lib/list-copy";
 const started = Date.now() / 1000,
   notifications = {
@@ -75,6 +82,7 @@ export default function Watch() {
   const [list, writeList] = useUserValue(LIST_KEY, "[]"),
     [setting, writeSettings] = useUserValue(SETTINGS_KEY, "{}"),
     [sort, writeSort] = useUserValue("watch.offerSort", "price"),
+    [rawFilters, writeFilters] = useUserValue("watch.offerFilters", "{}"),
     [token] = useUserValue("cwm.collector.token");
   const ids = useMemo<number[]>(
     () => Core.readList({ getItem: () => list }),
@@ -83,6 +91,22 @@ export default function Watch() {
   const settings = useMemo<any>(
     () => Core.readSettings({ getItem: () => setting }, ids),
     [setting, list],
+  );
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filterButton = useRef<HTMLButtonElement>(null);
+  const filters = useMemo(() => {
+    try {
+      return normalizeOfferFilters({
+        ...JSON.parse(rawFilters),
+        equipment: "all",
+      });
+    } catch {
+      return normalizeOfferFilters();
+    }
+  }, [rawFilters]);
+  const tokens = offerFilterTokens(
+    filters,
+    document.documentElement.lang === "en",
   );
   const [query, setQuery] = useState(""),
     [search, setSearch] = useState(""),
@@ -148,8 +172,24 @@ export default function Watch() {
   );
   const listings = shared.data?.listings || [];
   const summary = Core.summary(listings, ids, settings);
+  const baseMatches = Core.matching(listings, ids, settings).map(
+    (row: any) => ({ ...row, price: row.unit_price }),
+  );
+  function filterWatchRows(rows: any[], filters: any) {
+    return {
+      cap: null,
+      rows: [...new Set(rows.map((row) => row.item_id))].flatMap(
+        (id) =>
+          filterOffers(
+            rows.filter((row) => row.item_id === id),
+            "price",
+            filters,
+          ).rows,
+      ),
+    };
+  }
   const matches = sortWatchQuotes(
-    Core.matching(listings, ids, settings),
+    filterWatchRows(baseMatches, filters).rows,
     sort === "recent" ? "recent" : "price",
   );
   const hits = ids.filter((id) => summary[id]?.under > 0).length;
@@ -277,14 +317,7 @@ export default function Watch() {
         announce(
           title,
           `/item/${row.item_id}`,
-          <>
-            <b>{itemName(item)}</b>
-            <span>{line}</span>
-            <span className="tmeta">
-              <span className="ss">{row.shop}</span>
-              <Location value={row.location} />
-            </span>
-          </>,
+          <OfferReminder row={row} item={item} />,
           { body: `${itemName(item)} · ${line} · ${row.shop}`, tag: row.id },
         );
       }
@@ -361,7 +394,11 @@ export default function Watch() {
     }
   }
   return (
-    <div className="lwrap watch-page">
+    <div
+      className="lwrap watch-page"
+      data-capture-state={captureState}
+      data-capture-path={personal?.base ? "desktop" : "browser"}
+    >
       <section className="stall lpage">
         <div className="stall-bar">
           <h1>{t("watch.title")}</h1>
@@ -370,10 +407,6 @@ export default function Watch() {
           </span>
         </div>
         <p className="sale-note">{t("watch.note")}</p>
-        <details className="watch-help">
-          <summary>{t("watch.help_title")}</summary>
-          <p>{t("watch.help")}</p>
-        </details>
         <div className="wadd">
           <form
             className="finder"
@@ -483,25 +516,7 @@ export default function Watch() {
         <p className="wstatus" data-status role="status">
           {notice || shared.error
             ? t(notice ? "watch.full" : "watch.failed")
-            : shared.data?.truncated
-              ? t("watch.truncated")
-              : ""}
-        </p>
-        <p
-          className="wstatus"
-          data-personal-source
-          data-capture-state={captureState}
-          data-capture-path={personal?.base ? "desktop" : "browser"}
-        >
-          {personal
-            ? words(
-                "提醒范围：共享新报价 + 我刚逛到的摊位",
-                "Alerts: shared offers + shops I just visited",
-              )
-            : words(
-                "已开启所有关注物品的共享新报价提醒；连接采集器后，自动加入自己刚逛到的摊位。",
-                "Shared offer alerts are on for all watched items. Your own visits join automatically when connected.",
-              )}
+            : ""}
         </p>
         <div className="wcards" data-cards>
           {ids.length ? (
@@ -617,21 +632,69 @@ export default function Watch() {
       >
         <div className="stall-bar">
           <h2>{t("watch.matches")}</h2>
-          <div className="watch-offer-tools">
-            <span className="bar-meta" data-mmeta>
-              {matches.length || ""}
-            </span>
-            <select
-              data-watch-sort
-              aria-label={t("watch.sort")}
-              value={sort}
-              onChange={(event) => writeSort(event.target.value)}
-            >
-              <option value="price">{t("watch.sort_price")}</option>
-              <option value="recent">{t("watch.sort_recent")}</option>
-            </select>
-          </div>
+          <span className="bar-meta" data-mmeta>
+            {matches.length || ""}
+          </span>
         </div>
+        <div className="watch-list-tools">
+          <select
+            data-watch-sort
+            aria-label={t("watch.sort")}
+            value={sort}
+            onChange={(event) => writeSort(event.target.value)}
+          >
+            <option value="price">{t("watch.sort_price")}</option>
+            <option value="recent">{t("watch.sort_recent")}</option>
+          </select>
+          <button
+            ref={filterButton}
+            className={"offer-filter-trigger " + (tokens.length ? "on" : "")}
+            data-watch-filter
+            aria-haspopup="dialog"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen(true)}
+          >
+            <Icon name="funnel" />
+            {words("筛选", "Filters")}
+            {tokens.length > 0 && <b>{tokens.length}</b>}
+          </button>
+        </div>
+        {tokens.length > 0 && (
+          <div className="offer-filter-summary">
+            {tokens.map((token: any) => (
+              <button
+                key={token.key}
+                data-watch-clear={token.key}
+                onClick={() =>
+                  writeFilters(
+                    JSON.stringify(clearOfferFilter(filters, token.key)),
+                  )
+                }
+              >
+                {token.label} ×
+              </button>
+            ))}
+            <button
+              className="offer-clear-all"
+              data-watch-clear="all"
+              onClick={() => writeFilters("{}")}
+            >
+              {words("清空筛选", "Clear all")}
+            </button>
+          </div>
+        )}
+        <OfferFilterDialog
+          open={filtersOpen}
+          onClose={() => {
+            setFiltersOpen(false);
+            filterButton.current?.focus({ preventScroll: true });
+          }}
+          onApply={(value) => writeFilters(JSON.stringify(value))}
+          filters={filters}
+          rows={baseMatches}
+          equipment={false}
+          filterRows={filterWatchRows}
+        />
         <div className="llist" data-matches>
           {matches.length ? (
             matches

@@ -303,19 +303,25 @@ function Assistant({ account }: { account: Account }) {
       <header className="stall-bar chat-top">
         <h1>{words("冒险助手", "Adventure assistant")}</h1>
         <span className="chat-model">GPT-6 Luna</span>
-        <AgentGuides en={en} />
-        <button
-          className="chat-history-toggle"
-          onClick={() => setMenu(!menu)}
-          aria-expanded={menu}
-        >
-          <History size={16} />
-          {words("历史", "History")}
-        </button>
-        <button onClick={newChat}>
-          <Plus size={16} />
-          {words("新对话", "New chat")}
-        </button>
+        <div className="chat-actions">
+          <AgentGuides en={en} />
+          <button
+            className="chat-history-toggle"
+            onClick={() => setMenu(!menu)}
+            aria-expanded={menu}
+          >
+            <History size={16} />
+            <span className="chat-action-label">
+              {words("历史", "History")}
+            </span>
+          </button>
+          <button onClick={newChat}>
+            <Plus size={16} />
+            <span className="chat-action-label">
+              {words("新对话", "New chat")}
+            </span>
+          </button>
+        </div>
       </header>
       <div className="chat-layout">
         <aside
