@@ -496,11 +496,22 @@ mod tests {
             html! { p { "Page content" } },
         )
         .into_string();
+        let version = crate::web::frontend_asset_version();
         let boot = rendered
-            .find(r#"<script src="/web/js/lib/boot.js"></script>"#)
+            .find(&format!(
+                r#"<script src="/web/js/lib/boot.js?v={version}"></script>"#
+            ))
             .expect("parser-blocking theme initialization");
         assert!(boot < rendered.find(r#"rel="stylesheet""#).unwrap());
         assert!(boot < rendered.find(r#"type="module""#).unwrap());
+        for asset in [
+            "css/base.css",
+            "css/dex.css",
+            "react/style.css",
+            "react/shell.js",
+        ] {
+            assert!(rendered.contains(&format!("/web/{asset}?v={version}")));
+        }
     }
 
     #[test]
