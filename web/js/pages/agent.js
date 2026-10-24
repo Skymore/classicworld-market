@@ -11,8 +11,8 @@ function messages(en) { return en ? {
   api:'Agent data API', apiHint:'These read-only tools also work with your own agent. A provider key is only needed for this chat.',
   config:'The assistant is waiting for the server’s OPENROUTER_API_KEY. The data tools are available independently.',
   unavailable:'Could not load assistant status. You can retry sending a question.',
-  failed:'The request failed. Please try again.', timeout:'The free model took too long. Please try again.',
-  quota:'The free model is busy or its quota has been reached. Please try again later.',
+  failed:'The request failed. Please try again.', timeout:'The model took too long. Please try again.',
+  quota:'The assistant is busy or its quota has been reached. Please try again later.',
 } : {
   title:'市场助手', intro:'告诉我你想买什么、卖什么，我帮你查市集数据。',
   placeholder:'例如：我要卖 100 个钢铁，挂多少合适？', label:'你的市场问题', send:'问一问', stop:'停止', clear:'新对话',
@@ -23,8 +23,8 @@ function messages(en) { return en ? {
   api:'Agent 数据接口', apiHint:'这组只读工具也可以供你自己的 agent 调用。调用数据接口不需要模型密钥。',
   config:'助手尚未配置服务端 OPENROUTER_API_KEY。数据工具接口已可独立调用。',
   unavailable:'暂时无法读取助手状态，可以尝试发送问题。',
-  failed:'请求失败，请稍后重试。', timeout:'免费模型响应超时，请重试。',
-  quota:'免费模型繁忙或额度已用完，请稍后再试。',
+  failed:'请求失败，请稍后重试。', timeout:'模型响应超时，请重试。',
+  quota:'助手繁忙或额度已用完，请稍后再试。',
 }; }
 
 function failure(code, copy, en) {
@@ -46,7 +46,7 @@ export function mount(main) {
   let history=[], busy=false, alive=true, configured=true, controller=null;
   main.innerHTML=`<section class="stall agent-panel">
     <div class="stall-bar"><h1>${copy.title}</h1><button type="button" class="bar-more" data-clear>${copy.clear}</button></div>
-    <div class="agent-intro"><p>${copy.intro}</p><span class="agent-provider">OpenRouter · Free</span></div>
+    <div class="agent-intro"><p>${copy.intro}</p><span class="agent-provider">OpenRouter</span></div>
     <p class="agent-status" role="status" data-status></p>
     <div class="agent-thread" role="log" aria-live="polite" aria-relevant="additions" aria-label="${copy.title}" data-thread>
       <div class="agent-welcome" data-welcome><h2>${copy.welcome}</h2><p>${copy.subtitle}</p>
@@ -69,6 +69,8 @@ export function mount(main) {
   fetch('/api/v1/agent/tools',{signal:statusController.signal,credentials:'same-origin'}).then(async res=>{
     if(!res.ok)throw new Error();
     const data=await res.json(); if(!alive)return;
+    const modelNames={'openrouter/free':'OpenRouter · Free','openai/gpt-6-luna':'GPT-6 Luna','openai/gpt-6.1-sol':'GPT-6.1 Sol'};
+    main.querySelector('.agent-provider').textContent=modelNames[data.model]||data.model||'OpenRouter';
     configured=data.enabled!==false;
     if(!configured)status.textContent=copy.config;
     main.querySelector('[data-tool-list]').textContent=(data.tools||[]).map(t=>t.function.name).join(' · ');

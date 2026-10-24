@@ -14,7 +14,7 @@ $env:OPENROUTER_MODEL = 'openrouter/free'
 
 也支持私有文件 `shared_data/openrouter.json`：`{"api_key":"...","model":"openrouter/free"}`。从仓库根目录启动时自动读取；其他目录启动可设置 `OPENROUTER_CONFIG` 为该文件的绝对路径。部署器和 supervisor 会把该路径传给服务，密钥不放进发布包。`OPENROUTER_API_KEY` 优先于文件，`OPENROUTER_MODEL` 优先于文件中的模型设置。
 
-Docker Compose 用户在本机 `server/.env` 中设置这两个变量，再启动 `web` 服务。密钥只在服务端使用，不放进网页或 Git。默认 `openrouter/free`，也可指定以 `:free` 结尾的模型；服务拒绝付费模型，并向 OpenRouter 发送输入/输出价格上限 0。免费路由会匹配支持工具调用的免费模型，额度和可用性由 OpenRouter 决定。没有密钥时，对话返回 `agent_not_configured`，数据接口仍可用。
+Docker Compose 用户在本机 `server/.env` 中设置这两个变量，再启动 `web` 服务。密钥只在服务端使用，不放进网页或 Git。默认 `openrouter/free`，也可指定以 `:free` 结尾的模型；免费模式向 OpenRouter 发送输入/输出价格上限 0。另支持显式配置 `openai/gpt-6-luna`（按量收费），使用原生工具调用并设 `reasoning.effort=none`，不自动切换到其他模型。界面展示服务端实际模型。没有密钥时，对话返回 `agent_not_configured`，数据接口仍可用。
 
 参考：[免费路由](https://openrouter.ai/openrouter/free)、[工具调用](https://openrouter.ai/docs/guides/features/tool-calling)、[额度](https://openrouter.ai/docs/api/reference/limits)。
 
@@ -24,7 +24,7 @@ Docker Compose 用户在本机 `server/.env` 中设置这两个变量，再启�
 
 | 工具 | 参数 | 内容 |
 |---|---|---|
-| `search_items` | `query` | 中英文名或物品 ID，最多 12 项；重名时澄清 |
+| `search_items` | `query?`, `subcategory?`, `job?`, `min_level?`, `max_level?` | 名称或 ID 搜索，也可按装备部位、职业、等级筛选；包含该职业可用的通用装备，最多 12 个候选，带观察报价摘要 |
 | `get_item` | `item_id` | 物品信息、NPC 买入渠道与地图、卖给 NPC 的参考价 |
 | `get_listings` | `item_id`, `limit?`, `channel?`, `max_unit_price?` | 近 72 小时报价，由便宜到贵，保留位置、库存、装备、来源、观察时间 |
 | `get_recent_sales` | `item_id?`, `limit?`, `hours?` | 按时间倒序的推定成交证据 |
@@ -32,6 +32,10 @@ Docker Compose 用户在本机 `server/.env` 中设置这两个变量，再启�
 | `get_market_overview` | `limit?`, `sort?` | `active` 近期活跃或 `falling` 24 小时跌价的物品概览 |
 
 `limit` 默认 10、范围 1–20；`hours` 默认 72、范围 1–720，按当前时间截取。定价建议使用站内原有 72 小时统计，与自选时段的证据分开返回。所有工具返回 `generated_at` 和数据局限说明，缺失值保持 `null`，无样本不推测卖价。`unit_basis=item|set` 区分按个/组；飞镖按组。
+
+例如“40–50级弓手披风”使用 `search_items` 参数 `{"subcategory":"披风","job":"archer","min_level":40,"max_level":50}`；职业和等级不拼进物品名称。等级范围 0–250；`job` 可为 `beginner|warrior|magician|archer|thief|pirate`。至少提供一个名称或筛选条件。多个符合条件的装备是可比较的推荐候选，不要求用户预先知道具体物品名。
+
+模型偶尔输出的工具协议文本不再直接展示；完整、合法且位于白名单的 XML 调用会转换为真实查询，其余协议文本会要求模型重新生成自然语言回答。仍受同一参数校验、只读权限和调用次数限制。
 
 挂单的 `purchase_details` 明确给出每组价格、每组物品数、剩余购买组数及按报价单位折算的剩余量。成交的 `sale_details` 单独给出推定物品数、购买组数和总金额，未知值不计算。工具接口省略旧界面使用的歧义字段 `stock`、`bundle`、`sale_price`，避免把组数当成物品数或把一组价格当成整笔金额。
 
@@ -57,4 +61,4 @@ curl https://mxd.ruit.me/api/v1/agent/tools/get_price_advice \
 
 查询接口沿用现有 `PUBLIC_READ`、采集令牌/登录 cookie 和每分钟 60 次读取限制；对话额外限制每 IP 每分钟 4 次、全站同时 2 次，单次总超时 150 秒。工具不允许任意 URL、SQL 或写入。上游错误、密钥不会回传浏览器。聊天记录只保存在页面内存中，刷新后清空；当前问题、历史和工具结果会发送给 OpenRouter。
 
-常见错误：`agent_not_configured` 尚未配置密钥；`agent_free_quota_exceeded` 免费额度/速率受限；`agent_busy`/`agent_rate_limited` 稍后重试；`agent_provider_configuration` 检查密钥与账号；`agent_timeout` 超时；`market_data_unavailable` 数据查询失败。没有付费模型回退。
+常见错误：`agent_not_configured` 尚未配置密钥；`agent_free_quota_exceeded` 上游额度/速率受限；`agent_busy`/`agent_rate_limited` 稍后重试；`agent_provider_configuration` 检查密钥与账号；`agent_timeout` 超时；`market_data_unavailable` 数据查询失败。没有跨模型自动回退。

@@ -13,8 +13,12 @@ pub fn definitions() -> Value {
         "properties":properties,"required":required,"additionalProperties":false}}})
     };
     json!([
-        def("search_items", "Search the site's item catalogue by Chinese/English name or item ID. At most 12 matches; ask which item if ambiguous.",
-            json!({"query":{"type":"string","minLength":1,"maxLength":100}}), json!(["query"])),
+        def("search_items", "Search item names/IDs OR recommend equipment using structured filters. Put ONLY item name keywords in query, not job/level requirements. Example: 40-50级弓手披风 -> query:'', subcategory:'披风', job:'archer', min_level:40, max_level:50. Universal equipment is included for each job. Returns at most 12 candidates, requirements and observed market prices; compare these candidates instead of asking users to choose just because several valid options exist.",
+            json!({"query":{"type":"string","maxLength":100},
+                "subcategory":{"type":"string","maxLength":30,"description":"Equipment slot in Chinese, e.g. 披风, 手套, 鞋子, 弓, 弩"},
+                "job":{"type":"string","enum":["beginner","warrior","magician","archer","thief","pirate"]},
+                "min_level":{"type":"integer","minimum":0,"maximum":250},
+                "max_level":{"type":"integer","minimum":0,"maximum":250}}), json!([])),
         def("get_item", "Item identity, requirements, NPC purchase offers with maps, and NPC resale reference. NPC buy/sell prices are different.",
             json!({"item_id":id}), json!(["item_id"])),
         def("get_listings", "Cheapest observed offers in the past 72 hours with channel, room/map, shop, stock, equipment, source and observation time. Listings are not guaranteed still available. purchase_details distinguishes remaining bundles from individual items.",
@@ -31,7 +35,12 @@ pub fn definitions() -> Value {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Search {
+    #[serde(default)]
     query: String,
+    subcategory: Option<String>,
+    job: Option<String>,
+    min_level: Option<i16>,
+    max_level: Option<i16>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -94,7 +103,20 @@ pub fn parse(name: &str, args: Value) -> Result<Args, &'static str> {
     match name {
         "search_items" => {
             let a: Search = serde_json::from_value(args).map_err(|_| invalid)?;
-            if a.query.trim().is_empty() || a.query.chars().count() > 100 {
+            if a.query.chars().count() > 100
+                || a.subcategory
+                    .as_ref()
+                    .is_some_and(|s| s.trim().is_empty() || s.chars().count() > 30)
+                || (a.query.trim().is_empty()
+                    && a.subcategory.is_none()
+                    && a.job.is_none()
+                    && a.min_level.is_none()
+                    && a.max_level.is_none())
+                || a.job.as_deref().is_some_and(|j| job_mask(j).is_none())
+                || a.min_level.is_some_and(|v| !(0..=250).contains(&v))
+                || a.max_level.is_some_and(|v| !(0..=250).contains(&v))
+                || a.min_level.zip(a.max_level).is_some_and(|(lo, hi)| lo > hi)
+            {
                 return Err(invalid);
             }
             Ok(Args::Search(a))
@@ -145,16 +167,7 @@ pub fn parse(name: &str, args: Value) -> Result<Args, &'static str> {
 pub async fn run(db: &PgPool, args: Args) -> sqlx::Result<Value> {
     let now = unix_now();
     let mut value = match args {
-        Args::Search(a) => {
-            let mut data = views::search_catalog(db, &a.query).await?;
-            let truncated = data["items"].as_array().is_some_and(|a| a.len() > 12);
-            if let Some(rows) = data["items"].as_array_mut() {
-                rows.truncate(12);
-            }
-            data.as_object_mut().unwrap().remove("presets");
-            data["truncated"] = json!(truncated);
-            data
-        }
+        Args::Search(a) => search(db, a).await?,
         Args::Item(a) => item(db, a.item_id).await?,
         Args::Listings(a) => {
             views::agent_listings(db, a.item_id, a.limit, a.channel, a.max_unit_price, now).await?
@@ -167,6 +180,53 @@ pub async fn run(db: &PgPool, args: Args) -> sqlx::Result<Value> {
     value["generated_at"] = json!(now);
     value["limitations"] = json!(views::LIMITATION);
     Ok(value)
+}
+
+fn job_mask(job: &str) -> Option<i16> {
+    match job {
+        "beginner" => Some(-1),
+        "warrior" => Some(1),
+        "magician" => Some(2),
+        "archer" => Some(4),
+        "thief" => Some(8),
+        "pirate" => Some(16),
+        _ => None,
+    }
+}
+
+async fn search(db: &PgPool, a: Search) -> sqlx::Result<Value> {
+    let query = crate::search::normalize(a.query.trim());
+    let filter = crate::search::filter_sql("i.id", &["i.name_zh", "i.name_en"], "$1");
+    let mut rows: Vec<Value> = sqlx::query_scalar(&format!(
+        "SELECT to_jsonb(x) FROM (SELECT i.id AS item_id,i.name_zh,i.name_en,i.subcategory,
+         i.req_level AS level,i.req_job_mask,i.icon_url,
+         st.lowest_ask,st.typical,st.listings_count,st.sales_24h,
+         extract(epoch FROM st.as_of)::float8 AS market_observed_at
+         FROM items i LEFT JOIN item_stats st ON st.item_id=i.id
+         WHERE {filter}
+         AND ($2::text IS NULL OR i.subcategory=$2)
+         AND ($3::int2 IS NULL OR i.req_job_mask=0 OR
+              ($3=-1 AND i.req_job_mask=-1) OR ($3>0 AND i.req_job_mask>0 AND (i.req_job_mask & $3)>0))
+         AND ($4::int2 IS NULL OR i.req_level >= $4)
+         AND ($5::int2 IS NULL OR i.req_level <= $5)
+         AND (NOT $6::bool OR i.id/1000000=1 AND NOT i.is_cash)
+         ORDER BY CASE WHEN lower(i.name_zh)=$7 OR lower(i.name_en)=$7 OR i.id::text=$7 THEN 0 ELSE 1 END,
+         (COALESCE(st.listings_count,0)>0) DESC,st.sales_24h DESC NULLS LAST,i.req_level DESC NULLS LAST,i.id LIMIT 13) x"))
+        .bind(crate::search::patterns(&query)).bind(a.subcategory.as_deref())
+        .bind(a.job.as_deref().and_then(job_mask)).bind(a.min_level).bind(a.max_level)
+        .bind(a.job.is_some() || a.min_level.is_some() || a.max_level.is_some() || a.subcategory.is_some())
+        .bind(&query).fetch_all(db).await?;
+    let truncated = rows.len() > 12;
+    rows.truncate(12);
+    for row in &mut rows {
+        row["jobs"] = json!(market_core::item::equipment_jobs(
+            row["req_job_mask"].as_i64()
+        ));
+        row["item_url"] = json!(format!("/item/{}", row["item_id"]));
+    }
+    Ok(json!({"items":rows,"truncated":truncated,
+        "filters":{"query":a.query,"subcategory":a.subcategory,"job":a.job,"min_level":a.min_level,"max_level":a.max_level},
+        "search_hint":"If no results, simplify name keywords or relax filters. Jobs and levels are requirements, not item name keywords. Multiple equipment candidates are options to compare, not ambiguous item identity."}))
 }
 
 // Expose explicit counts instead of the legacy UI's ambiguous stock/bundle fields.

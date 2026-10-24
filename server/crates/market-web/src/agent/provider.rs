@@ -8,7 +8,8 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore, TryAcquireError};
 type Failure = (StatusCode, &'static str);
 const ENDPOINT: &str = "https://openrouter.ai/api/v1/chat/completions";
 const SYSTEM: &str = r#"You are 枫叶市集's Classic World market assistant. Help people buy, sell, price items, compare offers and understand market activity.
-Use the provided read-only tools for ALL market facts in the current turn, even if history contains earlier answers. Search names to resolve an item ID; never guess Classic World IDs. If multiple items match, ask a short clarifying question.
+Use the provided read-only tools for ALL market facts in the current turn, even if history contains earlier answers. Search names to resolve an item ID; never guess Classic World IDs. If an exact item name is ambiguous, clarify; if the user wants recommendations, compare valid candidates and recommend without requiring them to already know an item name.
+Equipment requests: extract slot, job and level into search_items filters. 弓手/弓箭手 means archer; 披风 means subcategory 披风, not an archer-only item name. Universal equipment is usable by archers. For '40-50弓手披风买什么', call search_items with subcategory='披风', job='archer', min_level=40, max_level=50 and empty query, then get_listings for 2-3 promising candidates. Respect a single character level as max_level. Explain which observed candidate to buy now, which to use later, price and where. Missing budget or attributes need not block an initial recommendation; label unknown attributes and ask one optional follow-up after giving evidence. Do not assume all capes add DEX or attack: actual equipment attributes must come from tools.
 Buying: query get_listings and get_item (NPC offers). Compare the requested quantity/budget, observed unit price, stock, equipment attributes and freshness. Give known channel/room/shop or NPC/map; missing location/stock stays unknown. Link evidence with /item/ID, /map/ID or /prices. Do not promise availability.
 Selling: query get_price_advice and get_listings; use get_recent_sales as needed. Explain quick sale vs normal price using the site's recommendation and evidence; ask for actual equipment stats when needed. The agent cannot access the user's bag; ask what they own before advising which of THEIR items to sell. For general ideas use get_market_overview. Never claim to list, buy or sell anything.
 Data only covers observed sources, not the entire market. A sale is inferred evidence, not a confirmed transaction. Include observation time and say when data is stale or missing; do not call old data real-time. Keep per-item vs per-set prices explicit; throwing stars are per set. NPC purchase and resale reference are different. Do not invent prices, NPC names, map names, stock or equipment stats. No evidence means say so.
@@ -75,10 +76,11 @@ impl OpenRouter {
     fn new(key: String, model: String, endpoint: String) -> anyhow::Result<Self> {
         anyhow::ensure!(
             model == "openrouter/free"
+                || model == "openai/gpt-6-luna"
                 || (model.ends_with(":free")
                     && model.contains('/')
                     && !model.chars().any(char::is_whitespace)),
-            "OPENROUTER_MODEL must be openrouter/free or a :free model"
+            "OPENROUTER_MODEL must be a free model or openai/gpt-6-luna"
         );
         Ok(Self {
             client: reqwest::Client::builder()
@@ -100,17 +102,21 @@ impl OpenRouter {
     }
 
     async fn completion(&self, messages: &[Value], final_turn: bool) -> Result<Value, Failure> {
+        let mut payload = json!({"model":self.model,"messages":messages,"tools":data::definitions(),
+            "tool_choice":if final_turn {"none"} else {"auto"},
+            "provider":{"require_parameters":true},
+            "reasoning":{"effort":"none","exclude":true},
+            "max_tokens":3200,"stream":false});
+        if !self.model.starts_with("openai/") {
+            payload["provider"]["max_price"] = json!({"prompt":0,"completion":0});
+            payload["temperature"] = json!(0.2);
+        }
         let mut response = self
             .client
             .post(&self.endpoint)
             .bearer_auth(&self.key)
             .header("X-Title", "ClassicWorld Market")
-            .json(
-                &json!({"model":self.model,"messages":messages,"tools":data::definitions(),
-                "tool_choice":if final_turn {"none"} else {"auto"},
-                "provider":{"require_parameters":true,"max_price":{"prompt":0,"completion":0}},
-                "max_tokens":1800,"temperature":0.2,"stream":false}),
-            )
+            .json(&payload)
             .send()
             .await
             .map_err(|err| {
@@ -169,12 +175,28 @@ impl OpenRouter {
         let mut sources = std::collections::BTreeSet::new();
         for round in 0..5 {
             let mut answer = self.completion(&messages, round == 4).await?;
-            let calls = answer["tool_calls"].as_array().cloned().unwrap_or_default();
+            let mut calls = answer["tool_calls"].as_array().cloned().unwrap_or_default();
+            // Some providers emit their training-time XML protocol as content.
+            // Normalize only fully parsed, allowlisted read-only calls; never show code as an answer.
+            if calls.is_empty() {
+                if let Some(repaired) = answer["content"].as_str().and_then(text_tool_calls) {
+                    calls = repaired;
+                    answer["tool_calls"] = json!(calls);
+                    answer["content"] = Value::Null;
+                }
+            }
             if calls.is_empty() {
                 let text = answer["content"]
                     .as_str()
                     .filter(|s| !s.trim().is_empty())
                     .ok_or((StatusCode::BAD_GATEWAY, "agent_invalid_response"))?;
+                if contains_tool_protocol(text) {
+                    if round == 4 {
+                        return Err((StatusCode::BAD_GATEWAY, "agent_invalid_response"));
+                    }
+                    messages.push(json!({"role":"system","content":"Your previous output used invalid tool syntax and was not shown. Use the native tool_calls function interface to query data. Never print XML, function calls, arguments, or tool schemas as the user-facing answer. If you have already queried enough evidence, give a concise natural-language recommendation now."}));
+                    continue;
+                }
                 return Ok(json!({"answer":text,"model":self.model,"tool_calls":trace,
                     "sources":sources,"generated_at":crate::unix_now()}));
             }
@@ -231,6 +253,57 @@ impl OpenRouter {
     }
 }
 
+fn contains_tool_protocol(text: &str) -> bool {
+    [
+        "<tool_call",
+        "<function=",
+        "<parameter=",
+        "\"tool_calls\"",
+        "<|tool_call",
+        "<function_call",
+    ]
+    .iter()
+    .any(|marker| text.contains(marker))
+}
+
+fn text_tool_calls(text: &str) -> Option<Vec<Value>> {
+    let mut rest = text.trim();
+    let mut calls = vec![];
+    while !rest.is_empty() {
+        let (body, tail) = rest
+            .strip_prefix("<tool_call>")?
+            .split_once("</tool_call>")?;
+        let body = body.trim().strip_prefix("<function=")?;
+        let (name, params) = body.split_once('>')?;
+        let mut params = params.trim().strip_suffix("</function>")?.trim();
+        let mut args = serde_json::Map::new();
+        while !params.is_empty() {
+            let (key, value) = params.strip_prefix("<parameter=")?.split_once('>')?;
+            let (value, remaining) = value.split_once("</parameter>")?;
+            if args.contains_key(key) {
+                return None;
+            }
+            let value = if matches!(key, "query" | "sort" | "job" | "subcategory") {
+                json!(value.trim())
+            } else {
+                serde_json::from_str(value.trim()).ok()?
+            };
+            args.insert(key.to_owned(), value);
+            params = remaining.trim();
+        }
+        data::parse(name, Value::Object(args.clone())).ok()?;
+        calls.push(
+            json!({"id":format!("recovered_{}",calls.len()),"type":"function",
+            "function":{"name":name,"arguments":Value::Object(args).to_string()}}),
+        );
+        if calls.len() > 4 {
+            return None;
+        }
+        rest = tail.trim();
+    }
+    (!calls.is_empty()).then_some(calls)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -282,10 +355,55 @@ mod tests {
     }
 
     #[test]
-    fn paid_routes_are_rejected() {
+    fn regression_screenshot_tool_markup_is_executed_and_never_displayed() {
+        let text = "<tool_call>\n<function=search_items>\n<parameter=query>\n弓箭手 披风\n</parameter>\n</function>\n</tool_call>";
+        assert!(contains_tool_protocol(text));
+        let calls = text_tool_calls(text).unwrap();
+        assert_eq!(calls[0]["function"]["name"], "search_items");
+        assert_eq!(
+            serde_json::from_str::<Value>(calls[0]["function"]["arguments"].as_str().unwrap())
+                .unwrap(),
+            json!({"query":"弓箭手 披风"})
+        );
+        for invalid in [
+            "<tool_call><function=execute_sql></function></tool_call>",
+            "<tool_call><function=get_item><parameter=item_id>1</parameter></function></tool_call>",
+            "<tool_call><function=search_items><parameter=url>https://example.com</parameter></function></tool_call>",
+            "<tool_call><function=search_items>",
+        ] { assert!(text_tool_calls(invalid).is_none()); }
+        assert!(data::parse(
+            "search_items",
+            json!({"query":"","subcategory":"披风","job":"archer","min_level":40,"max_level":50})
+        )
+        .is_ok());
+        assert!(data::parse(
+            "search_items",
+            json!({"subcategory":"披风","job":"archer","min_level":50,"max_level":40})
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn unapproved_models_are_rejected() {
         for model in ["openrouter/auto", "openai/gpt-4o", "", "vendor/name:free\n"] {
             assert!(OpenRouter::new("secret".into(), model.into(), ENDPOINT.into()).is_err());
         }
+    }
+
+    #[tokio::test]
+    async fn regression_luna_uses_native_tools_without_reasoning_or_model_fallback() {
+        let (url, seen, job) = mock(vec![reply(json!({"content":"请告诉我你的等级。"}))]).await;
+        let provider =
+            OpenRouter::new("fixture-key".into(), "openai/gpt-6-luna".into(), url).unwrap();
+        provider.chat(&pool(), request()).await.unwrap();
+        let state = seen.lock().unwrap();
+        let payload = &state.1[0];
+        assert_eq!(payload["model"], "openai/gpt-6-luna");
+        assert_eq!(payload["reasoning"]["effort"], "none");
+        assert!(payload["tools"].is_array());
+        assert!(payload.get("models").is_none());
+        assert!(payload["provider"].get("max_price").is_none());
+        job.abort();
     }
 
     #[test]

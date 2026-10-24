@@ -1,6 +1,6 @@
 {
-  "_legacy-page-DntemolB.js": {
-    "file": "chunks/legacy-page-DntemolB.js",
+  "_legacy-page-BZaM5Inq.js": {
+    "file": "chunks/legacy-page-BZaM5Inq.js",
     "name": "legacy-page",
     "imports": [
       "_shell-RGkk9GjA.js"
@@ -41,7 +41,7 @@
     "imports": [
       "_shell-RGkk9GjA.js",
       "_preload-helper-HWFXrRZl.js",
-      "_legacy-page-DntemolB.js"
+      "_legacy-page-BZaM5Inq.js"
     ],
     "dynamicImports": [
       "src/pages/home.tsx",
@@ -80,14 +80,14 @@
     ]
   },
   "src/pages/prices.tsx": {
-    "file": "chunks/prices-Cb7m7yk4.js",
+    "file": "chunks/prices-BTJYQCa0.js",
     "name": "prices",
     "src": "src/pages/prices.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shell-RGkk9GjA.js",
       "_react-dom-20PnVD-d.js",
-      "_legacy-page-DntemolB.js",
+      "_legacy-page-BZaM5Inq.js",
       "_tabs-CYvn_hLB.js"
     ]
   },
