@@ -32,6 +32,7 @@ pub mod external;
 pub mod ingest;
 pub mod legacy;
 pub mod realtime;
+pub(crate) mod search;
 pub mod stats;
 pub mod views;
 pub mod web;

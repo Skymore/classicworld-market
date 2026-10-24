@@ -865,9 +865,9 @@ pub fn parse_item_ids(value: &str) -> Option<Vec<i32>> {
     Some(ids)
 }
 
-/// `search_catalog`: id lookup or substring match on either name.
+/// `search_catalog`: ID lookup or unordered keywords across both names.
 pub async fn search_catalog(db: &PgPool, query: &str) -> sqlx::Result<Value> {
-    let query: String = query.trim().chars().take(100).collect();
+    let query = crate::search::normalize(&query.trim().chars().take(100).collect::<String>());
     let select = "SELECT id, COALESCE(NULLIF(name_zh, ''), id::text), COALESCE(name_en, ''), icon_url, req_level, subcategory FROM items";
     let item = |r: &PgRow| {
         json!({"item_id": r.get::<i32, _>(0), "name_zh": r.get::<String, _>(1), "name_en": r.get::<String, _>(2),
@@ -885,17 +885,22 @@ pub async fn search_catalog(db: &PgPool, query: &str) -> sqlx::Result<Value> {
             _ => vec![],
         }
     } else if !query.is_empty() {
-        let pattern = format!(
-            "%{}%",
+        let prefix = format!(
+            "{}%",
             query
                 .replace('\\', "\\\\")
                 .replace('%', "\\%")
                 .replace('_', "\\_")
         );
+        let filter = crate::search::filter_sql("id", &["name_zh", "name_en"], "$3");
         sqlx::query(&format!(
-            "{select} WHERE name_zh ILIKE $1 ESCAPE '\\' OR name_en ILIKE $1 ESCAPE '\\' ORDER BY id LIMIT $2"
+            "{select} WHERE {filter}
+             ORDER BY CASE WHEN lower(name_zh)=$1 OR lower(name_en)=$1 THEN 0
+             WHEN name_zh ILIKE $2 OR name_en ILIKE $2 THEN 1 ELSE 2 END, id LIMIT $4"
         ))
-        .bind(pattern)
+        .bind(&query)
+        .bind(prefix)
+        .bind(crate::search::patterns(&query))
         .bind(CATALOG_LIMIT)
         .fetch_all(db)
         .await?

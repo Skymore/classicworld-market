@@ -1010,7 +1010,7 @@ pub async fn search_places(
 
 /// SQL fragments matching `$1` (raw query), `$2` (prefix pattern) and `$3`
 /// (substring pattern) against name columns. Inputs are constants.
-fn matcher(id: &str, columns: &[&str]) -> (String, String) {
+fn matcher(id: &str, columns: &[&str], patterns: &str) -> (String, String) {
     let any = |op: &dyn Fn(&str) -> String| {
         columns
             .iter()
@@ -1018,7 +1018,11 @@ fn matcher(id: &str, columns: &[&str]) -> (String, String) {
             .collect::<Vec<_>>()
             .join(" OR ")
     };
-    let filter = format!("({} OR {id}::text = $1)", any(&|c| format!("{c} ILIKE $3")));
+    let filter = format!(
+        "({} OR {id}::text = $1 OR {})",
+        any(&|c| format!("{c} ILIKE $3")),
+        crate::search::filter_sql(id, columns, patterns),
+    );
     let rank = format!(
         "CASE WHEN {id}::text = $1 OR {} THEN 0 WHEN {} THEN 1 ELSE 2 END",
         any(&|c| format!("lower({c}) = lower($1)")),
@@ -1060,6 +1064,7 @@ where
         .bind(offset)
         .bind(region)
         .bind(area)
+        .bind(crate::search::patterns(query))
         .fetch_all(db)
         .await?;
     let more = rows.len() as i64 > limit;
@@ -1074,7 +1079,7 @@ async fn search_items(
     offset: i64,
     filters: &ItemFilters,
 ) -> sqlx::Result<Hits<ItemHit>> {
-    let (filter, rank) = matcher("i.id", &["i.name_zh", "i.name_en"]);
+    let (filter, rank) = matcher("i.id", &["i.name_zh", "i.name_en"], "$10");
     let cat: i32 = match filters.cat.as_str() {
         "equip" => 1,
         "use" => 2,
@@ -1102,6 +1107,7 @@ async fn search_items(
         .bind(filters.job)
         .bind(filters.min_level)
         .bind(filters.max_level)
+        .bind(crate::search::patterns(query))
         .fetch_all(db)
         .await?;
     let more = rows.len() as i64 > limit;
@@ -1117,7 +1123,7 @@ async fn search_mobs(
     region: &str,
     area: &str,
 ) -> sqlx::Result<Hits<MobRef>> {
-    let (filter, rank) = matcher("m.id", &["m.name_zh", "m.name_tw", "m.name_en"]);
+    let (filter, rank) = matcher("m.id", &["m.name_zh", "m.name_tw", "m.name_en"], "$8");
     let sql = format!(
         "SELECT m.id, {name} AS name, {name_en} AS name_en, m.level, COALESCE(m.gms_id, l.gms_id) AS image_id
          FROM mobs m LEFT JOIN mobs l ON l.id = m.link_id WHERE ({filter}) AND {PUBLIC_MOB_FILTER}
@@ -1158,7 +1164,7 @@ async fn search_maps_in_region(
         street: Option<String>,
         street_en: Option<String>,
     }
-    let (filter, rank) = matcher("m.id", &["m.name_zh", "m.name_tw", "m.name_en"]);
+    let (filter, rank) = matcher("m.id", &["m.name_zh", "m.name_tw", "m.name_en"], "$8");
     let sql = format!(
         "SELECT m.id, {name} AS name, {name_en} AS name_en, {streets}
          FROM maps m WHERE {filter}
@@ -1222,11 +1228,9 @@ mod tests {
 
     #[test]
     fn matcher_covers_every_column() {
-        let (filter, rank) = matcher("m.id", &["m.name_zh", "m.name_en"]);
-        assert_eq!(
-            filter,
-            "(m.name_zh ILIKE $3 OR m.name_en ILIKE $3 OR m.id::text = $1)"
-        );
+        let (filter, rank) = matcher("m.id", &["m.name_zh", "m.name_en"], "$8");
+        assert!(filter.contains("m.name_zh ILIKE $3 OR m.name_en ILIKE $3 OR m.id::text = $1"));
+        assert!(filter.contains("~ ALL($8::text[])"));
         assert!(rank.contains("lower(m.name_en) = lower($1)"));
         assert!(rank.contains("m.name_zh ILIKE $2"));
     }

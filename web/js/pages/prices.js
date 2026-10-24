@@ -1,5 +1,6 @@
 import { readPeriod, resolvePeriod, decoratePeriod, savePeriod, periodControl, periodProduct, inPeriod } from '../lib/period.js?v=20261022-regressions-1';
 import { itemNames } from '../lib/names.js';
+import { compileSearch, searchText } from '../lib/search.js';
 import {spark} from '../lib/spark.js?v=20261022-regressions-1';
 import {priceFilterTokens,clearPriceFilter} from '../lib/price-filters.js?v=20261022-regressions-1';
 // Price table `/prices` (design/mockups-v2 *-prices-*.png, *-filter-*.png).
@@ -150,10 +151,8 @@ const panelFilterCount = (s, dropOk) => [s.job !== 'all', levelActive(s), !s.few
 
 /* ---------- filtering and sorting ---------- */
 
-const fold = (text) => String(text || '').toLowerCase().replace(/\s+/g, '');
-
 function filterRows(products, s, ctx) {
-  const q = fold(s.q);
+  const matches = compileSearch(s.q);
   const job = JOBS.find(([k]) => k === s.job)[1];
   const levels = levelActive(s);
   const watched = s.watch ? new Set(watchIds()) : null;
@@ -167,7 +166,7 @@ function filterRows(products, s, ctx) {
     // Job only narrows equipment; "通用" equipment fits every job.
     if (job && r.category === '装备' && !(r.jobs || []).some((j) => j === job || j === '通用')) return false;
     if (levels && !(r.level > 0 && r.level >= (s.lmin ?? 0) && (s.lmax == null || r.level <= s.lmax))) return false;
-    if (q && !ctx.search.get(r.item_id).includes(q)) return false;
+    if (!matches(ctx.search.get(r.item_id))) return false;
     return true;
   });
 }
@@ -545,7 +544,7 @@ export async function mount(main) {
       ctx.list = data;
       ctx.listError = false;
       ctx.byId = new Map(data.products.map((r) => [r.item_id, r]));
-      ctx.search = new Map(data.products.map((r) => [r.item_id, `${fold(r.name_zh)}|${fold(r.name_en)}|${r.item_id}`]));
+      ctx.search = new Map(data.products.map((r) => [r.item_id, searchText(r)]));
       setFreshness(data.as_of);
       // Later updates render in one pass so the scroll position holds.
       renderAll({ chunked: firstList });
