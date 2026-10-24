@@ -17,7 +17,7 @@ import {
   categories,
   jobs,
   levelRanges,
-  sortLabels,
+  sortOptions,
   readPriceState,
   priceUrl,
   compareProducts,
@@ -239,15 +239,18 @@ export default function Prices() {
     update({
       sort: key,
       dir:
-        state.sort === key
+        state.sort === key &&
+        sortOptions.filter(([sortKey]) => sortKey === key).length > 1
           ? state.dir === "asc"
             ? "desc"
             : "asc"
           : defaultDirection(key),
     });
   }
-  const label = (sortKey: Sort) =>
-    words(sortLabels[sortKey][0], sortLabels[sortKey][1]);
+  const selectedSort =
+    sortOptions.find(([key, dir]) => key === state.sort && dir === state.dir) ||
+    sortOptions[0];
+  const sortLabel = words(selectedSort[2], selectedSort[3]);
   const itemHref = (row: Product) =>
     `/item/${row.item_id}?hours=${period.hours}`;
   const unit = (row: Product) =>
@@ -270,28 +273,14 @@ export default function Prices() {
     </button>
   );
   const direction = state.dir === "asc" ? "↑" : "↓";
-  const sortDirection = (dir: string) => {
-    const asc = dir === "asc";
-    if (state.sort === "recent")
-      return asc
-        ? words("从旧到新", "Oldest first")
-        : words("从新到旧", "Newest first");
-    if (state.sort === "name")
-      return asc
-        ? words("名称正序", "A to Z")
-        : words("名称倒序", "Z to A");
-    if (state.sort === "sales")
-      return asc
-        ? words("从少到多", "Fewest first")
-        : words("从多到少", "Most first");
-    return asc
-      ? words("从低到高", "Low to high")
-      : words("从高到低", "High to low");
-  };
-  const showLowestAsk = state.tab === "all" && state.sort === "low";
+  const showLowestAsk =
+    state.tab === "all" && ["low", "recent"].includes(state.sort);
+  const showLastSale = state.tab === "all" && state.sort === "lastsale";
   const mobilePriceLabel = showLowestAsk
-    ? words("最低摆摊价", "Lowest ask")
-    : words("成交价", "Typical sale");
+    ? words("最低报价", "Lowest ask")
+    : showLastSale
+      ? words("最新成交价", "Last sale price")
+      : words("成交价", "Typical sale");
   function heading(key: Sort | null, title: string, className = "") {
     return (
       <th
@@ -309,7 +298,9 @@ export default function Prices() {
             type="button"
             className={"th-sort " + (key === state.sort ? "on" : "")}
             data-sort-key={key}
-            onClick={() => sort(key)}
+            onClick={() =>
+              key === "change" ? update({ tab: "changes" }) : sort(key)
+            }
           >
             {title}
             {key === state.sort && <span className="dir">{direction}</span>}
@@ -417,51 +408,34 @@ export default function Prices() {
                           type="button"
                           className="sortbtn"
                           data-sort-btn
-                          aria-label={
-                            words("排序：", "Sort: ") +
-                            label(state.sort) +
-                            " · " +
-                            sortDirection(state.dir)
-                          }
+                          aria-label={words("排序：", "Sort: ") + sortLabel}
                         >
                           <Icon name="sort" />
-                          <span className="price-sort-label" data-sort-label>
-                            <span>{label(state.sort)}</span>
-                            <small data-sort-direction>
-                              {sortDirection(state.dir)}
-                            </small>
-                          </span>
+                          <span data-sort-label>{sortLabel}</span>
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
                         <DropdownMenuRadioGroup
-                          value={state.sort}
-                          onValueChange={(value) => sort(value as Sort)}
+                          value={`${state.sort}:${state.dir}`}
+                          onValueChange={(value) => {
+                            const option = sortOptions.find(
+                              ([key, dir]) => `${key}:${dir}` === value,
+                            );
+                            if (option)
+                              update({ sort: option[0], dir: option[1] });
+                          }}
                         >
-                          {(Object.keys(sortLabels) as Sort[]).map((key) => (
+                          {sortOptions.map(([key, dir, zh, english]) => (
                             <DropdownMenuRadioItem
-                              value={key}
-                              key={key}
-                              data-sort={key}
+                              value={`${key}:${dir}`}
+                              key={`${key}:${dir}`}
+                              data-sort={
+                                dir === defaultDirection(key)
+                                  ? key
+                                  : `${key}-${dir}`
+                              }
                             >
-                              {label(key)}
-                            </DropdownMenuRadioItem>
-                          ))}
-                        </DropdownMenuRadioGroup>
-                        <div className="price-sort-separator" role="separator" />
-                        <DropdownMenuRadioGroup
-                          aria-label={words("排序方向", "Sort direction")}
-                          value={state.dir}
-                          onValueChange={(dir) => update({ dir })}
-                        >
-                          {["asc", "desc"].map((dir) => (
-                            <DropdownMenuRadioItem
-                              value={dir}
-                              key={dir}
-                              data-sort-dir={dir}
-                            >
-                              {sortDirection(dir)}
-                              {state.dir === dir && " ✓"}
+                              {words(zh, english)}
                             </DropdownMenuRadioItem>
                           ))}
                         </DropdownMenuRadioGroup>
@@ -721,6 +695,11 @@ export default function Prices() {
                             <RelativeTime at={row.last_seen} />
                           </small>
                         )}
+                        {showLastSale && row.last_sale_at != null && (
+                          <small className="mobile-sort-value">
+                            <RelativeTime at={row.last_sale_at} />
+                          </small>
+                        )}
                         {state.tab === "all" && state.sort === "sales" && (
                           <small className="mobile-sort-value">
                             {words(
@@ -731,9 +710,19 @@ export default function Prices() {
                         )}
                       </span>
                       <span className="pr quote-value">
-                        <Price value={showLowestAsk ? row.low : row.typical} />
+                        <Price
+                          value={
+                            showLowestAsk
+                              ? row.low
+                              : showLastSale
+                                ? row.last_sale_price
+                                : row.typical
+                          }
+                        />
                         {unit(row)}
-                        {!showLowestAsk && <SampleBadge row={row} />}
+                        {!showLowestAsk && !showLastSale && (
+                          <SampleBadge row={row} />
+                        )}
                       </span>
                       <Change value={row.change_window} />
                     </SiteLink>
@@ -747,9 +736,14 @@ export default function Prices() {
                           <span className="sr">{words("关注", "Watch")}</span>
                         </th>
                         {heading("name", words("物品", "Item"), "l")}
-                        {heading("price", words("成交价", "Typical sale"))}
+                        {heading(
+                          showLastSale ? null : "price",
+                          showLastSale
+                            ? words("最新成交价", "Last sale price")
+                            : words("成交价", "Typical sale"),
+                        )}
                         {heading("change", words("区间涨跌", "Change"))}
-                        {heading("low", words("最低摆摊价", "Lowest ask"))}
+                        {heading("low", words("最低报价", "Lowest ask"))}
                         {heading("sales", words("成交笔数", "Sales"))}
                         {heading(
                           null,
@@ -757,7 +751,11 @@ export default function Prices() {
                           "c-spark",
                         )}
                         {heading(
-                          state.sort === "recent" ? "recent" : null,
+                          state.sort === "recent"
+                            ? "recent"
+                            : showLastSale
+                              ? "lastsale"
+                              : null,
                           state.sort === "recent"
                             ? words("最近采集", "Last observed")
                             : words("最近成交", "Last sale"),
@@ -787,11 +785,18 @@ export default function Prices() {
                           </td>
                           <td>
                             <span className="pr quote-value">
-                              <Price value={row.typical} />
+                              <Price
+                                value={
+                                  showLastSale
+                                    ? row.last_sale_price
+                                    : row.typical
+                                }
+                              />
                               {unit(row)}
-                              <SampleBadge row={row} />
+                              {!showLastSale && <SampleBadge row={row} />}
                             </span>
-                            {row.typical_low != null &&
+                            {!showLastSale &&
+                              row.typical_low != null &&
                               row.typical_high != null && (
                                 <span className="rg">
                                   <Price value={row.typical_low} /> –{" "}

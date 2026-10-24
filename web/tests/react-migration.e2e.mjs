@@ -14,7 +14,7 @@ const products = [
   { item_id: 2000000, name_zh: '红色药水', name_en: 'Red Potion', category: '消耗品', last_seen: now, last_sale_at: now },
   { item_id: 1002000, name_zh: '蓝色头巾', name_en: 'Blue Bandana', category: '装备', jobs: ['通用'], level: 10, last_seen: now - 10, last_sale_at: now - 10 },
   { item_id: 4000000, name_zh: '蜗牛壳', name_en: 'Snail Shell', category: '其他', last_seen: null, last_sale_at: null },
-].map(row => ({ ...row, sales_window: 12, sales_10d: 12, listings: 2, typical_window: price, typical_window_low: 20000, typical_window_high: 26000, typical: price, low: 18888, change_window: 10, trend: [] }));
+].map(row => ({ ...row, sales_window: 12, sales_10d: 12, listings: 2, typical_window: price, typical_window_low: 20000, typical_window_high: 26000, typical: price, last_sale_price: row.item_id === 2000000 ? 13500 : row.item_id === 1002000 ? 25000 : null, low: 18888, change_window: 10, trend: [] }));
 products[1].low = 12000;
 products[2].low = null;
 const streams = new Set(); const counts = new Map();
@@ -72,9 +72,15 @@ try {
     await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=low]').click();
     assert.match(await rows.first().textContent(), /蓝色头巾/);
     assert.match(await rows.last().textContent(), /蜗牛壳/, 'items without an ask stay last');
-    assert.equal(await page.locator('[data-sort-direction]').textContent(), '从低到高');
+    assert.equal(await page.locator('[data-sort-label]').textContent(), '报价最低');
+    await page.locator('[data-sort-btn]').click();
+    assert.equal(await page.locator('[role=menuitemradio]').count(), 8, 'one list contains useful field/direction combinations');
+    assert.equal(await page.locator('[data-sort-dir]').count(), 0, 'there is no separate direction control');
+    assert.equal(await page.getByRole('menuitemradio', { name: /从旧到新|从少到多/ }).count(), 0);
+    if (screenshots && mobile) await page.screenshot({ path: path.join(screenshots, 'sort-menu-phone.png') });
+    await page.keyboard.press('Escape');
     if (mobile) {
-      assert.equal(await page.locator('[data-mobile-price-heading]').textContent(), '最低摆摊价');
+      assert.equal(await page.locator('[data-mobile-price-heading]').textContent(), '最低报价');
       assert.deepEqual(await rows.locator('.pr').allTextContents(), ['12K', '18.9K', '—'], 'the visible prices are the asks used to sort, not the typical sale prices');
       assert.equal(await rows.locator('.sample-badge').count(), 0, 'sales sample badges do not describe asking prices');
       for (const width of [320, 375]) {
@@ -88,20 +94,33 @@ try {
         }
       }
       await page.locator('[data-lang-toggle]:visible').click();
-      assert.equal(await page.locator('[data-sort-direction]').textContent(), 'Low to high');
+      assert.equal(await page.locator('[data-sort-label]').textContent(), 'Lowest ask');
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.locator('[data-lang-toggle]:visible').click();
     }
-    await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort-dir=desc]').click();
+    await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=low-desc]').click();
     assert.equal(new URL(page.url()).searchParams.get('dir'), 'desc');
-    assert.equal(await page.locator('[data-sort-direction]').textContent(), '从高到低');
+    assert.equal(await page.locator('[data-sort-label]').textContent(), '报价最高');
     assert.match(await rows.first().textContent(), /红色药水/);
     assert.match(await rows.last().textContent(), /蜗牛壳/);
     await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=price]').click();
     if (mobile) assert.equal(await page.locator('[data-mobile-price-heading]').textContent(), '成交价');
+    await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=lastsale]').click();
+    assert.equal(await page.locator('[data-sort-label]').textContent(), '最新成交');
+    assert.match(await rows.first().textContent(), /红色药水/);
+    assert.match(await rows.last().textContent(), /蜗牛壳/);
+    if (mobile) {
+      assert.equal(await page.locator('[data-mobile-price-heading]').textContent(), '最新成交价');
+      assert.deepEqual(await rows.locator('.pr').allTextContents(), ['13.5K', '25K', '—']);
+      assert.equal(await rows.first().locator('[data-relative-time]').getAttribute('data-relative-time'), String(now));
+    }
     await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=recent]').click();
     assert.equal(new URL(page.url()).searchParams.get('sort'), 'recent');
     assert.match(await rows.first().textContent(), /红色药水/); assert.match(await rows.last().textContent(), /蜗牛壳/);
+    const oldUrl = new URL(page.url()); oldUrl.searchParams.set('dir', 'asc');
+    await page.goto(oldUrl.href); await rows.first().waitFor();
+    assert.equal(await page.locator('[data-sort-label]').textContent(), '最新报价');
+    assert.match(await rows.first().textContent(), /红色药水/, 'old ascending links still show the newest quotes first');
     await page.reload(); await rows.first().waitFor();
     assert.equal(new URL(page.url()).searchParams.get('sort'), 'recent');
     const afterReload = await page.evaluate(() => { window.savedHeader = document.querySelector('.ptop'); return window.documentIdentity; });

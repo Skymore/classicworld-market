@@ -21,6 +21,7 @@ export interface Product {
   listings?: number;
   last_seen?: number | null;
   last_sale_at?: number | null;
+  last_sale_price?: number | null;
   trend?: unknown[];
   [key: string]: unknown;
 }

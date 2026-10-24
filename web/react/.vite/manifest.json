@@ -38,8 +38,8 @@
       "_shared-DySnB1BT.js"
     ]
   },
-  "_main-Dl2TAKUa.js": {
-    "file": "chunks/main-Dl2TAKUa.js",
+  "_main-08w_znUy.js": {
+    "file": "chunks/main-08w_znUy.js",
     "name": "main",
     "imports": [
       "_shared-DySnB1BT.js",
@@ -63,8 +63,8 @@
       "src/pages/contributors.tsx"
     ]
   },
-  "_price-state-D476TFC1.js": {
-    "file": "chunks/price-state-D476TFC1.js",
+  "_price-state-DSqoWXqY.js": {
+    "file": "chunks/price-state-DSqoWXqY.js",
     "name": "price-state"
   },
   "_react-dom-BLvxVpBf.js": {
@@ -107,7 +107,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Dl2TAKUa.js"
+      "_main-08w_znUy.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -184,7 +184,7 @@
     ]
   },
   "src/pages/home.tsx": {
-    "file": "chunks/home-Bokiv29l.js",
+    "file": "chunks/home-zCC20-1k.js",
     "name": "home",
     "src": "src/pages/home.tsx",
     "isDynamicEntry": true,
@@ -192,11 +192,11 @@
       "_shared-DySnB1BT.js",
       "_shell--Uy1BCli.js",
       "_tabs-1oLspc_F.js",
-      "_price-state-D476TFC1.js"
+      "_price-state-DSqoWXqY.js"
     ]
   },
   "src/pages/prices.tsx": {
-    "file": "chunks/prices-sCZb85IZ.js",
+    "file": "chunks/prices-Dl6QOqmZ.js",
     "name": "prices",
     "src": "src/pages/prices.tsx",
     "isDynamicEntry": true,
@@ -210,7 +210,7 @@
       "_list-copy-DOEUOUBP.js",
       "_live-3VId49uB.js",
       "_tabs-1oLspc_F.js",
-      "_price-state-D476TFC1.js"
+      "_price-state-DSqoWXqY.js"
     ]
   },
   "src/pages/privacy.tsx": {
@@ -251,7 +251,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Dl2TAKUa.js"
+      "_main-08w_znUy.js"
     ]
   },
   "style.css": {
