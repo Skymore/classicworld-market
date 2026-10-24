@@ -146,7 +146,7 @@ try {
     assert.equal(await craft.locator('input,select,textarea').count(),0,'crafting is read-only');
     assert.equal(await craft.locator('.craft-summary').evaluate(node=>getComputedStyle(node).display),'grid','current component CSS survives warm old styles');
     await craft.locator('summary').click();
-    assert.equal(await craft.locator('.craft-materials').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),2,'material cards fit in two columns');
+    assert.equal(await craft.locator('.craft-materials').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').filter(width=>parseFloat(width)>0).length),4,'four compact material cards fit on one row');
     const icons=await page.locator('.dock .dock-icon svg').evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {top:r.top,width:r.width,height:r.height};}));
     assert.equal(icons.length,6);assert(icons.every(r=>r.width===24&&r.height===24&&r.top===icons[0].top));
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

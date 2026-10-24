@@ -47,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-Cto-nAmV.js": {
-    "file": "chunks/main-Cto-nAmV.js",
+  "_main-DEeCHoof.js": {
+    "file": "chunks/main-DEeCHoof.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -119,7 +119,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Cto-nAmV.js"
+      "_main-DEeCHoof.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -159,7 +159,7 @@
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-2ht3n0_O.js",
+    "file": "chunks/catalogue-nmUDWxs6.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
@@ -266,7 +266,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Cto-nAmV.js"
+      "_main-DEeCHoof.js"
     ]
   },
   "style.css": {

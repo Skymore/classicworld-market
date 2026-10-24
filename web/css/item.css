@@ -189,20 +189,18 @@ html[lang=en] .salegrid .sale{grid-template-columns:96px minmax(0,1fr) auto minm
 .craft-source[open]>.craft-summary>.contents svg{transform:rotate(90deg)}
 .craft-body{padding:0 12px 10px}
 .craft-recipe+.craft-recipe{margin-top:14px;padding-top:12px;border-top:1px dashed var(--rule)}
-.craft-recipe-meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:2px 0 10px;color:var(--ink-2);font-size:12px}
-.craft-materials{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.craft-material{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;padding:12px 6px 9px;border:1px solid var(--rule);border-radius:5px;background:var(--sheet-hi);text-align:center}
+.craft-materials{display:grid;grid-template-columns:repeat(auto-fit,minmax(max(56px,calc((100% - 24px)/5)),1fr));gap:6px}
+.craft-material{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;padding:8px 3px 6px;border:1px solid var(--rule);border-radius:4px;background:var(--sheet-hi);text-align:center}
 .craft-material:hover{border-color:var(--mark)}
-.craft-material-picture{position:relative;display:grid;place-items:center;width:64px;min-height:42px}
-.craft-quantity{position:absolute;right:-5px;bottom:0;font-size:12px;font-weight:750;background:var(--sheet-hi);padding:1px 3px;border-radius:3px}
+.craft-material-picture{position:relative;display:grid;place-items:center;width:40px;min-height:36px}
+.craft-quantity{position:absolute;right:-5px;bottom:0;font-size:10px;font-weight:750;background:var(--sheet-hi);padding:1px 2px;border-radius:2px}
 .craft-material .name-stack{display:flex;flex-direction:column;gap:2px;max-width:100%;min-width:0;white-space:normal}
-.craft-material .name-primary{font-size:12px;line-height:1.4;white-space:normal;overflow-wrap:anywhere}
+.craft-material .name-primary{font-size:11px;line-height:1.4;white-space:normal;overflow-wrap:anywhere}
 .craft-material .name-secondary{font-size:10px;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
-.craft-material-price{margin-top:auto;font-size:12px;font-weight:650;font-variant-numeric:tabular-nums}
+.craft-material-price{margin-top:auto;font-size:11px;font-weight:650;font-variant-numeric:tabular-nums}
 .craft-costs{display:flex;justify-content:space-between;gap:12px;padding:12px 0 5px;font-size:12px;color:var(--ink-2)}
 .craft-costs span{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
 .craft-costs b{color:var(--ink);font-size:14px;font-variant-numeric:tabular-nums}
 .craft-comparison,.craft-missing{margin:5px 0;font-size:12px;color:var(--ink-2)}
 .craft-credit{display:block;width:max-content;margin:8px 0 0 auto;color:var(--ink-3);font-size:10px}
-@media(min-width:700px){.craft-materials{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){.craft-summary>.contents svg{transition:none}}

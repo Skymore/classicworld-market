@@ -64,6 +64,13 @@ try {
     await craft.locator('summary').click();
     assert.equal(await craft.locator('.craft-material').count(),4);
     assert.equal(await craft.locator('.craft-material img').count(),4);
+    assert.equal(await craft.locator('.craft-recipe-meta').count(),0,'no repeated discipline and output row');
+    for(const width of mobile?[320,390,430]:[1280]){
+      await page.setViewportSize({width,height:844});
+      const cards=await craft.locator('.craft-material').evaluateAll(nodes=>nodes.map(node=>{const box=node.getBoundingClientRect();return {top:box.top,right:box.right,overflow:node.scrollWidth>node.clientWidth};}));
+      assert(cards.every(card=>card.top===cards[0].top&&!card.overflow&&card.right<=width),'four compact bilingual materials stay on one row');
+    }
+    await page.setViewportSize({width:mobile?390:1280,height:844});
     const materialNames=await craft.locator('.craft-material').first().textContent();
     assert(materialNames.includes('加工木材')&&materialNames.includes('Processed Wood'),'both material names are present');
     assert(await craft.locator('.craft-material').first().evaluate(node=>node.querySelector('.name-stack').getBoundingClientRect().top>=node.querySelector('img').getBoundingClientRect().bottom));
@@ -98,6 +105,12 @@ try {
     await (await restored).finished();
     assert.equal(await craft.getAttribute('open'),null,'SSE keeps the disclosure closed');
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'crafting and dates fit the viewport');
+    await page.goto(origin+'/item/1072112?lang=en');
+    const five=page.locator('.src-well details[data-crafting="1072112"]');
+    await five.locator('summary').click();
+    assert.equal(await five.locator('.craft-material').count(),5);
+    const tops=await five.locator('.craft-material').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().top));
+    assert(tops.every(top=>top===tops[0]),'five ingredients fit on one row when space permits');
     await page.goto(origin + '/prices?craft=1&few=0&lang=en');
     await page.locator('.react-prices').waitFor();
     await page.waitForFunction(() => document.querySelector('[data-craft-only]')?.getAttribute('aria-pressed') === 'true');

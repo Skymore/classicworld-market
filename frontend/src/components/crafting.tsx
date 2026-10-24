@@ -75,13 +75,6 @@ export default function Crafting({ itemId }: { itemId: number }) {
       <div className="craft-body" data-craft-result>
         {plans.map(({ recipe, plan }) => (
           <section className="craft-recipe" key={recipe.id}>
-            <div className="craft-recipe-meta">
-              <span>
-                {discipline(recipe)} Lv.{recipe.level} ·{" "}
-                {words("产出", "Produces")} ×{plan.produced}
-              </span>
-              {plans.length > 1 && <b>{number(plan.per_output)}</b>}
-            </div>
             <div className="craft-materials">
               {plan.materials.map(
                 (material: {
