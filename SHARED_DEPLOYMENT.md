@@ -28,6 +28,15 @@ R2 发布配置在本机 `shared_data/r2-publisher.json`，仅含 `account_id`�
 下面的 GitHub Actions 发布链路是原部署记录；GitLab CI 流水线尚未配置，
 不要把旧 Actions 的配置文件视为已经恢复自动部署。当前在线服务继续由本机 supervisor 维持。
 
+## 当前网站更新约定（GitLab main）
+
+网站更新统一合入 `gitlab/main`，推送成功后从该版本构建并上线。
+合并前先获取远端主分支，并核对 `shared_data/deploy/current.json` 指向的线上提交；
+主分支应包含完整线上更新历史，保留账号、图鉴、助手等已有改动。
+原工作区的未提交改动保留在原处，独立工作目录用于合并与验证。
+部署继续使用不可变产物、候选服务检查、数据库备份和 supervisor 原子切换；
+上线后核对公网静态文件与发布清单一致。
+
 ## RoomTalk 自动发布（当前原生 Rust 服务）
 
 代码仓库为 `Skymore/classicworld-market`，房间协作使用 `deploy` 分支。
