@@ -37,7 +37,7 @@ function failure(code, copy, en) {
 
 // Only same-site evidence links are clickable. Model text is always escaped.
 export function answerHtml(text) {
-  return esc(text).replace(/\[([^\]\n]{1,160})\]\((\/(?:item\/\d+|map\/\d+|prices))\)/g,
+  return esc(text).replace(/\[([^\]\n]{1,160})\]\(\s*(\/(?:item\/\d+|map\/\d+|prices))\s*\)/g,
     '<a href="$2">$1</a>').replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
 }
 

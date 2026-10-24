@@ -7,14 +7,30 @@ pub fn definitions() -> Value {
     let id = json!({"type":"integer","minimum":1000000,"maximum":5999999,"description":"Classic World item ID. Resolve names with search_items first."});
     let limit = json!({"type":"integer","minimum":1,"maximum":20,"default":10});
     let hours = json!({"type":"integer","minimum":1,"maximum":720,"default":72});
-    let def = |name, description, properties, required| {
+    let def = |name, description, mut properties: Value, required: Value| {
+        for (key, field) in properties.as_object_mut().unwrap() {
+            if !required
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|v| v.as_str() == Some(key.as_str()))
+                && !matches!(key.as_str(), "query" | "limit" | "hours" | "sort")
+            {
+                field["type"] = json!([field["type"], "null"]);
+                field["default"] = Value::Null;
+                if let Some(values) = field.get_mut("enum").and_then(Value::as_array_mut) {
+                    values.push(Value::Null);
+                }
+                field["description"] = json!(format!("{} Optional filter: use null unless explicitly requested by the user. Do not fill with zero, empty string, beginner, channel 1, or a minimum/maximum placeholder.", field["description"].as_str().unwrap_or("")));
+            }
+        }
         json!({"type":"function","function":{
-        "name":name,"description":description,"parameters":{"type":"object",
+        "name":name,"description":description,"strict":false,"parameters":{"type":"object",
         "properties":properties,"required":required,"additionalProperties":false}}})
     };
     json!([
         def("search_items", "Search item names/IDs OR recommend equipment using structured filters. Put ONLY item name keywords in query, not job/level requirements. Example: 40-50级弓手披风 -> query:'', subcategory:'披风', job:'archer', min_level:40, max_level:50. Universal equipment is included for each job. Returns at most 12 candidates, requirements and observed market prices; compare these candidates instead of asking users to choose just because several valid options exist.",
-            json!({"query":{"type":"string","maxLength":100},
+            json!({"query":{"type":"string","maxLength":100,"default":"","description":"Item name keywords or item ID only. For a named material such as 铁矿石, set query and leave ALL equipment filters null."},
                 "subcategory":{"type":"string","maxLength":30,"description":"Equipment slot in Chinese, e.g. 披风, 手套, 鞋子, 弓, 弩"},
                 "job":{"type":"string","enum":["beginner","warrior","magician","archer","thief","pirate"]},
                 "min_level":{"type":"integer","minimum":0,"maximum":250},
