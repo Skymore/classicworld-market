@@ -3,6 +3,7 @@ import { I } from './icons.js';
 export const NAVIGATION = [
   ['home','/','首页','Home',I.home],
   ['prices','/prices','价格表','Prices',I.tag],
+  ['agent','/agent','助手','Assistant',I.search],
   ['dex','/search?kind=item','图鉴','Catalogue',I.book],
   ['watch','/watch','关注','Watch',I.star],
   ['alerts','/alerts','捡漏','Deals',I.coin],
@@ -26,7 +27,7 @@ export function renderSiteNavigation(root, active) {
   accountLabels();
   if(!accountRequest)accountRequest=fetch('/api/v1/account',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(data=>{if(data)accountState=data;accountLabels();}).catch(()=>{});
   const path=location.pathname;
-  active=active || (path.startsWith('/selling')?'selling':path.startsWith('/prices')||path.startsWith('/sales')?'prices':path.startsWith('/watch')?'watch':path.startsWith('/alerts')?'alerts':path==='/'?'home':'dex');
+  active=active || (path.startsWith('/agent')?'agent':path.startsWith('/selling')?'selling':path.startsWith('/prices')||path.startsWith('/sales')?'prices':path.startsWith('/watch')?'watch':path.startsWith('/alerts')?'alerts':path==='/'?'home':'dex');
   for(const nav of root.querySelectorAll('.dnav,.dock')) {
     const dock=nav.classList.contains('dock');
     nav.innerHTML=NAVIGATION.map(([key,href,zh,en,icon])=>{

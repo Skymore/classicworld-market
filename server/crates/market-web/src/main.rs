@@ -24,6 +24,7 @@ async fn main() -> Result<()> {
     tokio::spawn(refresh_stats(db.clone(), config.stats_refresh));
 
     let mut state = AppState::new(db, config.settings.clone());
+    state.agent = market_web::agent::OpenRouter::from_env()?.map(std::sync::Arc::new);
     state.google = market_web::contributors::GoogleOAuth::load(
         config.web_dir.as_deref(),
         &config.settings.hostname,

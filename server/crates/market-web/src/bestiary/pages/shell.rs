@@ -109,13 +109,13 @@ pub fn layout(ctx: &Ctx, page: &Page<'_>, body: Markup) -> Markup {
                 // Blocking initialization must run before CSS and deferred modules.
                 script src="/web/js/lib/boot.js" {}
                 title { (page.title) " · " (brand) }
-                link rel="stylesheet" href="/web/css/base.css?v=20261024-accounts-1";
+                link rel="stylesheet" href="/web/css/base.css?v=20261023-agent-3321100";
                 @for name in page.css {
                     link rel="stylesheet" href={"/web/css/" (name) ".css?v=20261021-uiux-trend-2"};
                 }
-                script type="module" src="/web/js/pages/dex.js?v=20261024-accounts-1" {}
+                script type="module" src="/web/js/pages/dex.js?v=20261023-agent-3321100" {}
                 @for name in page.scripts {
-                    script type="module" src={"/web/js/pages/" (name) ".js?v=20261024-accounts-1"} {}
+                    script type="module" src={"/web/js/pages/" (name) ".js?v=20261023-agent-3321100"} {}
                 }
             }
             body {

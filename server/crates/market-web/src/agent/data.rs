@@ -1,0 +1,320 @@
+use crate::{unix_now, views};
+use serde::Deserialize;
+use serde_json::{json, Value};
+use sqlx::PgPool;
+
+pub fn definitions() -> Value {
+    let id = json!({"type":"integer","minimum":1000000,"maximum":5999999,"description":"Classic World item ID. Resolve names with search_items first."});
+    let limit = json!({"type":"integer","minimum":1,"maximum":20,"default":10});
+    let hours = json!({"type":"integer","minimum":1,"maximum":720,"default":72});
+    let def = |name, description, properties, required| {
+        json!({"type":"function","function":{
+        "name":name,"description":description,"parameters":{"type":"object",
+        "properties":properties,"required":required,"additionalProperties":false}}})
+    };
+    json!([
+        def("search_items", "Search the site's item catalogue by Chinese/English name or item ID. At most 12 matches; ask which item if ambiguous.",
+            json!({"query":{"type":"string","minLength":1,"maxLength":100}}), json!(["query"])),
+        def("get_item", "Item identity, requirements, NPC purchase offers with maps, and NPC resale reference. NPC buy/sell prices are different.",
+            json!({"item_id":id}), json!(["item_id"])),
+        def("get_listings", "Cheapest observed offers in the past 72 hours with channel, room/map, shop, stock, equipment, source and observation time. Listings are not guaranteed still available. purchase_details distinguishes remaining bundles from individual items.",
+            json!({"item_id":id,"limit":limit,"channel":{"type":"integer","minimum":1,"maximum":99},"max_unit_price":{"type":"number","minimum":0}}), json!(["item_id"])),
+        def("get_recent_sales", "Recent inferred sale evidence, newest first. Optional item filter. Not confirmed transactions or whole-market volume. Time window is measured from now. sale_details distinguishes price per purchase from inferred total value.",
+            json!({"item_id":id,"limit":limit,"hours":hours}), json!([])),
+        def("get_price_advice", "Sell pricing: the site's quick/normal sale recommendations and their evidence, current asks, and sale median/quartiles/count for the selected window. Compare equipment attributes separately.",
+            json!({"item_id":id,"hours":hours}), json!(["item_id"])),
+        def("get_market_overview", "Market overview and observed item activity, sorted by recent sale evidence (active) or 24h price drops (falling). Does not know the user's bag.",
+            json!({"limit":limit,"sort":{"type":"string","enum":["active","falling"],"default":"active"}}), json!([])),
+    ])
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Search {
+    query: String,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Item {
+    item_id: i32,
+}
+fn ten() -> i64 {
+    10
+}
+fn recent() -> i32 {
+    72
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Listings {
+    item_id: i32,
+    #[serde(default = "ten")]
+    limit: i64,
+    channel: Option<i16>,
+    max_unit_price: Option<f64>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Sales {
+    item_id: Option<i32>,
+    #[serde(default = "ten")]
+    limit: i64,
+    #[serde(default = "recent")]
+    hours: i32,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Advice {
+    item_id: i32,
+    #[serde(default = "recent")]
+    hours: i32,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Overview {
+    #[serde(default = "ten")]
+    limit: i64,
+    #[serde(default)]
+    sort: Option<String>,
+}
+pub enum Args {
+    Search(Search),
+    Item(Item),
+    Listings(Listings),
+    Sales(Sales),
+    Advice(Advice),
+    Overview(Overview),
+}
+
+pub fn parse(name: &str, args: Value) -> Result<Args, &'static str> {
+    let invalid = "invalid_tool_arguments";
+    let item = |id| (1_000_000..=5_999_999).contains(&id);
+    let limit = |n| (1..=20).contains(&n);
+    let hours = |n| (1..=720).contains(&n);
+    match name {
+        "search_items" => {
+            let a: Search = serde_json::from_value(args).map_err(|_| invalid)?;
+            if a.query.trim().is_empty() || a.query.chars().count() > 100 {
+                return Err(invalid);
+            }
+            Ok(Args::Search(a))
+        }
+        "get_item" => {
+            let a: Item = serde_json::from_value(args).map_err(|_| invalid)?;
+            if !item(a.item_id) {
+                return Err(invalid);
+            }
+            Ok(Args::Item(a))
+        }
+        "get_listings" => {
+            let a: Listings = serde_json::from_value(args).map_err(|_| invalid)?;
+            if !item(a.item_id)
+                || !limit(a.limit)
+                || a.channel.is_some_and(|c| !(1..=99).contains(&c))
+                || a.max_unit_price.is_some_and(|p| !p.is_finite() || p < 0.0)
+            {
+                return Err(invalid);
+            }
+            Ok(Args::Listings(a))
+        }
+        "get_recent_sales" => {
+            let a: Sales = serde_json::from_value(args).map_err(|_| invalid)?;
+            if a.item_id.is_some_and(|id| !item(id)) || !limit(a.limit) || !hours(a.hours) {
+                return Err(invalid);
+            }
+            Ok(Args::Sales(a))
+        }
+        "get_price_advice" => {
+            let a: Advice = serde_json::from_value(args).map_err(|_| invalid)?;
+            if !item(a.item_id) || !hours(a.hours) {
+                return Err(invalid);
+            }
+            Ok(Args::Advice(a))
+        }
+        "get_market_overview" => {
+            let a: Overview = serde_json::from_value(args).map_err(|_| invalid)?;
+            if !limit(a.limit) || !matches!(a.sort.as_deref(), None | Some("active" | "falling")) {
+                return Err(invalid);
+            }
+            Ok(Args::Overview(a))
+        }
+        _ => Err("unknown_tool"),
+    }
+}
+
+pub async fn run(db: &PgPool, args: Args) -> sqlx::Result<Value> {
+    let now = unix_now();
+    let mut value = match args {
+        Args::Search(a) => {
+            let mut data = views::search_catalog(db, &a.query).await?;
+            let truncated = data["items"].as_array().is_some_and(|a| a.len() > 12);
+            if let Some(rows) = data["items"].as_array_mut() {
+                rows.truncate(12);
+            }
+            data.as_object_mut().unwrap().remove("presets");
+            data["truncated"] = json!(truncated);
+            data
+        }
+        Args::Item(a) => item(db, a.item_id).await?,
+        Args::Listings(a) => {
+            views::agent_listings(db, a.item_id, a.limit, a.channel, a.max_unit_price, now).await?
+        }
+        Args::Sales(a) => views::agent_sales(db, a.item_id, a.limit, a.hours, now).await?,
+        Args::Advice(a) => views::agent_advice(db, a.item_id, a.hours, now).await?,
+        Args::Overview(a) => overview(db, a.limit, a.sort.as_deref() == Some("falling")).await?,
+    };
+    clarify_quantities(&mut value);
+    value["generated_at"] = json!(now);
+    value["limitations"] = json!(views::LIMITATION);
+    Ok(value)
+}
+
+// Expose explicit counts instead of the legacy UI's ambiguous stock/bundle fields.
+fn clarify_quantities(value: &mut Value) {
+    if let Some(rows) = value.get_mut("listings").and_then(Value::as_array_mut) {
+        for row in rows {
+            let stock = row["stock"].as_i64();
+            let bundle = row["bundle"].as_i64();
+            let units = if row["unit_basis"] == "set" {
+                stock
+            } else {
+                stock.zip(bundle).and_then(|(s, b)| s.checked_mul(b))
+            };
+            row["purchase_details"] = json!({"price_per_purchase":row["price"],
+                "items_per_purchase":bundle,"purchases_remaining":stock,
+                "comparable_units_remaining":units,"comparable_unit":row["unit_basis"]});
+            let object = row.as_object_mut().expect("listing object");
+            for key in [
+                "stock",
+                "bundle",
+                "price",
+                "visit_id",
+                "shop_id",
+                "shop_key",
+                "slot",
+                "raw_available",
+                "requires_validation",
+            ] {
+                object.remove(key);
+            }
+        }
+    }
+    if let Some(rows) = value.get_mut("sales").and_then(Value::as_array_mut) {
+        for row in rows {
+            let purchases = row["quantity"]
+                .as_i64()
+                .zip(row["bundle"].as_i64())
+                .filter(|(q, b)| *b > 0 && *q >= 0 && q % b == 0)
+                .map(|(q, b)| q / b);
+            let total = purchases
+                .zip(row["sale_price"].as_i64())
+                .and_then(|(n, p)| n.checked_mul(p));
+            row["sale_details"] = json!({"quantity_items_inferred":row["quantity"],
+                "purchases_inferred":purchases,"total_mesos_inferred":total});
+            let object = row.as_object_mut().expect("sale object");
+            for key in [
+                "quantity",
+                "bundle",
+                "sale_price",
+                "price",
+                "visit_id",
+                "shop_id",
+                "shop_key",
+                "slot",
+                "raw_available",
+                "requires_validation",
+            ] {
+                object.remove(key);
+            }
+        }
+    }
+}
+
+async fn item(db: &PgPool, id: i32) -> sqlx::Result<Value> {
+    let row: Option<Value> = sqlx::query_scalar(
+        "SELECT to_jsonb(x) FROM (SELECT id AS item_id,name_zh,name_en,category,subcategory,
+         req_level,req_job_mask,icon_url FROM items WHERE id=$1) x",
+    )
+    .bind(id)
+    .fetch_optional(db)
+    .await?;
+    let offers: Vec<Value> = sqlx::query_scalar(
+        "SELECT to_jsonb(x) FROM (SELECT n.id AS npc_id,n.name_zh,n.name_en,s.price AS purchase_price,
+         s.source,mp.id AS map_id,mp.name_zh AS map_name_zh,mp.name_en AS map_name_en
+         FROM npc_shops s JOIN npcs n ON n.id=s.npc_id
+         LEFT JOIN map_npcs mn ON mn.npc_id=n.id LEFT JOIN maps mp ON mp.id=mn.map_id
+         WHERE s.item_id=$1 ORDER BY s.price,n.id,mp.id LIMIT 20) x")
+        .bind(id).fetch_all(db).await?;
+    let record: Option<Value> =
+        sqlx::query_scalar("SELECT record FROM item_records WHERE item_id=$1")
+            .bind(id)
+            .fetch_optional(db)
+            .await?;
+    let resale = record
+        .as_ref()
+        .and_then(|r| {
+            r.get("npc_price")
+                .filter(|p| p.as_f64().is_some_and(|v| v > 0.0))
+                .or_else(|| {
+                    r.pointer("/mapledex_reference/data/price")
+                        .filter(|p| p.as_f64().is_some_and(|v| v > 0.0))
+                })
+        })
+        .cloned();
+    Ok(
+        json!({"item":row,"npc_offers":offers,"npc_resale_reference":resale,
+        "item_url":format!("/item/{id}"),"unit_basis":crate::external::unit(id)}),
+    )
+}
+
+async fn overview(db: &PgPool, limit: i64, falling: bool) -> sqlx::Result<Value> {
+    let rows: Vec<Value> = sqlx::query_scalar(
+        "SELECT to_jsonb(x) FROM (SELECT i.id AS item_id,i.name_zh,i.name_en,
+         st.typical,st.lowest_ask,st.sales_24h,st.change_24h,st.listings_count,
+         extract(epoch FROM st.as_of)::float8 AS as_of,market_price_unit(i.id) AS unit_basis
+         FROM item_stats st JOIN items i ON i.id=st.item_id
+         WHERE NOT $2::bool OR st.change_24h<0
+         ORDER BY CASE WHEN $2 THEN st.change_24h END ASC NULLS LAST,
+         st.sales_24h DESC,st.item_id LIMIT $1) x",
+    )
+    .bind(limit)
+    .bind(falling)
+    .fetch_all(db)
+    .await?;
+    let head = views::header(db, views::Hours::Recent, crate::unix_now()).await?;
+    Ok(
+        json!({"items":rows,"as_of":head.as_of,"active_shops":head.active_shops,
+        "observed_items":head.item_count,"sort":if falling {"falling"} else {"active"}}),
+    )
+}
+
+#[cfg(test)]
+mod quantity_tests {
+    use super::*;
+
+    #[test]
+    fn bundle_stock_and_sale_totals_are_distinct_from_item_counts() {
+        let mut value = json!({"listings":[{"price":1000,"bundle":2,"stock":3,"unit_basis":"item"},
+            {"price":5000,"bundle":1000,"stock":3,"unit_basis":"set"},
+            {"unit_basis":"item","stock":null}],
+            "sales":[{"sale_price":1000,"bundle":2,"quantity":4},{"quantity":null,"bundle":null}]});
+        clarify_quantities(&mut value);
+        assert_eq!(
+            value["listings"][0]["purchase_details"]["comparable_units_remaining"],
+            6
+        );
+        assert_eq!(
+            value["listings"][1]["purchase_details"]["comparable_units_remaining"],
+            3
+        );
+        assert!(value["listings"][2]["purchase_details"]["comparable_units_remaining"].is_null());
+        assert_eq!(
+            value["sales"][0]["sale_details"]["total_mesos_inferred"],
+            2000
+        );
+        assert_eq!(value["sales"][0]["sale_details"]["purchases_inferred"], 2);
+        assert!(value["sales"][1]["sale_details"]["total_mesos_inferred"].is_null());
+        assert!(value["listings"][0].get("stock").is_none());
+        assert!(value["sales"][0].get("sale_price").is_none());
+    }
+}

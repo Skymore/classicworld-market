@@ -21,6 +21,7 @@ use tower_http::{
 };
 
 pub mod accounts;
+pub mod agent;
 pub mod alerts;
 pub mod api;
 pub mod auth;
@@ -65,6 +66,7 @@ pub struct AppState {
     pub events: tokio::sync::broadcast::Sender<()>,
     pub collector_updates: tokio::sync::watch::Sender<Option<String>>,
     pub google: Option<Arc<contributors::GoogleOAuth>>,
+    pub agent: Option<Arc<agent::OpenRouter>>,
 }
 
 impl AppState {
@@ -77,6 +79,7 @@ impl AppState {
             events: tokio::sync::broadcast::channel(64).0,
             collector_updates: tokio::sync::watch::channel(None).0,
             google: None,
+            agent: None,
         }
     }
 }
@@ -113,6 +116,7 @@ pub fn app_with_web(state: AppState, web_dir: Option<&std::path::Path>) -> Route
         .route("/readyz", get(readyz))
         .route("/api/v1/version", get(version))
         .merge(api_headers(api::router()))
+        .merge(api_headers(agent::router()))
         .merge(api_headers(contributors::router()))
         .merge(api_headers(accounts::router()))
         .merge(bestiary::routes())

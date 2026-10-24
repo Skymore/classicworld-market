@@ -3,13 +3,14 @@
 // Page modules live in ./pages/<name>.js and export `mount(root, ctx)`
 // returning an optional cleanup function. Shared chrome (top bar, dock) is
 // rendered by ./lib/chrome.js so pages only render their own content.
-import { renderChrome } from './lib/chrome.js?v=20261024-accounts-1';
+import { renderChrome } from './lib/chrome.js?v=20261023-agent-3321100';
 import { lang, setLang } from './lib/i18n.js';
 import { ready as userDataReady, userStorage as localStorage } from './lib/user-data.js';
-import './lib/item-preview.js?v=20261024-accounts-1';
+import './lib/item-preview.js?v=20261023-agent-3321100';
 
 // path prefix -> page module. Order matters: first match wins.
 const PAGES = [
+  ['/agent', 'agent'],
   ['/privacy', 'privacy'],
   ['/account', 'account'],
   ['/contributors', 'contributors'],
@@ -36,11 +37,11 @@ function pageFor(pathname) {
 
 // Page stylesheet next to base.css. Loaded in parallel with the page module
 // and awaited before mount, so the first paint is already styled.
-const PAGE_CSS = { privacy:'account', account:'account', contributors:'account', home: 'home', prices: 'prices', sales: 'lists', watch: 'lists', alerts: 'lists', selling: 'selling' };
+const PAGE_CSS = { agent:'agent', privacy:'account', account:'account', contributors:'account', home: 'home', prices: 'prices', sales: 'lists', watch: 'lists', alerts: 'lists', selling: 'selling' };
 function pageCss(name) {
   const file = PAGE_CSS[name];
   if (!file) return Promise.resolve();
-  const href = `/web/css/${file}.css?v=20261024-accounts-1`;
+  const href = `/web/css/${file}.css?v=20261023-agent-3321100`;
   const existing = document.querySelector(`link[rel=stylesheet][href="${href}"]`);
   if (existing) return existing.sheet || existing.dataset.loaded ? Promise.resolve() : new Promise((done) => {existing.addEventListener('load', done, { once: true });existing.addEventListener('error',done,{once:true});});
   const link = document.createElement('link');
@@ -78,7 +79,7 @@ let generation = 0;
 const prepared=new Map();
 function preparePage(name) {
   if(!prepared.has(name)) prepared.set(name,Promise.all([
-    import(`./pages/${name}.js?v=20261024-accounts-1`),pageCss(name),
+    import(`./pages/${name}.js?v=20261023-agent-3321100`),pageCss(name),
   ]).catch(error=>{prepared.delete(name);throw error;}));
   return prepared.get(name);
 }
@@ -89,6 +90,7 @@ async function mount() {
   }
   const name = pageFor(location.pathname);
   const titles=lang==='en'?{privacy:'Account privacy',account:'My profile',contributors:'Contributors',home:'Home',prices:'Prices',watch:'Watch',alerts:'Deals',selling:'Bag & shop'}:{privacy:'账号隐私说明',account:'我的',contributors:'采集贡献榜',home:'首页',prices:'价格表',watch:'关注',alerts:'捡漏',selling:'背包与摆摊'};
+  titles.agent=lang==='en'?'Market assistant':'市场助手';
   document.title=`${titles[name]||titles.home} · ${lang==='en'?'Maple Market':'枫叶市集'}`;
 
   const root = document.getElementById('app');

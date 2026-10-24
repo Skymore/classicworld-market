@@ -29,6 +29,7 @@ const CSP: &str = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; wor
 pub const PAGE_ROUTES: &[&str] = &[
     "/",
     "/prices",
+    "/agent",
     "/selling",
     "/sales",
     "/watch",

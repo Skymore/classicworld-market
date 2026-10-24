@@ -262,3 +262,5 @@ node web/tests/contributors.e2e.mjs
 The PostgreSQL tests create isolated temporary databases. Browser tests use fixture users and never call real Google sign-in. Configure `PLAYWRIGHT_MODULE` and `PLAYWRIGHT_CHANNEL` when using a bundled Playwright installation.
 
 Migration line endings are pinned in `.gitattributes` to match the existing PostgreSQL SQLx checksums: migrations 0001–0012 retain CRLF, and 0013 onward use LF. Do not normalize already-deployed migration bytes. Compare all existing database checksums before starting a deployment candidate.
+
+市场助手入口 `/agent`，OpenRouter 免费模型调用站内只读工具，支持买入、卖出定价和行情查询。配置与接口见 [Agent API](AGENT_API.md)。

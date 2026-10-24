@@ -62,6 +62,7 @@ async fn web_shell_and_assets() {
     for path in [
         "/",
         "/prices",
+        "/agent",
         "/prices/4010001",
         "/sales",
         "/watch",

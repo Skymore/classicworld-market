@@ -919,6 +919,118 @@ pub async fn search_catalog(db: &PgPool, query: &str) -> sqlx::Result<Value> {
 }
 
 /// `/api/v1/items/<id>`: the catalogue record.
+pub async fn agent_listings(
+    db: &PgPool,
+    item: i32,
+    limit: i64,
+    channel: Option<i16>,
+    max_price: Option<f64>,
+    now: f64,
+) -> sqlx::Result<Value> {
+    let sql = format!(
+        "SELECT {} FROM listings l
+         JOIN shops sh ON sh.id=l.shop_id JOIN observations o ON o.id=l.observation_id
+         JOIN items i ON i.id=l.item_id LEFT JOIN equipment_variants v ON v.id=l.variant_id
+         WHERE l.item_id=$1 AND l.stock>0 AND sh.last_seen_at>=to_timestamp($2)
+         AND o.observed_at<=to_timestamp($6)
+         AND ($4::int2 IS NULL OR COALESCE(sh.channel,o.map_channel)=$4)
+         AND ($5::float8 IS NULL OR market_unit_price(l.item_id,l.price,l.bundle)<=$5)
+         ORDER BY market_unit_price(l.item_id,l.price,l.bundle),o.observed_at DESC,sh.public_key,l.slot LIMIT $3",
+        row_columns("l"));
+    let rows = sqlx::query(&sql)
+        .bind(item)
+        .bind(now - 72.0 * 3600.0)
+        .bind(limit + 1)
+        .bind(channel)
+        .bind(max_price)
+        .bind(now)
+        .fetch_all(db)
+        .await?;
+    let mut found: Vec<Value> = rows.iter().map(|r| Value::Object(row_json(r))).collect();
+    let external: Vec<Value> = sqlx::query_scalar(
+        "SELECT to_jsonb(x) FROM (SELECT item_id,source,unit_basis,unit_price,seller AS shop,
+         location,extract(epoch FROM seen_at)::float8 AS time,NULL::int AS stock,NULL::jsonb AS equipment
+         FROM external_market_listings WHERE item_id=$1 AND up AND seen_at>=to_timestamp($2)
+         AND seen_at<=to_timestamp($6)
+         AND ($4::int2 IS NULL OR (location->>'channel')::int2=$4)
+         AND ($5::float8 IS NULL OR unit_price<=$5)
+         ORDER BY unit_price,seen_at DESC,source_key LIMIT $3) x")
+        .bind(item).bind(now-72.0*3600.0).bind(limit+1).bind(channel).bind(max_price).bind(now)
+        .fetch_all(db).await?;
+    found.extend(external);
+    found.sort_by(|a, b| {
+        a["unit_price"]
+            .as_f64()
+            .unwrap_or(f64::INFINITY)
+            .total_cmp(&b["unit_price"].as_f64().unwrap_or(f64::INFINITY))
+    });
+    let truncated = found.len() > limit as usize;
+    found.truncate(limit as usize);
+    Ok(
+        json!({"item_id":item,"listings":found,"truncated":truncated,"hours":72,
+        "order":"unit_price_ascending","item_url":format!("/item/{item}")}),
+    )
+}
+
+pub async fn agent_sales(
+    db: &PgPool,
+    item: Option<i32>,
+    limit: i64,
+    hours: i32,
+    now: f64,
+) -> sqlx::Result<Value> {
+    let sql = format!(
+        "{} WHERE ($1::int IS NULL OR s.item_id=$1)
+        AND s.detected_at>=to_timestamp($2) AND s.detected_at<=to_timestamp($4)
+        ORDER BY s.detected_at DESC,s.id DESC LIMIT $3",
+        sales_from()
+    );
+    let rows = sqlx::query(&sql)
+        .bind(item)
+        .bind(now - f64::from(hours) * 3600.0)
+        .bind(limit + 1)
+        .bind(now)
+        .fetch_all(db)
+        .await?;
+    let truncated = rows.len() > limit as usize;
+    let sales: Vec<Value> = rows
+        .iter()
+        .take(limit as usize)
+        .map(|r| Value::Object(sale_json(r)))
+        .collect();
+    Ok(json!({"sales":sales,"hours":hours,"truncated":truncated}))
+}
+
+pub async fn agent_advice(db: &PgPool, item: i32, hours: i32, now: f64) -> sqlx::Result<Value> {
+    let product = products(db, Hours::Recent, Some(item), true)
+        .await?
+        .pop()
+        .map(|p| summary_product(&p, Hours::Recent));
+    let period: Value = sqlx::query_scalar(
+        "SELECT to_jsonb(x) FROM (SELECT count(*) AS evidence_count,
+         percentile_cont(0.5) WITHIN GROUP (ORDER BY unit_price) AS median,
+         percentile_cont(0.25) WITHIN GROUP (ORDER BY unit_price) AS low_quartile,
+         percentile_cont(0.75) WITHIN GROUP (ORDER BY unit_price) AS high_quartile,
+         max(extract(epoch FROM detected_at)::float8) AS latest_evidence_at
+         FROM market_sales WHERE item_id=$1 AND detected_at>=to_timestamp($2)
+         AND detected_at<=to_timestamp($3)) x",
+    )
+    .bind(item)
+    .bind(now - f64::from(hours) * 3600.0)
+    .bind(now)
+    .fetch_one(db)
+    .await?;
+    let as_of: Option<f64> =
+        sqlx::query_scalar("SELECT extract(epoch FROM as_of)::float8 FROM market_state")
+            .fetch_one(db)
+            .await?;
+    Ok(
+        json!({"item_id":item,"product":product,"sale_evidence":period,"hours":hours,
+        "as_of":as_of,"recommendation_hours":72,"unit_basis":crate::external::unit(item),
+        "item_url":format!("/item/{item}")}),
+    )
+}
+
 pub async fn item_record(db: &PgPool, item: i32) -> sqlx::Result<Option<Value>> {
     sqlx::query_scalar("SELECT record FROM item_records WHERE item_id = $1")
         .bind(item)
