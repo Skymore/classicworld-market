@@ -47,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-Dx3DJbdl.js": {
-    "file": "chunks/main-Dx3DJbdl.js",
+  "_main-Cqb7Aeva.js": {
+    "file": "chunks/main-Cqb7Aeva.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -127,7 +127,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Dx3DJbdl.js"
+      "_main-Cqb7Aeva.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -209,7 +209,7 @@
     ]
   },
   "src/pages/home.tsx": {
-    "file": "chunks/home-CBWsUbMR.js",
+    "file": "chunks/home-CTKdEK4F.js",
     "name": "home",
     "src": "src/pages/home.tsx",
     "isDynamicEntry": true,
@@ -238,7 +238,7 @@
     ]
   },
   "src/pages/privacy.tsx": {
-    "file": "chunks/privacy-C9ZpsOIT.js",
+    "file": "chunks/privacy-Db8RMuiT.js",
     "name": "privacy",
     "src": "src/pages/privacy.tsx",
     "isDynamicEntry": true,
@@ -276,7 +276,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Dx3DJbdl.js"
+      "_main-Cqb7Aeva.js"
     ]
   },
   "style.css": {

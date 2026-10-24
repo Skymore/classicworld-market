@@ -69,7 +69,11 @@ try {
   await privatePage.waitForTimeout(150); assert.equal(views.length, 4);
   await privatePage.close();
   for (const width of [1280, 390]) {
-    await page.setViewportSize({ width, height: 900 }); await page.goto(origin + '/traffic');
+    await page.setViewportSize({ width, height: 900 }); await page.goto(origin + '/');
+    await page.locator('[data-traffic-link]').waitFor({ state: 'visible' });
+    await page.locator('[data-traffic-link]').click();
+    await page.waitForURL(origin + '/traffic');
+    await page.getByText('全站公开访问统计 · 每分钟更新').waitFor();
     await page.waitForFunction(() => document.getElementById('today-pv').textContent === '87');
     assert.equal(await page.locator('.day').count(), 30);
     assert.equal(await page.locator('#average-uv').textContent(), '14.5');
@@ -82,9 +86,10 @@ try {
       await page.screenshot({ path: path.join(process.env.TRAFFIC_SCREENSHOTS, `traffic-${width}.png`), fullPage: true });
     }
   }
-  assert.equal(views.length, 4, 'operator dashboard does not count itself');
+  await poll(() => views.length === 8);
+  assert.equal(views.filter(view => view.path === '/traffic').length, 2, 'public page counts visits but not summary refreshes');
   assert.deepEqual(errors, []);
-  console.log('PASS traffic: real SPA navigation, query/hash/SSE dedup, reload UV, privacy opt-out, desktop/mobile dashboard');
+  console.log('PASS traffic: SPA/SSE dedup, daily UV, privacy opt-out, visible home entry and public desktop/mobile dashboard');
 } finally {
   await browser.close(); for (const stream of streams) stream.end();
   server.closeAllConnections(); await new Promise(resolve => server.close(resolve));

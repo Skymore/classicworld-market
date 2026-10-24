@@ -3,14 +3,12 @@ mod common;
 
 use axum::{
     body::Body,
-    extract::ConnectInfo,
     http::{Request, StatusCode},
 };
 use http_body_util::BodyExt;
 use market_web::{app, AppState, Settings};
 use serde_json::{json, Value};
 use sqlx::postgres::PgPoolOptions;
-use std::net::SocketAddr;
 use tower::ServiceExt;
 
 fn state() -> AppState {
@@ -21,10 +19,10 @@ fn state() -> AppState {
         Settings::default(),
     )
 }
-fn local_get(path: &str) -> Request<Body> {
+fn public_get(path: &str) -> Request<Body> {
     Request::get(path)
-        .header("host", "127.0.0.1:8766")
-        .extension(ConnectInfo("127.0.0.1:4321".parse::<SocketAddr>().unwrap()))
+        .header("host", "mxd.ruit.me")
+        .header("cf-connecting-ip", "203.0.113.1")
         .body(Body::empty())
         .unwrap()
 }
@@ -42,43 +40,16 @@ fn post(value: Value) -> Request<Body> {
 }
 
 #[tokio::test]
-async fn dashboard_is_loopback_only_even_when_tunnel_peer_is_local() {
+async fn dashboard_is_public_on_the_main_site_without_login_or_a_local_peer() {
     let router = app(state());
-    let response = router.clone().oneshot(local_get("/traffic")).await.unwrap();
+    let response = router.oneshot(public_get("/traffic")).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(response.headers()["cache-control"], "no-store");
     assert_eq!(response.headers()["x-frame-options"], "DENY");
-    for path in ["/traffic", "/api/v1/traffic/summary"] {
-        for (host, forwarded, peer) in [
-            ("mxd.ruit.me", false, "127.0.0.1:1234"),
-            ("localhost:8766", true, "127.0.0.1:1234"),
-            ("127.0.0.1:8766", false, "192.168.1.2:1234"),
-        ] {
-            let mut request = Request::get(path)
-                .header("host", host)
-                .extension(ConnectInfo(peer.parse::<SocketAddr>().unwrap()))
-                .body(Body::empty())
-                .unwrap();
-            if forwarded {
-                request
-                    .headers_mut()
-                    .insert("cf-connecting-ip", "203.0.113.1".parse().unwrap());
-            }
-            assert_eq!(
-                router.clone().oneshot(request).await.unwrap().status(),
-                StatusCode::NOT_FOUND
-            );
-        }
-        let request = Request::get(path)
-            .header("host", "localhost:8766")
-            .body(Body::empty())
-            .unwrap();
-        assert_eq!(
-            router.clone().oneshot(request).await.unwrap().status(),
-            StatusCode::NOT_FOUND,
-            "a Host header alone is not authorization"
-        );
-    }
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    assert!(std::str::from_utf8(&body)
+        .unwrap()
+        .contains("全站公开访问统计"));
 }
 
 #[tokio::test]
@@ -172,16 +143,19 @@ async fn pageviews_deduplicate_events_hash_visitors_strip_secrets_and_fill_empty
     assert_ne!(stored[1].2, stored[2].2);
     let response = router
         .clone()
-        .oneshot(local_get("/api/v1/traffic/summary?days=7"))
+        .oneshot(public_get("/api/v1/traffic/summary?days=7"))
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()["cache-control"], "no-store");
     let report: Value =
         serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(report["today"], json!({"pageviews":3,"visitors":2}));
     assert_eq!(report["daily"].as_array().unwrap().len(), 7);
     assert_eq!(report["daily"][0]["pageviews"], 0);
     assert_eq!(report["daily_visitors"], 2);
+    assert!(!report.to_string().contains("visitor_hash"));
+    assert!(!report.to_string().contains("event_id"));
     // A distinct day gets its own UV; period UV is explicitly a daily sum.
     sqlx::query("INSERT INTO site_pageviews(event_id,day,visitor_hash,path,source,device) SELECT repeat('4',32),day-1,visitor_hash,'/','','desktop' FROM site_pageviews LIMIT 1").execute(&db.pool).await.unwrap();
     let report = market_web::traffic::report(&db.pool, 7).await.unwrap();

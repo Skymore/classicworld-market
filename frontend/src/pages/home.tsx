@@ -258,6 +258,10 @@ export default function Home() {
             "Download collector & getting started",
           )}
         </a>
+        {" "}·{" "}
+        <a href="/traffic" data-traffic-link>
+          {words("网站流量", "Website traffic")}
+        </a>
       </p>
     </>
   );

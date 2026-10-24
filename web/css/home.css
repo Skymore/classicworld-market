@@ -27,8 +27,8 @@ html[data-page=home] .dhead .fresh{margin-left:auto}
 .home-market .tabs{overflow-x:auto}
 .home-market .tab{flex:1 0 auto;padding-inline:12px}
 
-/* 页脚提示只在手机上（桌面不加装饰，见界面稿） */
-@media (min-width:641px){.home-foot{display:none}}
+/* Keep the public traffic entry visible on every screen and wrap on phones. */
+.home-foot{flex-wrap:wrap}.home-foot a{white-space:nowrap}
 
 .stall-bar>.period-inline{margin-left:auto;flex-shrink:0;color:var(--bar-ink)}
 .stall-bar>.bar-meta+.period-inline{margin-left:4px}

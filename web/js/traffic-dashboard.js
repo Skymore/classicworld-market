@@ -1,3 +1,5 @@
+import { trackPage } from './lib/traffic.js';
+trackPage('/traffic');
 (function () {
   const byId = id => document.getElementById(id);
   const number = value => Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 1 });
@@ -45,7 +47,7 @@
       byId('status').textContent = '更新于 ' + new Date().toLocaleTimeString('zh-CN') + ' · 每分钟自动刷新';
       delete byId('status').dataset.error;
     } catch {
-      byId('status').textContent = '统计暂时无法读取，请稍后刷新。此页面仅支持从部署电脑本机打开。';
+      byId('status').textContent = '统计暂时无法读取，请稍后刷新。';
       byId('status').dataset.error = '1';
     } finally { running = false; byId('refresh').disabled = false; byId('days').disabled = false; }
   }

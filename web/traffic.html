@@ -7,10 +7,10 @@
   <link rel="icon" href="/web/img/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/web/css/traffic.css?v=1">
   <script defer src="/web/js/lib/boot.js"></script>
-  <script defer src="/web/js/traffic-dashboard.js?v=1"></script>
+  <script type="module" src="/web/js/traffic-dashboard.js?v=2"></script>
 </head><body>
 <main>
-  <header><div><a href="/">枫叶市集</a><h1>网站流量</h1><p>站长统计 · 仅部署电脑可查看</p></div>
+  <header><div><a href="/">← 枫叶市集首页</a><h1>网站流量</h1><p>全站公开访问统计 · 每分钟更新</p></div>
     <div class="controls"><label>统计范围 <select id="days"><option value="7">最近 7 天</option><option value="30" selected>最近 30 天</option><option value="90">最近 90 天</option></select></label><button id="refresh" type="button">刷新</button></div>
   </header>
   <p id="status" role="status" aria-live="polite">正在读取统计…</p>

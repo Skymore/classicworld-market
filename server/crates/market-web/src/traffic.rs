@@ -1,4 +1,4 @@
-//! First-party anonymous page views and a loopback-only operator dashboard.
+//! First-party anonymous page views and public aggregate traffic statistics.
 use std::net::SocketAddr;
 
 use axum::{
@@ -43,13 +43,7 @@ fn local(headers: &HeaderMap, peer: Option<Extension<ConnectInfo<SocketAddr>>>) 
             .is_some_and(|v| matches!(v.host(), "localhost" | "127.0.0.1" | "[::1]"))
 }
 
-async fn dashboard(
-    headers: HeaderMap,
-    peer: Option<Extension<ConnectInfo<SocketAddr>>>,
-) -> Response {
-    if !local(&headers, peer) {
-        return StatusCode::NOT_FOUND.into_response();
-    }
+async fn dashboard() -> Response {
     (
         [
             (header::CONTENT_SECURITY_POLICY, crate::web::CSP),
@@ -89,6 +83,7 @@ fn page_path(value: &str) -> Option<String> {
         "/account",
         "/privacy",
         "/contributors",
+        "/traffic",
         "/selling",
         "/agent",
         "/search",
@@ -202,15 +197,7 @@ struct Period {
     days: Option<i32>,
 }
 
-async fn summary(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    peer: Option<Extension<ConnectInfo<SocketAddr>>>,
-    Query(period): Query<Period>,
-) -> Response {
-    if !local(&headers, peer) {
-        return StatusCode::NOT_FOUND.into_response();
-    }
+async fn summary(State(state): State<AppState>, Query(period): Query<Period>) -> Response {
     match report(&state.db, period.days.unwrap_or(30).clamp(1, 90)).await {
         Ok(value) => Json(value).into_response(),
         Err(error) => {
