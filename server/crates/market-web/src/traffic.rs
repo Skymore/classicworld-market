@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use axum::{
     extract::{ConnectInfo, DefaultBodyLimit, Query, State},
     http::{header, HeaderMap, StatusCode},
-    response::{Html, IntoResponse, Response},
+    response::{IntoResponse, Response},
     routing::{get, post},
     Extension, Json, Router,
 };
@@ -19,7 +19,6 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/v1/traffic/event", post(event))
         .route("/api/v1/traffic/summary", get(summary))
-        .route("/traffic", get(dashboard))
         .layer(DefaultBodyLimit::max(4096))
 }
 
@@ -41,18 +40,6 @@ fn local(headers: &HeaderMap, peer: Option<Extension<ConnectInfo<SocketAddr>>>) 
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<axum::http::uri::Authority>().ok())
             .is_some_and(|v| matches!(v.host(), "localhost" | "127.0.0.1" | "[::1]"))
-}
-
-async fn dashboard() -> Response {
-    (
-        [
-            (header::CONTENT_SECURITY_POLICY, crate::web::CSP),
-            (header::CACHE_CONTROL, "no-store"),
-            (header::X_FRAME_OPTIONS, "DENY"),
-        ],
-        Html(include_str!("../../../../web/traffic.html")),
-    )
-        .into_response()
 }
 
 #[derive(Deserialize)]
@@ -121,6 +108,17 @@ fn source(referrer: &str, hostname: &str) -> String {
         .unwrap_or_default()
 }
 
+fn country(headers: &HeaderMap) -> String {
+    // Cloudflare overwrites this edge header. Never accept location from the
+    // browser body or infer it from the tunnel's loopback address.
+    headers
+        .get("cf-ipcountry")
+        .and_then(|v| v.to_str().ok())
+        .filter(|v| v.len() == 2 && v.bytes().all(|b| b.is_ascii_uppercase()) && *v != "XX")
+        .unwrap_or_default()
+        .to_owned()
+}
+
 async fn event(
     State(state): State<AppState>,
     ClientAddr(address): ClientAddr,
@@ -172,8 +170,8 @@ async fn event(
     let day = Utc::now().date_naive();
     let hash = Sha256::digest(format!("{day}:{}", input.visitor)).to_vec();
     let result = sqlx::query(
-        "INSERT INTO site_pageviews(event_id,day,visitor_hash,path,source,device)
-        VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT(event_id) DO NOTHING",
+        "INSERT INTO site_pageviews(event_id,day,visitor_hash,path,source,device,country_code)
+        VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(event_id) DO NOTHING",
     )
     .bind(input.event_id)
     .bind(day)
@@ -181,6 +179,7 @@ async fn event(
     .bind(path)
     .bind(source(&input.referrer, &state.settings.hostname))
     .bind(input.device)
+    .bind(country(&headers))
     .execute(&state.db)
     .await;
     match result {
@@ -220,9 +219,9 @@ pub async fn report(db: &PgPool, days: i32) -> sqlx::Result<Value> {
     .bind(today)
     .fetch_all(db)
     .await?;
-    let pages: Vec<(String, i64)> = sqlx::query_as(
-        "SELECT path,count(*) FROM site_pageviews WHERE day BETWEEN $1 AND $2
-         GROUP BY path ORDER BY count(*) DESC,path LIMIT 20",
+    let regions: Vec<(String, i64)> = sqlx::query_as(
+        "SELECT country_code,count(*) FROM site_pageviews WHERE day BETWEEN $1 AND $2
+         GROUP BY country_code ORDER BY count(*) DESC,country_code",
     )
     .bind(start)
     .bind(today)
@@ -251,7 +250,7 @@ pub async fn report(db: &PgPool, days: i32) -> sqlx::Result<Value> {
         json!({"days":days,"timezone":"UTC","pageviews":pageviews,"daily_visitors":daily_visitors,
         "today":{"pageviews":last.1,"visitors":last.2},
         "daily":daily.iter().map(|(day,pv,uv)|json!({"day":day,"pageviews":pv,"visitors":uv})).collect::<Vec<_>>(),
-        "pages":pages.iter().map(|(path,count)|json!({"name":path,"count":count})).collect::<Vec<_>>(),
+        "regions":regions.iter().map(|(code,count)|json!({"code":code,"count":count})).collect::<Vec<_>>(),
         "sources":sources.iter().map(|(host,count)|json!({"name":host,"count":count})).collect::<Vec<_>>(),
         "devices":devices.iter().map(|(device,count)|json!({"name":device,"count":count})).collect::<Vec<_>>() }),
     )

@@ -252,16 +252,9 @@ export default function Home() {
           {words("采集贡献榜", "Contributors")}
         </SiteLink>{" "}
         ·{" "}
-        <a href="/web/download.html">
-          {words(
-            "采集器下载与使用说明",
-            "Download collector & getting started",
-          )}
-        </a>
-        {" "}·{" "}
-        <a href="/traffic" data-traffic-link>
+        <SiteLink href="/traffic" data-traffic-link>
           {words("网站流量", "Website traffic")}
-        </a>
+        </SiteLink>
       </p>
     </>
   );

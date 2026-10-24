@@ -6,7 +6,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use market_web::{app, AppState, Settings};
+use market_web::{app, app_with_web, AppState, Settings};
 use serde_json::{json, Value};
 use sqlx::postgres::PgPoolOptions;
 use tower::ServiceExt;
@@ -41,15 +41,15 @@ fn post(value: Value) -> Request<Body> {
 
 #[tokio::test]
 async fn dashboard_is_public_on_the_main_site_without_login_or_a_local_peer() {
-    let router = app(state());
+    let web = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../web");
+    let router = app_with_web(state(), Some(&web));
     let response = router.oneshot(public_get("/traffic")).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(response.headers()["cache-control"], "no-store");
-    assert_eq!(response.headers()["x-frame-options"], "DENY");
+    assert_eq!(response.headers()["cache-control"], "no-cache");
     let body = response.into_body().collect().await.unwrap().to_bytes();
     assert!(std::str::from_utf8(&body)
         .unwrap()
-        .contains("全站公开访问统计"));
+        .contains("/web/react/app.js"));
 }
 
 #[tokio::test]
@@ -156,6 +156,8 @@ async fn pageviews_deduplicate_events_hash_visitors_strip_secrets_and_fill_empty
     assert_eq!(report["daily_visitors"], 2);
     assert!(!report.to_string().contains("visitor_hash"));
     assert!(!report.to_string().contains("event_id"));
+    assert!(report.get("pages").is_none());
+    assert_eq!(report["regions"], json!([{"code":"","count":3}]));
     // A distinct day gets its own UV; period UV is explicitly a daily sum.
     sqlx::query("INSERT INTO site_pageviews(event_id,day,visitor_hash,path,source,device) SELECT repeat('4',32),day-1,visitor_hash,'/','','desktop' FROM site_pageviews LIMIT 1").execute(&db.pool).await.unwrap();
     let report = market_web::traffic::report(&db.pool, 7).await.unwrap();
@@ -195,5 +197,38 @@ async fn pageviews_deduplicate_events_hash_visitors_strip_secrets_and_fill_empty
             .status(),
         StatusCode::TOO_MANY_REQUESTS
     );
+    db.drop_schema().await;
+}
+
+#[tokio::test]
+async fn regions_use_the_edge_header_only_and_preserve_unknown_history() {
+    let Some(db) = common::test_db().await else {
+        return;
+    };
+    let router = app(AppState::new(db.pool.clone(), Settings::default()));
+    for (id, code) in [
+        ('1', "US"),
+        ('2', "CN"),
+        ('3', "XX"),
+        ('4', "T1"),
+        ('5', "invalid"),
+    ] {
+        let mut input = payload(id, 'a', "/traffic");
+        input["country_code"] = json!("JP"); // Client-supplied location is ignored.
+        let mut request = post(input);
+        request
+            .headers_mut()
+            .insert("cf-ipcountry", code.parse().unwrap());
+        assert_eq!(
+            router.clone().oneshot(request).await.unwrap().status(),
+            StatusCode::NO_CONTENT
+        );
+    }
+    let report = market_web::traffic::report(&db.pool, 7).await.unwrap();
+    assert_eq!(
+        report["regions"],
+        json!([{"code":"","count":3},{"code":"CN","count":1},{"code":"US","count":1}])
+    );
+    assert!(report.get("pages").is_none());
     db.drop_schema().await;
 }

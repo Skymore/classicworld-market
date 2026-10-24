@@ -47,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-sMuBRg9u.js": {
-    "file": "chunks/main-sMuBRg9u.js",
+  "_main-mHMMvlXs.js": {
+    "file": "chunks/main-mHMMvlXs.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -69,7 +69,15 @@
       "src/pages/home.tsx",
       "src/pages/prices.tsx",
       "src/pages/account.tsx",
-      "src/pages/contributors.tsx"
+      "src/pages/contributors.tsx",
+      "src/pages/traffic.tsx"
+    ]
+  },
+  "_monitor-DEKEl1WW.js": {
+    "file": "chunks/monitor-DEKEl1WW.js",
+    "name": "monitor",
+    "imports": [
+      "_createLucideIcon-AGXdf3oX.js"
     ]
   },
   "_offer-filters-BvbpvXjp.js": {
@@ -127,11 +135,11 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-sMuBRg9u.js"
+      "_main-mHMMvlXs.js"
     ]
   },
   "src/pages/account.tsx": {
-    "file": "chunks/account-VDETOrMg.js",
+    "file": "chunks/account-wus6lxD9.js",
     "name": "account",
     "src": "src/pages/account.tsx",
     "isDynamicEntry": true,
@@ -139,6 +147,7 @@
       "_shared-CXQsMgcK.js",
       "_shell-DmaT9iF5.js",
       "_createLucideIcon-AGXdf3oX.js",
+      "_monitor-DEKEl1WW.js",
       "_pencil-BREOhejf.js"
     ]
   },
@@ -209,7 +218,7 @@
     ]
   },
   "src/pages/home.tsx": {
-    "file": "chunks/home-CTKdEK4F.js",
+    "file": "chunks/home-BI1p2Q03.js",
     "name": "home",
     "src": "src/pages/home.tsx",
     "isDynamicEntry": true,
@@ -238,7 +247,7 @@
     ]
   },
   "src/pages/privacy.tsx": {
-    "file": "chunks/privacy-Db8RMuiT.js",
+    "file": "chunks/privacy-DN--r0yR.js",
     "name": "privacy",
     "src": "src/pages/privacy.tsx",
     "isDynamicEntry": true,
@@ -254,6 +263,17 @@
     "imports": [
       "_shared-CXQsMgcK.js",
       "_shell-DmaT9iF5.js"
+    ]
+  },
+  "src/pages/traffic.tsx": {
+    "file": "chunks/traffic-wKhsSXPo.js",
+    "name": "traffic",
+    "src": "src/pages/traffic.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_shared-CXQsMgcK.js",
+      "_createLucideIcon-AGXdf3oX.js",
+      "_monitor-DEKEl1WW.js"
     ]
   },
   "src/pages/watch.tsx": {
@@ -276,7 +296,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-sMuBRg9u.js"
+      "_main-mHMMvlXs.js"
     ]
   },
   "style.css": {

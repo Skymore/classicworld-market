@@ -4,8 +4,9 @@
 
 网站通过 `/api/v1/traffic/event` 记录匿名页面访问，PostgreSQL 的
 `site_pageviews` 与网站数据一同备份。所有访客均可在主站
-`https://mxd.ruit.me/traffic` 查看今日浏览量、今日访客、7/30/90 天趋势、
-热门页面、来源域名与设备分布；首页页脚提供「网站流量」入口。
+`https://mxd.ruit.me/traffic` 查看浏览量、今日访客、地区地图、来源域名与设备分布；
+首页页脚提供「网站流量」入口。流量页使用主站 React 导航、窗口样式与昼夜主题，
+不展示统计说明长文、每日明细或分页面排行。
 `/api/v1/traffic/summary` 公开汇总数字，不返回逐次访问、访客标识或账号数据。
 
 每日 UTC 更换随机浏览器标识，只存当天哈希；不存 IP、账号、查询参数、
@@ -14,6 +15,12 @@
 刷新和页面切换记 PV，筛选、预览、查询参数变化及 SSE 更新不额外记数。
 每日 UV 是当天浏览器估计值，跨天日访客合计不能解释为跨天独立人数。
 统计从上线后开始，不回填历史流量。
+
+地区只读取 Cloudflare 的 `CF-IPCountry` 国家/地区代码，不保存精确位置或 IP，
+不接受浏览器提交的地区。旧记录及缺失、未知或 Tor 标记归入未知，不补造位置。
+地理位置功能依赖 Cloudflare IP Geolocation：
+https://developers.cloudflare.com/network/ip-geolocation/ 。
+地图边界来自 Natural Earth 公共领域数据，由 `tools/build_traffic_world.py` 生成。
 
 ## 2026-10-23 发行迁移
 

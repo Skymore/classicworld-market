@@ -10,7 +10,8 @@ const views = [], streams = new Set();
 const now = Date.now() / 1000;
 const daily = Array.from({ length: 30 }, (_, i) => ({ day: `2026-10-${String(i + 1).padStart(2, '0')}`, pageviews: i * 3, visitors: i }));
 const report = { days: 30, pageviews: 1305, daily_visitors: 435, today: { pageviews: 87, visitors: 29 }, daily,
-  pages: [{ name: '/item/2000000', count: 800 }], sources: [{ name: 'example.com', count: 35 }], devices: [{ name: 'phone', count: 1100 }] };
+  regions: [{ code: 'US', count: 800 }, { code: 'CA', count: 350 }, { code: 'SG', count: 100 }, { code: '', count: 55 }],
+  sources: [{ name: 'example.com', count: 35 }, { name: '', count: 1270 }], devices: [{ name: 'phone', count: 1100 }, { name: 'desktop', count: 205 }] };
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname === '/api/v1/traffic/event') {
@@ -32,11 +33,10 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/v1/dex/counts') data = { mobs: 1, maps: 1 };
     res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(data));
   }
-  const file = url.pathname === '/traffic' ? path.join(root, 'traffic.html')
-    : url.pathname.startsWith('/web/') ? path.resolve(root, '.' + url.pathname.slice(4)) : path.join(root, 'index.html');
+  const file = url.pathname.startsWith('/web/') ? path.resolve(root, '.' + url.pathname.slice(4)) : path.join(root, 'index.html');
   if (!file.startsWith(root + path.sep)) { res.writeHead(404); return res.end(); }
   try {
-    res.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.svg') ? 'image/svg+xml' : 'text/html; charset=utf-8');
+    res.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.json') ? 'application/json' : file.endsWith('.svg') ? 'image/svg+xml' : 'text/html; charset=utf-8');
     res.end(await readFile(file));
   } catch { res.writeHead(404); res.end(); }
 });
@@ -71,25 +71,46 @@ try {
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 }); await page.goto(origin + '/');
     await page.locator('[data-traffic-link]').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('.home-foot a[href="/web/download.html"]').count(), 0);
+    await page.evaluate(() => { window.trafficHeader = document.querySelector('.ptop'); });
     await page.locator('[data-traffic-link]').click();
     await page.waitForURL(origin + '/traffic');
-    await page.getByText('全站公开访问统计 · 每分钟更新').waitFor();
-    await page.waitForFunction(() => document.getElementById('today-pv').textContent === '87');
-    assert.equal(await page.locator('.day').count(), 30);
-    assert.equal(await page.locator('#average-uv').textContent(), '14.5');
-    assert(await page.locator('#pages').textContent().then(text => text.includes('/item/2000000')));
+    await page.locator('[data-traffic-page] .traffic-world').waitFor();
+    await page.waitForFunction(() => document.querySelector('[data-traffic-today-pv]').textContent === '87');
+    assert(await page.evaluate(() => window.trafficHeader === document.querySelector('.ptop')), 'traffic shares the persistent site shell');
+    assert.equal(await page.locator('.dock a').count(), 6);
+    assert.equal(await page.locator('[data-traffic-page] .stall').count(), 4);
+    assert.equal(await page.locator('[data-traffic-page] p').count(), 0, 'no explanatory paragraphs');
+    assert.equal(await page.locator('.traffic-world [data-country=US][data-visited]').count(), 1);
+    assert.equal(await page.locator('.traffic-world [data-country=SG][data-visited]').count(), 1);
+    await page.locator('[data-region=CA]').click();
+    assert.equal(await page.locator('.traffic-world [data-country=CA][data-selected]').count(), 1);
+    await page.locator('.traffic-world [data-country=US]').focus();
+    await page.locator('.traffic-world [data-country=US]').press('Enter');
+    assert.equal(await page.locator('.traffic-world [data-country=US][data-selected]').count(), 1);
+    assert(!await page.locator('[data-traffic-page]').textContent().then(text => /热门页面|每日明细|统计口径|UTC|Do Not Track/.test(text)));
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no horizontal overflow');
-    await page.locator('summary').click(); await page.locator('#daily tr').first().waitFor();
-    await page.selectOption('#days', '7'); await page.waitForFunction(() => !document.getElementById('days').disabled);
+    const range = page.waitForResponse(response => response.url().includes('/api/v1/traffic/summary?days=30'));
+    await page.getByLabel('统计范围', { exact: true }).selectOption('30'); await (await range).finished();
+    assert.equal(await page.getByLabel('统计范围', { exact: true }).evaluate(node => getComputedStyle(node).fontSize), '16px');
+    assert(await page.locator('.traffic-breakdown').first().textContent().then(text => text.includes('example.com')));
     if (process.env.TRAFFIC_SCREENSHOTS) {
       await mkdir(process.env.TRAFFIC_SCREENSHOTS, { recursive: true });
-      await page.screenshot({ path: path.join(process.env.TRAFFIC_SCREENSHOTS, `traffic-${width}.png`), fullPage: true });
+      await page.screenshot({ path: path.join(process.env.TRAFFIC_SCREENSHOTS, `traffic-${width}-light.png`), fullPage: true });
     }
+    await page.locator('[data-theme-toggle]:visible').click();
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.traffic-map-panel')).backgroundColor), 'rgb(35, 43, 56)');
+    if (process.env.TRAFFIC_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.TRAFFIC_SCREENSHOTS, `traffic-${width}-dark.png`), fullPage: true });
+    await page.locator('[data-lang-toggle]:visible').click();
+    await page.getByRole('heading', { name: 'Sources', exact: true }).waitFor();
+    await page.getByLabel('Period', { exact: true }).selectOption('90');
+    assert.equal(await page.locator('[data-traffic-page] p').count(),0);
+    await page.locator('[data-theme-toggle]:visible').click();
   }
   await poll(() => views.length === 8);
   assert.equal(views.filter(view => view.path === '/traffic').length, 2, 'public page counts visits but not summary refreshes');
   assert.deepEqual(errors, []);
-  console.log('PASS traffic: SPA/SSE dedup, daily UV, privacy opt-out, visible home entry and public desktop/mobile dashboard');
+  console.log('PASS traffic: shared shell/theme, concise UI, no download entry, regions map/keyboard, sources/devices, ranges, language, mobile and tracking dedup');
 } finally {
   await browser.close(); for (const stream of streams) stream.end();
   server.closeAllConnections(); await new Promise(resolve => server.close(resolve));

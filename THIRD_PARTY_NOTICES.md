@@ -16,6 +16,13 @@ No blanket license for original project code is selected yet. Review third-party
 - WinDivert 2.2.2, Copyright Basil (basil00), dynamically loaded under LGPL-3.0: https://github.com/basil00/WinDivert/tree/v2.2.2 . Windows bundles include the unmodified official x64 DLL/driver, COPYING.WinDivert and the corresponding source archive. fetch_windivert.ps1 pins archive hashes; only SNIFF | RECV_ONLY is used.
 # WZ format references for navigation
 
+- `web/data/traffic-world.json`: simplified Natural Earth 1:110m boundaries,
+  public domain, derived from `nvkelso/natural-earth-vector` commit
+  `9380cca83db5f9aef52d5e762765100745f84b27`. Source:
+  https://github.com/nvkelso/natural-earth-vector/blob/9380cca83db5f9aef52d5e762765100745f84b27/geojson/ne_110m_admin_0_countries.geojson .
+  Terms: https://www.naturalearthdata.com/about/terms-of-use/ .
+  Rebuilt with `tools/build_traffic_world.py`; boundaries are for visualization.
+
 `market_map_resources.py` implements a read-only parser for the local client's
 zero-IV PKG1 map metadata. Format behavior was checked against the publicly
 documented MapleLib `WzBinaryReader`, `WzDirectory`, and `WzImageProperty`:

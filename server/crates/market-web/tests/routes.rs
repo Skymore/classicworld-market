@@ -63,6 +63,7 @@ async fn web_shell_and_assets() {
         "/",
         "/prices",
         "/agent",
+        "/traffic",
         "/prices/4010001",
         "/sales",
         "/watch",
