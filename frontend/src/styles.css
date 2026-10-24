@@ -268,6 +268,8 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
   top: auto;
   right: auto;
   z-index: 90;
+  max-height: var(--radix-dropdown-menu-content-available-height);
+  overflow-y: auto;
 }
 .ui-sortitem {
   display: flex;
@@ -283,6 +285,27 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
 }
 .ui-sortitem[data-state="checked"] {
   color: var(--maple-ink);
+}
+.price-sort-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding-block: 3px;
+}
+.price-sort-label small {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+.price-sort-separator {
+  margin-block: 4px;
+  border-top: 1px solid var(--rule);
+}
+.mobile-sort-value {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-3);
 }
 .react-price-sort {
   display: inline-flex;
@@ -328,6 +351,11 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
   }
   .react-price-mobile {
     display: block;
+  }
+  .react-price-mobile .prow:has(.mobile-sort-value) {
+    height: auto;
+    min-height: 58px;
+    padding-block: 7px;
   }
   .react-price-tools {
     display: grid;

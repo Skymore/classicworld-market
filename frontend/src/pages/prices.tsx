@@ -270,6 +270,28 @@ export default function Prices() {
     </button>
   );
   const direction = state.dir === "asc" ? "↑" : "↓";
+  const sortDirection = (dir: string) => {
+    const asc = dir === "asc";
+    if (state.sort === "recent")
+      return asc
+        ? words("从旧到新", "Oldest first")
+        : words("从新到旧", "Newest first");
+    if (state.sort === "name")
+      return asc
+        ? words("名称正序", "A to Z")
+        : words("名称倒序", "Z to A");
+    if (state.sort === "sales")
+      return asc
+        ? words("从少到多", "Fewest first")
+        : words("从多到少", "Most first");
+    return asc
+      ? words("从低到高", "Low to high")
+      : words("从高到低", "High to low");
+  };
+  const showLowestAsk = state.tab === "all" && state.sort === "low";
+  const mobilePriceLabel = showLowestAsk
+    ? words("最低摆摊价", "Lowest ask")
+    : words("成交价", "Typical sale");
   function heading(key: Sort | null, title: string, className = "") {
     return (
       <th
@@ -396,12 +418,18 @@ export default function Prices() {
                           className="sortbtn"
                           data-sort-btn
                           aria-label={
-                            words("排序：", "Sort: ") + label(state.sort)
+                            words("排序：", "Sort: ") +
+                            label(state.sort) +
+                            " · " +
+                            sortDirection(state.dir)
                           }
                         >
                           <Icon name="sort" />
-                          <span data-sort-label>
-                            {label(state.sort)} {direction}
+                          <span className="price-sort-label" data-sort-label>
+                            <span>{label(state.sort)}</span>
+                            <small data-sort-direction>
+                              {sortDirection(state.dir)}
+                            </small>
                           </span>
                         </button>
                       </DropdownMenuTrigger>
@@ -416,7 +444,24 @@ export default function Prices() {
                               key={key}
                               data-sort={key}
                             >
-                              {label(key)} {state.sort === key ? direction : ""}
+                              {label(key)}
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                        <div className="price-sort-separator" role="separator" />
+                        <DropdownMenuRadioGroup
+                          aria-label={words("排序方向", "Sort direction")}
+                          value={state.dir}
+                          onValueChange={(dir) => update({ dir })}
+                        >
+                          {["asc", "desc"].map((dir) => (
+                            <DropdownMenuRadioItem
+                              value={dir}
+                              key={dir}
+                              data-sort-dir={dir}
+                            >
+                              {sortDirection(dir)}
+                              {state.dir === dir && " ✓"}
                             </DropdownMenuRadioItem>
                           ))}
                         </DropdownMenuRadioGroup>
@@ -635,7 +680,7 @@ export default function Prices() {
             <div className="pp-cols react-price-cols" aria-hidden="true">
               <span />
               <span>{words("物品", "Item")}</span>
-              <span>{words("成交价", "Typical sale")}</span>
+              <span data-mobile-price-heading>{mobilePriceLabel}</span>
               <span>{words("区间涨跌", "Change")}</span>
             </div>
           )}
@@ -676,11 +721,19 @@ export default function Prices() {
                             <RelativeTime at={row.last_seen} />
                           </small>
                         )}
+                        {state.tab === "all" && state.sort === "sales" && (
+                          <small className="mobile-sort-value">
+                            {words(
+                              `成交 ${num(row.sales_window ?? 0)} 笔`,
+                              `${num(row.sales_window ?? 0)} sales`,
+                            )}
+                          </small>
+                        )}
                       </span>
                       <span className="pr quote-value">
-                        <Price value={row.typical} />
+                        <Price value={showLowestAsk ? row.low : row.typical} />
                         {unit(row)}
-                        <SampleBadge row={row} />
+                        {!showLowestAsk && <SampleBadge row={row} />}
                       </span>
                       <Change value={row.change_window} />
                     </SiteLink>
@@ -696,7 +749,7 @@ export default function Prices() {
                         {heading("name", words("物品", "Item"), "l")}
                         {heading("price", words("成交价", "Typical sale"))}
                         {heading("change", words("区间涨跌", "Change"))}
-                        {heading("low", words("最低报价", "Lowest ask"))}
+                        {heading("low", words("最低摆摊价", "Lowest ask"))}
                         {heading("sales", words("成交笔数", "Sales"))}
                         {heading(
                           null,

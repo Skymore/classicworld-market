@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+const screenshots = process.env.REACT_SCREENSHOT_DIR;
+if (screenshots) await mkdir(screenshots, { recursive: true });
 const now = Date.now() / 1000;
 let price = 24000;
 const products = [
@@ -13,6 +15,8 @@ const products = [
   { item_id: 1002000, name_zh: '蓝色头巾', name_en: 'Blue Bandana', category: '装备', jobs: ['通用'], level: 10, last_seen: now - 10, last_sale_at: now - 10 },
   { item_id: 4000000, name_zh: '蜗牛壳', name_en: 'Snail Shell', category: '其他', last_seen: null, last_sale_at: null },
 ].map(row => ({ ...row, sales_window: 12, sales_10d: 12, listings: 2, typical_window: price, typical_window_low: 20000, typical_window_high: 26000, typical: price, low: 18888, change_window: 10, trend: [] }));
+products[1].low = 12000;
+products[2].low = null;
 const streams = new Set(); const counts = new Map();
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost'); counts.set(url.pathname, (counts.get(url.pathname) || 0) + 1);
@@ -64,9 +68,39 @@ try {
     await page.locator('.ui-dialog-content').waitFor({ state: 'detached' });
     assert.equal(await filter.evaluate(node => node === document.activeElement), true, 'Radix restores focus to the filter button');
     await page.locator('[data-clear-price-filters=all]').click();
+    const rows = page.locator('[data-item-row]:visible');
+    await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=low]').click();
+    assert.match(await rows.first().textContent(), /蓝色头巾/);
+    assert.match(await rows.last().textContent(), /蜗牛壳/, 'items without an ask stay last');
+    assert.equal(await page.locator('[data-sort-direction]').textContent(), '从低到高');
+    if (mobile) {
+      assert.equal(await page.locator('[data-mobile-price-heading]').textContent(), '最低摆摊价');
+      assert.deepEqual(await rows.locator('.pr').allTextContents(), ['12K', '18.9K', '—'], 'the visible prices are the asks used to sort, not the typical sale prices');
+      assert.equal(await rows.locator('.sample-badge').count(), 0, 'sales sample badges do not describe asking prices');
+      for (const width of [320, 375]) {
+        await page.setViewportSize({ width, height: 900 });
+        assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'sort labels fit narrow phones');
+        if (screenshots) {
+          await page.screenshot({ path: path.join(screenshots, `ask-sort-${width}-dark.png`) });
+          await page.locator('[data-theme-toggle]:visible').click();
+          await page.screenshot({ path: path.join(screenshots, `ask-sort-${width}-light.png`) });
+          await page.locator('[data-theme-toggle]:visible').click();
+        }
+      }
+      await page.locator('[data-lang-toggle]:visible').click();
+      assert.equal(await page.locator('[data-sort-direction]').textContent(), 'Low to high');
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.locator('[data-lang-toggle]:visible').click();
+    }
+    await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort-dir=desc]').click();
+    assert.equal(new URL(page.url()).searchParams.get('dir'), 'desc');
+    assert.equal(await page.locator('[data-sort-direction]').textContent(), '从高到低');
+    assert.match(await rows.first().textContent(), /红色药水/);
+    assert.match(await rows.last().textContent(), /蜗牛壳/);
+    await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=price]').click();
+    if (mobile) assert.equal(await page.locator('[data-mobile-price-heading]').textContent(), '成交价');
     await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=recent]').click();
     assert.equal(new URL(page.url()).searchParams.get('sort'), 'recent');
-    const rows = page.locator('[data-item-row]:visible');
     assert.match(await rows.first().textContent(), /红色药水/); assert.match(await rows.last().textContent(), /蜗牛壳/);
     await page.reload(); await rows.first().waitFor();
     assert.equal(new URL(page.url()).searchParams.get('sort'), 'recent');
@@ -75,6 +109,21 @@ try {
     assert.equal(await page.evaluate(() => window.documentIdentity), afterReload);
     assert(await page.evaluate(() => window.savedHeader === document.querySelector('.ptop')), 'route changes keep the header DOM');
     assert.equal(await page.locator('main').count(), 1);
+    await page.locator('.home-market [data-tab=quotes]').click();
+    const offers = page.locator('[data-pane=quotes] [data-item-row]');
+    await offers.first().waitFor();
+    assert.equal(await offers.count(), 2, 'latest offers exclude items without an observed quote time');
+    assert.match(await offers.first().textContent(), /红色药水/);
+    assert.equal(await offers.first().locator('.ware-price').textContent(), '18.9K', 'offers show the lowest ask rather than the typical sale price');
+    assert.equal(await offers.first().locator('[data-relative-time]').getAttribute('data-relative-time'), String(now));
+    assert.equal(await offers.first().getAttribute('href'), '/item/2000000?hours=all');
+    await page.locator('[data-lang-toggle]:visible').click();
+    assert.equal(await page.locator('[data-tab=quotes]').textContent(), 'Latest offers');
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'four home tabs fit within the page in English');
+    await page.locator('[data-lang-toggle]:visible').click();
+    await page.locator('[data-pane=quotes] .more').click(); await rows.first().waitFor();
+    assert.equal(new URL(page.url()).searchParams.get('sort'), 'recent');
+    assert.equal(new URL(page.url()).searchParams.get('hours'), 'all');
     await nav('alerts').click(); await page.locator('.alerts-page h1').waitFor();
     assert.equal(await page.locator('.alerts-page h1').textContent(), '采集');
     assert.match(await page.title(), /^采集/);

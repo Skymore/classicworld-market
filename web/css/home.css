@@ -24,6 +24,8 @@ html[data-page=home] .dhead .fresh{margin-left:auto}
 
 /* 今日市场：空状态和“更多”之间不要双线 */
 .home-market .state+.more{border-top:1px solid var(--rule)}
+.home-market .tabs{overflow-x:auto}
+.home-market .tab{flex:1 0 auto;padding-inline:12px}
 
 /* 页脚提示只在手机上（桌面不加装饰，见界面稿） */
 @media (min-width:641px){.home-foot{display:none}}

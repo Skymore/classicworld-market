@@ -28,7 +28,7 @@ export const sortLabels = {
   sales: ["成交笔数", "Sales"],
   price: ["成交价", "Typical sale"],
   change: ["区间涨跌", "Change"],
-  low: ["最低报价", "Lowest ask"],
+  low: ["最低摆摊价", "Lowest ask"],
   name: ["名称", "Name"],
   recent: ["最新报价优先", "Latest offers first"],
 } as const;

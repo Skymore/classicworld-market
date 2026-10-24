@@ -13,7 +13,8 @@ import {
 import { mobImg } from "/web/js/lib/format.js";
 import { useWords } from "../providers";
 import { useMarketQuery } from "../lib/query";
-import type { Market, Sale } from "../lib/types";
+import { compareProducts } from "../lib/price-state";
+import type { Market, Product, Sale } from "../lib/types";
 import {
   Search,
   Icon,
@@ -23,6 +24,10 @@ import {
   PeriodControl,
   usePeriod,
   usePageReady,
+  Slot,
+  ItemNames,
+  Price,
+  RelativeTime,
   num,
 } from "../components/shared";
 import { SiteLink } from "../components/shell";
@@ -50,10 +55,11 @@ export default function Home() {
     true,
     false,
   );
-  const products = market.data?.products.map(periodProduct) || [];
+  const products = market.data?.products.map<Product>(periodProduct) || [];
   const wide = matchMedia("(min-width:641px)").matches;
   const tabs = {
     recent: words("最近成交", "Recent sales"),
+    quotes: words("最新报价", "Latest offers"),
     changes: words("涨跌榜", "Movers"),
     busy: words("成交最多", "Most sold"),
   };
@@ -87,6 +93,58 @@ export default function Home() {
     if (market.isError)
       return <ErrorState retry={() => void market.refetch()} />;
     if (!market.data) return <Loading />;
+    if (key === "quotes") {
+      const rows = products
+        .filter(
+          (row) =>
+            (row.listings ?? 0) > 0 &&
+            row.low != null &&
+            row.low > 0 &&
+            row.last_seen != null &&
+            row.last_seen > 0 &&
+            inPeriod(row.last_seen, period.hours),
+        )
+        .sort((a, b) => compareProducts(a, b, "recent", "desc", false))
+        .slice(0, 8);
+      return rows.length ? (
+        rows.map((row) => (
+          <SiteLink
+            key={row.item_id}
+            className="ware two"
+            href={`/item/${row.item_id}?hours=${period.hours}`}
+            data-item-row
+          >
+            <Slot url={row.icon_url} />
+            <span className="w-main">
+              <span className="ware-name">
+                <ItemNames row={row} />
+              </span>
+              <span className="w-sub">
+                {words("最低报价", "Lowest ask")} ·{" "}
+                <RelativeTime at={row.last_seen} /> ·{" "}
+                {words(
+                  `在售 ${num(row.listings)} 件`,
+                  `${num(row.listings)} listed`,
+                )}
+              </span>
+            </span>
+            <span className="ware-price">
+              <Price value={row.low} />
+              {row.unit_basis === "set" && (
+                <small className="unit">{words("/组", "/set")}</small>
+              )}
+            </span>
+          </SiteLink>
+        ))
+      ) : (
+        <Empty
+          text={words(
+            "所选时段暂无在售报价。",
+            "No active offers in this period.",
+          )}
+        />
+      );
+    }
     const rows = (
       key === "changes" ? byChange(products) : byBusy(products)
     ).slice(0, 8);
@@ -196,14 +254,16 @@ export default function Home() {
               {content(key)}
               <SiteLink
                 className="more"
-                href={`/prices?${key === "recent" ? "tab=sales" : key === "changes" ? "tab=changes" : "sort=sales"}&hours=${period.hours}`}
+                href={`/prices?${key === "recent" ? "tab=sales" : key === "quotes" ? "sort=recent" : key === "changes" ? "tab=changes" : "sort=sales"}&hours=${period.hours}`}
               >
                 {words(
                   key === "recent"
                     ? "全部成交记录"
-                    : key === "changes"
-                      ? "完整涨跌榜"
-                      : "按成交量看价格表",
+                    : key === "quotes"
+                      ? "查看全部报价"
+                      : key === "changes"
+                        ? "完整涨跌榜"
+                        : "按成交量看价格表",
                   "View all",
                 )}{" "}
                 →
