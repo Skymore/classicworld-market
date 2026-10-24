@@ -75,6 +75,9 @@ export interface CraftCatalog {
 }
 export interface CraftPrice {
   item_id: number;
+  name_zh?: string | null;
+  name_en?: string | null;
+  icon_url?: string | null;
   market_price: number | null;
   ask_price: number | null;
   npc_price: number | null;

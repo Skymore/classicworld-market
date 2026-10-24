@@ -95,11 +95,6 @@ function Variant({ variant, page }: { variant: any; page: any }) {
           {variant.remaining_upgrades}
         </div>
       )}
-      {variant.unknown_fields > 0 && (
-        <div className="tip-s">
-          {words("另有未识别字段", "has undecoded fields")}
-        </div>
-      )}
       <div className="tip-s">
         {words(page.item.name_en, page.item.name_zh || "")}
       </div>
@@ -140,11 +135,7 @@ function Ladder({ page }: { page: any }) {
     pct = points.length ? Math.round((above * 100) / points.length) : 0,
     maxStock = Math.max(...ladder.tiers.map((tier) => tier.listings)),
     maxCount = Math.max(...ladder.grid.flat());
-  const labels = (page.market.days || []).map((day: any, i: number) =>
-    i === page.market.days.length - 1
-      ? words("今天", "Today")
-      : day.date.slice(5).replace("-", "/"),
-  );
+  const dates: { date: string }[] = page.market.days || [];
   const label = (tier: any) =>
     tier.hi == null
       ? `${tier.lo >= 10000 ? meso(tier.lo) : tier.lo}+`
@@ -198,11 +189,23 @@ function Ladder({ page }: { page: any }) {
       </p>
       <div className="ladder">
         <div className="rung-h">
-          <span className="l">{words("挂牌条数", "listings")}</span>
+          <span className="l">{words("挂单", "Listed")}</span>
           <span className="c">{words("价格", "price")}</span>
           <span className="r">
-            {labels.map((text: string, i: number) => (
-              <span key={i}>{text}</span>
+            {dates.map(({ date }, i) => (
+              <time
+                key={date}
+                dateTime={date}
+                title={date}
+                data-ladder-date={date}
+                className={i === dates.length - 1 ? "rung-latest" : undefined}
+              >
+                <small>
+                  {Number(date.slice(5, 7))}
+                  {words("月", "/")}
+                </small>
+                <b>{Number(date.slice(8, 10))}</b>
+              </time>
             ))}
           </span>
         </div>
@@ -304,10 +307,7 @@ function Verdict({ page }: { page: any }) {
     )
   ) {
     title = words("历史价格参考", "Historical price only");
-    reason = words(
-      "没有48小时内的在售报价，请先确认最新价格，再决定购买或打怪。",
-      "No offer has been seen within 48 hours. Check current prices before deciding to buy or farm.",
-    );
+    reason = words("暂无近期报价", "No recent offers");
   } else if (npc != null && (market == null || npc < market)) {
     title = words("去 NPC 买", "Buy from an NPC");
     reason =
@@ -547,12 +547,7 @@ export default function Item({ page }: { page: any }) {
               <Variant variant={row.variant} page={page} />
             </div>
           ) : (
-            <p className="note">
-              {words(
-                "这条报价未采集到装备的实际属性，不能判断攻击力或强化情况。图鉴基础属性不能代表这件装备。",
-                "Actual stats were not captured for this offer. Attack and upgrades are unknown; catalogue base stats do not describe this instance.",
-              )}
-            </p>
+            <p className="note">{words("暂无属性", "Stats unavailable")}</p>
           )}
           <p className="fnote">
             {words("最近观察：", "Last observed: ")}
@@ -628,7 +623,6 @@ export default function Item({ page }: { page: any }) {
               <Icon name="chev" />
             </button>
           )}
-          <p className="sale-note">{t("sales.note")}</p>
         </>
       ) : (
         <p className="note">
@@ -859,7 +853,6 @@ export default function Item({ page }: { page: any }) {
           </div>
         </div>
         <div className="ibox">
-          <Crafting key={page.item.id} itemId={page.item.id} />
           <div className="src-box">
             <Well
               className={"src-well " + (more.has("mobs") ? "all" : "")}
@@ -971,15 +964,10 @@ export default function Item({ page }: { page: any }) {
                   </span>
                 )}
               </div>
+              <Crafting key={page.item.id} itemId={page.item.id} />
               <Verdict page={page} />
             </Well>
           </div>
-          <p className="note">
-            {words(
-              "报价来自摊位快照，实际属性为协议解析结果；购买前请在游戏中核对属性、价格和库存。",
-              "Offers are shop snapshots with decoded instance stats. Verify stats, price and stock in game before buying.",
-            )}
-          </p>
           <div data-market="where">
             <section
               className={
@@ -1329,12 +1317,6 @@ export default function Item({ page }: { page: any }) {
                         <Icon name="chev" />
                       </button>
                     )}
-                    <p className="sale-note">
-                      {words(
-                        "属性是采集器从数据包解析的，还没有和游戏截图逐件核对。加成 = 高于图鉴基础值。",
-                        "Stats are decoded from packets and not yet checked against screenshots. Bonus = above the reference value.",
-                      )}
-                    </p>
                   </>
                 ) : (
                   <p className="note">

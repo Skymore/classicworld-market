@@ -47,7 +47,6 @@ pub fn item_page(page: &ItemPage, ctx: &Ctx) -> Markup {
                 (market::head(&v))
                 div.ibox {
                     div.src-box { (sources_well(&v)) }
-                    p.note { (ctx.t("报价来自摊位快照，实际属性为协议解析结果；购买前请在游戏中核对属性、价格和库存。", "Offers are shop snapshots with decoded instance stats. Verify stats, price and stock in game before buying.")) }
                     (market::where_well(&v))
                     @if let Some(equip) = market::equipment_well(&v) { (equip) }
                     (market::tabs_well(&v))

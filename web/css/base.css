@@ -117,7 +117,10 @@ h1,h2,h3,p{margin:0}
 .fresh{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-3)}
 .fresh i{width:6px;height:6px;background:var(--bar);box-shadow:0 0 0 1px var(--sheet-hi),0 0 0 2px var(--edge)}
 .dock{position:fixed;left:0;right:0;bottom:0;z-index:40;display:grid;grid-template-columns:repeat(5,1fr);height:calc(var(--dock-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--sheet);border-top:2px solid var(--edge);box-shadow:inset 0 1px 0 var(--bevel-hi)}
-.dock a{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:44px;font-size:12px;color:var(--ink-2)}
+.dock a{position:relative;display:grid;grid-template-rows:28px 16px;align-content:center;justify-items:center;align-items:center;gap:4px;min-height:44px;min-width:0;font-size:12px;color:var(--ink-2)}
+.dock .dock-icon{display:grid;place-items:center;width:28px;height:28px;line-height:0}
+.dock .dock-icon svg{display:block;width:24px;height:24px;flex:none}
+.dock a>span:not(.dock-icon):not(.badge){line-height:16px}
 .dock a.on{color:var(--maple-ink);font-weight:700}
 .dock a.on::before{content:"";position:absolute;top:0;left:26%;right:26%;height:3px;background:var(--maple)}
 .dock .badge{position:absolute;top:6px;left:calc(50% + 6px);min-width:18px;height:18px;padding:0 4px;background:var(--maple);color:#fff;font-size:12px;font-weight:700;line-height:18px;text-align:center;border:1px solid var(--edge)}

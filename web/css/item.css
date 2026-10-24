@@ -78,6 +78,12 @@ html[data-device=desktop] .well:not(.all) .xd,
 
 /* ---------- price ladder ---------- */
 .rung-h .l{text-align:right;padding-right:8px}
+.rung-h{height:40px}
+.rung-h .r{min-width:0;gap:0}
+.rung-h .r>time{display:grid;justify-items:center;align-content:center;gap:1px;min-width:0;white-space:nowrap;font-variant-numeric:tabular-nums;line-height:1.1}
+.rung-h .r>time small{font-size:9px;font-weight:400;color:var(--ink-3)}
+.rung-h .r>time b{font-size:12px;font-weight:650}
+.rung-h .r>time.rung-latest b{color:var(--maple-ink)}
 .rung-l i.f0{--f:0}.rung-l i.f1{--f:.05}.rung-l i.f2{--f:.1}.rung-l i.f3{--f:.15}.rung-l i.f4{--f:.2}
 .rung-l i.f5{--f:.25}.rung-l i.f6{--f:.3}.rung-l i.f7{--f:.35}.rung-l i.f8{--f:.4}.rung-l i.f9{--f:.45}
 .rung-l i.f10{--f:.5}.rung-l i.f11{--f:.55}.rung-l i.f12{--f:.6}.rung-l i.f13{--f:.65}.rung-l i.f14{--f:.7}
@@ -169,24 +175,34 @@ html[lang=en] .salegrid .sale{grid-template-columns:96px minmax(0,1fr) auto minm
 .item-period option{color:var(--ink);background:var(--sheet)}
 .item-period .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
 
-.craft-well{margin:12px 0;scroll-margin-top:90px}
-.craft-controls{display:flex;flex-wrap:wrap;align-items:end;gap:10px;padding:12px}
-.craft-controls label{display:grid;gap:4px;font-size:12px;color:var(--ink-2)}
-.craft-controls select,.craft-controls input,.craft-table input{min-height:36px;border:1px solid var(--rule);border-radius:5px;background:var(--sheet);color:var(--ink);padding:5px 7px;max-width:100%;font:inherit}
-.craft-controls input[type=number]{width:85px}
-.craft-controls [data-catalyst-control]{display:flex;align-items:center;min-height:36px}
-.craft-controls input[type=checkbox]{min-height:auto}
-.craft-meta,.craft-comparison{padding:0 12px;font-size:13px}
-.craft-table-wrap{overflow-x:auto;padding:0 12px}
-.craft-table{width:100%;border-collapse:collapse;font-size:13px}
-.craft-table th,.craft-table td{padding:8px 4px;border-bottom:1px solid var(--rule);text-align:right;vertical-align:middle}
-.craft-table th:first-child,.craft-table td:first-child{text-align:left}
-.craft-table td small{display:block;max-width:360px;color:var(--ink-2);font-size:11px;overflow-wrap:anywhere}
-.craft-table input{width:112px;text-align:right}
-.craft-totals{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;padding:14px 12px;font-size:13px}
-.craft-totals b,.craft-totals strong{display:block;font-size:18px;font-variant-numeric:tabular-nums}
-.craft-order{margin:12px;font-size:13px}
-.craft-order summary{cursor:pointer;min-height:32px}
-.craft-order li{padding:4px 0}
-.craft-well>.note,.craft-well>[data-craft-result]>.note{padding:0 12px}
-@media(max-width:480px){.craft-table{font-size:12px}.craft-table input{width:84px}.craft-table th,.craft-table td{padding:7px 2px}.craft-controls{gap:8px}.craft-controls select{max-width:210px}}
+.craft-source{border-top:1px solid var(--rule);scroll-margin-top:90px}
+.craft-summary{display:grid;grid-template-columns:minmax(0,1fr) auto 16px;align-items:center;gap:12px;min-height:64px;padding:10px 12px;cursor:pointer;list-style:none}
+.craft-summary::-webkit-details-marker{display:none}
+.craft-summary:hover{background:var(--sheet-hi)}
+.craft-summary:focus-visible{outline:2px solid var(--mark);outline-offset:-2px}
+.craft-heading,.craft-summary-cost{display:grid;gap:3px;min-width:0}
+.craft-heading b{font-size:14px}
+.craft-heading small,.craft-summary-cost small{font-size:11px;color:var(--ink-2)}
+.craft-summary-cost{text-align:right;font-variant-numeric:tabular-nums}
+.craft-summary-cost strong{font-size:16px;line-height:1.2}
+.craft-summary>.contents svg{width:14px;height:14px;transition:transform .15s ease}
+.craft-source[open]>.craft-summary>.contents svg{transform:rotate(90deg)}
+.craft-body{padding:0 12px 10px}
+.craft-recipe+.craft-recipe{margin-top:14px;padding-top:12px;border-top:1px dashed var(--rule)}
+.craft-recipe-meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:2px 0 10px;color:var(--ink-2);font-size:12px}
+.craft-materials{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.craft-material{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;padding:12px 6px 9px;border:1px solid var(--rule);border-radius:5px;background:var(--sheet-hi);text-align:center}
+.craft-material:hover{border-color:var(--mark)}
+.craft-material-picture{position:relative;display:grid;place-items:center;width:64px;min-height:42px}
+.craft-quantity{position:absolute;right:-5px;bottom:0;font-size:12px;font-weight:750;background:var(--sheet-hi);padding:1px 3px;border-radius:3px}
+.craft-material .name-stack{display:flex;flex-direction:column;gap:2px;max-width:100%;min-width:0;white-space:normal}
+.craft-material .name-primary{font-size:12px;line-height:1.4;white-space:normal;overflow-wrap:anywhere}
+.craft-material .name-secondary{font-size:10px;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
+.craft-material-price{margin-top:auto;font-size:12px;font-weight:650;font-variant-numeric:tabular-nums}
+.craft-costs{display:flex;justify-content:space-between;gap:12px;padding:12px 0 5px;font-size:12px;color:var(--ink-2)}
+.craft-costs span{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+.craft-costs b{color:var(--ink);font-size:14px;font-variant-numeric:tabular-nums}
+.craft-comparison,.craft-missing{margin:5px 0;font-size:12px;color:var(--ink-2)}
+.craft-credit{display:block;width:max-content;margin:8px 0 0 auto;color:var(--ink-3);font-size:10px}
+@media(min-width:700px){.craft-materials{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){.craft-summary>.contents svg{transition:none}}

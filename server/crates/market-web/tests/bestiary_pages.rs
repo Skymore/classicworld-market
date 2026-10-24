@@ -278,7 +278,7 @@ fn ladder_trend_and_sales() {
     );
     assert!(html.contains("发现已售"));
     assert!(html.contains("数量未知"));
-    assert!(html.contains("时间是发现时间，不是实际成交时间"));
+    assert!(!html.contains("时间是发现时间，不是实际成交时间"));
     assert!(html.contains(r#"<span class="loc"><b>CH 4</b><span>8洞</span></span>"#));
 }
 
@@ -368,6 +368,8 @@ fn equipment_tooltips_mark_bonus_stats() {
     assert!(html.contains(r#"<div class="tip" data-bonus="0">"#));
     assert!(html.contains("<b>+19</b><i>(+2)</i>"));
     assert!(html.contains("可升级次数：7"));
+    assert!(!html.contains("报价来自摊位快照"));
+    assert!(!html.contains("属性是采集器从数据包解析的"));
     assert!(
         html.contains(r#"<details class="listing-offer""#)
             && html.contains(r#"data-bonus="1"><summary class="lrow">"#),
@@ -379,7 +381,8 @@ fn equipment_tooltips_mark_bonus_stats() {
     );
     assert!(!html.contains("点击查看属性与位置"));
     assert!(html.contains("offer-chevron"));
-    assert!(html.contains("这条报价未采集到装备的实际属性"));
+    assert!(html.contains("暂无属性"));
+    assert!(!html.contains("这条报价未采集到装备的实际属性"));
     let en_html = pages::item_page(&page, &en()).into_string();
     assert!(!en_html.contains("View stats and location"));
     assert!(en_html.contains("offer-chevron"));
@@ -682,7 +685,7 @@ fn quick_preview_has_escaped_names_reference_stats_and_period() {
     assert!(preview.contains("图鉴基础属性"));
     assert!(preview.contains("物理攻击"));
     assert!(preview.contains("<dd>52</dd>"));
-    assert!(preview.contains("具体摊位装备可能有随机或强化属性"));
+    assert!(!preview.contains("具体摊位装备可能有随机或强化属性"));
     assert!(preview.contains("?hours=72"));
     assert!(!preview.contains("<html"));
     assert!(!preview.contains("data-market=\"where\""));

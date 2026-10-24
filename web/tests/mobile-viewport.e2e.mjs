@@ -141,10 +141,14 @@ try {
     await preview.locator('.peek-close').click();
     await page.goto(origin + '/item/1452003?lang=zh');
     await page.locator('[data-crafting="1452003"]').waitFor();
-    assert.equal(await page.locator('.craft-controls').evaluate(node => getComputedStyle(node).display), 'flex', 'crafting styles match the component even with old cached links');
-    for (const control of await page.locator('.craft-well input:not([type=checkbox]),.craft-well select').all()) {
-      assert(await control.evaluate(node => parseFloat(getComputedStyle(node).fontSize) >= 16));
-    }
+    const craft=page.locator('.src-well details[data-crafting]');
+    assert.equal(await craft.getAttribute('open'),null,'crafting starts collapsed');
+    assert.equal(await craft.locator('input,select,textarea').count(),0,'crafting is read-only');
+    assert.equal(await craft.locator('.craft-summary').evaluate(node=>getComputedStyle(node).display),'grid','current component CSS survives warm old styles');
+    await craft.locator('summary').click();
+    assert.equal(await craft.locator('.craft-materials').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),2,'material cards fit in two columns');
+    const icons=await page.locator('.dock .dock-icon svg').evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {top:r.top,width:r.width,height:r.height};}));
+    assert.equal(icons.length,6);assert(icons.every(r=>r.width===24&&r.height===24&&r.top===icons[0].top));
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     if (stale) assert(oldStyles > 0, 'actually exercise cached legacy styles');
     assert.deepEqual(errors, []);

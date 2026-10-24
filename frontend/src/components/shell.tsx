@@ -199,7 +199,11 @@ export function Navigation({ dock = false }: { dock?: boolean }) {
           data-nav-key={key}
           aria-current={active === key ? "page" : undefined}
         >
-          {dock && <Icon name={icon} />}
+          {dock && (
+            <span className="dock-icon" aria-hidden="true">
+              <Icon name={icon} />
+            </span>
+          )}
           <span>{language === "en" ? en : zh}</span>
           {dock && key === "watch" && (
             <span className="badge" data-badge="watch" hidden={!hits}>

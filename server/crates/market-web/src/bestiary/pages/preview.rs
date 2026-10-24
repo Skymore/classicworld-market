@@ -53,10 +53,9 @@ pub fn item_preview(page: &ItemPage, ctx: &Ctx) -> Markup {
                     dl.peek-stats { @for (key,value) in &page.market.base_stats { @if *value!=0 {
                         div { dt { (stat_name(key,ctx.lang)) } dd { (value) } }
                     } } }
-                    p.peek-note { (ctx.t("具体摊位装备可能有随机或强化属性。", "Listed equipment may have rolled or upgraded stats.")) }
                 }
             } @else if item.id / 1_000_000 == 1 {
-                p.peek-note { (ctx.t("暂无图鉴基础属性，请在详情页核对具体装备。", "Base stats unavailable. Check individual equipment on the detail page.")) }
+                p.peek-note { (ctx.t("暂无基础属性", "Base stats unavailable")) }
             }
             section.peek-section {
                 h3 { (ctx.t("市场参考", "Market reference")) " · " (if all {ctx.t("全部记录", "All records")} else {"72h"}) }
