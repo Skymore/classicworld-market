@@ -281,6 +281,10 @@ class Session:
                           raw_source=self.pending_raw_path.name if self.pending_raw_path else None,
                           triggered_by_python=from_python, items=items,
                           prices_require_screen_validation=True)
+            from market_shop_owner import decode_owner
+            owner = decode_owner(opened, title, shop_id)
+            if owner is not None:
+                result['owner'] = owner
             if from_python:
                 result['request_id'] = test['request_id']
                 self.pending_test = None

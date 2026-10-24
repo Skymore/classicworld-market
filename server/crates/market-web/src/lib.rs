@@ -34,6 +34,7 @@ pub mod external;
 pub mod ingest;
 pub mod legacy;
 pub mod realtime;
+pub mod scan_assignments;
 pub(crate) mod search;
 pub mod stats;
 pub mod traffic;
@@ -120,6 +121,7 @@ pub fn app_with_web(state: AppState, web_dir: Option<&std::path::Path>) -> Route
         .merge(api_headers(api::router()))
         .merge(api_headers(agent::router()))
         .merge(api_headers(contributors::router()))
+        .merge(api_headers(scan_assignments::router()))
         .merge(api_headers(traffic::router()))
         .merge(api_headers(accounts::router()))
         .merge(bestiary::routes())

@@ -41,6 +41,12 @@ def validate(data, now=None):
     if data.get('world')!='ClassicWorld' or data.get('complete') is not True:
         raise ValueError('Complete ClassicWorld snapshots required')
     result['complete']=True
+    owner=data.get('owner')
+    if owner is not None:
+        if not isinstance(owner,dict) or owner.get('parser')!='cw_shop_owner_v1':
+            raise ValueError('Invalid shop owner')
+        result['owner']=dict(character_id=integer(owner['character_id'],1,2**32-1),
+                            name=text(owner['name'],24),parser='cw_shop_owner_v1')
     if not isinstance(data['items'],list) or len(data['items'])>200:
         raise ValueError('Too many items')
     slots=set()
@@ -76,7 +82,7 @@ def validate(data, now=None):
     return result
 
 
-def from_snapshot(data, location=None):
+def from_snapshot(data, location=None, now=None):
     if data.get('triggered_by_python'):raise ValueError('Active experiments cannot be shared')
     payload=dict(version=1,world='ClassicWorld',complete=True,
         observation_id=digest([data['session'],data['time'],data['shop_id']]),
@@ -88,4 +94,6 @@ def from_snapshot(data, location=None):
             price=row['price_mesos_candidate'],bundle=row['bundle_quantity_candidate'],
             stock=row['available_quantity_candidate'],
             equipment=decode_equipment(row.get('raw_record_hex',''),row['item_id'])))
-    return validate(payload)
+    if data.get('owner') is not None:
+        payload['owner']=data['owner']
+    return validate(payload,now=now)

@@ -52,7 +52,7 @@ class UploadIntegration(unittest.TestCase):
                     config=root/'member.json';config.write_text(json.dumps(cfg),encoding='utf-8')
                     result=subprocess.run([str(exe),'--once','--upload-only','--home',str(root/'client'),
                         '--config',str(config),'--folder',str(captures)],capture_output=True,timeout=30)
-                    self.assertEqual(result.returncode,0,result.stderr.decode(errors='replace'))
+                    self.assertEqual(result.returncode,0,(result.stdout+result.stderr).decode(errors='replace'))
                     self.assertIn(b'Uploaded 1',result.stdout)
                     # Actual packaged UI entry: no registration or capture driver.
                     gui_home=root/'bundle-ui';gui_home.mkdir()

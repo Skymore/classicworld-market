@@ -14,7 +14,7 @@ import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
-VERSION = '0.5.10'
+VERSION = '0.6.0'
 LATEST = 'https://mxd.ruit.me/web/releases/stable.json'
 DOWNLOAD_BASES = ('https://mxd.ruit.me/web/releases/', 'https://download.ruit.me/collector/')
 EXE = 'ClassicWorldCollector.exe'
@@ -210,7 +210,11 @@ def unpack(archive, destination):
 
 
 def check_bundle(bundle, expected):
-    for args, marker in [(['--version'], expected.lstrip('v')), (['--self-test'], 'Codec self-test passed')]:
+    checks = [(['--version'], expected.lstrip('v')), (['--self-test'], 'Codec self-test passed')]
+    manifest = Path(bundle)/'install-manifest.json'
+    if manifest.is_file() and json.loads(manifest.read_text(encoding='utf-8-sig')).get('scanner_commit'):
+        checks.append((['--scanner-self-test'], 'Scanner self-test passed'))
+    for args, marker in checks:
         result = subprocess.run([str(Path(bundle)/EXE), *args], capture_output=True, timeout=45,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
         if result.returncode or marker.encode() not in result.stdout:
@@ -285,6 +289,17 @@ def apply_plan(path, executable=None):
         p = (bundle/relative).resolve()
         if bundle not in p.parents or hashlib.sha256(p.read_bytes()).hexdigest() != digest:
             raise ValueError('Staged update changed')
+    # An old launcher inherits the install directory as its working directory.
+    # On Windows both the frozen Python child AND its PyInstaller bootloader
+    # then lock that directory. chdir() alone only releases the child's handle.
+    # Relaunch the verified helper outside the install tree, then let this
+    # bootloader exit before the replacement helper performs the swap.
+    current = Path.cwd().resolve()
+    if current == install or install in current.parents:
+        subprocess.Popen([str(bundle/EXE),'--apply-update',str(path)],
+            cwd=path.parent,stdin=subprocess.DEVNULL,stdout=sys.stdout,stderr=sys.stderr,close_fds=True,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
+        return
     parent = None
     try:
         parent = psutil.Process(plan['parent_pid'])
@@ -318,7 +333,7 @@ def apply_plan(path, executable=None):
         check_bundle(install, plan['version'])
         launch(argv)
         update_status(home, 'updated', available=plan['version'])
-    except Exception:
+    except Exception as error:
         if backup.exists():
             if install.exists():
                 failed = install.with_name(install.name+'.failed-'+str(time.time_ns()))
@@ -330,7 +345,7 @@ def apply_plan(path, executable=None):
                 (home/'update-blocked.json').write_text(json.dumps({'version':plan['version']}), encoding='utf-8')
             except OSError:
                 argv.append('--no-update')
-        update_status(home, 'rolled_back', available=plan['version'])
+        update_status(home, 'rolled_back', available=plan['version'], reason=type(error).__name__)
         if (install/EXE).is_file():
             launch(argv if silent else [*argv, '--no-update'])
         if not silent:

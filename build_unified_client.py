@@ -1,0 +1,100 @@
+"""Build the unified release from a pinned scanner checkout and collector sources."""
+import argparse
+import ast
+import json
+import shutil
+import subprocess
+import sys
+import time
+import zipfile
+from pathlib import Path
+
+
+def modules(root, initial):
+    found, pending = set(), list(initial)
+    while pending:
+        name = pending.pop()
+        path = root / (name.replace('.', '/') + '.py')
+        if name in found or not path.is_file():
+            continue
+        found.add(name)
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8-sig'))):
+            if isinstance(node, ast.Import): pending.extend(a.name for a in node.names)
+            if isinstance(node, ast.ImportFrom) and node.module: pending.append(node.module)
+    return found
+
+
+def stage(root, scanner, destination):
+    core = modules(root, ['unified_client', 'shared_client'])
+    scan = modules(scanner, ['market_screen_scanner.scanner_gui'])
+    # Never accidentally bundle the scanner repository's older collector files.
+    if core & scan:
+        raise ValueError('Conflicting runtime modules: ' + str(core & scan))
+    for base, names in [(root, core), (scanner, scan)]:
+        for name in names:
+            relative = Path(name.replace('.', '/') + '.py')
+            target = destination / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(base / relative, target)
+    for name in ('maple_crypto_constants.cs', 'market_index.html', 'market_ui.js',
+                 'market_ui.css', 'market_i18n.js', 'market_watchlist.js'):
+        shutil.copy2(root / name, destination / name)
+    shutil.copytree(root / 'web', destination / 'web',
+                    ignore=shutil.ignore_patterns('images', 'releases', 'tests', '*.map'))
+    shutil.copytree(scanner / 'tools/market_bot_templates', destination / 'tools/market_bot_templates')
+    return core, scan
+
+
+def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--scanner',type=Path,default=Path(__file__).parent/'scanner')
+    parser.add_argument('--windivert',type=Path,required=True)
+    parser.add_argument('--windivert-source',type=Path,required=True)
+    args=parser.parse_args()
+    root=Path(__file__).resolve().parent
+    from collector_update import VERSION
+    output=root/'dist'/('unified-'+time.strftime('%Y%m%d_%H%M%S'))
+    source=output/'source';source.mkdir(parents=True)
+    stage(root,args.scanner.resolve(),source)
+    driver=args.windivert.resolve()
+    for name in ('WinDivert.dll','WinDivert64.sys'):
+        if not (driver/name).is_file(): raise ValueError('Missing driver: '+name)
+    if not (driver.parent/'LICENSE').is_file() or not args.windivert_source.is_file():
+        raise ValueError('WinDivert license and corresponding source are required')
+    command=[sys.executable,'-m','PyInstaller','--noconfirm','--clean','--onedir',
+        '--name','ClassicWorldCollector','--distpath',str(output),'--workpath',str(output/'build'),
+        '--specpath',str(output),'--paths',str(source),'--collect-all','cryptography',
+        '--collect-submodules','mss','--hidden-import','psutil','--exclude-module','PIL.AvifImagePlugin']
+    import ssl
+    policy=Path(ssl.__file__).with_name('codex-rejected-cas.pem')
+    if policy.is_file():
+        command += ['--add-data',f'{policy};.']
+    for name in ('maple_crypto_constants.cs','market_index.html','market_ui.js','market_ui.css','market_i18n.js','market_watchlist.js'):
+        command += ['--add-data',f'{source/name};.']
+    for name in ('web','tools/market_bot_templates'):
+        command += ['--add-data',f'{source/name};{name}']
+    command += ['--add-binary',f'{driver/"WinDivert.dll"};vendor/windivert/WinDivert-2.2.2-A/x64',
+                '--add-data',f'{driver/"WinDivert64.sys"};vendor/windivert/WinDivert-2.2.2-A/x64',str(source/'unified_client.py')]
+    subprocess.run(command,cwd=source,check=True)
+    bundle=output/'ClassicWorldCollector'
+    # The scanner uses images only, never OpenCV's video decoder. Keep the
+    # archive below older collectors' 80 MiB automatic-update limit.
+    for library in (bundle/'_internal/cv2').glob('opencv_videoio_ffmpeg*.dll'):
+        library.unlink()
+    for name in ('SHARED_CLIENT_GUIDE.md','COLLECTOR_QUICK_START.txt','COPYING.MapleLib','THIRD_PARTY_NOTICES.md'):
+        shutil.copy2(root/name,bundle/name)
+    shutil.copy2(root/'msnet_reference/LICENSE',bundle/'COPYING.msnet')
+    shutil.copy2(driver.parent/'LICENSE',bundle/'COPYING.WinDivert')
+    shutil.copy2(args.windivert_source,bundle/'WinDivert-2.2.2-source.zip')
+    scanner_commit=subprocess.check_output(['git','-C',str(args.scanner),'rev-parse','HEAD'],text=True).strip()
+    (bundle/'install-manifest.json').write_text(json.dumps(dict(version=VERSION,scanner_commit=scanner_commit,
+        files=[str(p.relative_to(bundle)).replace('\\','/') for p in bundle.rglob('*') if p.is_file()]+['install-manifest.json']),indent=2),encoding='utf-8')
+    archive=root/'dist'/f'ClassicWorldCollector-windows-x64-v{VERSION}.zip'
+    with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+        for path in bundle.rglob('*'):
+            if path.is_file(): z.write(path,path.relative_to(output))
+    (root/'dist/bundle-path.txt').write_text(str(bundle),encoding='utf-8')
+    print('Bundle:',bundle,'Archive:',archive,flush=True)
+
+
+if __name__=='__main__': main()

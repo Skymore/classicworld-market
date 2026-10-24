@@ -14,7 +14,7 @@ from unittest.mock import patch
 import collector_update as update
 
 
-def metadata(tag='v0.5.11'):
+def metadata(tag='v0.6.1'):
     name=f'ClassicWorldCollector-windows-x64-{tag}.zip'
     return dict(schema=1,version=tag,channel='stable',windows_x64=dict(
         url=f'https://mxd.ruit.me/web/releases/{tag}/{name}',sha256='a'*64,size=100))
@@ -41,7 +41,7 @@ class CollectorUpdate(unittest.TestCase):
         valid=metadata()['windows_x64']['url']
         bad=[valid.replace('https:','http:'),valid.replace('mxd.ruit.me','mxd.ruit.me.evil.example'),
              valid.replace('mxd.ruit.me','user@mxd.ruit.me'),valid+'?redirect=evil',valid+'#ignored',
-             valid.replace('/v0.5.11/','/v0.5.12/'),valid.replace('/web/releases/','/web/releases/../'),
+             valid.replace('/v0.6.1/','/v0.6.2/'),valid.replace('/web/releases/','/web/releases/../'),
              'https://github.com/Skymore/classicworld-market/releases/download/v0.5.11/update.zip']
         for url in bad:
             self.assertFalse(update.official_download_url(url),url)
@@ -109,7 +109,8 @@ class CollectorUpdate(unittest.TestCase):
 
     def test_push_notices_are_bounded_and_only_stable_newer_versions_trigger(self):
         raw=b': keepalive\n\nevent: market\ndata: {}\n\nevent: collector-update\ndata: {"version":"v0.5.7"}\n\nevent: collector-update\ndata: {"version":"v0.5.11","url":"https://evil.example/a.exe"}\n\n'
-        self.assertEqual(list(update.push_versions(io.BytesIO(raw),threading.Event())),['v0.5.11'])
+        with patch.object(update,'VERSION','0.5.10'):
+            self.assertEqual(list(update.push_versions(io.BytesIO(raw),threading.Event())),['v0.5.11'])
         for raw in (b'x'*4097,b'event: collector-update\ndata: {"version":"evil"}\n\n'):
             with self.assertRaises(ValueError):list(update.push_versions(io.BytesIO(raw),threading.Event()))
 
@@ -172,7 +173,9 @@ class CollectorUpdate(unittest.TestCase):
             plan=stage/'plan.json';plan.write_text(json.dumps(dict(version='v'+update.VERSION,bundle=str(new),install=str(old),silent=True,home=str(home),
                 parent_pid=child.pid,parent_created=created,argv=['--self-test','--home',str(home)],
                 hashes={p.relative_to(new).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in new.rglob('*') if p.is_file()})),encoding='utf-8')
-            result=subprocess.run([str(new/update.EXE),'--apply-update',str(plan)],capture_output=True,timeout=75)
+            # Explorer / scheduled-task launches commonly use the installation
+            # directory. The frozen bootloader must release that directory too.
+            result=subprocess.run([str(new/update.EXE),'--apply-update',str(plan)],cwd=old,capture_output=True,timeout=75)
             self.assertEqual(result.returncode,0,result.stdout.decode(errors='replace')+result.stderr.decode(errors='replace'))
             self.assertIn(b'Update complete',result.stdout)
             self.assertEqual((old/'personal-record.json').read_text(),'TEST ONLY KEEP THIS RECORD')

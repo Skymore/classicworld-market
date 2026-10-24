@@ -69,6 +69,10 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None):
             if connection.execute('SELECT 1 FROM sent WHERE path=?',(path.name,)).fetchone():continue
             try:
                 data=json.loads(path.read_text(encoding='utf-8'))
+                if data.get('owner') is None:
+                    from market_shop_owner import owner_from_snapshot
+                    owner=owner_from_snapshot(data,folder)
+                    if owner is not None: data['owner']=owner
                 location=timeline.resolve(data['session'],data['time'],data.get('market_location'))
                 payload=from_snapshot(data,location)
                 context=timeline.resolve_context(data['session'],data['time'])
@@ -146,7 +150,7 @@ def stop_dashboard(process):
     except subprocess.TimeoutExpired:process.kill();process.wait(timeout=5)
 
 
-def main():
+def main(argv=None, stop_event=None, update_argv=None):
     default=Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'ClassicWorldMarket'
     parser=argparse.ArgumentParser()
     parser.add_argument('--home',type=Path,default=default)
@@ -155,6 +159,7 @@ def main():
     parser.add_argument('--repair-history',action='store_true',help='Restore missing historical locations from saved captures, without starting capture')
     parser.add_argument('--no-update',action='store_true',help='Disable automatic update checks for this run')
     parser.add_argument('--apply-update',type=Path,help=argparse.SUPPRESS)
+    parser.add_argument('--legacy-update-bridge',type=Path,help=argparse.SUPPRESS)
     parser.add_argument('--check-firewall',action='store_true',help='Configure and verify only this executable game-port firewall rule; no capture or upload')
     parser.add_argument('--backend',choices=('windows','windivert'),default='windows',help='Windows native receive-only capture; legacy WinDivert is optional')
     parser.add_argument('--config',type=Path)
@@ -173,7 +178,10 @@ def main():
     parser.add_argument('--dashboard-parent-created',type=float,default=0,help=argparse.SUPPRESS)
     parser.add_argument('--no-dashboard',action='store_true')
     parser.add_argument('--no-browser',action='store_true')
-    args=parser.parse_args();args.home.mkdir(parents=True,exist_ok=True)
+    args=parser.parse_args(argv);args.home.mkdir(parents=True,exist_ok=True)
+    if args.legacy_update_bridge:
+        from collector_legacy_update import run_bridge
+        run_bridge(args.legacy_update_bridge);return
     if args.apply_update:
         from collector_update import apply_plan
         apply_plan(args.apply_update);return
@@ -198,12 +206,13 @@ def main():
         iv=bytes.fromhex('01020304');plain=b'codec-self-test'
         assert aes_payload(aes_payload(plain,iv),iv)==plain
         assert len(advance(iv))==4
-        print('Codec self-test passed');return
+        print('Codec self-test passed',flush=True)
+        from collector_legacy_update import maybe_start_bridge
+        maybe_start_bridge();return
     if args.check_firewall or not (args.once or args.upload_only or args.proxy):
         import ctypes
         if os.name=='nt' and not ctypes.windll.shell32.IsUserAnAdmin():
             if getattr(sys,'frozen',False):
-                import subprocess
                 result=ctypes.windll.shell32.ShellExecuteW(None,'runas',sys.executable,
                     subprocess.list2cmdline(sys.argv[1:]),None,1)
                 if result<=32:raise PermissionError('Administrator permission was declined')
@@ -227,7 +236,7 @@ def main():
     folder=args.folder or args.home/'captures';folder.mkdir(parents=True,exist_ok=True)
     ledger=args.home/'upload.sqlite'
     capture_changed=threading.Event()
-    stopping=threading.Event()
+    stopping=stop_event if stop_event is not None else threading.Event()
     update_ready=[]
     def history_worker():
         from collector_history import repair_history
@@ -253,10 +262,30 @@ def main():
                     count+=upload_once(source,config,extra_ledger,stop=stopping)
                 if count:print(f'Uploaded {count} observations.',flush=True)
             except Exception as error:
+                if args.once:
+                    raise
                 retry=True
                 print(f'Upload unavailable ({type(error).__name__}); will retry.',flush=True)
             if args.once or stopping.is_set():break
             capture_changed.wait(5 if retry else None)
+    def owner_history_worker():
+        from collector_owner_migration import migrate_owners
+        import hashlib
+        sources=[(folder,ledger)]
+        for extra in config.get('extra_folders',[]):
+            source=Path(extra)
+            sources.append((source,args.home/('upload_'+hashlib.sha256(str(source.resolve()).encode()).hexdigest()[:12]+'.sqlite')))
+        # Historical repairs never block the event-driven live uploader. Share
+        # one rate budget across capture folders and retry interrupted batches.
+        while not stopping.is_set():
+            for source,source_ledger in sources:
+                if stopping.is_set():return
+                try:
+                    count=migrate_owners(source,config,source_ledger,upload_opener(),stop=stopping,limit=10)
+                    if count:print(f'Restored shop owners for {count} historical observations.',flush=True)
+                except (OSError,ValueError,sqlite3.Error):
+                    pass
+                if stopping.wait(10):return
     if args.once:worker();return
     from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
@@ -277,11 +306,13 @@ def main():
         except Exception as error:print(f'Personal alerts unavailable ({type(error).__name__}); see dashboard.log.',flush=True)
     if getattr(sys,'frozen',False) and os.name=='nt' and not args.no_update and not args.proxy:
         from collector_update import start_checker
-        start_checker(args.home,stopping,update_ready,sys.argv[1:],capture_changed,endpoint=config['endpoint'])
+        start_checker(args.home,stopping,update_ready,sys.argv[1:] if update_argv is None else update_argv,capture_changed,endpoint=config['endpoint'])
     upload_thread=None
     history_thread=None
+    owner_thread=None
     try:
         history_thread=threading.Thread(target=history_worker,daemon=True);history_thread.start()
+        owner_thread=threading.Thread(target=owner_history_worker,daemon=True);owner_thread.start()
         if args.upload_only:worker();return
         upload_thread=threading.Thread(target=worker,daemon=True);upload_thread.start()
         if not args.proxy:
@@ -297,6 +328,7 @@ def main():
         stop_dashboard(dashboard)
         if upload_thread:upload_thread.join(timeout=40)
         if history_thread:history_thread.join(timeout=25)
+        if owner_thread:owner_thread.join(timeout=20)
         if update_ready and (upload_thread is None or not upload_thread.is_alive()):
             path,bundle=update_ready[0]
             subprocess.Popen([str(bundle/'ClassicWorldCollector.exe'),'--apply-update',str(path)],
@@ -307,6 +339,9 @@ if __name__=='__main__':
     try:main()
     except KeyboardInterrupt:pass
     except Exception as error:
+        if '--once' in sys.argv:
+            import traceback
+            traceback.print_exc()
         print(f'Collector stopped: {type(error).__name__}: {error}',flush=True)
         if getattr(sys,'frozen',False) and '--apply-update' not in sys.argv and sys.stdin and sys.stdin.isatty():
             try:input('Press Enter to exit.')

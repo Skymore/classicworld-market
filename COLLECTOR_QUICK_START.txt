@@ -1,34 +1,17 @@
-枫叶市集采集器 v0.5.10 — 开始使用
+枫叶市集 v0.6.0 — 扫描与采集
 
-第一次使用
-1. 完整解压 ZIP，不要只拿出 EXE，也不要在压缩包里直接运行。
-2. 双击 ClassicWorldCollector.exe。Windows 询问管理员权限时选择“是”。
-3. 切换一次游戏频道，再照常打开摊位。价格会自动上传到 https://mxd.ruit.me/ 。
-4. 保持自动打开的个人提醒网页，即可接收符合条件的关注和低价提醒。
+1. 完整解压 ZIP，运行 ClassicWorldCollector.exe，允许管理员权限。
+2. 手动逛店：选择“手动采集”，切一次频道后照常开摊，报价会自动上传。
+3. 自动扫描：进入自由市场，选择游戏窗口，点击“开始扫描”。
+   每次领取一个洞，扫完后自动领取下一个，不会提前占用其他洞。
+   每个洞从 CH1 往上扫，连续三个空频道后从 CH40 往下扫。
+   倒序遇到三个空频道，或与已经扫过的范围相遇，就结束该洞。
+4. 通过“账号与提醒”设置昵称、绑定 Google 账号和查看关注提醒。
+5. 暂停或断线时停止扫描，当前任务交给其他人；恢复后重新领取任务。
+   F9 或把鼠标移到左上角可紧急停止。停止自动扫描后，手动采集仍可使用。
 
-从旧版升级（这次需要手动安装一次）
-1. 关闭旧采集器。游戏可以保持运行。
-2. 把新版完整解压到一个新文件夹，运行里面的 ClassicWorldCollector.exe。
-3. 切一次频道后继续逛摊。不要同时运行新旧两个采集器。
-4. 默认配置、昵称身份和历史记录都保存在本机，不需要复制给别人。
-   请勿删除 %LOCALAPPDATA%\ClassicWorldMarket。
-   如果以前自己指定过 --home 或 --config，新版也需要沿用相同参数。
-5. 以后新版会后台准备，退出游戏后自动安装；无需再到 GitHub 下载。
+不需要另外启动采集器。请关闭以前单独运行的采集器和扫描器。
+原来的昵称、账号、采集记录和提醒设置会继续沿用。
+新版本会自动检查并在后台下载，退出游戏后安装，不需要反复手动下载。
 
-设置昵称 / Google 登录
-在采集器打开的网页右上角点头像图标，进入“我的”。可以直接设置昵称，
-也可以点击“绑定 Google 账号”，把历史贡献归到自己的账号。
-不登录也可以正常采集。关注清单仍保存在所用浏览器中。
-
-没有新报价？先确认采集器仍在运行，再切频道并打开一个摊位。
-请不要关闭防火墙或系统安全防护。需要更多帮助时查看同目录 README.md。
-
-可以直接把这份原始 ZIP 发给朋友。不要发送 member.json、个人数据目录或原始网络记录。
-
-English quick start
-Extract the whole ZIP, then run ClassicWorldCollector.exe and allow the administrator prompt.
-Change channel once, then open shops as usual. Keep the personal alerts page open.
-To upgrade, close the old collector and extract this version into a new folder. Run only one
-collector at a time and change channel again. Your default local settings and records are kept.
-Keep the same --home / --config options if you used custom paths. Later updates are prepared
-quietly and installed after the game closes. Google sign-in is optional.
+将原始 ZIP 发给朋友即可。不要发送个人配置、账号文件、游戏截图或抓包记录。
