@@ -21,3 +21,5 @@ zero-IV PKG1 map metadata. Format behavior was checked against the publicly
 documented MapleLib `WzBinaryReader`, `WzDirectory`, and `WzImageProperty`:
 https://github.com/lastbattle/MapleLib . No MapleLib package is bundled by this
 parser. Local map resources and calibration screenshots remain outside Git.
+
+- `web/data/crafting.json`: 366 crafting recipes normalized from NiaDB (https://meowdb.com/msclassic/crafting), checked 2026-10-24 with `tools/niadb_crafting.py`. Retains recipe facts and exact item IDs; page attribution and source date are shown next to the calculator. Market prices are supplied by this site, not copied from NiaDB.

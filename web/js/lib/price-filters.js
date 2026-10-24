@@ -36,10 +36,11 @@ export function priceFilterTokens(s, en=false, dropOk=true) {
   if(s.sold)tokens.push({key:'sold',label:en?'With sales':'有成交记录'});
   if(s.drop && dropOk)tokens.push({key:'drop',label:en?'Monster drops':'怪物掉落'});
   if(s.watch)tokens.push({key:'watch',label:en?'Watched only':'只看关注'});
+  if(s.craft)tokens.push({key:'craft',label:en?'Craftable':'可制作'});
   return tokens;
 }
 export function clearPriceFilter(state,key) {
-  const defaults={job:'all',type:'all',lmin:null,lmax:null,few:true,cash:true,sold:false,drop:false,watch:false};
+  const defaults={job:'all',type:'all',lmin:null,lmax:null,few:true,cash:true,sold:false,drop:false,watch:false,craft:false};
   if(key==='all')return {...state,...defaults};
   if(key==='everything')return {...state,...defaults,q:'',cat:'all'};
   if(key==='level')return {...state,lmin:null,lmax:null};

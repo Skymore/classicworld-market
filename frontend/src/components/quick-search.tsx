@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "react-router-dom";
 import { usePreferences, useWords } from "../providers";
@@ -14,7 +14,36 @@ export default function QuickSearch() {
     [query, setQuery] = useState(""),
     [open, setOpen] = useState(false);
   const composing = useRef(false),
-    form = useRef<HTMLFormElement>(null);
+    form = useRef<HTMLFormElement>(null),
+    box = useRef<HTMLDivElement>(null),
+    selectedRows = useRef<any[] | null>(null),
+    visibleRows = useRef<any[]>([]),
+    debounce = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
+    focusTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  function fitBox() {
+    const element = box.current;
+    if (!element || element.hidden || selectedRows.current) return;
+    const viewport = window.visualViewport;
+    const bottom = viewport ? viewport.offsetTop + viewport.height : innerHeight;
+    const available = Math.max(0, Math.floor(bottom - element.getBoundingClientRect().top - 12));
+    element.style.maxHeight = `${Math.min(Math.floor(innerHeight * 0.65), 480, available)}px`;
+  }
+  function checkFocus() {
+    clearTimeout(focusTimer.current);
+    focusTimer.current = setTimeout(() => {
+      if (selectedRows.current) return;
+      if (!form.current?.contains(document.activeElement)) setOpen(false);
+      else fitBox();
+    }, 0);
+  }
+  function activate(event: MouseEvent<HTMLAnchorElement>) {
+    if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    const url = new URL(event.currentTarget.href);
+    selectedRows.current = null;
+    setOpen(false);
+    navigate(url.pathname + url.search + url.hash);
+  }
   const target =
     "/search?" +
     new URLSearchParams({
@@ -29,31 +58,66 @@ export default function QuickSearch() {
     staleTime: 15000,
   });
   useEffect(() => {
-    if (composing.current) return;
-    const timer = setTimeout(() => setQuery(input.trim()), 200);
-    return () => clearTimeout(timer);
-  }, [input]);
+    if (!open || composing.current || selectedRows.current) return;
+    debounce.current = setTimeout(() => setQuery(input.trim()), 200);
+    return () => clearTimeout(debounce.current);
+  }, [input, open]);
   useEffect(() => {
+    selectedRows.current = null;
     setOpen(false);
-  }, [route.pathname]);
+  }, [route.pathname, route.search]);
   useEffect(() => {
     const outside = (event: PointerEvent) => {
-      if (!form.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Element;
+      // A touch can blur the input without focusing its link. Freeze that
+      // result, IME updates and viewport sizing until the click is delivered.
+      selectedRows.current = event.button === 0 && box.current?.contains(target) && target.closest("a[href]")
+        ? visibleRows.current : null;
+      if (selectedRows.current) clearTimeout(debounce.current);
+      if (!form.current?.contains(target)) setOpen(false);
+    };
+    const finish = () => {
+      if (!selectedRows.current) return;
+      selectedRows.current = null;
+      checkFocus();
     };
     document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
+    document.addEventListener("pointercancel", finish);
+    document.addEventListener("click", finish, true);
+    return () => {
+      clearTimeout(focusTimer.current);
+      clearTimeout(debounce.current);
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("pointercancel", finish);
+      document.removeEventListener("click", finish, true);
+    };
   }, []);
-  const rows = result.data?.page
+  const latestRows = result.data?.page
     ? ["item", "mob", "map"].flatMap((kind) =>
         (
           result.data.page[
             kind === "item" ? "items" : kind === "mob" ? "mobs" : "maps"
           ].rows || []
         )
-          .slice(0, 2)
+          .slice(0, 6)
           .map((row: any) => ({ ...row, kind })),
       )
     : [];
+  const rows = selectedRows.current || latestRows;
+  visibleRows.current = rows;
+  useLayoutEffect(fitBox, [open, rows.length]);
+  useEffect(() => {
+    if (!open) return;
+    const viewport = window.visualViewport;
+    viewport?.addEventListener("resize", fitBox);
+    viewport?.addEventListener("scroll", fitBox);
+    window.addEventListener("resize", fitBox);
+    return () => {
+      viewport?.removeEventListener("resize", fitBox);
+      viewport?.removeEventListener("scroll", fitBox);
+      window.removeEventListener("resize", fitBox);
+    };
+  }, [open]);
   return (
     <div className="contents">
       <form
@@ -65,15 +129,14 @@ export default function QuickSearch() {
         data-quick-search="1"
         onSubmit={(event) => {
           event.preventDefault();
+          selectedRows.current = null;
           setOpen(false);
           navigate(target);
         }}
-        onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget))
-            setOpen(false);
-        }}
+        onBlur={checkFocus}
         onKeyDown={(event) => {
           if (event.nativeEvent.isComposing) return;
+          selectedRows.current = null;
           if (event.key === "Escape") {
             event.preventDefault();
             setOpen(false);
@@ -105,32 +168,34 @@ export default function QuickSearch() {
           value={input}
           onChange={(event) => {
             setInput(event.target.value);
-            setOpen(true);
+            if (!selectedRows.current) setOpen(true);
           }}
           onFocus={() => setOpen(true)}
           onCompositionStart={() => {
             composing.current = true;
+            clearTimeout(debounce.current);
           }}
           onCompositionEnd={(event) => {
             composing.current = false;
-            setQuery(event.currentTarget.value.trim());
+            if (!selectedRows.current) setQuery(event.currentTarget.value.trim());
           }}
         />
         {language === "en" && <input type="hidden" name="lang" value="en" />}
         <kbd>/</kbd>
         <div
           className="quick-search"
+          ref={box}
           id={id}
           hidden={!open}
           role="region"
           aria-label={words("搜索结果", "Search results")}
           aria-busy={result.isFetching}
         >
-          {result.isPending ? (
+          {result.isPending && !selectedRows.current ? (
             <p className="quick-note" role="status">
               {words("正在搜索…", "Searching…")}
             </p>
-          ) : result.isError ? (
+          ) : result.isError && !selectedRows.current ? (
             <p className="quick-note" role="status">
               {words(
                 "搜索暂不可用，可重试或打开全部结果。",
@@ -152,7 +217,7 @@ export default function QuickSearch() {
                   className="quick-row"
                   href={`/${row.kind}/${row.id}${language === "en" ? "?lang=en" : ""}`}
                   key={row.kind + row.id}
-                  onClick={() => setOpen(false)}
+                  onClick={activate}
                 >
                   {image ? (
                     <img
@@ -187,7 +252,7 @@ export default function QuickSearch() {
           <a
             className="quick-more"
             href={target}
-            onClick={() => setOpen(false)}
+            onClick={activate}
           >
             {words("查看全部结果", "Browse all results")} →
           </a>

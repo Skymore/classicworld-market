@@ -29,6 +29,7 @@ pub mod bestiary;
 pub mod collector_updates;
 pub mod config;
 pub mod contributors;
+pub mod crafting;
 pub mod external;
 pub mod ingest;
 pub mod legacy;

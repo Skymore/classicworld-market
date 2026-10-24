@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -50,6 +51,14 @@ class DeploymentTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             deployment.verify_bundle(artifact, SHA)
 
+    def test_package_records_main_and_the_explicit_production_baseline(self):
+        artifact = self.bundle()
+        output = self.root / "second-artifact"
+        deployment.package(self.root / "source", artifact / "bin/market-web.exe", output, SHA, PREVIOUS)
+        manifest = deployment.verify_bundle(output, SHA)
+        self.assertEqual(manifest["source_branch"], "main")
+        self.assertEqual(manifest["base_release"], PREVIOUS)
+
     def test_failed_activation_restores_previous_release_and_checks_it(self):
         pointer = self.root / "shared_data/deploy/current.json"
         previous = {"schema": 1, "commit": PREVIOUS, "activated_at": 1}
@@ -73,6 +82,50 @@ class DeploymentTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             deployment.web_runtime(self.root)
 
+    def test_activation_rejects_a_bundle_prepared_for_another_active_version(self):
+        pointer = self.root / "shared_data/deploy/current.json"
+        previous = {"schema": 1, "commit": PREVIOUS, "activated_at": 1}
+        deployment.write_json(pointer, previous)
+        deployment.write_json(self.root / "shared_data/deploy/releases" / SHA / "manifest.json",
+                              {"base_release": "c" * 40})
+        with patch.object(deployment, "wait_for_release") as wait:
+            with self.assertRaisesRegex(RuntimeError, "Active release changed"):
+                deployment.activate(self.root, SHA)
+        wait.assert_not_called()
+        self.assertEqual(json.loads(pointer.read_text()), previous)
+
+    def test_local_overlay_requires_committed_source_including_the_active_version(self):
+        def git(*args, data=None):
+            return subprocess.check_output(["git", "-c", "user.name=Deployment Test", "-c",
+                "user.email=test@example.invalid", *args], cwd=self.root, input=data).decode().strip()
+        git("init", "--quiet")
+        tree = git("mktree", data=b"")
+        previous = git("commit-tree", tree, data=b"active version\n")
+        divergent = git("commit-tree", tree, data=b"stale source\n")
+        merged = git("commit-tree", tree, "-p", previous, data=b"merged fix\n")
+        pointer = self.root / "shared_data/deploy/current.json"
+        deployment.write_json(pointer, {"schema": 1, "commit": previous})
+        for commit, error in [(SHA, "not committed"), (divergent, "omits the active version")]:
+            git("update-ref", "refs/heads/main", commit if commit != SHA else previous)
+            deployment.write_json(self.root / "shared_data/deploy/releases" / commit / "manifest.json",
+                                  {"base_release": previous, "source_branch": "main"})
+            with patch.object(deployment, "wait_for_release") as wait:
+                with self.assertRaisesRegex(RuntimeError, error):
+                    deployment.activate(self.root, commit)
+                wait.assert_not_called()
+            self.assertEqual(json.loads(pointer.read_text())["commit"], previous)
+        deployment.write_json(self.root / "shared_data/deploy/releases" / merged / "manifest.json",
+                              {"base_release": previous, "source_branch": "main"})
+        git("update-ref", "refs/heads/main", previous)
+        with patch.object(deployment, "wait_for_release") as wait:
+            with self.assertRaisesRegex(RuntimeError, "must match main"):
+                deployment.activate(self.root, merged)
+            wait.assert_not_called()
+        git("update-ref", "refs/heads/main", merged)
+        with patch.object(deployment, "wait_for_release"):
+            self.assertEqual(deployment.activate(self.root, merged), previous)
+        self.assertEqual(json.loads(pointer.read_text())["commit"], merged)
+
     def test_relocated_web_keeps_local_google_credentials_out_of_artifact(self):
         credential = self.root / "shared_data/google-oauth.json"
         deployment.write_json(credential, {"synthetic": True})
@@ -80,6 +133,14 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(env["GOOGLE_OAUTH_CONFIG"], str(credential))
         self.assertEqual(env["BIND"], "127.0.0.1:8766")
         self.assertEqual(env["COLLECTOR_RELEASE_DIR"], str(self.root / "web/releases"))
+
+    def test_relocated_web_uses_private_openrouter_config_without_reading_its_key(self):
+        credential = self.root / "shared_data/openrouter.json"
+        deployment.write_json(credential, {"api_key": "fixture-key-only", "model": "openrouter/free"})
+        with patch.dict(deployment.os.environ, {}, clear=True):
+            env = deployment.web_environment(self.root, {"database_url": "synthetic"}, self.root / "release/web")
+        self.assertEqual(env["OPENROUTER_CONFIG"], str(credential))
+        self.assertNotIn("OPENROUTER_API_KEY", env)
 
     def test_site_package_does_not_bundle_collector_downloads(self):
         releases = self.root / "source/web/releases"

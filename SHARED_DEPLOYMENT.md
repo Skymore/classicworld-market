@@ -37,10 +37,10 @@ R2 发布配置在本机 `shared_data/r2-publisher.json`，仅含 `account_id`�
 部署继续使用不可变产物、候选服务检查、数据库备份和 supervisor 原子切换；
 上线后核对公网静态文件与发布清单一致。
 
-## RoomTalk 自动发布（当前原生 Rust 服务）
+## 历史 GitHub RoomTalk 自动发布（已停用）
 
-代码仓库为 `Skymore/classicworld-market`，房间协作使用 `deploy` 分支。
-该分支每次 push 自动执行 `.github/workflows/server.yml`：Linux 上完成
+GitHub 历史仓库为 `Skymore/classicworld-market`，此前房间协作使用 `deploy` 分支。
+此前该分支每次 push 自动执行 `.github/workflows/server.yml`：Linux 上完成
 Rust 格式、Clippy、带临时 PostgreSQL 的测试与迁移冒烟；Windows 上运行
 Python 合成回归和网页模块测试；全部通过后构建 Windows 服务和浏览器 WASM，
 上传绑定该 commit SHA 的完整产物。本机只下载这次 workflow 的产物，不运行 PR 测试。
@@ -102,3 +102,16 @@ Cloudflare 隧道凭据放在用户 `.cloudflared`，项目的 `shared_data/tunn
 ## 容量与后续
 
 此为小范围朋友使用的 MVP，报表短时缓存，数据库单机 WAL。大量用户需分页/增量接口、异步聚合和 PostgreSQL；外部成员上传的数据并非可信成交证明，仍应通过成员管理与异常样本审查控制质量。
+
+
+## 网站改动合并与发布校验
+
+本机共享目录可能包含多个任务的未提交草稿。网站发布以最新 `gitlab/main` 为起点，并确认它包含 `shared_data/deploy/current.json` 对应的线上提交，在独立目录中合并改动；不要从较旧工作目录直接重新构建并覆盖当前前端。
+
+同一次发布必须提交 React 源码、回归测试和匹配的 `web/react/` 构建产物。临时替换编译文件不能代替源码合并。保留此前发布的哈希资源，避免已打开的页面加载失败。
+
+本地发布包必须声明 `source_branch: main` 和 `base_release`，发布提交必须与本地及已推送的主分支一致。切换前会校验当前版本仍是该基线，并在本地 Git 仓库可用时确认目标提交存在、包含当前线上提交。旧基线、仅有产物而无源码提交、遗漏当前历史的包都会在切换前被拒绝。
+
+重新构建前端后，至少验证 `web/tests/quick-search.e2e.mjs` 的手机失焦点击、输入法、全部结果跳转和六条预览，并复核首页最新报价、价格排序、账号、关注和图鉴等现有功能。
+
+仓库根目录 `AGENTS.md` 记录所有任务须遵守的合并与发布规则。每次发布后核对 `main`、`gitlab/main`、发布清单与线上提交号一致；合入主分支不会自动触发本机部署。

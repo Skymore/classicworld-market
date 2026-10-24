@@ -65,7 +65,7 @@ def verify_bundle(folder, commit):
     return manifest
 
 
-def package(root, binary, output, commit):
+def package(root, binary, output, commit, base_release=None):
     check_commit(commit)
     root, output = Path(root), Path(output)
     # A build must never silently mix files from a previous package.
@@ -76,7 +76,13 @@ def package(root, binary, output, commit):
                     ignore=lambda folder, names: ["releases"] if Path(folder) == root / "web" else [])
     files = {p.relative_to(output).as_posix(): digest(p)
              for p in sorted(output.rglob("*")) if p.is_file()}
-    write_json(output / "manifest.json", {"schema": 1, "commit": commit, "files": files})
+    manifest = {"schema": 1, "commit": commit, "files": files, "source_branch": "main"}
+    pointer = root / "shared_data/deploy/current.json"
+    if base_release is not None:
+        manifest["base_release"] = check_commit(base_release) if base_release != "legacy" else "legacy"
+    elif pointer.is_file():
+        manifest["base_release"] = check_commit(json.loads(pointer.read_text(encoding="utf-8"))["commit"])
+    write_json(output / "manifest.json", manifest)
     verify_bundle(output, commit)
 
 
@@ -102,6 +108,9 @@ def web_environment(root, native, web, port=8766):
     oauth = Path(root) / "shared_data/google-oauth.json"
     if oauth.is_file():
         env["GOOGLE_OAUTH_CONFIG"] = str(oauth)
+    openrouter = Path(root) / "shared_data/openrouter.json"
+    if openrouter.is_file():
+        env.setdefault("OPENROUTER_CONFIG", str(openrouter))
     return env
 
 
@@ -154,10 +163,42 @@ def wait_for_release(root, commit, timeout=75):
     raise RuntimeError("Supervisor did not activate a healthy release")
 
 
+def verify_activation_source(root, commit, previous_commit):
+    """Local overlay releases must include the active, recorded source revision."""
+    manifest = root / "shared_data/deploy/releases" / commit / "manifest.json"
+    if not manifest.exists():
+        return
+    metadata = json.loads(manifest.read_text(encoding="utf-8"))
+    base = metadata.get("base_release")
+    local_source = (root / ".git").exists()
+    if local_source and (base is None or metadata.get("source_branch") != "main"):
+        raise RuntimeError("Local releases must declare source_branch main and the active base_release")
+    if base is None:
+        return
+    if base != previous_commit:
+        raise RuntimeError("Active release changed; merge the current production version before activation")
+    if not local_source:
+        return
+    source = subprocess.run(["git", "cat-file", "-e", f"{commit}^{{commit}}"], cwd=root,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if source.returncode:
+        raise RuntimeError("Release source is not committed; record the source and built assets together")
+    main = subprocess.run(["git", "rev-parse", "refs/heads/main"], cwd=root,
+                          capture_output=True, text=True)
+    if main.returncode or main.stdout.strip() != commit:
+        raise RuntimeError("Release source must match main; merge the reviewed change before activation")
+    if previous_commit != "legacy":
+        included = subprocess.run(["git", "merge-base", "--is-ancestor", previous_commit, commit], cwd=root,
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if included.returncode:
+            raise RuntimeError("Release source omits the active version; merge current production changes first")
+
+
 def activate(root, commit):
     pointer = root / "shared_data/deploy/current.json"
     previous = json.loads(pointer.read_text()) if pointer.exists() else None
     previous_commit = previous["commit"] if previous else "legacy"
+    verify_activation_source(root, commit, previous_commit)
     write_json(pointer, {"schema": 1, "commit": commit, "activated_at": time.time()})
     try:
         wait_for_release(root, commit)
@@ -225,13 +266,14 @@ def main():
     bundle.add_argument("--binary", required=True)
     bundle.add_argument("--output", required=True)
     bundle.add_argument("--commit", required=True)
+    bundle.add_argument("--base-release", help="Active production commit, for a build in a separate checkout")
     install = sub.add_parser("deploy")
     install.add_argument("--root", default=str(Path(__file__).resolve().parent))
     install.add_argument("--artifact", required=True)
     install.add_argument("--commit", required=True)
     args = parser.parse_args()
     if args.command == "package":
-        package(args.root, args.binary, args.output, args.commit)
+        package(args.root, args.binary, args.output, args.commit, args.base_release)
     else:
         deploy(args.root, args.artifact, args.commit)
 

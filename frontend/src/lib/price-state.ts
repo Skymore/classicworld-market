@@ -85,6 +85,7 @@ export function readPriceState(search: string) {
     sold: params.get("sold") === "1",
     drop: params.get("drop") === "1",
     watch: params.get("watch") === "1",
+    craft: params.get("craft") === "1",
   };
 }
 export type PriceState = ReturnType<typeof readPriceState>;
@@ -105,6 +106,7 @@ export function priceUrl(state: PriceState, current: string) {
     "sold",
     "drop",
     "watch",
+    "craft",
     "item",
   ])
     params.delete(key);
@@ -117,7 +119,7 @@ export function priceUrl(state: PriceState, current: string) {
   if (state.lmax != null) params.set("lmax", String(state.lmax));
   if (!state.few) params.set("few", "0");
   if (!state.cash) params.set("cash", "0");
-  for (const key of ["sold", "drop", "watch"] as const)
+  for (const key of ["sold", "drop", "watch", "craft"] as const)
     if (state[key]) params.set(key, "1");
   return "?" + params.toString();
 }

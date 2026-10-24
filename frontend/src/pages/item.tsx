@@ -30,6 +30,7 @@ import {
 } from "../components/shared";
 import { Location } from "../components/list-rows";
 import { Well, MobPicture, Secondary, useNames } from "./catalogue";
+import Crafting from "../components/crafting";
 import ItemTrend from "../components/item-trend";
 function Variant({ variant, page }: { variant: any; page: any }) {
   const words = useWords(),
@@ -858,6 +859,7 @@ export default function Item({ page }: { page: any }) {
           </div>
         </div>
         <div className="ibox">
+          <Crafting key={page.item.id} itemId={page.item.id} />
           <div className="src-box">
             <Well
               className={"src-well " + (more.has("mobs") ? "all" : "")}

@@ -53,6 +53,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/market", get(market))
         .route("/api/v1/sales/recent", get(sales_recent))
         .route("/api/v1/items/{id}", get(item_record))
+        .route("/api/v1/crafting/prices", get(crafting_prices))
         .route("/api/v1/item/{id}", get(item_page))
         .route("/api/v1/watchlist/catalog", get(watch_catalog))
         .route("/api/v1/watchlist/listings", get(watch_listings))
@@ -606,6 +607,21 @@ async fn item_record(
     match views::item_record(&state.db, id).await {
         Ok(Some(record)) => Json(record).into_response(),
         Ok(None) => error(StatusCode::NOT_FOUND, "Not found"),
+        Err(err) => internal(err),
+    }
+}
+
+async fn crafting_prices(
+    State(state): State<AppState>,
+    ClientAddr(addr): ClientAddr,
+    headers: HeaderMap,
+) -> Response {
+    if let Err(response) = reader(&state, &headers, &addr, "crafting").await {
+        return response;
+    }
+    let now = unix_now();
+    match crate::crafting::prices(&state.db, now).await {
+        Ok(prices) => Json(json!({"as_of": now, "prices": prices})).into_response(),
         Err(err) => internal(err),
     }
 }

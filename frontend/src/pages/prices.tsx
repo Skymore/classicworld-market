@@ -12,7 +12,8 @@ import {
 import { spark } from "/web/js/lib/spark.js?v=20261022-regressions-1";
 import { usePreferences, useWords } from "../providers";
 import { useMarketQuery } from "../lib/query";
-import type { Market, Product } from "../lib/types";
+import { craftableIds, estimateCraft } from "/web/js/lib/crafting.js";
+import type { Market, Product, CraftCatalog, CraftPrice } from "../lib/types";
 import {
   categories,
   jobs,
@@ -86,6 +87,43 @@ export default function Prices() {
     false,
   );
   const [watched, setWatched] = useState<number[]>(watchIds);
+  const crafting = useMarketQuery<CraftCatalog>(
+    "/web/data/crafting.json",
+    true,
+    false,
+  );
+  const craftPrices = useMarketQuery<{ prices: CraftPrice[] }>(
+    "/api/v1/crafting/prices",
+    Boolean(crafting.data),
+  );
+  const craftable = useMemo<Set<number>>(
+    () => (crafting.data ? craftableIds(crafting.data) : new Set()),
+    [crafting.data],
+  );
+  const craftCosts = useMemo(() => {
+    const costs = new Map<number, number | null>();
+    if (!crafting.data || !craftPrices.data?.prices) return costs;
+    const quotes = new Map(
+      craftPrices.data.prices.map((row) => [row.item_id, row]),
+    );
+    for (const recipe of crafting.data.recipes.filter(
+      (row) => row.level <= 8,
+    )) {
+      const value: number | null = estimateCraft(
+        recipe,
+        crafting.data,
+        quotes,
+      ).per_output;
+      if (
+        !costs.has(recipe.item_id) ||
+        (value != null &&
+          (costs.get(recipe.item_id) == null ||
+            value < costs.get(recipe.item_id)!))
+      )
+        costs.set(recipe.item_id, value);
+    }
+    return costs;
+  }, [crafting.data, craftPrices.data]);
   const [limit, setLimit] = useState(100);
   const sentinel = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -127,6 +165,7 @@ export default function Prices() {
     const job = jobs.find(([key]) => key === state.job)?.[1];
     const watch = new Set(watched);
     return products.filter((row) => {
+      if (state.craft && !craftable.has(row.item_id)) return false;
       if (
         (!state.cash && row.category === "商城物品") ||
         (!state.few && row.low_data) ||
@@ -162,6 +201,8 @@ export default function Prices() {
     state.few,
     state.sold,
     state.watch,
+    state.craft,
+    craftable,
     state.drop,
     state.job,
     state.type,
@@ -211,6 +252,7 @@ export default function Prices() {
       state.sold,
       state.drop,
       state.watch,
+      state.craft,
       period.hours,
     ],
   );
@@ -253,6 +295,30 @@ export default function Prices() {
   const sortLabel = words(selectedSort[2], selectedSort[3]);
   const itemHref = (row: Product) =>
     `/item/${row.item_id}?hours=${period.hours}`;
+  const craftBadge = (row: Product) =>
+    craftable.has(row.item_id) ? (
+      <span
+        className="craft-label"
+        title={words(
+          "按购买配方材料加手续费估算；详情可查看配方和原料加工方案。配方为 NiaDB 参考。",
+          "Estimated ingredient purchases plus crafting fee. Item details include recipes and a raw-material route. NiaDB recipe reference.",
+        )}
+      >
+        <span className="craft-tag">{words("可制作", "CRAFTABLE")}</span>
+        {craftCosts.has(row.item_id) && (
+          <small className="craft-cost">
+            {craftCosts.get(row.item_id) == null ? (
+              words("成本缺价", "Cost incomplete")
+            ) : (
+              <>
+                {words("约 ", "~")}
+                <Price value={craftCosts.get(row.item_id)} />
+              </>
+            )}
+          </small>
+        )}
+      </span>
+    ) : null;
   const unit = (row: Product) =>
     row.unit_basis === "set" ? (
       <small className="unit">{words("/组", "/set")}</small>
@@ -399,6 +465,16 @@ export default function Prices() {
                 >
                   <i />
                   {words("只看关注", "Watched only")}
+                </button>
+                <button
+                  type="button"
+                  className={"toggle " + (state.craft ? "on" : "")}
+                  data-craft-only
+                  aria-pressed={state.craft}
+                  onClick={() => update({ craft: !state.craft })}
+                >
+                  <i />
+                  {words("可制作", "Craftable")}
                 </button>
                 {state.tab !== "changes" && (
                   <span className="sortwrap">
@@ -591,6 +667,7 @@ export default function Prices() {
                           ["cash", "商城物品", "Cash items"],
                           ["sold", "只看有成交记录的物品", "With sales"],
                           ["drop", "只看怪物掉落的物品", "Monster drops"],
+                          ["craft", "只看可制作的物品", "Craftable"],
                         ]
                           .filter(([key]) => key !== "drop" || dropped)
                           .map(([key, zh, english]) => (
@@ -661,9 +738,9 @@ export default function Prices() {
         </div>
         {["all", "changes"].map((tab) => (
           <TabsContent value={tab} key={tab} data-pane={tab}>
-            {market.isError ? (
+            {market.isError || (state.craft && crafting.isError) ? (
               <ErrorState retry={() => void market.refetch()} />
-            ) : !market.data ? (
+            ) : !market.data || (state.craft && !crafting.data) ? (
               <Loading />
             ) : rows.length === 0 ? (
               <>
@@ -690,6 +767,7 @@ export default function Prices() {
                       <Slot url={row.icon_url} />
                       <span className="nm">
                         <ItemNames row={row} />
+                        {craftBadge(row)}
                         {state.sort === "recent" && row.last_seen && (
                           <small>
                             <RelativeTime at={row.last_seen} />
@@ -781,6 +859,7 @@ export default function Prices() {
                             <SiteLink className="it" href={itemHref(row)}>
                               <Slot url={row.icon_url} />
                               <ItemNames row={row} />
+                        {craftBadge(row)}
                             </SiteLink>
                           </td>
                           <td>

@@ -55,3 +55,27 @@ export interface Account {
 }
 export type Language = "zh" | "en";
 export type Theme = "dark" | "light";
+
+export interface CraftRecipe {
+  id: string;
+  item_id: number;
+  discipline: string;
+  level: number;
+  output_quantity: number;
+  fee: number;
+  exp: number;
+  ingredients: { item_id: number; quantity: number }[];
+  catalyst: { item_id: number; quantity: number } | null;
+}
+export interface CraftCatalog {
+  source: string;
+  checked_on: string;
+  recipes: CraftRecipe[];
+  items: Record<string, { name_en: string; niadb_id: number | null }>;
+}
+export interface CraftPrice {
+  item_id: number;
+  market_price: number | null;
+  ask_price: number | null;
+  npc_price: number | null;
+}

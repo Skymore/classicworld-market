@@ -168,3 +168,25 @@ html[lang=en] .salegrid .sale{grid-template-columns:96px minmax(0,1fr) auto minm
 .item-period select{height:32px;color:var(--bar-ink);background:transparent;border:1px solid currentColor;padding:0 5px}
 .item-period option{color:var(--ink);background:var(--sheet)}
 .item-period .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+
+.craft-well{margin:12px 0;scroll-margin-top:90px}
+.craft-controls{display:flex;flex-wrap:wrap;align-items:end;gap:10px;padding:12px}
+.craft-controls label{display:grid;gap:4px;font-size:12px;color:var(--ink-2)}
+.craft-controls select,.craft-controls input,.craft-table input{min-height:36px;border:1px solid var(--rule);border-radius:5px;background:var(--sheet);color:var(--ink);padding:5px 7px;max-width:100%;font:inherit}
+.craft-controls input[type=number]{width:85px}
+.craft-controls [data-catalyst-control]{display:flex;align-items:center;min-height:36px}
+.craft-controls input[type=checkbox]{min-height:auto}
+.craft-meta,.craft-comparison{padding:0 12px;font-size:13px}
+.craft-table-wrap{overflow-x:auto;padding:0 12px}
+.craft-table{width:100%;border-collapse:collapse;font-size:13px}
+.craft-table th,.craft-table td{padding:8px 4px;border-bottom:1px solid var(--rule);text-align:right;vertical-align:middle}
+.craft-table th:first-child,.craft-table td:first-child{text-align:left}
+.craft-table td small{display:block;max-width:360px;color:var(--ink-2);font-size:11px;overflow-wrap:anywhere}
+.craft-table input{width:112px;text-align:right}
+.craft-totals{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;padding:14px 12px;font-size:13px}
+.craft-totals b,.craft-totals strong{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+.craft-order{margin:12px;font-size:13px}
+.craft-order summary{cursor:pointer;min-height:32px}
+.craft-order li{padding:4px 0}
+.craft-well>.note,.craft-well>[data-craft-result]>.note{padding:0 12px}
+@media(max-width:480px){.craft-table{font-size:12px}.craft-table input{width:84px}.craft-table th,.craft-table td{padding:7px 2px}.craft-controls{gap:8px}.craft-controls select{max-width:210px}}

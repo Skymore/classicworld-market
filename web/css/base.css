@@ -531,3 +531,9 @@ html{scrollbar-gutter:stable}
 .pref-account{--pref-icon:url('/web/img/ui/account.svg')}
 .ptop .brand{flex-shrink:0}.ptop .fresh{flex:0 1 auto;overflow:hidden}.ptop .fresh i{flex-shrink:0}
 @media(max-width:380px){.ptop{gap:4px}.ptop .prefs{margin-left:auto}.ptop .fresh span{display:none}.ptop .brand{gap:5px;font-size:17px}}
+
+.craft-label{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:3px;font-size:11px;line-height:1.35}
+.craft-tag{display:inline-block;padding:1px 6px;border:1px solid #7dab83;border-radius:12px;color:var(--up,#39794c);background:color-mix(in srgb,#76ad81 10%,transparent);font-weight:750;letter-spacing:.02em}
+.craft-cost{color:var(--ink-2);font-variant-numeric:tabular-nums}
+html[data-theme=dark] .craft-tag{color:#9fd486;border-color:#6c9e71}
+.prow:has(.craft-label){min-height:72px;height:auto;padding-top:7px;padding-bottom:7px}
