@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { Monitor, Pencil, ArrowUpRight } from "lucide-react";
 import { useAccount, queryClient } from "../lib/query";
 import { adoptAccount, beforeSignOut } from "/web/js/lib/user-data.js";
 import {
@@ -7,6 +8,7 @@ import {
   RecoveryNotice,
   SyncPanel,
   SecurityPanel,
+  AccountSetting,
 } from "./account-access";
 import { useWords } from "../providers";
 import { SiteLink } from "../components/shell";
@@ -16,6 +18,7 @@ import {
   ErrorState,
   num,
   usePageReady,
+  Icon,
 } from "../components/shared";
 import { Button } from "../components/ui/button";
 
@@ -32,6 +35,7 @@ export default function AccountPage() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [linkStatus, setLinkStatus] = useState("");
+  const [editing, setEditing] = useState(false);
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   useEffect(() => {
     setNickname(profile?.nickname || "");
@@ -203,17 +207,13 @@ export default function AccountPage() {
     }
   }
   return (
-    <Stall
-      title={words("我的", "My profile")}
-      className="account-stall"
-      h1
-      action={
-        <SiteLink className="bar-more" href="/contributors">
-          {words("采集贡献榜", "Contributors")} →
-        </SiteLink>
-      }
-    >
-      <div className="account-body" data-account>
+    <Stall title={words("我的", "My profile")} className="account-stall" h1>
+      <div
+        className={
+          "account-body" + (profile?.signed_in ? " account-dashboard" : "")
+        }
+        data-account
+      >
         {account.isError ? (
           <ErrorState retry={() => void account.refetch()} />
         ) : !profile ? (
@@ -275,163 +275,223 @@ export default function AccountPage() {
                 dismiss={() => setRecoveryCode(null)}
               />
             )}
-            {!local && <SyncPanel message={message} />}
-            <h2>{words("你的采集名片", "Your contributor profile")}</h2>
-            <p>
-              {words(
-                "用昵称加入贡献榜，感谢你帮大家发现价格。",
-                "Join the contributor board with a nickname. Thanks for helping everyone discover prices.",
-              )}
-            </p>
-            <div className="contributor-stats">
-              <div>
-                <strong>{num(profile.stats?.shops || 0)}</strong>
-                <span>{words("累计采集摊位", "Shops contributed")}</span>
+            <section
+              className="account-profile"
+              aria-label={words("采集名片", "Contributor profile")}
+            >
+              <div className="account-identity">
+                <span className="account-avatar">
+                  <Icon name="leaf" size={28} />
+                </span>
+                <div className="account-name">
+                  <span className="account-eyebrow">
+                    {words("采集者", "CONTRIBUTOR")}
+                  </span>
+                  <h2>
+                    {profile.nickname ||
+                      words("枫叶冒险家", "Maple adventurer")}
+                  </h2>
+                  <span className="account-membership">
+                    {profile.listed
+                      ? words("已加入贡献榜", "On the contributor board")
+                      : words("尚未公开采集成绩", "Contributions are private")}
+                  </span>
+                </div>
               </div>
-              <div>
-                <strong>{num(profile.stats?.quotes || 0)}</strong>
-                <span>{words("有效报价条目", "Distinct offers")}</span>
+              <div className="contributor-stats">
+                <div>
+                  <strong>{num(profile.stats?.shops || 0)}</strong>
+                  <span>{words("累计采集摊位", "Shops contributed")}</span>
+                </div>
+                <div>
+                  <strong>{num(profile.stats?.quotes || 0)}</strong>
+                  <span>{words("有效报价条目", "Distinct offers")}</span>
+                </div>
               </div>
-            </div>
-            <form data-profile onSubmit={save}>
-              <label htmlFor="contributor-nickname">
-                {words("昵称", "Nickname")}
-                {profile.temporary &&
-                  " · " + words("临时昵称", "Temporary nickname")}
-              </label>
-              <input
-                id="contributor-nickname"
-                name="nickname"
-                required
-                minLength={2}
-                maxLength={24}
-                autoComplete="nickname"
-                value={nickname}
-                onChange={(event) => setNickname(event.target.value)}
-                disabled={local && profile.linked}
-                placeholder={words(
-                  "大家怎么称呼你？",
-                  "What should we call you?",
-                )}
-              />
-              {profile.temporary && (
-                <p className="note">
-                  {words(
-                    "这是随机分配给你的固定昵称，可以改成自己喜欢的名字。",
-                    "This randomly assigned nickname stays the same until you choose your own.",
-                  )}
-                </p>
-              )}
-              <label className="account-opt">
-                <input
-                  type="checkbox"
-                  name="listed"
-                  checked={listed}
-                  onChange={(event) => setListed(event.target.checked)}
-                  disabled={local && profile.linked}
-                />
-                {words(
-                  "在贡献榜公开我的昵称和采集成绩",
-                  "Show my nickname and contributions on the leaderboard",
-                )}
-              </label>
-              {local && profile.linked ? (
-                <a
-                  className="btn"
-                  href="https://mxd.ruit.me/account"
-                  target="_blank"
-                  rel="noopener"
+              <div className="account-profile-actions">
+                <button
+                  type="button"
+                  data-edit-profile
+                  disabled={busy}
+                  aria-expanded={editing}
+                  aria-controls="account-profile-editor"
+                  onClick={() => {
+                    if (editing) {
+                      setNickname(profile.nickname || "");
+                      setListed(Boolean(profile.listed));
+                      setStatus("");
+                    }
+                    setEditing(!editing);
+                  }}
                 >
-                  {words("去官网修改", "Edit on website")} ↗
-                </a>
-              ) : (
-                <Button variant="primary" type="submit" disabled={busy}>
-                  {words("保存昵称", "Save nickname")}
-                </Button>
-              )}
-              <p className="account-status" role="status" aria-live="polite">
-                {status}
-              </p>
-            </form>
-            <section className="well account-help">
-              <h3>{words("我的采集器", "My collectors")}</h3>
-              {local ? (
-                profile.linked ? (
-                  <p>
+                  <Pencil size={15} aria-hidden="true" />
+                  {editing
+                    ? words("取消编辑", "Cancel editing")
+                    : words("编辑资料", "Edit profile")}
+                </button>
+                <SiteLink href="/contributors">
+                  {words("查看贡献榜", "Contributor board")}
+                  <ArrowUpRight size={15} aria-hidden="true" />
+                </SiteLink>
+              </div>
+              <form
+                id="account-profile-editor"
+                hidden={!editing}
+                data-profile
+                onSubmit={save}
+              >
+                <label htmlFor="contributor-nickname">
+                  {words("昵称", "Nickname")}
+                  {profile.temporary &&
+                    " · " + words("临时昵称", "Temporary nickname")}
+                </label>
+                <input
+                  id="contributor-nickname"
+                  name="nickname"
+                  required
+                  minLength={2}
+                  maxLength={24}
+                  autoComplete="nickname"
+                  value={nickname}
+                  onChange={(event) => setNickname(event.target.value)}
+                  disabled={local && profile.linked}
+                  placeholder={words(
+                    "大家怎么称呼你？",
+                    "What should we call you?",
+                  )}
+                />
+                {profile.temporary && (
+                  <p className="note">
                     {words(
-                      "已绑定账号，历史贡献已合并。",
-                      "Linked to your account. Earlier contributions are included.",
+                      "随机昵称，随时可以修改。",
+                      "A randomly assigned nickname. Make it your own anytime.",
                     )}
                   </p>
+                )}
+                <label className="account-opt">
+                  <input
+                    type="checkbox"
+                    name="listed"
+                    checked={listed}
+                    onChange={(event) => setListed(event.target.checked)}
+                    disabled={local && profile.linked}
+                  />
+                  <span>
+                    {words("加入采集贡献榜", "Join the contributor board")}
+                    <small>
+                      {words(
+                        "仅公开昵称和成绩，随时可以退出。",
+                        "Only your nickname and stats are public. Leave anytime.",
+                      )}
+                    </small>
+                  </span>
+                </label>
+                {local && profile.linked ? (
+                  <a
+                    className="btn"
+                    href="https://mxd.ruit.me/account"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    {words("去官网修改", "Edit on website")} ↗
+                  </a>
                 ) : (
-                  <>
+                  <Button variant="primary" type="submit" disabled={busy}>
+                    {words("保存修改", "Save changes")}
+                  </Button>
+                )}
+                <p className="account-status" role="status" aria-live="polite">
+                  {status}
+                </p>
+              </form>
+            </section>
+            <div className="account-settings">
+              {!local && <SyncPanel message={message} />}
+              <AccountSetting
+                name="collectors"
+                icon={<Monitor size={20} />}
+                title={words("我的采集器", "My collectors")}
+                meta={
+                  local
+                    ? profile.linked
+                      ? words("已绑定账号", "Account linked")
+                      : words(
+                          "绑定账号，合并多台设备的贡献",
+                          "Link to combine contributions",
+                        )
+                    : words(
+                        `已绑定 ${profile.collectors || 0} 台设备`,
+                        `${profile.collectors || 0} linked devices`,
+                      )
+                }
+                attention={Boolean(link || linkStatus)}
+              >
+                {local ? (
+                  profile.linked ? (
                     <p>
                       {words(
-                        "这台采集器的历史记录会归到你的昵称下。绑定账号后，可以把不同电脑的贡献合在一起。",
-                        "This collector’s history counts toward your nickname. Link an account to combine contributions from multiple computers.",
+                        "已绑定账号，历史贡献已合并。",
+                        "Linked to your account. Earlier contributions are included.",
                       )}
                     </p>
-                    <Button
-                      data-connect
-                      disabled={busy}
-                      onClick={() => void action("connect")}
-                    >
-                      {words("绑定账号", "Link account")}
-                    </Button>
-                  </>
-                )
-              ) : (
-                <>
-                  <p>
-                    {words(
-                      `已绑定 ${profile.collectors || 0} 个采集器。`,
-                      `You have ${profile.collectors || 0} linked collectors.`,
-                    )}
-                  </p>
-                  {link ? (
+                  ) : (
                     <>
-                      <Button
-                        variant="primary"
-                        data-claim
-                        disabled={busy}
-                        onClick={() => void action("claim")}
-                      >
+                      <p>
                         {words(
-                          "确认绑定这台采集器",
-                          "Confirm linking this collector",
-                        )}
-                      </Button>
-                      <p className="note">
-                        {words(
-                          "绑定后，这台采集器以往和今后的贡献都会计入你的账号。",
-                          "This collector’s past and future contributions will belong to your account.",
+                          "这台采集器的历史记录会归到你的昵称下。绑定账号后，可以把不同电脑的贡献合在一起。",
+                          "This collector’s history counts toward your nickname. Link an account to combine contributions from multiple computers.",
                         )}
                       </p>
+                      <Button
+                        data-connect
+                        disabled={busy}
+                        onClick={() => void action("connect")}
+                      >
+                        {words("绑定账号", "Link account")}
+                      </Button>
                     </>
-                  ) : (
-                    <p>
-                      {words(
-                        "在采集器打开的网页中进入「我的」，点击「绑定账号」。",
-                        "In the page opened by your collector, choose My profile → Link account.",
-                      )}
-                    </p>
-                  )}
-                </>
-              )}
-              <p role="status" data-link-status>
-                {linkStatus}
-              </p>
-            </section>
-            <p className="note">
-              {words(
-                "贡献榜只公开你选择的昵称与统计数字，不展示 Google 账号信息。随时取消勾选即可退出榜单。",
-                "Only your chosen nickname and statistics appear publicly. Google account details are never shown. Uncheck the option above to leave the board.",
-              )}
-            </p>
-            {!local && <SecurityPanel {...access} profile={profile} />}
-            <div className="account-actions">
-              <SiteLink className="btn" href="/contributors">
-                {words("查看采集贡献榜", "View contributors")} →
+                  )
+                ) : (
+                  <>
+                    {link ? (
+                      <>
+                        <Button
+                          variant="primary"
+                          data-claim
+                          disabled={busy}
+                          onClick={() => void action("claim")}
+                        >
+                          {words(
+                            "确认绑定这台采集器",
+                            "Confirm linking this collector",
+                          )}
+                        </Button>
+                        <p className="note">
+                          {words(
+                            "绑定后，这台采集器以往和今后的贡献都会计入你的账号。",
+                            "This collector’s past and future contributions will belong to your account.",
+                          )}
+                        </p>
+                      </>
+                    ) : (
+                      <p>
+                        {words(
+                          "在采集器打开的网页中进入「我的」，点击「绑定账号」。",
+                          "In the page opened by your collector, choose My profile → Link account.",
+                        )}
+                      </p>
+                    )}
+                  </>
+                )}
+                <p role="status" data-link-status>
+                  {linkStatus}
+                </p>
+              </AccountSetting>
+              {!local && <SecurityPanel {...access} profile={profile} />}
+            </div>
+            <div className="account-footer">
+              <SiteLink href="/privacy">
+                {words("账号隐私说明", "Account privacy")}
               </SiteLink>
               {!local && (
                 <button
