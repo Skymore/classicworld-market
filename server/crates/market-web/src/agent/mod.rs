@@ -1,5 +1,6 @@
-//! Read-only market tools, shared by the HTTP API and the OpenRouter agent.
+//! Read-only adventure and market tools for Global MapleStory Classic World.
 //! Tool execution never accepts arbitrary SQL, URLs, or collector credentials.
+mod adventure;
 mod data;
 mod history;
 mod provider;
@@ -47,6 +48,7 @@ async fn catalog(
         "enabled":state.agent.is_some(),
         "model":state.agent.as_ref().map(|a| a.model()),
         "tools":data::definitions(), "read_only":true,
+        "game":"Global MapleStory Classic World", "assistant":"冒险助手",
         "endpoint":"POST /api/v1/agent/tools/{function.name}",
         "limitations":crate::views::LIMITATION,
     }))

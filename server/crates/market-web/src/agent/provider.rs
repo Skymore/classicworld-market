@@ -7,7 +7,11 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore, TryAcquireError};
 
 type Failure = (StatusCode, &'static str);
 const ENDPOINT: &str = "https://openrouter.ai/api/v1/chat/completions";
-const SYSTEM: &str = r#"You are 枫叶市集's Classic World market assistant. Help people buy, sell, price items, compare offers and understand market activity.
+const SYSTEM: &str = r#"You are 枫叶市集's 冒险助手 (Adventure assistant) for GLOBAL MAPLESTORY CLASSIC WORLD / 冒险岛经典世界国际服. Help with jobs, skills, AP/SP planning, leveling, monsters, maps, NPCs, quests, drops, equipment progression AND buying/selling. A gameplay question is fully in scope: never redirect it to market questions.
+The edition is already known. Do not ask the user which server/version they mean by default. This is Nexon's Global Classic World, not modern GMS, an old 2005/v83 guide, CMS/TMS Classic, MapleStory Worlds/Artale/MapleLand, or a private server. Do not import skills, prerequisites, damage formulas, third-job access or builds from those editions. Earlier assistant history can be wrong: recheck and explicitly correct it when contradicted by tools; do not defend or repeat it.
+For gameplay facts call get_game_rules and the relevant gameplay tools in this turn. For EVERY skill/build/AP/SP question call get_skills with the resolved class/name before giving numeric ranks, prerequisites, effects or ordering. The export has beginner/1st/2nd jobs; archived CoT2 content is not evidence of a live feature. Use skill English names to disambiguate translated names. Hunter uses bows; Crossbowman uses crossbows. If the user only says 二转弓手, explain/clarify the branch before prescribing a full build. If they explicitly say Hunter/猎人, do not ask that again.
+Skill facts and build advice are different: check actual max ranks, prerequisite chains and available SP/level; never say to max everything without a feasible SP budget. Give a useful initial suggested priority from the verified effects, label it 建议 rather than an official or proven optimal build, and ask for current level/existing SP only if needed for a personal point-by-point plan. Do not invent an unrecorded intermediate rank: query get_skills rank when needed. Example of the kind of mistake to avoid: Bow Booster and Final Attack have separate prerequisites; do not claim Booster unlocks Final Attack. Do not infer a mechanic from the skill's old name.
+For leveling, search_game_data kind=monster with an appropriate level band, compare HP/EXP and actual spawn maps, then use get_game_entity for map details. These are candidate routes, not measured best EXP/hour; consider attack range/element, hits to kill, potions and crowding. For quests/NPCs/maps search first to resolve names/IDs; preserve level/job/chain requirements and reward choice from get_game_entity. Unknown quest availability, later patches, event rules, crafting/citizenship specifics or hidden mechanics stay unknown; explain what evidence is missing and offer what can be verified, without guessing from another edition. The client export does not prove server-only rules or current availability. Cite the returned source URLs and snapshot date when version-sensitive. Chinese aliases are reference names, not official Global localization.
 Use the provided read-only tools for ALL market facts in the current turn, even if history contains earlier answers. Search names to resolve an item ID; never guess Classic World IDs. If an exact item name is ambiguous, clarify; if the user wants recommendations, compare valid candidates and recommend without requiring them to already know an item name.
 Equipment requests: extract slot, job and level into search_items filters. 弓手/弓箭手 means archer; 披风 means subcategory 披风, not an archer-only item name. Universal equipment is usable by archers. For '40-50弓手披风买什么', call search_items with subcategory='披风', job='archer', min_level=40, max_level=50 and empty query, then get_listings for 2-3 promising candidates. Respect a single character level as max_level. Explain which observed candidate to buy now, which to use later, price and where. Missing budget or attributes need not block an initial recommendation; label unknown attributes and ask one optional follow-up after giving evidence. Do not assume all capes add DEX or attack: actual equipment attributes must come from tools.
 Some catalogue items have no recorded job restriction. search_items includes them as unknown_verify_in_game: they are candidates to compare, not proof of universal eligibility. Mention the missing restriction once and ask the player to check it in game; do not discard all candidates or say no equipment exists. If a filtered search is empty, try removing the job filter or broadening the level range yourself before concluding there is no observed option; explain any relaxed requirement.
@@ -122,7 +126,7 @@ impl OpenRouter {
             .client
             .post(&self.endpoint)
             .bearer_auth(&self.key)
-            .header("X-Title", "ClassicWorld Market")
+            .header("X-Title", "ClassicWorld Adventure Assistant")
             .json(&payload)
             .send()
             .await
@@ -287,6 +291,15 @@ impl OpenRouter {
                 };
                 // Sources come only from executed, validated tools, never from model claims.
                 if result.get("error").is_none() {
+                    if let Some(urls) = result["source_urls"].as_array() {
+                        for url in urls
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .filter(|url| super::adventure::trusted_source(url))
+                        {
+                            sources.insert(url.to_owned());
+                        }
+                    }
                     if let Some(id) = args.as_ref().and_then(|a| a["item_id"].as_i64()) {
                         sources.insert(format!("/item/{id}"));
                     }
@@ -339,7 +352,10 @@ fn text_tool_calls(text: &str) -> Option<Vec<Value>> {
             if args.contains_key(key) {
                 return None;
             }
-            let value = if matches!(key, "query" | "sort" | "job" | "subcategory") {
+            let value = if matches!(
+                key,
+                "query" | "sort" | "job" | "subcategory" | "kind" | "class_name"
+            ) {
                 json!(value.trim())
             } else {
                 serde_json::from_str(value.trim()).ok()?

@@ -165,18 +165,21 @@ function errorText(code: string, en: boolean) {
       : "回复未完成，请稍后重试。")
   );
 }
+const evidenceUrl = (url: string) =>
+  /^\/(?:item\/\d+|mob\/\d+|map\/\d+|prices)$/.test(url) ||
+  /^https:\/\/github\.com\/ohmi69\/osms_datamine_dashboard\/blob\/63db09449642c4bf3414276223e4cb7d72af02d9\/data\/current\/(?:skills|quests|maps|monsters)\.json$/.test(url);
 function RichText({ value }: { value: string }) {
   const tokens = value.split(
-    /(\[[^\]\n]{1,160}\]\(\s*\/(?:item\/\d+|map\/\d+|prices)\s*\)|\*\*[^*\n]+\*\*)/g,
+    /(\[[^\]\n]{1,160}\]\(\s*[^\s)]{1,500}\s*\)|\*\*[^*\n]+\*\*)/g,
   );
   return (
     <>
       {tokens.map((part, i) => {
         const link = part.match(
-          /^\[([^\]]+)\]\(\s*(\/(?:item\/\d+|map\/\d+|prices))\s*\)$/,
+          /^\[([^\]]+)\]\(\s*([^\s)]+)\s*\)$/,
         );
-        return link ? (
-          <a key={i} href={link[2]}>
+        return link && evidenceUrl(link[2]) ? (
+          <a key={i} href={link[2]} target={link[2].startsWith("https:") ? "_blank" : undefined} rel="noopener noreferrer">
             {link[1]}
           </a>
         ) : part.startsWith("**") && part.endsWith("**") ? (
@@ -286,7 +289,7 @@ function Assistant({ account }: { account: Account }) {
   return (
     <section className="chat-shell" data-agent-chat>
       <header className="stall-bar chat-top">
-        <h1>{words("市场助手", "Market assistant")}</h1>
+        <h1>{words("冒险助手", "Adventure assistant")}</h1>
         <span className="chat-model">GPT-6 Luna</span>
         <button
           className="chat-history-toggle"
@@ -718,6 +721,10 @@ function ChatPane({
     }
   }
   const labels: Record<string, string> = {
+    get_game_rules: words("核对国际服版本", "Checking the game edition"),
+    get_skills: words("查阅职业技能", "Checking class skills"),
+    search_game_data: words("搜索冒险资料", "Searching game data"),
+    get_game_entity: words("核对图鉴详情", "Checking game details"),
     search_items: words("筛选物品", "Searching items"),
     get_listings: words("查询摊位报价", "Checking offers"),
     get_item: words("核对物品资料", "Checking item data"),
@@ -759,18 +766,20 @@ function ChatPane({
           <div className="chat-welcome">
             <h2>
               {words(
-                "今天想买什么、卖什么？",
-                "What would you like to buy or sell?",
+                "今天的冒险，需要什么帮助？",
+                "What can I help with on your adventure?",
               )}
             </h2>
             <p>
               {words(
-                "我会查市场报价、摊位位置和近期成交。",
-                "I can look up prices, shop locations and recent sales.",
+                "面向冒险岛经典世界国际服，帮你查职业技能、练级地图、任务、装备和交易。",
+                "For Global MapleStory Classic World: skills, training maps, quests, equipment and trading.",
               )}
             </p>
             <div className="chat-examples">
               {[
+                words("猎人二转技能怎么加？", "How should I build my Hunter's second-job skills?"),
+                words("35级猎人去哪里练级？", "Where can a level 35 Hunter train?"),
                 words(
                   "我要买40-50弓手披风，买什么？",
                   "Which cape should a level 40–50 archer buy?",
@@ -805,7 +814,7 @@ function ChatPane({
               <div className="chat-message-label">
                 {message.role === "user"
                   ? words("你", "You")
-                  : words("市场助手", "Assistant")}
+                  : words("冒险助手", "Adventure assistant")}
               </div>
               <div className="chat-answer">
                 <RichText value={value} />
@@ -837,12 +846,14 @@ function ChatPane({
               {meta?.sources?.length ? (
                 <div className="chat-sources">
                   {meta.sources
-                    .filter((s) => /^\/(?:item\/\d+|map\/\d+|prices)$/.test(s))
+                    .filter(evidenceUrl)
                     .map((s) => (
-                      <a key={s} href={s}>
+                      <a key={s} href={s} target={s.startsWith("https:") ? "_blank" : undefined} rel="noopener noreferrer">
                         {s === "/prices"
                           ? words("市场行情", "Market")
-                          : words("物品 ", "Item ") + s.split("/").at(-1)}
+                          : s.startsWith("https:")
+                            ? words("客户端资料 · ", "Client data · ") + ({"skills.json": words("技能", "Skills"), "quests.json": words("任务", "Quests"), "maps.json": words("地图 / NPC", "Maps / NPCs"), "monsters.json": words("怪物", "Monsters")}[s.split("/").at(-1) || ""] || "")
+                            : words(s.startsWith("/mob/") ? "怪物 " : s.startsWith("/map/") ? "地图 " : "物品 ", s.startsWith("/mob/") ? "Monster " : s.startsWith("/map/") ? "Map " : "Item ") + s.split("/").at(-1)}
                       </a>
                     ))}
                 </div>
@@ -912,7 +923,7 @@ function ChatPane({
       ) : null}
       <form className="chat-composer" onSubmit={send}>
         <label htmlFor="chat-input" className="sr">
-          {words("你的市场问题", "Your market question")}
+          {words("你的冒险问题", "Your adventure question")}
         </label>
         <textarea
           id="chat-input"
@@ -933,8 +944,8 @@ function ChatPane({
             }
           }}
           placeholder={words(
-            "说说你想买什么、卖什么…",
-            "Tell me what you want to buy or sell…",
+            "问技能加点、练级、任务，或买卖装备…",
+            "Ask about skills, training, quests or trading…",
           )}
         />
         {busy ? (
@@ -964,8 +975,8 @@ function ChatPane({
               "Temporary chat. Sign in to save history.",
             )}{" "}
         {words(
-          "报价来自已采集数据，请在游戏中核对。",
-          "Check observed offers in game.",
+          "资料会标注来源版本；报价来自已采集数据，请在游戏中核对。",
+          "Sources have snapshot dates; check observed offers in game.",
         )}
       </p>
     </div>

@@ -28,7 +28,7 @@ pub fn definitions() -> Value {
         "name":name,"description":description,"strict":false,"parameters":{"type":"object",
         "properties":properties,"required":required,"additionalProperties":false}}})
     };
-    json!([
+    let mut tools = json!([
         def("search_items", "Search item names/IDs OR recommend equipment using structured filters. Put ONLY item name keywords in query, not job/level requirements. Example: 40-50级弓手披风 -> query:'', subcategory:'披风', job:'archer', min_level:40, max_level:50. Universal equipment is included for each job. Returns at most 12 candidates, requirements and observed market prices; compare these candidates instead of asking users to choose just because several valid options exist.",
             json!({"query":{"type":"string","maxLength":100,"default":"","description":"Item name keywords or item ID only. For a named material such as 铁矿石, set query and leave ALL equipment filters null."},
                 "subcategory":{"type":"string","maxLength":30,"description":"Equipment slot in Chinese, e.g. 披风, 手套, 鞋子, 弓, 弩"},
@@ -45,7 +45,12 @@ pub fn definitions() -> Value {
             json!({"item_id":id,"hours":hours}), json!(["item_id"])),
         def("get_market_overview", "Market overview and observed item activity, sorted by recent sale evidence (active) or 24h price drops (falling). Does not know the user's bag.",
             json!({"limit":limit,"sort":{"type":"string","enum":["active","falling"],"default":"active"}}), json!([])),
-    ])
+    ]);
+    tools
+        .as_array_mut()
+        .unwrap()
+        .extend(super::adventure::definitions());
+    tools
 }
 
 #[derive(Deserialize)]
@@ -103,6 +108,7 @@ pub struct Overview {
     sort: Option<String>,
 }
 pub enum Args {
+    Adventure(super::adventure::Request),
     Search(Search),
     Item(Item),
     Listings(Listings),
@@ -117,6 +123,9 @@ pub fn parse(name: &str, args: Value) -> Result<Args, &'static str> {
     let limit = |n| (1..=20).contains(&n);
     let hours = |n| (1..=720).contains(&n);
     match name {
+        "get_game_rules" | "get_skills" | "search_game_data" | "get_game_entity" => {
+            super::adventure::parse(name, args).map(Args::Adventure)
+        }
         "search_items" => {
             let a: Search = serde_json::from_value(args).map_err(|_| invalid)?;
             if a.query.chars().count() > 100
@@ -183,6 +192,12 @@ pub fn parse(name: &str, args: Value) -> Result<Args, &'static str> {
 pub async fn run(db: &PgPool, args: Args) -> sqlx::Result<Value> {
     let now = unix_now();
     let mut value = match args {
+        Args::Adventure(a) => {
+            let mut value = super::adventure::run(a);
+            super::adventure::supplement(db, &mut value).await?;
+            value["generated_at"] = json!(now);
+            return Ok(value);
+        }
         Args::Search(a) => search(db, a).await?,
         Args::Item(a) => item(db, a.item_id).await?,
         Args::Listings(a) => {
@@ -342,8 +357,18 @@ async fn item(db: &PgPool, id: i32) -> sqlx::Result<Value> {
                 })
         })
         .cloned();
+    let droppers: Vec<Value> = sqlx::query_scalar(
+        "SELECT to_jsonb(x) FROM (SELECT m.id AS mob_id,m.name_en,m.name_zh,m.level,
+         d.rate_pct,d.quest_id,d.source FROM drops d JOIN mobs m ON m.id=d.mob_id
+         WHERE d.item_id=$1 AND m.name_en !~* '^test([[:space:]]|[(]|$)'
+         ORDER BY m.level,m.id LIMIT 12) x",
+    )
+    .bind(id)
+    .fetch_all(db)
+    .await?;
     Ok(
         json!({"item":row,"npc_offers":offers,"npc_resale_reference":resale,
+        "drop_reference":{"monsters":droppers,"provenance":"Imported Mapledex catalogue includes CoT2 reference data. Drop rates/availability are not verified for the live launch. Quest-only drops must not be treated as ordinary drops."},
         "item_url":format!("/item/{id}"),"unit_basis":crate::external::unit(id)}),
     )
 }

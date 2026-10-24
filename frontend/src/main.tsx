@@ -115,7 +115,7 @@ function Application() {
     account: words("我的", "My profile"),
     privacy: words("账号隐私说明", "Account privacy"),
     contributors: words("采集贡献榜", "Contributors"),
-    agent: words("市场助手", "Market assistant"),
+    agent: words("冒险助手", "Adventure assistant"),
     collect: words("屏幕采集", "Screen collector"),
     web: words("下载采集器与使用说明", "Download collector"),
     search: words("搜索", "Search"),

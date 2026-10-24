@@ -1,0 +1,357 @@
+//! Bounded read-only access to a pinned Global Classic World client export.
+//! No runtime URL fetching, model-authored rules, or arbitrary database queries.
+use serde::Deserialize;
+use serde_json::{json, Value};
+use std::sync::OnceLock;
+
+fn data() -> &'static Value {
+    static DATA: OnceLock<Value> = OnceLock::new();
+    DATA.get_or_init(|| {
+        serde_json::from_str(include_str!("adventure-data.json"))
+            .expect("validated gameplay snapshot")
+    })
+}
+
+pub fn definitions() -> Vec<Value> {
+    let def = |name, description, properties, required| {
+        json!({"type":"function","function":{
+        "name":name,"description":description,"strict":false,"parameters":{"type":"object","properties":properties,"required":required,"additionalProperties":false}}})
+    };
+    let query = json!({"type":"string","maxLength":100,"default":"","description":"Entity or skill name keywords in English or Chinese. Use English if no Chinese match. Do not put a whole question here."});
+    let level = json!({"type":["integer","null"],"minimum":0,"maximum":250,"default":null});
+    let kind = json!({"type":"string","enum":["monster","map","npc","quest"]});
+    vec![
+        def("get_game_rules", "Identify our game edition, available classes, dataset date and limitations. Use for version, job advancement and general gameplay context; not market prices.", json!({}), json!([])),
+        def("get_skills", "Look up Global Classic World skill mechanics, prerequisites and ranks. REQUIRED before skill/AP/SP/build advice. Returns all skills for an exact class, or matching names. class_name: Beginner, Warrior, Fighter, Page, Spearman, Magician, F/P Wizard, I/L Wizard, Cleric, Archer, Hunter, Crossbowman, Rogue, Assassin, Bandit. Hunter is bow; Crossbowman is crossbow. Rank is optional; omitted returns first/max effects, not every intermediate rank. The data is not a recommended build.",
+            json!({"query":query,"class_name":{"type":["string","null"],"maxLength":40,"default":null},"rank":{"type":["integer","null"],"minimum":1,"maximum":30,"default":null}}), json!([])),
+        def("search_game_data", "Search Classic World monsters, maps, NPCs or quests. For training, kind=monster with a suitable level range and empty query: returns HP, EXP and spawn maps, sorted by EXP/HP (a theoretical comparison, not measured EXP/hour). For quests use name keywords, not a whole question. Returns at most 12; read details with get_game_entity. Not player inventory or live server status.",
+            json!({"kind":kind,"query":query,"min_level":level,"max_level":level}), json!(["kind"])),
+        def("get_game_entity", "Read a resolved Classic World monster/map/NPC/quest ID from search_game_data: stats and spawn maps, map monsters/exits/NPCs, NPC locations, or quest requirements and rewards. Use IDs from tools, never from modern GMS memory. Sources have explicit snapshot dates.",
+            json!({"kind":kind,"id":{"type":"integer","minimum":0,"maximum":999999999}}), json!(["kind","id"])),
+    ]
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Skills {
+    #[serde(default)]
+    query: String,
+    class_name: Option<String>,
+    rank: Option<usize>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Search {
+    kind: String,
+    #[serde(default)]
+    query: String,
+    min_level: Option<i64>,
+    max_level: Option<i64>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Entity {
+    kind: String,
+    id: i64,
+}
+pub enum Request {
+    Rules,
+    Skills(Skills),
+    Search(Search),
+    Entity(Entity),
+}
+fn valid_kind(s: &str) -> bool {
+    matches!(s, "monster" | "map" | "npc" | "quest")
+}
+fn classes() -> Vec<String> {
+    let mut result = data()["skill"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|s| s["class_name"].as_str().map(str::to_owned))
+        .collect::<Vec<_>>();
+    result.sort();
+    result.dedup();
+    result
+}
+fn class_alias(s: &str) -> &str {
+    match s.trim() {
+        "初心者" | "新手" => "Beginner",
+        "战士" => "Warrior",
+        "剑客" => "Fighter",
+        "准骑士" => "Page",
+        "枪战士" => "Spearman",
+        "魔法师" | "法师" => "Magician",
+        "火毒" | "火毒法师" => "F/P Wizard",
+        "冰雷" | "冰雷法师" => "I/L Wizard",
+        "牧师" => "Cleric",
+        "弓箭手" | "弓手" => "Archer",
+        "猎人" => "Hunter",
+        "弩弓手" | "弩手" => "Crossbowman",
+        "飞侠" => "Rogue",
+        "刺客" => "Assassin",
+        "侠客" => "Bandit",
+        _ => s.trim(),
+    }
+}
+pub fn parse(name: &str, args: Value) -> Result<Request, &'static str> {
+    let bad = "invalid_tool_arguments";
+    Ok(match name {
+        "get_game_rules" if args.as_object().is_some_and(|o| o.is_empty()) => Request::Rules,
+        "get_skills" => {
+            let mut s: Skills = serde_json::from_value(args).map_err(|_| bad)?;
+            if let Some(c) = &s.class_name {
+                s.class_name = Some(class_alias(c).to_owned());
+            }
+            if s.query.chars().count() > 100
+                || s.rank.is_some_and(|r| !(1..=30).contains(&r))
+                || s.class_name
+                    .as_ref()
+                    .is_some_and(|c| !classes().iter().any(|v| v.eq_ignore_ascii_case(c)))
+                || (s.query.trim().is_empty() && s.class_name.is_none())
+            {
+                return Err(bad);
+            }
+            Request::Skills(s)
+        }
+        "search_game_data" => {
+            let s: Search = serde_json::from_value(args).map_err(|_| bad)?;
+            if !valid_kind(&s.kind)
+                || s.query.chars().count() > 100
+                || s.min_level.is_some_and(|n| !(0..=250).contains(&n))
+                || s.max_level.is_some_and(|n| !(0..=250).contains(&n))
+                || s.min_level.zip(s.max_level).is_some_and(|(a, b)| a > b)
+                || (s.query.trim().is_empty() && s.min_level.is_none() && s.max_level.is_none())
+                || (!matches!(s.kind.as_str(), "monster" | "quest")
+                    && (s.min_level.is_some() || s.max_level.is_some()))
+            {
+                return Err(bad);
+            }
+            Request::Search(s)
+        }
+        "get_game_entity" => {
+            let s: Entity = serde_json::from_value(args).map_err(|_| bad)?;
+            if !valid_kind(&s.kind) || !(0..=999_999_999).contains(&s.id) {
+                return Err(bad);
+            }
+            Request::Entity(s)
+        }
+        _ => return Err("unknown_tool"),
+    })
+}
+
+fn normalized(s: &str) -> String {
+    s.chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+fn matches(row: &Value, query: &str) -> bool {
+    let searchable = [
+        "id",
+        "name",
+        "aliases",
+        "npc_name",
+        "region",
+        "parent",
+        "street_name",
+    ]
+    .iter()
+    .map(|k| row[*k].to_string())
+    .collect::<String>();
+    let searchable = normalized(&searchable);
+    query
+        .split_whitespace()
+        .all(|term| searchable.contains(&normalized(term)))
+}
+fn envelope(kind: &str, value: Value) -> Value {
+    let mut value = value;
+    value["game"] = data()["provenance"].clone();
+    value["source_urls"] = json!([data()["provenance"]["sources"][kind]]);
+    value
+}
+fn id(row: &Value) -> Option<i64> {
+    row["id"]
+        .as_i64()
+        .or_else(|| row["id"].as_str()?.parse().ok())
+}
+pub fn run(request: Request) -> Value {
+    match request {
+        Request::Rules => envelope(
+            "skill",
+            json!({"classes":classes(),"scope":"冒险助手 / Adventure assistant: jobs, skills, AP/SP planning, leveling, maps, quests, drops, equipment, crafting/citizenship questions and the market. Default game is Global MapleStory Classic World. Other editions require explicit comparison and separate sources.","limits":["This export contains beginner, first and second jobs only. Do not treat archived CoT2 third-job content or modern GMS, Artale, MapleLand, CMS/TMS or private-server rules as this live edition.","Skill prerequisites/effects are facts; recommended build order is advice. Check rank caps and prerequisites before recommending SP. Do not claim an exact optimal build or measured EXP/hour from this data.","Map spawn counts are client spawn points, not simultaneous live monsters. Client quests may include unavailable server content. Quest chain prerequisites, job/level restrictions and reward choice must be preserved.","Unknown or later changes require current official notes or in-game verification. No inventory, current character build, live event calendar or server-only crafting/citizenship rules are available unless the user supplies them."]}),
+        ),
+        Request::Skills(s) => {
+            let mut rows: Vec<Value> = data()["skill"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|r| {
+                    s.class_name.as_ref().is_none_or(|c| {
+                        r["class_name"]
+                            .as_str()
+                            .is_some_and(|n| n.eq_ignore_ascii_case(c))
+                    })
+                })
+                .filter(|r| matches(r, &s.query))
+                .cloned()
+                .collect();
+            let total = rows.len();
+            rows.truncate(12);
+            for row in &mut rows {
+                let levels = row
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("all_level_stats")
+                    .unwrap_or(json!([]));
+                row["rank_1_effect"] = levels[0].clone();
+                row["max_rank_effect"] = levels
+                    .as_array()
+                    .and_then(|v| v.last())
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                if let Some(rank) = s.rank {
+                    row["requested_rank"] = json!(rank);
+                    row["requested_rank_effect"] =
+                        levels.get(rank - 1).cloned().unwrap_or(Value::Null);
+                    if row["requested_rank_effect"].is_null() {
+                        row["rank_note"] =
+                            json!("No recorded row at this rank. Do not extrapolate.");
+                    }
+                }
+            }
+            envelope(
+                "skill",
+                json!({"skills":rows,"total_matches":total,"truncated":total>12,"build_note":"No authoritative SP allocation or character's existing skill levels provided. Offer a reasoned, explicitly suggested path from these prerequisites, not a universal official build. For incomplete evidence say what is missing.","class_names":classes()}),
+            )
+        }
+        Request::Search(s) => {
+            let mut rows = data()[&s.kind]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|r| matches(r, &s.query))
+                .filter(|r| {
+                    let n = r[if s.kind == "quest" {
+                        "level_min"
+                    } else {
+                        "level"
+                    }]
+                    .as_i64();
+                    s.min_level.is_none_or(|lo| n.is_some_and(|n| n >= lo))
+                        && s.max_level.is_none_or(|hi| n.is_some_and(|n| n <= hi))
+                })
+                .filter(|r| {
+                    s.kind != "monster"
+                        || !s.query.trim().is_empty()
+                        || (!r["boss"].as_bool().unwrap_or(false)
+                            && !r["is_boss"].as_bool().unwrap_or(false)
+                            && !r["name"].as_str().unwrap_or("").starts_with("Tutorial"))
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            if s.kind == "monster" {
+                rows.sort_by(|a, b| {
+                    let score = |r: &Value| {
+                        r["exp"].as_f64().unwrap_or(0.) / r["hp"].as_f64().unwrap_or(1.).max(1.)
+                    };
+                    score(b).total_cmp(&score(a))
+                });
+            }
+            let total = rows.len();
+            rows.truncate(12);
+            for row in &mut rows {
+                for field in ["requirements_list", "rewards", "npc_positions"] {
+                    row.as_object_mut().unwrap().remove(field);
+                }
+            }
+            envelope(
+                &s.kind,
+                json!({"kind":s.kind,"results":rows,"total_matches":total,"truncated":total>12,"note":"Search results are snapshot candidates. Read details for requirements, quest chains and locations. Empty Chinese results: try the English name. EXP/HP does not account for travel, misses, attack speed, crowding, respawn or potion costs."}),
+            )
+        }
+        Request::Entity(s) => {
+            let row = data()[&s.kind]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|r| id(r) == Some(s.id));
+            envelope(
+                &s.kind,
+                json!({"kind":s.kind,"entity":row,"found":row.is_some()}),
+            )
+        }
+    }
+}
+
+pub fn trusted_source(url: &str) -> bool {
+    data()["provenance"]["sources"]
+        .as_object()
+        .unwrap()
+        .values()
+        .any(|v| v.as_str() == Some(url))
+}
+
+/// Drop chances are server data, absent from the client. Keep the older
+/// catalogue clearly separate rather than pretending it is launch evidence.
+pub async fn supplement(db: &sqlx::PgPool, value: &mut Value) -> sqlx::Result<()> {
+    if value["kind"] != "monster" {
+        return Ok(());
+    }
+    let Some(id) = value["entity"]["id"].as_i64() else {
+        return Ok(());
+    };
+    let drops: Vec<Value> = sqlx::query_scalar(
+        "SELECT to_jsonb(x) FROM (SELECT d.item_id,COALESCE(i.name_en,d.name_en) AS name_en,
+         COALESCE(i.name_zh,d.name_zh) AS name_zh,d.rate_pct,d.quest_id,d.source,
+         d.meso_min,d.meso_max FROM drops d LEFT JOIN items i ON i.id=d.item_id
+         WHERE d.mob_id=$1 ORDER BY d.ord LIMIT 20) x",
+    )
+    .bind(id as i32)
+    .fetch_all(db)
+    .await?;
+    value["drop_reference"] = json!({"drops":drops,"limit":20,
+        "provenance":"Imported Mapledex catalogue; includes CW GMS_COT2_2026-08-11 reference data, not verified live server drops. Rates/availability are unconfirmed for the launch. Quest-only drops have quest_id; do not recommend farming them as ordinary drops.",
+        "note":"Current client stats above and legacy server-drop references below have different provenance. Do not call these guaranteed or current drop rates."});
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn launch_skills_do_not_mix_prerequisites_or_old_final_attack() {
+        let r = run(parse("get_skills", json!({"class_name":"猎人"})).unwrap());
+        let rows = r["skills"].as_array().unwrap();
+        let find = |name| rows.iter().find(|r| r["name"] == name).unwrap();
+        assert_eq!(find("Bow Booster")["required_skill"], "Bow Mastery Lv.5");
+        assert_eq!(
+            find("Soul Arrow: Bow")["required_skill"],
+            "Bow Booster Lv.5"
+        );
+        assert_eq!(
+            find("Final Attack: Bow")["required_skill"],
+            "Bow Mastery Lv.3"
+        );
+        assert!(find("Final Attack: Bow")["description"]
+            .as_str()
+            .unwrap()
+            .contains("60 sec"));
+        assert!(rows.iter().any(|r| r["name"] == "Amazon's Judgement"));
+        assert!(!rows.iter().any(|r| r["name"] == "Power Knockback"));
+        assert!(parse("get_skills", json!({"class_name":"Ranger"})).is_err());
+        assert!(parse(
+            "get_game_entity",
+            json!({"kind":"quest","id":1,"url":"https://example.com"})
+        )
+        .is_err());
+        assert!(!trusted_source("https://github.com.evil.test/"));
+        let r = run(parse(
+            "get_skills",
+            json!({"class_name":"Hunter","query":"Bow Booster","rank":30}),
+        )
+        .unwrap());
+        assert!(r["skills"][0]["requested_rank_effect"].is_null());
+        assert!(!r["skills"][0]["rank_note"].is_null());
+    }
+}

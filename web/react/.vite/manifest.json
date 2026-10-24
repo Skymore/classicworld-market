@@ -38,8 +38,8 @@
       "_shared-DySnB1BT.js"
     ]
   },
-  "_main-CYyZrDH6.js": {
-    "file": "chunks/main-CYyZrDH6.js",
+  "_main-Bk0bhEBa.js": {
+    "file": "chunks/main-Bk0bhEBa.js",
     "name": "main",
     "imports": [
       "_shared-DySnB1BT.js",
@@ -103,7 +103,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CYyZrDH6.js"
+      "_main-Bk0bhEBa.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -117,7 +117,7 @@
     ]
   },
   "src/pages/agent.tsx": {
-    "file": "chunks/agent-DlOaOrZV.js",
+    "file": "chunks/agent-US1R9rUm.js",
     "name": "agent",
     "src": "src/pages/agent.tsx",
     "isDynamicEntry": true,
@@ -245,7 +245,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CYyZrDH6.js"
+      "_main-Bk0bhEBa.js"
     ]
   },
   "style.css": {
