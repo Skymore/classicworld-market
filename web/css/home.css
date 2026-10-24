@@ -34,3 +34,10 @@ html[data-page=home] .dhead .fresh{margin-left:auto}
 .stall-bar>.bar-meta+.period-inline{margin-left:4px}
 .period-inline select{min-height:32px;padding:3px 7px;font-size:12px;color:var(--bar-ink);background:transparent;border-color:currentColor;cursor:pointer}
 .period-inline option{color:var(--ink);background:var(--sheet)}
+
+/* Keep shortcut descriptions on one line, including narrow phones. */
+.hero .portal small{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:360px){
+  .hero .portal{padding-inline:6px}
+  .hero .portal small{font-size:10px}
+}

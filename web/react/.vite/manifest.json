@@ -47,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-B2-HKkvc.js": {
-    "file": "chunks/main-B2-HKkvc.js",
+  "_main-jDeoKJYb.js": {
+    "file": "chunks/main-jDeoKJYb.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -119,7 +119,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-B2-HKkvc.js"
+      "_main-jDeoKJYb.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -200,7 +200,7 @@
     ]
   },
   "src/pages/home.tsx": {
-    "file": "chunks/home-GqOnsck5.js",
+    "file": "chunks/home-BUIQ0F_C.js",
     "name": "home",
     "src": "src/pages/home.tsx",
     "isDynamicEntry": true,
@@ -266,7 +266,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-B2-HKkvc.js"
+      "_main-jDeoKJYb.js"
     ]
   },
   "style.css": {

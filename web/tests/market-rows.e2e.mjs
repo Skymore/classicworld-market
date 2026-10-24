@@ -49,6 +49,15 @@ try {
       page.on('pageerror', error => errors.push(error.message));
       await page.addInitScript(({ lang, width }) => { localStorage.setItem('lang', lang); localStorage.setItem('theme', width === 375 ? 'dark' : 'light'); }, { lang, width });
       await page.goto(`${origin}/?lang=${lang}&hours=all`);
+      const descriptions=page.locator('.hero .portal small');
+      await descriptions.first().waitFor();
+      for(const description of await descriptions.all()) {
+        const layout=await description.evaluate(node=>{const s=getComputedStyle(node);return {nowrap:s.whiteSpace,height:node.getBoundingClientRect().height,lineHeight:parseFloat(s.lineHeight),fits:node.scrollWidth<=node.clientWidth};});
+        assert.equal(layout.nowrap,'nowrap','shortcut descriptions never wrap');
+        assert(layout.height<=layout.lineHeight+1,'shortcut description occupies one line');
+        if(lang==='zh') assert(layout.fits,'complete Chinese shortcut descriptions fit even on narrow phones');
+      }
+      assert.equal(await page.locator('.hero [data-count=mobs]').textContent(),lang==='zh'?'物品·怪物·地图':'Items · Mobs · Maps');
       const sold = page.locator('[data-pane=recent] .market-record');
       await sold.waitFor();
       assert.match(await sold.locator('.name-primary .evi').textContent(), /×2/);
