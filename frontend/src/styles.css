@@ -407,6 +407,10 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
 
 /* The same record layout on home, watched offers and sales. */
 .ware.market-record {
+  --record-name-size: 14px;
+  --record-price-size: 18px;
+  --record-small-size: 12px;
+  --record-attribute-size: 11px;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
   align-items: start;
@@ -430,7 +434,7 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
   flex-wrap: wrap;
   gap: 4px 8px;
   margin-top: 4px;
-  font-size: 12px;
+  font-size: var(--record-small-size);
   line-height: 20px;
   color: var(--ink-3);
 }
@@ -441,20 +445,20 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
 }
 .market-record .ware-price {
   color: var(--ink);
-  font-size: 14px;
+  font-size: var(--record-price-size);
 }
 .market-record .offer-equipment {
   display: block;
   margin-top: 3px;
-  font-size: 11px;
+  font-size: var(--record-attribute-size);
   line-height: 1.4;
   color: var(--ink-3);
   overflow-wrap: anywhere;
 }
 .market-record .name-primary .evi {
-  height: 18px;
+  height: 20px;
   padding: 0 4px;
-  font-size: 10px;
+  font-size: var(--record-small-size);
 }
 .market-record:hover {
   background: var(--bar-soft);
@@ -469,10 +473,10 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
   min-width: 58px;
 }
 .market-record .record-value .ware-price {
-  font-size: 16px;
+  font-size: var(--record-price-size);
 }
 .market-record .record-value .record-stock {
-  font-size: 12px;
+  font-size: var(--record-small-size);
   color: var(--ink-3);
 }
 
@@ -524,7 +528,16 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
   white-space: nowrap;
 }
 .market-record .record-value .record-time {
-  font-size: 11px;
+  font-size: var(--record-small-size);
   line-height: 1.4;
   color: var(--ink-3);
+}
+
+.market-record .name-primary {
+  font-size: var(--record-name-size);
+}
+.market-record .name-secondary,
+.market-record .loc,
+.market-record .unit {
+  font-size: var(--record-small-size);
 }

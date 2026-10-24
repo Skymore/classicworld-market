@@ -337,19 +337,13 @@ export default function ItemPreview() {
                       </div>
                     ))}
                 </dl>
-                <p className="peek-note">
-                  {words(
-                    "具体摊位装备可能有随机或强化属性。",
-                    "Listed equipment may have rolled or upgraded stats.",
-                  )}
-                </p>
               </section>
             ) : (
               Math.floor(item.id / 1000000) === 1 && (
                 <p className="peek-note">
                   {words(
-                    "暂无图鉴基础属性，请在详情页核对具体装备。",
-                    "Base stats unavailable. Check individual equipment on the detail page.",
+                    "暂无基础属性",
+                    "Base stats unavailable",
                   )}
                 </p>
               )

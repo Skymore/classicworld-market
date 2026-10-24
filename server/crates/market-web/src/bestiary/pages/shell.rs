@@ -243,7 +243,7 @@ fn dock(ctx: &Ctx, active: Nav) -> Markup {
             @for (href, label, glyph, nav, key) in entries {
                 @let on = nav == Some(active);
                 a href=(nav_href(ctx, href)) class=[on.then_some("on")] aria-current=[on.then_some("page")] {
-                    (PreEscaped(icon(glyph)))
+                    span.dock-icon aria-hidden="true" { (PreEscaped(icon(glyph))) }
                     span { (label) }
                     span.badge data-badge=(key) hidden {}
                 }

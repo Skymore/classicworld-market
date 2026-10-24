@@ -255,12 +255,6 @@ export default function ItemTrend({ days }: { days: any[] }) {
           ))}
         </dl>
       </div>
-      <p className="fnote">
-        {words(
-          "移到图上或点日期查看精确值。日期按 UTC 日汇总，明细时间段按你的时区显示。",
-          "Hover or select a date for exact values. Days are grouped in UTC; the detailed time range uses your timezone.",
-        )}
-      </p>
       <div className="lg">
         <span>
           <i className="k-med" />

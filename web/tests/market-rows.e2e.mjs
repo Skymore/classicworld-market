@@ -89,6 +89,10 @@ try {
       await checkLayout(offers.first());
       assert.match(await offers.nth(2).locator('.offer-equipment').textContent(), /可升级 5|Upgrades left 5/);
       assert.equal(await offers.nth(2).locator('.offer-equipment').evaluate(node=>getComputedStyle(node).fontSize), '11px');
+      const sizes=await offers.first().evaluate(node=>Object.fromEntries(['.ware-price','.name-secondary','.record-time','.record-stock','.loc','.record-shop'].map(selector=>[selector,getComputedStyle(node.querySelector(selector)).fontSize])));
+      assert.equal(sizes['.ware-price'],'18px');
+      for(const [selector,size] of Object.entries(sizes)) if(selector!=='.ware-price') assert.equal(size,'12px',selector);
+
 
       if (screenshots) await page.screenshot({ path: path.join(screenshots, `quotes-${width}-${lang}.png`) });
       await page.locator('[data-nav-key=watch]:visible').click();
@@ -112,7 +116,7 @@ try {
         assert.equal(await row.locator('.record-value > .record-time').count(), 1);
         assert.equal(await row.locator('.record-shop').textContent(), 'First shop');
         assert.equal(await row.locator('.offer-equipment').count(), 0);
-        if(mode==='lastsale') assert.match(await row.locator('.name-primary .evi').textContent(), /已售|Sold/);
+        if(mode==='lastsale') assert.match(await row.locator('.name-primary .evi').textContent(), /已售|卖出|卖光|Sold/);
         if(width>=640) {
           const star=page.locator('.price-record-actions [data-star]').first();
           const before=await star.getAttribute('aria-pressed');

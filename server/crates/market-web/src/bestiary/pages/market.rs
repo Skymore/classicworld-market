@@ -395,7 +395,7 @@ fn listing_row(v: &View, l: &Listing) -> Markup {
                     div.tip { (variant_stats(v, variant)) }
 
                 } @else {
-                    p.note { (v.t("这条报价未采集到装备的实际属性，不能判断攻击力或强化情况。图鉴基础属性不能代表这件装备。", "Actual stats were not captured for this offer. Attack and upgrades are unknown; catalogue base stats do not describe this instance.")) }
+                    p.note { (v.t("暂无属性", "Stats unavailable")) }
                 }
                 p.fnote { (v.t("最近观察：", "Last observed: ")) time data-local-time=(l.seen_at.timestamp()) { (l.seen_at.format("%Y-%m-%d %H:%M UTC").to_string()) }
                     @if v.stale(l.seen_at) { " · " (v.t("已过期", "Outdated")) } }
@@ -616,7 +616,6 @@ fn ladder_pane(v: &View) -> Markup {
     let median = pick(stats.and_then(|s| s.typical));
     let max_stock = ladder.tiers.iter().map(|t| t.listings).max().unwrap_or(0);
     let max_count = ladder.grid.iter().flatten().copied().max().unwrap_or(0);
-    let labels = day_labels(v);
     let first = v.page.market.days.first().map(|d| d.date);
     html! {
         @for i in 0..ladder.tiers.len() {
@@ -624,9 +623,14 @@ fn ladder_pane(v: &View) -> Markup {
         }
         div.ladder {
             div.rung-h {
-                span.l { (v.t("挂牌条数", "listings")) }
+                span.l { (v.t("挂单", "Listed")) }
                 span.c { (v.t("价格", "price")) }
-                span.r { @for l in &labels { span { (l) } } }
+                span.r { @for day in &v.page.market.days {
+                    time datetime=(day.date.format("%Y-%m-%d")) title=(day.date.format("%Y-%m-%d")) data-ladder-date=(day.date.format("%Y-%m-%d")) {
+                        small { (day.date.format("%-m")) (v.t("月", "/")) }
+                        b { (day.date.format("%-d")) }
+                    }
+                } }
             }
             @for (i, tier) in ladder.tiers.iter().enumerate().rev() {
                 button.rung.sel[i == selected].med[median == Some(i)] type="button" data-tier=(i) aria-pressed=(i == selected) {
@@ -753,7 +757,6 @@ fn trend_pane(v: &View) -> Markup {
                     div { dt { (v.t("成交笔数", "Sales")) } dd data-trend-value="count" { "—" } }
                 }
             }
-            p.fnote { (v.t("移到图上或点日期查看精确值。日期按 UTC 日汇总，明细时间段按你的时区显示。", "Hover or select a date for exact values. Days are grouped in UTC; the detailed time range uses your timezone.")) }
             div.lg {
                 span { i.k-med {} (v.t("每日成交中位", "daily median")) }
                 span { i.k-span {} (v.t("最低–最高", "low–high")) }
@@ -798,17 +801,6 @@ fn sale_row(v: &View, s: &Sale, with_shop: bool, extra: bool) -> Markup {
     }
 }
 
-fn sale_note(v: &View) -> Markup {
-    html! {
-        p.sale-note {
-            (v.t(
-                "时间是发现时间，不是实际成交时间。发现已售 = 第一次看到时已经卖完；看到卖光 / 看到卖出 = 两次访问之间库存变成 0 / 变少。",
-                "Times are when a sale was found, not when it happened. Found sold = already sold out on first sight; seen sold out / seen sold = stock went to 0 / dropped between two visits.",
-            ))
-        }
-    }
-}
-
 fn sales_list(v: &View, with_shop: bool) -> Markup {
     let sales = &v.page.market.sales;
     html! {
@@ -829,7 +821,6 @@ fn sales_list(v: &View, with_shop: bool) -> Markup {
                     (PreEscaped(icon(Icon::Chev)))
                 }
             }
-            (sale_note(v))
         }
     }
 }
@@ -943,9 +934,6 @@ fn variant_stats(v: &View, variant: &Variant) -> Markup {
                                 @if let Some(left) = variant.remaining_upgrades {
                                     div.tip-s { (v.t("可升级次数：", "Upgrades available: ")) (left) }
                                 }
-                                @if variant.unknown_fields > 0 {
-                                    div.tip-s { (v.t("另有未识别字段", "has undecoded fields")) }
-                                }
 
         @if let Some(other) = name.secondary(v.ctx.lang) { div.tip-s { (other) } }
     }
@@ -1011,12 +999,6 @@ pub fn equipment_well(v: &View) -> Option<Markup> {
                             }
                             (PreEscaped(icon(Icon::Chev)))
                         }
-                    }
-                    p.sale-note {
-                        (v.t(
-                            "属性是采集器从数据包解析的，还没有和游戏截图逐件核对。加成 = 高于图鉴基础值。",
-                            "Stats are decoded from packets and not yet checked against screenshots. Bonus = above the reference value.",
-                        ))
                     }
                 }
             }

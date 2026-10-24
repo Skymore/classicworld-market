@@ -45,6 +45,12 @@ export function OfferRow({
 }) {
   const words = useWords();
   const equip = equipmentSummary(row, document.documentElement.lang === "en");
+  const status =
+    row.kind === "sold_out"
+      ? words("卖光", "Sold out")
+      : row.kind === "drop"
+        ? words("卖出", "Sold")
+        : words("已售", "Sold");
   return (
     <SiteLink
       className="ware market-record"
@@ -65,7 +71,7 @@ export function OfferRow({
                   className={"evi " + (row.kind || "")}
                   title={row.kind ? t("evidence." + row.kind) : undefined}
                 >
-                  {words("已售", "Sold")}
+                  {status}
                   {row.quantity != null && ` ×${row.quantity}`}
                 </span>
               ) : undefined
