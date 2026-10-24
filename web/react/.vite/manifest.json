@@ -38,8 +38,8 @@
       "_shared-DySnB1BT.js"
     ]
   },
-  "_main-ocBY17xG.js": {
-    "file": "chunks/main-ocBY17xG.js",
+  "_main-CEyAky87.js": {
+    "file": "chunks/main-CEyAky87.js",
     "name": "main",
     "imports": [
       "_shared-DySnB1BT.js",
@@ -103,7 +103,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-ocBY17xG.js"
+      "_main-CEyAky87.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -117,7 +117,7 @@
     ]
   },
   "src/pages/agent.tsx": {
-    "file": "chunks/agent-DKVK5OkP.js",
+    "file": "chunks/agent-p4_bMY4g.js",
     "name": "agent",
     "src": "src/pages/agent.tsx",
     "isDynamicEntry": true,
@@ -208,7 +208,7 @@
     ]
   },
   "src/pages/privacy.tsx": {
-    "file": "chunks/privacy-BUwoa0Tp.js",
+    "file": "chunks/privacy-Cz0t1aJ9.js",
     "name": "privacy",
     "src": "src/pages/privacy.tsx",
     "isDynamicEntry": true,
@@ -245,7 +245,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-ocBY17xG.js"
+      "_main-CEyAky87.js"
     ]
   },
   "style.css": {

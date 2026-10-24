@@ -51,6 +51,14 @@ pub fn definitions() -> Value {
         .unwrap()
         .extend(super::adventure::definitions());
     tools
+        .as_array_mut()
+        .unwrap()
+        .extend(super::knowledge::definitions());
+    tools
+        .as_array_mut()
+        .unwrap()
+        .push(super::web_search::definition());
+    tools
 }
 
 #[derive(Deserialize)]
@@ -108,6 +116,8 @@ pub struct Overview {
     sort: Option<String>,
 }
 pub enum Args {
+    WebSearch(super::web_search::Query),
+    Knowledge(super::knowledge::Request),
     Adventure(super::adventure::Request),
     Search(Search),
     Item(Item),
@@ -123,6 +133,8 @@ pub fn parse(name: &str, args: Value) -> Result<Args, &'static str> {
     let limit = |n| (1..=20).contains(&n);
     let hours = |n| (1..=720).contains(&n);
     match name {
+        "search_web" => super::web_search::parse(args).map(Args::WebSearch),
+        "search_guides" | "get_guide" => super::knowledge::parse(name, args).map(Args::Knowledge),
         "get_game_rules" | "get_skills" | "search_game_data" | "get_game_entity" => {
             super::adventure::parse(name, args).map(Args::Adventure)
         }
@@ -192,6 +204,10 @@ pub fn parse(name: &str, args: Value) -> Result<Args, &'static str> {
 pub async fn run(db: &PgPool, args: Args) -> sqlx::Result<Value> {
     let now = unix_now();
     let mut value = match args {
+        Args::WebSearch(_) => {
+            return Err(sqlx::Error::Protocol("web_search_requires_provider".into()))
+        }
+        Args::Knowledge(a) => return Ok(super::knowledge::run(a)),
         Args::Adventure(a) => {
             let mut value = super::adventure::run(a);
             super::adventure::supplement(db, &mut value).await?;

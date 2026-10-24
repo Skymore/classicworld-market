@@ -31,6 +31,8 @@ import {
   DialogDescription,
 } from "../components/ui/dialog";
 import type { Account } from "../lib/types";
+import {AgentGuides} from "../components/agent-guides";
+import {evidenceUrl, sourceLabel} from "../lib/agent-sources";
 import "./agent.css";
 
 type Meta = {
@@ -165,10 +167,7 @@ function errorText(code: string, en: boolean) {
       : "回复未完成，请稍后重试。")
   );
 }
-const evidenceUrl = (url: string) =>
-  /^\/(?:item\/\d+|mob\/\d+|map\/\d+|prices)$/.test(url) ||
-  /^https:\/\/github\.com\/ohmi69\/osms_datamine_dashboard\/blob\/63db09449642c4bf3414276223e4cb7d72af02d9\/data\/current\/(?:skills|quests|maps|monsters)\.json$/.test(url);
-function RichText({ value }: { value: string }) {
+function RichText({ value, sources = [] }: { value: string; sources?: string[] }) {
   const tokens = value.split(
     /(\[[^\]\n]{1,160}\]\(\s*[^\s)]{1,500}\s*\)|\*\*[^*\n]+\*\*)/g,
   );
@@ -178,7 +177,7 @@ function RichText({ value }: { value: string }) {
         const link = part.match(
           /^\[([^\]]+)\]\(\s*([^\s)]+)\s*\)$/,
         );
-        return link && evidenceUrl(link[2]) ? (
+        return link && evidenceUrl(link[2]) && (link[2].startsWith("/") || sources.includes(link[2])) ? (
           <a key={i} href={link[2]} target={link[2].startsWith("https:") ? "_blank" : undefined} rel="noopener noreferrer">
             {link[1]}
           </a>
@@ -293,6 +292,7 @@ function Assistant({ account }: { account: Account }) {
       <header className="stall-bar chat-top">
         <h1>{words("冒险助手", "Adventure assistant")}</h1>
         <span className="chat-model">GPT-6 Luna</span>
+        <AgentGuides en={en}/>
         <button
           className="chat-history-toggle"
           onClick={() => setMenu(!menu)}
@@ -723,6 +723,9 @@ function ChatPane({
     }
   }
   const labels: Record<string, string> = {
+    search_web: words("联网搜索国际服资料", "Searching the web"),
+    search_guides: words("检索内置指南", "Searching built-in guides"),
+    get_guide: words("阅读内置指南", "Reading a guide"),
     get_game_rules: words("核对国际服版本", "Checking the game edition"),
     get_skills: words("查阅职业技能", "Checking class skills"),
     search_game_data: words("搜索冒险资料", "Searching game data"),
@@ -774,8 +777,8 @@ function ChatPane({
             </h2>
             <p>
               {words(
-                "面向冒险岛经典世界国际服，帮你查职业技能、练级地图、任务、装备和交易。",
-                "For Global MapleStory Classic World: skills, training maps, quests, equipment and trading.",
+                "面向冒险岛经典世界国际服，查职业技能、练级、任务和交易；常见问题先查指南，最新攻略可联网搜索。",
+                "For Global Classic World: skills, training, quests and trading. Built-in guides for common questions; web search for current information.",
               )}
             </p>
             <div className="chat-examples">
@@ -819,7 +822,7 @@ function ChatPane({
                   : words("冒险助手", "Adventure assistant")}
               </div>
               <div className="chat-answer">
-                <RichText value={value} />
+                <RichText value={value} sources={meta?.sources}/>
                 {busy && index === chat.messages.length - 1 && value ? (
                   <span className="chat-cursor" aria-hidden="true" />
                 ) : null}
@@ -851,11 +854,7 @@ function ChatPane({
                     .filter(evidenceUrl)
                     .map((s) => (
                       <a key={s} href={s} target={s.startsWith("https:") ? "_blank" : undefined} rel="noopener noreferrer">
-                        {s === "/prices"
-                          ? words("市场行情", "Market")
-                          : s.startsWith("https:")
-                            ? words("客户端资料 · ", "Client data · ") + ({"skills.json": words("技能", "Skills"), "quests.json": words("任务", "Quests"), "maps.json": words("地图 / NPC", "Maps / NPCs"), "monsters.json": words("怪物", "Monsters")}[s.split("/").at(-1) || ""] || "")
-                            : words(s.startsWith("/mob/") ? "怪物 " : s.startsWith("/map/") ? "地图 " : "物品 ", s.startsWith("/mob/") ? "Monster " : s.startsWith("/map/") ? "Map " : "Item ") + s.split("/").at(-1)}
+                        {sourceLabel(s,en)}
                       </a>
                     ))}
                 </div>

@@ -1,5 +1,5 @@
 //! Bounded read-only access to a pinned Global Classic World client export.
-//! No runtime URL fetching, model-authored rules, or arbitrary database queries.
+//! No runtime URL fetching or arbitrary database queries in the client tools.
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::OnceLock;
@@ -179,7 +179,7 @@ pub fn run(request: Request) -> Value {
     match request {
         Request::Rules => envelope(
             "skill",
-            json!({"classes":classes(),"scope":"冒险助手 / Adventure assistant: jobs, skills, AP/SP planning, leveling, maps, quests, drops, equipment, crafting/citizenship questions and the market. Default game is Global MapleStory Classic World. Other editions require explicit comparison and separate sources.","limits":["This export contains beginner, first and second jobs only. Do not treat archived CoT2 third-job content or modern GMS, Artale, MapleLand, CMS/TMS or private-server rules as this live edition.","Skill prerequisites/effects are facts; recommended build order is advice. Check rank caps and prerequisites before recommending SP. Do not claim an exact optimal build or measured EXP/hour from this data.","Map spawn counts are client spawn points, not simultaneous live monsters. Client quests may include unavailable server content. Quest chain prerequisites, job/level restrictions and reward choice must be preserved.","Unknown or later changes require current official notes or in-game verification. No inventory, current character build, live event calendar or server-only crafting/citizenship rules are available unless the user supplies them."]}),
+            json!({"classes":classes(),"scope":"冒险助手 / Adventure assistant: jobs, skills, AP/SP planning, leveling, maps, quests, drops, equipment, crafting/citizenship questions and the market. Default game is Global MapleStory Classic World. Other editions require explicit comparison and separate sources.","limits":["This export contains beginner, first and second jobs only. Do not treat archived CoT2 third-job content or modern GMS, Artale, MapleLand, CMS/TMS or private-server rules as this live edition.","Skill prerequisites/effects are facts; recommended build order is advice. Check rank caps and prerequisites before recommending SP. Do not claim an exact optimal build or measured EXP/hour from this data.","Map spawn counts are client spawn points, not simultaneous live monsters. Client quests may include unavailable server content. Quest chain prerequisites, job/level restrictions and reward choice must be preserved.","Client data alone does not provide current server rules. Consult search_guides and search_web for official notices, events and crafting/citizenship rules. Inventory and the player's existing character build remain unavailable unless supplied."]}),
         ),
         Request::Skills(s) => {
             let mut rows: Vec<Value> = data()["skill"]

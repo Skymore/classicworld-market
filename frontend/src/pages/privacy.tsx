@@ -47,7 +47,7 @@ function ZH() {
           <h2>{"助手对话历史"}</h2>
           <p>
             {
-              "登录后的对话会保存到账号，可在其他设备继续。你可以在助手历史中删除会话及其消息。未登录的临时对话仅保留在当前页面。提问、必要的对话上下文及市场查询结果会发送给 OpenRouter 生成回复，网站不会向模型附带账号凭据。"
+              "登录后的对话会保存到账号，可在其他设备继续。你可以在助手历史中删除会话及其消息。未登录的临时对话仅保留在当前页面。提问、必要的对话上下文及市场查询结果会发送给 OpenRouter 生成回复，网站不会向模型附带账号凭据。联网搜索时，搜索关键词会经 OpenRouter 提交给搜索服务 Exa；搜索请求不会自动附带完整对话或账号凭据。引用网页属于第三方内容。"
             }
           </p>
           {"\n "}
@@ -104,7 +104,7 @@ function EN() {
           <h2>{"Assistant conversations"}</h2>
           <p>
             {
-              "When signed in, your conversations are saved to your account so you can continue on another device. You can delete a conversation and its messages from the assistant history. Temporary guest chats stay in the current page. Your question, necessary conversation context and market query results are sent to OpenRouter to generate replies; the site does not attach account credentials to model requests."
+              "When signed in, your conversations are saved to your account so you can continue on another device. You can delete a conversation and its messages from the assistant history. Temporary guest chats stay in the current page. Your question, necessary conversation context and market query results are sent to OpenRouter to generate replies; the site does not attach account credentials to model requests. For web searches, search keywords are sent through OpenRouter to the search service Exa. Search requests do not automatically include your full conversation or account credentials. Cited pages are third-party content."
             }
           </p>
           {"\n "}

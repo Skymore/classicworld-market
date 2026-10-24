@@ -12,6 +12,18 @@
 
 多候选比较可在一轮请求多个工具；总执行数仍最多 10 次，超出预算的调用返回额度提示而不访问数据库，随后强制模型根据已有证据作答，不因候选较多丢弃整个推荐。
 
+## 联网搜索与内置指南
+
+新增 12 篇中文常见问题笔记，保存在 `agent/knowledge/*.md`，索引与核对信息在 `agent/knowledge/index.json`。范围包括版本与入门、转职、猎人技能、练级、任务、交易限制、KPQ、制造、公民、住房、装备买卖和活动。正文是重新整理的短笔记，来源标为官方、社区、客户端提取或本站方法；核对日期不是原文发布日期。修改正文后需一并核对索引日期与来源；新增文件还需加入 `knowledge.rs` 的编译清单。
+
+常见问题先用 `search_guides`；返回相关短文全文，可再用 `get_guide` 读取指定 ID。过了索引中 `review_after_days` 的文档标记为 `needs_refresh`；活动始终要求查新。用户明确问最新、最近、当前开放状态或要求搜索时，模型必须调用 `search_web`，不能把本地文档说成刚联网核实的结果。
+
+联网调用使用 [OpenRouter 的 `openrouter:web_search` 服务端工具](https://openrouter.ai/docs/guides/features/server-tools/web-search)，固定 Exa 引擎并沿用现有服务端配置。只发本轮生成的简短搜索词，不自动附带完整历史或账号凭据。每次检索至多 4 条、每条最多 4,000 字符，每轮助手对话至多 2 次检索；同查询缓存 5 分钟，最多 64 条。公共搜索工具接口另受 IP 限频和现有模型并发额度限制。搜索费用从现有 OpenRouter 额度计费，不需要另填搜索 API key。
+
+搜索辅助请求的模型正文不作为证据，只采信搜索服务返回的 `url_citation` 中的地址、标题和摘录。结果限制在 Nexon、Steam 的 MapleStory 页面与选定 Classic World 社区；Reddit 仅接受 `r/MSClassicWorld`。不开放任意 URL 抓取、SQL 或本机访问。网页内容作为不可信资料处理。搜索结果标明 `searched_at`、`published_at`（未知保持空）和来源类型；搜索索引可能滞后，摘录不是整页阅读，更不能用检索时间冒充发表时间。搜索失败、无证据或超出次数时明确返回错误，助手只能使用有日期的已有资料并说明限制。
+
+`GET /api/v1/agent/knowledge` 返回目录，`GET /api/v1/agent/knowledge/{id}` 返回笔记正文与来源，均只读；网页右上角“指南”可直接浏览、搜索。来源链接在本轮工具返回后才可作为外部引用点击。旧的账号历史、停止/重试及真实流式输出继续使用原接口。
+
 ## OpenRouter 配置
 
 服务进程环境变量：
@@ -34,6 +46,9 @@ Docker Compose 用户在本机 `server/.env` 中设置这两个变量，再启�
 
 | 工具 | 参数 | 内容 |
 |---|---|---|
+| `search_guides` | `query?` | 检索内置中文 FAQ；空查询列目录，非空查询返回至多 3 篇相关全文与来源 |
+| `get_guide` | `guide_id` | 读取指定笔记，返回核对日期、来源、刷新要求 |
+| `search_web` | `query`, `official_only?` | 联网检索国际服资料；返回真实搜索来源、摘录和检索时间，默认允许精选社区，`true` 仅查官方 |
 | `get_game_rules` | 无 | 游戏定位、职业列表、数据日期、覆盖和限制 |
 | `get_skills` | `class_name?`, `query?`, `rank?` | 指定职业或名称的技能、上限、前置、首级/满级效果；可查某一级效果，不替用户虚构完整加点 |
 | `search_game_data` | `kind`, `query?`, `min_level?`, `max_level?` | `monster/map/npc/quest` 搜索；怪物与任务可按等级筛选，最多 12 个候选 |

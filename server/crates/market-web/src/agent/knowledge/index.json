@@ -1,0 +1,420 @@
+{
+  "edition": "Global MapleStory Classic World",
+  "checked_on": "2026-10-23",
+  "entries": [
+    {
+      "id": "getting-started",
+      "title": "经典世界国际服：版本与新手入口",
+      "tags": [
+        "新手",
+        "版本",
+        "下载",
+        "开服",
+        "国服",
+        "台服",
+        "Artale",
+        "Global",
+        "install",
+        "beginner"
+      ],
+      "checked_on": "2026-10-23",
+      "checked_at": 1792823653.76449,
+      "checked_timezone": "America/Los_Angeles",
+      "edition": "Global MapleStory Classic World",
+      "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
+      "always_search_live": false,
+      "review_after_days": 7,
+      "source_kind": "official",
+      "sources": [
+        {
+          "title": "Nexon · Grand Launch Release Notes",
+          "url": "https://www.nexon.com/maplestory/news/general/46506",
+          "kind": "official",
+          "published_on": "2026-10-20",
+          "verified": "official page read in browser"
+        }
+      ],
+      "summary": "本站面向 Nexon 的 Global MapleStory Classic World，不能套用现代 GMS、国台服经典版、Artale、MapleLand 或私服规则。"
+    },
+    {
+      "id": "job-advancement",
+      "title": "一转、二转等级与四大职业入口",
+      "tags": [
+        "转职",
+        "法师",
+        "魔法师",
+        "八级",
+        "8级",
+        "一转",
+        "二转",
+        "职业",
+        "job",
+        "advancement",
+        "mage"
+      ],
+      "checked_on": "2026-10-23",
+      "checked_at": 1792823653.76449,
+      "checked_timezone": "America/Los_Angeles",
+      "edition": "Global MapleStory Classic World",
+      "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
+      "always_search_live": false,
+      "review_after_days": 7,
+      "source_kind": "official",
+      "sources": [
+        {
+          "title": "Nexon · Grand Launch Release Notes",
+          "url": "https://www.nexon.com/maplestory/news/general/46506",
+          "kind": "official",
+          "published_on": "2026-10-20",
+          "verified": "official page read in browser"
+        }
+      ],
+      "summary": "按 Grand Launch 官方说明，四个基础职业均在 10 级完成一转，30 级完成二转。特别注意：本服 Magician 一转是 10 级，不要照搬旧冒险岛“法师 8 级转职”。"
+    },
+    {
+      "id": "hunter-skills",
+      "title": "猎人二转：技能前置与加点避坑",
+      "tags": [
+        "猎人",
+        "弓手",
+        "加点",
+        "技能",
+        "精准",
+        "快速",
+        "无形",
+        "强力",
+        "Hunter",
+        "Bow",
+        "SP"
+      ],
+      "checked_on": "2026-10-23",
+      "checked_at": 1792823653.76449,
+      "checked_timezone": "America/Los_Angeles",
+      "edition": "Global MapleStory Classic World",
+      "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
+      "always_search_live": false,
+      "review_after_days": 14,
+      "source_kind": "mixed",
+      "sources": [
+        {
+          "title": "OSMS Data Explorer · 国际服客户端技能提取",
+          "url": "https://github.com/ohmi69/osms_datamine_dashboard/blob/63db09449642c4bf3414276223e4cb7d72af02d9/data/current/skills.json",
+          "kind": "client_extraction",
+          "published_on": "2026-10-21",
+          "verified": "source inspected"
+        },
+        {
+          "title": "Classic World Guide · Hunter（社区建议）",
+          "url": "https://mapleclassic.guide/classes/hunter",
+          "kind": "community",
+          "published_on": "2026-10-22",
+          "verified": "source inspected"
+        }
+      ],
+      "summary": "先按国际服英文技能名核对，避免把旧中文译名对应错：Bow Booster 要 Bow Mastery 5；Soul Arrow: Bow 要 Bow Booster 5；Final Attack: Bow 只要 Bow Mastery 3；Amazon’s Judgement 要 Bow Mastery 5，且不是一转的 The Eye of Amazon。"
+    },
+    {
+      "id": "training",
+      "title": "练级地图怎么选：等级、命中和实际效率",
+      "tags": [
+        "练级",
+        "升级",
+        "经验",
+        "地图",
+        "刷怪",
+        "training",
+        "leveling",
+        "EXP"
+      ],
+      "checked_on": "2026-10-23",
+      "checked_at": 1792823653.76449,
+      "checked_timezone": "America/Los_Angeles",
+      "edition": "Global MapleStory Classic World",
+      "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
+      "always_search_live": false,
+      "review_after_days": 7,
+      "source_kind": "mixed",
+      "sources": [
+        {
+          "title": "OSMS Data Explorer · 国际服客户端怪物提取",
+          "url": "https://github.com/ohmi69/osms_datamine_dashboard/blob/63db09449642c4bf3414276223e4cb7d72af02d9/data/current/monsters.json",
+          "kind": "client_extraction",
+          "published_on": "2026-10-21",
+          "verified": "source inspected"
+        },
+        {
+          "title": "OSMS Data Explorer · 国际服客户端地图提取",
+          "url": "https://github.com/ohmi69/osms_datamine_dashboard/blob/63db09449642c4bf3414276223e4cb7d72af02d9/data/current/maps.json",
+          "kind": "client_extraction",
+          "published_on": "2026-10-21",
+          "verified": "source inspected"
+        },
+        {
+          "title": "Classic World Guide · Leveling",
+          "url": "https://mapleclassic.guide/leveling",
+          "kind": "community",
+          "published_on": null,
+          "verified": "source inspected"
+        }
+      ],
+      "summary": "先问清或读取用户给出的职业、等级，查询相近等级怪物的 HP、EXP 与实际地图，再比较适不适合远程、近战或群攻。没有攻击力、命中和击杀次数时，先给几个候选，不宣称某图必定最快。"
+    },
+    {
+      "id": "quest-help",
+      "title": "任务查询：前置、材料、交付和奖励",
+      "tags": [
+        "任务",
+        "前置",
+        "材料",
+        "交付",
+        "奖励",
+        "绿水灵",
+        "Teo",
+        "quest",
+        "Slime"
+      ],
+      "checked_on": "2026-10-23",
+      "checked_at": 1792823653.76449,
+      "checked_timezone": "America/Los_Angeles",
+      "edition": "Global MapleStory Classic World",
+      "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
+      "always_search_live": false,
+      "review_after_days": 14,
+      "source_kind": "mixed",
+      "sources": [
+        {
+          "title": "OSMS Data Explorer · 国际服客户端任务提取",
+          "url": "https://github.com/ohmi69/osms_datamine_dashboard/blob/63db09449642c4bf3414276223e4cb7d72af02d9/data/current/quests.json",
+          "kind": "client_extraction",
+          "published_on": "2026-10-21",
+          "verified": "source inspected"
+        }
+      ],
+      "summary": "查任务时先解析准确名称与任务 ID，再读完整详情，保留等级、职业、前置任务、击杀数、收集数和奖励选择。任务物品不一定是普通掉落，任务需要某材料也不代表玩家背包已经有它。"
+    },
+    {
+      "id": "trade-unlock",
+      "title": "新账号为什么不能交易、摆摊或丢物品",
+      "tags": [
+        "交易",
+        "不能交易",
+        "摆摊",
+        "丢东西",
+        "15级",
+        "24小时",
+        "trade",
+        "restriction"
+      ],
+      "checked_on": "2026-10-23",
+      "checked_at": 1792823653.7654903,
+      "checked_timezone": "America/Los_Angeles",
+      "edition": "Global MapleStory Classic World",
+      "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
+      "always_search_live": false,
+      "review_after_days": 3,
+      "source_kind": "official",
+      "sources": [
+        {
+          "title": "Nexon · Grand Launch Release Notes",
+          "url": "https://www.nexon.com/maplestory/news/general/46506",
+          "kind": "official",
+          "published_on": "2026-10-20",
+          "verified": "official page read in browser"
+        }
+      ],
+      "summary": "Grand Launch 官方说明：新账号需有一个角色达到 15 级，再等待 24 小时，才开放交易功能。不是注册账号满 24 小时，也不是一到 15 级就立刻解锁。"
+    },
+    {
+      "id": "kerning-pq",
+      "title": "废弃都市组队任务 KPQ 的入场信息",
+      "tags": [
+        "组队",
+        "组队任务",
+        "废弃都市",
+        "鳄鱼",
+        "KPQ",
+        "PQ",
+        "Lakelis",
+        "party"
+      ],
+      "checked_on": "2026-10-23",
+      "checked_at": 1792823653.7654903,
+      "checked_timezone": "America/Los_Angeles",
+      "edition": "Global MapleStory Classic World",
+      "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
+      "always_search_live": false,
+      "review_after_days": 3,
+      "source_kind": "mixed",
+      "sources": [
+        {
+          "title": "Nexon · Grand Launch Release Notes",
+          "url": "https://www.nexon.com/maplestory/news/general/46506",
+          "kind": "official",
+          "published_on": "2026-10-20",
+          "verified": "official page read in browser"
+        },
+        {
+          "title": "MapleStory Quest · Party Quests",
+          "url": "https://maplestory.quest/guides/party-quests",
+          "kind": "community",
+          "published_on": "2026-10-21",
+          "verified": "source inspected"
+        }
+      ],
+      "summary": "Grand Launch 官方说明中，First Time Together 是 Kerning City 的组队任务，角色需 21 级及以上，在 Kerning City 找 Lakelis。该次发布说明指定可用频道为 CH3–CH12；更早攻略里的 CH3–CH5 或 CH3–CH7 是旧安排。"
+    },
+    {
+      "id": "crafting",
+      "title": "制造入门：等级、导师与材料成本",
+      "tags": [
+        "制造",
+        "制作",
+        "锻造",
+        "配方",
+        "材料",
+        "crafting",
+        "Smithing",
+        "Woodcrafting"
+      ],
+      "checked_on": "2026-10-23",
+      "checked_at": 1792823653.7654903,
+      "checked_timezone": "America/Los_Angeles",
+      "edition": "Global MapleStory Classic World",
+      "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
+      "always_search_live": false,
+      "review_after_days": 7,
+      "source_kind": "official",
+      "sources": [
+        {
+          "title": "Nexon · Grand Launch Release Notes",
+          "url": "https://www.nexon.com/maplestory/news/general/46506",
+          "kind": "official",
+          "published_on": "2026-10-20",
+          "verified": "official page read in browser"
+        }
+      ],
+      "summary": "官方发布说明中，制造从角色 10 级开放。六个方向与导师为：Silas Irons / Smithing；Mr. Thunder / Weaponcrafting；Francois / Tailoring；Vicious / Woodcrafting；JM From tha Streetz / Leatherworking；Chrishrama / Arcforge。"
+    },
+    {
+      "id": "citizenship",
+      "title": "公民系统：12级入口、贡献与福利",
+      "tags": [
+        "公民",
+        "市民",
+        "贡献",
+        "日常",
+        "Arthur",
+        "Roxy",
+        "Citizenship"
+      ],
+      "checked_on": "2026-10-23",
+      "checked_at": 1792823653.7654903,
+      "checked_timezone": "America/Los_Angeles",
+      "edition": "Global MapleStory Classic World",
+      "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
+      "always_search_live": false,
+      "review_after_days": 7,
+      "source_kind": "official",
+      "sources": [
+        {
+          "title": "Nexon · Grand Launch Release Notes",
+          "url": "https://www.nexon.com/maplestory/news/general/46506",
+          "kind": "official",
+          "published_on": "2026-10-20",
+          "verified": "official page read in browser"
+        }
+      ],
+      "summary": "官方说明中，角色 12 级可参加 Citizenship。Henesys 的入口为 Henesys Town Hall 的 Arthur；Kerning City 的入口为 Kerning City Civic Center 的 Roxy。"
+    },
+    {
+      "id": "housing",
+      "title": "住房：购买资格、NPC 与账号共享",
+      "tags": [
+        "住房",
+        "房屋",
+        "买房",
+        "家园",
+        "Bianca",
+        "Scarlett",
+        "Visitor",
+        "housing"
+      ],
+      "checked_on": "2026-10-23",
+      "checked_at": 1792823653.7654903,
+      "checked_timezone": "America/Los_Angeles",
+      "edition": "Global MapleStory Classic World",
+      "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
+      "always_search_live": false,
+      "review_after_days": 7,
+      "source_kind": "official",
+      "sources": [
+        {
+          "title": "Nexon · Grand Launch Release Notes",
+          "url": "https://www.nexon.com/maplestory/news/general/46506",
+          "kind": "official",
+          "published_on": "2026-10-20",
+          "verified": "official page read in browser"
+        }
+      ],
+      "summary": "Grand Launch 官方发布说明已经加入住房。成为公民、并达到 Visitor 或更高的 Citizenship Grade 后，可花 mesos 向 Housing Registrar 购买。Henesys 找 Bianca，Kerning City 找 Scarlett。"
+    },
+    {
+      "id": "market-and-equipment",
+      "title": "装备与买卖：问法、属性和报价依据",
+      "tags": [
+        "装备",
+        "买",
+        "卖",
+        "披风",
+        "价格",
+        "定价",
+        "行情",
+        "equipment",
+        "price",
+        "mesos"
+      ],
+      "checked_on": "2026-10-23",
+      "checked_at": 1792823653.7664912,
+      "checked_timezone": "America/Los_Angeles",
+      "edition": "Global MapleStory Classic World",
+      "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
+      "always_search_live": false,
+      "review_after_days": 1,
+      "source_kind": "site_methodology",
+      "sources": [],
+      "summary": "选装备时将部位、职业和等级拆成筛选条件。通用装备也可能适合该职业；目录职业限制空白只能说尚未记录，不能直接断定不可穿或完全通用。属性必须查实际数据，不能凭“披风”推断都加 DEX 或攻击。"
+    },
+    {
+      "id": "launch-events",
+      "title": "开服与万圣节活动：日期和查新提醒",
+      "tags": [
+        "活动",
+        "万圣节",
+        "签到",
+        "宠物",
+        "糖果",
+        "Halloween",
+        "event",
+        "Journey"
+      ],
+      "checked_on": "2026-10-23",
+      "checked_at": 1792823653.7664912,
+      "checked_timezone": "America/Los_Angeles",
+      "edition": "Global MapleStory Classic World",
+      "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
+      "always_search_live": true,
+      "review_after_days": 1,
+      "source_kind": "official",
+      "sources": [
+        {
+          "title": "Nexon · Grand Launch Release Notes",
+          "url": "https://www.nexon.com/maplestory/news/general/46506",
+          "kind": "official",
+          "published_on": "2026-10-20",
+          "verified": "official page read in browser"
+        }
+      ],
+      "summary": "2026-10-20 的官方发布说明列出的 The Journey Begins 时段为 2026-10-21 18:00 UTC 至 2026-11-18 23:59 UTC，要求角色 10 级及以上；收集 30 个 Maple Leaves 找 Maple Administrator 领取每日奖励。"
+    }
+  ]
+}

@@ -3,8 +3,10 @@
 mod adventure;
 mod data;
 mod history;
+mod knowledge;
 mod provider;
 mod stream;
+mod web_search;
 
 pub use provider::OpenRouter;
 
@@ -28,6 +30,8 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/agent/tools", get(catalog))
         .route("/api/v1/agent/tools/{name}", post(call_tool))
         .route("/api/v1/agent/chat", post(chat))
+        .route("/api/v1/agent/knowledge", get(knowledge::index))
+        .route("/api/v1/agent/knowledge/{id}", get(knowledge::detail))
         .merge(history::router())
         .layer(DefaultBodyLimit::max(32 * 1024))
 }
@@ -49,6 +53,7 @@ async fn catalog(
         "model":state.agent.as_ref().map(|a| a.model()),
         "tools":data::definitions(), "read_only":true,
         "game":"Global MapleStory Classic World", "assistant":"冒险助手",
+        "web_search":{"enabled":state.agent.is_some(),"max_per_turn":2,"cache_seconds":300},
         "endpoint":"POST /api/v1/agent/tools/{function.name}",
         "limitations":crate::views::LIMITATION,
     }))
@@ -65,7 +70,20 @@ async fn call_tool(
     if let Err(res) = reader(&state, &headers, &addr, "agent-tools").await {
         return res;
     }
-    match execute(&state.db, &name, args).await {
+    let provider = state.agent.as_deref();
+    let _permit = if name == "search_web" {
+        if !state.limiter.allow(&format!("agent-web-ip:{addr}"), 4) {
+            return error(StatusCode::TOO_MANY_REQUESTS, "agent_rate_limited");
+        }
+        match provider.map(OpenRouter::permit) {
+            Some(Ok(permit)) => Some(permit),
+            Some(Err(_)) => return error(StatusCode::TOO_MANY_REQUESTS, "agent_busy"),
+            None => return error(StatusCode::SERVICE_UNAVAILABLE, "agent_not_configured"),
+        }
+    } else {
+        None
+    };
+    match execute_with_provider(&state.db, provider, &name, args).await {
         Ok(value) => Json(value).into_response(),
         Err((status, code)) => error(status, code),
     }
@@ -76,7 +94,22 @@ pub(crate) async fn execute(
     name: &str,
     args: Value,
 ) -> Result<Value, (StatusCode, &'static str)> {
+    execute_with_provider(db, None, name, args).await
+}
+
+pub(crate) async fn execute_with_provider(
+    db: &sqlx::PgPool,
+    provider: Option<&OpenRouter>,
+    name: &str,
+    args: Value,
+) -> Result<Value, (StatusCode, &'static str)> {
     let args = data::parse(name, args).map_err(|code| (StatusCode::BAD_REQUEST, code))?;
+    if let data::Args::WebSearch(query) = args {
+        return match provider {
+            Some(provider) => provider.search_web(query).await,
+            None => Err((StatusCode::SERVICE_UNAVAILABLE, "agent_not_configured")),
+        };
+    }
     match tokio::time::timeout(std::time::Duration::from_secs(12), data::run(db, args)).await {
         Ok(Ok(value)) => Ok(value),
         result => {
