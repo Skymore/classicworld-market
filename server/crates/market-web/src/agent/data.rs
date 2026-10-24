@@ -205,7 +205,7 @@ async fn search(db: &PgPool, a: Search) -> sqlx::Result<Value> {
          FROM items i LEFT JOIN item_stats st ON st.item_id=i.id
          WHERE {filter}
          AND ($2::text IS NULL OR i.subcategory=$2)
-         AND ($3::int2 IS NULL OR i.req_job_mask=0 OR
+         AND ($3::int2 IS NULL OR i.req_job_mask IS NULL OR i.req_job_mask=0 OR
               ($3=-1 AND i.req_job_mask=-1) OR ($3>0 AND i.req_job_mask>0 AND (i.req_job_mask & $3)>0))
          AND ($4::int2 IS NULL OR i.req_level >= $4)
          AND ($5::int2 IS NULL OR i.req_level <= $5)
@@ -222,6 +222,11 @@ async fn search(db: &PgPool, a: Search) -> sqlx::Result<Value> {
         row["jobs"] = json!(market_core::item::equipment_jobs(
             row["req_job_mask"].as_i64()
         ));
+        row["job_compatibility"] = json!(match row["req_job_mask"].as_i64() {
+            None => "unknown_verify_in_game",
+            Some(0) => "universal",
+            _ => "matches_requested_job_or_unfiltered",
+        });
         row["item_url"] = json!(format!("/item/{}", row["item_id"]));
     }
     Ok(json!({"items":rows,"truncated":truncated,
