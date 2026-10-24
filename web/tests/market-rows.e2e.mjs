@@ -106,7 +106,8 @@ try {
       }
       await checkLayout(offers.first());
       const cells=await offers.first().locator('.loc-shop').evaluate(node=>[...node.children].map(child=>child.getBoundingClientRect().width));
-      assert.equal(cells.length,3);assert(Math.max(...cells)-Math.min(...cells)<1,'CH, FM and shop use equal-width cells');
+      assert.equal(cells.length,3);assert.equal(cells[0],50);assert.equal(cells[1],44);
+      assert(await offers.locator('.loc-shop').evaluateAll(nodes=>nodes.every(node=>{const cells=[...node.children].map(child=>child.getBoundingClientRect().width);return cells[0]===50&&cells[1]===44&&Math.abs(cells.reduce((a,b)=>a+b,0)-node.clientWidth)<1;})),'CH and FM retain the same column widths across rows while shop uses the remaining space');
       assert.equal(await offers.first().locator('.loc-room').textContent(),'FM9');
       const longShop=offers.first().locator('.record-shop');
       await longShop.evaluate(node=>{node.textContent='A very long shop title that must not expand the row';node.title=node.textContent;});
