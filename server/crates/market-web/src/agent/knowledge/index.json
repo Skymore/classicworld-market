@@ -464,6 +464,13 @@
           "kind": "community",
           "published_on": "2026-10-22",
           "verified": "已读技能与路线；保留作者对旧阈值、测试服和洗点的限制说明"
+        },
+        {
+          "title": "喵喵资料站 · 本服简体中文技能对照",
+          "url": "https://meowdb.com/msclassic/zh-cn/classes/warrior",
+          "kind": "community",
+          "published_on": null,
+          "verified": "已核对技能名及对应关系；国际服游戏内名称以客户端为准"
         }
       ],
       "related_guides": [
@@ -496,7 +503,7 @@
     {
       "id": "fighter-build",
       "title": "剑客：精准技能、愤怒之火与武器路线",
-      "summary": "单修武器、早开冲锋和快速技能；比较稳定单练、固定物理队与单手盾路线。",
+      "summary": "单修武器、早开突进和快速技能；比较稳定单练、固定物理队与单手盾路线。",
       "subjects": [
         "剑客",
         "Fighter"
@@ -541,6 +548,13 @@
           "kind": "community",
           "published_on": "2026-10-22",
           "verified": "已读技能与路线；保留作者对旧阈值、测试服和洗点的限制说明"
+        },
+        {
+          "title": "喵喵资料站 · 本服简体中文技能对照",
+          "url": "https://meowdb.com/msclassic/zh-cn/classes/fighter",
+          "kind": "community",
+          "published_on": null,
+          "verified": "已核对技能名及对应关系；国际服游戏内名称以客户端为准"
         }
       ],
       "related_guides": [
@@ -570,7 +584,7 @@
     },
     {
       "id": "page-build",
-      "title": "准骑士：剑与钝器、威胁的投入",
+      "title": "准骑士：剑与钝器、压制术的投入",
       "summary": "先稳定命中和精准技能；单体、控场、机动的收益取决于你实际刷的目标。",
       "subjects": [
         "准骑士",
@@ -615,6 +629,13 @@
           "kind": "community",
           "published_on": "2026-10-22",
           "verified": "已读技能与路线；保留作者对旧阈值、测试服和洗点的限制说明"
+        },
+        {
+          "title": "喵喵资料站 · 本服简体中文技能对照",
+          "url": "https://meowdb.com/msclassic/zh-cn/classes/page",
+          "kind": "community",
+          "published_on": null,
+          "verified": "已核对技能名及对应关系；国际服游戏内名称以客户端为准"
         }
       ],
       "related_guides": [
@@ -699,6 +720,13 @@
           "kind": "community",
           "published_on": "2026-10-06",
           "verified": "原文及相关段落已阅读"
+        },
+        {
+          "title": "喵喵资料站 · 本服简体中文技能对照",
+          "url": "https://meowdb.com/msclassic/zh-cn/classes/spearman",
+          "kind": "community",
+          "published_on": null,
+          "verified": "已核对技能名及对应关系；国际服游戏内名称以客户端为准"
         }
       ],
       "related_guides": [
@@ -728,8 +756,8 @@
     },
     {
       "id": "magician-build",
-      "title": "法师一转：魔灵弹、魔法爪与药费",
-      "summary": "两套可执行的一转方案：地形适应的魔法爪，与侧重续航的魔灵弹。",
+      "title": "法师一转：魔法弹、魔法双击与药费",
+      "summary": "两套可执行的一转方案：地形适应的魔法双击，与侧重续航的魔法弹。",
       "subjects": [
         "法师",
         "魔法师",
@@ -786,6 +814,13 @@
           "kind": "community",
           "published_on": "2026-10-02",
           "verified": "已读正文修订及评论；旧配图已被作者纠正，不作为逐级表依据"
+        },
+        {
+          "title": "喵喵资料站 · 本服简体中文技能对照",
+          "url": "https://meowdb.com/msclassic/zh-cn/classes/magician",
+          "kind": "community",
+          "published_on": null,
+          "verified": "已核对技能名及对应关系；国际服游戏内名称以客户端为准"
         }
       ],
       "related_guides": [
@@ -817,8 +852,8 @@
     },
     {
       "id": "fire-poison-build",
-      "title": "火毒：火箭单体、毒群攻与机动省药",
-      "summary": "默认火箭术单体路线；有稳定群怪条件再提前毒息术，保留精神力前置。",
+      "title": "火毒：火焰箭单体、毒群攻与机动省药",
+      "summary": "默认火焰箭单体路线；有稳定群怪条件再提前毒雾术，保留精神力前置。",
       "subjects": [
         "火毒",
         "火毒法师",
@@ -868,6 +903,13 @@
           "kind": "community",
           "published_on": "2026-10-22",
           "verified": "已读技能与路线；保留作者对旧阈值、测试服和洗点的限制说明"
+        },
+        {
+          "title": "喵喵资料站 · 本服简体中文技能对照",
+          "url": "https://meowdb.com/msclassic/zh-cn/classes/f-p-wizard",
+          "kind": "community",
+          "published_on": null,
+          "verified": "已核对技能名及对应关系；国际服游戏内名称以客户端为准"
         }
       ],
       "related_guides": [
@@ -897,7 +939,7 @@
     {
       "id": "ice-lightning-build",
       "title": "冰雷：单体省药与雷电群攻两条路线",
-      "summary": "普通资金先冰箭，稳定聚怪时选雷电术；精神力、瞬间移动的顺序由地图决定。",
+      "summary": "普通资金先冰冻术，稳定聚怪时选雷电术；精神力、快速移动的顺序由地图决定。",
       "subjects": [
         "冰雷",
         "冰雷法师",
@@ -968,6 +1010,13 @@
           "kind": "client_extraction",
           "published_on": "2026-10-21",
           "verified": "原文及相关段落已阅读"
+        },
+        {
+          "title": "喵喵资料站 · 本服简体中文技能对照",
+          "url": "https://meowdb.com/msclassic/zh-cn/classes/i-l-wizard",
+          "kind": "community",
+          "published_on": null,
+          "verified": "已核对技能名及对应关系；国际服游戏内名称以客户端为准"
         }
       ],
       "related_guides": [
@@ -1044,8 +1093,8 @@
     },
     {
       "id": "cleric-build",
-      "title": "牧师：圣箭单练、机动与固定队辅助",
-      "summary": "默认圣箭单练，固定队提前祝福；把治愈术刷怪作为有条件的备选，而非照搬旧版套路。",
+      "title": "牧师：圣箭术单练、机动与固定队辅助",
+      "summary": "默认圣箭术单练，固定队提前祝福；把群体治愈刷怪作为有条件的备选，而非照搬旧版套路。",
       "subjects": [
         "牧师",
         "Cleric"
@@ -1095,7 +1144,7 @@
           "verified": "已读技能与路线；保留作者对旧阈值、测试服和洗点的限制说明"
         },
         {
-          "title": "玩家讨论：牧师单练、瞬间移动 与 治愈术",
+          "title": "玩家讨论：牧师单练、快速移动 与 群体治愈",
           "url": "https://www.reddit.com/r/MSClassicWorld/comments/1xdqz9p/is_there_a_reason_to_go_cleric/",
           "kind": "community",
           "published_on": "2026-10-23",
@@ -1114,6 +1163,13 @@
           "kind": "client_extraction",
           "published_on": "2026-10-21",
           "verified": "原文及相关段落已阅读"
+        },
+        {
+          "title": "喵喵资料站 · 本服简体中文技能对照",
+          "url": "https://meowdb.com/msclassic/zh-cn/classes/cleric",
+          "kind": "community",
+          "published_on": null,
+          "verified": "已核对技能名及对应关系；国际服游戏内名称以客户端为准"
         }
       ],
       "related_guides": [
@@ -1243,6 +1299,13 @@
           "kind": "community",
           "published_on": "2026-09-27",
           "verified": "已读正文及上线后修订；原始发表日不等于修订日"
+        },
+        {
+          "title": "喵喵资料站 · 本服简体中文技能对照",
+          "url": "https://meowdb.com/msclassic/zh-cn/classes/bowman",
+          "kind": "community",
+          "published_on": null,
+          "verified": "已核对技能名及对应关系；国际服游戏内名称以客户端为准"
         }
       ],
       "related_guides": [
@@ -1272,7 +1335,7 @@
     },
     {
       "id": "hunter-skills",
-      "title": "猎人：精准弓、爆炸箭与后期取舍",
+      "title": "猎人：精准弓、炸弹箭与后期取舍",
       "summary": "默认先基础、后群攻；早期省箭与推迟省箭都可行，附完整 121 技能点和分歧理由。",
       "subjects": [
         "猎人",
@@ -1285,7 +1348,7 @@
         "二转",
         "加点",
         "弓",
-        "爆炸箭",
+        "炸弹箭",
         "精准",
         "快速",
         "无形",
@@ -1328,6 +1391,13 @@
           "kind": "community",
           "published_on": "2026-09-27",
           "verified": "已读正文及上线后修订；原始发表日不等于修订日"
+        },
+        {
+          "title": "喵喵资料站 · 本服简体中文技能对照",
+          "url": "https://meowdb.com/msclassic/zh-cn/classes/hunter",
+          "kind": "community",
+          "published_on": null,
+          "verified": "已核对技能名及对应关系；国际服游戏内名称以客户端为准"
         }
       ],
       "related_guides": [
@@ -1358,8 +1428,8 @@
     },
     {
       "id": "crossbowman-build",
-      "title": "弩手：穿透群攻与控制分支",
-      "summary": "先精准技能，再形成穿透箭清怪能力；省箭时点和后期控制投入有两种常见取舍。",
+      "title": "弩手：铁箭群攻与控制分支",
+      "summary": "先精准技能，再形成铁箭清怪能力；省箭时点和后期控制投入有两种常见取舍。",
       "subjects": [
         "弩手",
         "弩弓手",
@@ -1413,6 +1483,13 @@
           "kind": "community",
           "published_on": "2026-09-27",
           "verified": "已读正文及上线后修订；原始发表日不等于修订日"
+        },
+        {
+          "title": "喵喵资料站 · 本服简体中文技能对照",
+          "url": "https://meowdb.com/msclassic/zh-cn/classes/crossbowman",
+          "kind": "community",
+          "published_on": null,
+          "verified": "已核对技能名及对应关系；国际服游戏内名称以客户端为准"
         }
       ],
       "related_guides": [
@@ -1493,6 +1570,13 @@
           "kind": "community",
           "published_on": "2026-10-22",
           "verified": "已读技能与路线；保留作者对旧阈值、测试服和洗点的限制说明"
+        },
+        {
+          "title": "喵喵资料站 · 本服简体中文技能对照",
+          "url": "https://meowdb.com/msclassic/zh-cn/classes/thief",
+          "kind": "community",
+          "published_on": null,
+          "verified": "已核对技能名及对应关系；国际服游戏内名称以客户端为准"
         }
       ],
       "related_guides": [
@@ -1522,7 +1606,7 @@
     },
     {
       "id": "assassin-build",
-      "title": "刺客：精准飞镖、暴击与轻功谁先",
+      "title": "刺客：精准暗器、暴击与轻功谁先",
       "summary": "精准技能优先是可执行的默认；之后分伤害优先和机动优先，不把双飞斩套用普通伤害公式。",
       "subjects": [
         "刺客",
@@ -1578,6 +1662,13 @@
           "kind": "community",
           "published_on": "2026-10-11",
           "verified": "已读不同优先级评论；其中 Mastery 3 就开 Booster 的留言错误，已按客户端修正为 5"
+        },
+        {
+          "title": "喵喵资料站 · 本服简体中文技能对照",
+          "url": "https://meowdb.com/msclassic/zh-cn/skills/assassin/claw-mastery",
+          "kind": "community",
+          "published_on": null,
+          "verified": "已核对技能名及对应关系；国际服游戏内名称以客户端为准"
         }
       ],
       "related_guides": [
@@ -1612,7 +1703,7 @@
     {
       "id": "bandit-build",
       "title": "侠客：纯刀与先玩飞镖后转刀的取舍",
-      "summary": "默认纯刀免洗点，先精准技能再六连斩；转刀玩法另列成本和前置。",
+      "summary": "默认纯刀免洗点，先精准技能再回旋斩；转刀玩法另列成本和前置。",
       "subjects": [
         "侠客",
         "刀飞",
@@ -1664,11 +1755,18 @@
           "verified": "已读技能与路线；保留作者对旧阈值、测试服和洗点的限制说明"
         },
         {
-          "title": "玩家刀飞指南讨论：偷窃术 前置纠错",
+          "title": "玩家刀飞指南讨论：妙手术 前置纠错",
           "url": "https://www.reddit.com/r/MSClassicWorld/comments/1xbwjeo/mrshinys_bandit_guide/",
           "kind": "community",
           "published_on": "2026-10-21",
           "verified": "已读作者发帖与前置纠错评论；未据此假定洗点价格或供给"
+        },
+        {
+          "title": "喵喵资料站 · 本服简体中文技能对照",
+          "url": "https://meowdb.com/msclassic/zh-cn/classes/bandit",
+          "kind": "community",
+          "published_on": null,
+          "verified": "已核对技能名及对应关系；国际服游戏内名称以客户端为准"
         }
       ],
       "related_guides": [
