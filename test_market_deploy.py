@@ -59,6 +59,31 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(manifest["source_branch"], "main")
         self.assertEqual(manifest["base_release"], PREVIOUS)
 
+    def test_served_files_must_match_the_git_source_not_only_the_bundle_manifest(self):
+        def git(*args):
+            return subprocess.check_output(["git", "-c", "user.name=Deployment Test", "-c",
+                "user.email=test@example.invalid", *args], cwd=self.root).decode().strip()
+        git("init", "--quiet")
+        source = self.root / "web/app.js"
+        source.parent.mkdir()
+        source.write_bytes(b"current();\n")
+        git("add", "web/app.js")
+        git("commit", "--quiet", "-m", "current source")
+        commit = git("rev-parse", "HEAD")
+        release = self.root / "artifact"
+        actual = release / "web/app.js"
+        actual.parent.mkdir(parents=True)
+        actual.write_bytes(b"current();\r\n")
+        manifest = {"files": {"web/app.js": "verified separately"}}
+        deployment.verify_git_web_sources(self.root, release, commit, manifest)
+        actual.write_bytes(b"stale();\n")
+        with self.assertRaisesRegex(RuntimeError, "differs from main: web/app.js"):
+            deployment.verify_git_web_sources(self.root, release, commit, manifest)
+        actual.write_bytes(b"current();\n")
+        manifest["files"]["web/uncommitted.js"] = "verified separately"
+        with self.assertRaisesRegex(RuntimeError, "not recorded in main"):
+            deployment.verify_git_web_sources(self.root, release, commit, manifest)
+
     def test_failed_activation_restores_previous_release_and_checks_it(self):
         pointer = self.root / "shared_data/deploy/current.json"
         previous = {"schema": 1, "commit": PREVIOUS, "activated_at": 1}
