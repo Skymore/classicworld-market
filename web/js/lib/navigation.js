@@ -6,7 +6,7 @@ export const NAVIGATION = [
   ['agent','/agent','助手','Assistant',I.search],
   ['dex','/search?kind=item','图鉴','Catalogue',I.book],
   ['watch','/watch','关注','Watch',I.star],
-  ['alerts','/alerts','捡漏','Deals',I.coin],
+  ['alerts','/alerts','采集','Collect',I.coin],
 ];
 let accountState,accountRequest;
 function accountLabels(){

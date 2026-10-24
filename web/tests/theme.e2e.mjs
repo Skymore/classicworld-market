@@ -61,6 +61,7 @@ try {
             await page.locator('.download-page').waitFor();
           } else {
             await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
+            if (path.startsWith('/search') || path.startsWith('/item/')) await page.locator('#site-react-shell').waitFor({ state: 'attached' });
           }
           if (path !== '/collect/') {
             assert(await page.evaluate(expected => window.themeFrames.every(frame => frame.theme === expected), theme), `${path}: theme changed while modules loaded`);
@@ -71,6 +72,7 @@ try {
         // A shared URL updates the saved preference on SSR and survives a link navigation.
         const next = theme === 'dark' ? 'light' : 'dark';
         await page.goto(origin + '/search?kind=item&theme=' + next);
+        await page.locator('#site-react-shell').waitFor({ state: 'attached' });
         await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
         assert.equal(await page.evaluate(() => localStorage.getItem('theme')), next);
         await page.locator('a[href="/account"]:visible').first().click();

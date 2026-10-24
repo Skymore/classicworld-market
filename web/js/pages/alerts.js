@@ -21,12 +21,12 @@ const BASIS_EN = 'Compared with earlier offers from other shops (this shop exclu
 
 addMessages({
   zh: {
-    'alerts.title': '捡漏', 'alerts.meta': '{n} 条 · 实时推送', 'alerts.window': '参考报价', 'alerts.window_72': '近 72 小时', 'alerts.window_all': '全部记录',
+    'alerts.title': '采集', 'alerts.meta': '{n} 条 · 实时推送', 'alerts.window': '参考报价', 'alerts.window_72': '近 72 小时', 'alerts.window_all': '全部记录',
     'alerts.rules': '只看你自己的采集器最近 2 分钟逛到的摊位。非装备；至少 8 个其他摊位有报价；买价低于这些摊位中位价的下四分位；按快卖参考价扣 3% 手续费后至少赚 15%。别人的报价参与比较，别人的低价发现不会提醒你。',
     'alerts.buy': '买价 / 件', 'alerts.bundle': '{n} 件一组 {cost}', 'alerts.stock': '库存 {n}', 'alerts.fast': '快卖参考', 'alerts.normal': '正常卖参考',
     'alerts.after_fee': '扣 3% 后 {pct}', 'alerts.found': '发现于 {ago}', 'alerts.counts': '比较 {shops} 个摊位 · {listings} 条挂单 · 共 {qty} 件在售 · 下四分位 {q1}',
-    'alerts.empty': '暂时没有捡漏机会。继续逛摊，发现低价时这里会提醒。', 'alerts.checked': '{time} 检查过',
-    'alerts.toast_title': '捡漏提醒', 'alerts.toast_line': '{buy} / 件 · 快卖 {sell} · 扣费后 {pct}',
+    'alerts.empty': '暂时没有低价提醒。继续逛摊，发现低价时这里会提醒。', 'alerts.checked': '{time} 检查过',
+    'alerts.toast_title': '采集提醒', 'alerts.toast_line': '{buy} / 件 · 快卖 {sell} · 扣费后 {pct}',
     'alerts.setup_title': '开始采集，查看自己的低价提醒',
     'alerts.setup_intro': '选择一种采集方式即可，无需手动填写连接信息。提醒只针对你逛到的摊位；其他玩家的报价仅用于比价。',
     'alerts.setup_browser': '浏览器采集', 'alerts.setup_browser_text': '打开采集页，共享游戏窗口，然后照常逛摊。这个浏览器会记住采集身份，回到本页就能看到提醒。', 'alerts.setup_open': '打开采集页',
@@ -41,7 +41,7 @@ addMessages({
     'alerts.token_clear': '清除当前连接', 'alerts.limited': '请求太频繁，稍后自动重试。', 'alerts.failed': '提醒暂时无法更新，稍后自动重试。',
   },
   en: {
-    'alerts.title': 'Deals', 'alerts.meta': '{n} · live updates', 'alerts.window': 'Reference offers', 'alerts.window_72': 'Last 72 h', 'alerts.window_all': 'All records',
+    'alerts.title': 'Collect', 'alerts.meta': '{n} · live updates', 'alerts.window': 'Reference offers', 'alerts.window_72': 'Last 72 h', 'alerts.window_all': 'All records',
     'alerts.rules': 'Only shops your own collector visited in the last 2 minutes. Not equipment; at least 8 other shops with offers; a buy price under the first quartile of their median prices; at least 15% profit at the quick-sell price after the 3% fee. Other players\' offers are compared, but their finds never alert you.',
     'alerts.buy': 'Buy each', 'alerts.bundle': '{n} per bundle at {cost}', 'alerts.stock': 'stock {n}', 'alerts.fast': 'Quick sell', 'alerts.normal': 'Normal sell',
     'alerts.after_fee': '{pct} after 3% fee', 'alerts.found': 'found {ago}', 'alerts.counts': '{shops} shops · {listings} listings · {qty} on sale · first quartile {q1}',
@@ -103,7 +103,7 @@ export async function mount(main) {
       <div class="asetup">
         <h2>${esc(t('alerts.setup_title'))}</h2>
         ${message ? `<p class="awarn" role="alert">${esc(message)}</p>` : ''}
-        <p>${esc(t('alerts.setup_intro'))}</p><p>${lang === 'en' ? 'Deals evaluates non-equipment margins from your collector. For personal price caps on any item, use Watch; keep its page open for new-offer notifications. Watch settings stay in your browser.' : '捡漏按你的采集器规则筛选非装备价差。想为装备或其他物品设置个人价格上限，请使用「关注」；保持关注页打开才会检查新报价并提醒。关注设置仅保存在当前浏览器。'}</p>
+        <p>${esc(t('alerts.setup_intro'))}</p><p>${lang === 'en' ? 'Collect evaluates non-equipment margins from your collector. For personal price caps on any item, use Watch; keep its page open for new-offer notifications. Watch settings stay in your browser.' : '采集按你的采集器规则筛选非装备价差。想为装备或其他物品设置个人价格上限，请使用「关注」；保持关注页打开才会检查新报价并提醒。关注设置仅保存在当前浏览器。'}</p>
         <div class="well astep"><h3>${esc(t('alerts.setup_browser'))}</h3><p>${esc(t('alerts.setup_browser_text'))}</p><a class="btn primary" href="/collect/">${esc(t('alerts.setup_open'))}</a></div>
         <div class="well astep"><h3>${esc(t('alerts.setup_divert'))}</h3><p>${esc(t('alerts.setup_divert_text'))}</p>
           <a class="btn primary" href="/web/download.html">${lang === 'en' ? 'Download & instructions' : '下载采集器与使用说明'}</a>
@@ -149,10 +149,10 @@ export async function mount(main) {
     const notice = problem === 'limited' ? t('alerts.limited') : problem === 'failed' ? t('alerts.failed') : '';
     const checked = checkedAt ? t('alerts.checked', { time: new Date(checkedAt * 1000).toLocaleTimeString() }) : '';
     const shown=historyView?mergeHistory(profile?.archive,[],now()).slice(0,historyLimit):deals;
-    const body = shown.length ? `<div class="wcards">${shown.map(dealCard).join('')}</div>` : emptyState(first ? t('common.loading') : historyView?text('还没有保存的捡漏历史。','No saved deal history yet.'):t('alerts.empty'), 3, !first);
+    const body = shown.length ? `<div class="wcards">${shown.map(dealCard).join('')}</div>` : emptyState(first ? t('common.loading') : historyView?text('还没有保存的采集提醒历史。','No saved deal history yet.'):t('alerts.empty'), 3, !first);
     return `<div class="stall-bar"><h1>${esc(t('alerts.title'))}</h1><span class="bar-meta">${esc(historyView?text(`${profile?.archive.length||0} 条 · 保留24小时`,`${profile?.archive.length||0} · kept for 24 h`):t('alerts.meta', { n: deals.length }))}</span></div>
       ${controls()}${statusView()}
-      <p class="sale-note">${lang==='en' ? 'Deals uses your collector’s non-equipment margin rules. For any item with a personal price cap, use Watch. Watch settings are saved only in this browser.' : '捡漏使用你的采集器规则筛选非装备价差；需要为任意物品设置个人价格上限，请使用「关注」。关注设置仅存当前浏览器。'}</p>
+      <p class="sale-note">${lang==='en' ? 'Collect uses your collector’s non-equipment margin rules. For any item with a personal price cap, use Watch. Watch settings are saved only in this browser.' : '采集使用你的采集器规则筛选非装备价差；需要为任意物品设置个人价格上限，请使用「关注」。关注设置仅存当前浏览器。'}</p>
       <div class="ltools atools"><span class="alabel">${esc(t('alerts.window'))}</span><div class="chips">${chips}</div><span class="sp"></span><span class="astatus" role="status">${esc(notice || checked)}</span></div>
       ${body}${historyView&&profile.archive.length>historyLimit?`<button class="more" data-history-more>${text('显示更多历史','Show more history')} (${historyLimit}/${profile.archive.length})</button>`:''}
       <p class="sale-note">${esc(t('alerts.rules'))}</p>`;
@@ -181,7 +181,7 @@ export async function mount(main) {
   function controls(){
     const settings=profile?.settings||{enabled:true,page:true,desktop:true};
     const permission=typeof Notification==='undefined'?'unsupported':Notification.permission;
-    return `<div class="deal-toolbar"><div class="chips" role="group" aria-label="${text('捡漏记录','Deal records')}"><button class="chip ${historyView?'':'on'}" data-alert-view="live" aria-pressed="${!historyView}">${text('最新发现','Live finds')}</button><button class="chip ${historyView?'on':''}" data-alert-view="history" aria-pressed="${historyView}">${text('24小时历史','24 h history')} ${profile?.archive.length||0}</button></div><div class="deal-switches"><label><input type="checkbox" data-deal-setting="enabled" ${settings.enabled?'checked':''}>${text('启用捡漏提醒','Enable deal alerts')}</label><label><input type="checkbox" data-deal-setting="page" ${settings.page?'checked':''} ${settings.enabled?'':'disabled'}>${text('页面弹窗','Page popups')}</label><label><input type="checkbox" data-deal-setting="desktop" ${settings.desktop?'checked':''} ${settings.enabled?'':'disabled'}>${text('桌面通知','Desktop notifications')}</label>${permission==='default'?`<button class="btn" data-notification-allow>${text('允许桌面通知','Allow desktop notifications')}</button>`:''}</div><p class="deal-help">${text('历史和开关仅保存在此浏览器，按采集身份区分。关闭提醒仍会记录历史。','History and switches stay in this browser, separated by collector identity. Muting alerts still records history.')} ${permission==='denied'?text('桌面通知被浏览器阻止，可在网站权限中开启。','Desktop notifications are blocked in site permissions.'):permission==='unsupported'?text('此浏览器不支持桌面通知。','This browser does not support desktop notifications.'):''}${storageOkay?'':text('浏览器无法保存，当前仅在本页临时保留。','Browser storage is unavailable; changes last only for this page.')}</p></div>`;
+    return `<div class="deal-toolbar"><div class="chips" role="group" aria-label="${text('采集记录','Deal records')}"><button class="chip ${historyView?'':'on'}" data-alert-view="live" aria-pressed="${!historyView}">${text('最新发现','Live finds')}</button><button class="chip ${historyView?'on':''}" data-alert-view="history" aria-pressed="${historyView}">${text('24小时历史','24 h history')} ${profile?.archive.length||0}</button></div><div class="deal-switches"><label><input type="checkbox" data-deal-setting="enabled" ${settings.enabled?'checked':''}>${text('启用采集提醒','Enable deal alerts')}</label><label><input type="checkbox" data-deal-setting="page" ${settings.page?'checked':''} ${settings.enabled?'':'disabled'}>${text('页面弹窗','Page popups')}</label><label><input type="checkbox" data-deal-setting="desktop" ${settings.desktop?'checked':''} ${settings.enabled?'':'disabled'}>${text('桌面通知','Desktop notifications')}</label>${permission==='default'?`<button class="btn" data-notification-allow>${text('允许桌面通知','Allow desktop notifications')}</button>`:''}</div><p class="deal-help">${text('历史和开关仅保存在此浏览器，按采集身份区分。关闭提醒仍会记录历史。','History and switches stay in this browser, separated by collector identity. Muting alerts still records history.')} ${permission==='denied'?text('桌面通知被浏览器阻止，可在网站权限中开启。','Desktop notifications are blocked in site permissions.'):permission==='unsupported'?text('此浏览器不支持桌面通知。','This browser does not support desktop notifications.'):''}${storageOkay?'':text('浏览器无法保存，当前仅在本页临时保留。','Browser storage is unavailable; changes last only for this page.')}</p></div>`;
   }
   function statusView(){
     const status=collectorStatus;if(!status)return '';

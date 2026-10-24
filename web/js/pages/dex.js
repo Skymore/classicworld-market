@@ -79,11 +79,13 @@ if(['zh','en'].includes(params.get('lang')))localStorage.setItem('lang',params.g
 const accountLang=localStorage.getItem('lang');
 if(!params.has('lang')&&['en','zh'].includes(accountLang)&&accountLang!==chosenLang)setLang(accountLang);
 syncDevice();
-syncTheme();
+if (!html.dataset.reactShell) syncTheme();
 if (!syncLang()) {
   addEventListener('resize', syncDevice);
-  bindChrome();
-  bindLocalNavigation();
+  if (!html.dataset.reactShell) {
+    bindChrome();
+    bindLocalNavigation();
+  }
   bindLiveSearch();
   // Keep search available above the item card when the desktop header is hidden.
   const itemPage = document.querySelector('.ipage, .dwrap');

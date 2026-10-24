@@ -82,6 +82,9 @@ function toggleTheme() {
 
 // Pages call this with the dataset's `as_of` (unix seconds) after each load.
 export function setFreshness(asOf) {
+  if (asOf == null) delete document.documentElement.dataset.freshness;
+  else document.documentElement.dataset.freshness = String(asOf);
+  document.dispatchEvent(new CustomEvent('market-freshness', { detail: asOf }));
   for (const el of document.querySelectorAll('[data-fresh]')) {
     el.hidden = asOf == null;
     if(asOf != null) el.dataset.asOf=String(asOf); else delete el.dataset.asOf;
@@ -93,6 +96,7 @@ export function setFreshness(asOf) {
 }
 
 export function setBadge(key, n) {
+  document.dispatchEvent(new CustomEvent('navigation-badge', { detail: { key, count: n } }));
   for (const el of document.querySelectorAll(`[data-badge="${key}"]`)) {
     el.hidden = !n;
     el.textContent = n || '';

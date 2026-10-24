@@ -4,8 +4,12 @@ import test from 'node:test';
 import vm from 'node:vm';
 
 const boot = await readFile(new URL('../js/lib/boot.js', import.meta.url), 'utf8');
-function start({ saved, query = '', system = 'light', blocked = false } = {}) {
+function start({ saved, query = '', system = 'light', blocked = false, accountTheme } = {}) {
   const values = new Map(saved === undefined ? [] : [['theme', saved]]);
+  if (accountTheme !== undefined) {
+    values.set('cwm.preferences.account.v1', 'public-test-id');
+    values.set('cwm.user-data.v1.public-test-id', JSON.stringify({values: {theme: accountTheme}}));
+  }
   const html = { dataset: {} };
   const storage = {
     getItem(key) { if (blocked) throw Error('storage denied'); return values.get(key) ?? null; },
@@ -33,6 +37,13 @@ test('valid shared-link themes are applied and remembered before modules load', 
 
 test('invalid URL values preserve the saved theme', () => {
   assert.equal(start({ saved: 'dark', query: '?theme=invalid' }).theme, 'dark');
+});
+
+test('account themes paint from the account cache without changing guest preferences', () => {
+  assert.deepEqual(start({ saved: 'light', accountTheme: 'dark' }), { theme: 'dark', saved: 'light' });
+  assert.equal(start({ saved: 'dark', accountTheme: 'light' }).theme, 'light');
+  assert.equal(start({ saved: 'dark', accountTheme: 'invalid', system: 'light' }).theme, 'light');
+  assert.equal(start({ accountTheme: 'dark', query: '?theme=light' }).theme, 'light');
 });
 
 test('missing or corrupt saved preferences follow the system', () => {

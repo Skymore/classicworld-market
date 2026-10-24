@@ -1,0 +1,109 @@
+{
+  "_legacy-page-DntemolB.js": {
+    "file": "chunks/legacy-page-DntemolB.js",
+    "name": "legacy-page",
+    "imports": [
+      "_shell-RGkk9GjA.js"
+    ]
+  },
+  "_preload-helper-HWFXrRZl.js": {
+    "file": "chunks/preload-helper-HWFXrRZl.js",
+    "name": "preload-helper",
+    "imports": [
+      "_shell-RGkk9GjA.js",
+      "_react-dom-20PnVD-d.js"
+    ]
+  },
+  "_react-dom-20PnVD-d.js": {
+    "file": "chunks/react-dom-20PnVD-d.js",
+    "name": "react-dom",
+    "imports": [
+      "_shell-RGkk9GjA.js"
+    ]
+  },
+  "_shell-RGkk9GjA.js": {
+    "file": "chunks/shell-RGkk9GjA.js",
+    "name": "shell"
+  },
+  "_tabs-CYvn_hLB.js": {
+    "file": "chunks/tabs-CYvn_hLB.js",
+    "name": "tabs",
+    "imports": [
+      "_shell-RGkk9GjA.js",
+      "_react-dom-20PnVD-d.js"
+    ]
+  },
+  "src/main.tsx": {
+    "file": "app.js",
+    "name": "app",
+    "src": "src/main.tsx",
+    "isEntry": true,
+    "imports": [
+      "_shell-RGkk9GjA.js",
+      "_preload-helper-HWFXrRZl.js",
+      "_legacy-page-DntemolB.js"
+    ],
+    "dynamicImports": [
+      "src/pages/home.tsx",
+      "src/pages/prices.tsx",
+      "src/pages/account.tsx",
+      "src/pages/contributors.tsx"
+    ]
+  },
+  "src/pages/account.tsx": {
+    "file": "chunks/account-CWU1oVUn.js",
+    "name": "account",
+    "src": "src/pages/account.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_shell-RGkk9GjA.js"
+    ]
+  },
+  "src/pages/contributors.tsx": {
+    "file": "chunks/contributors-xpJq0_Y8.js",
+    "name": "contributors",
+    "src": "src/pages/contributors.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_shell-RGkk9GjA.js",
+      "_tabs-CYvn_hLB.js"
+    ]
+  },
+  "src/pages/home.tsx": {
+    "file": "chunks/home-BuuWJ5Om.js",
+    "name": "home",
+    "src": "src/pages/home.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_shell-RGkk9GjA.js",
+      "_tabs-CYvn_hLB.js"
+    ]
+  },
+  "src/pages/prices.tsx": {
+    "file": "chunks/prices-Cb7m7yk4.js",
+    "name": "prices",
+    "src": "src/pages/prices.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_shell-RGkk9GjA.js",
+      "_react-dom-20PnVD-d.js",
+      "_legacy-page-DntemolB.js",
+      "_tabs-CYvn_hLB.js"
+    ]
+  },
+  "src/server.tsx": {
+    "file": "shell.js",
+    "name": "shell",
+    "src": "src/server.tsx",
+    "isEntry": true,
+    "imports": [
+      "_shell-RGkk9GjA.js",
+      "_preload-helper-HWFXrRZl.js",
+      "_react-dom-20PnVD-d.js"
+    ]
+  },
+  "style.css": {
+    "file": "style.css",
+    "src": "style.css"
+  }
+}

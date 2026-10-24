@@ -60,3 +60,8 @@ __pycache__/
 # Built by server/tools/build_reader_wasm.sh.
 /web/collect/pkg/
 /web/releases/
+
+# React sources and generated frontend assets.
+!/frontend/
+/frontend/node_modules/
+/web/react/

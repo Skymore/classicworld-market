@@ -113,7 +113,8 @@ pub fn layout(ctx: &Ctx, page: &Page<'_>, body: Markup) -> Markup {
                 @for name in page.css {
                     link rel="stylesheet" href={"/web/css/" (name) ".css?v=20261021-uiux-trend-2"};
                 }
-                script type="module" src="/web/js/pages/dex.js?v=20261023-agent-3321100" {}
+                link rel="stylesheet" href="/web/react/style.css";
+                script type="module" src="/web/react/shell.js" {}
                 @for name in page.scripts {
                     script type="module" src={"/web/js/pages/" (name) ".js?v=20261023-agent-3321100"} {}
                 }
@@ -194,7 +195,7 @@ fn desk_nav(ctx: &Ctx, active: Nav) -> Markup {
             Some(Nav::Dex),
         ),
         ("/watch", ctx.t("关注", "Watch"), None),
-        ("/alerts", ctx.t("捡漏", "Deals"), None),
+        ("/alerts", ctx.t("采集", "Collect"), None),
         ("/selling", ctx.t("背包／摆摊", "Bag & shop"), None),
     ];
     html! {
@@ -227,7 +228,7 @@ fn dock(ctx: &Ctx, active: Nav) -> Markup {
         ("/watch", ctx.t("关注", "Watch"), Icon::Star, None, "watch"),
         (
             "/alerts",
-            ctx.t("捡漏", "Deals"),
+            ctx.t("采集", "Collect"),
             Icon::Coin,
             None,
             "alerts",
@@ -346,7 +347,7 @@ const STAR: &str = "
 ..###..###..
 ..##....##..
 .##......##.";
-/// Coin for the 捡漏 dock entry (same art as `coin` in web/js/lib/icons.js).
+/// Coin for the 采集 dock entry (same art as `coin` in web/js/lib/icons.js).
 const COIN: &str = "
 ....####....
 ..########..

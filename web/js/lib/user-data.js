@@ -4,6 +4,7 @@ const PREFS=['lang','theme','market.offerSort','watch.offerSort','market.hours']
 const KEYS=['watchlist','watchlist_settings',...PREFS];
 const PREFIX='cwm.user-data.v1.';
 const SIGNAL='cwm.account-signal.v1';
+const ACTIVE_PREFERENCES='cwm.preferences.account.v1';
 const browser=typeof window!=='undefined'&&typeof document!=='undefined'&&typeof location!=='undefined';
 const native=()=>globalThis.localStorage;
 const parse=(raw,fallback)=>{try{return JSON.parse(raw)??fallback;}catch{return fallback;}};
@@ -110,6 +111,9 @@ export async function flush(){
 export async function adoptAccount(next,{broadcast=false}={}){
  const account=next?.signed_in&&next.mode!=='collector'&&typeof next.public_id==='string'?next.public_id:null;
  profile=next;
+ // Let the blocking bootstrap read the active account's cached theme before
+ // modules or the network load. This is a public ID, never a credential.
+ try{if(account)write(ACTIVE_PREFERENCES,account);else native().removeItem(ACTIVE_PREFERENCES);}catch{}
  if(account===owner){if(account)await flush();return;}
  epoch++;busy=false;clearTimeout(timer);owner=account;context=null;
  if(owner){

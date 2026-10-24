@@ -39,7 +39,8 @@ try{
   const lang=mobile?'zh':'en';
   profile={signed_in:false,google_enabled:true};
   await page.goto(origin+'/account?lang='+lang);await page.locator('.google-signin').waitFor();
-  assert.match(await page.locator('link[href*="/web/css/base.css"]').getAttribute('href'),/20261024-accounts-1/,'quick search must keep the current shell stylesheet');
+  const shellStylesheet=(await readFile(path.join(root,'index.html'),'utf8')).match(/href="(\/web\/css\/base\.css[^"\s]*)"/)[1];
+  assert.equal(await page.locator('link[href*="/web/css/base.css"]').getAttribute('href'),shellStylesheet,'quick search must keep the current shell stylesheet');
   assert.equal(await page.locator('.google-signin').getAttribute('href'),'/auth/google/start');
   assert.equal(await page.locator('.account-link:visible').getAttribute('aria-label'),mobile?'登录账号':'Sign in to your account');
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'login layout overflows');

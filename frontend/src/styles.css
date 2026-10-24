@@ -1,0 +1,301 @@
+@import "tailwindcss/theme.css";
+@import "tailwindcss/utilities.css";
+@source "./";
+@theme inline {
+  --color-background: var(--page);
+  --color-foreground: var(--ink);
+  --color-card: var(--sheet);
+  --color-card-foreground: var(--ink);
+  --color-primary: var(--bar);
+  --color-primary-foreground: var(--bar-ink);
+  --color-muted: var(--sheet-lo);
+  --color-muted-foreground: var(--ink-3);
+  --color-border: var(--rule);
+  --color-ring: var(--mark);
+}
+/* Keep the approved game-window tokens, borders and responsive geometry. */
+.dock {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+[data-slot="button"]:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.ui-ghost {
+  border-color: transparent;
+  box-shadow: none;
+  background: transparent;
+}
+.ui-icon-button {
+  width: 44px;
+  padding: 0;
+  justify-content: center;
+}
+.tab[data-state="active"] {
+  color: var(--ink);
+  border-bottom-color: var(--maple);
+}
+.ui-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  z-index: 80;
+}
+.ui-dialog-content {
+  position: fixed;
+  z-index: 81;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(520px, calc(100vw - 24px));
+  max-height: 85dvh;
+  overflow: auto;
+  outline: none;
+}
+.ui-dialog-close {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  display: grid;
+  place-items: center;
+}
+.ui-dialog-content .stall-bar {
+  padding-right: 48px;
+}
+.ui-dialog-content .fpanel {
+  position: static;
+  width: auto;
+  max-height: none;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.ui-dialog-content .fsec {
+  padding: 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.ui-dialog-content .ffoot {
+  position: sticky;
+  bottom: 0;
+  background: var(--sheet);
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.legacy-page {
+  display: contents;
+}
+.react-status {
+  padding: 24px;
+  color: var(--ink-2);
+}
+.react-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.slot img[data-broken] {
+  visibility: hidden;
+}
+.ui-dialog-description {
+  padding: 10px 12px;
+  color: var(--ink-3);
+  font-size: 13px;
+}
+.react-price-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px;
+}
+.react-price-tools .finder {
+  flex: 1;
+  min-width: 180px;
+}
+.react-price-tools .cats {
+  flex: 1 1 100%;
+  order: 2;
+}
+.react-price-tools .sortbtn {
+  min-height: 44px;
+}
+.react-price-tools select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--sheet-hi);
+  border: 1px solid var(--rule);
+  padding: 6px;
+  max-width: 180px;
+}
+.react-price-tools .sortwrap {
+  margin-left: auto;
+}
+.react-prices .ptable tr:focus-within {
+  background: var(--bar-soft);
+}
+.react-price-mobile {
+  display: none;
+}
+.react-price-sticky {
+  display: contents;
+}
+.react-price-cols {
+  display: none;
+}
+.react-price-more {
+  width: 100%;
+  padding: 14px;
+  min-height: 48px;
+  border-top: 1px solid var(--rule);
+}
+.react-prices .active-price-filters {
+  display: flex;
+}
+.react-prices .sample-badge {
+  max-width: 100%;
+}
+.ui-dialog-content .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.ui-dialog-content .lvrow {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+.ui-dialog-content .lvrow label {
+  flex: 1;
+  min-width: 0;
+}
+.ui-dialog-content .lvrow input {
+  width: 100%;
+  background: var(--sheet-hi);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  font: inherit;
+  padding: 8px;
+}
+.ui-dialog-content .filter-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+.ui-sortmenu {
+  position: relative;
+  top: auto;
+  right: auto;
+  z-index: 90;
+}
+.ui-sortitem {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}
+.ui-sortitem[data-highlighted] {
+  background: var(--bar-soft);
+}
+.ui-sortitem[data-state="checked"] {
+  color: var(--maple-ink);
+}
+.react-price-sort {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+.react-price-sort button {
+  min-width: 36px;
+  min-height: 44px;
+}
+.react-home-tab .more {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+}
+.account-opt input {
+  accent-color: var(--maple);
+}
+@media (min-width: 1101px) {
+  .react-price-tools .cats {
+    order: 0;
+    flex: 0 1 auto;
+  }
+}
+@media (max-width: 640px) {
+  .react-price-desktop {
+    display: none;
+  }
+  .react-price-mobile {
+    display: block;
+  }
+  .react-price-tools {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    padding: 8px var(--gap);
+    gap: 8px;
+  }
+  .react-price-tools .finder {
+    grid-column: 1/-1;
+    width: 100%;
+  }
+  .react-price-tools .sortwrap {
+    margin-left: 0;
+  }
+  .react-price-tools select {
+    max-width: 150px;
+  }
+  .react-price-tools .cats {
+    grid-column: 1;
+    order: 0;
+    min-width: 0;
+    overflow: auto;
+  }
+  .react-price-tools [data-watch-only] {
+    display: none;
+  }
+  .react-price-tools .sortwrap {
+    grid-column: 2;
+  }
+  .react-price-tools [data-filter-btn] {
+    grid-column: 3;
+  }
+  .react-price-tools [data-filter-btn] > span:not(.contents) {
+    display: none;
+  }
+  .react-price-sticky {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--sheet);
+    border-bottom: 2px solid var(--edge);
+    box-shadow: var(--hard);
+  }
+  .react-price-cols {
+    display: grid;
+  }
+  .ui-dialog-content {
+    left: 0;
+    bottom: 0;
+    top: auto;
+    transform: none;
+    width: 100%;
+    max-height: 88dvh;
+    border-bottom: 0;
+  }
+  .react-prices > .stall-bar {
+    flex-wrap: wrap;
+  }
+  .react-prices > .stall-bar .bar-meta {
+    font-size: 11px;
+  }
+}

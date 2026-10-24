@@ -70,9 +70,9 @@ try{
   assert.deepEqual(requests.at(-1).history,[]);
   // Language changes remount this cached module, including all page-local text.
   await page.locator('[data-lang-toggle]:visible').click();
-  await page.waitForFunction(expected=>document.querySelector('.agent-panel h1').textContent===expected,mobile?'Market assistant':'市场助手');
+  await page.waitForFunction(expected=>document.querySelector('.agent-panel h1')?.textContent===expected,mobile?'Market assistant':'市场助手');
   enabled=false;const previous=requests.length;await page.reload();
-  await page.waitForFunction(()=>document.querySelector('[data-status]').textContent.includes('OPENROUTER_API_KEY'));
+  await page.waitForFunction(()=>document.querySelector('[data-status]')?.textContent.includes('OPENROUTER_API_KEY'));
   await page.locator('textarea').fill('buy ores');await page.locator('.agent-send').click();assert.equal(requests.length,previous);
   assert.deepEqual(errors,[]);await page.close();console.log(`PASS ${mobile?'mobile Chinese/light':'desktop English/dark'}: chat, history, queries, safe links, quota, cancel, clear, language, setup state`);
  }
