@@ -39,7 +39,9 @@ function queue(){
   if(same(previous?.value,next.value))delete context.pending[key];
   else context.pending[key]={...next,version:context.pending[key]?.version??previous?.version??0};
  }
- persist();status=Object.keys(context.pending).length?(persistent?'pending':'memory_only'):'synced';notify();schedule();
+ const pending=Object.keys(context.pending).length;
+ persist();status=Object.keys(context.conflicts).length?'conflict':pending?(persistent?'pending':'memory_only'):'synced';notify();
+ if(pending)schedule();else clearTimeout(timer);
 }
 export const userStorage={
  getItem(key){
@@ -50,11 +52,12 @@ export const userStorage={
   if(owner&&context&&(KEYS.includes(key)||key==='market.period-manual.v1')){
    if(key==='market.period-manual.v1')return;
    if(key==='watchlist'&&parse(value,[]).length>100)throw new Error('watch_limit');
+   if(context.values[key]===String(value))return;
    context.values[key]=String(value);queue();return;
   }
   write(key,String(value));
  },
- removeItem(key){if(owner&&context&&(KEYS.includes(key)||key==='market.period-manual.v1')){delete context.values[key];queue();return;}native().removeItem(key);}
+ removeItem(key){if(owner&&context&&(KEYS.includes(key)||key==='market.period-manual.v1')){if(!(key in context.values))return;delete context.values[key];queue();return;}native().removeItem(key);}
 };
 function changed(){
  if(!browser)return;
@@ -102,7 +105,7 @@ export async function flush(){
   if(e.status===409&&e.message==='sync_conflict'){
    const result=await request('/api/v1/account/data',null,csrf);if(mine===epoch)reconcile(result.records||[]);
   }else{status=e.message==='watch_limit'?'watch_limit':persistent?'offline':'memory_only';notify();}
- }finally{busy=false;if(mine===epoch&&owner&&Object.keys(context?.pending||{}).length&&status!=='watch_limit'&&status!=='login_required')schedule(status==='offline'?15000:600);}
+ }finally{if(mine===epoch){busy=false;if(owner&&Object.keys(context?.pending||{}).length&&status!=='watch_limit'&&status!=='login_required')schedule(status==='offline'?15000:600);}}
 }
 export async function adoptAccount(next,{broadcast=false}={}){
  const account=next?.signed_in&&next.mode!=='collector'&&typeof next.public_id==='string'?next.public_id:null;
@@ -148,7 +151,7 @@ if(browser){
  window.addEventListener('online',()=>refreshIdentity());
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshIdentity();});
  window.addEventListener('storage',e=>{
-  if(e.key===SIGNAL){epoch++;owner=null;context=null;clearTimeout(timer);changed();refreshIdentity();}
+  if(e.key===SIGNAL){epoch++;owner=null;context=null;clearTimeout(timer);changed();if(identityBusy)identityBusy.finally(()=>refreshIdentity());else refreshIdentity();}
   else if(owner&&e.key===PREFIX+owner&&e.newValue){
    // Merge unsent operations from both tabs before rebuilding the view. Reading
    // the current value avoids replaying an older queued storage event.

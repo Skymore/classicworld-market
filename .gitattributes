@@ -1,0 +1,7 @@
+# SQLx hashes migration bytes. Preserve the formats already deployed in PostgreSQL.
+/server/migrations/*.sql text eol=lf
+/server/migrations/0001_market.sql text eol=crlf
+/server/migrations/0002_market_write_read.sql text eol=crlf
+/server/migrations/0010_bestiary.sql text eol=crlf
+/server/migrations/0011_bestiary_data.sql text eol=crlf
+/server/migrations/0012_observation_map_context.sql text eol=crlf
