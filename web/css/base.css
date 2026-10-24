@@ -30,7 +30,7 @@ html[data-theme=dark]{
   --hard:0 2px 0 rgba(0,0,0,.55);
 }
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%;background-color:var(--page)}
+html{-webkit-text-size-adjust:100%;background-color:var(--page);touch-action:pan-x pan-y}
 body{margin:0;color:var(--ink);font:15px/1.45 system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;font-variant-numeric:tabular-nums;
   background-color:var(--page);
   /* 自由市场砖墙：横缝每 22px，竖缝隔行错开半块 */
@@ -109,8 +109,7 @@ h1,h2,h3,p{margin:0}
   /* Reserve home-indicator space while browser toolbars cover it too, so
      collapsing the bars cannot grow the page after a completed swipe. */
   .app{width:100%;max-width:430px;min-width:0;margin:0 auto;padding:0 var(--gap) calc(var(--dock-h) + max(34px,env(safe-area-inset-bottom,0px)) + 20px)}
-  /* iOS can retain its focus zoom after the keyboard closes. Keep control
-     text readable without blocking the user's normal pinch zoom. */
+  /* Keep controls readable so focusing them does not trigger iOS zoom. */
   input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),textarea,select{font-size:max(16px,1em)!important}
 }
 .ptop{display:flex;align-items:center;gap:8px;height:52px}

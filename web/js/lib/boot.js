@@ -4,6 +4,22 @@
 // logic for later changes; every page shell includes this file.
 (function () {
   var html = document.documentElement;
+  // The owner requests a fixed page scale. Some iOS browsers ignore the
+  // viewport limit, so also cancel their native multi-touch zoom gestures.
+  var viewport = document.querySelector('meta[name="viewport"]');
+  if (viewport) viewport.setAttribute('content', 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+  if (html.dataset.pageZoom !== 'locked') {
+    html.dataset.pageZoom = 'locked';
+    var stopGestureZoom = function (event) { event.preventDefault(); };
+    var stopMultiTouchZoom = function (event) {
+      if (event.touches.length > 1) event.preventDefault();
+    };
+    var options = { capture: true, passive: false };
+    document.addEventListener('gesturestart', stopGestureZoom, options);
+    document.addEventListener('gesturechange', stopGestureZoom, options);
+    document.addEventListener('touchstart', stopMultiTouchZoom, options);
+    document.addEventListener('touchmove', stopMultiTouchZoom, options);
+  }
   var query = new URLSearchParams(location.search);
   var read = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
   var active = read('cwm.preferences.account.v1');

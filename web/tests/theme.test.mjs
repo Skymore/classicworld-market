@@ -16,7 +16,7 @@ function start({ saved, query = '', system = 'light', blocked = false, accountTh
     setItem(key, value) { if (blocked) throw Error('storage denied'); values.set(key, value); },
   };
   vm.runInNewContext(boot, {
-    document: { documentElement: html }, location: { search: query },
+    document: { documentElement: html, querySelector: () => ({ setAttribute() {} }), addEventListener() {} }, location: { search: query },
     URLSearchParams, localStorage: storage, innerWidth: 375,
     matchMedia: () => ({ matches: system === 'dark' }),
   });

@@ -75,7 +75,36 @@ try {
     const input = page.locator('.hero input[name=q]');
     assert.equal(await input.evaluate(node => getComputedStyle(node).fontSize), '16px', 'search cannot trigger the iOS small-input focus zoom');
     const viewport = await page.locator('meta[name=viewport]').getAttribute('content');
-    assert(!/user-scalable\s*=\s*(no|0)|maximum-scale\s*=\s*1\b/i.test(viewport), 'user pinch zoom remains available');
+    assert.match(viewport, /user-scalable=no/);
+    assert.match(viewport, /minimum-scale=1/);
+    assert.match(viewport, /maximum-scale=1/);
+    assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).touchAction), 'pan-x pan-y', 'single-finger panning remains enabled without page zoom');
+    const cancellation = await page.evaluate(() => {
+      function touch(type, count) {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperty(event, 'touches', { value: { length: count } });
+        document.body.dispatchEvent(event);
+        return event.defaultPrevented;
+      }
+      const gesture = new Event('gesturechange', { bubbles: true, cancelable: true });
+      document.body.dispatchEvent(gesture);
+      return [touch('touchstart', 1), touch('touchmove', 1), touch('touchstart', 2), touch('touchmove', 2), gesture.defaultPrevented];
+    });
+    assert.deepEqual(cancellation, [false, false, true, true, true], 'block Safari zoom gestures while preserving single-finger input');
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 160, y: 360, id: 1 }, { x: 230, y: 360, id: 2 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 110, y: 360, id: 1 }, { x: 280, y: 360, id: 2 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    assert.equal(await page.evaluate(() => visualViewport.scale), 1, 'native pinch does not change the page scale');
+    await frames(page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 195, y: 630, id: 3 }] });
+    for (const y of [590, 550, 510, 470, 430, 390]) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 195, y, id: 3 }] });
+      await frames(page);
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForFunction(() => scrollY > 0, { timeout: 2000 });
+    const scrolling = await page.evaluate(() => ({ y: scrollY, height: document.documentElement.scrollHeight, viewport: innerHeight, overflow: getComputedStyle(document.documentElement).overflow, popup: Boolean(document.querySelector('.item-peek:not([hidden])')) }));
+    assert(scrolling.y > 0, `normal single-finger scrolling still works: ${JSON.stringify(scrolling)}`);
     await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
     await frames(page);
     const height = await page.evaluate(() => document.documentElement.scrollHeight);
@@ -120,7 +149,7 @@ try {
     if (stale) assert(oldStyles > 0, 'actually exercise cached legacy styles');
     assert.deepEqual(errors, []);
     await page.close();
-    console.log(`PASS ${stale ? 'warm old CSS cache' : 'fresh page'}: 16px inputs, user zoom, safe-area/bar changes after one scroll, SSE, fitted preview and styled crafting`);
+    console.log(`PASS ${stale ? 'warm old CSS cache' : 'fresh page'}: locked zoom, normal touch scrolling, 16px inputs, safe-area changes, SSE, fitted preview and crafting`);
   }
 } finally {
   await browser?.close();
