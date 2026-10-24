@@ -473,7 +473,7 @@ export default function Prices() {
                       <div className="fsec">
                         <h4>{words("装备类型", "Equipment type")}</h4>
                         <div
-                          className="chips"
+                          className="chips equipment-types"
                           role="group"
                           aria-label={words("装备类型", "Equipment type")}
                         >

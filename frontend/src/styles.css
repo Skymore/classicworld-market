@@ -227,6 +227,19 @@
   min-width: 0;
   padding-inline: 4px;
 }
+.price-filter-dialog .equipment-types {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.price-filter-dialog .equipment-types .chip {
+  width: 100%;
+  min-width: 0;
+  padding-inline: 4px;
+  text-align: center;
+}
+html[data-lang="en"] .price-filter-dialog .equipment-types {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 .ui-dialog-content .lvrow {
   display: flex;
   gap: 12px;
@@ -295,6 +308,12 @@
   }
 }
 @media (max-width: 640px) {
+  .price-filter-dialog .equipment-types {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  html[data-lang="en"] .price-filter-dialog .equipment-types {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .price-filter-dialog .level-presets {
     grid-template-columns: repeat(12, minmax(0, 1fr));
   }
