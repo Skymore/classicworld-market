@@ -1,6 +1,6 @@
 # 制造入门：等级、导师与材料成本
 
-官方发布说明中，制造从角色 10 级开放。六个方向与导师为：Silas Irons / Smithing；Mr. Thunder / Weaponcrafting；Francois / Tailoring；Vicious / Woodcrafting；JM From tha Streetz / Leatherworking；Chrishrama / Arcforge。
+官方发布说明中，制造从角色 10 级开放。开放锻造、武器制作、裁缝、木工、皮革制作和奥术锻造六个方向；各方向的导师位置可在游戏内查询。
 
 去导师处看可制作品、所需材料和已开放配方，持续制作会推进制造技能并开放更多配方。不要只看成品售价就说某配方稳赚：还要算材料、费用、数量和真实成交证据。
 

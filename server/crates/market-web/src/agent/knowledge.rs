@@ -209,6 +209,15 @@ pub fn run(request: Request) -> Value {
                             score += 3;
                         }
                     }
+                    // The displayed guide is Chinese, while the original client
+                    // terms remain searchable through hidden index aliases.
+                    if r["original_terms"].as_array().is_some_and(|terms| {
+                        terms.iter().filter_map(Value::as_str).any(|term| {
+                            term.len() >= 5 && topic_match(&query, term)
+                        })
+                    }) {
+                        score += 8;
+                    }
                     if r["subjects"].as_array().is_some_and(|subjects| {
                         subjects
                             .iter()

@@ -489,7 +489,7 @@ h1,h2,h3,p{margin:0}
 .quick-names small,.quick-kind{font-size:12px;color:var(--ink-3)}
 .quick-names small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .quick-kind{flex-shrink:0}
-.quick-more{display:block;padding:12px;text-align:center;color:var(--maple-ink);font-size:14px;font-weight:700}
+.quick-more{display:block;position:sticky;bottom:0;background:var(--sheet);padding:12px;text-align:center;color:var(--maple-ink);font-size:14px;font-weight:700}
 .quick-note{padding:14px;font-size:14px}
 .hero:has(.quick-search:not([hidden])){position:relative;z-index:45}
 

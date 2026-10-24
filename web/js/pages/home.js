@@ -1,5 +1,5 @@
 import { readPeriod, resolvePeriod, decoratePeriod, savePeriod, periodControl, periodLabel, periodProduct, inPeriod } from '../lib/period.js?v=20261022-regressions-1';
-import { bindQuickSearch } from '../lib/quick-search.js?v=20261023-header-icons-2';
+import { bindQuickSearch } from '../lib/quick-search.js?v=20261024-search-tap-1';
 import { refreshTimes } from '../lib/time.js';
 // Home `/` (design/mockups-v2 *-home-*.png): unified search with an item
 // type-ahead, three portals, and one "今日市场" stall with three tabs.

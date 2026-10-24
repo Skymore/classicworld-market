@@ -1,6 +1,6 @@
 import { userStorage as localStorage } from './user-data.js';
 import { bindClock } from './time.js';
-import { bindQuickSearch } from './quick-search.js?v=20261023-header-icons-2';
+import { bindQuickSearch } from './quick-search.js?v=20261024-search-tap-1';
 // Shared chrome and components ported from design/mockups-v2/mock.html.
 // Both the phone top bar + dock and the desktop header are rendered; base.css
 // shows one of them per html[data-device]. Pages render into <main>.

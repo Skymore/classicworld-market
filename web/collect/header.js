@@ -1,6 +1,6 @@
 import { bindLocalNavigation } from '/web/js/lib/local-nav.js?v=20261023-header-icons-2';
 bindLocalNavigation();
-import { bindQuickSearch } from '/web/js/lib/quick-search.js?v=20261023-header-icons-2';
+import { bindQuickSearch } from '/web/js/lib/quick-search.js?v=20261024-search-tap-1';
 bindQuickSearch();
 // Header of the static collector page: the theme toggle and the "/" search
 // shortcut, as web/js/pages/dex.js does for the server-rendered pages.

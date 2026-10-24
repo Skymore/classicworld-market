@@ -5,7 +5,7 @@
     {
       "id": "build-roadmap",
       "title": "全职业加点总览：默认路线与主要分歧",
-      "summary": "四个一转、十个二转的路线入口；先选适合预算和练级方式的方案，再看具体 SP 顺序。",
+      "summary": "四个一转、十个二转的路线入口；先选适合预算和练级方式的方案，再看具体技能点顺序。",
       "subjects": [
         "全职业",
         "所有职业",
@@ -40,7 +40,7 @@
       "source_kind": "mixed",
       "sources": [
         {
-          "title": "Nexon · Grand Launch Release Notes",
+          "title": "官方开服公告",
           "url": "https://www.nexon.com/maplestory/news/general/46506",
           "kind": "official",
           "published_on": "2026-10-20",
@@ -54,77 +54,77 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "xBucc 全职业讨论：原作者修订与评论争议",
+          "title": "玩家全职业讨论：原作者修订与评论争议",
           "url": "https://www.reddit.com/r/MSClassicWorld/comments/1wvx41t/complete_builds_for_all_classes_1st_2nd_job/",
           "kind": "community",
           "published_on": "2026-10-02",
           "verified": "已读正文修订及评论；旧配图已被作者纠正，不作为逐级表依据"
         },
         {
-          "title": "NiaMeowDB · Fighter",
+          "title": "喵喵资料站 · 剑客",
           "url": "https://meowdb.com/msclassic/guides/fighter-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "NiaMeowDB · Page",
+          "title": "喵喵资料站 · 准骑士",
           "url": "https://meowdb.com/msclassic/guides/page-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "NiaMeowDB · Spearman",
+          "title": "喵喵资料站 · 枪战士",
           "url": "https://meowdb.com/msclassic/guides/spearman-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "NiaMeowDB · F/P Wizard",
+          "title": "喵喵资料站 · 火毒法师",
           "url": "https://meowdb.com/msclassic/guides/fp-wizard-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "NiaMeowDB · I/L Wizard",
+          "title": "喵喵资料站 · 冰雷法师",
           "url": "https://meowdb.com/msclassic/guides/il-wizard-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "NiaMeowDB · Cleric",
+          "title": "喵喵资料站 · 牧师",
           "url": "https://meowdb.com/msclassic/guides/cleric-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "NiaMeowDB · Hunter",
+          "title": "喵喵资料站 · 猎人",
           "url": "https://meowdb.com/msclassic/guides/hunter-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "NiaMeowDB · Crossbowman",
+          "title": "喵喵资料站 · 弩手",
           "url": "https://meowdb.com/msclassic/guides/crossbowman-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "NiaMeowDB · Assassin",
+          "title": "喵喵资料站 · 刺客",
           "url": "https://meowdb.com/msclassic/guides/assassin-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "NiaMeowDB · Bandit",
+          "title": "喵喵资料站 · 侠客",
           "url": "https://meowdb.com/msclassic/guides/bandit-class-guide",
           "kind": "community",
           "published_on": null,
@@ -138,7 +138,53 @@
         "thief-build",
         "training"
       ],
-      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。"
+      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。",
+      "original_terms": [
+        "AP",
+        "Amazon's Judgement",
+        "Arrow Blow",
+        "Arrow Bomb",
+        "Assassin",
+        "Bandit",
+        "Bless",
+        "Cleric",
+        "Cold Beam",
+        "Crossbowman",
+        "DEX",
+        "Double Stab",
+        "Energy Bolt",
+        "F/P Wizard",
+        "Fighter",
+        "Final Attack",
+        "Fire Arrow",
+        "Forgotten Hollow",
+        "Grand Launch",
+        "Haste",
+        "Haste/",
+        "Heal",
+        "Hunter",
+        "I/L Wizard",
+        "INT",
+        "Iron Arrow",
+        "LUK",
+        "Magic Claw",
+        "Mastery",
+        "Meditation",
+        "Page",
+        "Poison Breath",
+        "Rage",
+        "Rush",
+        "SP",
+        "STR",
+        "Savage Blow",
+        "Sindit",
+        "Spearman",
+        "Steal",
+        "Teleport",
+        "Threaten",
+        "Thunder Bolt"
+      ],
+      "language": "zh"
     },
     {
       "id": "training",
@@ -182,7 +228,7 @@
       "source_kind": "mixed",
       "sources": [
         {
-          "title": "Nexon · Grand Launch Release Notes",
+          "title": "官方开服公告",
           "url": "https://www.nexon.com/maplestory/news/general/46506",
           "kind": "official",
           "published_on": "2026-10-20",
@@ -203,14 +249,14 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "Classic World Guide · Leveling",
+          "title": "经典世界升级路线",
           "url": "https://mapleclassic.guide/leveling",
           "kind": "community",
           "published_on": null,
           "verified": "已读；CoT1/2经验、旧阈值与未确认内容已筛除"
         },
         {
-          "title": "MapleStory Quest · Training",
+          "title": "玩家升级路线汇总",
           "url": "https://maplestory.quest/guides/training",
           "kind": "community",
           "published_on": null,
@@ -311,12 +357,67 @@
           "use": "牧师较高血量备选；并非刚二转就更快",
           "measured_exp_per_hour": null
         }
-      ]
+      ],
+      "original_terms": [
+        "Ant Tunnel I",
+        "Area",
+        "Blue Mushroom",
+        "Caution Falling Down",
+        "Cliff",
+        "Croco",
+        "Curse Eye",
+        "Damp Forest",
+        "Dangerous Croko II",
+        "Drake/Cold Eye",
+        "EXP/hr",
+        "Excavation Site III",
+        "Fire Boar",
+        "Forest Up North IX",
+        "Forgotten Entrance",
+        "Forgotten Hollow",
+        "Grand Launch",
+        "Green Mushroom",
+        "HP",
+        "Holy Arrow",
+        "Horny Mushroom",
+        "Hot Sand",
+        "Jr. Necki",
+        "Jr. Wraith",
+        "KPQ",
+        "Land of Wild Boar",
+        "Line",
+        "Lith Harbor",
+        "Lorang",
+        "Lupin",
+        "Maple Island",
+        "Monkey Forest II",
+        "Mushroom Garden",
+        "Olaf",
+        "Raffle",
+        "Remains",
+        "Slime",
+        "Stirge",
+        "Tauromacis",
+        "Taurospear",
+        "Teo",
+        "The Burnt Land I",
+        "The Forest of Wisdom",
+        "The Tunnel That Lost Light II",
+        "Tortie/Clang",
+        "Transfer Area",
+        "Tree Dungeon",
+        "Wild Kargo",
+        "Wooden/Rocky Mask",
+        "Wraith",
+        "Zombie Lupin",
+        "map/"
+      ],
+      "language": "zh"
     },
     {
       "id": "warrior-build",
       "title": "战士一转：命中、单攻与省药的取舍",
-      "summary": "普通 STR 战士先开单攻、群攻和回复，再补命中；介绍输出与省药两种 61 SP 分配。",
+      "summary": "普通力量战士先开单攻、群攻和回复，再补命中；介绍输出与省药两种 61 技能点分配。",
       "subjects": [
         "战士",
         "Warrior"
@@ -349,14 +450,14 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "NiaMeowDB · Warrior 1—30",
+          "title": "喵喵资料站 · 战士 1—30",
           "url": "https://meowdb.com/msclassic/guides/warrior-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "Classic World Guide · Warrior",
+          "title": "经典世界攻略站 · 战士",
           "url": "https://mapleclassic.guide/classes/warrior",
           "kind": "community",
           "published_on": "2026-10-22",
@@ -369,12 +470,30 @@
         "spearman-build",
         "training"
       ],
-      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。"
+      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。",
+      "original_terms": [
+        "Classic World Guide",
+        "DEX",
+        "HP/",
+        "Horny Mushroom",
+        "Improved HP Recovery",
+        "Iron Body",
+        "Mastery",
+        "Max HP Increase",
+        "Power Strike",
+        "Precise Strikes",
+        "SP",
+        "STR",
+        "Slash Blast",
+        "Stirge",
+        "Wild Boar"
+      ],
+      "language": "zh"
     },
     {
       "id": "fighter-build",
-      "title": "剑客 Fighter：Mastery、Rage 与武器路线",
-      "summary": "单修武器、早开 Rush 和 Booster；比较稳定单练、固定物理队与单手盾路线。",
+      "title": "剑客：精准技能、愤怒之火与武器路线",
+      "summary": "单修武器、早开冲锋和快速技能；比较稳定单练、固定物理队与单手盾路线。",
       "subjects": [
         "剑客",
         "Fighter"
@@ -407,14 +526,14 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "NiaMeowDB · Fighter 30—70",
+          "title": "喵喵资料站 · 剑客 30—70",
           "url": "https://meowdb.com/msclassic/guides/fighter-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "Classic World Guide · Fighter",
+          "title": "经典世界攻略站 · 剑客",
           "url": "https://mapleclassic.guide/classes/fighter",
           "kind": "community",
           "published_on": "2026-10-22",
@@ -425,12 +544,30 @@
         "warrior-build",
         "training"
       ],
-      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。"
+      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。",
+      "original_terms": [
+        "Axe",
+        "Booster",
+        "Classic World Guide",
+        "Fighter",
+        "Final Attack",
+        "Mastery",
+        "NiaMeowDB",
+        "Power Strike",
+        "Rage",
+        "Rush",
+        "SP",
+        "Slash Blast",
+        "Sword",
+        "Sword Booster",
+        "Sword Mastery"
+      ],
+      "language": "zh"
     },
     {
       "id": "page-build",
-      "title": "准骑士 Page：剑与钝器、Threaten 的投入",
-      "summary": "先稳定命中和 Mastery；单体、控场、机动的收益取决于你实际刷的目标。",
+      "title": "准骑士：剑与钝器、威胁的投入",
+      "summary": "先稳定命中和精准技能；单体、控场、机动的收益取决于你实际刷的目标。",
       "subjects": [
         "准骑士",
         "Page"
@@ -462,14 +599,14 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "NiaMeowDB · Page 30—70",
+          "title": "喵喵资料站 · 准骑士 30—70",
           "url": "https://meowdb.com/msclassic/guides/page-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "Classic World Guide · Page",
+          "title": "经典世界攻略站 · 准骑士",
           "url": "https://mapleclassic.guide/classes/page",
           "kind": "community",
           "published_on": "2026-10-22",
@@ -480,12 +617,30 @@
         "warrior-build",
         "training"
       ],
-      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。"
+      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。",
+      "original_terms": [
+        "Blunt Weapon",
+        "Booster",
+        "Boss",
+        "Curse Eye",
+        "Final Attack",
+        "Mastery",
+        "NiaMeowDB",
+        "Page",
+        "Power Guard",
+        "Rush",
+        "SP",
+        "Sword",
+        "Sword Booster",
+        "Sword Mastery",
+        "Threaten"
+      ],
+      "language": "zh"
     },
     {
       "id": "spearman-build",
-      "title": "枪战士 Spearman：矛练级与枪的取舍",
-      "summary": "普通练级偏矛系；Mastery 后比较机动、追加攻击与防击退，避免照搬旧版神圣之火。",
+      "title": "枪战士：矛练级与枪的取舍",
+      "summary": "普通练级偏矛系；精准技能后比较机动、追加攻击与防击退，避免照搬旧版神圣之火。",
       "subjects": [
         "枪战士",
         "枪骑",
@@ -520,21 +675,21 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "NiaMeowDB · Spearman 30—70",
+          "title": "喵喵资料站 · 枪战士 30—70",
           "url": "https://meowdb.com/msclassic/guides/spearman-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "Classic World Guide · Spearman",
+          "title": "经典世界攻略站 · 枪战士",
           "url": "https://mapleclassic.guide/classes/spearman",
           "kind": "community",
           "published_on": "2026-10-22",
           "verified": "已读技能与路线；保留作者对旧阈值、测试服和洗点的限制说明"
         },
         {
-          "title": "Neolakia · Simple Warrior Guide for Launch",
+          "title": "玩家战士练级攻略",
           "url": "https://meowdb.com/msclassic/forum/guides/Neolakia/complete-warrior-1-30-progression-guide",
           "kind": "community",
           "published_on": "2026-10-06",
@@ -545,12 +700,30 @@
         "warrior-build",
         "training"
       ],
-      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。"
+      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。",
+      "original_terms": [
+        "Booster",
+        "Classic World Guide",
+        "Final Attack",
+        "Hyper Body",
+        "Iron Will",
+        "Mastery",
+        "NiaMeowDB",
+        "Polearm",
+        "Polearm Booster",
+        "Polearm Mastery",
+        "Rush",
+        "Rush/Booster",
+        "SP",
+        "Spear Mastery",
+        "Spearman"
+      ],
+      "language": "zh"
     },
     {
       "id": "magician-build",
-      "title": "法师一转：Energy Bolt、Magic Claw 与药费",
-      "summary": "两套可执行的一转方案：地形适应的 Magic Claw，与侧重续航的 Energy Bolt。",
+      "title": "法师一转：魔灵弹、魔法爪与药费",
+      "summary": "两套可执行的一转方案：地形适应的魔法爪，与侧重续航的魔灵弹。",
       "subjects": [
         "法师",
         "魔法师",
@@ -588,21 +761,21 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "NiaMeowDB · Magician 1—30",
+          "title": "喵喵资料站 · 法师 1—30",
           "url": "https://meowdb.com/msclassic/guides/magician-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "Classic World Guide · Magician",
+          "title": "经典世界攻略站 · 法师",
           "url": "https://mapleclassic.guide/classes/magician",
           "kind": "community",
           "published_on": "2026-10-22",
           "verified": "已读技能与路线；保留作者对旧阈值、测试服和洗点的限制说明"
         },
         {
-          "title": "xBucc 全职业讨论：原作者修订与评论争议",
+          "title": "玩家全职业讨论：原作者修订与评论争议",
           "url": "https://www.reddit.com/r/MSClassicWorld/comments/1wvx41t/complete_builds_for_all_classes_1st_2nd_job/",
           "kind": "community",
           "published_on": "2026-10-02",
@@ -615,12 +788,30 @@
         "cleric-build",
         "training"
       ],
-      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。"
+      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。",
+      "original_terms": [
+        "Boss",
+        "Energy Bolt",
+        "Green Mushroom",
+        "Guard",
+        "Horny/Zombie Mushroom",
+        "INT",
+        "Improved MP Recovery",
+        "LUK",
+        "MP",
+        "Magic Armor",
+        "Magic Claw",
+        "Magic Guard",
+        "Max MP Increase",
+        "SP",
+        "Slime"
+      ],
+      "language": "zh"
     },
     {
       "id": "fire-poison-build",
       "title": "火毒：火箭单体、毒群攻与机动省药",
-      "summary": "默认 Fire Arrow 单体路线；有稳定群怪条件再提前 Poison Breath，保留 Meditation 前置。",
+      "summary": "默认火箭术单体路线；有稳定群怪条件再提前毒息术，保留精神力前置。",
       "subjects": [
         "火毒",
         "火毒法师",
@@ -658,14 +849,14 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "NiaMeowDB · F/P Wizard 30—70",
+          "title": "喵喵资料站 · 火毒法师 30—70",
           "url": "https://meowdb.com/msclassic/guides/fp-wizard-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "Classic World Guide · Fire / Poison",
+          "title": "经典世界火毒法师攻略",
           "url": "https://mapleclassic.guide/classes/fire-poison",
           "kind": "community",
           "published_on": "2026-10-22",
@@ -676,12 +867,29 @@
         "magician-build",
         "training"
       ],
-      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。"
+      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。",
+      "original_terms": [
+        "Curse Eye",
+        "Fire Arrow",
+        "Forgotten Hollow",
+        "INT",
+        "Jr. Wraith",
+        "Lorang",
+        "MP Eater",
+        "Meditation",
+        "NiaMeowDB",
+        "Poison Breath",
+        "SP",
+        "Slow",
+        "Teleport",
+        "Zombie Lupin"
+      ],
+      "language": "zh"
     },
     {
       "id": "ice-lightning-build",
       "title": "冰雷：单体省药与雷电群攻两条路线",
-      "summary": "普通资金先 Cold Beam，稳定聚怪时选 Thunder Bolt；Meditation、Teleport 的顺序由地图决定。",
+      "summary": "普通资金先冰箭，稳定聚怪时选雷电术；精神力、瞬间移动的顺序由地图决定。",
       "subjects": [
         "冰雷",
         "冰雷法师",
@@ -719,21 +927,21 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "NiaMeowDB · I/L Wizard 30—70",
+          "title": "喵喵资料站 · 冰雷法师 30—70",
           "url": "https://meowdb.com/msclassic/guides/il-wizard-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "Classic World Guide · Ice / Lightning",
+          "title": "经典世界冰雷法师攻略",
           "url": "https://mapleclassic.guide/classes/ice-lightning",
           "kind": "community",
           "published_on": "2026-10-22",
           "verified": "已读技能与路线；保留作者对旧阈值、测试服和洗点的限制说明"
         },
         {
-          "title": "xBucc 全职业讨论：原作者修订与评论争议",
+          "title": "玩家全职业讨论：原作者修订与评论争议",
           "url": "https://www.reddit.com/r/MSClassicWorld/comments/1wvx41t/complete_builds_for_all_classes_1st_2nd_job/",
           "kind": "community",
           "published_on": "2026-10-02",
@@ -800,12 +1008,35 @@
           "use": "蘑菇区快清/群攻备选；不是到40级就必须离开",
           "measured_exp_per_hour": null
         }
-      ]
+      ],
+      "original_terms": [
+        "Ant Tunnel I",
+        "Classic World Guide",
+        "Cold Beam",
+        "Fire Boar",
+        "HP",
+        "Horny Mushroom",
+        "Jr. Boogie",
+        "Land of Wild Boar",
+        "MP",
+        "MP Eater",
+        "Meditation",
+        "NiaMeowDB",
+        "SP",
+        "Slow",
+        "Teleport",
+        "The Burnt Land I",
+        "Thunder Bolt",
+        "Wild Boar",
+        "Zombie Mushroom",
+        "map/"
+      ],
+      "language": "zh"
     },
     {
       "id": "cleric-build",
       "title": "牧师：圣箭单练、机动与固定队辅助",
-      "summary": "默认圣箭单练，固定队提前 Bless；把 Heal 刷怪作为有条件的备选，而非照搬旧版套路。",
+      "summary": "默认圣箭单练，固定队提前祝福；把治愈术刷怪作为有条件的备选，而非照搬旧版套路。",
       "subjects": [
         "牧师",
         "Cleric"
@@ -841,21 +1072,21 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "NiaMeowDB · Cleric 30—70",
+          "title": "喵喵资料站 · 牧师 30—70",
           "url": "https://meowdb.com/msclassic/guides/cleric-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "Classic World Guide · Cleric",
+          "title": "经典世界攻略站 · 牧师",
           "url": "https://mapleclassic.guide/classes/cleric",
           "kind": "community",
           "published_on": "2026-10-22",
           "verified": "已读技能与路线；保留作者对旧阈值、测试服和洗点的限制说明"
         },
         {
-          "title": "玩家讨论：牧师单练、Teleport 与 Heal",
+          "title": "玩家讨论：牧师单练、瞬间移动 与 治愈术",
           "url": "https://www.reddit.com/r/MSClassicWorld/comments/1xdqz9p/is_there_a_reason_to_go_cleric/",
           "kind": "community",
           "published_on": "2026-10-23",
@@ -922,12 +1153,31 @@
           "use": "牧师较高血量备选；并非刚二转就更快",
           "measured_exp_per_hour": null
         }
-      ]
+      ],
+      "original_terms": [
+        "Bless",
+        "Classic World Guide",
+        "HP",
+        "Heal",
+        "Holy Arrow",
+        "Horny/Zombie Mushroom",
+        "Invincible",
+        "Jr. Wraith",
+        "MP Eater",
+        "Magic Guard",
+        "Monkey Forest",
+        "NiaMeowDB",
+        "SP",
+        "Teleport",
+        "Wraith",
+        "Zombie Lupin"
+      ],
+      "language": "zh"
     },
     {
       "id": "bowman-build",
       "title": "弓手一转：主攻、暴击、射程与击退",
-      "summary": "Arrow Blow 为默认主攻；最后 11 SP 比较 Focus 命中和 Power Knockback 控场。",
+      "summary": "强力箭为默认主攻；最后 11 技能点比较集中术命中和强力击退控场。",
       "subjects": [
         "弓手",
         "弓箭手",
@@ -964,21 +1214,21 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "NiaMeowDB · Bowman 1—30",
+          "title": "喵喵资料站 · 弓箭手 1—30",
           "url": "https://meowdb.com/msclassic/guides/bowman-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "Classic World Guide · Bowman",
+          "title": "经典世界攻略站 · 弓箭手",
           "url": "https://mapleclassic.guide/classes/bowman",
           "kind": "community",
           "published_on": "2026-10-22",
           "verified": "已读技能与路线；保留作者对旧阈值、测试服和洗点的限制说明"
         },
         {
-          "title": "Bowman FAQ：含正式服上线后修订",
+          "title": "弓箭手常见问题：含正式服上线后修订",
           "url": "https://www.reddit.com/r/MSClassicWorld/comments/1wryvlf/bowman_faq_guide_for_classic_world_launch/",
           "kind": "community",
           "published_on": "2026-09-27",
@@ -990,12 +1240,29 @@
         "crossbowman-build",
         "training"
       ],
-      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。"
+      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。",
+      "original_terms": [
+        "Amazon's Judgement",
+        "Arrow Blow",
+        "Classic World Guide",
+        "Critical Shot",
+        "DEX",
+        "Double Shot",
+        "Focus",
+        "Mastery",
+        "NiaMeowDB",
+        "Power Knockback",
+        "SP",
+        "STR",
+        "Stirge",
+        "The Eye of Amazon"
+      ],
+      "language": "zh"
     },
     {
       "id": "hunter-skills",
-      "title": "猎人 Hunter：Mastery、爆炸箭与后期取舍",
-      "summary": "默认先基础、后群攻；早期省箭与推迟省箭都可行，附完整 121 SP 和分歧理由。",
+      "title": "猎人：精准弓、爆炸箭与后期取舍",
+      "summary": "默认先基础、后群攻；早期省箭与推迟省箭都可行，附完整 121 技能点和分歧理由。",
       "subjects": [
         "猎人",
         "Hunter"
@@ -1031,21 +1298,21 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "NiaMeowDB · Hunter 30—70",
+          "title": "喵喵资料站 · 猎人 30—70",
           "url": "https://meowdb.com/msclassic/guides/hunter-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "玩家讨论：Bowman/Hunter skill guide",
+          "title": "玩家讨论：弓箭手与猎人技能攻略",
           "url": "https://www.reddit.com/r/MSClassicWorld/comments/1x5yhe7/bowmanhunter_skill_guide/",
           "kind": "community",
           "published_on": "2026-10-14",
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "Bowman FAQ：含正式服上线后修订",
+          "title": "弓箭手常见问题：含正式服上线后修订",
           "url": "https://www.reddit.com/r/MSClassicWorld/comments/1wryvlf/bowman_faq_guide_for_classic_world_launch/",
           "kind": "community",
           "published_on": "2026-09-27",
@@ -1057,12 +1324,30 @@
         "crossbowman-build",
         "training"
       ],
-      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。"
+      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。",
+      "original_terms": [
+        "Amazon's Judgement",
+        "Arrow Blow",
+        "Arrow Bomb",
+        "Booster",
+        "Bow",
+        "Bow Booster",
+        "Bow Mastery",
+        "Final Attack",
+        "Hunter",
+        "Mastery",
+        "SP",
+        "Soul Arrow",
+        "Soul Arrow/Booster",
+        "Stirge",
+        "The Eye of Amazon"
+      ],
+      "language": "zh"
     },
     {
       "id": "crossbowman-build",
-      "title": "弩手 Crossbowman：穿透群攻与控制分支",
-      "summary": "先 Mastery，再形成 Iron Arrow 清怪能力；省箭时点和后期控制投入有两种常见取舍。",
+      "title": "弩手：穿透群攻与控制分支",
+      "summary": "先精准技能，再形成穿透箭清怪能力；省箭时点和后期控制投入有两种常见取舍。",
       "subjects": [
         "弩手",
         "弩弓手",
@@ -1097,21 +1382,21 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "NiaMeowDB · Crossbowman 30—70",
+          "title": "喵喵资料站 · 弩手 30—70",
           "url": "https://meowdb.com/msclassic/guides/crossbowman-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "Classic World Guide · Crossbowman",
+          "title": "经典世界攻略站 · 弩手",
           "url": "https://mapleclassic.guide/classes/crossbowman",
           "kind": "community",
           "published_on": "2026-10-22",
           "verified": "已读技能与路线；保留作者对旧阈值、测试服和洗点的限制说明"
         },
         {
-          "title": "Bowman FAQ：含正式服上线后修订",
+          "title": "弓箭手常见问题：含正式服上线后修订",
           "url": "https://www.reddit.com/r/MSClassicWorld/comments/1wryvlf/bowman_faq_guide_for_classic_world_launch/",
           "kind": "community",
           "published_on": "2026-09-27",
@@ -1123,12 +1408,32 @@
         "hunter-skills",
         "training"
       ],
-      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。"
+      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。",
+      "original_terms": [
+        "Amazon's Judgement",
+        "Booster",
+        "Bow",
+        "Classic World Guide",
+        "Crossbow",
+        "Crossbow Booster",
+        "Crossbow Mastery",
+        "Crossbowman",
+        "DEX",
+        "Evil Eye",
+        "Final Attack",
+        "Iron Arrow",
+        "Mastery",
+        "NiaMeowDB",
+        "SP",
+        "STR",
+        "Soul Arrow"
+      ],
+      "language": "zh"
     },
     {
       "id": "thief-build",
       "title": "飞侠一转：飞镖开局与纯刀免洗点",
-      "summary": "Assassin 用 Lucky Seven；Bandit 可选纯刀免洗点，或明确接受换装和洗点成本的 Sindit。",
+      "summary": "刺客用双飞斩；侠客可选纯刀免洗点，或明确接受换装和洗点成本的先飞镖后转刀。",
       "subjects": [
         "飞侠",
         "Rogue",
@@ -1163,14 +1468,14 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "NiaMeowDB · Thief 1—30",
+          "title": "喵喵资料站 · 飞侠 1—30",
           "url": "https://meowdb.com/msclassic/guides/thief-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "Classic World Guide · Thief",
+          "title": "经典世界攻略站 · 飞侠",
           "url": "https://mapleclassic.guide/classes/thief",
           "kind": "community",
           "published_on": "2026-10-22",
@@ -1182,12 +1487,29 @@
         "bandit-build",
         "training"
       ],
-      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。"
+      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。",
+      "original_terms": [
+        "Assassin",
+        "Bandit",
+        "DEX",
+        "Dark Sight",
+        "Disorder",
+        "Double Stab",
+        "Keen Eyes",
+        "LUK",
+        "Lucky Seven",
+        "Nimble Body",
+        "SP",
+        "STR",
+        "Sindit",
+        "Stirge"
+      ],
+      "language": "zh"
     },
     {
       "id": "assassin-build",
-      "title": "刺客 Assassin：Mastery、暴击与 Haste 谁先",
-      "summary": "Mastery 优先是可执行的默认；之后分伤害优先和机动优先，不把 Lucky Seven 套用普通伤害公式。",
+      "title": "刺客：精准飞镖、暴击与轻功谁先",
+      "summary": "精准技能优先是可执行的默认；之后分伤害优先和机动优先，不把双飞斩套用普通伤害公式。",
       "subjects": [
         "刺客",
         "标飞",
@@ -1223,21 +1545,21 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "NiaMeowDB · Assassin 30—70",
+          "title": "喵喵资料站 · 刺客 30—70",
           "url": "https://meowdb.com/msclassic/guides/assassin-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "Classic World Guide · Assassin",
+          "title": "经典世界攻略站 · 刺客",
           "url": "https://mapleclassic.guide/classes/assassin",
           "kind": "community",
           "published_on": "2026-10-22",
           "verified": "已读技能与路线；保留作者对旧阈值、测试服和洗点的限制说明"
         },
         {
-          "title": "玩家讨论：Assassin skill build",
+          "title": "玩家讨论：刺客加点讨论",
           "url": "https://www.reddit.com/r/MSClassicWorld/comments/1x3c6of/assassin_skill_build/",
           "kind": "community",
           "published_on": "2026-10-11",
@@ -1248,12 +1570,34 @@
         "thief-build",
         "training"
       ],
-      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。"
+      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。",
+      "original_terms": [
+        "Assassin",
+        "Attack Power",
+        "Booster",
+        "Classic World Guide",
+        "Claw Booster",
+        "Claw Mastery",
+        "Critical Recovery",
+        "Critical Throw",
+        "Curse Eye",
+        "DEX",
+        "Drain",
+        "Haste",
+        "LUK",
+        "Lucky Seven",
+        "Lupin",
+        "Mastery",
+        "NiaMeowDB",
+        "SP",
+        "Stirge"
+      ],
+      "language": "zh"
     },
     {
       "id": "bandit-build",
-      "title": "侠客 Bandit：纯刀、Sindit 与 Steal 的取舍",
-      "summary": "默认纯刀免洗点，先 Mastery 再 Savage Blow；转刀玩法另列成本和前置。",
+      "title": "侠客：纯刀与先玩飞镖后转刀的取舍",
+      "summary": "默认纯刀免洗点，先精准技能再六连斩；转刀玩法另列成本和前置。",
       "subjects": [
         "侠客",
         "刀飞",
@@ -1291,21 +1635,21 @@
           "verified": "原文及相关段落已阅读"
         },
         {
-          "title": "NiaMeowDB · Bandit 30—70",
+          "title": "喵喵资料站 · 侠客 30—70",
           "url": "https://meowdb.com/msclassic/guides/bandit-class-guide",
           "kind": "community",
           "published_on": null,
           "verified": "已读加点及取舍；模拟器击杀阈值不视为实测，示例装备不保证当前可获得"
         },
         {
-          "title": "Classic World Guide · Bandit",
+          "title": "经典世界攻略站 · 侠客",
           "url": "https://mapleclassic.guide/classes/bandit",
           "kind": "community",
           "published_on": "2026-10-22",
           "verified": "已读技能与路线；保留作者对旧阈值、测试服和洗点的限制说明"
         },
         {
-          "title": "MrShiny 刀飞指南讨论：Steal 前置纠错",
+          "title": "玩家刀飞指南讨论：偷窃术 前置纠错",
           "url": "https://www.reddit.com/r/MSClassicWorld/comments/1xbwjeo/mrshinys_bandit_guide/",
           "kind": "community",
           "published_on": "2026-10-21",
@@ -1316,7 +1660,27 @@
         "thief-build",
         "training"
       ],
-      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。"
+      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。",
+      "original_terms": [
+        "Bandit",
+        "Booster",
+        "Classic World Guide",
+        "Dagger Booster",
+        "Dagger Mastery",
+        "Double Stab",
+        "Haste",
+        "LUK",
+        "Lucky Seven",
+        "Mastery",
+        "NiaMeowDB",
+        "Nimble Recovery",
+        "SP",
+        "STR",
+        "Savage Blow",
+        "Sindit",
+        "Steal"
+      ],
+      "language": "zh"
     },
     {
       "id": "getting-started",
@@ -1343,17 +1707,32 @@
       "source_kind": "official",
       "sources": [
         {
-          "title": "Nexon · Grand Launch Release Notes",
+          "title": "官方开服公告",
           "url": "https://www.nexon.com/maplestory/news/general/46506",
           "kind": "official",
           "published_on": "2026-10-20",
           "verified": "official page read in browser"
         }
       ],
-      "summary": "本站面向 Nexon 的 Global MapleStory Classic World，不能套用现代 GMS、国台服经典版、Artale、MapleLand 或私服规则。",
+      "summary": "经典世界国际服的新手入口、开服范围和查新方法。",
       "category": "basics",
       "subjects": [],
-      "related_guides": []
+      "related_guides": [],
+      "original_terms": [
+        "Artale",
+        "Beginner",
+        "GMS",
+        "Global MapleStory Classic World",
+        "Grand Launch",
+        "Maple Island",
+        "MapleLand",
+        "Nexon",
+        "Nexon Launcher",
+        "Steam",
+        "Windows",
+        "macOS"
+      ],
+      "language": "zh"
     },
     {
       "id": "job-advancement",
@@ -1381,21 +1760,48 @@
       "source_kind": "official",
       "sources": [
         {
-          "title": "Nexon · Grand Launch Release Notes",
+          "title": "官方开服公告",
           "url": "https://www.nexon.com/maplestory/news/general/46506",
           "kind": "official",
           "published_on": "2026-10-20",
           "verified": "official page read in browser"
         }
       ],
-      "summary": "按 Grand Launch 官方说明，四个基础职业均在 10 级完成一转，30 级完成二转。特别注意：本服 Magician 一转是 10 级，不要照搬旧冒险岛“法师 8 级转职”。",
+      "summary": "按正式开服官方说明，四个基础职业均在 10 级完成一转，30 级完成二转。特别注意：本服法师一转是 10 级，不要照搬旧冒险岛“法师 8 级转职”。",
       "category": "basics",
       "subjects": [
         "转职",
         "几级转职",
         "job advancement"
       ],
-      "related_guides": []
+      "related_guides": [],
+      "original_terms": [
+        "Assassin",
+        "Athena Pierce",
+        "Bandit",
+        "Bowman",
+        "Cleric",
+        "Crossbowman",
+        "Dances with Balrog",
+        "Dark Lord",
+        "Ellinia",
+        "Fighter",
+        "Fire/Poison",
+        "Grand Launch",
+        "Grendel the Really Old",
+        "Henesys",
+        "Hunter",
+        "Ice/Lightning",
+        "Kerning City",
+        "Magician",
+        "Page",
+        "Perion",
+        "Spearman",
+        "Thief",
+        "Warrior",
+        "Wizard"
+      ],
+      "language": "zh"
     },
     {
       "id": "quest-help",
@@ -1421,17 +1827,29 @@
       "source_kind": "mixed",
       "sources": [
         {
-          "title": "OSMS Data Explorer · 国际服客户端任务提取",
+          "title": "国际服客户端任务资料",
           "url": "https://github.com/ohmi69/osms_datamine_dashboard/blob/63db09449642c4bf3414276223e4cb7d72af02d9/data/current/quests.json",
           "kind": "client_extraction",
           "published_on": "2026-10-21",
           "verified": "source inspected"
         }
       ],
-      "summary": "查任务时先解析准确名称与任务 ID，再读完整详情，保留等级、职业、前置任务、击杀数、收集数和奖励选择。任务物品不一定是普通掉落，任务需要某材料也不代表玩家背包已经有它。",
+      "summary": "查任务时先解析准确名称与任务编号，再读完整详情，保留等级、职业、前置任务、击杀数、收集数和奖励选择。任务物品不一定是普通掉落，任务需要某材料也不代表玩家背包已经有它。",
       "category": "basics",
       "subjects": [],
-      "related_guides": []
+      "related_guides": [],
+      "original_terms": [
+        "EXP",
+        "Fried Chicken",
+        "ID",
+        "Mesos",
+        "NPC",
+        "Slime",
+        "Slime Bubble",
+        "Teo",
+        "s Weird Hobby"
+      ],
+      "language": "zh"
     },
     {
       "id": "trade-unlock",
@@ -1456,21 +1874,27 @@
       "source_kind": "official",
       "sources": [
         {
-          "title": "Nexon · Grand Launch Release Notes",
+          "title": "官方开服公告",
           "url": "https://www.nexon.com/maplestory/news/general/46506",
           "kind": "official",
           "published_on": "2026-10-20",
           "verified": "official page read in browser"
         }
       ],
-      "summary": "Grand Launch 官方说明：新账号需有一个角色达到 15 级，再等待 24 小时，才开放交易功能。不是注册账号满 24 小时，也不是一到 15 级就立刻解锁。",
+      "summary": "正式开服官方说明：新账号需有一个角色达到 15 级，再等待 24 小时，才开放交易功能。不是注册账号满 24 小时，也不是一到 15 级就立刻解锁。",
       "category": "basics",
       "subjects": [],
-      "related_guides": []
+      "related_guides": [],
+      "original_terms": [
+        "Debt",
+        "Grand Launch",
+        "Nexon"
+      ],
+      "language": "zh"
     },
     {
       "id": "kerning-pq",
-      "title": "废弃都市组队任务 KPQ 的入场信息",
+      "title": "废弃都市组队任务：等级和入场频道",
       "tags": [
         "组队",
         "组队任务",
@@ -1491,24 +1915,34 @@
       "source_kind": "mixed",
       "sources": [
         {
-          "title": "Nexon · Grand Launch Release Notes",
+          "title": "官方开服公告",
           "url": "https://www.nexon.com/maplestory/news/general/46506",
           "kind": "official",
           "published_on": "2026-10-20",
           "verified": "official page read in browser"
         },
         {
-          "title": "MapleStory Quest · Party Quests",
+          "title": "玩家组队任务资料",
           "url": "https://maplestory.quest/guides/party-quests",
           "kind": "community",
           "published_on": "2026-10-21",
           "verified": "source inspected"
         }
       ],
-      "summary": "Grand Launch 官方说明中，First Time Together 是 Kerning City 的组队任务，角色需 21 级及以上，在 Kerning City 找 Lakelis。该次发布说明指定可用频道为 CH3–CH12；更早攻略里的 CH3–CH5 或 CH3–CH7 是旧安排。",
+      "summary": "21级起可参加的废弃都市组队任务，以及开服时的频道安排。",
       "category": "basics",
       "subjects": [],
-      "related_guides": []
+      "related_guides": [],
+      "original_terms": [
+        "CH",
+        "First Time Together",
+        "Grand Launch",
+        "KPQ",
+        "Kerning City",
+        "King Slime",
+        "Lakelis"
+      ],
+      "language": "zh"
     },
     {
       "id": "crafting",
@@ -1533,17 +1967,32 @@
       "source_kind": "official",
       "sources": [
         {
-          "title": "Nexon · Grand Launch Release Notes",
+          "title": "官方开服公告",
           "url": "https://www.nexon.com/maplestory/news/general/46506",
           "kind": "official",
           "published_on": "2026-10-20",
           "verified": "official page read in browser"
         }
       ],
-      "summary": "官方发布说明中，制造从角色 10 级开放。六个方向与导师为：Silas Irons / Smithing；Mr. Thunder / Weaponcrafting；Francois / Tailoring；Vicious / Woodcrafting；JM From tha Streetz / Leatherworking；Chrishrama / Arcforge。",
+      "summary": "六类制造技能的入门条件、导师与材料成本。",
       "category": "basics",
       "subjects": [],
-      "related_guides": []
+      "related_guides": [],
+      "original_terms": [
+        "Arcforge",
+        "Chrishrama",
+        "Francois",
+        "JM From tha Streetz",
+        "Leatherworking",
+        "Mr. Thunder",
+        "Silas Irons",
+        "Smithing",
+        "Tailoring",
+        "Vicious",
+        "Weaponcrafting",
+        "Woodcrafting"
+      ],
+      "language": "zh"
     },
     {
       "id": "citizenship",
@@ -1567,21 +2016,33 @@
       "source_kind": "official",
       "sources": [
         {
-          "title": "Nexon · Grand Launch Release Notes",
+          "title": "官方开服公告",
           "url": "https://www.nexon.com/maplestory/news/general/46506",
           "kind": "official",
           "published_on": "2026-10-20",
           "verified": "official page read in browser"
         }
       ],
-      "summary": "官方说明中，角色 12 级可参加 Citizenship。Henesys 的入口为 Henesys Town Hall 的 Arthur；Kerning City 的入口为 Kerning City Civic Center 的 Roxy。",
+      "summary": "12级起可参加的公民系统：入口、贡献和福利。",
       "category": "basics",
       "subjects": [],
-      "related_guides": []
+      "related_guides": [],
+      "original_terms": [
+        "Arthur",
+        "Citizenship",
+        "Community Board",
+        "Contribution",
+        "Henesys",
+        "Henesys Town Hall",
+        "Kerning City",
+        "Kerning City Civic Center",
+        "Roxy"
+      ],
+      "language": "zh"
     },
     {
       "id": "housing",
-      "title": "住房：购买资格、NPC 与账号共享",
+      "title": "住房：购买资格与账号共享",
       "tags": [
         "住房",
         "房屋",
@@ -1602,17 +2063,30 @@
       "source_kind": "official",
       "sources": [
         {
-          "title": "Nexon · Grand Launch Release Notes",
+          "title": "官方开服公告",
           "url": "https://www.nexon.com/maplestory/news/general/46506",
           "kind": "official",
           "published_on": "2026-10-20",
           "verified": "official page read in browser"
         }
       ],
-      "summary": "Grand Launch 官方发布说明已经加入住房。成为公民、并达到 Visitor 或更高的 Citizenship Grade 后，可花 mesos 向 Housing Registrar 购买。Henesys 找 Bianca，Kerning City 找 Scarlett。",
+      "summary": "住房的购买资格、登记地点与账号共享规则。",
       "category": "basics",
       "subjects": [],
-      "related_guides": []
+      "related_guides": [],
+      "original_terms": [
+        "Bianca",
+        "Citizenship Grade",
+        "Grand Launch",
+        "Henesys",
+        "Housing Registrar",
+        "Kerning City",
+        "NPC",
+        "Scarlett",
+        "Visitor",
+        "mesos"
+      ],
+      "language": "zh"
     },
     {
       "id": "market-and-equipment",
@@ -1638,10 +2112,16 @@
       "review_after_days": 1,
       "source_kind": "site_methodology",
       "sources": [],
-      "summary": "选装备时将部位、职业和等级拆成筛选条件。通用装备也可能适合该职业；目录职业限制空白只能说尚未记录，不能直接断定不可穿或完全通用。属性必须查实际数据，不能凭“披风”推断都加 DEX 或攻击。",
+      "summary": "选装备时将部位、职业和等级拆成筛选条件。通用装备也可能适合该职业；目录职业限制空白只能说尚未记录，不能直接断定不可穿或完全通用。属性必须查实际数据，不能凭“披风”推断都加敏捷或攻击。",
       "category": "basics",
       "subjects": [],
-      "related_guides": []
+      "related_guides": [],
+      "original_terms": [
+        "CoT",
+        "DEX",
+        "NPC"
+      ],
+      "language": "zh"
     },
     {
       "id": "launch-events",
@@ -1666,17 +2146,26 @@
       "source_kind": "official",
       "sources": [
         {
-          "title": "Nexon · Grand Launch Release Notes",
+          "title": "官方开服公告",
           "url": "https://www.nexon.com/maplestory/news/general/46506",
           "kind": "official",
           "published_on": "2026-10-20",
           "verified": "official page read in browser"
         }
       ],
-      "summary": "2026-10-20 的官方发布说明列出的 The Journey Begins 时段为 2026-10-21 18:00 UTC 至 2026-11-18 23:59 UTC，要求角色 10 级及以上；收集 30 个 Maple Leaves 找 Maple Administrator 领取每日奖励。",
+      "summary": "2026-10-20 的官方发布说明列出的冒险启程时段为 2026-10-21 18:00 世界协调时至 2026-11-18 23:59 世界协调时，要求角色 10 级及以上；收集 30 个枫叶找活动管理员领取每日奖励。",
       "category": "basics",
       "subjects": [],
-      "related_guides": []
+      "related_guides": [],
+      "original_terms": [
+        "Halloween Candies",
+        "Malady",
+        "Maple Administrator",
+        "Maple Leaves",
+        "The Journey Begins",
+        "UTC"
+      ],
+      "language": "zh"
     }
   ]
 }

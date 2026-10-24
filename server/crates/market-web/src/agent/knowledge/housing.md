@@ -1,6 +1,6 @@
-# 住房：购买资格、NPC 与账号共享
+# 住房：购买资格与账号共享
 
-Grand Launch 官方发布说明已经加入住房。成为公民、并达到 Visitor 或更高的 Citizenship Grade 后，可花 mesos 向 Housing Registrar 购买。Henesys 找 Bianca，Kerning City 找 Scarlett。
+开服公告已经加入住房。成为公民、并达到访客级或更高的公民等级后，可花金币向房屋登记员购买。射手村和废弃都市都有房屋登记员，具体位置可在游戏内查看。
 
 同一时间只能拥有一套住房；住房由同一账号内角色共享。官方说明可以布置家具、邀请玩家或拜访别人的家。
 

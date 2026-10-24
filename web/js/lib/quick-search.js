@@ -17,10 +17,19 @@ export function bindQuickSearch(root = document) {
     box.setAttribute('role','region'); box.setAttribute('aria-label',en ? 'Search results' : '搜索结果');
     form.append(box); form.classList.add('has-quick-search');
     input.autocomplete = 'off'; input.setAttribute('aria-controls',box.id); input.setAttribute('aria-expanded','false');
-    let timer, controller, revision=0, composing=false, stopped=false;
+    let timer, focusTimer, controller, revision=0, composing=false, stopped=false, selecting=false;
     const urlFor = () => { const url=new URL(form.action,location.href); url.searchParams.set('q',input.value.trim()); if(en) url.searchParams.set('lang','en'); return url; };
-    const close = () => { clearTimeout(timer); revision++; controller?.abort(); box.hidden=true; input.setAttribute('aria-expanded','false'); };
-    const show = () => { box.hidden=false; input.setAttribute('aria-expanded','true'); };
+    const cancel = () => { clearTimeout(timer); revision++; controller?.abort(); };
+    const close = () => { selecting=false; cancel(); box.hidden=true; input.setAttribute('aria-expanded','false'); };
+    const viewport=window.visualViewport;
+    // Keep the scrolling results and their footer above the software keyboard.
+    const fitBox=() => {
+      if(box.hidden || selecting) return;
+      const bottom=viewport ? viewport.offsetTop+viewport.height : innerHeight;
+      const available=Math.max(0,Math.floor(bottom-box.getBoundingClientRect().top-12));
+      box.style.maxHeight=`${Math.min(Math.floor(innerHeight*0.65),480,available)}px`;
+    };
+    const show = () => { box.hidden=false; input.setAttribute('aria-expanded','true'); fitBox(); };
     const note = (text) => { const p=document.createElement('p'); p.className='quick-note'; p.setAttribute('role','status'); p.textContent=text; box.replaceChildren(p); };
     const more = (url) => { const a=document.createElement('a'); a.className='quick-more'; a.href=url.href; a.textContent=words.all+' →'; box.append(a); };
     async function update() {
@@ -35,7 +44,7 @@ export function bindQuickSearch(root = document) {
         if(stopped || mine!==revision) return;
         const rows=[...page.querySelectorAll('[data-search-results] a.drow')];
         box.replaceChildren();
-        const selected=['item','mob','map'].flatMap(kind=>rows.filter(row=>new URL(row.getAttribute('href'),url).pathname.split('/')[1]===kind).slice(0,2));
+        const selected=['item','mob','map'].flatMap(kind=>rows.filter(row=>new URL(row.getAttribute('href'),url).pathname.split('/')[1]===kind).slice(0,6));
         for(const row of selected) {
           const href=new URL(row.getAttribute('href'),url);
           const kind=href.pathname.split('/')[1];
@@ -55,16 +64,25 @@ export function bindQuickSearch(root = document) {
       } catch(error) { if(error.name!=='AbortError' && mine===revision && !stopped) { note(words.failed); more(url); } }
       finally { if(mine===revision) box.removeAttribute('aria-busy'); }
     }
-    const schedule=() => { clearTimeout(timer); revision++; controller?.abort(); if(!composing) { show(); note(words.loading); timer=setTimeout(update,200); } };
-    const startComposition=() => { composing=true; clearTimeout(timer); revision++; controller?.abort(); };
+    const schedule=() => { cancel(); if(!composing && !selecting) { show(); note(words.loading); timer=setTimeout(update,200); } };
+    const startComposition=() => { composing=true; cancel(); };
     const endComposition=() => { composing=false; schedule(); };
-    const onKey=(event) => { if(event.isComposing) return; if(event.key==='Escape') { event.preventDefault(); close(); } if(event.key==='ArrowDown' && !box.hidden) { event.preventDefault(); box.querySelector('a')?.focus(); } };
+    const onKey=(event) => { if(event.isComposing) return; selecting=false; if(event.key==='Escape') { event.preventDefault(); close(); } if(event.key==='ArrowDown' && !box.hidden) { event.preventDefault(); box.querySelector('a')?.focus(); } };
     const outside=(event) => { if(!form.contains(event.target)) close(); };
-    const outFocus=() => { setTimeout(() => { if(!form.contains(document.activeElement)) close(); },0); };
+    const outFocus=() => { clearTimeout(focusTimer); focusTimer=setTimeout(() => { if(stopped || selecting) return; if(!form.contains(document.activeElement)) close(); else fitBox(); },0); };
+    // Safari can blur the input without focusing a tapped link. Keep that
+    // link in place until click, including any IME completion caused by blur.
+    const pointerDown=(event) => {
+      selecting=event.button===0 && !box.hidden && box.contains(event.target) && Boolean(event.target.closest('a[href]'));
+      if(selecting) cancel();
+      outside(event);
+    };
+    const finishSelection=() => { if(selecting) { selecting=false; outFocus(); } };
+    viewport?.addEventListener('resize',fitBox); viewport?.addEventListener('scroll',fitBox); window.addEventListener('resize',fitBox);
     input.addEventListener('input',schedule); input.addEventListener('focus',schedule);
     input.addEventListener('compositionstart',startComposition); input.addEventListener('compositionend',endComposition);
-    form.addEventListener('keydown',onKey); form.addEventListener('focusout',outFocus); document.addEventListener('pointerdown',outside); document.addEventListener('click',outside);
-    cleanups.push(() => { stopped=true; close(); input.removeEventListener('input',schedule); input.removeEventListener('focus',schedule); input.removeEventListener('compositionstart',startComposition); input.removeEventListener('compositionend',endComposition); form.removeEventListener('keydown',onKey); form.removeEventListener('focusout',outFocus); document.removeEventListener('pointerdown',outside); document.removeEventListener('click',outside); box.remove(); delete form.dataset.quickSearch; });
+    form.addEventListener('keydown',onKey); form.addEventListener('focusout',outFocus); document.addEventListener('pointerdown',pointerDown); document.addEventListener('pointercancel',finishSelection); document.addEventListener('click',finishSelection,true); document.addEventListener('click',outside);
+    cleanups.push(() => { stopped=true; close(); clearTimeout(focusTimer); viewport?.removeEventListener('resize',fitBox); viewport?.removeEventListener('scroll',fitBox); window.removeEventListener('resize',fitBox); input.removeEventListener('input',schedule); input.removeEventListener('focus',schedule); input.removeEventListener('compositionstart',startComposition); input.removeEventListener('compositionend',endComposition); form.removeEventListener('keydown',onKey); form.removeEventListener('focusout',outFocus); document.removeEventListener('pointerdown',pointerDown); document.removeEventListener('pointercancel',finishSelection); document.removeEventListener('click',finishSelection,true); document.removeEventListener('click',outside); box.remove(); delete form.dataset.quickSearch; });
   }
   return () => cleanups.forEach(fn=>fn());
 }
