@@ -15,8 +15,9 @@ const product = { item_id: 2048001, name_zh: '宠物装备移动速度卷轴：�
 const quotes = [
   { ...product, id: 'recent-expensive', observed: now, unit_price: 900, stock: 4, bundle: 1, shop: 'First shop', location: { channel: 23, room: 9 } },
   { ...product, id: 'unknown-stock', observed: now - 60, unit_price: 19.9, stock: null, bundle: 1, shop: 'Other shop', location: null },
+  { item_id: 1072128, id: 'real-gear', name_zh: '蓝宝石鞋', name_en: 'Blue Jewelry Boots', observed: now-120, unit_price: 3000, stock: 1, shop: 'Boots shop', location: {channel:24,room:10}, equipment:{status:'candidate',stats:[{key:'luk',value:2},{key:'weapon_defense',value:7},{key:'magic_defense',value:7},{key:'avoid',value:3}],remaining_upgrades:5} },
 ];
-const sales = [{ ...quotes[0], id: 'sale', time: now, sale_unit_price: 850, kind: 'drop', quantity: 2, stock: 3 }];
+const sales = [{ ...quotes[0], item_id: 1002001, name_zh: '贝雷帽', name_en: 'Beret', equipment: { status: 'unsupported' }, id: 'sale', time: now, sale_unit_price: 850, kind: 'drop', quantity: 2, stock: 3 }];
 const json = (res, value) => { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(value)); };
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
@@ -24,12 +25,13 @@ const server = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.write(': ready\n\n'); streams.add(res); req.on('close', () => streams.delete(res)); return;
   }
   if (url.pathname === '/api/v1/account') return json(res, { signed_in: false });
-  if (url.pathname === '/api/v1/market') return json(res, { products: [product], as_of: now });
+  if (url.pathname === '/api/v1/market') return json(res, { products: [product, {...product,item_id:1002001,name_zh:'贝雷帽',name_en:'Beret'}], as_of: now });
   if (url.pathname === '/api/v1/market/period-default') return json(res, { default_hours: 'all' });
   if (url.pathname === '/api/v1/sales/recent') return json(res, { sales, generated_at: now });
   if (url.pathname === '/api/v1/quotes/recent') return json(res, { listings: quotes, generated_at: now });
+  if (url.pathname === '/api/v1/market/records') return json(res, {records:url.searchParams.get('kind')==='sales'?sales:[quotes[0]]});
   if (url.pathname === '/api/v1/watchlist/catalog') return json(res, { items: [product], presets: [{ id: 'fixture', name_zh: '测试关注', name_en: 'Preset', items: [product] }] });
-  if (url.pathname === '/api/v1/watchlist/listings') return json(res, { listings: quotes.map(row => ({ ...row, stock: row.stock ?? 2 })), generated_at: now });
+  if (url.pathname === '/api/v1/watchlist/listings') return json(res, { listings: quotes.slice(0,2).map(row => ({ ...row, stock: row.stock ?? 2 })), generated_at: now });
   if (url.pathname.startsWith('/api/')) return json(res, {});
   const file = url.pathname.startsWith('/web/') ? path.resolve(root, '.' + url.pathname.slice(4)) : path.join(root, 'index.html');
   if (!file.startsWith(root + path.sep)) { res.writeHead(404); return res.end(); }
@@ -49,13 +51,18 @@ try {
       await page.goto(`${origin}/?lang=${lang}&hours=all`);
       const sold = page.locator('[data-pane=recent] .market-record');
       await sold.waitFor();
-      assert.match(await sold.locator('.record-details').textContent(), /×2/);
+      assert.match(await sold.locator('.name-primary .evi').textContent(), /×2/);
       assert.equal(await sold.locator('.ware-price').textContent(), '850');
       assert.match(await sold.locator('.record-stock').textContent(), /3$/);
+      assert.equal(await sold.locator('.offer-equipment').count(), 0, 'decorations do not display an unknown-attribute line');
+      assert(!/未采集|not captured/.test(await sold.textContent()));
+      assert.equal(await sold.locator('.name-primary .evi').count(), 1, 'Sold sits beside the primary name');
+      assert.deepEqual(await sold.locator('.record-value').evaluate(node => [...node.children].map(child=>child.className)), ['record-time','ware-price','record-stock']);
+
       await page.locator('[data-tab=quotes]').click();
       const offers = page.locator('[data-pane=quotes] .market-record');
       await offers.first().waitFor();
-      assert.equal(await offers.count(), 2);
+      assert.equal(await offers.count(), 3);
       assert.equal(await offers.first().locator('.ware-price').textContent(), '900', 'the newest quote can be more expensive than the per-item minimum');
       assert.equal(await offers.first().locator('.loc b').textContent(), 'CH 23');
       assert.match(await offers.first().locator('.loc > span').textContent(), /9/);
@@ -72,7 +79,7 @@ try {
           const main = node.querySelector('.w-main').getBoundingClientRect();
           return { fields, centered: value.left >= main.right - 1 && Math.abs((value.top + value.bottom) / 2 - (bounds.top + bounds.bottom) / 2) < 1, inside: [...meta.children].every(child => { const b = child.getBoundingClientRect(); return b.left >= box.left - 1 && b.right <= box.right + 1; }), columns: getComputedStyle(node).gridTemplateColumns.split(' ').length, secondaryWrap: getComputedStyle(node.querySelector('.name-secondary')).whiteSpace };
         });
-        assert.deepEqual(result.fields, ['loc', 'record-time']);
+        assert.deepEqual(result.fields, ['loc', 'record-shop']);
         assert(result.inside, 'every metadata field stays within the name column');
         assert.equal(result.columns, 3, 'icon, names/metadata and a separate value column');
         assert(result.centered, 'price and stock are vertically centered on the right');
@@ -80,6 +87,9 @@ try {
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no horizontal page overflow');
       }
       await checkLayout(offers.first());
+      assert.match(await offers.nth(2).locator('.offer-equipment').textContent(), /可升级 5|Upgrades left 5/);
+      assert.equal(await offers.nth(2).locator('.offer-equipment').evaluate(node=>getComputedStyle(node).fontSize), '11px');
+
       if (screenshots) await page.screenshot({ path: path.join(screenshots, `quotes-${width}-${lang}.png`) });
       await page.locator('[data-nav-key=watch]:visible').click();
       await page.locator('[data-preset]').click();
@@ -93,6 +103,26 @@ try {
       await page.waitForFunction(() => document.querySelector('[data-matches] [data-item-row]')?.dataset.id === 'unknown-stock');
       assert.equal(await matches.first().getAttribute('data-id'), 'unknown-stock');
       if (screenshots) await page.screenshot({ path: path.join(screenshots, `watch-${width}-${lang}.png`) });
+
+      for (const mode of ['recent', 'lastsale']) {
+        await page.goto(`${origin}/prices?sort=${mode}&hours=all&lang=${lang}`);
+        const row = page.locator('[data-price-records] .market-record');
+        await row.waitFor();
+        await checkLayout(row);
+        assert.equal(await row.locator('.record-value > .record-time').count(), 1);
+        assert.equal(await row.locator('.record-shop').textContent(), 'First shop');
+        assert.equal(await row.locator('.offer-equipment').count(), 0);
+        if(mode==='lastsale') assert.match(await row.locator('.name-primary .evi').textContent(), /已售|Sold/);
+        if(width>=640) {
+          const star=page.locator('.price-record-actions [data-star]').first();
+          const before=await star.getAttribute('aria-pressed');
+          await star.click();
+          await page.waitForFunction(before=>document.querySelector('.price-record-actions [data-star]')?.getAttribute('aria-pressed')!==before,before);
+          assert.equal(new URL(page.url()).pathname,'/prices','watching a record does not navigate');
+        }
+
+        if(screenshots) await page.screenshot({path:path.join(screenshots,`prices-${mode}-${width}-${lang}.png`)});
+      }
       assert.deepEqual(errors, []);
       await page.close();
       console.log(`PASS ${width}px ${lang}: one row layout for sales, actual latest quotes and watched offers; location/time/price/stock agree`);

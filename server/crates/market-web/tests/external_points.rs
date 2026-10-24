@@ -74,6 +74,19 @@ async fn merges_points_recomputes_and_retries_without_duplicate_samples() {
     assert_eq!(p["typical_count"], 5);
     assert_eq!(p["sales_24h"], 5);
     assert_eq!(p["low"], 500.0);
+    let quotes = views::latest_records(&db.pool, Hours::Recent, false, now)
+        .await
+        .unwrap();
+    assert_eq!(quotes["records"][0]["unit_price"], 500.0);
+    assert_eq!(quotes["records"][0]["stock"], Value::Null);
+    assert_eq!(quotes["records"][0]["shop"], "Listing seller");
+    let sales = views::latest_records(&db.pool, Hours::Recent, true, now)
+        .await
+        .unwrap();
+    assert_eq!(sales["records"][0]["sale_unit_price"], 700.0);
+    assert_eq!(sales["records"][0]["quantity"], Value::Null);
+    assert_eq!(sales["records"][0]["shop"], "seller3");
+
     assert!(
         external::import(&db.pool, &input, "first", now)
             .await

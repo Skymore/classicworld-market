@@ -802,6 +802,94 @@ pub async fn watch_listings(db: &PgPool, items: &[i32], now: f64) -> sqlx::Resul
     )
 }
 
+/// One actual latest observation per item for the price table's two recent sorts.
+pub async fn latest_records(
+    db: &PgPool,
+    hours: Hours,
+    sales: bool,
+    now: f64,
+) -> sqlx::Result<Value> {
+    let cutoff = hours.window(now).cutoff;
+    let rows = if sales {
+        let sql = format!(
+            "{} WHERE s.detected_at>=to_timestamp($1)
+            ORDER BY s.item_id,s.detected_at DESC,s.observation_id DESC NULLS LAST,
+            s.position DESC NULLS LAST,s.source_key",
+            sales_from().replacen("SELECT ", "SELECT DISTINCT ON (s.item_id) ", 1)
+        );
+        sqlx::query(&sql)
+            .bind(cutoff)
+            .fetch_all(db)
+            .await?
+            .iter()
+            .map(sale_json)
+            .collect::<Vec<_>>()
+    } else {
+        let sql = format!(
+            "WITH latest AS (
+            SELECT DISTINCT ON (l.item_id) l.* FROM listings l
+            JOIN observations o ON o.id=l.observation_id
+            WHERE l.stock>0 AND o.observed_at>=to_timestamp($1)
+            ORDER BY l.item_id,o.observed_at DESC,l.observation_id DESC,l.slot
+          ) SELECT {} FROM latest l JOIN shops sh ON sh.id=l.shop_id
+          JOIN observations o ON o.id=l.observation_id JOIN items i ON i.id=l.item_id
+          LEFT JOIN equipment_variants v ON v.id=l.variant_id",
+            row_columns("l")
+        );
+        let mut rows = sqlx::query(&sql)
+            .bind(cutoff)
+            .fetch_all(db)
+            .await?
+            .iter()
+            .map(row_json)
+            .collect::<Vec<_>>();
+        rows.extend(crate::external::latest_quote_rows(db, cutoff).await?);
+        rows
+    };
+    let mut latest = std::collections::BTreeMap::<i64, Value>::new();
+    for mut row in rows {
+        let item = row["item_id"].as_i64().expect("item id");
+        let time = row["time"].as_f64().expect("observation time");
+        if latest
+            .get(&item)
+            .is_some_and(|old| old["time"].as_f64().unwrap_or(0.0) >= time)
+        {
+            continue;
+        }
+        if !sales {
+            let listing = watch_listing(&Value::Object(row.clone()));
+            row.insert("id".into(), listing["id"].clone());
+            row.insert("observed".into(), json!(time));
+        }
+        row.retain(|key, _| {
+            matches!(
+                key.as_str(),
+                "id" | "item_id"
+                    | "name_zh"
+                    | "name_en"
+                    | "icon_url"
+                    | "shop"
+                    | "source"
+                    | "location"
+                    | "time"
+                    | "observed"
+                    | "unit_price"
+                    | "sale_unit_price"
+                    | "unit_basis"
+                    | "stock"
+                    | "bundle"
+                    | "kind"
+                    | "quantity"
+                    | "equipment"
+            )
+        });
+        latest.insert(item, Value::Object(row));
+    }
+    Ok(
+        json!({"records":latest.into_values().collect::<Vec<_>>(),"hours":hours.json(),"generated_at":now}),
+    )
+}
+
 /// Latest active observations, not per-item minimum prices. Narrowing to the
 /// newest `limit` item ids still contains the newest `limit` individual quotes.
 pub async fn recent_quotes(db: &PgPool, hours: Hours, limit: i64, now: f64) -> sqlx::Result<Value> {

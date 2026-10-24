@@ -443,18 +443,18 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
   color: var(--ink);
   font-size: 14px;
 }
-.market-record .record-details {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-  margin-top: 3px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink-3);
-}
 .market-record .offer-equipment {
-  font-size: inherit;
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+.market-record .name-primary .evi {
+  height: 18px;
+  padding: 0 4px;
+  font-size: 10px;
 }
 .market-record:hover {
   background: var(--bar-soft);
@@ -473,5 +473,58 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
 }
 .market-record .record-value .record-stock {
   font-size: 12px;
+  color: var(--ink-3);
+}
+
+.price-record-entry {
+  position: relative;
+}
+.price-record-entry:nth-child(even) {
+  background: var(--sheet-hi);
+}
+.price-record-entry > .market-record {
+  background: transparent;
+}
+.price-record-entry:hover {
+  background: var(--bar-soft);
+}
+.price-record-actions {
+  display: none;
+}
+@media (min-width: 641px) {
+  .price-record-entry > .market-record {
+    padding-right: 48px;
+  }
+  .price-record-actions {
+    display: block;
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+}
+
+.market-record .name-primary .evi {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 6px;
+  font-weight: 400;
+}
+.market-record .record-meta {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.market-record .record-meta .loc {
+  flex: none;
+}
+.market-record .record-shop {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.market-record .record-value .record-time {
+  font-size: 11px;
+  line-height: 1.4;
   color: var(--ink-3);
 }

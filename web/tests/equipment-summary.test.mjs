@@ -10,7 +10,12 @@ test('different equipment offers keep their captured values and remaining zero s
  assert.match(equipmentSummary(row,true),/DEX \+2/);
 });
 test('missing or unsupported captured values never fall back to catalogue defaults',()=>{
- assert.equal(equipmentSummary({item_id:1072128,equipment:{status:'unsupported'},base_stats:{dex:10}}),'未采集到装备具体属性');
+ assert.equal(equipmentSummary({item_id:1072128,equipment:{status:'unsupported'},base_stats:{dex:10}}),'');
  assert.equal(equipmentSummary({item_id:4010001}),'');
- assert.equal(equipmentSummary({item_id:1072128,equipment:{status:'candidate',stats:[{key:'<script>',value:99},{key:'dex',value:'3'}]}}),'未采集到装备具体属性');
+ assert.equal(equipmentSummary({item_id:1072128,equipment:{status:'candidate',stats:[{key:'<script>',value:99},{key:'dex',value:'3'}]}}),'');
+});
+
+test('decorations and empty captured equipment do not gain an attribute placeholder',()=>{
+ assert.equal(equipmentSummary({item_id:1002001,equipment:null}), '');
+ assert.equal(equipmentSummary({item_id:1022001,equipment:{status:'candidate',stats:[{key:'dex',value:0}],remaining_upgrades:0}}), '');
 });

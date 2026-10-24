@@ -3,14 +3,13 @@ const fields={weapon_attack:['物理攻击','Weapon ATK'],magic_attack:['魔法�
 export function equipmentSummary(row,en=false){
  if(Math.floor(Number(row.item_id)/1000000)!==1)return '';
  const eq=row.equipment;
- if(!eq||eq.status!=='candidate')return en?'Equipment attributes not captured':'未采集到装备具体属性';
+ if(!eq||eq.status!=='candidate')return '';
  const values=new Map();
  for(const stat of Array.isArray(eq.stats)?eq.stats:[]){
   if(fields[stat?.key]&&Number.isInteger(stat.value)&&stat.value>=0&&stat.value<=65535)values.set(stat.key,stat.value);
  }
  const parts=Object.entries(fields).filter(([key])=>values.get(key)>0).map(([key,label])=>`${label[en?1:0]} +${values.get(key)}`);
- if(!parts.length&&values.size)parts.push(en?'Captured attributes are all 0':'已采集属性均为0');
  if(Number.isInteger(eq.enhancements)&&eq.enhancements>0&&eq.enhancements<=15)parts.push(`${en?'Enhancements':'强化成功'} +${eq.enhancements}`);
- if(Number.isInteger(eq.remaining_upgrades)&&eq.remaining_upgrades>=0&&eq.remaining_upgrades<=15)parts.push(`${en?'Upgrades left':'可升级'} ${eq.remaining_upgrades}`);
- return parts.join(' · ')||(en?'Equipment attributes not captured':'未采集到装备具体属性');
+ if(Number.isInteger(eq.remaining_upgrades)&&eq.remaining_upgrades>=0&&eq.remaining_upgrades<=15&&(parts.length||eq.remaining_upgrades>0))parts.push(`${en?'Upgrades left':'可升级'} ${eq.remaining_upgrades}`);
+ return parts.join(' · ');
 }

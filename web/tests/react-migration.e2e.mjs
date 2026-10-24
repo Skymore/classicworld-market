@@ -33,6 +33,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/v1/account') data = { signed_in: false, google_enabled: true };
     if (url.pathname === '/api/v1/watchlist/catalog') data = { items: [], presets: [] };
     if (url.pathname === '/api/v1/sales/recent') data = { sales: [], generated_at: now };
+    if (url.pathname === '/api/v1/market/records') data = { records: products.slice(0, 2).map((row, i) => ({ ...row, id: `record-${i}`, time: row.last_seen, observed: row.last_seen, unit_price: i === 0 ? 32000 : 18000, sale_unit_price: row.last_sale_price, stock: 3 + i, kind: url.searchParams.get('kind') === 'sales' ? 'found_sold' : undefined, shop: 'Fixture shop', location: { channel: 23, room: 9 } })) };
     if (url.pathname === '/api/v1/quotes/recent') data = { listings: products.slice(0, 2).map((row, i) => ({ ...row, id: `quote-${i}`, observed: row.last_seen, unit_price: i === 0 ? 32000 : 18000, stock: 3 + i, location: { channel: 23, room: 9 } })) };
 
     res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(data));
@@ -132,17 +133,19 @@ try {
     assert.equal(await page.locator('[data-sort-label]').textContent(), '成交价 ↑');
 
     await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=lastsale]').click();
+    await page.locator('[data-price-records=sales] .market-record').first().waitFor();
     assert.equal(await page.locator('[data-sort-label]').textContent(), '最新成交');
+    assert.equal(await rows.count(), 2, 'only items with a matching latest sale are included');
     assert.match(await rows.first().textContent(), /红色药水/);
-    assert.match(await rows.last().textContent(), /蜗牛壳/);
-    if (mobile) {
-      assert.equal(await page.locator('[data-mobile-price-heading]').textContent(), '最新成交价');
-      assert.deepEqual(await rows.locator('.pr').allTextContents(), ['13.5K', '25K', '—']);
-      assert.equal(await rows.first().locator('[data-relative-time]').getAttribute('data-relative-time'), String(now));
-    }
+    assert.match(await rows.last().textContent(), /蓝色头巾/);
+    assert.deepEqual(await rows.locator('.ware-price').allTextContents(), ['13.5K', '25K']);
+    assert.match(await rows.first().locator('.name-primary .evi').textContent(), /已售/);
+    assert.equal(await rows.first().locator('.record-value > .record-time [data-relative-time]').getAttribute('data-relative-time'), String(now));
     await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=recent]').click();
+    await page.locator('[data-price-records=quotes] .market-record').first().waitFor();
     assert.equal(new URL(page.url()).searchParams.get('sort'), 'recent');
-    assert.match(await rows.first().textContent(), /红色药水/); assert.match(await rows.last().textContent(), /蜗牛壳/);
+    assert.match(await rows.first().textContent(), /红色药水/); assert.match(await rows.last().textContent(), /蓝色头巾/);
+    assert.equal(await rows.first().locator('.ware-price').textContent(), '32K');
     const oldUrl = new URL(page.url()); oldUrl.searchParams.set('dir', 'asc');
     await page.goto(oldUrl.href); await rows.first().waitFor();
     assert.equal(await page.locator('[data-sort-label]').textContent(), '最新报价');

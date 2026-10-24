@@ -110,14 +110,23 @@ export function Slot({
     </span>
   );
 }
-export function ItemNames({ row }: { row: Product }) {
+export function ItemNames({
+  row,
+  suffix,
+}: {
+  row: Product;
+  suffix?: ReactNode;
+}) {
   const { language } = usePreferences();
   const primary =
     language === "en" ? row.name_en || row.name_zh : row.name_zh || row.name_en;
   const secondary = language === "en" ? row.name_zh : row.name_en;
   return (
     <span className="name-stack">
-      <b className="name-primary">{primary || row.item_id}</b>
+      <b className="name-primary">
+        {primary || row.item_id}
+        {suffix}
+      </b>
       {secondary && secondary !== primary && (
         <small className="name-secondary">{secondary}</small>
       )}

@@ -313,7 +313,27 @@ pub async fn quote_rows(
         FROM external_market_listings q JOIN items i ON i.id=q.item_id
         WHERE q.item_id=ANY($1) AND q.up AND q.seen_at>=to_timestamp($2)")
         .bind(items).bind(cutoff).fetch_all(db).await?;
-    Ok(rows.into_iter().map(|r| {
+    Ok(quote_values(rows))
+}
+
+pub async fn latest_quote_rows(
+    db: &PgPool,
+    cutoff: f64,
+) -> sqlx::Result<Vec<serde_json::Map<String, Value>>> {
+    let rows = sqlx::query(
+        "SELECT DISTINCT ON (q.item_id) q.*,extract(epoch FROM q.seen_at)::float8 AS time,
+        i.name_zh,i.name_en,i.icon_url,i.subcategory FROM external_market_listings q
+        JOIN items i ON i.id=q.item_id WHERE q.up AND q.seen_at>=to_timestamp($1)
+        ORDER BY q.item_id,q.seen_at DESC,q.source,q.source_key",
+    )
+    .bind(cutoff)
+    .fetch_all(db)
+    .await?;
+    Ok(quote_values(rows))
+}
+
+fn quote_values(rows: Vec<sqlx::postgres::PgRow>) -> Vec<serde_json::Map<String, Value>> {
+    rows.into_iter().map(|r| {
         let item:i32=r.get("item_id");
         json!({"world":"ClassicWorld","item_id":item,"name_zh":r.get::<Option<String>,_>("name_zh"),
           "name_en":r.get::<String,_>("name_en"),"icon_url":r.get::<Option<String>,_>("icon_url"),
@@ -326,5 +346,5 @@ pub async fn quote_rows(
           "variant":if item/1_000_000==1 {"unknown"} else {"standard"},"equipment":null,
           "experimental":false,"requires_validation":true,"raw_available":false})
           .as_object().unwrap().clone()
-    }).collect())
+    }).collect()
 }

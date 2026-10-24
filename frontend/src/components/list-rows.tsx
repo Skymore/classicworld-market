@@ -2,7 +2,7 @@ import { useWords } from "../providers";
 import { Slot, ItemNames, Price, RelativeTime } from "./shared";
 import { SiteLink } from "./shell";
 import { t } from "/web/js/lib/i18n.js";
-import { equipmentSummary } from "/web/js/lib/equipment-summary.js?v=20261022-1";
+import { equipmentSummary } from "/web/js/lib/equipment-summary.js?v=20261024-records-2";
 import { priceUnit } from "/web/js/lib/market-source.js?v=20261022-external-1";
 
 export function Location({ value }: { value?: any }) {
@@ -57,38 +57,40 @@ export function OfferRow({
       <Slot url={row.icon_url || item?.icon_url} />
       <span className="w-main">
         <span className="ware-name">
-          <ItemNames row={{ ...item, ...row }} />
+          <ItemNames
+            row={{ ...item, ...row }}
+            suffix={
+              sale ? (
+                <span
+                  className={"evi " + (row.kind || "")}
+                  title={row.kind ? t("evidence." + row.kind) : undefined}
+                >
+                  {words("已售", "Sold")}
+                  {row.quantity != null && ` ×${row.quantity}`}
+                </span>
+              ) : undefined
+            }
+          />
         </span>
         <span className="record-meta">
           <Location value={row.location} />
-          <span className="record-time">
-            <RelativeTime at={sale ? row.time : row.observed} />
-          </span>
+          {row.shop && (
+            <span className="record-shop" title={row.shop}>
+              {row.shop}
+            </span>
+          )}
+          {row.bundle > 1 && (
+            <span className="record-bundle">
+              {words(`每组 ${row.bundle} 件`, `${row.bundle} per bundle`)}
+            </span>
+          )}
         </span>
-        {(equip ||
-          (sale && (row.kind || row.quantity != null)) ||
-          row.bundle > 1) && (
-          <span className="record-details">
-            {sale && row.kind && (
-              <span className={"evi " + row.kind}>
-                {t("evidence." + row.kind)}
-              </span>
-            )}
-            {sale && row.quantity != null && (
-              <span>
-                {words("成交", "Sold")} ×{row.quantity}
-              </span>
-            )}
-            {row.bundle > 1 && (
-              <span>
-                {words(`每组 ${row.bundle} 件`, `${row.bundle} per bundle`)}
-              </span>
-            )}
-            {equip && <span className="offer-equipment">{equip}</span>}
-          </span>
-        )}
+        {equip && <span className="offer-equipment">{equip}</span>}
       </span>
       <span className="record-value">
+        <span className="record-time">
+          <RelativeTime at={sale ? row.time : row.observed} />
+        </span>
         <span className="ware-price">
           <Price value={sale ? row.sale_unit_price : row.unit_price} />
           <span dangerouslySetInnerHTML={{ __html: priceUnit(row) }} />

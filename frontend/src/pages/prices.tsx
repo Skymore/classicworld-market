@@ -45,6 +45,7 @@ import {
   num,
 } from "../components/shared";
 import { SiteLink } from "../components/shell";
+import { OfferRow } from "../components/list-rows";
 import Sales from "./sales";
 import { Button } from "../components/ui/button";
 import {
@@ -78,6 +79,18 @@ export default function Prices() {
   const navigate = useNavigate();
   const period = usePeriod();
   const state = useMemo(() => readPriceState(route.search), [route.search]);
+  const recordMode =
+    state.tab === "all" && ["recent", "lastsale"].includes(state.sort);
+  const recordKind = state.sort === "lastsale" ? "sales" : "quotes";
+  const records = useMarketQuery<{ records: any[] }>(
+    `/api/v1/market/records?kind=${recordKind}&hours=${period.hours}`,
+    period.ready && recordMode,
+  );
+  const recordMap = useMemo(
+    () =>
+      new Map((records.data?.records || []).map((row) => [row.item_id, row])),
+    [records.data],
+  );
   const deferredQuery = useDeferredValue(state.q);
   const market = useMarketQuery<Market>(
     `/api/v1/market?view=list&hours=${period.hours}`,
@@ -167,6 +180,7 @@ export default function Prices() {
     const job = jobs.find(([key]) => key === state.job)?.[1];
     const watch = new Set(watched);
     return products.filter((row) => {
+      if (recordMode && !recordMap.has(row.item_id)) return false;
       if (state.craft && !craftable.has(row.item_id)) return false;
       if (
         (!state.cash && row.category === "商城物品") ||
@@ -199,6 +213,8 @@ export default function Prices() {
     });
   }, [
     products,
+    recordMode,
+    recordMap,
     state.cash,
     state.few,
     state.sold,
@@ -231,12 +247,26 @@ export default function Prices() {
             Math.abs(b.change_window || 0) - Math.abs(a.change_window || 0) ||
             (b.sales_window || 0) - (a.sales_window || 0),
         );
+    else if (recordMode)
+      selected = selected.slice().sort((a, b) => {
+        const time = (id: number) => Number(recordMap.get(id)?.time || 0);
+        return time(b.item_id) - time(a.item_id) || a.item_id - b.item_id;
+      });
     else
       selected = selected
         .slice()
         .sort((a, b) => compareProducts(a, b, state.sort, state.dir, en));
     return selected;
-  }, [base, state.cat, state.tab, state.sort, state.dir, en]);
+  }, [
+    base,
+    state.cat,
+    state.tab,
+    state.sort,
+    state.dir,
+    en,
+    recordMode,
+    recordMap,
+  ]);
   useEffect(
     () => setLimit(100),
     [
@@ -718,7 +748,7 @@ export default function Prices() {
               )}
             </>
           )}
-          {state.tab !== "sales" && (
+          {state.tab !== "sales" && !recordMode && (
             <div className="pp-cols react-price-cols" aria-hidden="true">
               <span />
               <span>{words("物品", "Item")}</span>
@@ -729,9 +759,18 @@ export default function Prices() {
         </div>
         {["all", "changes"].map((tab) => (
           <TabsContent value={tab} key={tab} data-pane={tab}>
-            {market.isError || (state.craft && crafting.isError) ? (
-              <ErrorState retry={() => void market.refetch()} />
-            ) : !market.data || (state.craft && !crafting.data) ? (
+            {market.isError ||
+            (recordMode && records.isError) ||
+            (state.craft && crafting.isError) ? (
+              <ErrorState
+                retry={() => {
+                  void market.refetch();
+                  if (recordMode) void records.refetch();
+                }}
+              />
+            ) : !market.data ||
+              (recordMode && !records.data) ||
+              (state.craft && !crafting.data) ? (
               <Loading />
             ) : rows.length === 0 ? (
               <>
@@ -747,162 +786,190 @@ export default function Prices() {
               </>
             ) : (
               <>
-                <div className="react-price-mobile" data-list={tab}>
-                  {rows.slice(0, limit).map((row) => (
-                    <SiteLink
-                      className="prow"
-                      href={itemHref(row)}
-                      key={row.item_id}
-                      data-item-row
-                    >
-                      <Slot url={row.icon_url} />
-                      <span className="nm">
-                        <ItemNames row={row} />
-                        {craftBadge(row)}
-                        {state.sort === "recent" && row.last_seen && (
-                          <small>
-                            <RelativeTime at={row.last_seen} />
-                          </small>
-                        )}
-                        {showLastSale && row.last_sale_at != null && (
-                          <small className="mobile-sort-value">
-                            <RelativeTime at={row.last_sale_at} />
-                          </small>
-                        )}
-                        {state.tab === "all" && state.sort === "sales" && (
-                          <small className="mobile-sort-value">
-                            {words(
-                              `成交 ${num(row.sales_window ?? 0)} 笔`,
-                              `${num(row.sales_window ?? 0)} sales`,
-                            )}
-                          </small>
-                        )}
-                      </span>
-                      <span className="pr quote-value">
-                        <Price
-                          value={
-                            showLowestAsk
-                              ? row.low
-                              : showLastSale
-                                ? row.last_sale_price
-                                : row.typical
-                          }
+                {recordMode ? (
+                  <div
+                    className="price-record-list"
+                    data-list={tab}
+                    data-price-records={recordKind}
+                  >
+                    {rows.slice(0, limit).map((row) => (
+                      <div className="price-record-entry" key={row.item_id}>
+                        <OfferRow
+                          row={recordMap.get(row.item_id)}
+                          item={row}
+                          sale={state.sort === "lastsale"}
+                          href={itemHref(row)}
                         />
-                        {unit(row)}
-                        {!showLowestAsk && !showLastSale && (
-                          <SampleBadge row={row} />
-                        )}
-                      </span>
-                      <Change value={row.change_window} />
-                    </SiteLink>
-                  ))}
-                </div>
-                <div className="react-price-desktop">
-                  <table className="ptable">
-                    <thead>
-                      <tr>
-                        <th className="l c-star">
-                          <span className="sr">{words("关注", "Watch")}</span>
-                        </th>
-                        {heading("name", words("物品", "Item"), "l")}
-                        {heading(
-                          showLastSale ? null : "price",
-                          showLastSale
-                            ? words("最新成交价", "Last sale price")
-                            : words("成交价", "Typical sale"),
-                        )}
-                        {heading("change", words("区间涨跌", "Change"))}
-                        {heading("low", words("最低报价", "Lowest ask"))}
-                        {heading("sales", words("成交笔数", "Sales"))}
-                        {heading(
-                          null,
-                          words("7 日走势", "7-day trend"),
-                          "c-spark",
-                        )}
-                        {heading(
-                          state.sort === "recent"
-                            ? "recent"
-                            : showLastSale
-                              ? "lastsale"
-                              : null,
-                          state.sort === "recent"
-                            ? words("最近采集", "Last observed")
-                            : words("最近成交", "Last sale"),
-                          "c-last",
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody data-list={tab}>
+                        <span className="price-record-actions">
+                          {watchButton(row)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <div className="react-price-mobile" data-list={tab}>
                       {rows.slice(0, limit).map((row) => (
-                        <tr
+                        <SiteLink
+                          className="prow"
+                          href={itemHref(row)}
                           key={row.item_id}
-                          data-open={row.item_id}
                           data-item-row
-                          onClick={(event) => {
-                            if (!(event.target as Element).closest("a,button"))
-                              location.assign(
-                                itemHref(row) + (en ? "&lang=en" : ""),
-                              );
-                          }}
                         >
-                          <td className="star-c l">{watchButton(row)}</td>
-                          <td className="l">
-                            <SiteLink className="it" href={itemHref(row)}>
-                              <Slot url={row.icon_url} />
-                              <ItemNames row={row} />
-                              {craftBadge(row)}
-                            </SiteLink>
-                          </td>
-                          <td>
-                            <span className="pr quote-value">
-                              <Price
-                                value={
-                                  showLastSale
+                          <Slot url={row.icon_url} />
+                          <span className="nm">
+                            <ItemNames row={row} />
+                            {craftBadge(row)}
+                            {state.sort === "recent" && row.last_seen && (
+                              <small>
+                                <RelativeTime at={row.last_seen} />
+                              </small>
+                            )}
+                            {showLastSale && row.last_sale_at != null && (
+                              <small className="mobile-sort-value">
+                                <RelativeTime at={row.last_sale_at} />
+                              </small>
+                            )}
+                            {state.tab === "all" && state.sort === "sales" && (
+                              <small className="mobile-sort-value">
+                                {words(
+                                  `成交 ${num(row.sales_window ?? 0)} 笔`,
+                                  `${num(row.sales_window ?? 0)} sales`,
+                                )}
+                              </small>
+                            )}
+                          </span>
+                          <span className="pr quote-value">
+                            <Price
+                              value={
+                                showLowestAsk
+                                  ? row.low
+                                  : showLastSale
                                     ? row.last_sale_price
                                     : row.typical
-                                }
-                              />
-                              {unit(row)}
-                              {!showLastSale && <SampleBadge row={row} />}
-                            </span>
-                            {!showLastSale &&
-                              row.typical_low != null &&
-                              row.typical_high != null && (
-                                <span className="rg">
-                                  <Price value={row.typical_low} /> –{" "}
-                                  <Price value={row.typical_high} />
-                                </span>
-                              )}
-                          </td>
-                          <td>
-                            <Change value={row.change_window} />
-                          </td>
-                          <td>
-                            <Price value={row.low} />
-                          </td>
-                          <td>{row.sales_window ?? 0}</td>
-                          <td className="c-spark">
-                            <span
-                              className="contents"
-                              dangerouslySetInnerHTML={{
-                                __html: spark(row.trend),
-                              }}
-                            />
-                          </td>
-                          <td className="c-last">
-                            <RelativeTime
-                              at={
-                                state.sort === "recent"
-                                  ? row.last_seen
-                                  : row.last_sale_at
                               }
                             />
-                          </td>
-                        </tr>
+                            {unit(row)}
+                            {!showLowestAsk && !showLastSale && (
+                              <SampleBadge row={row} />
+                            )}
+                          </span>
+                          <Change value={row.change_window} />
+                        </SiteLink>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </div>
+                    <div className="react-price-desktop">
+                      <table className="ptable">
+                        <thead>
+                          <tr>
+                            <th className="l c-star">
+                              <span className="sr">
+                                {words("关注", "Watch")}
+                              </span>
+                            </th>
+                            {heading("name", words("物品", "Item"), "l")}
+                            {heading(
+                              showLastSale ? null : "price",
+                              showLastSale
+                                ? words("最新成交价", "Last sale price")
+                                : words("成交价", "Typical sale"),
+                            )}
+                            {heading("change", words("区间涨跌", "Change"))}
+                            {heading("low", words("最低报价", "Lowest ask"))}
+                            {heading("sales", words("成交笔数", "Sales"))}
+                            {heading(
+                              null,
+                              words("7 日走势", "7-day trend"),
+                              "c-spark",
+                            )}
+                            {heading(
+                              state.sort === "recent"
+                                ? "recent"
+                                : showLastSale
+                                  ? "lastsale"
+                                  : null,
+                              state.sort === "recent"
+                                ? words("最近采集", "Last observed")
+                                : words("最近成交", "Last sale"),
+                              "c-last",
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody data-list={tab}>
+                          {rows.slice(0, limit).map((row) => (
+                            <tr
+                              key={row.item_id}
+                              data-open={row.item_id}
+                              data-item-row
+                              onClick={(event) => {
+                                if (
+                                  !(event.target as Element).closest("a,button")
+                                )
+                                  location.assign(
+                                    itemHref(row) + (en ? "&lang=en" : ""),
+                                  );
+                              }}
+                            >
+                              <td className="star-c l">{watchButton(row)}</td>
+                              <td className="l">
+                                <SiteLink className="it" href={itemHref(row)}>
+                                  <Slot url={row.icon_url} />
+                                  <ItemNames row={row} />
+                                  {craftBadge(row)}
+                                </SiteLink>
+                              </td>
+                              <td>
+                                <span className="pr quote-value">
+                                  <Price
+                                    value={
+                                      showLastSale
+                                        ? row.last_sale_price
+                                        : row.typical
+                                    }
+                                  />
+                                  {unit(row)}
+                                  {!showLastSale && <SampleBadge row={row} />}
+                                </span>
+                                {!showLastSale &&
+                                  row.typical_low != null &&
+                                  row.typical_high != null && (
+                                    <span className="rg">
+                                      <Price value={row.typical_low} /> –{" "}
+                                      <Price value={row.typical_high} />
+                                    </span>
+                                  )}
+                              </td>
+                              <td>
+                                <Change value={row.change_window} />
+                              </td>
+                              <td>
+                                <Price value={row.low} />
+                              </td>
+                              <td>{row.sales_window ?? 0}</td>
+                              <td className="c-spark">
+                                <span
+                                  className="contents"
+                                  dangerouslySetInnerHTML={{
+                                    __html: spark(row.trend),
+                                  }}
+                                />
+                              </td>
+                              <td className="c-last">
+                                <RelativeTime
+                                  at={
+                                    state.sort === "recent"
+                                      ? row.last_seen
+                                      : row.last_sale_at
+                                  }
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
                 {limit < rows.length && (
                   <div ref={sentinel}>
                     <button

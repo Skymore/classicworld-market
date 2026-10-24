@@ -527,6 +527,42 @@ async fn recent_quotes_keep_the_observation_price_location_and_stock_together() 
         "sold-out quotes are excluded"
     );
     assert_eq!(body["listings"][1]["unit_price"], json!(10.0));
+    let records = json_body(
+        client
+            .get("/api/v1/market/records?kind=quotes&hours=all", &[])
+            .await,
+    )
+    .await;
+    assert_eq!(
+        records["records"].as_array().unwrap().len(),
+        1,
+        "one latest quote per item"
+    );
+    assert_eq!(records["records"][0]["unit_price"], json!(900.0));
+    assert_eq!(records["records"][0]["stock"], 4);
+    assert_eq!(records["records"][0]["shop"], "Shop");
+    let records = json_body(
+        client
+            .get("/api/v1/market/records?kind=sales&hours=all", &[])
+            .await,
+    )
+    .await;
+    assert_eq!(
+        records["records"].as_array().unwrap().len(),
+        1,
+        "one latest sale per item"
+    );
+    assert_eq!(records["records"][0]["sale_unit_price"], json!(1.0));
+    assert_eq!(records["records"][0]["stock"], 0);
+    for query in ["kind=bad", "kind=sales&hours=bad", ""] {
+        assert_eq!(
+            client
+                .get(&format!("/api/v1/market/records?{query}"), &[])
+                .await
+                .status(),
+            StatusCode::BAD_REQUEST
+        );
+    }
     for query in ["limit=0", "limit=101", "limit=-1", "hours=bad"] {
         assert_eq!(
             client
