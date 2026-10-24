@@ -2,7 +2,7 @@ import { useWords } from "../providers";
 import { Slot, ItemNames, Price, RelativeTime } from "./shared";
 import { SiteLink } from "./shell";
 import { t } from "/web/js/lib/i18n.js";
-import { equipmentSummary } from "/web/js/lib/equipment-summary.js?v=20261024-records-2";
+import { equipmentSummary } from "/web/js/lib/equipment-summary.js?v=20261024-records-3";
 import { priceUnit } from "/web/js/lib/market-source.js?v=20261022-external-1";
 
 export function Location({ value }: { value?: any }) {
@@ -91,7 +91,7 @@ export function OfferRow({
             </span>
           )}
         </span>
-        {equip && <span className="offer-equipment">{equip}</span>}
+        {equip && <span className="offer-equipment" title={equip}>{equip}</span>}
       </span>
       <span className="record-value">
         <span className="record-time">

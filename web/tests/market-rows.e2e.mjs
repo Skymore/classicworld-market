@@ -89,11 +89,27 @@ try {
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no horizontal page overflow');
       }
       await checkLayout(offers.first());
-      assert.match(await offers.nth(2).locator('.offer-equipment').textContent(), /可升级 5|Upgrades left 5/);
+      assert.match(await offers.nth(2).locator('.offer-equipment').textContent(), /可升 5|Upgrades left 5/);
       assert.equal(await offers.nth(2).locator('.offer-equipment').evaluate(node=>getComputedStyle(node).fontSize), '11px');
+      const attributes=await offers.nth(2).locator('.offer-equipment').evaluate(node=>{
+        const style=getComputedStyle(node);
+        return {text:node.textContent,title:node.title,whiteSpace:style.whiteSpace,overflow:style.overflow,textOverflow:style.textOverflow,height:node.getBoundingClientRect().height,lineHeight:parseFloat(style.lineHeight),clipped:node.scrollWidth>node.clientWidth};
+      });
+      assert.equal(attributes.title,attributes.text,'full attributes remain available in the tooltip and item details');
+      assert.equal(attributes.whiteSpace,'nowrap');
+      assert.equal(attributes.overflow,'hidden');
+      assert.equal(attributes.textOverflow,'ellipsis');
+      assert(attributes.height<=attributes.lineHeight+1,'attributes stay on one line at every viewport');
+      if(width===320) assert(attributes.clipped,'long attributes are truncated on narrow phones');
       const sizes=await offers.first().evaluate(node=>Object.fromEntries(['.ware-price','.name-secondary','.record-time','.record-stock','.loc','.record-shop'].map(selector=>[selector,getComputedStyle(node.querySelector(selector)).fontSize])));
       assert.equal(sizes['.ware-price'],'18px');
-      for(const [selector,size] of Object.entries(sizes)) if(selector!=='.ware-price') assert.equal(size,'12px',selector);
+      assert.equal(sizes['.name-secondary'],'11px','translations are smaller than other secondary text');
+      for(const [selector,size] of Object.entries(sizes)) if(!['.ware-price','.name-secondary'].includes(selector)) assert.equal(size,'12px',selector);
+      const metaText=await offers.first().evaluate(node=>['.loc b','.loc > span','.record-shop'].map(selector=>{
+        const range=document.createRange();range.selectNodeContents(node.querySelector(selector));
+        const bounds=range.getBoundingClientRect();return (bounds.top+bounds.bottom)/2;
+      }));
+      assert(Math.max(...metaText)-Math.min(...metaText)<=1,'channel, room and shop text share the same vertical alignment');
 
 
       if (screenshots) await page.screenshot({ path: path.join(screenshots, `quotes-${width}-${lang}.png`) });

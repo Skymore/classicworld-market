@@ -410,6 +410,7 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
   --record-name-size: 14px;
   --record-price-size: 18px;
   --record-small-size: 12px;
+  --record-translation-size: 11px;
   --record-attribute-size: 11px;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
@@ -435,7 +436,7 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
   gap: 4px 8px;
   margin-top: 4px;
   font-size: var(--record-small-size);
-  line-height: 20px;
+  line-height: 18px;
   color: var(--ink-3);
 }
 .market-record .record-time,
@@ -453,7 +454,12 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
   font-size: var(--record-attribute-size);
   line-height: 1.4;
   color: var(--ink-3);
-  overflow-wrap: anywhere;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
 }
 .market-record .name-primary .evi {
   height: 20px;
@@ -520,6 +526,11 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
 }
 .market-record .record-meta .loc {
   flex: none;
+  line-height: 18px;
+}
+.market-record .record-meta .loc b {
+  display: flex;
+  align-items: center;
 }
 .market-record .record-shop {
   min-width: 0;
@@ -536,7 +547,9 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
 .market-record .name-primary {
   font-size: var(--record-name-size);
 }
-.market-record .name-secondary,
+.market-record .name-secondary {
+  font-size: var(--record-translation-size);
+}
 .market-record .loc,
 .market-record .unit {
   font-size: var(--record-small-size);
