@@ -19,6 +19,47 @@
     document.addEventListener('gesturechange', stopGestureZoom, options);
     document.addEventListener('touchstart', stopMultiTouchZoom, options);
     document.addEventListener('touchmove', stopMultiTouchZoom, options);
+    // Explicitly stop legacy iOS double-tap zoom as well as pinch zoom.
+    // Leave rapid button/link taps and native text editing to their controls.
+    var tapStart = null;
+    var lastTap = null;
+    var action = 'a,button,input,textarea,select,label,[role="button"],[role="tab"],[contenteditable]';
+    var editable = 'input,textarea,select,[contenteditable]';
+    var inside = function (target, selector) { return target && target.closest && target.closest(selector); };
+    document.addEventListener('touchstart', function (event) {
+      if (event.touches.length !== 1) { tapStart = lastTap = null; return; }
+      var point = event.touches[0];
+      tapStart = { x: point.clientX, y: point.clientY, at: event.timeStamp };
+    }, options);
+    document.addEventListener('touchmove', function (event) {
+      if (!tapStart || event.touches.length !== 1 ||
+          Math.abs(event.touches[0].clientX - tapStart.x) > 12 ||
+          Math.abs(event.touches[0].clientY - tapStart.y) > 12) {
+        tapStart = lastTap = null;
+      }
+    }, options);
+    document.addEventListener('touchcancel', function () { tapStart = lastTap = null; }, options);
+    document.addEventListener('touchend', function (event) {
+      var start = tapStart;
+      tapStart = null;
+      if (!start || event.touches.length || event.changedTouches.length !== 1 ||
+          event.timeStamp - start.at > 350 || inside(event.target, action)) {
+        lastTap = null;
+        return;
+      }
+      var point = event.changedTouches[0];
+      if (lastTap && event.timeStamp - lastTap.at <= 350 &&
+          Math.abs(point.clientX - lastTap.x) <= 24 && Math.abs(point.clientY - lastTap.y) <= 24) {
+        if (event.cancelable) event.preventDefault();
+        lastTap = null;
+      } else lastTap = { x: point.clientX, y: point.clientY, at: event.timeStamp };
+    }, options);
+    document.addEventListener('dblclick', function (event) {
+      if (!inside(event.target, editable) &&
+          (matchMedia('(pointer:coarse)').matches || event.sourceCapabilities && event.sourceCapabilities.firesTouchEvents)) {
+        if (event.cancelable) event.preventDefault();
+      }
+    }, options);
   }
   var query = new URLSearchParams(location.search);
   var read = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };

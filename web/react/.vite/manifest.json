@@ -47,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-B2dczgw-.js": {
-    "file": "chunks/main-B2dczgw-.js",
+  "_main-Dc8HzPw9.js": {
+    "file": "chunks/main-Dc8HzPw9.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -127,7 +127,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-B2dczgw-.js"
+      "_main-Dc8HzPw9.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -276,7 +276,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-B2dczgw-.js"
+      "_main-Dc8HzPw9.js"
     ]
   },
   "style.css": {

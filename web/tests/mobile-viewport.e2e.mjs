@@ -82,7 +82,7 @@ try {
     const cancellation = await page.evaluate(() => {
       function touch(type, count) {
         const event = new Event(type, { bubbles: true, cancelable: true });
-        Object.defineProperty(event, 'touches', { value: { length: count } });
+        Object.defineProperty(event, 'touches', { value: Array.from({ length: count }, () => ({ clientX: 5, clientY: 300 })) });
         document.body.dispatchEvent(event);
         return event.defaultPrevented;
       }
@@ -91,6 +91,41 @@ try {
       return [touch('touchstart', 1), touch('touchmove', 1), touch('touchstart', 2), touch('touchmove', 2), gesture.defaultPrevented];
     });
     assert.deepEqual(cancellation, [false, false, true, true, true], 'block Safari zoom gestures while preserving single-finger input');
+    const doubleClick = await page.evaluate(() => {
+      const event = new MouseEvent('dblclick', { bubbles: true, cancelable: true, detail: 2 });
+      document.body.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+    assert(doubleClick, 'explicitly cancel touch-browser double-click zoom');
+    await page.evaluate(() => {
+      window.tapEnds = [];
+      const surface = document.createElement('div');
+      surface.id = 'double-tap-surface'; surface.textContent = 'Text surface';
+      surface.style.cssText = 'position:fixed;top:280px;left:90px;width:210px;height:120px;z-index:9999;background:white';
+      document.body.append(surface);
+      for (const type of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) document.addEventListener(type, event => window.tapEnds.push({ type, canceled: event.defaultPrevented, cancelable: event.cancelable, time: event.timeStamp, target: event.target.tagName, touches: event.touches.length, changed: event.changedTouches.length, x: event.changedTouches[0]?.clientX, y: event.changedTouches[0]?.clientY }));
+    });
+    for (let tap = 0; tap < 2; tap++) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 195, y: 330, id: 9 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    }
+    const trace = await page.evaluate(() => window.tapEnds);
+    const ends = trace.filter(event => event.type === 'touchend').map(event => event.canceled);
+    assert.deepEqual(ends, [false, true], `the second native tap is canceled before legacy double-tap zoom: ${JSON.stringify(trace)}`);
+    assert.equal(await page.evaluate(() => visualViewport.scale), 1);
+    await page.locator('#double-tap-surface').evaluate(node => node.remove());
+    await page.evaluate(() => {
+      const button = document.createElement('button');
+      button.id = 'tap-action-check'; button.textContent = 'Tap';
+      button.style.cssText = 'position:fixed;top:0;left:0;z-index:9999;width:70px;height:44px';
+      window.actionTaps = 0;
+      button.addEventListener('click', () => window.actionTaps++);
+      document.body.append(button);
+    });
+    await page.locator('#tap-action-check').tap();
+    await page.locator('#tap-action-check').tap();
+    assert.equal(await page.evaluate(() => window.actionTaps), 2, 'rapid normal control taps both reach their action');
+    await page.locator('#tap-action-check').evaluate(node => node.remove());
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 160, y: 360, id: 1 }, { x: 230, y: 360, id: 2 }] });
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 110, y: 360, id: 1 }, { x: 280, y: 360, id: 2 }] });
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
