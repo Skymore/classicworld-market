@@ -102,6 +102,7 @@ fn fresh(row: &Value) -> Value {
 fn summary(row: &Value) -> Value {
     let mut r = fresh(row);
     r.as_object_mut().unwrap().remove("content");
+    r.as_object_mut().unwrap().remove("training_candidates");
     r
 }
 fn source_urls(row: &Value) -> Vec<Value> {
@@ -240,7 +241,14 @@ pub fn run(request: Request) -> Value {
                 })
                 .collect::<Vec<_>>();
             rows.sort_by(|a, b| b.0.cmp(&a.0));
-            rows.into_iter().take(3).map(|(_, r)| fresh(r)).collect()
+            // A resolved topic should not bring in unrelated classes merely
+            // because all their documents contain a generic tag such as 加点.
+            let specific = rows.first().is_some_and(|(score, _)| *score >= 40);
+            rows.into_iter()
+                .filter(|(score, _)| !specific || *score >= 40)
+                .take(3)
+                .map(|(_, r)| fresh(r))
+                .collect()
         }
     };
     let urls = selected
@@ -316,6 +324,13 @@ mod tests {
             );
         }
         assert!(!topic_match("webpage", "Page"));
+        assert_eq!(
+            run(Request::Search("牧师 Cleric 二转 单练 默认加点".into()))["guides"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
         assert_eq!(run(Request::Search("???".into()))["index_only"], true);
     }
     #[test]

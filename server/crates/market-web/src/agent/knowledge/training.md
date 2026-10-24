@@ -21,7 +21,7 @@
 - 通用低风险：继续蚂蚁洞/野猪，或试 [Excavation Site III](/map/10004132) 的 Wooden/Rocky Mask。快清低级怪可以比勉强打高级怪更高效。
 - 远程单体：[Tree Dungeon, Forest Up North IX](/map/10002083) 的 Curse Eye；命中和伤害够后再看 Lupin、海滩 Lorang。
 - 牧师：[Line 1 <Area 2>](/map/10003063) 的 Jr. Wraith，或 [Monkey Forest II](/map/10002023) 的 Zombie Lupin；Holy Arrow 成形且实际能稳定击杀再换。
-- 冰雷单体：可比较 Fire Boar；冰雷/火毒群攻、弓弩群攻：先在蘑菇区找真正能稳定命中多只的平台。并非群攻一解锁就适合刷所有图。
+- 冰雷单体：可比较 [The Burnt Land I](/map/10004111) 的 Fire Boar（32级、842 HP）；它和 Land of Wild Boar 里的普通野猪不同。冰雷/火毒群攻、弓弩群攻：先在蘑菇区找真正能稳定命中多只的平台。并非群攻一解锁就适合刷所有图。
 
 ## 50—70级：保留快清图，增加候选
 

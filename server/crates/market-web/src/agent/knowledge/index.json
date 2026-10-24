@@ -31,7 +31,7 @@
         "怎么选"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.2350068,
+      "checked_at": 1792827621.4884002,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
@@ -173,7 +173,7 @@
         "100级"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.23801,
+      "checked_at": 1792827621.4919186,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
@@ -229,7 +229,89 @@
         "kerning-pq",
         "quest-help"
       ],
-      "evidence_note": "前期结合多篇路线和玩家讨论；后期以客户端地图候选为主，尚无覆盖全部职业、装备与时段的统一实测。"
+      "evidence_note": "前期结合多篇路线和玩家讨论；后期以客户端地图候选为主，尚无覆盖全部职业、装备与时段的统一实测。",
+      "training_candidates": [
+        {
+          "map": {
+            "id": 10004111,
+            "name": "The Burnt Land I",
+            "url": "/map/10004111"
+          },
+          "target": {
+            "id": 30,
+            "name": "Fire Boar",
+            "level": 32,
+            "hp": 842,
+            "exp": 60,
+            "url": "/mob/30"
+          },
+          "other_monsters": [
+            "Dark Axe Stump"
+          ],
+          "use": "冰雷单体路线候选；比较实际击杀次数和药耗",
+          "measured_exp_per_hour": null
+        },
+        {
+          "map": {
+            "id": 10005060,
+            "name": "Ant Tunnel I",
+            "url": "/map/10005060"
+          },
+          "target": {
+            "id": 21,
+            "name": "Zombie Mushroom",
+            "level": 24,
+            "hp": 436,
+            "exp": 45,
+            "url": "/mob/21"
+          },
+          "other_monsters": [
+            "Horny Mushroom"
+          ],
+          "use": "蘑菇区快清/群攻备选；不是到40级就必须离开",
+          "measured_exp_per_hour": null
+        },
+        {
+          "map": {
+            "id": 10003063,
+            "name": "Line 1 <Area 2>",
+            "url": "/map/10003063"
+          },
+          "target": {
+            "id": 32,
+            "name": "Jr. Wraith",
+            "level": 34,
+            "hp": 982,
+            "exp": 66,
+            "url": "/mob/32"
+          },
+          "other_monsters": [
+            "Stirge"
+          ],
+          "use": "牧师圣箭成形后比较地铁；仍需考虑飞行怪和平台",
+          "measured_exp_per_hour": null
+        },
+        {
+          "map": {
+            "id": 10002023,
+            "name": "Monkey Forest II",
+            "url": "/map/10002023"
+          },
+          "target": {
+            "id": 38,
+            "name": "Zombie Lupin",
+            "level": 41,
+            "hp": 1774,
+            "exp": 89,
+            "url": "/mob/38"
+          },
+          "other_monsters": [
+            "Lupin"
+          ],
+          "use": "牧师较高血量备选；并非刚二转就更快",
+          "measured_exp_per_hour": null
+        }
+      ]
     },
     {
       "id": "warrior-build",
@@ -251,7 +333,7 @@
         "省药"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.2350068,
+      "checked_at": 1792827621.4894085,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
@@ -309,7 +391,7 @@
         "Rush"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.2360156,
+      "checked_at": 1792827621.489912,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
@@ -364,7 +446,7 @@
         "骑士"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.2360156,
+      "checked_at": 1792827621.489912,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
@@ -422,7 +504,7 @@
         "Hyper Body"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.2360156,
+      "checked_at": 1792827621.489912,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
@@ -490,7 +572,7 @@
         "洗点"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.2350068,
+      "checked_at": 1792827621.4894085,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
@@ -560,7 +642,7 @@
         "练级"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.237017,
+      "checked_at": 1792827621.4909155,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
@@ -621,7 +703,7 @@
         "练级"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.237017,
+      "checked_at": 1792827621.489912,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
@@ -656,13 +738,69 @@
           "kind": "community",
           "published_on": "2026-10-02",
           "verified": "已读正文修订及评论；旧配图已被作者纠正，不作为逐级表依据"
+        },
+        {
+          "title": "国际服客户端地图快照",
+          "url": "https://github.com/ohmi69/osms_datamine_dashboard/blob/63db09449642c4bf3414276223e4cb7d72af02d9/data/current/maps.json",
+          "kind": "client_extraction",
+          "published_on": "2026-10-21",
+          "verified": "原文及相关段落已阅读"
+        },
+        {
+          "title": "国际服客户端怪物快照",
+          "url": "https://github.com/ohmi69/osms_datamine_dashboard/blob/63db09449642c4bf3414276223e4cb7d72af02d9/data/current/monsters.json",
+          "kind": "client_extraction",
+          "published_on": "2026-10-21",
+          "verified": "原文及相关段落已阅读"
         }
       ],
       "related_guides": [
         "magician-build",
         "training"
       ],
-      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。"
+      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。",
+      "training_candidates": [
+        {
+          "map": {
+            "id": 10004111,
+            "name": "The Burnt Land I",
+            "url": "/map/10004111"
+          },
+          "target": {
+            "id": 30,
+            "name": "Fire Boar",
+            "level": 32,
+            "hp": 842,
+            "exp": 60,
+            "url": "/mob/30"
+          },
+          "other_monsters": [
+            "Dark Axe Stump"
+          ],
+          "use": "冰雷单体路线候选；比较实际击杀次数和药耗",
+          "measured_exp_per_hour": null
+        },
+        {
+          "map": {
+            "id": 10005060,
+            "name": "Ant Tunnel I",
+            "url": "/map/10005060"
+          },
+          "target": {
+            "id": 21,
+            "name": "Zombie Mushroom",
+            "level": 24,
+            "hp": 436,
+            "exp": 45,
+            "url": "/mob/21"
+          },
+          "other_monsters": [
+            "Horny Mushroom"
+          ],
+          "use": "蘑菇区快清/群攻备选；不是到40级就必须离开",
+          "measured_exp_per_hour": null
+        }
+      ]
     },
     {
       "id": "cleric-build",
@@ -687,7 +825,7 @@
         "升级"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.237017,
+      "checked_at": 1792827621.4909155,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
@@ -722,13 +860,69 @@
           "kind": "community",
           "published_on": "2026-10-23",
           "verified": "原文及相关段落已阅读"
+        },
+        {
+          "title": "国际服客户端地图快照",
+          "url": "https://github.com/ohmi69/osms_datamine_dashboard/blob/63db09449642c4bf3414276223e4cb7d72af02d9/data/current/maps.json",
+          "kind": "client_extraction",
+          "published_on": "2026-10-21",
+          "verified": "原文及相关段落已阅读"
+        },
+        {
+          "title": "国际服客户端怪物快照",
+          "url": "https://github.com/ohmi69/osms_datamine_dashboard/blob/63db09449642c4bf3414276223e4cb7d72af02d9/data/current/monsters.json",
+          "kind": "client_extraction",
+          "published_on": "2026-10-21",
+          "verified": "原文及相关段落已阅读"
         }
       ],
       "related_guides": [
         "magician-build",
         "training"
       ],
-      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。"
+      "evidence_note": "多篇攻略交叉整理；方案为编辑建议，未统计全服使用率。",
+      "training_candidates": [
+        {
+          "map": {
+            "id": 10003063,
+            "name": "Line 1 <Area 2>",
+            "url": "/map/10003063"
+          },
+          "target": {
+            "id": 32,
+            "name": "Jr. Wraith",
+            "level": 34,
+            "hp": 982,
+            "exp": 66,
+            "url": "/mob/32"
+          },
+          "other_monsters": [
+            "Stirge"
+          ],
+          "use": "牧师圣箭成形后比较地铁；仍需考虑飞行怪和平台",
+          "measured_exp_per_hour": null
+        },
+        {
+          "map": {
+            "id": 10002023,
+            "name": "Monkey Forest II",
+            "url": "/map/10002023"
+          },
+          "target": {
+            "id": 38,
+            "name": "Zombie Lupin",
+            "level": 41,
+            "hp": 1774,
+            "exp": 89,
+            "url": "/mob/38"
+          },
+          "other_monsters": [
+            "Lupin"
+          ],
+          "use": "牧师较高血量备选；并非刚二转就更快",
+          "measured_exp_per_hour": null
+        }
+      ]
     },
     {
       "id": "bowman-build",
@@ -754,7 +948,7 @@
         "击退"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.2350068,
+      "checked_at": 1792827621.4894085,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
@@ -821,7 +1015,7 @@
         "SP"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.237017,
+      "checked_at": 1792827621.4909155,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
@@ -887,7 +1081,7 @@
         "控制"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.237017,
+      "checked_at": 1792827621.4909155,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
@@ -953,7 +1147,7 @@
         "免洗点"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.2360156,
+      "checked_at": 1792827621.489912,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
@@ -1013,7 +1207,7 @@
         "飞镖"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.23801,
+      "checked_at": 1792827621.4909155,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
@@ -1081,7 +1275,7 @@
         "免洗点"
       ],
       "checked_on": "2026-10-24",
-      "checked_at": 1792827395.23801,
+      "checked_at": 1792827621.4919186,
       "checked_timezone": "America/Los_Angeles",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",

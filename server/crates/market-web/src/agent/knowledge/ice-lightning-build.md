@@ -14,7 +14,7 @@
 
 ## 练级衔接
 
-30—40 可以继续用一转攻击刷蘑菇，二转技能等级足够再换。Fire Boar 可作为 Cold Beam 的属性目标候选，但还要看命中与实际击杀次数；群攻先试蚂蚁洞的密集平台。缺少输出就不要因为“冰雷”两个字跳去高血量地图。
+30—40 可以继续用一转攻击刷蘑菇，二转技能等级足够再换。单体可比较 [The Burnt Land I](/map/10004111) 的 Fire Boar：正式野外版本是 32 级、842 HP，和 Wild Boar 不同；Land of Wild Boar 没有这种怪，里面 1395 HP 的怪是 Jr. Boogie。群攻可比较 [Ant Tunnel I](/map/10005060) 的 Horny Mushroom / Zombie Mushroom。还要看实际击杀次数和药耗；缺少输出就不要跳去高血量地图。
 
 ## 后续取舍
 
