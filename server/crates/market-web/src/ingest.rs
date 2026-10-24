@@ -108,6 +108,7 @@ pub async fn ingest(db: &PgPool, input: Received<'_>) -> Result<IngestOutcome, I
             .await?;
     }
     insert_rows(&mut tx, observation, upload, &variants).await?;
+    bind_owner(&mut tx, shop, observation, upload.owner.as_ref()).await?;
     sqlx::query("INSERT INTO uploads_raw (collector_id, observation_id, received_at, body) VALUES ($1, $2, to_timestamp($3), $4)")
         .bind(input.collector.id)
         .bind(&upload.observation_id)
@@ -131,7 +132,10 @@ pub async fn ingest(db: &PgPool, input: Received<'_>) -> Result<IngestOutcome, I
     .fetch_one(&mut *tx)
     .await?;
 
-    let changes = replay_shop(&mut tx, shop).await?;
+    let mut changes = replay_shop(&mut tx, shop).await?;
+    changes
+        .items
+        .extend(reconcile_owner_listings(&mut tx, shop).await?);
     // Read the stored time back so last_seen_at has the database precision.
     let seen: f64 = sqlx::query_scalar(
         "SELECT extract(epoch FROM observed_at)::float8 FROM observations WHERE id = $1",
@@ -225,8 +229,10 @@ pub async fn repair_location(db: &PgPool, input: Received<'_>) -> Result<bool, I
         .execute(&mut *tx)
         .await?;
     // Replay both sides so a known shop and its formerly unknown copy do not double-count stock.
+    bind_owner(&mut tx, shop, id, upload.owner.as_ref()).await?;
     let mut touched = replay_shop(&mut tx, old_shop).await?.items;
     touched.extend(replay_shop(&mut tx, shop).await?.items);
+    touched.extend(reconcile_owner_listings(&mut tx, shop).await?);
     let removed = sqlx::query(
         "DELETE FROM shops WHERE id=$1 AND NOT EXISTS(SELECT 1 FROM observations WHERE shop_id=$1)",
     )
@@ -252,6 +258,154 @@ pub async fn repair_location(db: &PgPool, input: Received<'_>) -> Result<bool, I
         .await?;
     tx.commit().await?;
     Ok(true)
+}
+
+/// Attach evidence to this collector's existing observation without changing
+/// its immutable payload, fingerprint, timestamp, item rows, or contribution count.
+pub async fn repair_owner(db: &PgPool, input: Received<'_>) -> Result<bool, IngestError> {
+    let owner = input.upload.owner.as_ref().ok_or(IngestError::Conflict)?;
+    let mut tx = db.begin().await?;
+    lock_writes(&mut tx).await?;
+    let record = sqlx::query(
+        "SELECT o.id,o.shop_id,r.body FROM observations o
+        JOIN uploads_raw r USING(collector_id,observation_id)
+        WHERE o.collector_id=$1 AND o.observation_id=$2",
+    )
+    .bind(input.collector.id)
+    .bind(&input.upload.observation_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    let Some(record) = record else {
+        return Err(IngestError::Conflict);
+    };
+    let bytes: Vec<u8> = record.get("body");
+    let mut text = String::new();
+    flate2::read::GzDecoder::new(bytes.as_slice())
+        .read_to_string(&mut text)
+        .map_err(|_| IngestError::Conflict)?;
+    let original = serde_json::from_str::<Value>(&text)
+        .ok()
+        .and_then(|v| market_core::protocol::validate(&v, input.upload.observed_seconds()).ok())
+        .ok_or(IngestError::Conflict)?;
+    let mut unchanged = input.upload.clone();
+    unchanged.owner = original.owner.clone();
+    // Location may already have been separately enriched. This operation never
+    // writes it; compare all the original observation facts independently of it.
+    unchanged.location = original.location;
+    if unchanged.fingerprint() != original.fingerprint()
+        || original.owner.as_ref().is_some_and(|o| o != owner)
+    {
+        return Err(IngestError::Conflict);
+    }
+    let observation: i64 = record.get("id");
+    let shop: i64 = record.get("shop_id");
+    let existing: Option<(i64, String)> = sqlx::query_as(
+        "SELECT character_id,name FROM observation_shop_owners WHERE observation_id=$1",
+    )
+    .bind(observation)
+    .fetch_optional(&mut *tx)
+    .await?;
+    if let Some((id, name)) = existing {
+        return if id == i64::from(owner.character_id) && name == owner.name {
+            Ok(false)
+        } else {
+            Err(IngestError::Conflict)
+        };
+    }
+    bind_owner(&mut tx, shop, observation, Some(owner)).await?;
+    // Enrichment changes identity metadata only. Existing instances already
+    // have their latest complete lists; replaying unchanged history here would
+    // rewrite every item and emit thousands of unnecessary live updates.
+    let touched = reconcile_owner_listings(&mut tx, shop).await?;
+    if touched.is_empty() {
+        tx.commit().await?;
+        return Ok(true);
+    }
+    let as_of: f64 = sqlx::query_scalar(
+        "UPDATE market_state SET version=version+1 RETURNING extract(epoch FROM as_of)::float8",
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    recompute_items(
+        &mut tx,
+        &touched.into_iter().collect::<Vec<_>>(),
+        as_of,
+        input.now,
+        &HashMap::new(),
+    )
+    .await?;
+    sqlx::query("SELECT pg_notify('market_changed','')")
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(true)
+}
+
+async fn bind_owner(
+    conn: &mut PgConnection,
+    shop: i64,
+    observation: i64,
+    owner: Option<&market_core::protocol::ShopOwner>,
+) -> Result<(), IngestError> {
+    let evidence = if let Some(owner) = owner {
+        Some((i64::from(owner.character_id), owner.name.clone()))
+    } else {
+        sqlx::query_as::<_, (i64, String)>(
+            "SELECT character_id,name FROM observation_shop_owners WHERE observation_id=$1",
+        )
+        .bind(observation)
+        .fetch_optional(&mut *conn)
+        .await?
+    };
+    let Some((id, name)) = evidence else {
+        return Ok(());
+    };
+    let changed = sqlx::query(
+        "UPDATE shops SET owner_character_id=$2,owner_name=$3
+        WHERE id=$1 AND (owner_character_id IS NULL OR owner_character_id=$2)",
+    )
+    .bind(shop)
+    .bind(id)
+    .bind(&name)
+    .execute(&mut *conn)
+    .await?
+    .rows_affected();
+    if changed != 1 {
+        return Err(IngestError::Conflict);
+    }
+    sqlx::query(
+        "INSERT INTO observation_shop_owners(observation_id,character_id,name,parser)
+        VALUES($1,$2,$3,'cw_shop_owner_v1') ON CONFLICT(observation_id) DO NOTHING",
+    )
+    .bind(observation)
+    .bind(id)
+    .bind(name)
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
+/// All shop instances remain in history. Only the latest complete observation
+/// for a known host may supply live listings, even when an old upload arrives late.
+async fn reconcile_owner_listings(
+    conn: &mut PgConnection,
+    shop: i64,
+) -> sqlx::Result<BTreeSet<i32>> {
+    let removed: Vec<i32> = sqlx::query_scalar(
+        "WITH family AS (
+            SELECT sibling.id FROM shops s JOIN shops sibling
+            ON sibling.world=s.world AND sibling.owner_character_id=s.owner_character_id
+            WHERE s.id=$1 AND s.owner_character_id IS NOT NULL
+        ), latest AS (
+            SELECT o.shop_id FROM observations o JOIN family f ON f.id=o.shop_id
+            ORDER BY o.observed_at DESC,o.visit_key DESC LIMIT 1
+        ) DELETE FROM listings l WHERE l.shop_id IN (SELECT id FROM family)
+          AND l.shop_id <> (SELECT shop_id FROM latest) RETURNING l.item_id",
+    )
+    .bind(shop)
+    .fetch_all(conn)
+    .await?;
+    Ok(removed.into_iter().collect())
 }
 
 fn map_context(raw: &[u8]) -> Option<(i16, i32)> {

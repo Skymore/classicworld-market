@@ -1,8 +1,8 @@
 import { renderChrome } from './lib/chrome.js?v=20261023-header-icons-2';
 import { lang } from './lib/i18n.js';
-const release='https://download.ruit.me/collector/v0.5.10/release-notes.txt';
-const zip='https://download.ruit.me/collector/v0.5.10/ClassicWorldCollector-windows-x64-v0.5.10.zip';
-const guide='https://download.ruit.me/collector/v0.5.10/guide.txt';
+const release='https://download.ruit.me/collector/v0.5.11/release-notes.txt';
+const zip='https://download.ruit.me/collector/v0.5.11/ClassicWorldCollector-windows-x64-v0.5.11.zip';
+const guide='https://download.ruit.me/collector/v0.5.11/guide.txt';
 function render(){
  const en=lang==='en',root=document.getElementById('app');
  renderChrome(root,'download');
@@ -22,7 +22,7 @@ function render(){
  <h2>${en?'Keep track of prices as you browse shops':'边逛市场，边记录价格'}</h2>
  <p>${en?'Start the collector and visit shops as usual. New offers appear on the website automatically, helping you compare prices and spot deals. No account registration is needed.':'启动采集器后照常逛摊，新报价会自动更新到网页，方便比价、关注想买的物品和发现低价。无需注册账号。'}</p>
  <div class="download-actions"><a class="btn primary" href="${zip}">${en?'Download for Windows':'下载 Windows 版'}</a><a href="/collect/">${en?'Use browser capture instead':'不想安装？使用浏览器采集'}</a></div>
- <p class="download-meta">v0.5.10 · Windows 10 / 11 ${en?'64-bit':'64 位'} · ${en?'About 16 MB':'约 16 MB'}</p>
+ <p class="download-meta">v0.5.11 · Windows 10 / 11 ${en?'64-bit':'64 位'} · ${en?'About 16 MB':'约 16 MB'}</p>
  </div></section>
  <section class="stall"><div class="stall-bar"><h2>${en?'Three steps to get started':'三步开始使用'}</h2></div><div class="download-body"><ol class="download-steps">${steps.map(([h,p])=>`<li><b>${h}</b>${p}</li>`).join('')}</ol>
  <p>${en?'You can close the collector when you finish playing. Your collected prices contribute to market comparisons; personal alerts stay separate for each player.':'结束逛摊后关闭采集器即可。采集的价格会参与市场比价，个人提醒各自独立。'}</p></div></section>

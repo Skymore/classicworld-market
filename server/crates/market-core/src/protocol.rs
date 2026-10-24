@@ -249,6 +249,12 @@ impl UploadRow {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct ShopOwner {
+    pub character_id: u32,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Upload {
     pub observation_id: String,
     /// Kept as sent (integer or float) because the fingerprint hashes it.
@@ -260,6 +266,7 @@ pub struct Upload {
     pub items: Vec<UploadRow>,
     pub source: Source,
     pub reader_version: Option<String>,
+    pub owner: Option<ShopOwner>,
 }
 
 impl Upload {
@@ -295,6 +302,13 @@ impl Upload {
         }
         if let Some(version) = &self.reader_version {
             map.insert("reader_version".into(), json!(version));
+        }
+        if let Some(owner) = &self.owner {
+            map.insert(
+                "owner".into(),
+                json!({"character_id":owner.character_id,
+                "name":owner.name,"parser":"cw_shop_owner_v1"}),
+            );
         }
         Value::Object(map)
     }
@@ -390,6 +404,24 @@ pub fn validate(data: &Value, now: f64) -> Result<Upload, ProtocolError> {
         None | Some(Value::Null) => None,
         Some(v) => Some(text(v, "reader_version", 64)?),
     };
+    let owner = match data.get("owner") {
+        None | Some(Value::Null) => None,
+        Some(Value::Object(o))
+            if source == Source::Packet
+                && o.get("parser").and_then(Value::as_str) == Some("cw_shop_owner_v1") =>
+        {
+            Some(ShopOwner {
+                character_id: integer(
+                    require(o, "character_id", "owner.character_id")?,
+                    "owner.character_id",
+                    1,
+                    u32::MAX as i64,
+                )? as u32,
+                name: text(require(o, "name", "owner.name")?, "owner.name", 24)?,
+            })
+        }
+        Some(_) => return Err(ProtocolError::WrongType("owner")),
+    };
     Ok(Upload {
         observation_id,
         observed_at,
@@ -399,6 +431,7 @@ pub fn validate(data: &Value, now: f64) -> Result<Upload, ProtocolError> {
         items,
         source,
         reader_version,
+        owner,
     })
 }
 

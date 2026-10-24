@@ -44,6 +44,7 @@ pub fn router() -> Router<AppState> {
             get(missing_locations),
         )
         .route("/api/v1/collector/repair-location", post(repair_location))
+        .route("/api/v1/collector/repair-owner", post(repair_owner))
         .route("/api/v1/events", get(crate::realtime::events))
         .route(
             "/api/v1/collector/updates",
@@ -435,6 +436,52 @@ async fn repair_location(
         Err(IngestError::Conflict) => error(
             StatusCode::CONFLICT,
             "Only a missing location can be filled; original observation must match",
+        ),
+        Err(IngestError::Db(err)) => internal(err),
+    }
+}
+
+async fn repair_owner(State(state): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
+    let collector = match auth::authenticate(&state.db, bearer(&headers)).await {
+        Ok(Some(c)) => c,
+        Ok(None) => return error(StatusCode::UNAUTHORIZED, "Collector token required"),
+        Err(err) => return internal(err),
+    };
+    if !state
+        .limiter
+        .allow(&format!("repair-owner:{}", collector.id), 120)
+    {
+        return error(StatusCode::TOO_MANY_REQUESTS, "Rate limited");
+    }
+    let now = unix_now();
+    // Historical enrichment may be older than the new-upload acceptance window.
+    // repair_owner still requires an exact existing observation owned by this caller.
+    let upload = serde_json::from_slice::<Value>(&body).ok().and_then(|v| {
+        let observed = v.get("observed_at")?.as_f64()?;
+        if !observed.is_finite() || observed > now + 120.0 {
+            return None;
+        }
+        validate(&v, observed).ok()
+    });
+    let Some(upload) = upload else {
+        return error(StatusCode::BAD_REQUEST, "Invalid observation schema");
+    };
+    match crate::ingest::repair_owner(
+        &state.db,
+        Received {
+            collector: &collector,
+            upload: &upload,
+            raw: &body,
+            received_at: now,
+            now,
+        },
+    )
+    .await
+    {
+        Ok(repaired) => Json(json!({"ok":true,"repaired":repaired})).into_response(),
+        Err(IngestError::Conflict) => error(
+            StatusCode::CONFLICT,
+            "Owner enrichment requires matching original observation",
         ),
         Err(IngestError::Db(err)) => internal(err),
     }
