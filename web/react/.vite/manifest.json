@@ -47,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-mHMMvlXs.js": {
-    "file": "chunks/main-mHMMvlXs.js",
+  "_main-CN_pSbPA.js": {
+    "file": "chunks/main-CN_pSbPA.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -135,7 +135,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-mHMMvlXs.js"
+      "_main-CN_pSbPA.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -209,7 +209,7 @@
     ]
   },
   "src/pages/download.tsx": {
-    "file": "chunks/download-BvzX5TMK.js",
+    "file": "chunks/download-4j77LwH8.js",
     "name": "download",
     "src": "src/pages/download.tsx",
     "isDynamicEntry": true,
@@ -296,7 +296,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-mHMMvlXs.js"
+      "_main-CN_pSbPA.js"
     ]
   },
   "style.css": {

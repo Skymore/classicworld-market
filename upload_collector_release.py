@@ -9,7 +9,7 @@ import collector_update as update
 from publish_collector_release import publish
 
 
-def upload(archive, root, config, source=None):
+def upload(archive, root, config, source=None, stage_only=False):
     import truststore
     truststore.inject_into_ssl()
     import boto3
@@ -28,7 +28,7 @@ def upload(archive, root, config, source=None):
         config=Config(connect_timeout=10, read_timeout=45, retries={'total_max_attempts': 2}),
         aws_access_key_id=credentials['access_key_id'],
         aws_secret_access_key=credentials['secret_access_key'])
-    manifest = publish(archive, root)
+    manifest = publish(archive, root, activate=False)
     tag = manifest['version']
     folder = root/'web/releases'/tag
     names = [archive.name, 'SHA256SUMS.txt', 'start-here.txt', 'guide.txt', 'release-notes.txt']
@@ -60,7 +60,7 @@ def upload(archive, root, config, source=None):
         })
         print('Uploaded:', path.name)
     # Verify the actual public download before switching installed collectors.
-    return publish(archive, root, update.DOWNLOAD_BASES[1])
+    return publish(archive, root, update.DOWNLOAD_BASES[1], activate=not stage_only)
 
 
 if __name__ == '__main__':
@@ -69,5 +69,6 @@ if __name__ == '__main__':
     parser.add_argument('--source', type=Path)
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parent)
     parser.add_argument('--config', type=Path)
+    parser.add_argument('--stage-only', action='store_true', help='Upload and verify files without activating automatic updates')
     args = parser.parse_args()
-    upload(args.archive, args.root, args.config or args.root/'shared_data/r2-publisher.json', args.source)
+    upload(args.archive, args.root, args.config or args.root/'shared_data/r2-publisher.json', args.source, args.stage_only)

@@ -12,7 +12,7 @@ import zipfile
 import collector_update as update
 
 
-def publish(archive, root, download_base=update.DOWNLOAD_BASES[0]):
+def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True):
     archive, root = Path(archive), Path(root)
     match = re.fullmatch(r'ClassicWorldCollector-windows-x64-(v\d{1,6}\.\d{1,6}\.\d{1,6})\.zip', archive.name)
     if not match or download_base not in update.DOWNLOAD_BASES:
@@ -55,13 +55,16 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0]):
     shutil.copy2(root/'COLLECTOR_QUICK_START.txt', target/'start-here.txt')
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
-        '枫叶市集采集器 '+tag+'\n\n更新检查和下载迁到官网域名，不再依赖 GitHub。\n'
-        '保留静默更新、每小时检查、采集上传、个人提醒和 Google 账号绑定。\n'
-        'v0.5.9 及以前请关闭旧采集器，完整解压新版到新文件夹后运行，再切一次频道。\n'
-        '默认本机配置和记录会继续沿用。以后退出游戏后自动安装更新。\n', encoding='utf-8')
-    temporary = stable.with_suffix('.pending')
-    temporary.write_text(json.dumps(manifest, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
-    os.replace(temporary, stable)
+        '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        '自动扫描、手动采集、上传、账号和关注提醒合并到一个程序。请关闭旧扫描器和旧采集器。\n'
+        '每人每次领取一个洞，完成后再领取下一个；暂停或断线后让其他在线扫描器接手。\n'
+        '从 CH1 顺序扫描，连续三个空频道后从 CH40 倒序扫描，避免漏掉高频道的店铺。\n'
+        '保留原有账号和记录，后台自动检查、下载更新，退出游戏后安装。\n'
+        'v0.5.10 及以后的采集器可以自动升级；旧独立扫描器和 v0.5.9 及以前的采集器需要手动安装这一次。\n', encoding='utf-8')
+    if activate:
+        temporary = stable.with_suffix('.pending')
+        temporary.write_text(json.dumps(manifest, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+        os.replace(temporary, stable)
     print('Published', tag, digest)
     return manifest
 
