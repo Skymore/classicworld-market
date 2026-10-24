@@ -143,3 +143,22 @@ async fn unknown_owners_are_not_merged_and_conflicting_owner_rolls_back() {
     assert_eq!(live(&db).await.len(), 2);
     db.close().await;
 }
+
+#[tokio::test]
+async fn older_equipment_parser_can_enrich_owner_without_rewriting_equipment() {
+    let Some(db) = TestDb::new().await else {return};
+    let a=db.collector("a").await;let now=unix_now();
+    let mut old=visit("old-equip",11,now-60.,false);
+    old["items"][0]["item_id"]=json!(1060048);
+    old["items"][0]["equipment"]=json!({"status":"candidate","stats":[{"key":"str","value":4}],"remaining_upgrades":7,"unknown_fields":[]});
+    send(&db,&a,&old,false).await.unwrap();
+    let before:String=sqlx::query_scalar("SELECT fingerprint FROM observations").fetch_one(&db.pool).await.unwrap();
+    let mut enriched=old.clone();enriched["owner"]=visit("x",1,now,true)["owner"].clone();
+    enriched["items"][0]["equipment"]["enhancements"]=json!(0);
+    let mut tampered=enriched.clone();tampered["items"][0]["equipment"]["stats"][0]["value"]=json!(99);
+    assert!(matches!(send(&db,&a,&tampered,true).await,Err(IngestError::Conflict)));
+    assert!(send(&db,&a,&enriched,true).await.unwrap());
+    let after:String=sqlx::query_scalar("SELECT fingerprint FROM observations").fetch_one(&db.pool).await.unwrap();
+    assert_eq!(before,after);
+    db.close().await;
+}

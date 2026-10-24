@@ -292,6 +292,18 @@ pub async fn repair_owner(db: &PgPool, input: Received<'_>) -> Result<bool, Inge
     // Location may already have been separately enriched. This operation never
     // writes it; compare all the original observation facts independently of it.
     unchanged.location = original.location;
+    // Older collector versions did not emit the optional enhancement count.
+    // Re-decoding the same local record may add it. Ignore only that newly
+    // available field for identity enrichment; never rewrite stored equipment.
+    for (incoming, stored) in unchanged.items.iter_mut().zip(&original.items) {
+        if let (Some(Equipment::Candidate(a)), Some(Equipment::Candidate(b))) =
+            (&mut incoming.equipment, &stored.equipment)
+        {
+            if b.enhancements.is_none() {
+                a.enhancements = None;
+            }
+        }
+    }
     if unchanged.fingerprint() != original.fingerprint()
         || original.owner.as_ref().is_some_and(|o| o != owner)
     {
