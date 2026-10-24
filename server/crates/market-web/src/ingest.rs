@@ -302,6 +302,9 @@ pub async fn repair_owner(db: &PgPool, input: Received<'_>) -> Result<bool, Inge
             if b.enhancements.is_none() {
                 a.enhancements = None;
             }
+            if b.remaining_upgrades.is_none() {
+                a.remaining_upgrades = None;
+            }
         }
     }
     if unchanged.fingerprint() != original.fingerprint()

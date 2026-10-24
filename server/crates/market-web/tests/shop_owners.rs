@@ -150,11 +150,12 @@ async fn older_equipment_parser_can_enrich_owner_without_rewriting_equipment() {
     let a=db.collector("a").await;let now=unix_now();
     let mut old=visit("old-equip",11,now-60.,false);
     old["items"][0]["item_id"]=json!(1060048);
-    old["items"][0]["equipment"]=json!({"status":"candidate","stats":[{"key":"str","value":4}],"remaining_upgrades":7,"unknown_fields":[]});
+    old["items"][0]["equipment"]=json!({"status":"candidate","stats":[{"key":"str","value":4}],"remaining_upgrades":null,"unknown_fields":[]});
     send(&db,&a,&old,false).await.unwrap();
     let before:String=sqlx::query_scalar("SELECT fingerprint FROM observations").fetch_one(&db.pool).await.unwrap();
     let mut enriched=old.clone();enriched["owner"]=visit("x",1,now,true)["owner"].clone();
     enriched["items"][0]["equipment"]["enhancements"]=json!(0);
+    enriched["items"][0]["equipment"]["remaining_upgrades"]=json!(7);
     let mut tampered=enriched.clone();tampered["items"][0]["equipment"]["stats"][0]["value"]=json!(99);
     assert!(matches!(send(&db,&a,&tampered,true).await,Err(IngestError::Conflict)));
     assert!(send(&db,&a,&enriched,true).await.unwrap());
