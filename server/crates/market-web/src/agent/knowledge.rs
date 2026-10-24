@@ -14,6 +14,38 @@ use serde_json::{json, Value};
 use std::sync::OnceLock;
 
 const TEXTS: &[(&str, &str)] = &[
+    ("build-roadmap", include_str!("knowledge/build-roadmap.md")),
+    ("warrior-build", include_str!("knowledge/warrior-build.md")),
+    (
+        "magician-build",
+        include_str!("knowledge/magician-build.md"),
+    ),
+    ("bowman-build", include_str!("knowledge/bowman-build.md")),
+    ("thief-build", include_str!("knowledge/thief-build.md")),
+    ("fighter-build", include_str!("knowledge/fighter-build.md")),
+    ("page-build", include_str!("knowledge/page-build.md")),
+    (
+        "spearman-build",
+        include_str!("knowledge/spearman-build.md"),
+    ),
+    (
+        "ice-lightning-build",
+        include_str!("knowledge/ice-lightning-build.md"),
+    ),
+    (
+        "fire-poison-build",
+        include_str!("knowledge/fire-poison-build.md"),
+    ),
+    ("cleric-build", include_str!("knowledge/cleric-build.md")),
+    (
+        "crossbowman-build",
+        include_str!("knowledge/crossbowman-build.md"),
+    ),
+    (
+        "assassin-build",
+        include_str!("knowledge/assassin-build.md"),
+    ),
+    ("bandit-build", include_str!("knowledge/bandit-build.md")),
     (
         "getting-started",
         include_str!("knowledge/getting-started.md"),
@@ -88,7 +120,7 @@ pub fn source_url(url: &str) -> bool {
 
 pub fn definitions() -> Vec<Value> {
     vec![
-        json!({"type":"function","function":{"name":"search_guides","description":"Search the built-in Chinese Global Classic World FAQ notes first for common questions: first/second job, Hunter skills, leveling, quests, trade unlock, KPQ, crafting, citizenship, housing, events and market methods. Returns relevant full short notes plus dated sources. Empty query lists the index only. needs_refresh/always_search_live or a latest/current question requires search_web; notes are not automatically current.","strict":false,"parameters":{"type":"object","properties":{"query":{"type":"string","maxLength":160,"default":""}},"required":[],"additionalProperties":false}}}),
+        json!({"type":"function","function":{"name":"search_guides","description":"Search researched Chinese Global Classic World guides: all four 1st-job and ten 2nd-job builds, default/alternative SP orders with reasons, level 1-100 routes, and common quests/trade/KPQ/crafting/housing questions. Use a specific class plus topic, or 全职业加点 for the overview. Returns relevant full notes and dated primary sources. Empty query lists the index. needs_refresh/always_search_live or a latest/current question requires search_web.","strict":false,"parameters":{"type":"object","properties":{"query":{"type":"string","maxLength":160,"default":""}},"required":[],"additionalProperties":false}}}),
         json!({"type":"function","function":{"name":"get_guide","description":"Read one built-in FAQ document by guide_id from search_guides. Includes text, provenance, checked date and refresh requirements. These are authored summaries, not proof of live changes. Skill details still require get_skills; current market prices still require market tools.","strict":false,"parameters":{"type":"object","properties":{"guide_id":{"type":"string","maxLength":60}},"required":["guide_id"],"additionalProperties":false}}}),
     ]
 }
@@ -133,10 +165,26 @@ fn normalize(text: &str) -> String {
         .flat_map(char::to_lowercase)
         .collect()
 }
+fn topic_match(query: &str, topic: &str) -> bool {
+    if topic.is_ascii() {
+        let words = |s: &str| {
+            s.to_lowercase()
+                .split(|c: char| !c.is_alphanumeric())
+                .filter(|s| !s.is_empty())
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        };
+        let q = words(query);
+        let t = words(topic);
+        !t.is_empty() && q.windows(t.len()).any(|w| w == t)
+    } else {
+        normalize(query).contains(&normalize(topic))
+    }
+}
 pub fn run(request: Request) -> Value {
     let selected = match request {
         Request::Read(id) => vec![fresh(docs().iter().find(|r| r["id"] == id).unwrap())],
-        Request::Search(query) if query.trim().is_empty() => {
+        Request::Search(query) if normalize(&query).is_empty() => {
             return json!({"guides":docs().iter().map(summary).collect::<Vec<_>>(),"total":docs().len(),"generated_at":crate::unix_now(),"index_only":true})
         }
         Request::Search(query) => {
@@ -156,9 +204,33 @@ pub fn run(request: Request) -> Value {
                         .filter_map(Value::as_str)
                     {
                         let t = normalize(tag);
-                        if q.contains(&t) || t.contains(&q) {
+                        if topic_match(&query, tag) || (!tag.is_ascii() && t.contains(&q)) {
                             score += 3;
                         }
+                    }
+                    if r["subjects"].as_array().is_some_and(|subjects| {
+                        subjects
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .any(|t| topic_match(&query, t))
+                    }) {
+                        score += 40;
+                    }
+                    // Resolve a rule question before a generic class build, and give
+                    // broad overviews a single useful entry rather than random jobs.
+                    if r["id"] == "job-advancement"
+                        && ["转职", "job advancement"]
+                            .iter()
+                            .any(|t| topic_match(&query, t))
+                    {
+                        score += 80;
+                    }
+                    if r["id"] == "build-roadmap"
+                        && ["全职业", "所有职业", "all classes"]
+                            .iter()
+                            .any(|t| topic_match(&query, t))
+                    {
+                        score += 80;
                     }
                     if score > 0 {
                         Some((score, r))
@@ -221,10 +293,69 @@ mod tests {
             .contains("10 级"));
         let r = run(Request::Read("launch-events".into()));
         assert_eq!(r["guides"][0]["needs_refresh"], true);
-        assert_eq!(docs().len(), 12);
+        assert_eq!(docs().len(), 26);
         assert!(docs()
             .iter()
             .all(|r| !r["content"].as_str().unwrap().is_empty()));
         assert!(parse("get_guide", json!({"guide_id":"../../secret"})).is_err());
+    }
+    #[test]
+    fn class_questions_find_their_own_researched_build() {
+        for (query, id) in [
+            ("牧师单练加点", "cleric-build"),
+            ("冰雷加点", "ice-lightning-build"),
+            ("弩手加点", "crossbowman-build"),
+            ("全职业加点", "build-roadmap"),
+            ("30级升级路线", "training"),
+            ("Assassin skill build", "assassin-build"),
+        ] {
+            assert_eq!(
+                run(Request::Search(query.into()))["guides"][0]["id"],
+                id,
+                "{query}"
+            );
+        }
+        assert!(!topic_match("webpage", "Page"));
+        assert_eq!(run(Request::Search("???".into()))["index_only"], true);
+    }
+    #[test]
+    fn published_build_orders_have_feasible_budgets_and_prerequisites() {
+        let plans: Value =
+            serde_json::from_str(include_str!("knowledge/build-plans.json")).unwrap();
+        let data: Value = serde_json::from_str(include_str!("adventure-data.json")).unwrap();
+        assert_eq!(plans.as_object().unwrap().len(), 17);
+        for (id, plan) in plans.as_object().unwrap() {
+            let mut ranks = std::collections::BTreeMap::<&str, u64>::new();
+            let mut used = 0;
+            for step in plan["steps"].as_array().unwrap() {
+                let name = step["skill"].as_str().unwrap();
+                let skill = data["skill"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|s| s["class_name"] == plan["class_name"] && s["name"] == name)
+                    .unwrap();
+                let target = step["rank"].as_u64().unwrap();
+                let previous = ranks.get(name).copied().unwrap_or(0);
+                assert!(
+                    target > previous && target <= skill["max_level"].as_u64().unwrap(),
+                    "{id}: {name}"
+                );
+                if let Some(required) = skill["required_skill"].as_str().filter(|s| !s.is_empty()) {
+                    let (dependency, rank) = required.rsplit_once(" Lv.").unwrap();
+                    assert!(
+                        ranks.get(dependency).copied().unwrap_or(0) >= rank.parse::<u64>().unwrap(),
+                        "{id}: {name} requires {required}"
+                    );
+                }
+                used += target - previous;
+                ranks.insert(name, target);
+                assert_eq!(step["total_sp"], used);
+            }
+            let budget = 1 + 3
+                * (plan["target_level"].as_u64().unwrap()
+                    - plan["job_start_level"].as_u64().unwrap());
+            assert_eq!(used + plan["unspent_sp"].as_u64().unwrap(), budget, "{id}");
+        }
     }
 }

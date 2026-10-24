@@ -38,8 +38,8 @@
       "_shared-DySnB1BT.js"
     ]
   },
-  "_main-BENITueG.js": {
-    "file": "chunks/main-BENITueG.js",
+  "_main-Bc6sEzcC.js": {
+    "file": "chunks/main-Bc6sEzcC.js",
     "name": "main",
     "imports": [
       "_shared-DySnB1BT.js",
@@ -103,7 +103,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BENITueG.js"
+      "_main-Bc6sEzcC.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -117,7 +117,7 @@
     ]
   },
   "src/pages/agent.tsx": {
-    "file": "chunks/agent-CjJe04Mu.js",
+    "file": "chunks/agent-DumEtVK6.js",
     "name": "agent",
     "src": "src/pages/agent.tsx",
     "isDynamicEntry": true,
@@ -245,7 +245,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BENITueG.js"
+      "_main-Bc6sEzcC.js"
     ]
   },
   "style.css": {

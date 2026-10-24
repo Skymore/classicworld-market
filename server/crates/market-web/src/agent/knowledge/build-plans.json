@@ -1,0 +1,1253 @@
+{
+  "warrior": {
+    "class_name": "Warrior",
+    "label": "通用输出与命中",
+    "job_start_level": 10,
+    "target_level": 30,
+    "total_sp": 61,
+    "allocated_sp": 61,
+    "unspent_sp": 0,
+    "steps": [
+      {
+        "skill": "Power Strike",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 10
+      },
+      {
+        "skill": "Slash Blast",
+        "rank": 1,
+        "total_sp": 2,
+        "earliest_level": 11
+      },
+      {
+        "skill": "Improved HP Recovery",
+        "rank": 1,
+        "total_sp": 3,
+        "earliest_level": 11
+      },
+      {
+        "skill": "Precise Strikes",
+        "rank": 5,
+        "total_sp": 8,
+        "earliest_level": 13
+      },
+      {
+        "skill": "Power Strike",
+        "rank": 20,
+        "total_sp": 27,
+        "earliest_level": 19
+      },
+      {
+        "skill": "Slash Blast",
+        "rank": 19,
+        "total_sp": 45,
+        "earliest_level": 25
+      },
+      {
+        "skill": "Precise Strikes",
+        "rank": 15,
+        "total_sp": 55,
+        "earliest_level": 28
+      },
+      {
+        "skill": "Improved HP Recovery",
+        "rank": 3,
+        "total_sp": 57,
+        "earliest_level": 29
+      },
+      {
+        "skill": "Max HP Increase",
+        "rank": 3,
+        "total_sp": 60,
+        "earliest_level": 30
+      },
+      {
+        "skill": "Iron Body",
+        "rank": 1,
+        "total_sp": 61,
+        "earliest_level": 30
+      }
+    ],
+    "targets": {
+      "Power Strike": 20,
+      "Slash Blast": 19,
+      "Improved HP Recovery": 3,
+      "Precise Strikes": 15,
+      "Max HP Increase": 3,
+      "Iron Body": 1
+    }
+  },
+  "magician": {
+    "class_name": "Magician",
+    "label": "Magic Claw 通用路线",
+    "job_start_level": 10,
+    "target_level": 30,
+    "total_sp": 61,
+    "allocated_sp": 61,
+    "unspent_sp": 0,
+    "steps": [
+      {
+        "skill": "Energy Bolt",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 10
+      },
+      {
+        "skill": "Improved MP Recovery",
+        "rank": 1,
+        "total_sp": 2,
+        "earliest_level": 11
+      },
+      {
+        "skill": "Magic Claw",
+        "rank": 20,
+        "total_sp": 22,
+        "earliest_level": 17
+      },
+      {
+        "skill": "Magic Guard",
+        "rank": 3,
+        "total_sp": 25,
+        "earliest_level": 18
+      },
+      {
+        "skill": "Improved MP Recovery",
+        "rank": 3,
+        "total_sp": 27,
+        "earliest_level": 19
+      },
+      {
+        "skill": "Max MP Increase",
+        "rank": 1,
+        "total_sp": 28,
+        "earliest_level": 19
+      },
+      {
+        "skill": "Magic Armor",
+        "rank": 20,
+        "total_sp": 48,
+        "earliest_level": 26
+      },
+      {
+        "skill": "Improved MP Recovery",
+        "rank": 15,
+        "total_sp": 60,
+        "earliest_level": 30
+      },
+      {
+        "skill": "Max MP Increase",
+        "rank": 2,
+        "total_sp": 61,
+        "earliest_level": 30
+      }
+    ],
+    "targets": {
+      "Energy Bolt": 1,
+      "Improved MP Recovery": 15,
+      "Magic Claw": 20,
+      "Magic Guard": 3,
+      "Max MP Increase": 2,
+      "Magic Armor": 20
+    }
+  },
+  "magician-bolt": {
+    "class_name": "Magician",
+    "label": "Energy Bolt 省药路线",
+    "job_start_level": 10,
+    "target_level": 30,
+    "total_sp": 61,
+    "allocated_sp": 61,
+    "unspent_sp": 0,
+    "steps": [
+      {
+        "skill": "Energy Bolt",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 10
+      },
+      {
+        "skill": "Improved MP Recovery",
+        "rank": 1,
+        "total_sp": 2,
+        "earliest_level": 11
+      },
+      {
+        "skill": "Energy Bolt",
+        "rank": 20,
+        "total_sp": 21,
+        "earliest_level": 17
+      },
+      {
+        "skill": "Improved MP Recovery",
+        "rank": 15,
+        "total_sp": 35,
+        "earliest_level": 22
+      },
+      {
+        "skill": "Max MP Increase",
+        "rank": 1,
+        "total_sp": 36,
+        "earliest_level": 22
+      },
+      {
+        "skill": "Magic Guard",
+        "rank": 3,
+        "total_sp": 39,
+        "earliest_level": 23
+      },
+      {
+        "skill": "Magic Armor",
+        "rank": 20,
+        "total_sp": 59,
+        "earliest_level": 30
+      },
+      {
+        "skill": "Magic Guard",
+        "rank": 5,
+        "total_sp": 61,
+        "earliest_level": 30
+      }
+    ],
+    "targets": {
+      "Energy Bolt": 20,
+      "Improved MP Recovery": 15,
+      "Max MP Increase": 1,
+      "Magic Guard": 5,
+      "Magic Armor": 20
+    }
+  },
+  "bowman": {
+    "class_name": "Archer",
+    "label": "Arrow Blow 与命中路线",
+    "job_start_level": 10,
+    "target_level": 30,
+    "total_sp": 61,
+    "allocated_sp": 61,
+    "unspent_sp": 0,
+    "steps": [
+      {
+        "skill": "Arrow Blow",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 10
+      },
+      {
+        "skill": "The Eye of Amazon",
+        "rank": 1,
+        "total_sp": 2,
+        "earliest_level": 11
+      },
+      {
+        "skill": "Power Knockback",
+        "rank": 1,
+        "total_sp": 3,
+        "earliest_level": 11
+      },
+      {
+        "skill": "Arrow Blow",
+        "rank": 20,
+        "total_sp": 22,
+        "earliest_level": 17
+      },
+      {
+        "skill": "Critical Shot",
+        "rank": 15,
+        "total_sp": 37,
+        "earliest_level": 22
+      },
+      {
+        "skill": "The Eye of Amazon",
+        "rank": 15,
+        "total_sp": 51,
+        "earliest_level": 27
+      },
+      {
+        "skill": "Focus",
+        "rank": 10,
+        "total_sp": 61,
+        "earliest_level": 30
+      }
+    ],
+    "targets": {
+      "Arrow Blow": 20,
+      "The Eye of Amazon": 15,
+      "Power Knockback": 1,
+      "Critical Shot": 15,
+      "Focus": 10
+    }
+  },
+  "thief": {
+    "class_name": "Rogue",
+    "label": "飞镖路线",
+    "job_start_level": 10,
+    "target_level": 30,
+    "total_sp": 61,
+    "allocated_sp": 61,
+    "unspent_sp": 0,
+    "steps": [
+      {
+        "skill": "Lucky Seven",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 10
+      },
+      {
+        "skill": "Nimble Body",
+        "rank": 3,
+        "total_sp": 4,
+        "earliest_level": 11
+      },
+      {
+        "skill": "Keen Eyes",
+        "rank": 1,
+        "total_sp": 5,
+        "earliest_level": 12
+      },
+      {
+        "skill": "Lucky Seven",
+        "rank": 20,
+        "total_sp": 24,
+        "earliest_level": 18
+      },
+      {
+        "skill": "Keen Eyes",
+        "rank": 15,
+        "total_sp": 38,
+        "earliest_level": 23
+      },
+      {
+        "skill": "Nimble Body",
+        "rank": 15,
+        "total_sp": 50,
+        "earliest_level": 27
+      },
+      {
+        "skill": "Disorder",
+        "rank": 3,
+        "total_sp": 53,
+        "earliest_level": 28
+      },
+      {
+        "skill": "Dark Sight",
+        "rank": 8,
+        "total_sp": 61,
+        "earliest_level": 30
+      }
+    ],
+    "targets": {
+      "Lucky Seven": 20,
+      "Nimble Body": 15,
+      "Keen Eyes": 15,
+      "Disorder": 3,
+      "Dark Sight": 8
+    }
+  },
+  "thief-dagger": {
+    "class_name": "Rogue",
+    "label": "纯短刀免洗点路线",
+    "job_start_level": 10,
+    "target_level": 30,
+    "total_sp": 61,
+    "allocated_sp": 61,
+    "unspent_sp": 0,
+    "steps": [
+      {
+        "skill": "Double Stab",
+        "rank": 20,
+        "total_sp": 20,
+        "earliest_level": 17
+      },
+      {
+        "skill": "Nimble Body",
+        "rank": 15,
+        "total_sp": 35,
+        "earliest_level": 22
+      },
+      {
+        "skill": "Disorder",
+        "rank": 3,
+        "total_sp": 38,
+        "earliest_level": 23
+      },
+      {
+        "skill": "Dark Sight",
+        "rank": 20,
+        "total_sp": 58,
+        "earliest_level": 29
+      },
+      {
+        "skill": "Disorder",
+        "rank": 6,
+        "total_sp": 61,
+        "earliest_level": 30
+      }
+    ],
+    "targets": {
+      "Double Stab": 20,
+      "Nimble Body": 15,
+      "Disorder": 6,
+      "Dark Sight": 20
+    }
+  },
+  "fighter": {
+    "class_name": "Fighter",
+    "label": "单修剑、先稳定输出",
+    "job_start_level": 30,
+    "target_level": 70,
+    "total_sp": 121,
+    "allocated_sp": 120,
+    "unspent_sp": 1,
+    "steps": [
+      {
+        "skill": "Rush",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 30
+      },
+      {
+        "skill": "Sword Mastery",
+        "rank": 5,
+        "total_sp": 6,
+        "earliest_level": 32
+      },
+      {
+        "skill": "Sword Booster",
+        "rank": 1,
+        "total_sp": 7,
+        "earliest_level": 32
+      },
+      {
+        "skill": "Rage",
+        "rank": 1,
+        "total_sp": 8,
+        "earliest_level": 33
+      },
+      {
+        "skill": "Final Attack: Sword",
+        "rank": 1,
+        "total_sp": 9,
+        "earliest_level": 33
+      },
+      {
+        "skill": "Sword Mastery",
+        "rank": 20,
+        "total_sp": 24,
+        "earliest_level": 38
+      },
+      {
+        "skill": "Rage",
+        "rank": 30,
+        "total_sp": 53,
+        "earliest_level": 48
+      },
+      {
+        "skill": "Final Attack: Sword",
+        "rank": 30,
+        "total_sp": 82,
+        "earliest_level": 57
+      },
+      {
+        "skill": "Sword Booster",
+        "rank": 20,
+        "total_sp": 101,
+        "earliest_level": 64
+      },
+      {
+        "skill": "Rush",
+        "rank": 20,
+        "total_sp": 120,
+        "earliest_level": 70
+      }
+    ],
+    "targets": {
+      "Rush": 20,
+      "Sword Mastery": 20,
+      "Sword Booster": 20,
+      "Rage": 30,
+      "Final Attack: Sword": 30
+    }
+  },
+  "page": {
+    "class_name": "Page",
+    "label": "单修剑、先稳定输出",
+    "job_start_level": 30,
+    "target_level": 70,
+    "total_sp": 121,
+    "allocated_sp": 120,
+    "unspent_sp": 1,
+    "steps": [
+      {
+        "skill": "Rush",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 30
+      },
+      {
+        "skill": "Sword Mastery",
+        "rank": 5,
+        "total_sp": 6,
+        "earliest_level": 32
+      },
+      {
+        "skill": "Sword Booster",
+        "rank": 1,
+        "total_sp": 7,
+        "earliest_level": 32
+      },
+      {
+        "skill": "Threaten",
+        "rank": 1,
+        "total_sp": 8,
+        "earliest_level": 33
+      },
+      {
+        "skill": "Sword Mastery",
+        "rank": 20,
+        "total_sp": 23,
+        "earliest_level": 38
+      },
+      {
+        "skill": "Final Attack: Sword",
+        "rank": 30,
+        "total_sp": 53,
+        "earliest_level": 48
+      },
+      {
+        "skill": "Threaten",
+        "rank": 30,
+        "total_sp": 82,
+        "earliest_level": 57
+      },
+      {
+        "skill": "Sword Booster",
+        "rank": 20,
+        "total_sp": 101,
+        "earliest_level": 64
+      },
+      {
+        "skill": "Rush",
+        "rank": 20,
+        "total_sp": 120,
+        "earliest_level": 70
+      }
+    ],
+    "targets": {
+      "Rush": 20,
+      "Sword Mastery": 20,
+      "Sword Booster": 20,
+      "Threaten": 30,
+      "Final Attack: Sword": 30
+    }
+  },
+  "spearman": {
+    "class_name": "Spearman",
+    "label": "矛系机动练级路线",
+    "job_start_level": 30,
+    "target_level": 70,
+    "total_sp": 121,
+    "allocated_sp": 120,
+    "unspent_sp": 1,
+    "steps": [
+      {
+        "skill": "Rush",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 30
+      },
+      {
+        "skill": "Polearm Mastery",
+        "rank": 5,
+        "total_sp": 6,
+        "earliest_level": 32
+      },
+      {
+        "skill": "Polearm Booster",
+        "rank": 1,
+        "total_sp": 7,
+        "earliest_level": 32
+      },
+      {
+        "skill": "Final Attack: Polearm",
+        "rank": 1,
+        "total_sp": 8,
+        "earliest_level": 33
+      },
+      {
+        "skill": "Polearm Mastery",
+        "rank": 20,
+        "total_sp": 23,
+        "earliest_level": 38
+      },
+      {
+        "skill": "Polearm Booster",
+        "rank": 10,
+        "total_sp": 32,
+        "earliest_level": 41
+      },
+      {
+        "skill": "Rush",
+        "rank": 20,
+        "total_sp": 51,
+        "earliest_level": 47
+      },
+      {
+        "skill": "Final Attack: Polearm",
+        "rank": 30,
+        "total_sp": 80,
+        "earliest_level": 57
+      },
+      {
+        "skill": "Iron Will",
+        "rank": 30,
+        "total_sp": 110,
+        "earliest_level": 67
+      },
+      {
+        "skill": "Polearm Booster",
+        "rank": 20,
+        "total_sp": 120,
+        "earliest_level": 70
+      }
+    ],
+    "targets": {
+      "Rush": 20,
+      "Polearm Mastery": 20,
+      "Polearm Booster": 20,
+      "Final Attack: Polearm": 30,
+      "Iron Will": 30
+    }
+  },
+  "ice-lightning": {
+    "class_name": "I/L Wizard",
+    "label": "单体省药、后补群攻",
+    "job_start_level": 30,
+    "target_level": 70,
+    "total_sp": 121,
+    "allocated_sp": 121,
+    "unspent_sp": 0,
+    "steps": [
+      {
+        "skill": "Teleport",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 30
+      },
+      {
+        "skill": "MP Eater",
+        "rank": 1,
+        "total_sp": 2,
+        "earliest_level": 31
+      },
+      {
+        "skill": "Cold Beam",
+        "rank": 30,
+        "total_sp": 32,
+        "earliest_level": 41
+      },
+      {
+        "skill": "MP Eater",
+        "rank": 3,
+        "total_sp": 34,
+        "earliest_level": 41
+      },
+      {
+        "skill": "Meditation",
+        "rank": 20,
+        "total_sp": 54,
+        "earliest_level": 48
+      },
+      {
+        "skill": "Thunder Bolt",
+        "rank": 30,
+        "total_sp": 84,
+        "earliest_level": 58
+      },
+      {
+        "skill": "MP Eater",
+        "rank": 20,
+        "total_sp": 101,
+        "earliest_level": 64
+      },
+      {
+        "skill": "Teleport",
+        "rank": 20,
+        "total_sp": 120,
+        "earliest_level": 70
+      },
+      {
+        "skill": "Slow",
+        "rank": 1,
+        "total_sp": 121,
+        "earliest_level": 70
+      }
+    ],
+    "targets": {
+      "Teleport": 20,
+      "MP Eater": 20,
+      "Cold Beam": 30,
+      "Meditation": 20,
+      "Thunder Bolt": 30,
+      "Slow": 1
+    }
+  },
+  "fire-poison": {
+    "class_name": "F/P Wizard",
+    "label": "火箭单体、机动省药",
+    "job_start_level": 30,
+    "target_level": 70,
+    "total_sp": 121,
+    "allocated_sp": 121,
+    "unspent_sp": 0,
+    "steps": [
+      {
+        "skill": "Teleport",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 30
+      },
+      {
+        "skill": "MP Eater",
+        "rank": 1,
+        "total_sp": 2,
+        "earliest_level": 31
+      },
+      {
+        "skill": "Fire Arrow",
+        "rank": 30,
+        "total_sp": 32,
+        "earliest_level": 41
+      },
+      {
+        "skill": "MP Eater",
+        "rank": 3,
+        "total_sp": 34,
+        "earliest_level": 41
+      },
+      {
+        "skill": "Meditation",
+        "rank": 20,
+        "total_sp": 54,
+        "earliest_level": 48
+      },
+      {
+        "skill": "Teleport",
+        "rank": 20,
+        "total_sp": 73,
+        "earliest_level": 54
+      },
+      {
+        "skill": "Poison Breath",
+        "rank": 30,
+        "total_sp": 103,
+        "earliest_level": 64
+      },
+      {
+        "skill": "MP Eater",
+        "rank": 20,
+        "total_sp": 120,
+        "earliest_level": 70
+      },
+      {
+        "skill": "Slow",
+        "rank": 1,
+        "total_sp": 121,
+        "earliest_level": 70
+      }
+    ],
+    "targets": {
+      "Teleport": 20,
+      "MP Eater": 20,
+      "Fire Arrow": 30,
+      "Meditation": 20,
+      "Poison Breath": 30,
+      "Slow": 1
+    }
+  },
+  "cleric": {
+    "class_name": "Cleric",
+    "label": "单练圣箭与减伤",
+    "job_start_level": 30,
+    "target_level": 70,
+    "total_sp": 121,
+    "allocated_sp": 121,
+    "unspent_sp": 0,
+    "steps": [
+      {
+        "skill": "Heal",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 30
+      },
+      {
+        "skill": "Teleport",
+        "rank": 1,
+        "total_sp": 2,
+        "earliest_level": 31
+      },
+      {
+        "skill": "MP Eater",
+        "rank": 1,
+        "total_sp": 3,
+        "earliest_level": 31
+      },
+      {
+        "skill": "Holy Arrow",
+        "rank": 30,
+        "total_sp": 33,
+        "earliest_level": 41
+      },
+      {
+        "skill": "Heal",
+        "rank": 5,
+        "total_sp": 37,
+        "earliest_level": 42
+      },
+      {
+        "skill": "Invincible",
+        "rank": 5,
+        "total_sp": 42,
+        "earliest_level": 44
+      },
+      {
+        "skill": "Bless",
+        "rank": 1,
+        "total_sp": 43,
+        "earliest_level": 44
+      },
+      {
+        "skill": "Invincible",
+        "rank": 20,
+        "total_sp": 58,
+        "earliest_level": 49
+      },
+      {
+        "skill": "MP Eater",
+        "rank": 20,
+        "total_sp": 77,
+        "earliest_level": 56
+      },
+      {
+        "skill": "Teleport",
+        "rank": 20,
+        "total_sp": 96,
+        "earliest_level": 62
+      },
+      {
+        "skill": "Heal",
+        "rank": 30,
+        "total_sp": 121,
+        "earliest_level": 70
+      }
+    ],
+    "targets": {
+      "Heal": 30,
+      "Teleport": 20,
+      "MP Eater": 20,
+      "Holy Arrow": 30,
+      "Invincible": 20,
+      "Bless": 1
+    }
+  },
+  "cleric-party": {
+    "class_name": "Cleric",
+    "label": "固定队辅助路线",
+    "job_start_level": 30,
+    "target_level": 70,
+    "total_sp": 121,
+    "allocated_sp": 121,
+    "unspent_sp": 0,
+    "steps": [
+      {
+        "skill": "Heal",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 30
+      },
+      {
+        "skill": "Teleport",
+        "rank": 1,
+        "total_sp": 2,
+        "earliest_level": 31
+      },
+      {
+        "skill": "MP Eater",
+        "rank": 1,
+        "total_sp": 3,
+        "earliest_level": 31
+      },
+      {
+        "skill": "Holy Arrow",
+        "rank": 30,
+        "total_sp": 33,
+        "earliest_level": 41
+      },
+      {
+        "skill": "Heal",
+        "rank": 5,
+        "total_sp": 37,
+        "earliest_level": 42
+      },
+      {
+        "skill": "Invincible",
+        "rank": 5,
+        "total_sp": 42,
+        "earliest_level": 44
+      },
+      {
+        "skill": "Bless",
+        "rank": 16,
+        "total_sp": 58,
+        "earliest_level": 49
+      },
+      {
+        "skill": "Heal",
+        "rank": 30,
+        "total_sp": 83,
+        "earliest_level": 58
+      },
+      {
+        "skill": "MP Eater",
+        "rank": 20,
+        "total_sp": 102,
+        "earliest_level": 64
+      },
+      {
+        "skill": "Teleport",
+        "rank": 20,
+        "total_sp": 121,
+        "earliest_level": 70
+      }
+    ],
+    "targets": {
+      "Heal": 30,
+      "Teleport": 20,
+      "MP Eater": 20,
+      "Holy Arrow": 30,
+      "Invincible": 5,
+      "Bless": 16
+    }
+  },
+  "hunter": {
+    "class_name": "Hunter",
+    "label": "省箭、Mastery 与群攻",
+    "job_start_level": 30,
+    "target_level": 70,
+    "total_sp": 121,
+    "allocated_sp": 121,
+    "unspent_sp": 0,
+    "steps": [
+      {
+        "skill": "Arrow Bomb",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 30
+      },
+      {
+        "skill": "Bow Mastery",
+        "rank": 5,
+        "total_sp": 6,
+        "earliest_level": 32
+      },
+      {
+        "skill": "Bow Booster",
+        "rank": 5,
+        "total_sp": 11,
+        "earliest_level": 34
+      },
+      {
+        "skill": "Soul Arrow: Bow",
+        "rank": 1,
+        "total_sp": 12,
+        "earliest_level": 34
+      },
+      {
+        "skill": "Bow Mastery",
+        "rank": 20,
+        "total_sp": 27,
+        "earliest_level": 39
+      },
+      {
+        "skill": "Final Attack: Bow",
+        "rank": 1,
+        "total_sp": 28,
+        "earliest_level": 39
+      },
+      {
+        "skill": "Arrow Bomb",
+        "rank": 30,
+        "total_sp": 57,
+        "earliest_level": 49
+      },
+      {
+        "skill": "Final Attack: Bow",
+        "rank": 30,
+        "total_sp": 86,
+        "earliest_level": 59
+      },
+      {
+        "skill": "Amazon's Judgement",
+        "rank": 1,
+        "total_sp": 87,
+        "earliest_level": 59
+      },
+      {
+        "skill": "Bow Booster",
+        "rank": 20,
+        "total_sp": 102,
+        "earliest_level": 64
+      },
+      {
+        "skill": "Soul Arrow: Bow",
+        "rank": 20,
+        "total_sp": 121,
+        "earliest_level": 70
+      }
+    ],
+    "targets": {
+      "Arrow Bomb": 30,
+      "Bow Mastery": 20,
+      "Bow Booster": 20,
+      "Soul Arrow: Bow": 20,
+      "Final Attack: Bow": 30,
+      "Amazon's Judgement": 1
+    }
+  },
+  "crossbowman": {
+    "class_name": "Crossbowman",
+    "label": "穿透群攻路线",
+    "job_start_level": 30,
+    "target_level": 70,
+    "total_sp": 121,
+    "allocated_sp": 121,
+    "unspent_sp": 0,
+    "steps": [
+      {
+        "skill": "Iron Arrow",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 30
+      },
+      {
+        "skill": "Crossbow Mastery",
+        "rank": 5,
+        "total_sp": 6,
+        "earliest_level": 32
+      },
+      {
+        "skill": "Crossbow Booster",
+        "rank": 5,
+        "total_sp": 11,
+        "earliest_level": 34
+      },
+      {
+        "skill": "Soul Arrow: Crossbow",
+        "rank": 1,
+        "total_sp": 12,
+        "earliest_level": 34
+      },
+      {
+        "skill": "Final Attack: Crossbow",
+        "rank": 1,
+        "total_sp": 13,
+        "earliest_level": 34
+      },
+      {
+        "skill": "Crossbow Mastery",
+        "rank": 20,
+        "total_sp": 28,
+        "earliest_level": 39
+      },
+      {
+        "skill": "Iron Arrow",
+        "rank": 30,
+        "total_sp": 57,
+        "earliest_level": 49
+      },
+      {
+        "skill": "Amazon's Judgement",
+        "rank": 1,
+        "total_sp": 58,
+        "earliest_level": 49
+      },
+      {
+        "skill": "Crossbow Booster",
+        "rank": 20,
+        "total_sp": 73,
+        "earliest_level": 54
+      },
+      {
+        "skill": "Soul Arrow: Crossbow",
+        "rank": 20,
+        "total_sp": 92,
+        "earliest_level": 61
+      },
+      {
+        "skill": "Final Attack: Crossbow",
+        "rank": 30,
+        "total_sp": 121,
+        "earliest_level": 70
+      }
+    ],
+    "targets": {
+      "Iron Arrow": 30,
+      "Crossbow Mastery": 20,
+      "Crossbow Booster": 20,
+      "Soul Arrow: Crossbow": 20,
+      "Final Attack: Crossbow": 30,
+      "Amazon's Judgement": 1
+    }
+  },
+  "assassin": {
+    "class_name": "Assassin",
+    "label": "Mastery 后暴击路线",
+    "job_start_level": 30,
+    "target_level": 70,
+    "total_sp": 121,
+    "allocated_sp": 121,
+    "unspent_sp": 0,
+    "steps": [
+      {
+        "skill": "Haste",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 30
+      },
+      {
+        "skill": "Claw Mastery",
+        "rank": 5,
+        "total_sp": 6,
+        "earliest_level": 32
+      },
+      {
+        "skill": "Claw Booster",
+        "rank": 1,
+        "total_sp": 7,
+        "earliest_level": 32
+      },
+      {
+        "skill": "Claw Mastery",
+        "rank": 20,
+        "total_sp": 22,
+        "earliest_level": 37
+      },
+      {
+        "skill": "Critical Throw",
+        "rank": 30,
+        "total_sp": 52,
+        "earliest_level": 47
+      },
+      {
+        "skill": "Haste",
+        "rank": 20,
+        "total_sp": 71,
+        "earliest_level": 54
+      },
+      {
+        "skill": "Critical Recovery",
+        "rank": 20,
+        "total_sp": 91,
+        "earliest_level": 60
+      },
+      {
+        "skill": "Claw Booster",
+        "rank": 20,
+        "total_sp": 110,
+        "earliest_level": 67
+      },
+      {
+        "skill": "Drain",
+        "rank": 11,
+        "total_sp": 121,
+        "earliest_level": 70
+      }
+    ],
+    "targets": {
+      "Haste": 20,
+      "Claw Mastery": 20,
+      "Claw Booster": 20,
+      "Critical Throw": 30,
+      "Critical Recovery": 20,
+      "Drain": 11
+    }
+  },
+  "bandit": {
+    "class_name": "Bandit",
+    "label": "免洗点短刀、Steal 增益路线",
+    "job_start_level": 30,
+    "target_level": 70,
+    "total_sp": 121,
+    "allocated_sp": 121,
+    "unspent_sp": 0,
+    "steps": [
+      {
+        "skill": "Haste",
+        "rank": 1,
+        "total_sp": 1,
+        "earliest_level": 30
+      },
+      {
+        "skill": "Dagger Mastery",
+        "rank": 5,
+        "total_sp": 6,
+        "earliest_level": 32
+      },
+      {
+        "skill": "Dagger Booster",
+        "rank": 1,
+        "total_sp": 7,
+        "earliest_level": 32
+      },
+      {
+        "skill": "Dagger Mastery",
+        "rank": 20,
+        "total_sp": 22,
+        "earliest_level": 37
+      },
+      {
+        "skill": "Savage Blow",
+        "rank": 21,
+        "total_sp": 43,
+        "earliest_level": 44
+      },
+      {
+        "skill": "Savage Blow",
+        "rank": 30,
+        "total_sp": 52,
+        "earliest_level": 47
+      },
+      {
+        "skill": "Haste",
+        "rank": 5,
+        "total_sp": 56,
+        "earliest_level": 49
+      },
+      {
+        "skill": "Steal",
+        "rank": 30,
+        "total_sp": 86,
+        "earliest_level": 59
+      },
+      {
+        "skill": "Haste",
+        "rank": 20,
+        "total_sp": 101,
+        "earliest_level": 64
+      },
+      {
+        "skill": "Nimble Recovery",
+        "rank": 20,
+        "total_sp": 121,
+        "earliest_level": 70
+      }
+    ],
+    "targets": {
+      "Haste": 20,
+      "Dagger Mastery": 20,
+      "Dagger Booster": 1,
+      "Savage Blow": 30,
+      "Steal": 30,
+      "Nimble Recovery": 20
+    }
+  }
+}

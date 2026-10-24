@@ -15,8 +15,13 @@
 .chat-guide-list span, .chat-guide-date {font-size: 12px; color: var(--ink-3);}
 .chat-guide-back {display: flex; align-items: center; gap: 6px; width: fit-content;}
 .chat-guide-content {line-height: 1.85; overflow-wrap: anywhere;}
-.chat-guide-content p, .chat-guide-content ul {margin: 0 0 16px;}
-.chat-guide-content ul {padding-left: 22px;}
+.chat-guide-content p, .chat-guide-content ul, .chat-guide-content ol {margin: 0 0 16px;}
+.chat-guide-content ul, .chat-guide-content ol {padding-left: 24px;}
+.chat-guide-content li + li {margin-top: 6px;}
+.chat-guide-content h3 {font-size: 17px; line-height: 1.5; margin: 24px 0 10px;}
+.chat-guide-categories, .chat-guide-related {display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0;}
+.chat-guide-categories button, .chat-guide-related button {border: 1px solid var(--edge); padding: 7px 10px; background: var(--sheet); color: var(--ink); text-align: left;}
+.chat-guide-categories button[aria-pressed="true"] {background: var(--ink); color: var(--sheet);}
 .chat-guide-content a {color: var(--mark); text-decoration: underline;}
 .chat-guide-content small {font-size: 12px;}
 .chat-guide-refresh {border-left: 3px solid var(--mark); padding-left: 10px;}
