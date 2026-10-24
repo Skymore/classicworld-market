@@ -163,6 +163,25 @@
   gap: 6px;
   margin-top: 8px;
 }
+.ui-dialog-content .chip[aria-pressed="true"] {
+  background: var(--maple);
+  color: #fff;
+}
+.price-filter-dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.price-filter-dialog > .stall-bar,
+.price-filter-dialog > .ui-dialog-description,
+.price-filter-dialog > .ffoot {
+  flex-shrink: 0;
+}
+.price-filter-dialog .fpanel {
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 0;
+}
 .ui-dialog-content .lvrow {
   display: flex;
   gap: 12px;

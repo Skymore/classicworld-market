@@ -4,6 +4,7 @@ export interface Product {
   name_en?: string;
   icon_url?: string;
   category?: string;
+  subcategory?: string;
   level?: number;
   jobs?: string[];
   typical?: number | null;

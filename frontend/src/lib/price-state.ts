@@ -1,4 +1,14 @@
 import type { Product } from "./types";
+import { equipmentTypes } from "/web/js/lib/price-filters.js?v=20261023-equipment-filters-1";
+export const levelRanges: readonly (readonly [number, number | null])[] = [
+  [0, 20],
+  [20, 30],
+  [30, 40],
+  [40, 50],
+  [50, 60],
+  [60, 70],
+  [70, null],
+];
 export const categories = [
   ["all", "", "全部", "All"],
   ["equip", "装备", "装备", "Equip"],
@@ -42,6 +52,9 @@ export function readPriceState(search: string) {
     job: jobs.some(([key]) => key === params.get("job"))
       ? params.get("job")!
       : "all",
+    type: equipmentTypes.some(([key]: string[]) => key === params.get("type"))
+      ? params.get("type")!
+      : "all",
     sort,
     dir: ["asc", "desc"].includes(params.get("dir") || "")
       ? params.get("dir")!
@@ -63,6 +76,7 @@ export function priceUrl(state: PriceState, current: string) {
     "q",
     "cat",
     "job",
+    "type",
     "sort",
     "dir",
     "lmin",
@@ -75,7 +89,7 @@ export function priceUrl(state: PriceState, current: string) {
     "item",
   ])
     params.delete(key);
-  for (const key of ["tab", "cat", "job"] as const)
+  for (const key of ["tab", "cat", "job", "type"] as const)
     if (state[key] !== "all") params.set(key, state[key]);
   if (state.q) params.set("q", state.q);
   if (state.sort !== "sales") params.set("sort", state.sort);

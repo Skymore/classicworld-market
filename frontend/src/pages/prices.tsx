@@ -6,7 +6,9 @@ import { periodProduct } from "/web/js/lib/period.js?v=20261022-regressions-1";
 import {
   priceFilterTokens,
   clearPriceFilter,
-} from "/web/js/lib/price-filters.js?v=20261022-regressions-1";
+  equipmentTypes,
+  matchesEquipmentType,
+} from "/web/js/lib/price-filters.js?v=20261023-equipment-filters-1";
 import { spark } from "/web/js/lib/spark.js?v=20261022-regressions-1";
 import { usePreferences, useWords } from "../providers";
 import { useMarketQuery } from "../lib/query";
@@ -14,6 +16,7 @@ import type { Market, Product } from "../lib/types";
 import {
   categories,
   jobs,
+  levelRanges,
   sortLabels,
   readPriceState,
   priceUrl,
@@ -141,10 +144,11 @@ export default function Prices() {
         !(row.jobs || []).some((value) => value === job || value === "通用")
       )
         return false;
+      if (!matchesEquipmentType(row, state.type)) return false;
       if (
         ((state.lmin != null && state.lmin > 0) || state.lmax != null) &&
         !(
-          row.level &&
+          row.level != null &&
           row.level >= (state.lmin || 0) &&
           (state.lmax == null || row.level <= state.lmax)
         )
@@ -160,6 +164,7 @@ export default function Prices() {
     state.watch,
     state.drop,
     state.job,
+    state.type,
     state.lmin,
     state.lmax,
     deferredQuery,
@@ -195,6 +200,7 @@ export default function Prices() {
       state.q,
       state.cat,
       state.job,
+      state.type,
       state.sort,
       state.dir,
       state.tab,
@@ -347,7 +353,14 @@ export default function Prices() {
                       className={"cat " + (key === state.cat ? "on" : "")}
                       aria-pressed={key === state.cat}
                       data-cat={key}
-                      onClick={() => update({ cat: key })}
+                      onClick={() =>
+                        update({
+                          cat: key,
+                          ...(!["all", "equip"].includes(key)
+                            ? { type: "all" }
+                            : {}),
+                        })
+                      }
                     >
                       {words(zh, english)}
                       <small>
@@ -426,7 +439,7 @@ export default function Prices() {
                       )}
                     </button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="price-filter-dialog">
                     <div className="stall-bar">
                       <DialogTitle>{words("筛选", "Filter")}</DialogTitle>
                     </div>
@@ -455,6 +468,34 @@ export default function Prices() {
                               {words(zh, english)}
                             </button>
                           ))}
+                        </div>
+                      </div>
+                      <div className="fsec">
+                        <h4>{words("装备类型", "Equipment type")}</h4>
+                        <div
+                          className="chips"
+                          role="group"
+                          aria-label={words("装备类型", "Equipment type")}
+                        >
+                          {equipmentTypes.map(
+                            ([key, zh, english]: string[]) => (
+                              <button
+                                type="button"
+                                key={key}
+                                className="chip"
+                                data-equipment-type={key}
+                                aria-pressed={state.type === key}
+                                onClick={() =>
+                                  update({
+                                    type: key,
+                                    ...(key !== "all" ? { cat: "equip" } : {}),
+                                  })
+                                }
+                              >
+                                {words(zh, english)}
+                              </button>
+                            ),
+                          )}
                         </div>
                       </div>
                       <div className="fsec">
@@ -502,23 +543,18 @@ export default function Prices() {
                           </label>
                         </div>
                         <div className="chips">
-                          {[
-                            [0, 30],
-                            [30, 60],
-                            [60, 90],
-                            [90, 120],
-                          ].map(([lo, hi]) => (
+                          {levelRanges.map(([lo, hi]) => (
                             <button
                               type="button"
                               key={lo}
                               className="chip"
-                              data-lv={`${lo}-${hi}`}
+                              data-lv={hi == null ? `${lo}+` : `${lo}-${hi}`}
                               aria-pressed={
                                 state.lmin === lo && state.lmax === hi
                               }
                               onClick={() => update({ lmin: lo, lmax: hi })}
                             >
-                              {lo}–{hi}
+                              {hi == null ? `${lo}+` : `${lo}–${hi}`}
                             </button>
                           ))}
                         </div>
@@ -554,19 +590,19 @@ export default function Prices() {
                             </label>
                           ))}
                       </div>
-                      <div className="ffoot">
-                        <Button data-filter-reset onClick={() => clear("all")}>
-                          {words("重置", "Reset")}
+                    </div>
+                    <div className="ffoot">
+                      <Button data-filter-reset onClick={() => clear("all")}>
+                        {words("重置", "Reset")}
+                      </Button>
+                      <DialogClose asChild>
+                        <Button variant="primary" data-apply>
+                          {words(
+                            `显示 ${num(rows.length)} 件`,
+                            `Show ${num(rows.length)} items`,
+                          )}
                         </Button>
-                        <DialogClose asChild>
-                          <Button variant="primary" data-apply>
-                            {words(
-                              `显示 ${num(rows.length)} 件`,
-                              `Show ${num(rows.length)} items`,
-                            )}
-                          </Button>
-                        </DialogClose>
-                      </div>
+                      </DialogClose>
                     </div>
                   </DialogContent>
                 </Dialog>
