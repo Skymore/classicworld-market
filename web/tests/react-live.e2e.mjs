@@ -38,7 +38,8 @@ try {
     await page.locator('#site-react-shell').waitFor({ state: 'attached' });
     await page.locator('[data-nav-key=alerts]:visible').waitFor();
     assert.equal(await page.locator('[data-nav-key=alerts]:visible').textContent(), '采集');
-    assert(await page.locator('[data-search-results]').count(), 'server-rendered catalogue content remains present');
+    await page.locator('[data-react-catalogue=search] [data-search-results]').waitFor();
+    assert(await page.locator('#search-item').count(), 'catalogue results render in React');
     await page.goto(origin + '/item/2000000?hours=all&lang=zh');
     await page.locator('#site-react-shell').waitFor({ state: 'attached' });
     await page.waitForFunction(() => document.documentElement.dataset.ready === '1');

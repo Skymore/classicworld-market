@@ -173,7 +173,8 @@ async fn item_page() {
     assert_eq!(page.cache, ITEM_CACHE, "market numbers: short edge cache");
     assert!(page.content_type.starts_with("text/html"));
     assert!(page.csp.contains("script-src 'self'") && page.csp.contains("connect-src 'self'"));
-    assert!(page.csp.contains("style-src 'self'") && !page.csp.contains("unsafe-inline"));
+    assert!(page.csp.contains("style-src 'self'"));
+    assert!(!page.csp.split(';').find(|part| part.trim_start().starts_with("script-src")).unwrap().contains("unsafe-inline"));
     assert_eq!(page.vary, "Sec-CH-UA-Mobile");
     let body = &page.body;
     assert!(body.contains("<h1>蜗牛壳</h1>"));

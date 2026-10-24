@@ -9,7 +9,7 @@ use super::route::EdgeKind;
 
 /// A name in both page languages: `zh` is the Classic World simplified name
 /// (then traditional, then English), `en` the English one (then `zh`).
-#[derive(Debug, Clone, PartialEq, Eq, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, sqlx::FromRow, serde::Serialize)]
 pub struct Names {
     #[sqlx(rename = "name")]
     pub zh: String,
@@ -41,7 +41,7 @@ impl Names {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow, serde::Serialize)]
 pub struct MapRef {
     pub id: i32,
     #[sqlx(flatten)]
@@ -62,7 +62,7 @@ impl MapRef {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow, serde::Serialize)]
 pub struct MobRef {
     pub id: i32,
     #[sqlx(flatten)]
@@ -72,7 +72,7 @@ pub struct MobRef {
     pub image_id: Option<i32>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct NpcRef {
     pub id: i32,
     pub names: Option<Names>,
@@ -90,7 +90,7 @@ impl NpcRef {
 
 // ---------- item ----------
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ItemPage {
     pub item: ItemSummary,
     pub stats: Option<MarketStats>,
@@ -101,7 +101,7 @@ pub struct ItemPage {
     pub market: ItemMarket,
 }
 
-#[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow, serde::Serialize)]
 pub struct ItemSummary {
     pub id: i32,
     pub name_zh: Option<String>,
@@ -122,7 +122,7 @@ impl ItemSummary {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow, serde::Serialize)]
 pub struct MarketStats {
     pub typical: Option<i64>,
     pub typical_low: Option<i64>,
@@ -135,14 +135,14 @@ pub struct MarketStats {
     pub as_of: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Dropper {
     pub mob: MobRef,
     pub rate_pct: f64,
     pub maps: Vec<MapRef>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct NpcOffer {
     pub npc: NpcRef,
     pub price: i64,
@@ -150,7 +150,7 @@ pub struct NpcOffer {
 
 /// The item's market rows, read from the same tables as `/api/v1/item/<id>`
 /// (72-hour listings, latest 50 sales) plus the 7-day ladder inputs.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize)]
 pub struct ItemMarket {
     /// Latest observation in the market; relative times are measured from it.
     pub as_of: Option<DateTime<Utc>>,
@@ -166,7 +166,7 @@ pub struct ItemMarket {
     pub base_stats: Vec<(String, i64)>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Listing {
     pub shop: String,
     pub channel: Option<i16>,
@@ -177,7 +177,7 @@ pub struct Listing {
     pub variant: Option<Variant>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Sale {
     pub observed_location: Option<String>,
     pub kind: SaleKind,
@@ -190,7 +190,7 @@ pub struct Sale {
     pub variant: Option<Variant>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Day {
     pub date: NaiveDate,
     pub median: Option<f64>,
@@ -199,7 +199,7 @@ pub struct Day {
     pub count: i32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
 pub struct SalePoint {
     /// Index into `ItemMarket::days`.
     pub day: usize,
@@ -207,7 +207,7 @@ pub struct SalePoint {
 }
 
 /// One equipment instance's decoded stats (`equipment_variants.stats`).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Variant {
     pub id: i64,
     pub stats: Vec<Stat>,
@@ -216,7 +216,7 @@ pub struct Variant {
     pub unknown_fields: usize,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Stat {
     pub key: String,
     pub label: String,
@@ -225,14 +225,14 @@ pub struct Stat {
 
 // ---------- mob ----------
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct MobPage {
     pub mob: MobDetail,
     pub spawns: Vec<Spawn>,
     pub drops: Vec<MobDrop>,
 }
 
-#[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow, serde::Serialize)]
 pub struct MobDetail {
     pub id: i32,
     #[sqlx(flatten)]
@@ -254,21 +254,21 @@ pub struct MobDetail {
     pub description: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Spawn {
     pub map: MapRef,
     pub street: Option<Names>,
     pub spawn_count: i16,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct MobDrop {
     pub what: DropTarget,
     pub rate_pct: f64,
     pub quest_id: Option<i32>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum DropTarget {
     /// In the catalogue: links to its page.
     Item {
@@ -291,7 +291,7 @@ pub enum DropTarget {
 
 // ---------- map ----------
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct MapPage {
     pub map: MapDetail,
     pub return_map: Option<MapRef>,
@@ -301,7 +301,7 @@ pub struct MapPage {
     pub entrances: Vec<Link>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct MapDetail {
     pub id: i32,
     pub names: Names,
@@ -312,7 +312,7 @@ pub struct MapDetail {
     pub minimap_url: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct MapMob {
     pub mob: MobRef,
     pub spawn_count: i16,
@@ -320,7 +320,7 @@ pub struct MapMob {
 
 /// One edge seen from a map page: `other` is where it leads (exits) or where
 /// it comes from (entrances).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Link {
     pub other: MapRef,
     pub kind: EdgeKind,
@@ -329,7 +329,7 @@ pub struct Link {
 
 // ---------- route ----------
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct RoutePage {
     pub from_input: String,
     pub to_input: String,
@@ -337,13 +337,13 @@ pub struct RoutePage {
     pub outcome: RouteOutcome,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum RouteEnd {
     From,
     To,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum RouteOutcome {
     /// No query yet.
     Form,
@@ -365,7 +365,7 @@ pub enum RouteOutcome {
     },
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Step {
     pub from: MapRef,
     pub to: MapRef,
@@ -375,7 +375,7 @@ pub struct Step {
 
 // ---------- search ----------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum SearchKind {
     Item,
     Mob,
@@ -401,7 +401,7 @@ impl SearchKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct ItemFilters {
     pub cat: String,
@@ -447,7 +447,7 @@ impl ItemFilters {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize)]
 pub struct SearchPage {
     pub region: String,
     pub area: String,
@@ -462,7 +462,7 @@ pub struct SearchPage {
     pub maps: Hits<MapHit>,
 }
 
-#[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow, serde::Serialize)]
 pub struct AreaChoice {
     pub region: String,
     pub key: String,
@@ -470,7 +470,7 @@ pub struct AreaChoice {
     pub names: Names,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Hits<T> {
     pub rows: Vec<T>,
     /// More matched than `rows` holds.
@@ -486,7 +486,7 @@ impl<T> Default for Hits<T> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow, serde::Serialize)]
 pub struct ItemHit {
     pub level: Option<i16>,
     pub id: i32,
@@ -496,7 +496,7 @@ pub struct ItemHit {
     pub subcategory: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct MapHit {
     pub id: i32,
     pub names: Names,

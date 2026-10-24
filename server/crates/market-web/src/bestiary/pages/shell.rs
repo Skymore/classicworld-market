@@ -89,7 +89,6 @@ pub struct Page<'a> {
     /// `web/css/<name>.css` files loaded after `base.css`.
     pub css: &'a [&'static str],
     /// Extra `web/js/pages/<name>.js` modules after `dex.js`.
-    pub scripts: &'a [&'static str],
     /// Text of the "data updated" chips; hidden when `None`.
     pub fresh: Option<String>,
     /// Kept in the desktop search box.
@@ -115,9 +114,6 @@ pub fn layout(ctx: &Ctx, page: &Page<'_>, body: Markup) -> Markup {
                 }
                 link rel="stylesheet" href="/web/react/style.css";
                 script type="module" src="/web/react/shell.js" {}
-                @for name in page.scripts {
-                    script type="module" src={"/web/js/pages/" (name) ".js?v=20261023-agent-3321100"} {}
-                }
             }
             body {
                 div id="app" class="app" {
@@ -493,7 +489,6 @@ mod tests {
                 title: "Theme test",
                 nav: Nav::Dex,
                 css: &["dex"],
-                scripts: &[],
                 fresh: None,
                 query: "",
             },

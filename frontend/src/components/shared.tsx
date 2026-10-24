@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
 import {
   useEffect,
   useRef,
@@ -7,7 +8,7 @@ import {
 } from "react";
 import { I } from "/web/js/lib/icons.js";
 import { ago, fullTime, meso, chg, num } from "/web/js/lib/format.js";
-import { bindQuickSearch } from "/web/js/lib/quick-search.js?v=20261023-header-icons-2";
+export { default as Search } from "./quick-search";
 import {
   readPeriod,
   resolvePeriod,
@@ -29,38 +30,6 @@ export function Icon({ name, size }: { name: string; size?: number }) {
         __html: typeof icon === "function" ? icon(size) : icon || "",
       }}
     />
-  );
-}
-export function Search() {
-  const ref = useRef<HTMLDivElement>(null);
-  const words = useWords();
-  const { language } = usePreferences();
-  useEffect(
-    () => (ref.current ? bindQuickSearch(ref.current) : undefined),
-    [language],
-  );
-  return (
-    <div className="contents" ref={ref}>
-      <form className="finder" action="/search" method="get" role="search">
-        <Icon name="search" />
-        <input
-          name="q"
-          type="search"
-          placeholder={words(
-            "搜索物品、怪物、地图",
-            "Search items, monsters, maps",
-          )}
-          aria-label={words(
-            "搜索物品、怪物、地图",
-            "Search items, monsters, maps",
-          )}
-          autoComplete="off"
-          spellCheck={false}
-        />
-        {language === "en" && <input type="hidden" name="lang" value="en" />}
-        <kbd>/</kbd>
-      </form>
-    </div>
   );
 }
 export function Stall({
@@ -117,17 +86,27 @@ export function Empty({ text }: { text?: string }) {
     </p>
   );
 }
-export function Slot({ url, size = 28 }: { url?: string; size?: number }) {
+export function Slot({
+  url,
+  size = 28,
+  empty = false,
+}: {
+  url?: string;
+  size?: number;
+  empty?: boolean;
+}) {
   return (
     <span className="slot" style={{ "--s": size + "px" } as CSSProperties}>
-      <img
-        src={url || "/web/img/favicon.svg"}
-        width={size}
-        height={size}
-        loading="lazy"
-        alt=""
-        onError={(event) => (event.currentTarget.dataset.broken = "1")}
-      />
+      {(!empty || url) && (
+        <img
+          src={url || "/web/img/favicon.svg"}
+          width={size}
+          height={size}
+          loading="lazy"
+          alt=""
+          onError={(event) => (event.currentTarget.dataset.broken = "1")}
+        />
+      )}
     </span>
   );
 }
@@ -214,9 +193,11 @@ export function usePeriod() {
 export function PeriodControl({
   hours,
   choose,
+  item = false,
 }: {
   hours: string;
   choose(value: string): void;
+  item?: boolean;
 }) {
   const ref = useRef<HTMLSelectElement>(null);
   const { language } = usePreferences();
@@ -224,13 +205,14 @@ export function PeriodControl({
     decoratePeriod(ref.current, hours);
   }, [hours, language]);
   return (
-    <label className="period-control period-inline">
+    <label className={item ? "item-period" : "period-control period-inline"}>
       <span className="sr">
         {language === "en" ? "Statistics period" : "统计范围"}
       </span>
       <select
         ref={ref}
         data-period
+        data-item-period={item ? "" : undefined}
         defaultValue={automaticPeriod() ? "auto" : hours}
         aria-label={language === "en" ? "Statistics period" : "统计范围"}
         onChange={(event) => choose(event.target.value)}
@@ -243,8 +225,9 @@ export function PeriodControl({
   );
 }
 export function usePageReady() {
+  const route = useLocation();
   useEffect(() => {
     document.documentElement.dataset.ready = "1";
-  }, []);
+  }, [route.pathname]);
 }
 export { num };

@@ -40,8 +40,10 @@ const server = createServer(async (req, res) => {
     streams.add(res); req.on('close', () => streams.delete(res)); return;
   }
   if (url.pathname.startsWith('/api/')) {
-    res.setHeader('Content-Type', 'application/json');
-    return res.end(JSON.stringify({ product: { revision }, listings: offers }));
+    res.setHeader('Content-Type','application/json');
+    if(url.pathname==='/api/v1/account')return res.end(JSON.stringify({signed_in:false}));
+    if(url.pathname==='/api/v1/catalog/page')return res.end(JSON.stringify({kind:'item',page:{item:{id:1002000,name_zh:'测试装备',name_en:'Test equipment',category:'装备',req_level:10},stats:null,droppers:[],npc_offers:[],npc_sell:null,market:{as_of:new Date((now+revision)*1000).toISOString(),base_stats:[['weapon_attack',1]],days:[],sale_points:[],sales:[],listings:offers.map(r=>({shop:r.id,channel:r.ch==='unknown'?null:Number(r.ch),room:r.room,unit_price:r.price,seen_at:new Date((now-r.age)*1000).toISOString(),stock:r.stock===undefined?1:r.stock,variant:r.captured?{id:original.findIndex(v=>v.id===r.id)+100+offers.indexOf(r),stats:[{key:'weapon_attack',label:'物理攻击',value:17}],enhancements:1,remaining_upgrades:0,unknown_fields:0}:null}))}}}));
+    return res.end('{}');
   }
   if (url.pathname.startsWith('/web/')) {
     const file = path.resolve(root, '.' + url.pathname.slice(4));
@@ -49,11 +51,8 @@ const server = createServer(async (req, res) => {
     try { res.setHeader('Content-Type', file.endsWith('.css') ? 'text/css' : 'text/javascript'); return res.end(await readFile(file)); }
     catch { res.writeHead(404); return res.end(); }
   }
-  const en = url.searchParams.get('lang') === 'en';
-  const market = section(en);
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  if (url.searchParams.has('part')) return res.end(`<div data-mark="${revision}" data-as-of="${now}">${market}</div>`);
-  res.end(`<!doctype html><html lang="${en ? 'en' : 'zh-CN'}" data-lang="${en ? 'en' : 'zh'}" data-device="${url.searchParams.get('device') || 'phone'}"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/web/css/base.css"><link rel="stylesheet" href="/web/css/dex.css"><link rel="stylesheet" href="/web/css/item.css"><script type="module" src="/web/js/pages/item.js"></script></head><body><main class="pmain"><section class="stall item-stall ipage" data-item="2000000" data-as-of="${now}"><div class="stall-bar"><h2>${en ? 'Item details' : '物品详情'}</h2><button data-star aria-pressed="false">★</button></div><div class="ibox">${market}</div></section></main></body></html>`);
+  res.setHeader('Content-Type','text/html; charset=utf-8');
+  res.end(await readFile(path.join(root,'index.html')));
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -70,9 +69,9 @@ try {
       const focus = HTMLElement.prototype.focus;
       HTMLElement.prototype.focus = function(...args) { if (this.tagName === 'SELECT') window.selectFocusCalls++; return focus.apply(this, args); };
     });
-    const url = origin + `/item/2000000?hours=all&lang=${mobile ? 'zh' : 'en'}&device=${mobile ? 'phone' : 'desktop'}`;
-    const visibleRows = () => page.locator('.where-well [data-quote]:visible').evaluateAll(els => els.map(el => el.dataset.quote));
-    const waitRevision = () => page.waitForFunction(rev => document.querySelector('.item-stall').dataset.mark === String(rev), revision);
+    const url = origin + `/item/1002000?hours=all&lang=${mobile ? 'zh' : 'en'}&device=${mobile ? 'phone' : 'desktop'}`;
+    const visibleRows = () => page.locator('.where-well [data-quote]:visible').evaluateAll(els => els.map(el => el.querySelector('.lshop').textContent.trim().replace('›','')));
+    const waitRevision = () => page.waitForFunction(rev => Number(document.querySelector('.item-stall')?.dataset.asOf) === rev, now+revision);
     const open = async () => { await page.locator('[data-offer-filter-open]').click(); await page.locator('dialog[open]').waitFor(); };
     const submit = async () => { await page.locator('[data-offer-apply]').click(); await page.locator('dialog[open]').waitFor({state:'hidden'}); };
     await page.goto(url); await waitRevision();
@@ -89,10 +88,10 @@ try {
     assert.equal(await page.locator('[data-offer-percentile]').isVisible(), true);
     await page.selectOption('[data-offer-hours]', '1');
     assert.match(await page.locator('[data-offer-apply]').textContent(), /4/);
-    assert.equal(await page.locator('.well-h small').textContent(), mobile ? '7 条挂单 · 7 摊' : '7 listings · 7 shops', 'draft conditions do not change results before applying');
+    assert.equal(await page.locator('.where-well .well-h > small').textContent(), mobile ? '7 条挂单 · 7 摊' : '7 listings · 7 shops', 'draft conditions do not change results before applying');
     await page.screenshot({path:path.join(output, `advanced-panel-${mobile?'mobile':'desktop'}.png`),fullPage:false});
     await submit();
-    assert.equal(await page.locator('.well-h small').textContent(), mobile ? '4 条挂单 · 4 摊' : '4 listings · 4 shops');
+    assert.equal(await page.locator('.where-well .well-h > small').textContent(), mobile ? '4 条挂单 · 4 摊' : '4 listings · 4 shops');
     assert.equal(await page.locator('.cgroup[data-ch-key="4"]').isVisible(), false);
     assert.equal(await page.locator('.cgroup[data-ch-key="35"] .cg-min b').textContent(), '22.2K');
     assert.equal(await page.locator('.cgroup[data-ch-key="35"] .hole.lit').count(), 2);
@@ -124,7 +123,7 @@ try {
     await page.reload(); await waitRevision();
     assert.deepEqual(await visibleRows(), ['fresh'], 'all conditions survive reload');
     offers = [...original, { id:'incoming',ch:'35',room:3,price:24000,age:0,stock:10,equipment:true,captured:true }]; revision++; broadcast(); await waitRevision();
-    assert.equal(await page.locator('.well-h small').textContent(), mobile ? '2 条挂单 · 2 摊' : '2 listings · 2 shops');
+    assert.equal(await page.locator('.where-well .well-h > small').textContent(), mobile ? '2 条挂单 · 2 摊' : '2 listings · 2 shops');
     await open(); await page.locator('dialog [name=maxPrice]').fill('23000');
     const focusBefore = await page.evaluate(() => window.selectFocusCalls);
     offers = [...offers, {id:'live-draft',ch:'35',room:4,price:22000,age:0,stock:9,equipment:true,captured:true}]; revision++; broadcast(); await waitRevision();
@@ -142,7 +141,7 @@ try {
       assert(await page.locator('.offer-filter-foot').evaluate(el => el.getBoundingClientRect().bottom <= innerHeight), 'apply button remains visible in a short viewport');
     }
     await page.keyboard.press('Escape');
-    assert.equal(await page.locator('.well-h small').textContent(), mobile ? '3 条挂单 · 3 摊' : '3 listings · 3 shops');
+    assert.equal(await page.locator('.where-well .well-h > small').textContent(), mobile ? '3 条挂单 · 3 摊' : '3 listings · 3 shops');
     offers = original.map(row => ({...row,age:row.age+7200})); revision++; broadcast(); await waitRevision();
     assert.equal(await page.locator('[data-offer-empty]').isVisible(), true);
     await page.locator('[data-offer-clear=all]').click();

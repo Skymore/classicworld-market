@@ -28,6 +28,11 @@ const server = createServer(async (req, res) => {
       time: Date.now() / 1000 - 60 * i, kind: 'sold', location: { channel: 12, room: 3 }, icon_url: '',
     })) });
   }
+  if (url.pathname === '/api/v1/catalog/page') {
+    const target=new URL(url.searchParams.get('url'),'http://localhost'),id=Number(target.pathname.split('/').pop());
+    const body={kind:'item',page:{item:{id,name_zh:'鹰弩',name_en:'Eagle Crow',category:'装备',req_level:30},stats:{typical:10000,lowest_ask:9000,listings_count:5,shops_count:3,sales_24h:7,as_of:new Date().toISOString()},droppers:[],npc_offers:[],npc_sell:1000,market:{as_of:new Date().toISOString(),listings:[],sales:[],days:[],sale_points:[],base_stats:Array.from({length:24},(_,i)=>['stat'+i,49+i])}}};
+    return setTimeout(()=>json(res,body),previewDelay);
+  }
   if (url.pathname.startsWith('/api/')) return json(res, {});
   if (url.pathname.startsWith('/item/')) {
     res.setHeader('Content-Type', 'text/html');
@@ -109,7 +114,8 @@ try {
     assert.equal(await popup.isVisible(), true, 'in-flight preview survives a replaced list');
     await popup.locator('.peek-footer a').click();
     await page.waitForURL(url => url.pathname === '/item/1462004' && url.searchParams.get('hours') === 'all');
-    assert.equal(await page.locator('h1').textContent(), 'Full item page');
+    await page.locator('.item-stall h1').waitFor();
+    assert.match(await page.locator('.item-stall h1').textContent(), /Eagle Crow|鹰弩/);
     assert.deepEqual(errors, []);
     await page.close();
     console.log(`PASS ${mobile ? 'mobile / English' : 'desktop / Chinese'}: time tick, SSE, removal, scrolling, dismissal and full-page navigation`);

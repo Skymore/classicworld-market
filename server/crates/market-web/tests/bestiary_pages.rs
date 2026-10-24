@@ -200,8 +200,8 @@ fn item_page_head_sources_and_shell() {
         html.contains(r#"data-device="phone""#),
         "phone layout unless the hint says desktop"
     );
-    assert!(html.contains(r#"<script type="module" src="/web/js/pages/dex.js?v="#));
-    assert!(html.contains(r#"<script type="module" src="/web/js/pages/item.js?v="#));
+    assert!(html.contains(r#"<script type="module" src="/web/react/shell.js"#));
+    assert!(!html.contains(r#"src="/web/js/pages/item.js"#));
     assert!(
         html.contains(r#"href="/web/css/base.css?"#)
             && html.contains(r#"href="/web/css/item.css?v="#)

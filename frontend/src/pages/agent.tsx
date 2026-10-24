@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { useAccount } from "../lib/query";
 import { usePreferences, useWords } from "../providers";
-import { Loading, ErrorState } from "../components/shared";
+import { Loading, ErrorState, usePageReady } from "../components/shared";
 import {
   Dialog,
   DialogContent,
@@ -189,6 +189,7 @@ function RichText({ value }: { value: string }) {
   );
 }
 export default function Agent() {
+  usePageReady();
   const account = useAccount();
   const cache = useQueryClient();
   useEffect(() => {
@@ -732,7 +733,7 @@ function ChatPane({
       last?.role === "assistant" &&
       ["aborted", "error"].includes(last.metadata?.state || ""));
   return (
-    <main className="chat-main">
+    <div className="chat-main">
       <div
         ref={scrollRef}
         className="chat-scroll"
@@ -967,6 +968,6 @@ function ChatPane({
           "Check observed offers in game.",
         )}
       </p>
-    </main>
+    </div>
   );
 }

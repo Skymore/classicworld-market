@@ -21,7 +21,9 @@ const html = document.documentElement;
 
 
 const stall = document.querySelector('.item-stall');
-if (stall) init(stall);
+// Older cached HTML may still include this entry alongside the React shell.
+// Let the current shell own that page so two controllers cannot mutate it.
+if (stall && !document.querySelector('script[src^="/web/react/shell.js"]')) init(stall);
 
 async function init(stall) {
   await userDataReady;

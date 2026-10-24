@@ -42,7 +42,7 @@ import {
   num,
 } from "../components/shared";
 import { SiteLink } from "../components/shell";
-import { LegacyPage } from "../components/legacy-page";
+import Sales from "./sales";
 import { Button } from "../components/ui/button";
 import {
   Tabs,
@@ -792,7 +792,7 @@ export default function Prices() {
         ))}
         <TabsContent value="sales" data-pane="sales" className="sales-pane">
           <div data-sales-host>
-            <LegacyPage name="sales" embedded />
+            <Sales embedded />
           </div>
         </TabsContent>
       </Tabs>

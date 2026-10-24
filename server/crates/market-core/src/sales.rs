@@ -12,7 +12,8 @@
 use std::collections::HashMap;
 use std::hash::Hash;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SaleKind {
     Drop,
     SoldOut,

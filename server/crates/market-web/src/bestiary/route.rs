@@ -13,7 +13,8 @@ pub const HENESYS: i32 = 10001000;
 /// Hops a return-scroll step counts as.
 pub const RETURN_COST: u32 = 3;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum EdgeKind {
     // Order is the tie-break preference.
     Portal,

@@ -123,10 +123,8 @@ export function SiteLink({
   const target = url.pathname + url.search + url.hash;
   if (
     server ||
-    isCatalogue ||
     url.origin !== location.origin ||
-    path.startsWith("/web/") ||
-    path.startsWith("/collect")
+    (path.startsWith("/web/") && path !== "/web/download.html")
   )
     return (
       <a href={url.origin === location.origin ? target : href} {...props}>
@@ -238,6 +236,7 @@ export function DesktopHeader() {
 }
 export function AppShell({ children }: { children: React.ReactNode }) {
   const words = useWords();
+  const route = useLocation();
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (
@@ -266,7 +265,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="dhead">
         <DesktopHeader />
       </header>
-      <main className="pmain dwrap" id="main">
+      <main
+        className={
+          "pmain dwrap " +
+          (route.pathname.startsWith("/collect")
+            ? "c-page"
+            : route.pathname === "/web/download.html"
+              ? "download-page"
+              : "")
+        }
+        id="main"
+      >
         {children}
       </main>
       <nav className="dock" aria-label={words("主导航", "Main navigation")}>

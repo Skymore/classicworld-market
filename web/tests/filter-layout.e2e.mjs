@@ -50,7 +50,7 @@ try {
   const page=await browser.newPage();
   for(const route of ['/','/item/2000000?lang=zh','/search?kind=item&lang=zh','/web/download.html']){
     await page.goto(origin+route);
-    await page.locator('link[href="/web/react/style.css"]').first().waitFor({state:'attached'});
+    await page.locator('link[href^="/web/react/style.css"]').first().waitFor({state:'attached'});
     await page.waitForFunction(()=>getComputedStyle(document.documentElement,'::-webkit-scrollbar').width==='8px');
     assert.equal(await page.locator('html').evaluate(el=>getComputedStyle(el,'::-webkit-scrollbar-button').display),'none');
     console.log(`PASS global scrollbar ${route}`);

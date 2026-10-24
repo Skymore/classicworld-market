@@ -2,3 +2,4 @@
 // controllers use the same language, storage and event stream during migration.
 declare module "/web/js/lib/*";
 declare module "/web/js/pages/*";
+declare module "/web/collect/*";

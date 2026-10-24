@@ -21,6 +21,7 @@ const server = createServer(async (req, res) => {
   }
   if (url.pathname.startsWith('/api/')) {
     let body = {};
+    if(url.pathname === '/api/v1/catalog/page') { const target=new URL(url.searchParams.get('url'),'http://localhost'); const rows=speedQueries.includes(target.searchParams.get('q'))?products.slice(0,2):[]; body={kind:'search',page:{query:target.searchParams.get('q')||'',kind:null,offset:0,region:'',area:'',areas:[],filters:{},items:{rows:rows.map(row=>({id:row.item_id,names:{zh:row.name_zh,en:row.name_en}})),more:false},mobs:{rows:[],more:false},maps:{rows:[],more:false}}}; }
     if (url.pathname === '/api/v1/market') body = { products, as_of: now };
     if (url.pathname === '/api/v1/sales/recent') body = { sales: [], as_of: now };
     if (url.pathname === '/api/v1/dex/dropped-items') body = { item_ids: [] };
@@ -80,12 +81,12 @@ try {
     const finder = page.locator('form.finder input[name=q]:visible').last();
     await finder.waitFor();
     for (const query of speedQueries) {
-      const response = page.waitForResponse(res => new URL(res.url()).pathname === '/search' && new URL(res.url()).searchParams.get('q') === query);
+      const response = page.waitForResponse(res => new URL(res.url()).pathname === '/api/v1/catalog/page' && new URL(new URL(res.url()).searchParams.get('url'),origin).searchParams.get('q') === query);
       await finder.fill(query); await response;
-      await page.waitForFunction(() => document.querySelector('.quick-search:not([hidden]):not([aria-busy]) .quick-row'));
+      await page.waitForFunction(() => document.querySelector('.quick-search:not([hidden]):not([aria-busy=true]) .quick-row'));
       assert.equal(await page.locator('.quick-search:visible .quick-row').count(), 2);
       assert.match(await page.locator('.quick-search:visible').textContent(), /宠物装备移动速度卷轴/);
-      assert.equal(new URL(await page.locator('.quick-search:visible .quick-more').getAttribute('href')).searchParams.get('q'), query);
+      assert.equal(new URL(await page.locator('.quick-search:visible .quick-more').getAttribute('href'),origin).searchParams.get('q'), query);
     }
     assert.deepEqual(errors, []);
     await page.close();

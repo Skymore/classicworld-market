@@ -13,25 +13,14 @@ const server = createServer(async (req, res) => {
   if (url.pathname.startsWith('/web/')) {
     const file = path.resolve(root, '.' + url.pathname.slice(4));
     if (!file.startsWith(root + path.sep)) { res.writeHead(404); return res.end(); }
-    try { res.setHeader('Content-Type', 'text/javascript'); return res.end(await readFile(file)); }
+    try { res.setHeader('Content-Type', file.endsWith('.css')?'text/css':file.endsWith('.svg')?'image/svg+xml':'text/javascript'); return res.end(await readFile(file)); }
     catch { res.writeHead(404); return res.end(); }
   }
-  if (url.pathname !== '/search') { res.writeHead(404); return res.end(); }
-  requests++;
-  const region = url.searchParams.get('region') || '', area = url.searchParams.get('area') || '';
-  const option = (value, title, selected) => `<option value="${value}" ${value === selected ? 'selected' : ''}>${title}</option>`;
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.end(`<!doctype html><html><head><title>Catalogue</title><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
-    <form class="finder in-page" id="catalog-search" action="/search"><input type="search" name="q"><input type="hidden" name="kind" value="map"></form>
-    <div data-search-results><div class="place-tools">
-      <label>地区<select name="region" form="catalog-search">${option('', '全部地区', region)}${option('orbis', '天空之城', region)}${option('victoria', '金银岛', region)}</select></label>
-      <label>区域<select name="area" form="catalog-search" ${region ? '' : 'disabled'}>${option('', '全部区域', area)}${region ? option(region + '-town', '城镇', area) + option(region + '-field', '野外', area) : ''}</select></label>
-      <button type="button" data-place-reset>重置</button></div>
-      <div class="catalogue-tools"><label>职业<select name="job" form="catalog-search">${option('0', '所有职业', url.searchParams.get('job') || '0')}${option('1', '战士', url.searchParams.get('job'))}</select></label>
-        <input type="number" name="min_level" form="catalog-search"><input type="number" name="max_level" form="catalog-search"><button type="button"><span data-filter-summary></span></button>
-      </div><p data-result-state>${region}|${area}</p></div>
-    <script type="module">import {bindLiveSearch} from '/web/js/lib/live-search.js';bindLiveSearch();document.documentElement.dataset.ready='1';</script>
-    </body></html>`);
+  if(url.pathname==='/api/v1/events'){res.writeHead(200,{'Content-Type':'text/event-stream'});return res.end(': ready\n\n');}
+  if(url.pathname==='/api/v1/account'){res.setHeader('Content-Type','application/json');return res.end('{"signed_in":false}');}
+  if(url.pathname==='/api/v1/catalog/page'){requests++;const target=new URL(url.searchParams.get('url'),'http://localhost'),region=target.searchParams.get('region')||'',area=target.searchParams.get('area')||'';res.setHeader('Content-Type','application/json');return setTimeout(()=>res.end(JSON.stringify({kind:'search',page:{query:target.searchParams.get('q')||'',kind:(target.searchParams.get('kind')||'map').replace(/^./,c=>c.toUpperCase()),offset:0,region,area,areas:region?[{region,key:region+'-town',names:{zh:'城镇',en:'Town'}},{region,key:region+'-field',names:{zh:'野外',en:'Field'}}]:[],filters:{job:Number(target.searchParams.get('job'))||0,cat:target.searchParams.get('cat')||''},items:{rows:[],more:false},mobs:{rows:[],more:false},maps:{rows:[{id:10001000,names:{zh:region+'|'+area,en:region+'|'+area}}],more:false}}})),80);}
+  if(url.pathname.startsWith('/api/')){res.setHeader('Content-Type','application/json');return res.end('{}');}
+  res.setHeader('Content-Type','text/html');res.end(await readFile(path.join(root,'index.html')));
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -52,7 +41,7 @@ try {
     await page.goto(origin + '/search?kind=map');
     await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
     const callCount = () => page.evaluate(() => window.selectFocusCalls.length);
-    const waitForResult = value => page.waitForFunction(expected => document.querySelector('[data-result-state]').textContent === expected && !document.querySelector('[data-search-results]').hasAttribute('aria-busy'), value);
+    const waitForResult = value => page.waitForFunction(expected => document.querySelector('#search-map .catalogue-grid .t b')?.textContent === expected && document.querySelector('[data-react-catalogue]')?.getAttribute('aria-busy') === 'false', value);
     async function choose(name, value, keyboard = false) {
       const select = page.locator(`select[name=${name}]`);
       // Establish the same focus and input modality as an open native picker.
@@ -73,20 +62,24 @@ try {
     before = await choose('region', 'victoria', true);
     await waitForResult('victoria|');
     assert.equal(await page.evaluate(() => document.activeElement.name), 'region');
-    assert.equal(await callCount(), before + 1, 'keyboard navigation retains focus after results refresh');
+    assert.equal(await callCount(), before, 'React preserves the same focused select without another focus call');
     assert.equal(await page.locator('select[name=area]').inputValue(), '');
     // Pointer input after keyboard input must switch focus restoration off.
     before = await choose('area', 'victoria-field');
     await waitForResult('victoria|victoria-field');
     assert.equal(await callCount(), before);
+    await page.locator('a.chip[href*="kind=item"]').click();
+    await page.locator('.catalogue-filter > summary').click();
     before = await choose('job', '1');
     await page.waitForFunction(() => new URL(location.href).searchParams.get('job') === '1');
     assert.equal(await callCount(), before, 'preserved catalogue selects must not be refocused for pointer input either');
+    await page.locator('a.chip[href*="kind=map"]').click();
+    await waitForResult('victoria|victoria-field');
     const resetStart = requests;
     await page.locator('[data-place-reset]').click();
     await waitForResult('|');
     assert.equal(await page.locator('select[name=area]').isDisabled(), true);
-    assert.equal(requests, resetStart + 1, 'a selection/reset triggers only one results request');
+    assert(requests <= resetStart + 1, 'reset uses the cache or one request, never duplicates');
     assert.deepEqual(errors, []);
     await page.close();
     console.log(`PASS ${mobile ? 'touch' : 'mouse'}: region/area selects do not refocus, keyboard focus remains, dependent areas and reset work`);

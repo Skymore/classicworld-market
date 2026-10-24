@@ -19,7 +19,6 @@ fn dex_page(ctx: &Ctx, title: &str, query: &str, body: Markup) -> Markup {
             title,
             nav: Nav::Dex,
             css: &["dex"],
-            scripts: &[],
             fresh: None,
             query,
         },

@@ -19,6 +19,7 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/api/v1/events') { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.write(': connected\n\n'); streams.add(res); req.on('close', () => streams.delete(res)); return; }
   if (url.pathname.startsWith('/api/')) {
     let data = {};
+    if(url.pathname==='/api/v1/catalog/page') data={kind:'search',page:{query:'',kind:'Item',offset:0,region:'',area:'',areas:[],filters:{},items:{rows:[{id:2000000,names:{zh:'红色药水',en:'Red Potion'}}],more:false},mobs:{rows:[],more:false},maps:{rows:[],more:false}}};
     if (url.pathname === '/api/v1/market') data = { as_of: now, products: products.map(row => ({ ...row, typical_window: price })) };
     if (url.pathname === '/api/v1/market/period-default') data = { default_hours: 'all', recent_priced_items: 3, threshold: 100 };
     if (url.pathname === '/api/v1/dex/dropped-items') data = { item_ids: [2000000] };
@@ -85,7 +86,8 @@ try {
     await page.locator('[data-theme-toggle]:visible').click();
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
     await nav('dex').click(); await page.locator('#site-react-shell').waitFor({ state: 'attached' });
-    assert.equal(await page.locator('[data-server-content]').textContent(), 'Catalogue content from Rust');
+    await page.locator('[data-react-catalogue=search] #search-item').waitFor();
+    assert.equal(await page.evaluate(() => window.documentIdentity), afterReload, 'catalogue links stay inside the React document');
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
     assert.equal(await page.locator('[data-nav-key=alerts]:visible').textContent(), '采集');
     await page.locator('[data-theme-toggle]:visible').click();

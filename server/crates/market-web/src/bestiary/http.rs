@@ -40,13 +40,12 @@ const NOT_FOUND_CACHE: &str = "public, s-maxage=600";
 const NO_STORE: &str = "no-store";
 /// Scripts and fetches only from this origin; no inline styles (sizes are
 /// classes), images from the item and mob CDNs.
-const CSP: &str =
-    "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' https:; \
-                   style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+const CSP: &str = crate::web::CSP;
 const MAX_QUERY_CHARS: usize = 64;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route("/api/v1/catalog/page", get(catalog_page))
         .route("/item/{id}", get(item))
         .route("/mob/{id}", get(mob))
         .route("/map/{id}", get(map))
@@ -410,6 +409,119 @@ async fn css() -> impl IntoResponse {
         ],
         CSS,
     )
+}
+
+#[derive(Deserialize)]
+struct CatalogRequest {
+    url: String,
+}
+
+// Separate JSON URL keeps CDN HTML caches and public page data independent.
+// React uses the same query functions and normalization as the indexed pages.
+async fn catalog_page(
+    State(state): State<AppState>,
+    Query(request): Query<CatalogRequest>,
+) -> Response {
+    use axum::{http::Uri, Json};
+    use serde_json::json;
+    fn response(status: StatusCode, value: serde_json::Value) -> Response {
+        (status, [(header::CACHE_CONTROL, NO_STORE)], Json(value)).into_response()
+    }
+    fn loaded<T: serde::Serialize>(result: sqlx::Result<Option<T>>, kind: &str) -> Response {
+        match result {
+            Ok(Some(page)) => response(StatusCode::OK, json!({"kind":kind,"page":page})),
+            Ok(None) => response(StatusCode::NOT_FOUND, json!({"error":"not_found"})),
+            Err(error) => {
+                tracing::error!(%error,"catalog snapshot failed");
+                response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    json!({"error":"unavailable"}),
+                )
+            }
+        }
+    }
+    if request.url.len() > 4096 || !request.url.starts_with('/') || request.url.starts_with("//") {
+        return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_url"}));
+    }
+    let Ok(uri) = request.url.parse::<Uri>() else {
+        return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_url"}));
+    };
+    let path = uri.path();
+    if path == "/search" {
+        let Ok(Query(params)) = Query::<SearchParams>::try_from_uri(&uri) else {
+            return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_query"}));
+        };
+        let q = clip(&params.q);
+        let kind = search_kind(q, &params.kind);
+        let limit = if kind.is_some() {
+            queries::SEARCH_KIND_LIMIT
+        } else {
+            queries::SEARCH_LIMIT
+        };
+        let offset = i64::from(params.page.saturating_sub(1).min(10000)) * limit;
+        let mut filters = super::model::ItemFilters {
+            cat: params.cat,
+            job: params.job.parse().unwrap_or(0),
+            min_level: params.min_level.parse().ok(),
+            max_level: params.max_level.parse().ok(),
+        };
+        filters.normalize();
+        return loaded(
+            queries::search_places(
+                &state.db,
+                q,
+                kind,
+                offset,
+                filters,
+                &params.region,
+                &params.area,
+            )
+            .await
+            .map(Some),
+            "search",
+        );
+    }
+    if path == "/route" {
+        let Ok(Query(params)) = Query::<RouteParams>::try_from_uri(&uri) else {
+            return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_query"}));
+        };
+        return loaded(
+            route_page(&state, clip(&params.from), clip(&params.to))
+                .await
+                .map(Some),
+            "route",
+        );
+    }
+    let Some((kind, raw)) = path.trim_start_matches('/').split_once('/') else {
+        return response(StatusCode::NOT_FOUND, json!({"error":"not_found"}));
+    };
+    let Some(id) = parse_id(raw) else {
+        return response(StatusCode::NOT_FOUND, json!({"error":"not_found"}));
+    };
+    match kind {
+        "item" => {
+            let Ok(Query(params)) = Query::<ItemParams>::try_from_uri(&uri) else {
+                return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_query"}));
+            };
+            loaded(
+                queries::item_page_window(&state.db, id, unix_now(), params.hours == "all")
+                    .await
+                    .map(|page| {
+                        page.map(|page| {
+                            let unit = crate::external::unit(page.item.id);
+                            let mut value =
+                                serde_json::to_value(page).expect("catalog item serialize");
+                            value["unit"] = json!(unit);
+                            value
+                        })
+                    }),
+                "item",
+            )
+        }
+        "mob" => loaded(queries::mob_page(&state.db, id).await, "mob"),
+        "map" => loaded(queries::map_page(&state.db, id).await, "map"),
+        _ => response(StatusCode::NOT_FOUND, json!({"error":"not_found"})),
+    }
 }
 
 #[cfg(test)]

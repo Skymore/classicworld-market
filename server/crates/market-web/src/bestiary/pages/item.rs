@@ -62,7 +62,6 @@ pub fn item_page(page: &ItemPage, ctx: &Ctx) -> Markup {
             title: name,
             nav: Nav::Prices,
             css: &["dex", "item"],
-            scripts: &["item"],
             fresh,
             query: "",
         },

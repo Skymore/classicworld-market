@@ -22,6 +22,7 @@ anyhow = { workspace = true }
 argon2 = "0.5.3"
 axum = "0.8"
 base64 = "0.22"
+chrono = { version = "0.4", features = ["serde"] }
 # zlib-rs: about twice as fast as the default backend; tower-http's gzip uses it too.
 flate2 = { version = "1", features = ["zlib-rs"] }
 getrandom = "0.2"

@@ -14,18 +14,40 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import "/web/js/lib/item-preview.js?v=20261023-header-icons-2";
+import ItemPreview from "./components/item-preview";
 import { Providers, useWords, initializePreferences } from "./providers";
 import { AppShell } from "./components/shell";
-import { LegacyPage } from "./components/legacy-page";
+import { ensureStyle } from "./lib/styles";
+import { queryClient } from "./lib/query";
+import { loadCatalog, catalogKey } from "./lib/catalog";
+import { ToastHost } from "./components/toasts";
 import { Loading, ErrorState } from "./components/shared";
 import "./styles.css";
 
+const Watch = lazy(() => import("./pages/watch"));
+const Alerts = lazy(() => import("./pages/alerts"));
+const Agent = lazy(() => import("./pages/agent"));
+const Selling = lazy(async () => {
+  await ensureStyle("selling");
+  return import("./pages/selling");
+});
+const Privacy = lazy(() => import("./pages/privacy"));
+const Download = lazy(async () => {
+  await ensureStyle("download");
+  return import("./pages/download");
+});
+const Catalogue = lazy(async () => {
+  await Promise.all([ensureStyle("dex"), ensureStyle("item")]);
+  return import("./pages/catalogue");
+});
+const Collect = lazy(async () => {
+  await ensureStyle("collect");
+  return import("./pages/collect");
+});
 const Home = lazy(() => import("./pages/home"));
 const Prices = lazy(() => import("./pages/prices"));
 const Account = lazy(() => import("./pages/account"));
 const Contributors = lazy(() => import("./pages/contributors"));
-const Agent = lazy(() => import("./pages/agent"));
 const pageRoutes = [
   "/",
   "/prices",
@@ -36,6 +58,13 @@ const pageRoutes = [
   "/contributors",
   "/selling",
   "/agent",
+  "/web/download.html",
+  "/search",
+  "/item",
+  "/mob",
+  "/map",
+  "/route",
+  "/collect",
 ];
 class PageErrorBoundary extends Component<
   { children: ReactNode },
@@ -87,6 +116,13 @@ function Application() {
     privacy: words("账号隐私说明", "Account privacy"),
     contributors: words("采集贡献榜", "Contributors"),
     agent: words("市场助手", "Market assistant"),
+    collect: words("屏幕采集", "Screen collector"),
+    web: words("下载采集器与使用说明", "Download collector"),
+    search: words("搜索", "Search"),
+    item: words("物品详情", "Item"),
+    mob: words("怪物图鉴", "Monster"),
+    map: words("地图", "Map"),
+    route: words("怎么走", "Route"),
     selling: words("背包与摆摊", "Bag & shop"),
   };
   useLayoutEffect(() => {
@@ -96,6 +132,7 @@ function Application() {
     window.scrollTo(0, 0);
   }, [route.pathname, page]);
   useEffect(() => {
+    if (["search", "item", "mob", "map", "route"].includes(page)) return;
     document.title = `${titles[page] || titles.home} · ${words("枫叶市集", "Maple Market")}`;
   });
   useEffect(() => {
@@ -138,6 +175,16 @@ function Application() {
         url.hash
       )
         return;
+      if (
+        ["/search", "/route"].includes(url.pathname) ||
+        /^\/(item|mob|map)\//.test(url.pathname)
+      ) {
+        if (
+          document.documentElement.dataset.lang === "en" &&
+          !url.searchParams.has("lang")
+        )
+          url.searchParams.set("lang", "en");
+      }
       event.preventDefault();
       navigate(url.pathname + url.search + url.hash);
     };
@@ -149,6 +196,9 @@ function Application() {
   }, [navigate]);
   return (
     <AppShell>
+      <ToastHost />
+      <ItemPreview />
+      <span id="site-react-shell" hidden />
       <PageErrorBoundary key={route.pathname}>
         <Suspense fallback={<Loading />}>
           <Routes>
@@ -156,14 +206,20 @@ function Application() {
             <Route path="/prices/*" element={<Prices />} />
             <Route path="/account" element={<Account />} />
             <Route path="/contributors" element={<Contributors />} />
+            <Route path="/watch/*" element={<Watch />} />
+            <Route path="/alerts/*" element={<Alerts />} />
             <Route path="/agent/*" element={<Agent />} />
-            {["watch", "alerts", "selling", "privacy"].map((name) => (
+            <Route path="/selling/*" element={<Selling />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/web/download.html" element={<Download />} />
+            {["search", "item", "mob", "map", "route"].map((path) => (
               <Route
-                key={name}
-                path={`/${name}/*`}
-                element={<LegacyPage name={name} />}
+                key={path}
+                path={"/" + path + "/*"}
+                element={<Catalogue />}
               />
             ))}
+            <Route path="/collect/*" element={<Collect />} />
             <Route path="/sales" element={<SalesRedirect />} />
             <Route path="/v2/*" element={<LegacyRedirect />} />
             <Route path="*" element={<Home />} />
@@ -175,6 +231,22 @@ function Application() {
 }
 
 await initializePreferences();
+if (
+  ["/search", "/route"].includes(location.pathname) ||
+  /^\/(item|mob|map)\//.test(location.pathname)
+) {
+  document.documentElement.dataset.reactShell = "1";
+  await Promise.all([
+    ensureStyle("dex"),
+    ensureStyle("item"),
+    queryClient.prefetchQuery({
+      queryKey: catalogKey(location.pathname + location.search),
+      queryFn: ({ signal }) =>
+        loadCatalog(location.pathname + location.search, signal),
+    }),
+  ]);
+}
+await Promise.all(["home", "prices", "account", "lists"].map(ensureStyle));
 createRoot(document.getElementById("app")!).render(
   <BrowserRouter>
     <Providers>

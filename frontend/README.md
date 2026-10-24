@@ -1,6 +1,6 @@
 # Maple Market React frontend
 
-React + TypeScript + Vite, React Router, TanStack Query and shadcn-style Radix components. The existing `web/css/base.css` tokens remain the source of truth for the approved light and dark game-window appearance. Tailwind utilities are included without its reset, so the existing typography and geometry stay intact.
+React + TypeScript + Vite, React Router, TanStack Query, Radix controls and the AI SDK assistant. The existing `web/css` files remain the source of truth for the light/dark game-window theme. Tailwind has no reset.
 
 ```sh
 cd frontend
@@ -9,18 +9,14 @@ pnpm dev
 pnpm build
 ```
 
-Development proxies `/api`, `/web` and catalogue search to the existing Rust service on `127.0.0.1:8766`. Production assets are built into `web/react/`. `app.js` and `shell.js` are stable revalidated entry points, importing content-hashed chunks. Rust keeps serving the website, APIs, collector and server-rendered catalogue.
+React owns every page and its interactions: home, prices and sales, watch lists, collection alerts, assistant/history, account, privacy, contributors, download, browser capture and the item/monster/map/search/route catalogue. There is no legacy-page mount adapter. Existing legacy assets stay available to already-open browser sessions.
 
-## Ownership
+Direct catalogue links retain their escaped Rust-rendered first paint and HTTP statuses for indexing and no-JavaScript visitors. The shared React application takes over using `/api/v1/catalog/page`, backed by the same queries and filter normalization. React owns catalogue filters, offer dialogs, instance stats, channel/room views, ladder, trend and quick previews; it never fetches an HTML fragment to replace the page.
 
-- React owns the persistent header, navigation, theme, routing, home, prices, account and contributor board. Shared controls live in `src/components/ui`; changing a library component does not replace the site's theme.
-- Server-rendered item, monster, map, route and search pages keep their original main content. `server.tsx` mounts the same React chrome around it without replacing the main or changing indexing and direct-link behavior.
-- `LegacyPage` isolates the mature watch, acquisition alerts, sales, assistant and private bag controllers. They can modify only their host. Cleanup handles must release requests/listeners on navigation, including when an asynchronous mount completes after the route has left. These controllers can be migrated individually without another shell/router rewrite.
-- URL parameters own search, filters and sort. Query owns server snapshots; the existing single SSE stream invalidates active market queries. Account data is a separate query. Existing collector credentials and watchlist keys are preserved.
-- The parser-blocking `boot.js` runs before CSS on every shell, including account themes cached under the last confirmed public account ID. React waits for account identity and uses the same storage facade for synchronized preferences. Do not move initial theme resolution into a mount effect.
+The parser-blocking `boot.js` sets the theme before CSS. React uses the same account-scoped storage facade as watch settings and preferences. Keep initial theme resolution out of a mount effect. URL parameters own filters and sorting; the single market SSE stream invalidates market queries.
 
-## Validation
+The screen reader/worker/structured-upload protocol is unchanged. `web/collect/engine.js` exposes an observable state controller and lifecycle methods; React renders all capture UI. Leaving capture stops tracks, terminates workers, cancels pending upload requests and releases local frame bitmaps. Collector tokens stay in existing storage and authorization headers. Alert history stays separated by hashed collector identity.
 
-Run `pnpm check`, `pnpm build`, `node --test web/tests/*.test.mjs` from the appropriate directories, then the isolated browser fixtures `search.e2e.mjs`, `contributors.e2e.mjs`, `agent.e2e.mjs` and `react-migration.e2e.mjs`. `theme.e2e.mjs` targets a real candidate with `THEME_TEST_ORIGIN`. Set `PLAYWRIGHT_MODULE` and `PLAYWRIGHT_CHANNEL` when using an external Playwright installation.
+Build assets go to `web/react`. Stable revalidated entry files load hashed chunks. Preserve chunks from deployed releases so already-open pages can finish lazy imports. Deploy the matching executable and assets through the existing immutable bundle/supervisor workflow.
 
-Deploy generated frontend files and the matching Rust shell together through the existing immutable bundle and supervisor workflow.
+Validation: `pnpm check`, `pnpm build`, `node --test web/tests/*.test.mjs`, and isolated browser fixtures `accounts`, `agent`, `contributors`, `search`, `react-migration`, `react-complete`, `item-offer-filters`, `item-preview-live`, `live-search-focus`, and `equipment-filters` (`.e2e.mjs`). Real candidate/public checks use `THEME_TEST_ORIGIN`, `REACT_VERIFY_ORIGIN` and `FILTER_TEST_ORIGIN` with `theme`, `react-live`, `react-complete-live` and `filter-layout`. Set `PLAYWRIGHT_MODULE` / `PLAYWRIGHT_CHANNEL` for an external Playwright runtime.

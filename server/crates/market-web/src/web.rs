@@ -21,7 +21,7 @@ use crate::AppState;
 /// blob:` is the screen-share preview; `img-src https:` the item icons.
 /// `style-src 'unsafe-inline'` only covers style attributes: the UI passes
 /// sizes as inline custom properties (`style="--s:28px"`); scripts stay strict.
-const CSP: &str = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; \
+pub(crate) const CSP: &str = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; \
     style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; media-src blob:; connect-src 'self' http://127.0.0.1:8780; \
     font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 
