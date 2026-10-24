@@ -1,6 +1,6 @@
 import { compareQuotes } from './quote-order.js?v=20261023-item-sort-2';
-import { meso } from './format.js';
-import { OFFER_HOURS, OFFER_PERCENTILES, normalizeOfferFilters, filterOffers } from './item-offer-filters.js?v=20261023-offer-filters-1';
+import { meso, esc } from './format.js';
+import { normalizeOfferFilters, filterOffers, offerFilterTokens } from './item-offer-filters.js?v=20261023-advanced-offers-1';
 
 // Preserve all offers and their room labels across sorting and filtering.
 // Realtime section replacements get a fresh snapshot of the incoming offers.
@@ -16,18 +16,29 @@ function entry(row) {
     observed: Number(row.dataset.observed || row.querySelector('[data-relative-time]')?.dataset.relativeTime) || null,
     price: row.hasAttribute('data-unit-price') ? Number(row.dataset.unitPrice) : legacyPrice,
     key: row.dataset.quote || row.dataset.offer || row.querySelector('.lshop')?.textContent,
+    stock: Number(row.querySelector('.lq')?.textContent.match(/[×x]\s*(\d+)/)?.[1] ?? NaN),
+    isEquipment: row.matches('.listing-offer'),
+    hasStats: Boolean(row.querySelector('.offer-body .tip')),
+    bonus: row.dataset.bonus === '1',
   };
 }
 
 function controls(section, en) {
   const bar = document.createElement('div');
-  bar.className = 'offer-filters';
-  const options = (values, label) => values.map(value => `<option value="${value}">${label(value)}</option>`).join('');
-  bar.innerHTML = `<label data-offer-time-filter><span>${en ? 'Observed within' : '报价时间'}</span>
-    <select data-offer-hours>${options(OFFER_HOURS, value => value === 'all' ? (en ? 'Any time' : '全部时间') : value === '168' ? (en ? 'Last 7 days' : '最近 7 天') : (en ? `Last ${value} hours` : `最近 ${value} 小时`))}</select></label>
-    <label data-offer-price-filter hidden><span>${en ? 'Price percentile' : '价格百分位'}</span>
-    <select data-offer-percentile>${options(OFFER_PERCENTILES, value => value === 'all' ? (en ? 'Any price' : '全部价格') : (en ? `Lowest ${value}%` : `最低 ${value}%`))}</select></label>
-    <small data-offer-filter-note></small>`;
+  bar.className = 'offer-filter-summary';
+  const actions = document.createElement('div');
+  actions.className = 'offer-actions';
+  const sort = section.querySelector('[data-offer-sort]').closest('label');
+  sort.before(actions);
+  actions.append(sort);
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'offer-filter-trigger';
+  trigger.dataset.offerFilterOpen = '';
+  trigger.setAttribute('aria-haspopup', 'dialog');
+  trigger.setAttribute('aria-controls', 'offer-filter-dialog');
+  trigger.setAttribute('aria-expanded', 'false');
+  actions.append(trigger);
   section.querySelector('.well-h').after(bar);
   const empty = document.createElement('p');
   empty.className = 'note offer-empty';
@@ -36,7 +47,7 @@ function controls(section, en) {
   empty.hidden = true;
   empty.textContent = en ? 'No offers match. Try a wider filter.' : '没有符合条件的报价，请放宽筛选范围。';
   bar.after(empty);
-  return { bar, empty };
+  return { bar, empty, trigger };
 }
 
 const minimum = rows => {
@@ -94,10 +105,6 @@ export function applyOfferSort(stall, mode, filters = {}) {
     saved = { groups, flat, ...controls(section, en) };
     sections.set(section, saved);
   }
-  saved.bar.querySelector('[data-offer-time-filter]').hidden = latest;
-  saved.bar.querySelector('[data-offer-price-filter]').hidden = !latest;
-  saved.bar.querySelector('[data-offer-hours]').value = selected.hours;
-  saved.bar.querySelector('[data-offer-percentile]').value = selected.percentile;
 
   const now = Date.now() / 1000;
   const all = saved.groups.flatMap(group => group.rows.map(row => ({ ...row, ...entry(row.el) })));
@@ -156,10 +163,18 @@ export function applyOfferSort(stall, mode, filters = {}) {
   }
   const count = section.querySelector('.well-h small');
   if (count) count.textContent = en ? `${rows.length} listings · ${shopCount(rows)} shops` : `${rows.length} 条挂单 · ${shopCount(rows)} 摊`;
-  const note = saved.bar.querySelector('[data-offer-filter-note]');
-  note.textContent = cap !== null
-    ? (en ? `Unit price ≤ ${cap.toLocaleString('en-US')} · includes ties` : `单价 ≤ ${cap.toLocaleString('zh-CN')} · 含同价挂单`)
-    : latest ? (en ? 'Percentile of current listing prices' : '按当前挂单单价计算百分位')
-      : (en ? 'Time of last observation' : '按最近采集到报价的时间筛选');
+  const tokens = offerFilterTokens(selected, en);
+  saved.trigger.innerHTML = `<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12L9.5 8v5l-3-1V8z" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span>${en ? 'Filters' : '筛选'}</span>${tokens.length ? `<b>${tokens.length}</b>` : ''}`;
+  saved.trigger.classList.toggle('on', tokens.length > 0);
+  saved.trigger.title = en ? `Filter offers · ${tokens.length} active conditions` : `筛选报价 · 已启用 ${tokens.length} 项条件`;
+  saved.bar.hidden = !tokens.length;
+  saved.bar.innerHTML = tokens.map(token => `<button type="button" data-offer-clear="${token.key}" aria-label="${esc((en ? 'Remove: ' : '移除：') + token.label)}">${esc(token.label)} <span aria-hidden="true">×</span></button>`).join('') +
+    `<button type="button" class="offer-clear-all" data-offer-clear="all">${en ? 'Clear all' : '清空筛选'}</button>` +
+    (cap === null ? '' : `<small data-offer-filter-note>${esc(en ? `Unit price ≤ ${cap.toLocaleString('en-US')} · includes ties` : `单价 ≤ ${cap.toLocaleString('zh-CN')} · 含同价挂单`)}</small>`);
   saved.empty.hidden = rows.length > 0;
+}
+
+export function getOfferRows(stall) {
+  const saved = sections.get(stall.querySelector('.where-well'));
+  return saved ? saved.groups.flatMap(group => group.rows.map(row => ({ ...row, ...entry(row.el) }))) : [];
 }
