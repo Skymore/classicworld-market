@@ -484,7 +484,6 @@ export default function Prices() {
                           data-sort-btn
                           aria-label={words("排序：", "Sort: ") + sortLabel}
                         >
-                          <Icon name="sort" />
                           <span data-sort-label>
                             {sortLabel}
                             {canReverseSort(state.sort) ? ` ${direction}` : ""}

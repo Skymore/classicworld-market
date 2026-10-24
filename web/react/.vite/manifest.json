@@ -38,8 +38,8 @@
       "_shared-DxSzmOdy.js"
     ]
   },
-  "_main-BnyehJoy.js": {
-    "file": "chunks/main-BnyehJoy.js",
+  "_main-DkTcXHMI.js": {
+    "file": "chunks/main-DkTcXHMI.js",
     "name": "main",
     "imports": [
       "_shared-DxSzmOdy.js",
@@ -107,7 +107,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BnyehJoy.js"
+      "_main-DkTcXHMI.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -196,7 +196,7 @@
     ]
   },
   "src/pages/prices.tsx": {
-    "file": "chunks/prices-Be6iSn1I.js",
+    "file": "chunks/prices-Dsd5B0r3.js",
     "name": "prices",
     "src": "src/pages/prices.tsx",
     "isDynamicEntry": true,
@@ -251,7 +251,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BnyehJoy.js"
+      "_main-DkTcXHMI.js"
     ]
   },
   "style.css": {
