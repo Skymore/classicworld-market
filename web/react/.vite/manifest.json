@@ -47,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-Cqb7Aeva.js": {
-    "file": "chunks/main-Cqb7Aeva.js",
+  "_main-1sN2CzmJ.js": {
+    "file": "chunks/main-1sN2CzmJ.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -127,7 +127,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Cqb7Aeva.js"
+      "_main-1sN2CzmJ.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -143,7 +143,7 @@
     ]
   },
   "src/pages/agent.tsx": {
-    "file": "chunks/agent-DeeWoeqk.js",
+    "file": "chunks/agent-gn4FbddL.js",
     "name": "agent",
     "src": "src/pages/agent.tsx",
     "isDynamicEntry": true,
@@ -276,7 +276,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Cqb7Aeva.js"
+      "_main-1sN2CzmJ.js"
     ]
   },
   "style.css": {

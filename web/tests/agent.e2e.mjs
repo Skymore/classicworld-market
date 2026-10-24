@@ -7,12 +7,16 @@ import {createRequire} from 'node:module';
 import path from 'node:path';
 const {chromium}=createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE||'playwright');
 const root=path.resolve(fileURLToPath(new URL('..',import.meta.url))),output=path.resolve(root,'../market_data/agent-native-tests');await mkdir(output,{recursive:true});
+const guideContent=await readFile(path.resolve(root,'../server/crates/market-web/src/agent/knowledge/hunter-skills.md'),'utf8');
+const guide={id:'hunter-skills',title:'猎人：精准弓、炸弹箭与后期取舍',summary:'猎人二转加点',tags:['猎人'],category:'builds',checked_on:'2026-10-24',checked_timezone:'太平洋时间',source_kind:'curated',needs_refresh:false,sources:[],content:guideContent};
 const streams=new Set(),threads=new Map();let profile={signed_in:false},mode='success',requests=[],counter=0;
 const json=(res,data,status=200)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
 const server=createServer(async(req,res)=>{const url=new URL(req.url,'http://localhost');
  if(url.pathname==='/api/v1/events'){res.writeHead(200,{'Content-Type':'text/event-stream'});res.write(': ready\n\n');streams.add(res);req.on('close',()=>streams.delete(res));return;}
  if(url.pathname==='/api/v1/account')return json(res,profile);
  if(url.pathname==='/api/v1/account/data')return json(res,{records:[]});
+ if(url.pathname==='/api/v1/agent/knowledge')return json(res,{guides:[guide]});
+ if(url.pathname==='/api/v1/agent/knowledge/hunter-skills')return json(res,guide);
  if(url.pathname==='/api/v1/agent/threads'&&req.method==='GET')return json(res,{threads:[...threads.values()].map(({messages,...rest})=>rest)});
  const match=/^\/api\/v1\/agent\/threads\/([^/]+)$/.exec(url.pathname);
  if(match){const thread=threads.get(match[1]);if(!thread)return json(res,{error:'conversation_not_found'},404);if(req.method==='GET')return json(res,{...thread,has_more:false});assert.equal(req.headers['x-csrf-token'],'fixture-csrf');if(req.method==='DELETE'){threads.delete(match[1]);return json(res,{ok:true});}let raw='';for await(const chunk of req)raw+=chunk;thread.title=JSON.parse(raw).title;return json(res,thread);}
@@ -51,6 +55,12 @@ try{browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||undef
   for(const width of [320,375]){await page.setViewportSize({width,height:900});assert(await page.locator('.chat-guide-toggle .chat-action-label').isVisible());assert(await page.locator('.chat-actions').evaluate(node=>{const b=node.getBoundingClientRect();return b.left>=0&&b.right<=innerWidth;}),'English action group stays together inside a narrow viewport');assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));}
   await page.goto(origin+'/agent?lang=zh');await page.locator('[data-agent-chat]').waitFor();
  }
+ await page.locator('.chat-guide-toggle').click();await page.locator('.chat-guide-list button').click();
+ await page.locator('.chat-guide-content h3').first().waitFor();
+ assert.equal(await page.locator('.chat-guide-content h3').first().textContent(),'默认：基础先成形，再补群攻','CRLF guide headings render as headings');
+ assert.equal(await page.locator('.chat-guide-content ol > li').count(),11,'CRLF guide numbered steps render as a list');
+ assert.equal(await page.locator('.chat-guide-content').getByText('##',{exact:false}).count(),0,'Markdown heading markers are not shown as prose');
+ await page.keyboard.press('Escape');
  const first=page.locator('.chat-examples button').first(),prompt=await first.getAttribute('title');await first.click();assert.equal(await input.inputValue(),prompt,'compact labels still insert the complete question');
  await input.fill('one\ntwo\nthree');assert(await input.evaluate(node=>node.getBoundingClientRect().height>60),'real multiline questions grow the composer');await input.fill('');
  await page.screenshot({path:path.join(output,`agent-welcome-${mobile?'phone':'desktop'}.png`)});

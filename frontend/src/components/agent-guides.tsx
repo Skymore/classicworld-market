@@ -14,7 +14,7 @@ function inline(text:string) {
   });
 }
 function GuideText({content}:{content:string}) {
-  return <>{content.replace(/^# [^\n]+\n*/,"").split(/\n\n+/).map((block,i)=>{
+  return <>{content.replace(/\r\n?/g,"\n").replace(/^# [^\n]+\n*/,"").trim().split(/\n\n+/).map((block,i)=>{
     if(block.startsWith("## "))return <h3 key={i}>{inline(block.slice(3))}</h3>;
     const lines=block.split("\n");
     if(lines.every(line=>line.startsWith("- ")))return <ul key={i}>{lines.map((line,j)=><li key={j}>{inline(line.slice(2))}</li>)}</ul>;
