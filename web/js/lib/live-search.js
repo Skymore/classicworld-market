@@ -6,6 +6,9 @@ export function bindLiveSearch() {
   if (!input || !results) return;
   let browseKind = form.querySelector('[name=kind]')?.value || new URLSearchParams(location.search).get('kind') || 'item';
   let timer, controller, revision = 0, composing = false;
+  let keyboardInteraction = false;
+  results.addEventListener('keydown', () => { keyboardInteraction = true; });
+  results.addEventListener('pointerdown', () => { keyboardInteraction = false; }, { passive: true });
   const pages=new Map(), warming=new Map();
   const cacheKey=url=>{
     const key=new URL(url,location.href);
@@ -96,8 +99,11 @@ export function bindLiveSearch() {
         }
       }
       summarize();
-      if(focused?.isConnected) focused.focus({preventScroll:true});
-      if(placeFocus) results.querySelector(`.place-tools [name=${placeFocus}]`)?.focus({preventScroll:true});
+      // Focusing a native select after its results refresh can reopen the
+      // picker on iOS. Restore selects only for keyboard navigation; text
+      // fields still retain their caret while typing or composing.
+      if(focused?.isConnected && (focused.tagName !== 'SELECT' || keyboardInteraction)) focused.focus({preventScroll:true});
+      if(placeFocus && keyboardInteraction) results.querySelector(`.place-tools [name=${placeFocus}]`)?.focus({preventScroll:true});
       if(historyMode==='push') history.pushState(null,'',url);
       else if(historyMode!=='none') history.replaceState(null, '', url);
       document.title = page.title;

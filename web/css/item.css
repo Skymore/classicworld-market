@@ -34,6 +34,12 @@ html[data-device=desktop] .well:not(.all) .xd,
 /* ---------- where to buy ---------- */
 .where-well .sortb{cursor:default}
 .where-well [data-offer-sort]{min-height:36px;max-width:100%;font:inherit;padding:4px 6px;border:1px solid var(--edge);background:var(--sheet);color:var(--ink);cursor:pointer}
+.offer-filters{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:8px 10px;border-bottom:1px solid var(--rule)}
+.offer-filters label{display:flex;align-items:center;gap:8px;min-width:0;font-size:13px;color:var(--ink-2)}
+.offer-filters select{min-height:36px;max-width:100%;padding:4px 6px;font:inherit;border:1px solid var(--edge);background:var(--sheet);color:var(--ink);cursor:pointer}
+.offer-filters small{font-size:12px;color:var(--ink-3);overflow-wrap:anywhere}
+.offer-empty{padding:12px 10px}
+@media(max-width:480px){.offer-filters small{flex-basis:100%}.where-well .well-h{flex-wrap:wrap;padding:6px 10px}.where-well .well-h h3{flex-shrink:0}}
 .lrow .lshop{min-width:0}
 .where-well.recent-order .lrow{grid-template-columns:minmax(0,1fr) auto 80px 48px 90px}
 @media(max-width:640px){

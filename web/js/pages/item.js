@@ -1,6 +1,7 @@
 import { ready as userDataReady, userStorage as localStorage } from '../lib/user-data.js';
 import { refreshTimes } from '../lib/time.js';
-import { applyOfferSort } from '../lib/item-offer-sort.js?v=20261023-item-sort-2';
+import { applyOfferSort } from '../lib/item-offer-sort.js?v=20261023-offer-filters-1';
+import { normalizeOfferFilters } from '../lib/item-offer-filters.js?v=20261023-offer-filters-1';
 import { bindTrends } from '../lib/trend.js?v=20261021-trend-values-2';
 import { readPeriod, resolvePeriod, decoratePeriod, automaticPeriod, savePeriod } from '../lib/period.js?v=20261022-regressions-1';
 // Item page behaviour on top of the server-rendered markup: tabs, channel
@@ -28,11 +29,28 @@ async function init(stall) {
   // sorting handler is still waiting for that request.
   const state = { tab: 'ladder', channels: new Map(), tier: null, more: new Set(), bonusOnly: false };
   try{state.offerSort=localStorage.getItem('market.offerSort')==='recent'?'recent':'price';}catch{state.offerSort='price';}
-  applyOfferSort(stall,state.offerSort);
-  stall.addEventListener('change',e=>{if(e.target.matches('[data-offer-sort]')){state.offerSort=e.target.value==='recent'?'recent':'price';try{localStorage.setItem('market.offerSort',state.offerSort);}catch{}applyOfferSort(stall,state.offerSort);}});
+  try { state.offerFilters = normalizeOfferFilters(JSON.parse(localStorage.getItem('market.offerFilters'))); }
+  catch { state.offerFilters = normalizeOfferFilters(); }
+  const applyOffers = () => applyOfferSort(stall, state.offerSort, state.offerFilters);
+  applyOffers();
+  stall.addEventListener('change', e => {
+    if (e.target.matches('[data-offer-sort]')) state.offerSort = e.target.value === 'recent' ? 'recent' : 'price';
+    else if (e.target.matches('[data-offer-hours]')) state.offerFilters.hours = e.target.value;
+    else if (e.target.matches('[data-offer-percentile]')) state.offerFilters.percentile = e.target.value;
+    else return;
+    try {
+      localStorage.setItem('market.offerSort', state.offerSort);
+      localStorage.setItem('market.offerFilters', JSON.stringify(state.offerFilters));
+    } catch { /* private mode */ }
+    applyOffers();
+  });
   // Browser form restoration must not leave the selected label and DOM order
   // disagreeing after back/forward navigation.
-  addEventListener('pageshow',()=>applyOfferSort(stall,state.offerSort));
+  addEventListener('pageshow', applyOffers);
+  // A quotation can age out even when the market sends no new data.
+  setInterval(() => {
+    if (!document.hidden && state.offerSort === 'price' && state.offerFilters.hours !== 'all') applyOffers();
+  }, 30000);
   const period = await resolvePeriod();
   const url = new URL(location.href);
   if (url.searchParams.get('hours') !== period) {
@@ -50,7 +68,7 @@ async function init(stall) {
   });
   // Refresh the stylesheet once for browsers retaining the previous layout.
   const css = document.querySelector('link[href*="/web/css/item.css"]');
-  if(css) { const href=new URL(css.href); if(href.searchParams.get('v')!=='20261023-item-sort-2') { href.searchParams.set('v','20261023-item-sort-2'); css.href=href.href; } }
+  if(css) { const href=new URL(css.href); if(href.searchParams.get('v')!=='20261023-offer-filters-1') { href.searchParams.set('v','20261023-offer-filters-1'); css.href=href.href; } }
   const id = Number(stall.dataset.item);
   // What the visitor opened or picked; re-applied after every swap.
   let mark = null, refreshing = false;
@@ -172,7 +190,6 @@ function applyBonus(stall, on) {
 }
 
 function restore(stall, state) {
-  applyOfferSort(stall,state.offerSort);
   if (state.tab !== 'ladder') selectTab(stall, state.tab, state);
   for (const [key, open] of state.channels) {
     const group = stall.querySelector(`.cgroup[data-ch-key="${CSS.escape(key)}"]`);
@@ -180,6 +197,7 @@ function restore(stall, state) {
     group.classList.toggle('open', open);
     group.querySelector('[data-ch]')?.setAttribute('aria-expanded', String(open));
   }
+  applyOfferSort(stall,state.offerSort,state.offerFilters);
   if (state.tier != null) selectTier(stall.querySelector('[data-pane=ladder]'), state.tier);
   for (const key of state.more) {
     for (const btn of stall.querySelectorAll(`[data-more="${key}"]`)) btn.closest('.well')?.classList.add('all');

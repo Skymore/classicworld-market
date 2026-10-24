@@ -8,7 +8,7 @@ import { bindQuickSearch } from '../lib/quick-search.js?v=20261023-header-icons-
 // default); this corrects the layout from the viewport, applies the theme,
 // and keeps the language the same as on the SPA pages.
 import { lang as chosenLang, setLang } from '../lib/i18n.js';
-import { bindLiveSearch } from '../lib/live-search.js?v=20261022-regressions-1';
+import { bindLiveSearch } from '../lib/live-search.js?v=20261024-select-focus-1';
 import { bindLocalNavigation } from '../lib/local-nav.js?v=20261023-header-icons-2';
 
 const html = document.documentElement;
