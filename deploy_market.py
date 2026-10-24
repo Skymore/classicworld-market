@@ -1,6 +1,7 @@
 """Build immutable site bundles and deploy CI artifacts through the local supervisor."""
 import argparse
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -8,6 +9,7 @@ import re
 import shutil
 import socket
 import subprocess
+import tarfile
 import time
 import urllib.request
 from urllib.parse import unquote, urlsplit
@@ -163,6 +165,32 @@ def wait_for_release(root, commit, timeout=75):
     raise RuntimeError("Supervisor did not activate a healthy release")
 
 
+def verify_git_web_sources(root, release, commit, manifest):
+    """A real commit label must describe the web files actually being served."""
+    files = [name for name in manifest.get("files", {})
+             if name.startswith("web/") and not name.endswith(".gz")]
+    if not files:
+        return
+    archive = subprocess.check_output(["git", "archive", commit, "web"], cwd=root)
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tree:
+        for name in files:
+            try:
+                entry = tree.getmember(name)
+            except KeyError:
+                raise RuntimeError(f"Release web file is not recorded in main: {name}") from None
+            if not entry.isfile():
+                raise RuntimeError(f"Release web file is not a recorded regular file: {name}")
+            expected = tree.extractfile(entry).read()
+            actual = (release / name).read_bytes()
+            # Checkout line endings may differ on Windows. Binary files and
+            # all other content must still match exactly.
+            if b"\0" not in expected:
+                expected = expected.replace(b"\r\n", b"\n")
+                actual = actual.replace(b"\r\n", b"\n")
+            if expected != actual:
+                raise RuntimeError(f"Release web file differs from main: {name}")
+
+
 def verify_activation_source(root, commit, previous_commit):
     """Local overlay releases must include the active, recorded source revision."""
     manifest = root / "shared_data/deploy/releases" / commit / "manifest.json"
@@ -192,6 +220,7 @@ def verify_activation_source(root, commit, previous_commit):
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if included.returncode:
             raise RuntimeError("Release source omits the active version; merge current production changes first")
+    verify_git_web_sources(root, manifest.parent, commit, metadata)
 
 
 def activate(root, commit):
