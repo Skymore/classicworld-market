@@ -1,10 +1,18 @@
 {
-  "_dialog-DoGVhBLj.js": {
-    "file": "chunks/dialog-DoGVhBLj.js",
+  "_createLucideIcon-AGXdf3oX.js": {
+    "file": "chunks/createLucideIcon-AGXdf3oX.js",
+    "name": "createLucideIcon",
+    "imports": [
+      "_shared-CXQsMgcK.js"
+    ]
+  },
+  "_dialog-CWrWs_YP.js": {
+    "file": "chunks/dialog-CWrWs_YP.js",
     "name": "dialog",
     "imports": [
       "_shared-CXQsMgcK.js",
       "_react-dom-7gUpOk10.js",
+      "_createLucideIcon-AGXdf3oX.js",
       "_dist-BVr0bBTW.js"
     ]
   },
@@ -39,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-BXR5eKjG.js": {
-    "file": "chunks/main-BXR5eKjG.js",
+  "_main-DpxG9i_c.js": {
+    "file": "chunks/main-DpxG9i_c.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -62,6 +70,13 @@
       "src/pages/prices.tsx",
       "src/pages/account.tsx",
       "src/pages/contributors.tsx"
+    ]
+  },
+  "_pencil-BREOhejf.js": {
+    "file": "chunks/pencil-BREOhejf.js",
+    "name": "pencil",
+    "imports": [
+      "_createLucideIcon-AGXdf3oX.js"
     ]
   },
   "_react-dom-7gUpOk10.js": {
@@ -104,27 +119,31 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BXR5eKjG.js"
+      "_main-DpxG9i_c.js"
     ]
   },
   "src/pages/account.tsx": {
-    "file": "chunks/account-BDGqZFDW.js",
+    "file": "chunks/account-VDETOrMg.js",
     "name": "account",
     "src": "src/pages/account.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shared-CXQsMgcK.js",
-      "_shell-DmaT9iF5.js"
+      "_shell-DmaT9iF5.js",
+      "_createLucideIcon-AGXdf3oX.js",
+      "_pencil-BREOhejf.js"
     ]
   },
   "src/pages/agent.tsx": {
-    "file": "chunks/agent-lw97eT97.js",
+    "file": "chunks/agent-cP7__QXD.js",
     "name": "agent",
     "src": "src/pages/agent.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shared-CXQsMgcK.js",
-      "_dialog-DoGVhBLj.js"
+      "_dialog-CWrWs_YP.js",
+      "_createLucideIcon-AGXdf3oX.js",
+      "_pencil-BREOhejf.js"
     ]
   },
   "src/pages/alerts.tsx": {
@@ -193,14 +212,14 @@
     ]
   },
   "src/pages/prices.tsx": {
-    "file": "chunks/prices-XgQF1BNl.js",
+    "file": "chunks/prices-C4RCD_OH.js",
     "name": "prices",
     "src": "src/pages/prices.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shared-CXQsMgcK.js",
       "_react-dom-7gUpOk10.js",
-      "_dialog-DoGVhBLj.js",
+      "_dialog-CWrWs_YP.js",
       "_shell-DmaT9iF5.js",
       "_dist-BVr0bBTW.js",
       "_list-rows-BizUSxGT.js",
@@ -247,7 +266,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BXR5eKjG.js"
+      "_main-DpxG9i_c.js"
     ]
   },
   "style.css": {

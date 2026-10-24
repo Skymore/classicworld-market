@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+import { ChevronDown, Cloud, ShieldCheck } from "lucide-react";
 import {
   subscribeSync,
   getSyncState,
@@ -22,6 +29,41 @@ export interface AccessProps {
   refresh(broadcast?: boolean): Promise<void>;
   message(code: string): string;
   recover(code: string | null): void;
+}
+export function AccountSetting({
+  icon,
+  title,
+  meta,
+  children,
+  attention = false,
+  name,
+}: {
+  icon: ReactNode;
+  title: string;
+  meta: ReactNode;
+  children: ReactNode;
+  attention?: boolean;
+  name: string;
+}) {
+  const details = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (attention && details.current) details.current.open = true;
+  }, [attention]);
+  return (
+    <details className="account-setting" ref={details} data-setting={name}>
+      <summary>
+        <span className="account-setting-icon" aria-hidden="true">
+          {icon}
+        </span>
+        <span className="account-setting-title">
+          {title}
+          <small>{meta}</small>
+        </span>
+        <ChevronDown size={16} className="account-chevron" aria-hidden="true" />
+      </summary>
+      <div className="account-setting-content">{children}</div>
+    </details>
+  );
 }
 export function AuthForm({ post, refresh, message, recover }: AccessProps) {
   const words = useWords();
@@ -255,15 +297,26 @@ export function SyncPanel({ message }: Pick<AccessProps, "message">) {
   }
   const text = labels[state.status] || labels.offline;
   return (
-    <section className="well account-help">
-      <h3>{words("云端同步", "Cloud sync")}</h3>
-      <p data-sync-status role="status">
-        {words(text[0], text[1])}
-      </p>
-      <p>
+    <AccountSetting
+      name="sync"
+      icon={<Cloud size={20} />}
+      title={words("云端同步", "Cloud sync")}
+      meta={
+        <span data-sync-status role="status" data-state={state.status}>
+          {words(text[0], text[1])}
+        </span>
+      }
+      attention={
+        Boolean(error || state.conflicts || guestImportAvailable()) ||
+        ["offline", "login_required", "watch_limit", "memory_only"].includes(
+          state.status,
+        )
+      }
+    >
+      <p className="account-hint">
         {words(
-          "关注商品、目标价、提醒开关和常用偏好跟随账号保存。未同步的修改留在本机，下次登录此账号后继续。",
-          "Watches, target prices, alert switches and preferences follow your account. Pending edits stay on this device.",
+          "关注、目标价与偏好自动同步。未上传的修改保留在本机。",
+          "Watches, target prices and preferences sync automatically. Pending edits stay on this device.",
         )}
       </p>
       <div className="account-actions">
@@ -306,7 +359,7 @@ export function SyncPanel({ message }: Pick<AccessProps, "message">) {
       <p data-sync-error role="alert">
         {error}
       </p>
-    </section>
+    </AccountSetting>
   );
 }
 export function SecurityPanel({
@@ -362,9 +415,17 @@ export function SecurityPanel({
     }
   }
   return (
-    <section className="well account-help">
-      <h3>{words("登录与安全", "Sign-in & security")}</h3>
-      <p>
+    <AccountSetting
+      name="security"
+      icon={<ShieldCheck size={20} />}
+      title={words("登录与安全", "Sign-in & security")}
+      meta={
+        profile.has_password
+          ? words("用户名与密码", "Username & password")
+          : words("通过 Google 登录", "Signed in with Google")
+      }
+    >
+      <p className="account-hint">
         {profile.has_password
           ? words("登录用户名：", "Username: ") + profile.username
           : words(
@@ -489,6 +550,6 @@ export function SecurityPanel({
       <p data-security-status role="status">
         {status}
       </p>
-    </section>
+    </AccountSetting>
   );
 }

@@ -7,13 +7,14 @@ import {createRequire} from 'node:module';
 import path from 'node:path';
 const {chromium}=createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE||'playwright');
 const root=path.resolve(fileURLToPath(new URL('..',import.meta.url)));
-const output=path.resolve(root,'../market_data/uiux-review-20261021');await mkdir(output,{recursive:true});
-let profile={},saves=[],claims=0,lastPeriod='',failure=false;
+const output=path.resolve(process.env.ACCOUNT_SCREENSHOT_DIR||path.join(root,'../market_data/account-redesign'));await mkdir(output,{recursive:true});
+let profile={},saves=[],claims=0,lastPeriod='',failure=false,dataFailure=false;
 const json=(res,data,status=200)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
 const streams=new Set();
 const server=createServer(async(req,res)=>{
  const url=new URL(req.url,'http://localhost');
  if(url.pathname==='/api/v1/events'){res.writeHead(200,{'Content-Type':'text/event-stream'});res.write(': ready\n\n');streams.add(res);req.on('close',()=>streams.delete(res));return;}
+ if(url.pathname==='/api/v1/account/data')return json(res,{records:[]},dataFailure?503:200);
  if(req.method==='POST'){
   let raw='';for await(const chunk of req)raw+=chunk;
   if(req.headers['x-csrf-token']!=='fixture-csrf')return json(res,{error:'invalid_request'},403);
@@ -46,7 +47,7 @@ try{
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'login layout overflows');
   await page.screenshot({path:path.join(output,`account-signin-${mobile?'mobile':'desktop'}.png`),fullPage:true});
   profile={mode:'collector',signed_in:true,nickname:'Old',listed:false,csrf:'fixture-csrf',stats:{shops:10,quotes:24},google_enabled:true};
-  await page.reload();await page.locator('[name=nickname]').waitFor();
+  await page.reload();await page.locator('[data-edit-profile]').click();await page.locator('[name=nickname]').waitFor();
   if(mobile){
    for(const width of [320,375,402,430]){
     await page.setViewportSize({width,height:812});
@@ -64,7 +65,40 @@ try{
   failure=true;await page.locator('[name=nickname]').fill('<bad>');await page.locator('form[data-profile] button').click();await page.waitForFunction(()=>document.querySelector('.account-status').textContent.includes('24'));failure=false;
   await page.locator('[name=nickname]').fill('枫叶玩家');await page.locator('[name=listed]').uncheck();await page.locator('form[data-profile] button').click();await page.waitForFunction(()=>!document.querySelector('form[data-profile] button').disabled);assert.equal(saves.at(-1).listed,false);
   await page.screenshot({path:path.join(output,`contributor-profile-${mobile?'mobile':'desktop'}.png`),fullPage:true});
-  profile={...profile,mode:undefined,collectors:0};const before=claims;
+  profile={...profile,mode:undefined,public_id:'fixture-user',nickname:'朝气蓬勃的冰独眼兽',temporary:true,google_linked:true,collectors:0};
+  await page.goto(origin+'/account?lang='+lang);await page.locator('[data-sync-status][data-state=synced]').waitFor();
+  assert.equal(await page.locator('[data-edit-profile]').getAttribute('aria-expanded'),'false');
+  assert.equal(await page.locator('.account-setting[open]').count(),0,'routine settings start folded');
+  assert.equal(await page.locator('[name=nickname]').isVisible(),false);
+  assert.match(await page.locator('.account-name h2').textContent(),/朝气蓬勃/);
+  if(mobile){
+   for(const width of [320,375,402,430]){
+    await page.setViewportSize({width,height:812});
+    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`profile overflow at ${width}`);
+    assert(await page.locator('.account-footer').evaluate(el=>el.getBoundingClientRect().bottom<=document.querySelector('.dock').getBoundingClientRect().top),'the compact overview fits above mobile navigation');
+   }
+   await page.setViewportSize({width:390,height:844});
+  }
+  await page.screenshot({path:path.join(output,`account-overview-${mobile?'mobile':'desktop'}.png`),fullPage:true});
+  await page.locator('[data-theme-toggle]:visible').click();
+  await page.screenshot({path:path.join(output,`account-overview-${mobile?'mobile':'desktop'}-dark.png`),fullPage:true});
+  await page.locator('[data-theme-toggle]:visible').click();
+  await page.locator('[data-edit-profile]').click();await page.locator('[name=nickname]').fill('Unsaved');await page.locator('[name=listed]').check();
+  await page.locator('[data-edit-profile]').click();await page.locator('[data-edit-profile]').click();
+  assert.equal(await page.locator('[name=nickname]').inputValue(),profile.nickname,'closing the editor discards the draft');
+  assert.equal(await page.locator('[name=listed]').isChecked(),false);
+  assert.equal(await page.locator('[name=nickname]').evaluate(el=>getComputedStyle(el).fontSize),'16px');
+  await page.screenshot({path:path.join(output,`account-edit-${mobile?'mobile':'desktop'}.png`),fullPage:true});
+  await page.locator('[data-edit-profile]').click();
+  await page.locator('[data-setting=security]>summary').click();
+  await page.locator('[data-setting=security] details>summary').click();
+  await page.locator('[data-password] input[name=username]').fill('maple_user');
+  assert.equal(await page.locator('[data-password] input[name=password]').isVisible(),true,'password setup remains reachable');
+  await page.locator('[data-setting=security]>summary').click();
+  dataFailure=true;await page.reload();await page.locator('[data-sync-status][data-state=offline]').waitFor();
+  assert.equal(await page.locator('[data-setting=sync]').getAttribute('open'),'','sync failures expand their recovery controls');
+  dataFailure=false;await page.locator('[data-sync-now]').click();await page.locator('[data-sync-status][data-state=synced]').waitFor();
+  const before=claims;
   await page.goto(origin+'/account?link='+'x'.repeat(43)+'&lang='+lang);await page.locator('[data-claim]').click();await page.locator('[data-claim]').waitFor({state:'detached'});assert.equal(claims,before+1);assert(!page.url().includes('link='));
   await page.locator('[data-logout]').click();await page.locator('.google-signin').waitFor();assert.equal(await page.locator('.account-link:visible').getAttribute('aria-label'),mobile?'登录账号':'Sign in to your account');
   await page.goto(origin+'/contributors?lang='+lang);await page.locator('.board-row').first().waitFor();assert.equal(lastPeriod,'week');
