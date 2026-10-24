@@ -106,6 +106,8 @@ pub fn layout(ctx: &Ctx, page: &Page<'_>, body: Markup) -> Markup {
                 meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover";
                 meta name="color-scheme" content="light dark";
                 meta name="theme-color" content="#3b5f8a";
+                // Blocking initialization must run before CSS and deferred modules.
+                script src="/web/js/lib/boot.js" {}
                 title { (page.title) " · " (brand) }
                 link rel="stylesheet" href="/web/css/base.css?v=20261024-accounts-1";
                 @for name in page.css {
@@ -480,6 +482,28 @@ mod tests {
         assert_eq!(Device::from_mobile_hint(Some("?0")), Device::Desktop);
         assert_eq!(Device::from_mobile_hint(Some("?1")), Device::Phone);
         assert_eq!(Device::from_mobile_hint(None), Device::Phone);
+    }
+
+    #[test]
+    fn theme_is_initialized_before_styles_and_page_modules() {
+        let rendered = layout(
+            &Ctx::default(),
+            &Page {
+                title: "Theme test",
+                nav: Nav::Dex,
+                css: &["dex"],
+                scripts: &[],
+                fresh: None,
+                query: "",
+            },
+            html! { p { "Page content" } },
+        )
+        .into_string();
+        let boot = rendered
+            .find(r#"<script src="/web/js/lib/boot.js"></script>"#)
+            .expect("parser-blocking theme initialization");
+        assert!(boot < rendered.find(r#"rel="stylesheet""#).unwrap());
+        assert!(boot < rendered.find(r#"type="module""#).unwrap());
     }
 
     #[test]

@@ -1,12 +1,17 @@
 // Classic (blocking) script in <head>: sets theme, device and language on
 // <html> before the first paint, so a dark-theme visitor never sees a light
 // flash. CSP forbids inline scripts, hence a file. app.js repeats the same
-// logic for later changes; SSR pages may include this file too.
+// logic for later changes; every page shell includes this file.
 (function () {
   var html = document.documentElement;
   var query = new URLSearchParams(location.search);
   var read = function (key) { try { return localStorage.getItem(key); } catch (e) { return null; } };
-  var theme = query.get('theme') || read('theme');
+  var asked = query.get('theme');
+  var theme = asked === 'dark' || asked === 'light' ? asked : read('theme');
+  // Remember shared-link choices before navigating to a page without ?theme=.
+  if (asked === 'dark' || asked === 'light') {
+    try { localStorage.setItem('theme', asked); } catch (e) { /* private mode */ }
+  }
   if (theme !== 'dark' && theme !== 'light') theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   html.dataset.theme = theme;
   var w = innerWidth;

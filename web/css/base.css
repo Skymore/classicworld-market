@@ -4,7 +4,7 @@
    页面私有样式放 web/css/<page>.css，不要在这里加页面专用规则。 */
 /* ---------- tokens: 白天 = 自由市场商店窗口，夜间 = 夜市 ---------- */
 :root{
-  --page:#e6e1d6; --mortar:rgba(84,64,36,.075); --page-glow:rgba(255,255,255,.35);
+  color-scheme:light;  --page:#e6e1d6; --mortar:rgba(84,64,36,.075); --page-glow:rgba(255,255,255,.35);
   --sheet:#f3e7c9; --sheet-hi:#fbf4e2; --sheet-lo:#e7d7b0; --rule:#dccba2;
   --edge:#2e2a24; --bevel-hi:#fffaf0; --bevel-lo:#cdb98c;
   --bar:#3b5f8a; --bar-hi:#5a80ac; --bar-lo:#29466a; --bar-ink:#fff; --bar-soft:#dbe4ef; --bar-text:#2f527c; --mark:#3b5f8a;
@@ -17,6 +17,7 @@
   --dock-h:60px; --gap:12px;
 }
 html[data-theme=dark]{
+  color-scheme:dark;
   --page:#141922; --mortar:rgba(255,255,255,.035); --page-glow:rgba(59,95,138,.12);
   --sheet:#232b38; --sheet-hi:#2b3545; --sheet-lo:#1b222d; --rule:#354153;
   --edge:#06080c; --bevel-hi:#36435a; --bevel-lo:#10151d;
@@ -29,7 +30,7 @@ html[data-theme=dark]{
   --hard:0 2px 0 rgba(0,0,0,.55);
 }
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;background-color:var(--page)}
 body{margin:0;color:var(--ink);font:15px/1.45 system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;font-variant-numeric:tabular-nums;
   background-color:var(--page);
   /* 自由市场砖墙：横缝每 22px，竖缝隔行错开半块 */

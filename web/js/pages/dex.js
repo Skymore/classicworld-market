@@ -29,8 +29,10 @@ function syncTheme() {
   let theme = asked === 'dark' || asked === 'light' ? asked : null;
   if (!theme) {
     try { theme = localStorage.getItem('theme'); } catch { /* private mode */ }
+  } else {
+    try { localStorage.setItem('theme', theme); } catch { /* private mode */ }
   }
-  if (!theme) theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  if (theme !== 'dark' && theme !== 'light') theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   html.dataset.theme = theme;
 }
 
