@@ -3,9 +3,10 @@
 // Page modules live in ./pages/<name>.js and export `mount(root, ctx)`
 // returning an optional cleanup function. Shared chrome (top bar, dock) is
 // rendered by ./lib/chrome.js so pages only render their own content.
-import { renderChrome } from './lib/chrome.js?v=20261023-header-icons-2';
-import { lang } from './lib/i18n.js';
-import './lib/item-preview.js?v=20261023-header-icons-2';
+import { renderChrome } from './lib/chrome.js?v=20261024-accounts-1';
+import { lang, setLang } from './lib/i18n.js';
+import { ready as userDataReady, userStorage as localStorage } from './lib/user-data.js';
+import './lib/item-preview.js?v=20261024-accounts-1';
 
 // path prefix -> page module. Order matters: first match wins.
 const PAGES = [
@@ -39,7 +40,7 @@ const PAGE_CSS = { privacy:'account', account:'account', contributors:'account',
 function pageCss(name) {
   const file = PAGE_CSS[name];
   if (!file) return Promise.resolve();
-  const href = `/web/css/${file}.css?v=20261023-watch-cap-1`;
+  const href = `/web/css/${file}.css?v=20261024-accounts-1`;
   const existing = document.querySelector(`link[rel=stylesheet][href="${href}"]`);
   if (existing) return existing.sheet || existing.dataset.loaded ? Promise.resolve() : new Promise((done) => {existing.addEventListener('load', done, { once: true });existing.addEventListener('error',done,{once:true});});
   const link = document.createElement('link');
@@ -77,7 +78,7 @@ let generation = 0;
 const prepared=new Map();
 function preparePage(name) {
   if(!prepared.has(name)) prepared.set(name,Promise.all([
-    import(`./pages/${name}.js?v=20261023-header-icons-2`),pageCss(name),
+    import(`./pages/${name}.js?v=20261024-accounts-1`),pageCss(name),
   ]).catch(error=>{prepared.delete(name);throw error;}));
   return prepared.get(name);
 }
@@ -117,6 +118,16 @@ async function mount() {
   document.documentElement.dataset.ready = '1';
 }
 
+await userDataReady;
+const explicitLanguage=new URLSearchParams(location.search).get('lang');
+if(['zh','en'].includes(explicitLanguage))localStorage.setItem('lang',explicitLanguage);
+function applyUserPreferences(){
+  const preferred=localStorage.getItem('lang');
+  if(['zh','en'].includes(preferred)&&preferred!==lang)setLang(preferred);
+  syncTheme();
+}
+window.addEventListener('user-preferences',applyUserPreferences);
+applyUserPreferences();
 syncDevice();
 syncTheme();
 addEventListener('resize', syncDevice);

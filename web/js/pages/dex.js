@@ -1,3 +1,4 @@
+import { ready as userDataReady, userStorage as localStorage } from '../lib/user-data.js';
 import { bindClock } from '../lib/time.js';
 import '../lib/item-preview.js?v=20261023-header-icons-2';
 import { bindQuickSearch } from '../lib/quick-search.js?v=20261023-header-icons-2';
@@ -71,6 +72,10 @@ function bindChrome() {
   });
 }
 
+await userDataReady;
+if(['zh','en'].includes(params.get('lang')))localStorage.setItem('lang',params.get('lang'));
+const accountLang=localStorage.getItem('lang');
+if(!params.has('lang')&&['en','zh'].includes(accountLang)&&accountLang!==chosenLang)setLang(accountLang);
 syncDevice();
 syncTheme();
 if (!syncLang()) {
@@ -92,3 +97,5 @@ if (!syncLang()) {
   bindClock();
   html.dataset.ready = '1';
 }
+
+window.addEventListener('user-preferences',syncTheme);

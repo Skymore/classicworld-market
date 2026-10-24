@@ -19,6 +19,7 @@ path = "src/main.rs"
 market-core = { path = "../market-core" }
 
 anyhow = { workspace = true }
+argon2 = "0.5.3"
 axum = "0.8"
 base64 = "0.22"
 # zlib-rs: about twice as fast as the default backend; tower-http's gzip uses it too.

@@ -11,7 +11,7 @@ export class ApiError extends Error {
 }
 
 export async function getJson(url, { signal, maxAgeMs = 0, headers: extraHeaders = {} } = {}) {
-  const personal=String(url).includes('/api/v1/collector/')||Boolean(extraHeaders.Authorization);
+  const personal=(String(url).includes('/api/v1/collector/')||String(url).includes('/api/v1/account'))||Boolean(extraHeaders.Authorization);
   const hit = personal?null:cache.get(url);
   if(signal?.aborted) throw signal.reason || new DOMException('Aborted','AbortError');
   if(hit && maxAgeMs>0 && Date.now()-hit.checkedAt<=maxAgeMs) return {data:hit.data,changed:false};

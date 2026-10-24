@@ -1,3 +1,4 @@
+import { userStorage as localStorage } from '../lib/user-data.js';
 import { readPeriod, savePeriod } from '../lib/period.js?v=20261022-regressions-1';
 import { priceUnit } from '../lib/market-source.js?v=20261022-external-1';
 import { itemNames } from '../lib/names.js';

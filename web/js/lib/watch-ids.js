@@ -1,3 +1,4 @@
+import { userStorage as localStorage } from './user-data.js';
 // The watchlist as the pages share it: localStorage `watchlist` = JSON array
 // of item ids. The watch page keeps caps and alert switches elsewhere
 // (`watchlist_settings`); this module only adds and removes ids.
@@ -21,6 +22,7 @@ export function isWatched(id) {
 export function toggleWatch(id) {
   const ids = watchIds();
   const on = !ids.includes(id);
+  if(on&&ids.length>=100)return false;
   const next = on ? [...ids, id] : ids.filter((x) => x !== id);
   try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* private mode: state lives until reload */ }
   document.dispatchEvent(new CustomEvent('watchchange', { detail: { id, on, count: next.length } }));

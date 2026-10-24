@@ -18,7 +18,7 @@ use sha2::{Digest, Sha256};
 use sqlx::{FromRow, PgPool};
 use std::{path::Path, time::Duration};
 
-const SESSION: &str = "cwm_account";
+pub(crate) const SESSION: &str = "cwm_account";
 const LOGIN: &str = "cwm_google_state";
 
 #[derive(Deserialize)]
@@ -55,6 +55,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/account", get(me).post(save_account))
         .route("/api/v1/account/logout", post(logout))
         .route("/api/v1/account/link", post(accept_link))
+        .route("/api/v1/account/google/link", post(link_google))
         .route(
             "/api/v1/collector/profile",
             get(collector_profile).post(save_collector),
@@ -63,14 +64,14 @@ pub fn router() -> Router<AppState> {
         .route("/auth/google/start", get(google_start))
         .route("/auth/google/callback", get(google_callback))
 }
-fn error(status: StatusCode, code: &str) -> Response {
+pub(crate) fn error(status: StatusCode, code: &str) -> Response {
     (status, Json(json!({"error":code}))).into_response()
 }
-fn internal(err: impl std::fmt::Display) -> Response {
+pub(crate) fn internal(err: impl std::fmt::Display) -> Response {
     tracing::error!(error=%err,"contributor request failed");
     error(StatusCode::INTERNAL_SERVER_ERROR, "unavailable")
 }
-fn cookie<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
+pub(crate) fn cookie<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
     headers
         .get_all(header::COOKIE)
         .iter()
@@ -79,7 +80,7 @@ fn cookie<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
         .filter_map(|p| p.trim().split_once('='))
         .find_map(|(k, v)| (k == name).then_some(v))
 }
-fn set_cookie(response: &mut Response, name: &str, value: &str, age: u32) {
+pub(crate) fn set_cookie(response: &mut Response, name: &str, value: &str, age: u32) {
     response.headers_mut().append(
         header::SET_COOKIE,
         HeaderValue::from_str(&format!(
@@ -101,26 +102,32 @@ async fn collector(state: &AppState, headers: &HeaderMap) -> Result<auth::Collec
         .map_err(internal)?
         .ok_or_else(|| error(StatusCode::UNAUTHORIZED, "collector_required"))
 }
-fn origin_ok(state: &AppState, headers: &HeaderMap) -> bool {
+pub(crate) fn origin_ok(state: &AppState, headers: &HeaderMap) -> bool {
     headers.get(header::ORIGIN).and_then(|h| h.to_str().ok())
         == Some(format!("https://{}", state.settings.hostname).as_str())
 }
 #[derive(FromRow)]
-struct Session {
-    id: i64,
+pub(crate) struct Session {
+    pub(crate) id: i64,
+    public_id: String,
+    username: Option<String>,
+    google_linked: bool,
     nickname: String,
     listed: bool,
     nickname_temporary: bool,
     csrf: String,
 }
-async fn session(state: &AppState, headers: &HeaderMap) -> Result<Option<Session>, Response> {
+pub(crate) async fn session(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Result<Option<Session>, Response> {
     let Some(token) = cookie(headers, SESSION).filter(|s| s.len() == 43) else {
         return Ok(None);
     };
-    sqlx::query_as("SELECT a.id,a.nickname,a.listed,a.nickname_temporary,s.csrf FROM account_sessions s JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=$1 AND s.expires_at>now()")
+    sqlx::query_as("SELECT a.id,a.public_id,a.nickname,a.listed,a.nickname_temporary,s.csrf,(SELECT username FROM account_passwords WHERE account_id=a.id) AS username,a.google_sub IS NOT NULL AS google_linked FROM account_sessions s JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=$1 AND s.expires_at>now()")
         .bind(auth::token_hash(token)).fetch_optional(&state.db).await.map_err(internal)
 }
-async fn writable(state: &AppState, headers: &HeaderMap) -> Result<Session, Response> {
+pub(crate) async fn writable(state: &AppState, headers: &HeaderMap) -> Result<Session, Response> {
     let s = session(state, headers)
         .await?
         .ok_or_else(|| error(StatusCode::UNAUTHORIZED, "login_required"))?;
@@ -165,7 +172,7 @@ async fn me(State(state): State<AppState>, headers: HeaderMap) -> Response {
         Ok(s) => s,
         Err(e) => return internal(e),
     };
-    Json(json!({"signed_in":true,"nickname":s.nickname,"temporary":s.nickname_temporary,"listed":s.listed,"csrf":s.csrf,"collectors":devices,"stats":stats,"google_enabled":state.google.is_some()})).into_response()
+    Json(json!({"signed_in":true,"public_id":s.public_id,"username":s.username,"has_password":s.username.is_some(),"google_linked":s.google_linked,"nickname":s.nickname,"temporary":s.nickname_temporary,"listed":s.listed,"csrf":s.csrf,"collectors":devices,"stats":stats,"google_enabled":state.google.is_some()})).into_response()
 }
 async fn save_account(
     State(state): State<AppState>,
@@ -263,9 +270,6 @@ async fn create_link(State(state): State<AppState>, headers: HeaderMap) -> Respo
         Ok(c) => c,
         Err(e) => return e,
     };
-    if state.google.is_none() {
-        return error(StatusCode::SERVICE_UNAVAILABLE, "google_unavailable");
-    }
     if !state.limiter.allow(&format!("link:{}", c.id), 5) {
         return error(StatusCode::TOO_MANY_REQUESTS, "rate_limited");
     }
@@ -382,12 +386,38 @@ async fn google_start(
     ClientAddr(addr): ClientAddr,
     Query(q): Query<StartQuery>,
 ) -> Response {
-    let Some(config) = &state.google else {
-        return Redirect::to("/account?error=google_unavailable").into_response();
-    };
     if !state.limiter.allow(&format!("google:{addr}"), 10) {
         return error(StatusCode::TOO_MANY_REQUESTS, "rate_limited");
     }
+    begin_google(&state, q.link, None).await
+}
+async fn link_google(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<crate::accounts::Sensitive>,
+) -> Response {
+    let s = match crate::accounts::sensitive(&state, &headers, &input.current_password).await {
+        Ok(s) => s,
+        Err(e) => return e,
+    };
+    if state.google.is_none() {
+        return error(StatusCode::SERVICE_UNAVAILABLE, "google_unavailable");
+    }
+    begin_google(
+        &state,
+        None,
+        Some((s.id, auth::token_hash(cookie(&headers, SESSION).unwrap()))),
+    )
+    .await
+}
+async fn begin_google(
+    state: &AppState,
+    link: Option<String>,
+    binding: Option<(i64, Vec<u8>)>,
+) -> Response {
+    let Some(config) = &state.google else {
+        return Redirect::to("/account?error=google_unavailable").into_response();
+    };
     let state_token = auth::new_credentials().token;
     if let Err(e) = sqlx::query("DELETE FROM google_login_states WHERE expires_at<now()")
         .execute(&state.db)
@@ -398,13 +428,13 @@ async fn google_start(
     let browser = auth::new_credentials().token;
     let nonce = auth::new_credentials().token;
     let verifier = auth::new_credentials().token;
-    let link = q.link.filter(|s| {
+    let link = link.filter(|s| {
         s.len() == 43
             && s.bytes()
                 .all(|c| c.is_ascii_alphanumeric() || b"_-".contains(&c))
     });
-    if let Err(e)=sqlx::query("INSERT INTO google_login_states(state_hash,browser_hash,nonce,verifier,link_code,expires_at) VALUES($1,$2,$3,$4,$5,now()+interval '10 minutes')")
-        .bind(auth::token_hash(&state_token)).bind(auth::token_hash(&browser)).bind(&nonce).bind(&verifier).bind(link).execute(&state.db).await{return internal(e)}
+    if let Err(e)=sqlx::query("INSERT INTO google_login_states(state_hash,browser_hash,nonce,verifier,link_code,expires_at,account_id,session_hash) VALUES($1,$2,$3,$4,$5,now()+interval '10 minutes',$6,$7)")
+        .bind(auth::token_hash(&state_token)).bind(auth::token_hash(&browser)).bind(&nonce).bind(&verifier).bind(link).bind(binding.as_ref().map(|b|b.0)).bind(binding.as_ref().map(|b|&b.1)).execute(&state.db).await{return internal(e)}
     let mut url = url::Url::parse("https://accounts.google.com/o/oauth2/v2/auth").unwrap();
     url.query_pairs_mut().extend_pairs([
         ("client_id", config.client_id.as_str()),
@@ -420,7 +450,15 @@ async fn google_start(
                 .encode(Sha256::digest(verifier.as_bytes())),
         ),
     ]);
-    let mut response = Redirect::to(url.as_str()).into_response();
+    if binding.is_some() {
+        url.query_pairs_mut()
+            .append_pair("prompt", "select_account");
+    }
+    let mut response = if binding.is_some() {
+        Json(json!({"url":url.as_str()})).into_response()
+    } else {
+        Redirect::to(url.as_str()).into_response()
+    };
     set_cookie(&mut response, LOGIN, &browser, 600);
     response
 }
@@ -434,6 +472,8 @@ struct LoginState {
     nonce: String,
     verifier: String,
     link_code: Option<String>,
+    account_id: Option<i64>,
+    session_hash: Option<Vec<u8>>,
 }
 #[derive(Deserialize)]
 struct GoogleClaims {
@@ -528,27 +568,114 @@ async fn google_callback(
     if code.len() > 4096 || token.len() != 43 || browser.len() != 43 {
         return fail();
     }
-    let login:Option<LoginState>=match sqlx::query_as("DELETE FROM google_login_states WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING nonce,verifier,link_code")
+    let login:Option<LoginState>=match sqlx::query_as("DELETE FROM google_login_states WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING nonce,verifier,link_code,account_id,session_hash")
         .bind(auth::token_hash(&token)).bind(auth::token_hash(browser)).fetch_optional(&state.db).await{Ok(s)=>s,Err(e)=>return internal(e)};
     let Some(login) = login else { return fail() };
+    if let Some(account) = login.account_id {
+        let Some(token) = cookie(&headers, SESSION) else {
+            return fail();
+        };
+        if login.session_hash.as_deref() != Some(auth::token_hash(token).as_slice()) {
+            return fail();
+        }
+        match session(&state, &headers).await {
+            Ok(Some(s)) if s.id == account => {}
+            _ => return fail(),
+        }
+    }
     let subject = match google_identity(config, &code, &login).await {
         Ok(s) => s,
         Err(_) => return fail(),
     };
-    let credentials = auth::new_credentials();
-    let account:i64=match sqlx::query_scalar("INSERT INTO accounts(public_id,google_sub) VALUES($1,$2) ON CONFLICT(google_sub) DO UPDATE SET google_sub=excluded.google_sub RETURNING id")
-        .bind(credentials.public_id).bind(subject).fetch_one(&state.db).await{Ok(a)=>a,Err(e)=>return internal(e)};
-    if let Err(e) = new_session(&state.db, account, &credentials.token).await {
-        return internal(e);
-    }
+    let account = match google_account(
+        &state.db,
+        &subject,
+        login.account_id.zip(login.session_hash),
+    )
+    .await
+    {
+        Ok(a) => a,
+        Err(e) => return e,
+    };
     let target = login
         .link_code
         .map(|c| format!("/account?link={c}"))
         .unwrap_or_else(|| "/account".into());
-    let mut response = Redirect::to(&target).into_response();
+    let mut response = crate::accounts::signed_in(
+        &state,
+        &headers,
+        account,
+        crate::accounts::Proof::Google(subject),
+        Redirect::to(&target).into_response(),
+    )
+    .await;
     set_cookie(&mut response, LOGIN, "", 0);
-    set_cookie(&mut response, SESSION, &credentials.token, 90 * 86400);
     response
+}
+/// Resolve only a cryptographically verified Google subject. Binding callers
+/// must have already verified the existing session and its single-use state.
+pub async fn google_account(
+    db: &PgPool,
+    subject: &str,
+    binding: Option<(i64, Vec<u8>)>,
+) -> Result<i64, Response> {
+    let mut tx = db.begin().await.map_err(internal)?;
+    let account = if let Some((account, session_hash)) = binding {
+        let existing: Option<String> =
+            sqlx::query_scalar("SELECT google_sub FROM accounts WHERE id=$1 FOR UPDATE")
+                .bind(account)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(internal)?;
+        let active:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM account_sessions WHERE account_id=$1 AND token_hash=$2 AND expires_at>now())")
+            .bind(account).bind(session_hash).fetch_one(&mut *tx).await.map_err(internal)?;
+        if !active {
+            return Err(Redirect::to("/account?error=reauth_required").into_response());
+        }
+        if existing.as_deref().is_some_and(|s| s != subject) {
+            return Err(Redirect::to("/account?error=google_already_linked").into_response());
+        }
+        let owner: Option<i64> = sqlx::query_scalar(
+            "SELECT account_id FROM account_identities WHERE provider='google' AND subject=$1",
+        )
+        .bind(subject)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(internal)?;
+        if owner.is_some_and(|id| id != account) {
+            return Err(Redirect::to("/account?error=google_already_linked").into_response());
+        }
+        if let Err(e) = sqlx::query("UPDATE accounts SET google_sub=$2 WHERE id=$1")
+            .bind(account)
+            .bind(subject)
+            .execute(&mut *tx)
+            .await
+        {
+            if e.as_database_error()
+                .is_some_and(|e| e.is_unique_violation())
+            {
+                return Err(Redirect::to("/account?error=google_already_linked").into_response());
+            }
+            return Err(internal(e));
+        }
+        account
+    } else {
+        sqlx::query_scalar("INSERT INTO accounts(public_id,google_sub,listed) VALUES($1,$2,false) ON CONFLICT(google_sub) DO UPDATE SET google_sub=excluded.google_sub RETURNING id")
+            .bind(auth::new_credentials().public_id).bind(subject).fetch_one(&mut *tx).await.map_err(internal)?
+    };
+    sqlx::query("INSERT INTO account_identities(account_id,provider,subject) VALUES($1,'google',$2) ON CONFLICT DO NOTHING").bind(account).bind(subject).execute(&mut *tx).await.map_err(internal)?;
+    let owner: i64 = sqlx::query_scalar(
+        "SELECT account_id FROM account_identities WHERE provider='google' AND subject=$1",
+    )
+    .bind(subject)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(internal)?;
+    if owner != account {
+        return Err(Redirect::to("/account?error=google_already_linked").into_response());
+    }
+    tx.commit().await.map_err(internal)?;
+    Ok(account)
 }
 pub async fn new_session(db: &PgPool, account: i64, token: &str) -> sqlx::Result<()> {
     sqlx::query("DELETE FROM account_sessions WHERE expires_at<now()")

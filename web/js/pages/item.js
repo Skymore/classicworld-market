@@ -1,3 +1,4 @@
+import { ready as userDataReady, userStorage as localStorage } from '../lib/user-data.js';
 import { refreshTimes } from '../lib/time.js';
 import { applyOfferSort } from '../lib/item-offer-sort.js?v=20261023-item-sort-2';
 import { bindTrends } from '../lib/trend.js?v=20261021-trend-values-2';
@@ -21,6 +22,7 @@ const stall = document.querySelector('.item-stall');
 if (stall) init(stall);
 
 async function init(stall) {
+  await userDataReady;
   // Bind the visible control immediately; resolving the statistics period may
   // involve a network request. A native select must never look active while its
   // sorting handler is still waiting for that request.
@@ -205,6 +207,7 @@ function bindStar(btn, id) {
   const show = () => btn.setAttribute('aria-pressed', String(readWatchlist().some((w) => isEntry(w, id))));
   btn.addEventListener('click', () => {
     const list = readWatchlist();
+    if(list.length>=100&&!list.some(w=>isEntry(w,id))){btn.title=document.documentElement.lang.startsWith('zh')?'最多关注 100 个商品':'Up to 100 watches';return;}
     const next = list.some((w) => isEntry(w, id)) ? list.filter((w) => !isEntry(w, id)) : [...list, id];
     try { localStorage.setItem('watchlist', JSON.stringify(next)); } catch { /* private mode */ }
     show();

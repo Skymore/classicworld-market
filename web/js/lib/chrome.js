@@ -1,3 +1,4 @@
+import { userStorage as localStorage } from './user-data.js';
 import { bindClock } from './time.js';
 import { bindQuickSearch } from './quick-search.js?v=20261023-header-icons-2';
 // Shared chrome and components ported from design/mockups-v2/mock.html.

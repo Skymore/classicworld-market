@@ -229,6 +229,34 @@ Migrations `0017_contributors.sql` and `0018_temporary_nicknames.sql` retain exi
 
 Create a Google OAuth web client with redirect URI `https://mxd.ruit.me/auth/google/callback` (replace the hostname with `PUBLIC_HOSTNAME` for another deployment). The application requests only `openid`. Store `client_id`, `client_secret`, and `redirect_uri` in a private JSON file and set `GOOGLE_OAUTH_CONFIG` to its absolute path. When `WEB_DIR` is set, the fallback is `../shared_data/google-oauth.json` relative to that directory. Keep this file out of Git, logs, and release archives. Restart `market-web` after changing the configuration. Without it, nickname profiles and the leaderboard work; the account page clearly says Google sign-in is unavailable.
 
-The callback verifies the Google signature, issuer, audience, expiry and nonce, and uses PKCE plus a browser-bound single-use state. Account writes require a secure session cookie, matching site Origin and CSRF token. Collector pairing expires after 10 minutes and requires an explicit confirmation in the signed-in website account. Upload credentials are never returned to the browser. The local gateway also requires its own Origin and CSRF token for profile writes. Watch lists remain browser-local in this version.
+The callback verifies the Google signature, issuer, audience, expiry and nonce, and uses PKCE plus a browser-bound single-use state. Account writes require a secure session cookie, matching site Origin and CSRF token. Collector pairing expires after 10 minutes and requires an explicit confirmation in the signed-in website account. Upload credentials are never returned to the browser. The local gateway also requires its own Origin and CSRF token for profile writes. Application accounts and private watch/preference sync are described below.
 
 Run `cargo test -p market-web --test contributors` with `DATABASE_URL` configured for the existing isolated-database test harness. JWT verification tests are in `contributors::tests`; the RSA key in `tests/fixtures/test-only-oidc.pem` is disposable test material, never a production credential. Python gateway tests: `python -m unittest test_contributor_profile test_collector_push`. Browser fixture tests: `node web/tests/contributors.e2e.mjs`.
+
+
+## Application accounts and private synchronization
+
+Migration `0019_application_accounts.sql` preserves all existing account IDs, Google subjects, collectors and contribution history. `account_identities` stores Google bindings; the nullable legacy `accounts.google_sub` column is mirrored for rollback compatibility. Application users can register a case-insensitive 3–32 character username and a 15–128 character password. Nicknames are separate from login usernames. New accounts do not join the contributor board until opted in.
+
+Passwords use salted Argon2id PHC hashes (19 MiB, 2 iterations, 1 lane). Password hashing runs off the HTTP executor with a bounded global concurrency limit. Registration/login/recovery enforce the configured public Origin and rate limits; authenticated writes also require the session CSRF token. Sensitive changes require the current password, or a Google-only session authenticated within 15 minutes. Existing sessions are marked as old during the migration. Session creation rechecks its credential under the account lock, preventing password reset or Google unlink races from creating a new session with a revoked credential.
+
+The initial deployment uses one-time recovery codes, without an outbound email dependency. Registration and password changes return a random 256-bit recovery code once; only its SHA256 hash is stored. Recovery consumes the old code, rotates it, and invalidates existing sessions. The account UI offers a deliberate download and never stores recovery codes in localStorage. There is no email-based password recovery in this release.
+
+`POST /api/v1/account/register`, `/login`, `/recover`, `/password`, `/google/link`, `/google/unlink` and `/logout-all` implement the account lifecycle. Google linking requires the current account proof plus a single-use, browser- and session-bound OAuth state. A Google identity already owned by another account cannot be transferred or silently merged. Unlinking the last login method is rejected. Collector pairing works with either login method and does not grant collectors access to account preferences.
+
+`GET /api/v1/account/data` returns the current account's versioned records. `POST` to the same endpoint accepts up to 120 operations `{kind,key,value,version}` atomically. Watches use `kind: watch`, a numeric item ID key and `{cap,notify,position}` values; `null` is a deletion tombstone. Preferences use `kind: pref` and allow only language, theme, the item/watch offer sorts and the explicit market period. Account identity always comes from the session. Version conflicts return 409, and both imports and updates enforce 100 active watches. `POST /api/v1/account/data/import` adds missing guest records; existing cloud records, including tombstones, win.
+
+`web/js/lib/user-data.js` supplies a storage facade to all watch entry points and preference controls. Guest keys remain untouched, while account caches, pending operations and preserved conflicts are namespaced by the server-confirmed public account ID. Logging out restores guest data; switching users never uploads another user's queue. The client retries offline edits, refreshes when visible/online and every 30 seconds, and merges pending operations between tabs. A conflicting remote version is displayed while the local edit is retained for explicit reapplication. Account endpoints are excluded from public API caches. The localhost collector dashboard remains a separate device context; its pairing flow opens the website for account sign-in.
+
+Validation:
+
+```powershell
+# DATABASE_URL must point to the local test-capable PostgreSQL runtime.
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+node --test web/tests/*.test.mjs
+node web/tests/accounts.e2e.mjs
+node web/tests/contributors.e2e.mjs
+```
+
+The PostgreSQL tests create isolated temporary databases. Browser tests use fixture users and never call real Google sign-in. Configure `PLAYWRIGHT_MODULE` and `PLAYWRIGHT_CHANNEL` when using a bundled Playwright installation.

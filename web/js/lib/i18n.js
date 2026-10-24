@@ -1,3 +1,4 @@
+import { userStorage as localStorage } from './user-data.js';
 // Key-based i18n (plan v1 §8.3). Each page registers its own keys with
 // `addMessages` from its own module so parallel work never edits one dictionary.
 const dicts = { zh: {}, en: {} };

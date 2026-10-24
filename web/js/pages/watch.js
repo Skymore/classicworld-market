@@ -1,3 +1,4 @@
+import { subscribeSync, userStorage as localStorage } from '../lib/user-data.js';
 import { itemNames } from '../lib/names.js';
 import { equipmentSummary } from '../lib/equipment-summary.js?v=20261022-1';
 import { sortWatchQuotes } from '../lib/quote-order.js?v=20261023-watch-cap-1';
@@ -216,6 +217,8 @@ export async function mount(main) {
     }catch{}
     history.replaceState(null,'',location.pathname+location.search);
   }
+  const syncNote=document.createElement('p');syncNote.className='watch-sync-note';
+  const stopSync=subscribeSync(state=>{const en=lang==='en';syncNote.replaceChildren(document.createTextNode(state.signed_in?(state.status==='synced'?(en?'Synced to your account':'已同步到账号'):(en?'Changes saved on this device; check sync in My account.':'修改已保存在本机，可在「我的」查看同步状态。')):(en?'Saved in this browser. ':'清单保存在本机。')));const link=document.createElement('a');link.href='/account';link.textContent=state.signed_in?(en?' My account':' 我的'):(en?'Sign in to sync across devices':'登录后跨设备同步');syncNote.append(link);});
   let ids = Core.readList(localStorage);
   let settings = Core.readSettings(localStorage, ids);
   let listings = [];
@@ -371,6 +374,8 @@ export async function mount(main) {
       }});
     }
   }
+
+  main.prepend(syncNote);
 
   function save() {
     Core.saveList(localStorage, ids);
@@ -615,6 +620,6 @@ export async function mount(main) {
     removeEventListener('focus',reconnectPersonal);
     searchGen++;
     clearTimeout(searchTimer);
-    removeEventListener('storage', onStorage);
+    removeEventListener('storage', onStorage);stopSync();
   };
 }

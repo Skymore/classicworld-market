@@ -1,3 +1,4 @@
+import { userStorage as localStorage } from './user-data.js';
 import { lang } from './i18n.js';
 import {getJson} from './api.js?v=20261022-regressions-1';
 const HINT_KEY='market.period-hint.v1', MANUAL_KEY='market.period-manual.v1';

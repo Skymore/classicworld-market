@@ -20,6 +20,7 @@ use tower_http::{
     CompressionLevel, LatencyUnit,
 };
 
+pub mod accounts;
 pub mod alerts;
 pub mod api;
 pub mod auth;
@@ -112,6 +113,7 @@ pub fn app_with_web(state: AppState, web_dir: Option<&std::path::Path>) -> Route
         .route("/api/v1/version", get(version))
         .merge(api_headers(api::router()))
         .merge(api_headers(contributors::router()))
+        .merge(api_headers(accounts::router()))
         .merge(bestiary::routes())
         .layer(SetResponseHeaderLayer::if_not_present(
             header::X_CONTENT_TYPE_OPTIONS,

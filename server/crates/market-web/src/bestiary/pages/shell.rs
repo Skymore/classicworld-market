@@ -107,13 +107,13 @@ pub fn layout(ctx: &Ctx, page: &Page<'_>, body: Markup) -> Markup {
                 meta name="color-scheme" content="light dark";
                 meta name="theme-color" content="#3b5f8a";
                 title { (page.title) " · " (brand) }
-                link rel="stylesheet" href="/web/css/base.css?v=20261023-header-icons-2";
+                link rel="stylesheet" href="/web/css/base.css?v=20261024-accounts-1";
                 @for name in page.css {
                     link rel="stylesheet" href={"/web/css/" (name) ".css?v=20261021-uiux-trend-2"};
                 }
-                script type="module" src="/web/js/pages/dex.js?v=20261023-header-icons-2" {}
+                script type="module" src="/web/js/pages/dex.js?v=20261024-accounts-1" {}
                 @for name in page.scripts {
-                    script type="module" src={"/web/js/pages/" (name) ".js?v=20261023-item-sort-2"} {}
+                    script type="module" src={"/web/js/pages/" (name) ".js?v=20261024-accounts-1"} {}
                 }
             }
             body {
