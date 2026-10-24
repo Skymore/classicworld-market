@@ -11,6 +11,7 @@ const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const fixtures = JSON.parse(await readFile(new URL('./fixtures/search-cases.json', import.meta.url), 'utf8'));
 const now = Date.now() / 1000;
 const products = fixtures.map(item => ({ ...item, category: '消耗品', typical: 24000, low: 18888, sales_window: 12, sales_10d: 12, listings: 2, shops: 2, trend: [], last_sale_at: now, last_seen: now }));
+const speedQueries = ['宠物 移动', '宠物 移速', '宠物 速度', '移速宠物', '宠物移速', '速度宠物', '宠物速度'];
 const streams = new Set();
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
@@ -26,9 +27,14 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/v1/watchlist/catalog') {
       const query = url.searchParams.get('q');
       // Fixed API answers: this test verifies rendering and adding a result.
-      body = { items: ['宠物 移动', '宠物 移速', '宠物 速度'].includes(query) ? products.slice(0, 2) : [], presets: [] };
+      body = { items: speedQueries.includes(query) ? products.slice(0, 2) : [], presets: [] };
     }
     res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(body));
+  }
+  if (url.pathname === '/search') {
+    const rows = speedQueries.includes(url.searchParams.get('q')) ? products.slice(0, 2) : [];
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.end(`<div data-search-results>${rows.map(item => `<a class="drow" href="/item/${item.item_id}"><span class="t"><b>${item.name_zh}</b><small class="name-secondary">${item.name_en}</small></span></a>`).join('')}</div>`);
   }
   const file = url.pathname.startsWith('/web/') ? path.resolve(root, '.' + url.pathname.slice(4)) : path.join(root, 'index.html');
   if (!file.startsWith(root + path.sep)) { res.writeHead(404); return res.end(); }
@@ -49,7 +55,7 @@ try {
     const waitRows = count => page.waitForFunction(expected => [...document.querySelectorAll('[data-pane=all] [data-item-row]')].filter(el => el.getClientRects().length).length === expected, count);
     await waitRows(products.length);
     const input = page.locator('[data-q]:visible');
-    for (const [query, count] of [['宠物 移动', 2], ['宠物 移速', 2], ['宠物 速度', 2], ['速度 宠物', 2], ['宠物 SPEED', 2], ['寵物 移動', 2], ['宠物 跳跃', 1], ['鞋子 移速 60%', 1], ['宠物 移速 10%', 0]]) {
+    for (const [query, count] of [...speedQueries.map(query => [query, 2]), ['速度 宠物', 2], ['宠物 SPEED', 2], ['寵物 移動', 2], ['宠物跳跃', 1], ['鞋子移速60%', 1], ['移速宠物高级', 1], ['鞋子移速10%', 0]]) {
       await input.fill(query);
       await page.waitForFunction(q => new URL(location.href).searchParams.get('q') === q, query);
       await waitRows(count);
@@ -62,7 +68,7 @@ try {
     await page.locator('[data-cat=all]:visible').click(); await waitRows(2);
     await page.goto(origin + '/watch?hours=all');
     const watch = page.locator('[data-search]'); await watch.waitFor();
-    for (const query of ['宠物 移动', '宠物 移速', '宠物 速度']) {
+    for (const query of speedQueries) {
       const response = page.waitForResponse(res => new URL(res.url()).pathname === '/api/v1/watchlist/catalog' && new URL(res.url()).searchParams.get('q') === query);
       await watch.fill(query); await response;
       await page.waitForFunction(() => document.querySelectorAll('[data-add]').length === 2);
@@ -70,9 +76,20 @@ try {
     }
     await page.locator('[data-add="2048000"]').click();
     await page.locator('[data-card="2048000"]').waitFor();
+    await page.goto(origin + '/?hours=all');
+    const finder = page.locator('form.finder input[name=q]:visible').last();
+    await finder.waitFor();
+    for (const query of speedQueries) {
+      const response = page.waitForResponse(res => new URL(res.url()).pathname === '/search' && new URL(res.url()).searchParams.get('q') === query);
+      await finder.fill(query); await response;
+      await page.waitForFunction(() => document.querySelector('.quick-search:not([hidden]):not([aria-busy]) .quick-row'));
+      assert.equal(await page.locator('.quick-search:visible .quick-row').count(), 2);
+      assert.match(await page.locator('.quick-search:visible').textContent(), /宠物装备移动速度卷轴/);
+      assert.equal(new URL(await page.locator('.quick-search:visible .quick-more').getAttribute('href')).searchParams.get('q'), query);
+    }
     assert.deepEqual(errors, []);
     await page.close();
-    console.log(`${mobile ? 'Phone' : 'Desktop'}: price keywords, filters, reload and watch add passed`);
+    console.log(`${mobile ? 'Phone' : 'Desktop'}: compact keywords, price filters, watch add and home quick search passed`);
   }
 } finally {
   await browser?.close();

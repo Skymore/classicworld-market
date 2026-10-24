@@ -1,7 +1,7 @@
 [
-  {"item_id":2048000,"name_zh":"宠物装备移动速度卷轴：初级","name_en":"Pet Equip Speed Scroll: Lesser","queries":["宠物 移动","宠物 移速","宠物 速度","速度 宠物","  宠物　 移速  ","宠物 speed","SPEED PET","寵物 移動","pet 初级","ＰＥＴ　ＳＰＥＥＤ","2048000","2048000 移速"],"misses":["宠物 跳跃","宠物 移速 高级","2048001","[pet]",".*","%","_","|"]},
-  {"item_id":2048001,"name_zh":"宠物装备移动速度卷轴：高级","name_en":"Pet Equip Speed Scroll: Greater","queries":["宠物 移动","宠物 移速","宠物 速度","移速 高级 宠物","pet greater"],"misses":["宠物 初级","宠物 跳跃","helmet speed"]},
-  {"item_id":2048005,"name_zh":"宠物装备跳跃力卷轴：初级","name_en":"Pet Equip Jump Scroll: Lesser","queries":["宠物 跳跃","宠物 跳力","寵物 跳躍","jump pet","卷軸 宠物"],"misses":["宠物 移速","速度","jump helmet"]},
-  {"item_id":2040701,"name_zh":"鞋子移动速度卷轴60%","name_en":"Scroll for Shoes for Speed 60%","queries":["鞋子 移速 60%","60％ 鞋子 速度","speed shoes 60%","卷轴 60%"],"misses":["宠物 移速","鞋子 移速 10%",".*","[","\\"]},
+  {"item_id":2048000,"name_zh":"宠物装备移动速度卷轴：初级","name_en":"Pet Equip Speed Scroll: Lesser","queries":["宠物 移动","宠物 移速","宠物 速度","速度 宠物","移速宠物","宠物移速","速度宠物","宠物速度","移动速度宠物","宠物移动速度","寵物移動速度","宠物装备移速","移速宠物初级","初级宠物移速","pet移速","2048000移速宠物","  宠物　 移速  ","宠物 speed","SPEED PET","寵物 移動","pet 初级","ＰＥＴ　ＳＰＥＥＤ","2048000","2048000 移速"],"misses":["宠物 跳跃","跳跃宠物","宠物 移速 高级","移速宠物高级","移速鞋子","2048001","[pet]",".*","%","_","|"]},
+  {"item_id":2048001,"name_zh":"宠物装备移动速度卷轴：高级","name_en":"Pet Equip Speed Scroll: Greater","queries":["宠物 移动","宠物 移速","宠物 速度","移速宠物","宠物移速","速度宠物","宠物速度","移速宠物高级","高级宠物移速","移速 高级 宠物","pet greater"],"misses":["宠物 初级","移速宠物初级","宠物 跳跃","跳跃宠物","helmet speed"]},
+  {"item_id":2048005,"name_zh":"宠物装备跳跃力卷轴：初级","name_en":"Pet Equip Jump Scroll: Lesser","queries":["宠物 跳跃","宠物 跳力","寵物 跳躍","宠物跳跃","跳跃宠物","跳力宠物","寵物跳躍","宠物跳跃初级","jump pet","卷軸 宠物"],"misses":["宠物 移速","移速宠物","速度","jump helmet"]},
+  {"item_id":2040701,"name_zh":"鞋子移动速度卷轴60%","name_en":"Scroll for Shoes for Speed 60%","queries":["鞋子 移速 60%","鞋子移速60%","60％ 鞋子 速度","speed shoes 60%","卷轴 60%"],"misses":["宠物 移速","移速宠物","鞋子 移速 10%","鞋子移速10%",".*","[","\\"]},
   {"item_id":1002000,"name_zh":null,"name_en":"Brown Skullcap","queries":["BROWN CAP","skull cap","  ",""],"misses":["宠物","brown blue","brownskullcap1002000"]}
 ]

@@ -16,3 +16,11 @@ test('duplicate keywords compile once and input metacharacters stay literal', ()
   const text = searchText({ name_zh: '[特殊] 卷轴50%_a\\b.*', item_id: 2000000 });
   for (const query of ['[特殊]', '50%', '_a\\b', '.*']) assert.equal(compileSearch(query)(text), true, query);
 });
+
+test('compact queries split at known game terms while unknown names stay intact', () => {
+  for (const [compact, spaced] of [['移速宠物', '移速 宠物'], ['宠物移速', '宠物 移速'], ['宠物速度', '宠物 速度'], ['鞋子移速60%', '鞋子 移速 60%'], ['移速移动宠物宠物', '移速 宠物']]) {
+    assert.deepEqual(searchPatterns(compact), searchPatterns(spaced), compact);
+  }
+  assert.deepEqual(searchPatterns('褐色皮帽'), ['褐色皮帽']);
+  assert.equal(compileSearch('褐色皮帽')(searchText({ name_zh: '褐色帽皮' })), false);
+});

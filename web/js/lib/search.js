@@ -19,15 +19,20 @@ export function normalizeSearch(text) {
 }
 
 export function searchPatterns(query) {
-  return [...new Set(normalizeSearch(query).trim().split(/\s+/).filter(Boolean))].map(term => {
-    let pattern = '', end = 0;
+  const patterns = new Set();
+  const add = pattern => { if (pattern) patterns.add(pattern); };
+  for (const term of normalizeSearch(query).trim().split(/\s+/).filter(Boolean)) {
+    let end = 0;
+    // Known game terms form keyword boundaries even without spaces. Keep
+    // unknown name fragments intact instead of matching individual characters.
     for (const match of term.matchAll(aliasPattern)) {
-      pattern += escapeRegex(term.slice(end, match.index));
-      pattern += '(' + aliases.get(match[0]).map(escapeRegex).join('|') + ')';
+      add(escapeRegex(term.slice(end, match.index)));
+      add('(' + aliases.get(match[0]).map(escapeRegex).join('|') + ')');
       end = match.index + match[0].length;
     }
-    return pattern + escapeRegex(term.slice(end));
-  });
+    add(escapeRegex(term.slice(end)));
+  }
+  return [...patterns];
 }
 
 export function searchText(item) {

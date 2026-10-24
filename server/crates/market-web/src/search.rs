@@ -32,12 +32,18 @@ fn literal(text: &str) -> String {
     out
 }
 
+fn add_pattern(patterns: &mut Vec<String>, pattern: String) {
+    if !pattern.is_empty() && !patterns.contains(&pattern) {
+        patterns.push(pattern);
+    }
+}
+
 pub(crate) fn patterns(query: &str) -> Vec<String> {
     let normalized = normalize(query);
     let mut patterns = Vec::new();
     for term in normalized.split_whitespace() {
         let mut rest = term;
-        let mut pattern = String::new();
+        let mut fragment = String::new();
         while !rest.is_empty() {
             let alias = ALIASES
                 .iter()
@@ -45,25 +51,29 @@ pub(crate) fn patterns(query: &str) -> Vec<String> {
                 .filter(|(word, _)| rest.starts_with(word))
                 .max_by_key(|(word, _)| word.len());
             if let Some((word, group)) = alias {
-                pattern.push('(');
-                pattern.push_str(
-                    &group
-                        .iter()
-                        .map(|s| literal(s))
-                        .collect::<Vec<_>>()
-                        .join("|"),
+                // Split at known terms, so both 移速宠物 and 宠物移速
+                // retain every keyword without imposing their input order.
+                add_pattern(&mut patterns, literal(&fragment));
+                fragment.clear();
+                add_pattern(
+                    &mut patterns,
+                    format!(
+                        "({})",
+                        group
+                            .iter()
+                            .map(|s| literal(s))
+                            .collect::<Vec<_>>()
+                            .join("|")
+                    ),
                 );
-                pattern.push(')');
                 rest = &rest[word.len()..];
             } else {
                 let len = rest.chars().next().unwrap().len_utf8();
-                pattern.push_str(&literal(&rest[..len]));
+                fragment.push_str(&rest[..len]);
                 rest = &rest[len..];
             }
         }
-        if !patterns.contains(&pattern) {
-            patterns.push(pattern);
-        }
+        add_pattern(&mut patterns, literal(&fragment));
     }
     patterns
 }
@@ -88,5 +98,15 @@ mod tests {
         assert_eq!(patterns(r"50%_a\b [x].*"), [r"50%_a\\b", r"\[x\]\.\*"]);
         assert_eq!(patterns("ＰＥＴ　ＳＰＥＥＤ"), ["pet", "speed"]);
         assert_eq!(patterns(" 宠物 宠物 移速 "), patterns("宠物 移动速度"));
+    }
+
+    #[test]
+    fn compact_keywords_split_only_at_known_game_terms() {
+        assert_eq!(patterns("移速宠物"), patterns("移速 宠物"));
+        assert_eq!(patterns("宠物移速"), patterns("宠物 移速"));
+        assert_eq!(patterns("宠物速度"), patterns("宠物 速度"));
+        assert_eq!(patterns("鞋子移速60%"), patterns("鞋子 移速 60%"));
+        assert_eq!(patterns("移速移动宠物宠物"), patterns("移速 宠物"));
+        assert_eq!(patterns("褐色皮帽"), ["褐色皮帽"]);
     }
 }
