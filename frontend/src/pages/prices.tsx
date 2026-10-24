@@ -542,7 +542,7 @@ export default function Prices() {
                             />
                           </label>
                         </div>
-                        <div className="chips">
+                        <div className="chips level-presets">
                           {levelRanges.map(([lo, hi]) => (
                             <button
                               type="button"

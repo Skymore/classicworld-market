@@ -14,6 +14,42 @@
   --color-ring: var(--mark);
 }
 /* Keep the approved game-window tokens, borders and responsive geometry. */
+:root {
+  --scrollbar-track: var(--sheet-lo);
+  --scrollbar-thumb: color-mix(in srgb, var(--ink-3) 55%, var(--sheet));
+  --scrollbar-thumb-hover: var(--ink-3);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+@supports selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: var(--scrollbar-track);
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border: 2px solid var(--scrollbar-track);
+    border-radius: 8px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
+  *::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
 .dock {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
@@ -181,6 +217,15 @@
   min-height: 0;
   overflow-y: auto;
   padding-bottom: 0;
+  scrollbar-gutter: stable;
+}
+.price-filter-dialog .level-presets {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.price-filter-dialog .level-presets .chip {
+  min-width: 0;
+  padding-inline: 4px;
 }
 .ui-dialog-content .lvrow {
   display: flex;
@@ -250,6 +295,15 @@
   }
 }
 @media (max-width: 640px) {
+  .price-filter-dialog .level-presets {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+  .price-filter-dialog .level-presets .chip {
+    grid-column: span 3;
+  }
+  .price-filter-dialog .level-presets .chip:nth-child(n + 5) {
+    grid-column: span 4;
+  }
   .react-price-desktop {
     display: none;
   }
