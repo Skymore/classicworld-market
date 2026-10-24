@@ -336,6 +336,35 @@ export default function ItemPreview() {
                   )}
                 </div>
               </div>
+              <button
+                type="button"
+                className={"peek-watch" + (watching ? " on" : "")}
+                data-preview-watch={item.id}
+                aria-label={
+                  watching
+                    ? words("取消关注这件物品", "Unwatch this item")
+                    : words("关注这件物品", "Watch this item")
+                }
+                aria-pressed={watching}
+                disabled={watchFull}
+                title={
+                  watchFull
+                    ? words("最多关注 100 件物品", "Watch up to 100 items")
+                    : watching
+                      ? words("取消关注", "Unwatch")
+                      : words("关注", "Watch")
+                }
+                onClick={() => toggleWatch(item.id)}
+              >
+                <Icon name={watching ? "starSm" : "starO"} />
+                <span className="sr">
+                  {watching
+                    ? words("已关注", "Watching")
+                    : watchFull
+                      ? words("关注已满", "Watch limit")
+                      : words("关注", "Watch")}
+                </span>
+              </button>
             </header>
             {page.market.base_stats?.length ? (
               <section className="peek-section">
@@ -438,26 +467,6 @@ export default function ItemPreview() {
               </section>
             )}
             <footer className="peek-footer">
-              <button
-                type="button"
-                className={"peek-watch" + (watching ? " on" : "")}
-                data-preview-watch={item.id}
-                aria-pressed={watching}
-                disabled={watchFull}
-                title={
-                  watchFull
-                    ? words("最多关注 100 件物品", "Watch up to 100 items")
-                    : undefined
-                }
-                onClick={() => toggleWatch(item.id)}
-              >
-                <Icon name={watching ? "starSm" : "starO"} />
-                {watching
-                  ? words("已关注", "Watching")
-                  : watchFull
-                    ? words("关注已满", "Watch limit")
-                    : words("关注", "Watch")}
-              </button>
               <a href={url} onClick={() => close()}>
                 {words("查看完整详情 →", "Open full details →")}
               </a>

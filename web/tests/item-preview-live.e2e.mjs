@@ -2,13 +2,15 @@
 // PLAYWRIGHT_MODULE=/path/to/playwright PLAYWRIGHT_CHANNEL=chrome node web/tests/item-preview-live.e2e.mjs
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+const screenshots = process.env.PREVIEW_SCREENSHOT_DIR;
+if (screenshots) await mkdir(screenshots, { recursive: true });
 const streams = new Set();
 let phase = 0, salesReads = 0, previewDelay = 0;
 let accountRecords = [];
@@ -66,9 +68,10 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 try {
   browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
-  for (const mobile of [true, false]) {
+  for (const width of [390, 320, 1280]) {
+    const mobile = width <= 640;
     phase = 0; previewDelay = 0; accountRecords = [];
-    const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 640 } : { width: 1280, height: 900 }, isMobile: mobile, hasTouch: mobile });
+    const page = await browser.newPage({ viewport: { width, height: mobile ? 640 : 900 }, isMobile: mobile, hasTouch: mobile });
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.clock.install();
     await page.goto(`${origin}/?hours=all&lang=${mobile ? 'en' : 'zh'}`);
@@ -78,10 +81,20 @@ try {
     const popup = page.locator('#item-quick-preview');
     await popup.locator('[data-preview-item="1462004"]').waitFor();
     const watch = popup.locator('[data-preview-watch="1462004"]');
+    const position = await watch.evaluate(button => {
+      const header = button.closest('.peek-head');
+      const box = button.getBoundingClientRect();
+      const title = header?.querySelector('h2').getBoundingClientRect();
+      const close = document.querySelector('.peek-close').getBoundingClientRect();
+      return { inHeader: !!header, size: box.width >= 44 && box.height >= 44, aligned: title && box.left >= title.right && box.right <= close.left && box.top === close.top };
+    });
+    assert.deepEqual(position, { inHeader: true, size: true, aligned: true }, 'watch button sits to the right of the title, before close, without overlap');
+    assert.equal(await popup.locator('.peek-footer button').count(), 0);
     await watch.click();
     assert.equal(await watch.getAttribute('aria-pressed'), 'true');
     assert.match(await watch.textContent(), mobile ? /Watching/ : /已关注/);
     assert.equal(await popup.isVisible(), true, 'watching must keep the preview open');
+    if (screenshots) await page.screenshot({ path: path.join(screenshots, `preview-title-${width}.png`) });
     assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('watchlist'))), [1462004]);
     await watch.click();
     assert.equal(await watch.getAttribute('aria-pressed'), 'false');
@@ -168,7 +181,7 @@ try {
     assert.match(await page.locator('.item-stall h1').textContent(), /Eagle Crow|鹰弩/);
     assert.deepEqual(errors, []);
     await page.close();
-    console.log(`PASS ${mobile ? 'mobile / English' : 'desktop / Chinese'}: preview watches, account sync, limits, persistence, time tick, SSE, scrolling, dismissal and full-page navigation`);
+    console.log(`PASS ${width}px ${mobile ? 'mobile / English' : 'desktop / Chinese'}: title watch button, account sync, limits, persistence, time tick, SSE, scrolling, dismissal and full-page navigation`);
   }
 } finally {
   await browser?.close();

@@ -47,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-Dvt6P6a8.js": {
-    "file": "chunks/main-Dvt6P6a8.js",
+  "_main-sMuBRg9u.js": {
+    "file": "chunks/main-sMuBRg9u.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -127,7 +127,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Dvt6P6a8.js"
+      "_main-sMuBRg9u.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -276,7 +276,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Dvt6P6a8.js"
+      "_main-sMuBRg9u.js"
     ]
   },
   "style.css": {
