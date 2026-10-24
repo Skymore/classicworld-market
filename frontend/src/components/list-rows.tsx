@@ -5,18 +5,41 @@ import { t } from "/web/js/lib/i18n.js";
 import { equipmentSummary } from "/web/js/lib/equipment-summary.js?v=20261024-records-3";
 import { priceUnit } from "/web/js/lib/market-source.js?v=20261022-external-1";
 
-export function Location({ value }: { value?: any }) {
+export function Location({
+  value,
+  shop,
+}: {
+  value?: any;
+  shop?: string | null;
+}) {
   const words = useWords();
   const channel = value?.channel;
   const room = value?.room;
   const label =
     room != null
-      ? words(`${room}洞`, `Room ${room}`)
+      ? `FM${room}`
       : value?.text ||
         (document.documentElement.lang === "en"
           ? value?.map_name_en
           : value?.map_name_zh) ||
-        words("洞号未记录", "Room not recorded");
+        words("FM 未记录", "FM not recorded");
+  if (shop !== undefined)
+    return (
+      <span
+        className="loc loc-shop"
+        title={[
+          channel == null ? "CH —" : "CH " + channel,
+          room == null ? label : "FM" + room,
+          shop || "—",
+        ].join(" · ")}
+      >
+        <b>{channel == null ? "CH —" : "CH " + channel}</b>
+        <span className="loc-room">{room == null ? "FM —" : "FM" + room}</span>
+        <span className="record-shop" title={shop || undefined}>
+          {shop || "—"}
+        </span>
+      </span>
+    );
   return channel == null ? (
     <span className="loc unk">
       {room != null || value?.text
@@ -26,7 +49,7 @@ export function Location({ value }: { value?: any }) {
   ) : (
     <span className="loc" title={label}>
       <b>CH {channel}</b>
-      <span>{label}</span>
+      <span className="loc-room">{label}</span>
     </span>
   );
 }
@@ -78,12 +101,7 @@ export function OfferRow({
           </span>
         )}
         <span className="record-meta">
-          <Location value={row.location} />
-          {row.shop && (
-            <span className="record-shop" title={row.shop}>
-              {row.shop}
-            </span>
-          )}
+          <Location value={row.location} shop={row.shop || null} />
           {row.bundle > 1 && (
             <span className="record-bundle">
               {words(`每组 ${row.bundle} 件`, `${row.bundle} per bundle`)}

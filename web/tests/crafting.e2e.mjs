@@ -74,6 +74,8 @@ try {
     const quote=quotes.first();assert.equal(await quote.locator('.slot,.ware-name,.name-secondary').count(),0,'same-item variant rows omit repeated identity');
     assert.equal(await quote.locator('.record-shop').textContent(),'Fixture shop 0');assert.equal(await quote.locator('.loc b').textContent(),'CH 24');assert.equal(await quote.locator('.ware-price').textContent(),'3K');assert.match(await quote.locator('.record-stock').textContent(),/1$/);
     assert.match(await quote.locator('.offer-equipment').textContent(),/物攻|Weapon ATK/);
+    assert.equal(await quote.locator('.loc-room').textContent(),'FM10');
+    assert(await quote.locator('.loc-shop').evaluate(node=>{const widths=[...node.children].map(child=>child.getBoundingClientRect().width);return widths.length===3&&Math.max(...widths)-Math.min(...widths)<1;}),'compact variants use the same equal-width three-cell location frame');
     assert.deepEqual(await quote.locator('.record-value').evaluate(node=>[...node.children].map(child=>child.className)),['ware-price','record-stock'],'variant price and stock occupy only two lines');
     for(const width of mobile?[320,390,430]:[1280]){
       await page.setViewportSize({width,height:844});

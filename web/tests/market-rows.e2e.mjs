@@ -82,21 +82,21 @@ try {
       assert.equal(await offers.count(), 3);
       assert.equal(await offers.first().locator('.ware-price').textContent(), '900', 'the newest quote can be more expensive than the per-item minimum');
       assert.equal(await offers.first().locator('.loc b').textContent(), 'CH 23');
-      assert.match(await offers.first().locator('.loc > span').textContent(), /9/);
+      assert.match(await offers.first().locator('.loc-room').textContent(), /9/);
       assert.equal(await offers.first().locator('[data-relative-time]').getAttribute('data-relative-time'), String(now));
       assert.match(await offers.nth(1).locator('.record-stock').textContent(), /—$/);
-      assert.match(await offers.nth(1).locator('.loc').textContent(), /位置未知|Unknown location/);
+      assert.match(await offers.nth(1).locator('.loc').textContent(), /CH —FM —/,'unknown channel and FM stay explicit');
       async function checkLayout(row) {
         const result = await row.evaluate(node => {
           const meta = node.querySelector('.record-meta');
-          const fields = [...meta.children].map(child => child.className);
+          const fields = [...meta.children].map(child => child.classList.contains('loc')?'loc':child.className);
           const box = meta.getBoundingClientRect();
           const value = node.querySelector('.record-value').getBoundingClientRect();
           const bounds = node.getBoundingClientRect();
           const main = node.querySelector('.w-main').getBoundingClientRect();
           return { fields, centered: value.left >= main.right - 1 && Math.abs((value.top + value.bottom) / 2 - (bounds.top + bounds.bottom) / 2) < 1, inside: [...meta.children].every(child => { const b = child.getBoundingClientRect(); return b.left >= box.left - 1 && b.right <= box.right + 1; }), columns: getComputedStyle(node).gridTemplateColumns.split(' ').length, secondaryWrap: getComputedStyle(node.querySelector('.name-secondary')).whiteSpace };
         });
-        assert.deepEqual(result.fields, ['loc', 'record-shop']);
+        assert.deepEqual(result.fields, ['loc']);
         assert(result.inside, 'every metadata field stays within the name column');
         assert.equal(result.columns, 3, 'icon, names/metadata and a separate value column');
         assert(result.centered, 'price and stock are vertically centered on the right');
@@ -105,6 +105,13 @@ try {
         assert(viewport.scroll<=viewport.width,'no horizontal page overflow: '+JSON.stringify(viewport));
       }
       await checkLayout(offers.first());
+      const cells=await offers.first().locator('.loc-shop').evaluate(node=>[...node.children].map(child=>child.getBoundingClientRect().width));
+      assert.equal(cells.length,3);assert(Math.max(...cells)-Math.min(...cells)<1,'CH, FM and shop use equal-width cells');
+      assert.equal(await offers.first().locator('.loc-room').textContent(),'FM9');
+      const longShop=offers.first().locator('.record-shop');
+      await longShop.evaluate(node=>{node.textContent='A very long shop title that must not expand the row';node.title=node.textContent;});
+      assert(await longShop.evaluate(node=>{const s=getComputedStyle(node);return s.textOverflow==='ellipsis'&&s.whiteSpace==='nowrap'&&node.scrollWidth>node.clientWidth;}),'long shop titles clip with ellipsis inside the third cell');
+      await longShop.evaluate(node=>{node.textContent='First shop';node.title='First shop';});
       assert.match(await offers.nth(2).locator('.offer-equipment').textContent(), /可升 5|Upgrades left 5/);
       assert.equal(await offers.nth(2).locator('.offer-equipment').evaluate(node=>getComputedStyle(node).fontSize), '11px');
       const attributes=await offers.nth(2).locator('.offer-equipment').evaluate(node=>{
@@ -121,7 +128,7 @@ try {
       assert.equal(sizes['.ware-price'],'18px');
       assert.equal(sizes['.name-secondary'],'11px','translations are smaller than other secondary text');
       for(const [selector,size] of Object.entries(sizes)) if(!['.ware-price','.name-secondary'].includes(selector)) assert.equal(size,'12px',selector);
-      const metaText=await offers.first().evaluate(node=>['.loc b','.loc > span','.record-shop'].map(selector=>{
+      const metaText=await offers.first().evaluate(node=>['.loc b','.loc-room','.record-shop'].map(selector=>{
         const range=document.createRange();range.selectNodeContents(node.querySelector(selector));
         const bounds=range.getBoundingClientRect();return (bounds.top+bounds.bottom)/2;
       }));
