@@ -22,6 +22,7 @@ async fn main() -> Result<()> {
         .context("connecting to Postgres")?;
     MIGRATOR.run(&db).await.context("running migrations")?;
     tokio::spawn(refresh_stats(db.clone(), config.stats_refresh));
+    tokio::spawn(market_web::traffic::prune(db.clone()));
 
     let mut state = AppState::new(db, config.settings.clone());
     state.agent = market_web::agent::OpenRouter::from_env()?.map(std::sync::Arc::new);

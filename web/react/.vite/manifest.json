@@ -47,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-DNmAa95M.js": {
-    "file": "chunks/main-DNmAa95M.js",
+  "_main-Dx3DJbdl.js": {
+    "file": "chunks/main-Dx3DJbdl.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -127,7 +127,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DNmAa95M.js"
+      "_main-Dx3DJbdl.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -238,7 +238,7 @@
     ]
   },
   "src/pages/privacy.tsx": {
-    "file": "chunks/privacy-BRgXmFSq.js",
+    "file": "chunks/privacy-C9ZpsOIT.js",
     "name": "privacy",
     "src": "src/pages/privacy.tsx",
     "isDynamicEntry": true,
@@ -276,7 +276,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DNmAa95M.js"
+      "_main-Dx3DJbdl.js"
     ]
   },
   "style.css": {

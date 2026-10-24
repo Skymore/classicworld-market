@@ -36,6 +36,7 @@ pub mod legacy;
 pub mod realtime;
 pub(crate) mod search;
 pub mod stats;
+pub mod traffic;
 pub mod views;
 pub mod web;
 
@@ -119,6 +120,7 @@ pub fn app_with_web(state: AppState, web_dir: Option<&std::path::Path>) -> Route
         .merge(api_headers(api::router()))
         .merge(api_headers(agent::router()))
         .merge(api_headers(contributors::router()))
+        .merge(api_headers(traffic::router()))
         .merge(api_headers(accounts::router()))
         .merge(bestiary::routes())
         .layer(SetResponseHeaderLayer::if_not_present(

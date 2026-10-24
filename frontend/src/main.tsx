@@ -23,6 +23,7 @@ import { loadCatalog, catalogKey } from "./lib/catalog";
 import { ToastHost } from "./components/toasts";
 import { Loading, ErrorState } from "./components/shared";
 import "./styles.css";
+import { trackPage } from "/web/js/lib/traffic.js";
 
 const Watch = lazy(() => import("./pages/watch"));
 const Alerts = lazy(() => import("./pages/alerts"));
@@ -104,6 +105,11 @@ function LegacyRedirect() {
 }
 function Application() {
   const route = useLocation();
+  useEffect(() => {
+    // Redirects settle first; state updates and SSE do not add page views.
+    const timer = setTimeout(() => trackPage(route.pathname), 0);
+    return () => clearTimeout(timer);
+  }, [route.pathname]);
   const navigate = useNavigate();
   const words = useWords();
   const page = route.pathname.split("/")[1] || "home";

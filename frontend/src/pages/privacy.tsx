@@ -51,6 +51,8 @@ function ZH() {
             }
           </p>
           {"\n "}
+          <h2>网站访问统计</h2>
+          <p>网站自行统计页面浏览量、每日访客、来源域名和设备类型。浏览器保存每天更换的随机匿名标识，服务器仅保存当天标识的哈希，记录保留最近 90 天。统计不关联账号，不保存 IP 地址、搜索词、完整来源网址或对话内容，不发送给第三方。开启 Do Not Track 或 Global Privacy Control 后不计入统计。每日访客是浏览器估计数，并非精确人数。</p>
           <a href={"/account"}>{"返回我的账号 →"}</a>
         </div>
       </section>
@@ -108,6 +110,8 @@ function EN() {
             }
           </p>
           {"\n "}
+          <h2>Website traffic statistics</h2>
+          <p>The site measures page views, daily visitors, referring domains and device types itself. Your browser stores a random anonymous identifier that changes each UTC day. The server stores only its daily hash and retains records for 90 days. Statistics are not linked to accounts and do not store IP addresses, search terms, full referring URLs or conversations, or send data to third parties. Do Not Track and Global Privacy Control requests are excluded. Daily visitors estimate browsers, not exact people.</p>
           <a href={"/account"}>{"Back to My profile →"}</a>
         </div>
       </section>
