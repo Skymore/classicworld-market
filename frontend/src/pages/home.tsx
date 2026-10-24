@@ -4,7 +4,6 @@ import {
   byBusy,
   changeWare,
   busyWare,
-  saleWare,
 } from "/web/js/lib/rows.js?v=20261022-regressions-1";
 import {
   periodProduct,
@@ -13,7 +12,7 @@ import {
 import { mobImg } from "/web/js/lib/format.js";
 import { useWords } from "../providers";
 import { useMarketQuery } from "../lib/query";
-import { compareProducts } from "../lib/price-state";
+import { OfferRow } from "../components/list-rows";
 import type { Market, Product, Sale } from "../lib/types";
 import {
   Search,
@@ -24,10 +23,6 @@ import {
   PeriodControl,
   usePeriod,
   usePageReady,
-  Slot,
-  ItemNames,
-  Price,
-  RelativeTime,
   num,
 } from "../components/shared";
 import { SiteLink } from "../components/shell";
@@ -49,6 +44,10 @@ export default function Home() {
   );
   const sales = useMarketQuery<{ sales: Sale[]; generated_at: number }>(
     "/api/v1/sales/recent?limit=8",
+  );
+  const quotes = useMarketQuery<{ listings: any[] }>(
+    `/api/v1/quotes/recent?limit=8&hours=${period.hours}`,
+    period.ready && tab === "quotes",
   );
   const counts = useMarketQuery<{ mobs: number; maps: number }>(
     "/api/v1/dex/counts",
@@ -72,69 +71,37 @@ export default function Home() {
         .filter((row) => inPeriod(row.time, period.hours))
         .slice(0, 8);
       return rows.length ? (
-        <div
-          className="contents"
-          dangerouslySetInnerHTML={{
-            __html: rows
-              .map((row) =>
-                saleWare(
-                  row,
-                  wide,
-                  market.data?.as_of ?? sales.data!.generated_at,
-                ),
-              )
-              .join(""),
-          }}
-        />
+        rows.map((row) => (
+          <OfferRow
+            key={row.id}
+            row={row}
+            sale
+            href={`/item/${row.item_id}?hours=${period.hours}`}
+          />
+        ))
       ) : (
         <Empty text={words("还没有成交记录。", "No sales recorded yet.")} />
       );
     }
-    if (market.isError)
-      return <ErrorState retry={() => void market.refetch()} />;
-    if (!market.data) return <Loading />;
     if (key === "quotes") {
-      const rows = products
+      if (quotes.isError)
+        return <ErrorState retry={() => void quotes.refetch()} />;
+      if (!quotes.data) return <Loading />;
+      const rows = (quotes.data.listings || [])
         .filter(
           (row) =>
-            (row.listings ?? 0) > 0 &&
-            row.low != null &&
-            row.low > 0 &&
-            row.last_seen != null &&
-            row.last_seen > 0 &&
-            inPeriod(row.last_seen, period.hours),
+            row.observed > 0 &&
+            inPeriod(row.observed, period.hours) &&
+            (row.stock == null || row.stock > 0),
         )
-        .sort((a, b) => compareProducts(a, b, "recent", "desc", false))
         .slice(0, 8);
       return rows.length ? (
         rows.map((row) => (
-          <SiteLink
-            key={row.item_id}
-            className="ware two"
+          <OfferRow
+            key={row.id}
+            row={row}
             href={`/item/${row.item_id}?hours=${period.hours}`}
-            data-item-row
-          >
-            <Slot url={row.icon_url} />
-            <span className="w-main">
-              <span className="ware-name">
-                <ItemNames row={row} />
-              </span>
-              <span className="w-sub">
-                {words("最低报价", "Lowest ask")} ·{" "}
-                <RelativeTime at={row.last_seen} /> ·{" "}
-                {words(
-                  `在售 ${num(row.listings)} 件`,
-                  `${num(row.listings)} listed`,
-                )}
-              </span>
-            </span>
-            <span className="ware-price">
-              <Price value={row.low} />
-              {row.unit_basis === "set" && (
-                <small className="unit">{words("/组", "/set")}</small>
-              )}
-            </span>
-          </SiteLink>
+          />
         ))
       ) : (
         <Empty
@@ -145,6 +112,9 @@ export default function Home() {
         />
       );
     }
+    if (market.isError)
+      return <ErrorState retry={() => void market.refetch()} />;
+    if (!market.data) return <Loading />;
     const rows = (
       key === "changes" ? byChange(products) : byBusy(products)
     ).slice(0, 8);

@@ -33,6 +33,8 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/v1/account') data = { signed_in: false, google_enabled: true };
     if (url.pathname === '/api/v1/watchlist/catalog') data = { items: [], presets: [] };
     if (url.pathname === '/api/v1/sales/recent') data = { sales: [], generated_at: now };
+    if (url.pathname === '/api/v1/quotes/recent') data = { listings: products.slice(0, 2).map((row, i) => ({ ...row, id: `quote-${i}`, observed: row.last_seen, unit_price: i === 0 ? 32000 : 18000, stock: 3 + i, location: { channel: 23, room: 9 } })) };
+
     res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(data));
   }
   if (url.pathname === '/search') {
@@ -157,7 +159,7 @@ try {
     await offers.first().waitFor();
     assert.equal(await offers.count(), 2, 'latest offers exclude items without an observed quote time');
     assert.match(await offers.first().textContent(), /红色药水/);
-    assert.equal(await offers.first().locator('.ware-price').textContent(), '18.9K', 'offers show the lowest ask rather than the typical sale price');
+    assert.equal(await offers.first().locator('.ware-price').textContent(), '32K', 'offers show the actual newest listing price, not the item minimum');
     assert.equal(await offers.first().locator('[data-relative-time]').getAttribute('data-relative-time'), String(now));
     assert.equal(await offers.first().getAttribute('href'), '/item/2000000?hours=all');
     await page.locator('[data-lang-toggle]:visible').click();

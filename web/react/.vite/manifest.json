@@ -24,11 +24,12 @@
     "file": "chunks/list-copy-DOEUOUBP.js",
     "name": "list-copy"
   },
-  "_list-rows-C91Pybh6.js": {
-    "file": "chunks/list-rows-C91Pybh6.js",
+  "_list-rows-CrZVC_8d.js": {
+    "file": "chunks/list-rows-CrZVC_8d.js",
     "name": "list-rows",
     "imports": [
-      "_shared-DxSzmOdy.js"
+      "_shared-DxSzmOdy.js",
+      "_shell-B1kDlxuy.js"
     ]
   },
   "_live-BXY2DANh.js": {
@@ -38,8 +39,8 @@
       "_shared-DxSzmOdy.js"
     ]
   },
-  "_main-DkTcXHMI.js": {
-    "file": "chunks/main-DkTcXHMI.js",
+  "_main-CA9DpO5X.js": {
+    "file": "chunks/main-CA9DpO5X.js",
     "name": "main",
     "imports": [
       "_shared-DxSzmOdy.js",
@@ -62,10 +63,6 @@
       "src/pages/account.tsx",
       "src/pages/contributors.tsx"
     ]
-  },
-  "_price-state-CEj_O-DW.js": {
-    "file": "chunks/price-state-CEj_O-DW.js",
-    "name": "price-state"
   },
   "_react-dom-CsL5NZwD.js": {
     "file": "chunks/react-dom-CsL5NZwD.js",
@@ -107,7 +104,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DkTcXHMI.js"
+      "_main-CA9DpO5X.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -131,26 +128,26 @@
     ]
   },
   "src/pages/alerts.tsx": {
-    "file": "chunks/alerts-DQeNzi_9.js",
+    "file": "chunks/alerts-CRkaaktu.js",
     "name": "alerts",
     "src": "src/pages/alerts.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shared-DxSzmOdy.js",
       "_toasts-CxtFsBL4.js",
-      "_list-rows-C91Pybh6.js",
+      "_list-rows-CrZVC_8d.js",
       "_list-copy-DOEUOUBP.js"
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-BCYhA7Vl.js",
+    "file": "chunks/catalogue-Ckupw_xA.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shared-DxSzmOdy.js",
       "_item-market-CqOyvntL.js",
-      "_list-rows-C91Pybh6.js",
+      "_list-rows-CrZVC_8d.js",
       "_live-BXY2DANh.js"
     ]
   },
@@ -184,19 +181,19 @@
     ]
   },
   "src/pages/home.tsx": {
-    "file": "chunks/home-Di397nuI.js",
+    "file": "chunks/home-BXl1KTRv.js",
     "name": "home",
     "src": "src/pages/home.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shared-DxSzmOdy.js",
       "_shell-B1kDlxuy.js",
-      "_tabs-Ds-CcXQF.js",
-      "_price-state-CEj_O-DW.js"
+      "_list-rows-CrZVC_8d.js",
+      "_tabs-Ds-CcXQF.js"
     ]
   },
   "src/pages/prices.tsx": {
-    "file": "chunks/prices-Dsd5B0r3.js",
+    "file": "chunks/prices-Cg0KEkRy.js",
     "name": "prices",
     "src": "src/pages/prices.tsx",
     "isDynamicEntry": true,
@@ -206,11 +203,10 @@
       "_dialog-m2MvX7oy.js",
       "_shell-B1kDlxuy.js",
       "_dist-e2jQDD4Q.js",
-      "_list-rows-C91Pybh6.js",
+      "_list-rows-CrZVC_8d.js",
       "_list-copy-DOEUOUBP.js",
       "_live-BXY2DANh.js",
-      "_tabs-Ds-CcXQF.js",
-      "_price-state-CEj_O-DW.js"
+      "_tabs-Ds-CcXQF.js"
     ]
   },
   "src/pages/privacy.tsx": {
@@ -233,14 +229,14 @@
     ]
   },
   "src/pages/watch.tsx": {
-    "file": "chunks/watch-M7U_ylv5.js",
+    "file": "chunks/watch-Czmjj0g1.js",
     "name": "watch",
     "src": "src/pages/watch.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shared-DxSzmOdy.js",
       "_toasts-CxtFsBL4.js",
-      "_list-rows-C91Pybh6.js",
+      "_list-rows-CrZVC_8d.js",
       "_list-copy-DOEUOUBP.js",
       "_live-BXY2DANh.js"
     ]
@@ -251,7 +247,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DkTcXHMI.js"
+      "_main-CA9DpO5X.js"
     ]
   },
   "style.css": {

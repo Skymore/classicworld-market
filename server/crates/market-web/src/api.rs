@@ -52,6 +52,7 @@ pub fn router() -> Router<AppState> {
         )
         .route("/api/v1/market", get(market))
         .route("/api/v1/sales/recent", get(sales_recent))
+        .route("/api/v1/quotes/recent", get(quotes_recent))
         .route("/api/v1/items/{id}", get(item_record))
         .route("/api/v1/crafting/prices", get(crafting_prices))
         .route("/api/v1/item/{id}", get(item_page))
@@ -566,6 +567,45 @@ async fn sales_recent(
         return unchanged(&tag);
     }
     match views::recent_sales(&state.db, &q, unix_now()).await {
+        Ok(value) => json_response(
+            Some(&tag),
+            serde_json::to_vec(&value).expect("serialisable"),
+        ),
+        Err(err) => internal(err),
+    }
+}
+
+async fn quotes_recent(
+    State(state): State<AppState>,
+    ClientAddr(addr): ClientAddr,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    if let Err(response) = reader(&state, &headers, &addr, "quotes").await {
+        return response;
+    }
+    let Some(hours) = Hours::parse(query_param(&query, "hours").as_deref()) else {
+        return error(StatusCode::BAD_REQUEST, "Invalid hours");
+    };
+    let limit = query_param(&query, "limit").unwrap_or_else(|| "8".into());
+    let Some(limit) = limit
+        .chars()
+        .all(|c| c.is_ascii_digit())
+        .then(|| limit.parse::<i64>().ok())
+        .flatten()
+        .filter(|n| (1..=100).contains(n))
+    else {
+        return error(StatusCode::BAD_REQUEST, "Invalid limit");
+    };
+    let version = match views::version(&state.db).await {
+        Ok(value) => value,
+        Err(err) => return internal(err),
+    };
+    let tag = etag(version, &format!("quotes|{}|{limit}", hours.key()));
+    if not_modified(&headers, &tag) {
+        return unchanged(&tag);
+    }
+    match views::recent_quotes(&state.db, hours, limit, unix_now()).await {
         Ok(value) => json_response(
             Some(&tag),
             serde_json::to_vec(&value).expect("serialisable"),

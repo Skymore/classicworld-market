@@ -802,7 +802,47 @@ pub async fn watch_listings(db: &PgPool, items: &[i32], now: f64) -> sqlx::Resul
     )
 }
 
-/// `parse_item_ids`: at most 100 comma-separated item ids.
+/// Latest active observations, not per-item minimum prices. Narrowing to the
+/// newest `limit` item ids still contains the newest `limit` individual quotes.
+pub async fn recent_quotes(db: &PgPool, hours: Hours, limit: i64, now: f64) -> sqlx::Result<Value> {
+    let cutoff = hours.window(now).cutoff;
+    let items: Vec<i32> = sqlx::query_scalar(
+        "SELECT item_id FROM (
+            SELECT l.item_id, max(o.observed_at) AS seen FROM listings l
+            JOIN observations o ON o.id=l.observation_id
+            WHERE l.stock>0 AND o.observed_at>=to_timestamp($1) GROUP BY l.item_id
+            UNION ALL
+            SELECT item_id, max(seen_at) AS seen FROM external_market_listings
+            WHERE up AND seen_at>=to_timestamp($1) GROUP BY item_id
+         ) latest GROUP BY item_id ORDER BY max(seen) DESC, item_id LIMIT $2",
+    )
+    .bind(cutoff)
+    .bind(limit)
+    .fetch_all(db)
+    .await?;
+    let mut rows: Vec<_> = quotes(db, &items, cutoff)
+        .await?
+        .into_iter()
+        .filter(|row| row["time"].as_f64().is_some_and(|time| time >= cutoff))
+        .map(|mut row| {
+            let listing = watch_listing(&Value::Object(row.clone()));
+            row.insert("id".into(), listing["id"].clone());
+            row.insert("observed".into(), row["time"].clone());
+            Value::Object(row)
+        })
+        .collect();
+    rows.sort_by(|a, b| {
+        b["observed"]
+            .as_f64()
+            .unwrap_or(0.0)
+            .total_cmp(&a["observed"].as_f64().unwrap_or(0.0))
+            .then_with(|| a["id"].as_str().cmp(&b["id"].as_str()))
+    });
+    rows.truncate(limit as usize);
+    Ok(json!({"listings":rows,"generated_at":now,"hours":hours.json()}))
+}
+
+/// Fresh observations received from the signed-in collector.
 pub async fn personal_watch_listings(
     db: &PgPool,
     collector: i64,

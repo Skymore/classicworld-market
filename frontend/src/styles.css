@@ -404,3 +404,74 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
     font-size: 11px;
   }
 }
+
+/* The same record layout on home, watched offers and sales. */
+.ware.market-record {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  min-height: 76px;
+  padding: 10px 12px;
+}
+.market-record > .slot {
+  align-self: center;
+}
+.market-record .ware-name {
+  white-space: normal;
+}
+.market-record .name-stack > .name-primary,
+.market-record .name-stack > .name-secondary {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.market-record .record-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--ink-3);
+}
+.market-record .record-time,
+.market-record .record-stock,
+.market-record .ware-price {
+  white-space: nowrap;
+}
+.market-record .ware-price {
+  color: var(--ink);
+  font-size: 14px;
+}
+.market-record .record-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+.market-record .offer-equipment {
+  font-size: inherit;
+}
+.market-record:hover {
+  background: var(--bar-soft);
+}
+
+.market-record .record-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  align-self: center;
+  gap: 2px;
+  min-width: 58px;
+}
+.market-record .record-value .ware-price {
+  font-size: 16px;
+}
+.market-record .record-value .record-stock {
+  font-size: 12px;
+  color: var(--ink-3);
+}

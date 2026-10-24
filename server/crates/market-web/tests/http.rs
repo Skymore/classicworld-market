@@ -469,3 +469,72 @@ async fn watchlist_routes_filter_items() {
     );
     db.close().await;
 }
+
+#[tokio::test]
+async fn recent_quotes_keep_the_observation_price_location_and_stock_together() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let (client, token) = market(&db).await;
+    let now = unix_now();
+    for (shop, age, price, stock) in [(21, 600.0, 10, 8), (22, 60.0, 900, 4), (23, 10.0, 1, 0)] {
+        let mut value = observation(&format!("quote-{shop}"), now - age, stock);
+        value["shop_id"] = json!(shop);
+        value["location"] = json!({"channel":5,"room":3});
+        value["items"][0]["price"] = json!(price);
+        assert_eq!(
+            client
+                .post(
+                    "/api/v1/observations",
+                    &value,
+                    &[("authorization", &format!("Bearer {token}"))]
+                )
+                .await
+                .status(),
+            StatusCode::CREATED
+        );
+    }
+    let first = client
+        .get("/api/v1/quotes/recent?limit=1&hours=all", &[])
+        .await;
+    assert_eq!(first.status(), StatusCode::OK);
+    let tag = first.headers()[header::ETAG].to_str().unwrap().to_string();
+    let body = json_body(first).await;
+    let rows = body["listings"].as_array().unwrap();
+    assert_eq!(rows.len(), 1);
+    let row = &rows[0];
+    assert_eq!(row["unit_price"], json!(900.0));
+    assert_eq!(row["stock"], 4);
+    assert!((row["observed"].as_f64().unwrap() - (now - 60.0)).abs() < 0.000_01);
+    assert_eq!(row["location"]["channel"], 5);
+    assert_eq!(row["location"]["room"], 3);
+    assert!(row["id"].is_string());
+    assert!(row.get("token").is_none());
+    assert_eq!(
+        client
+            .get(
+                "/api/v1/quotes/recent?limit=1&hours=all",
+                &[("if-none-match", &tag)]
+            )
+            .await
+            .status(),
+        StatusCode::NOT_MODIFIED
+    );
+    let body = json_body(client.get("/api/v1/quotes/recent?hours=72", &[]).await).await;
+    assert_eq!(
+        body["listings"].as_array().unwrap().len(),
+        2,
+        "sold-out quotes are excluded"
+    );
+    assert_eq!(body["listings"][1]["unit_price"], json!(10.0));
+    for query in ["limit=0", "limit=101", "limit=-1", "hours=bad"] {
+        assert_eq!(
+            client
+                .get(&format!("/api/v1/quotes/recent?{query}"), &[])
+                .await
+                .status(),
+            StatusCode::BAD_REQUEST
+        );
+    }
+    db.close().await;
+}
