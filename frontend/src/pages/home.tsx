@@ -171,7 +171,10 @@ export default function Home() {
               <Icon name="mob" />
               {words("图鉴", "Catalogue")}
             </span>
-            <small data-count="mobs" title={words("物品、怪物和地图", "Items, monsters & maps")}>
+            <small
+              data-count="mobs"
+              title={words("物品、怪物和地图", "Items, monsters & maps")}
+            >
               {words("物品·怪物·地图", "Items · Mobs · Maps")}
             </small>
           </SiteLink>

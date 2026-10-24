@@ -55,6 +55,18 @@ try {
     page.setDefaultTimeout(10000);
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.goto(origin + '/item/1452003?lang=en');
+    const source=page.locator('details.src-well'),where=page.locator('details.where-well');
+    await source.waitFor();
+    for(const section of [source,where]){
+      assert(await section.evaluate(node=>node.open),'item sections start expanded');
+      await section.locator(':scope > summary').click();assert.equal(await section.getAttribute('open'),null);
+      await section.locator(':scope > summary').click();assert(await section.evaluate(node=>node.open));
+    }
+    if(mobile)for(const width of [320,390,430]){
+      await page.setViewportSize({width,height:844});
+      assert(await page.locator('.mobile-item-search').evaluate(node=>{const outer=node.getBoundingClientRect(),inner=node.querySelector('.finder').getBoundingClientRect();return Math.abs(outer.left-inner.left)<1&&Math.abs(outer.right-inner.right)<1;}),'item search fills the entire available width');
+    }
+    await page.setViewportSize({width:mobile?390:1280,height:844});
     const craft=page.locator('.src-well details[data-crafting="1452003"]');
     const total=craft.locator('[data-craft-total]');
     await page.waitForFunction(()=>document.querySelector('[data-craft-total]')?.title==='17150');
@@ -104,6 +116,12 @@ try {
     for(const stream of streams)stream.write('event: market\ndata: {}\n\n');
     await (await restored).finished();
     assert.equal(await craft.getAttribute('open'),null,'SSE keeps the disclosure closed');
+    await source.locator(':scope > summary').click();await where.locator(':scope > summary').click();
+    const foldedRefresh=page.waitForResponse(response=>response.url().endsWith('/api/v1/crafting/prices'));
+    for(const stream of streams)stream.write('event: market\ndata: {}\n\n');
+    await (await foldedRefresh).finished();
+    assert.equal(await source.getAttribute('open'),null,'SSE preserves collapsed Sources');assert.equal(await where.getAttribute('open'),null,'SSE preserves collapsed Where to buy');
+    await source.locator(':scope > summary').click();await where.locator(':scope > summary').click();
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'crafting and dates fit the viewport');
     await page.goto(origin+'/item/1072112?lang=en');
     const five=page.locator('.src-well details[data-crafting="1072112"]');

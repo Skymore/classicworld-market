@@ -168,6 +168,7 @@ html[lang=en] .salegrid .sale{grid-template-columns:96px minmax(0,1fr) auto minm
 .mobile-item-search{display:none}
 @media (max-width:640px){
   .mobile-item-search{display:flex;width:100%;margin-bottom:12px;min-width:0}
+  .mobile-item-search .finder{flex:1;min-width:0;width:100%}
   .mobile-item-search .quick-search{min-width:0;width:auto;max-height:min(60vh,420px)}
 }
 
@@ -204,3 +205,12 @@ html[lang=en] .salegrid .sale{grid-template-columns:96px minmax(0,1fr) auto minm
 .craft-comparison,.craft-missing{margin:5px 0;font-size:12px;color:var(--ink-2)}
 .craft-credit{display:block;width:max-content;margin:8px 0 0 auto;color:var(--ink-3);font-size:10px}
 @media(prefers-reduced-motion:reduce){.craft-summary>.contents svg{transition:none}}
+
+.collapsible-well>.well-h{cursor:pointer;list-style:none;padding-right:10px}
+.collapsible-well>.well-h::-webkit-details-marker{display:none}
+.collapsible-well>.well-h:focus-visible{outline:2px solid var(--mark);outline-offset:-2px}
+.collapsible-well:not([open])>.well-h{border-bottom:0}
+.collapsible-well .well-toggle{display:flex;align-items:center;margin-left:auto;flex-shrink:0;color:var(--ink-3)}
+.collapsible-well .well-toggle svg{width:14px;height:14px}
+.collapsible-well[open]>.well-h .well-toggle{transform:rotate(90deg)}
+.where-tools{justify-content:flex-end;padding:8px 10px;border-bottom:1px solid var(--rule);flex-wrap:wrap}

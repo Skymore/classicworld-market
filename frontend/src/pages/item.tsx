@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "/web/js/lib/i18n.js";
 import { meso, fullTime } from "/web/js/lib/format.js";
@@ -32,6 +32,35 @@ import { Location } from "../components/list-rows";
 import { Well, MobPicture, Secondary, useNames } from "./catalogue";
 import Crafting from "../components/crafting";
 import ItemTrend from "../components/item-trend";
+function CollapsibleWell({
+  title,
+  note,
+  className,
+  children,
+}: {
+  title: string;
+  note?: ReactNode;
+  className: string;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <details
+      className={"well collapsible-well " + className}
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary className="well-h">
+        <h3>{title}</h3>
+        {note && <small>{note}</small>}
+        <span className="well-toggle">
+          <Icon name="chev" />
+        </span>
+      </summary>
+      {children}
+    </details>
+  );
+}
 function Variant({ variant, page }: { variant: any; page: any }) {
   const words = useWords(),
     base = page.market.base_stats || [];
@@ -854,7 +883,7 @@ export default function Item({ page }: { page: any }) {
         </div>
         <div className="ibox">
           <div className="src-box">
-            <Well
+            <CollapsibleWell
               className={"src-well " + (more.has("mobs") ? "all" : "")}
               title={words("来源", "Sources")}
               note={words("怎么拿到", "how to get it")}
@@ -966,65 +995,61 @@ export default function Item({ page }: { page: any }) {
               </div>
               <Crafting key={page.item.id} itemId={page.item.id} />
               <Verdict page={page} />
-            </Well>
+            </CollapsibleWell>
           </div>
           <div data-market="where">
-            <section
+            <CollapsibleWell
               className={
-                "well where-well " +
+                "where-well " +
                 (sort === "recent" ? "recent-order " : "") +
                 (more.has("where") ? "all" : "")
               }
+              title={words("在哪买", "Where to buy")}
+              note={words(
+                `${filtered.rows.length} 条挂单 · ${new Set(filtered.rows.map((row: any) => JSON.stringify([row.shop, row.channel, row.room]))).size} 摊`,
+                `${filtered.rows.length} listings · ${new Set(filtered.rows.map((row: any) => JSON.stringify([row.shop, row.channel, row.room]))).size} shops`,
+              )}
             >
-              <div className="well-h">
-                <h3>{words("在哪买", "Where to buy")}</h3>
-                <small>
-                  {words(
-                    `${filtered.rows.length} 条挂单 · ${new Set(filtered.rows.map((row: any) => JSON.stringify([row.shop, row.channel, row.room]))).size} 摊`,
-                    `${filtered.rows.length} listings · ${new Set(filtered.rows.map((row: any) => JSON.stringify([row.shop, row.channel, row.room]))).size} shops`,
-                  )}
-                </small>
-                {!!rows.length && (
-                  <div className="offer-actions">
-                    <label className="sortb right">
-                      <span className="sr">
-                        {words("报价排序", "Offer order")}
-                      </span>
-                      <select
-                        data-offer-sort
-                        value={sort}
-                        title={words(
-                          "时间按最近采集到报价的时间计算",
-                          "Time is when an offer was last observed",
-                        )}
-                        onChange={(event) => saveSort(event.target.value)}
-                      >
-                        <option value="price">
-                          {words("最低价优先", "Lowest price first")}
-                        </option>
-                        <option value="recent">
-                          {words("最新报价优先", "Latest offers first")}
-                        </option>
-                      </select>
-                    </label>
-                    <button
-                      className={
-                        "offer-filter-trigger " + (tokens.length ? "on" : "")
-                      }
-                      ref={opener}
-                      data-offer-filter-open
-                      aria-haspopup="dialog"
-                      aria-controls="offer-filter-dialog"
-                      aria-expanded={filterOpen}
-                      onClick={() => setFilterOpen(true)}
+              {!!rows.length && (
+                <div className="offer-actions where-tools">
+                  <label className="sortb right">
+                    <span className="sr">
+                      {words("报价排序", "Offer order")}
+                    </span>
+                    <select
+                      data-offer-sort
+                      value={sort}
+                      title={words(
+                        "时间按最近采集到报价的时间计算",
+                        "Time is when an offer was last observed",
+                      )}
+                      onChange={(event) => saveSort(event.target.value)}
                     >
-                      <Icon name="funnel" />
-                      <span>{words("筛选", "Filters")}</span>
-                      {tokens.length > 0 && <b>{tokens.length}</b>}
-                    </button>
-                  </div>
-                )}
-              </div>
+                      <option value="price">
+                        {words("最低价优先", "Lowest price first")}
+                      </option>
+                      <option value="recent">
+                        {words("最新报价优先", "Latest offers first")}
+                      </option>
+                    </select>
+                  </label>
+                  <button
+                    className={
+                      "offer-filter-trigger " + (tokens.length ? "on" : "")
+                    }
+                    ref={opener}
+                    data-offer-filter-open
+                    aria-haspopup="dialog"
+                    aria-controls="offer-filter-dialog"
+                    aria-expanded={filterOpen}
+                    onClick={() => setFilterOpen(true)}
+                  >
+                    <Icon name="funnel" />
+                    <span>{words("筛选", "Filters")}</span>
+                    {tokens.length > 0 && <b>{tokens.length}</b>}
+                  </button>
+                </div>
+              )}
               {tokens.length > 0 && (
                 <div className="offer-filter-summary">
                   {tokens.map((token: any) => (
@@ -1240,7 +1265,7 @@ export default function Item({ page }: { page: any }) {
                   )}
                 </>
               )}
-            </section>
+            </CollapsibleWell>
           </div>
           {equipment && (
             <div data-market="equip">

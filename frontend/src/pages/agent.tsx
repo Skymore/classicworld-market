@@ -31,8 +31,8 @@ import {
   DialogDescription,
 } from "../components/ui/dialog";
 import type { Account } from "../lib/types";
-import {AgentGuides} from "../components/agent-guides";
-import {evidenceUrl, sourceLabel} from "../lib/agent-sources";
+import { AgentGuides } from "../components/agent-guides";
+import { evidenceUrl, sourceLabel } from "../lib/agent-sources";
 import "./agent.css";
 
 type Meta = {
@@ -167,18 +167,29 @@ function errorText(code: string, en: boolean) {
       : "回复未完成，请稍后重试。")
   );
 }
-function RichText({ value, sources = [] }: { value: string; sources?: string[] }) {
+function RichText({
+  value,
+  sources = [],
+}: {
+  value: string;
+  sources?: string[];
+}) {
   const tokens = value.split(
     /(\[[^\]\n]{1,160}\]\(\s*[^\s)]{1,500}\s*\)|\*\*[^*\n]+\*\*)/g,
   );
   return (
     <>
       {tokens.map((part, i) => {
-        const link = part.match(
-          /^\[([^\]]+)\]\(\s*([^\s)]+)\s*\)$/,
-        );
-        return link && evidenceUrl(link[2]) && (link[2].startsWith("/") || sources.includes(link[2])) ? (
-          <a key={i} href={link[2]} target={link[2].startsWith("https:") ? "_blank" : undefined} rel="noopener noreferrer">
+        const link = part.match(/^\[([^\]]+)\]\(\s*([^\s)]+)\s*\)$/);
+        return link &&
+          evidenceUrl(link[2]) &&
+          (link[2].startsWith("/") || sources.includes(link[2])) ? (
+          <a
+            key={i}
+            href={link[2]}
+            target={link[2].startsWith("https:") ? "_blank" : undefined}
+            rel="noopener noreferrer"
+          >
             {link[1]}
           </a>
         ) : link ? (
@@ -292,7 +303,7 @@ function Assistant({ account }: { account: Account }) {
       <header className="stall-bar chat-top">
         <h1>{words("冒险助手", "Adventure assistant")}</h1>
         <span className="chat-model">GPT-6 Luna</span>
-        <AgentGuides en={en}/>
+        <AgentGuides en={en} />
         <button
           className="chat-history-toggle"
           onClick={() => setMenu(!menu)}
@@ -627,6 +638,14 @@ function ChatPane({
     [],
   );
   useEffect(() => {
+    const field = inputRef.current;
+    if (field) {
+      field.style.height = "auto";
+      field.style.height =
+        Math.min(150, Math.max(44, field.scrollHeight + 2)) + "px";
+    }
+  }, [input]);
+  useEffect(() => {
     if (follow.current && scrollRef.current)
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [chat.messages, querying]);
@@ -783,25 +802,44 @@ function ChatPane({
             </p>
             <div className="chat-examples">
               {[
-                words("猎人二转技能怎么加？", "How should I build my Hunter's second-job skills?"),
-                words("35级猎人去哪里练级？", "Where can a level 35 Hunter train?"),
-                words(
-                  "我要买40-50弓手披风，买什么？",
-                  "Which cape should a level 40–50 archer buy?",
-                ),
-                words(
-                  "我要卖100个铁矿石，挂多少钱？",
-                  "How much should I ask for 100 Iron Ores?",
-                ),
-              ].map((value) => (
+                {
+                  label: words("猎人技能加点", "Hunter skills"),
+                  prompt: words(
+                    "猎人二转技能怎么加？",
+                    "How should I build my Hunter's second-job skills?",
+                  ),
+                },
+                {
+                  label: words("35级猎人练级", "Level 35 training"),
+                  prompt: words(
+                    "35级猎人去哪里练级？",
+                    "Where can a level 35 Hunter train?",
+                  ),
+                },
+                {
+                  label: words("弓手披风推荐", "Archer capes"),
+                  prompt: words(
+                    "我要买40-50弓手披风，买什么？",
+                    "Which cape should a level 40–50 archer buy?",
+                  ),
+                },
+                {
+                  label: words("铁矿石卖价", "Iron Ore prices"),
+                  prompt: words(
+                    "我要卖100个铁矿石，挂多少钱？",
+                    "How much should I ask for 100 Iron Ores?",
+                  ),
+                },
+              ].map(({ label, prompt }) => (
                 <button
-                  key={value}
+                  key={prompt}
+                  title={prompt}
                   onClick={() => {
-                    setInput(value);
+                    setInput(prompt);
                     inputRef.current?.focus();
                   }}
                 >
-                  {value}
+                  {label}
                 </button>
               ))}
             </div>
@@ -822,7 +860,7 @@ function ChatPane({
                   : words("冒险助手", "Adventure assistant")}
               </div>
               <div className="chat-answer">
-                <RichText value={value} sources={meta?.sources}/>
+                <RichText value={value} sources={meta?.sources} />
                 {busy && index === chat.messages.length - 1 && value ? (
                   <span className="chat-cursor" aria-hidden="true" />
                 ) : null}
@@ -850,13 +888,16 @@ function ChatPane({
               ) : null}
               {meta?.sources?.length ? (
                 <div className="chat-sources">
-                  {meta.sources
-                    .filter(evidenceUrl)
-                    .map((s) => (
-                      <a key={s} href={s} target={s.startsWith("https:") ? "_blank" : undefined} rel="noopener noreferrer">
-                        {sourceLabel(s,en)}
-                      </a>
-                    ))}
+                  {meta.sources.filter(evidenceUrl).map((s) => (
+                    <a
+                      key={s}
+                      href={s}
+                      target={s.startsWith("https:") ? "_blank" : undefined}
+                      rel="noopener noreferrer"
+                    >
+                      {sourceLabel(s, en)}
+                    </a>
+                  ))}
                 </div>
               ) : null}
               {meta?.tool_calls?.length ? (
@@ -931,7 +972,7 @@ function ChatPane({
           ref={inputRef}
           value={input}
           maxLength={2000}
-          rows={2}
+          rows={1}
           disabled={busy || externalRunning}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
@@ -944,10 +985,7 @@ function ChatPane({
               send();
             }
           }}
-          placeholder={words(
-            "问技能加点、练级、任务，或买卖装备…",
-            "Ask about skills, training, quests or trading…",
-          )}
+          placeholder={words("问点冒险问题…", "Ask a question…")}
         />
         {busy ? (
           <button type="button" className="chat-send" onClick={stop}>
@@ -965,21 +1003,6 @@ function ChatPane({
           </button>
         )}
       </form>
-      <p className="chat-footnote">
-        {account.signed_in
-          ? words(
-              "对话随账号保存，可在其他设备继续。",
-              "Conversations are saved to your account across devices.",
-            )
-          : words(
-              "当前为临时对话，登录后可保存历史。",
-              "Temporary chat. Sign in to save history.",
-            )}{" "}
-        {words(
-          "资料会标注来源版本；报价来自已采集数据，请在游戏中核对。",
-          "Sources have snapshot dates; check observed offers in game.",
-        )}
-      </p>
     </div>
   );
 }
