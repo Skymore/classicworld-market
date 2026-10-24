@@ -1,0 +1,130 @@
+// Warm CSS caches, input focus and changing iPhone bottom safe areas.
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+const assetVersion = (await readFile(path.join(root, 'react/asset-version.txt'), 'utf8')).trim();
+const now = Date.now() / 1000, streams = new Set();
+let generation = 0, saleReads = 0;
+const product = { item_id: 1452003, name_zh: '战斗弓', name_en: 'Battle Bow', category: '装备', sales_window: 20, typical: 8000, low: 7000, last_seen: now, trend: [] };
+const names = { zh: '宠物装备移动速度卷轴', en: 'Pet Equip Speed Scroll' };
+const server = createServer(async (req, res) => {
+  const url = new URL(req.url, 'http://localhost');
+  if (url.pathname === '/api/v1/events') {
+    res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.write(': connected\n\n');
+    streams.add(res); req.on('close', () => streams.delete(res)); return;
+  }
+  if (url.pathname.startsWith('/api/')) {
+    let data = {};
+    if (url.pathname === '/api/v1/account') data = { signed_in: false };
+    if (url.pathname === '/api/v1/crafting/prices') data = { prices: [] };
+    if (url.pathname === '/api/v1/market') data = { as_of: now + generation, products: [product] };
+    if (url.pathname === '/api/v1/market/period-default') data = { default_hours: 'all' };
+    if (url.pathname === '/api/v1/sales/recent') {
+      saleReads++;
+      data = { generated_at: now + generation, sales: Array.from({ length: 8 }, (_, i) => ({ ...product, id: i, sale_unit_price: 8000 + generation, time: now - i, location: { channel: 16, room: 9 } })) };
+    }
+    if (url.pathname === '/api/v1/dex/counts') data = { mobs: 1, maps: 1 };
+    if (url.pathname === '/api/v1/catalog/page') {
+      const target = new URL(url.searchParams.get('url'), 'http://localhost');
+      if (target.pathname === '/search') data = { kind: 'search', page: { query: target.searchParams.get('q'), kind: null, offset: 0, region: '', area: '', areas: [], filters: {}, items: { rows: Array.from({ length: 7 }, (_, i) => ({ id: 2048000 + i, names })), more: false }, mobs: { rows: [], more: false }, maps: { rows: [], more: false } } };
+      else {
+        const id = Number(target.pathname.split('/').at(-1));
+        data = { kind: 'item', page: { item: { id, name_en: id === 1452003 ? 'Battle Bow' : names.en, name_zh: id === 1452003 ? '战斗弓' : names.zh, category: '装备' }, stats: null, droppers: [], npc_offers: [], npc_sell: null, market: { as_of: now, base_stats: [], days: [], sale_points: [], listings: [], sales: [] } } };
+      }
+    }
+    res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(data));
+  }
+  const file = url.pathname.startsWith('/web/') ? path.resolve(root, '.' + url.pathname.slice(4)) : path.join(root, 'index.html');
+  if (!file.startsWith(root + path.sep)) { res.writeHead(404); return res.end(); }
+  try {
+    res.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.json') ? 'application/json' : file.endsWith('.svg') ? 'image/svg+xml' : 'text/html; charset=utf-8');
+    res.end(await readFile(file));
+  } catch { res.writeHead(404); res.end(); }
+});
+await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+const origin = `http://127.0.0.1:${server.address().port}`;
+let browser;
+const frames = page => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+try {
+  browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+  for (const stale of [false, true]) {
+    const page = await browser.newPage({ viewport: { width: 390, height: 760 }, isMobile: true, hasTouch: true });
+    page.setDefaultTimeout(10000);
+    const errors = []; page.on('pageerror', error => errors.push(error.message));
+    let oldStyles = 0;
+    if (stale) {
+      await page.route(/\/web\/(css\/.*\.css|react\/style\.css)(\?|$)/, route => {
+        if (new URL(route.request().url()).searchParams.get('v') === assetVersion) return route.continue();
+        oldStyles++;
+        return route.fulfill({ contentType: 'text/css', body: '/* Cached stylesheet from before these components existed. */' });
+      });
+      await page.addInitScript(() => document.addEventListener('DOMContentLoaded', () => {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet'; link.href = '/web/css/item.css?v=20261023-react-1'; document.head.append(link);
+      }));
+    }
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { bottom: 0 } });
+    await page.goto(origin + '/?lang=zh&hours=all');
+    await page.locator('[data-pane="recent"] [data-item-row]').first().waitFor();
+    const input = page.locator('.hero input[name=q]');
+    assert.equal(await input.evaluate(node => getComputedStyle(node).fontSize), '16px', 'search cannot trigger the iOS small-input focus zoom');
+    const viewport = await page.locator('meta[name=viewport]').getAttribute('content');
+    assert(!/user-scalable\s*=\s*(no|0)|maximum-scale\s*=\s*1\b/i.test(viewport), 'user pinch zoom remains available');
+    await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+    await frames(page);
+    const height = await page.evaluate(() => document.documentElement.scrollHeight);
+    async function footerClear() {
+      const bounds = await page.evaluate(() => ({ footer: document.querySelector('.home-foot').getBoundingClientRect().bottom, dock: document.querySelector('.dock').getBoundingClientRect().top, overflow: document.documentElement.scrollWidth > innerWidth }));
+      assert(bounds.footer <= bounds.dock - 12, `footer ${bounds.footer} remains above dock ${bounds.dock} after one scroll`);
+      assert(!bounds.overflow);
+    }
+    await footerClear();
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { bottom: 34 } });
+    await frames(page);
+    assert.equal(await page.locator('.dock').evaluate(node => node.getBoundingClientRect().height), 94, 'exercise a real 34px safe-area inset');
+    assert.equal(await page.evaluate(() => document.documentElement.scrollHeight), height, 'browser bar collapse cannot extend the page after reaching its end');
+    await footerClear();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await frames(page);
+    await footerClear();
+    const reads = saleReads;
+    const refreshed = page.waitForResponse(response => response.url().includes('/api/v1/sales/recent'));
+    generation++;
+    for (const stream of streams) stream.write('event: market\ndata: {}\n\n');
+    await (await refreshed).finished();
+    await frames(page);
+    assert(saleReads > reads);
+    await footerClear();
+    await input.fill('Speed pet');
+    const rows = page.locator('.hero .quick-search .quick-row');
+    await rows.first().waitFor();
+    await rows.first().tap();
+    const preview = page.locator('#item-quick-preview');
+    await preview.locator('.peek-footer a').waitFor();
+    const fits = await preview.evaluate(node => { const box = node.getBoundingClientRect(); return box.left >= 10 && box.right <= innerWidth - 10 && box.bottom <= visualViewport.height + visualViewport.offsetTop; });
+    assert(fits, 'the preview fits without a pinch gesture');
+    await preview.locator('.peek-close').click();
+    await page.goto(origin + '/item/1452003?lang=zh');
+    await page.locator('[data-crafting="1452003"]').waitFor();
+    assert.equal(await page.locator('.craft-controls').evaluate(node => getComputedStyle(node).display), 'flex', 'crafting styles match the component even with old cached links');
+    for (const control of await page.locator('.craft-well input:not([type=checkbox]),.craft-well select').all()) {
+      assert(await control.evaluate(node => parseFloat(getComputedStyle(node).fontSize) >= 16));
+    }
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    if (stale) assert(oldStyles > 0, 'actually exercise cached legacy styles');
+    assert.deepEqual(errors, []);
+    await page.close();
+    console.log(`PASS ${stale ? 'warm old CSS cache' : 'fresh page'}: 16px inputs, user zoom, safe-area/bar changes after one scroll, SSE, fitted preview and styled crafting`);
+  }
+} finally {
+  await browser?.close();
+  for (const stream of streams) stream.end();
+  server.closeAllConnections();
+  await new Promise(resolve => server.close(resolve));
+}

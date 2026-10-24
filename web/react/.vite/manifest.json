@@ -38,8 +38,8 @@
       "_shared-DxSzmOdy.js"
     ]
   },
-  "_main-DkTcXHMI.js": {
-    "file": "chunks/main-DkTcXHMI.js",
+  "_main-Cc_JbkG6.js": {
+    "file": "chunks/main-Cc_JbkG6.js",
     "name": "main",
     "imports": [
       "_shared-DxSzmOdy.js",
@@ -107,7 +107,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DkTcXHMI.js"
+      "_main-Cc_JbkG6.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -251,7 +251,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DkTcXHMI.js"
+      "_main-Cc_JbkG6.js"
     ]
   },
   "style.css": {

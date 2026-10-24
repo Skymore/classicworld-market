@@ -105,7 +105,14 @@ h1,h2,h3,p{margin:0}
 .pane.list>.ware:first-child{border-top:0}
 
 /* ---------- 手机外壳 ---------- */
-@media (max-width:640px){.app{max-width:430px;margin:0 auto;padding:0 var(--gap) calc(var(--dock-h) + 20px)}}
+@media (max-width:640px){
+  /* Reserve home-indicator space while browser toolbars cover it too, so
+     collapsing the bars cannot grow the page after a completed swipe. */
+  .app{width:100%;max-width:430px;min-width:0;margin:0 auto;padding:0 var(--gap) calc(var(--dock-h) + max(34px,env(safe-area-inset-bottom,0px)) + 20px)}
+  /* iOS can retain its focus zoom after the keyboard closes. Keep control
+     text readable without blocking the user's normal pinch zoom. */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),textarea,select{font-size:max(16px,1em)!important}
+}
 .ptop{display:flex;align-items:center;gap:8px;height:52px}
 .brand{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-weight:800;font-size:18px;letter-spacing:.04em}
 .fresh{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-3)}
