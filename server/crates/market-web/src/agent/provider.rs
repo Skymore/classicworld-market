@@ -9,6 +9,8 @@ type Failure = (StatusCode, &'static str);
 const ENDPOINT: &str = "https://openrouter.ai/api/v1/chat/completions";
 const SYSTEM: &str = r#"You are 枫叶市集's 冒险助手 (Adventure assistant) for GLOBAL MAPLESTORY CLASSIC WORLD / 冒险岛经典世界国际服. Help with jobs, skills, AP/SP planning, leveling, monsters, maps, NPCs, quests, drops, equipment progression AND buying/selling. A gameplay question is fully in scope: never redirect it to market questions.
 The edition is already known. Do not ask the user which server/version they mean by default. This is Nexon's Global Classic World, not modern GMS, an old 2005/v83 guide, CMS/TMS Classic, MapleStory Worlds/Artale/MapleLand, or a private server. Do not import skills, prerequisites, damage formulas, third-job access or builds from those editions. Earlier assistant history can be wrong: recheck and explicitly correct it when contradicted by tools; do not defend or repeat it.
+Use the exact English skill names from get_skills; explain their effects in Chinese, but do not invent Chinese skill names. Amazon's Judgement and The Eye of Amazon are DIFFERENT skills. In a numbered build order, every prerequisite must ALREADY have the required rank before its dependent skill is added: 'Booster 1 then Soul Arrow 1' is invalid when Soul Arrow requires Booster 5. State the prerequisite rank as a completed step, not a footnote. Do not suggest maxing arrow-saving buffs just because the maximum exists; explain the SP tradeoff.
+Only link exact URLs returned by tools. Local game pages use relative paths such as /map/10001000; never invent the site's domain or link to another MapleStory/private-server site. Source URLs must be copied exactly. A location without a verified URL can be named without a link.
 For gameplay facts call get_game_rules and the relevant gameplay tools in this turn. For EVERY skill/build/AP/SP question call get_skills with the resolved class/name before giving numeric ranks, prerequisites, effects or ordering. The export has beginner/1st/2nd jobs; archived CoT2 content is not evidence of a live feature. Use skill English names to disambiguate translated names. Hunter uses bows; Crossbowman uses crossbows. If the user only says 二转弓手, explain/clarify the branch before prescribing a full build. If they explicitly say Hunter/猎人, do not ask that again.
 Skill facts and build advice are different: check actual max ranks, prerequisite chains and available SP/level; never say to max everything without a feasible SP budget. Give a useful initial suggested priority from the verified effects, label it 建议 rather than an official or proven optimal build, and ask for current level/existing SP only if needed for a personal point-by-point plan. Do not invent an unrecorded intermediate rank: query get_skills rank when needed. Example of the kind of mistake to avoid: Bow Booster and Final Attack have separate prerequisites; do not claim Booster unlocks Final Attack. Do not infer a mechanic from the skill's old name.
 For leveling, search_game_data kind=monster with an appropriate level band, compare HP/EXP and actual spawn maps, then use get_game_entity for map details. These are candidate routes, not measured best EXP/hour; consider attack range/element, hits to kill, potions and crowding. For quests/NPCs/maps search first to resolve names/IDs; preserve level/job/chain requirements and reward choice from get_game_entity. Unknown quest availability, later patches, event rules, crafting/citizenship specifics or hidden mechanics stay unknown; explain what evidence is missing and offer what can be verified, without guessing from another edition. The client export does not prove server-only rules or current availability. Cite the returned source URLs and snapshot date when version-sensitive. Chinese aliases are reference names, not official Global localization.
@@ -196,6 +198,7 @@ impl OpenRouter {
         messages.push(json!({"role":"user","content":request.message}));
         let mut trace = vec![];
         let mut sources = std::collections::BTreeSet::new();
+        let mut links = std::collections::BTreeSet::new();
         for round in 0..5 {
             let final_turn = round == 4 || trace.len() >= 10;
             let step = sink.as_ref().map(|s| {
@@ -237,10 +240,25 @@ impl OpenRouter {
                     continue;
                 }
                 if let Some(s) = &step {
+                    let clean = grounded_links(text, &links);
+                    if clean != text {
+                        s.reset().await;
+                        let mut replacement = s.clone();
+                        replacement.text_id.push_str("-links");
+                        replacement
+                            .emit(json!({"type":"text-start","id":replacement.text_id}))
+                            .await;
+                        replacement.delta(&clean).await;
+                        replacement
+                            .emit(json!({"type":"text-end","id":replacement.text_id}))
+                            .await;
+                    }
                     s.emit(json!({"type":"finish-step"})).await;
                 }
-                return Ok(json!({"answer":text,"model":self.model,"tool_calls":trace,
-                    "sources":sources,"generated_at":crate::unix_now()}));
+                return Ok(
+                    json!({"answer":grounded_links(text, &links),"model":self.model,"tool_calls":trace,
+                    "sources":sources,"generated_at":crate::unix_now()}),
+                );
             }
             if let Some(s) = &step {
                 s.reset().await;
@@ -291,6 +309,7 @@ impl OpenRouter {
                 };
                 // Sources come only from executed, validated tools, never from model claims.
                 if result.get("error").is_none() {
+                    collect_links(&result, &mut links);
                     if let Some(urls) = result["source_urls"].as_array() {
                         for url in urls
                             .iter()
@@ -302,9 +321,11 @@ impl OpenRouter {
                     }
                     if let Some(id) = args.as_ref().and_then(|a| a["item_id"].as_i64()) {
                         sources.insert(format!("/item/{id}"));
+                        links.insert(format!("/item/{id}"));
                     }
                     if name == "get_market_overview" {
                         sources.insert("/prices".to_owned());
+                        links.insert("/prices".to_owned());
                     }
                 }
                 trace
@@ -320,6 +341,76 @@ impl OpenRouter {
         }
         Err((StatusCode::BAD_GATEWAY, "agent_tool_limit"))
     }
+}
+
+fn local_evidence_url(url: &str) -> bool {
+    url == "/prices"
+        || ["/item/", "/mob/", "/map/"].iter().any(|prefix| {
+            url.strip_prefix(prefix)
+                .is_some_and(|id| !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()))
+        })
+}
+
+fn collect_links(value: &Value, links: &mut std::collections::BTreeSet<String>) {
+    match value {
+        Value::String(url) if local_evidence_url(url) || super::adventure::trusted_source(url) => {
+            links.insert(url.clone());
+        }
+        Value::Array(rows) => {
+            for row in rows {
+                collect_links(row, links);
+            }
+        }
+        Value::Object(row) => {
+            if let Some(id) = row
+                .get("map_id")
+                .and_then(Value::as_i64)
+                .filter(|id| *id > 0 && *id < 999_999_999)
+            {
+                links.insert(format!("/map/{id}"));
+            }
+            for value in row.values() {
+                collect_links(value, links);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Keep citations within executed evidence. Repair an invented host only when
+/// the exact relative path was returned; otherwise retain the readable label.
+fn grounded_links(text: &str, links: &std::collections::BTreeSet<String>) -> String {
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(start) = rest.find('[') {
+        let after = &rest[start + 1..];
+        let Some(label_end) = after.find("](") else {
+            break;
+        };
+        let destination = &after[label_end + 2..];
+        let Some(end) = destination.find(')') else {
+            break;
+        };
+        out.push_str(&rest[..start]);
+        let label = &after[..label_end];
+        let url = destination[..end].trim();
+        let relative = ["/map/", "/mob/", "/item/"]
+            .iter()
+            .find_map(|prefix| url.find(prefix).map(|i| &url[i..]));
+        let accepted = if links.contains(url) {
+            Some(url)
+        } else {
+            relative.filter(|url| links.contains(*url))
+        };
+        if let Some(url) = accepted {
+            out.push_str(&format!("[{label}]({url})"));
+        } else {
+            out.push_str(label);
+        }
+        rest = &destination[end + 1..];
+    }
+    out.push_str(rest);
+    out
 }
 
 pub(super) fn contains_tool_protocol(text: &str) -> bool {
@@ -378,6 +469,23 @@ fn text_tool_calls(text: &str) -> Option<Vec<Value>> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn adventure_links_only_use_executed_evidence() {
+        let links = std::collections::BTreeSet::from(["/map/10003063".to_owned()]);
+        assert_eq!(
+            grounded_links("[地图](https://枫叶市集/map/10003063)", &links),
+            "[地图](/map/10003063)"
+        );
+        assert_eq!(
+            grounded_links("任务 [地点](https://maplelegends.com/) 完成", &links),
+            "任务 地点 完成"
+        );
+        assert_eq!(grounded_links("[未知](/map/999)", &links), "未知");
+        assert_eq!(
+            grounded_links("普通中文 **说明**", &links),
+            "普通中文 **说明**"
+        );
+    }
     use super::*;
     use axum::{extract::State, routing::post, Json, Router};
     use std::{collections::VecDeque, sync::Mutex};

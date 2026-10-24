@@ -222,7 +222,8 @@ pub fn run(request: Request) -> Value {
             }
             envelope(
                 "skill",
-                json!({"skills":rows,"total_matches":total,"truncated":total>12,"build_note":"No authoritative SP allocation or character's existing skill levels provided. Offer a reasoned, explicitly suggested path from these prerequisites, not a universal official build. For incomplete evidence say what is missing.","class_names":classes()}),
+                json!({"skills":rows,"total_matches":total,"truncated":total>12,"build_note":"No authoritative SP allocation or character's existing skill levels provided. Offer a reasoned, explicitly suggested path from these prerequisites, not a universal official build. Complete required prerequisite ranks BEFORE adding a dependent skill. Skill English names are authoritative in this source; do not invent Chinese translations.","class_names":classes(),
+                "hunter_unlock_example":if s.class_name.as_deref().is_some_and(|c| c.eq_ignore_ascii_case("Hunter")) {json!({"type":"editorial suggestion, not official build or measured optimum","assumes":"New second-job skills are all zero; complete incrementally only when enough SP is available. An existing build needs its actual allocated ranks.","steps":[{"skill":"Arrow Bomb","target_rank":1},{"skill":"Bow Mastery","target_rank":5},{"skill":"Bow Booster","target_rank":5},{"skill":"Soul Arrow: Bow","target_rank":1}],"total_sp_from_zero":12,"later_priorities":"Compare maxing Bow Mastery for stability and Arrow Bomb for training; Final Attack: Bow is the current trigger-then-manual-use attack, not the old automatic follow-up. Amazon's Judgement is the slow-on-critical passive, not The Eye of Amazon. Do not max every buff or invent a full 30-70 SP plan."})} else {Value::Null}}),
             )
         }
         Request::Search(s) => {
@@ -339,6 +340,24 @@ mod tests {
             .contains("60 sec"));
         assert!(rows.iter().any(|r| r["name"] == "Amazon's Judgement"));
         assert!(!rows.iter().any(|r| r["name"] == "Power Knockback"));
+        let mut allocated = std::collections::BTreeMap::new();
+        let mut cost = 0;
+        for step in r["hunter_unlock_example"]["steps"].as_array().unwrap() {
+            let name = step["skill"].as_str().unwrap();
+            let skill = find(name);
+            if let Some(required) = skill["required_skill"].as_str() {
+                let (prerequisite, rank) = required.split_once(" Lv.").unwrap();
+                assert!(
+                    allocated.get(prerequisite).copied().unwrap_or(0)
+                        >= rank.parse::<i64>().unwrap()
+                );
+            }
+            let rank = step["target_rank"].as_i64().unwrap();
+            assert!(rank <= skill["max_level"].as_i64().unwrap());
+            cost += rank;
+            allocated.insert(name, rank);
+        }
+        assert_eq!(cost, 12);
         assert!(parse("get_skills", json!({"class_name":"Ranger"})).is_err());
         assert!(parse(
             "get_game_entity",

@@ -182,6 +182,8 @@ function RichText({ value }: { value: string }) {
           <a key={i} href={link[2]} target={link[2].startsWith("https:") ? "_blank" : undefined} rel="noopener noreferrer">
             {link[1]}
           </a>
+        ) : link ? (
+          <span key={i}>{link[1]}</span>
         ) : part.startsWith("**") && part.endsWith("**") ? (
           <strong key={i}>{part.slice(2, -2)}</strong>
         ) : (

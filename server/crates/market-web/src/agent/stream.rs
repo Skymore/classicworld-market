@@ -40,7 +40,7 @@ impl Sink {
         self.partial.lock().unwrap().clear();
         self.emit(json!({"type":"reset-step"})).await;
     }
-    async fn delta(&self, text: &str) {
+    pub(super) async fn delta(&self, text: &str) {
         self.partial.lock().unwrap().push_str(text);
         self.emit(json!({"type":"text-delta","id":self.text_id,"delta":text}))
             .await;
