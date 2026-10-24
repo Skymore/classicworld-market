@@ -97,6 +97,7 @@ pub struct Page<'a> {
 
 pub fn layout(ctx: &Ctx, page: &Page<'_>, body: Markup) -> Markup {
     let brand = ctx.t("枫叶市集", "Maple Market");
+    let asset_version = crate::web::frontend_asset_version();
     html! {
         (DOCTYPE)
         html lang=(ctx.lang.html_lang()) data-lang=(ctx.lang.code()) data-device=(ctx.device.attr()) data-theme="light" {
@@ -106,14 +107,14 @@ pub fn layout(ctx: &Ctx, page: &Page<'_>, body: Markup) -> Markup {
                 meta name="color-scheme" content="light dark";
                 meta name="theme-color" content="#3b5f8a";
                 // Blocking initialization must run before CSS and deferred modules.
-                script src="/web/js/lib/boot.js" {}
+                script src=(format!("/web/js/lib/boot.js?v={asset_version}")) {}
                 title { (page.title) " · " (brand) }
-                link rel="stylesheet" href="/web/css/base.css?v=20261023-agent-3321100";
+                link rel="stylesheet" href=(format!("/web/css/base.css?v={asset_version}"));
                 @for name in page.css {
-                    link rel="stylesheet" href={"/web/css/" (name) ".css?v=20261021-uiux-trend-2"};
+                    link rel="stylesheet" href={"/web/css/" (name) ".css?v=" (&asset_version)};
                 }
-                link rel="stylesheet" href="/web/react/style.css";
-                script type="module" src="/web/react/shell.js" {}
+                link rel="stylesheet" href=(format!("/web/react/style.css?v={asset_version}"));
+                script type="module" src=(format!("/web/react/shell.js?v={asset_version}")) {}
             }
             body {
                 div id="app" class="app" {

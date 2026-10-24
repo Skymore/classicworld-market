@@ -60,7 +60,7 @@ test('blocked storage still permits system and URL themes', () => {
 test('every static shell initializes its theme before stylesheets', async () => {
   for (const name of ['index.html', 'collect/index.html', 'download.html']) {
     const html = await readFile(new URL('../' + name, import.meta.url), 'utf8');
-    const script = html.indexOf('<script src="/web/js/lib/boot.js"></script>');
+    const script = html.search(/<script src="\/web\/js\/lib\/boot\.js(?:\?[^"]*)?"><\/script>/);
     assert(script >= 0 && script < html.indexOf('<link rel="stylesheet"'), name);
   }
 });

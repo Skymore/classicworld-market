@@ -18,7 +18,9 @@ import {
   categories,
   jobs,
   levelRanges,
-  sortOptions,
+  sortFields,
+  sortLabels,
+  canReverseSort,
   readPriceState,
   priceUrl,
   compareProducts,
@@ -281,18 +283,14 @@ export default function Prices() {
     update({
       sort: key,
       dir:
-        state.sort === key &&
-        sortOptions.filter(([sortKey]) => sortKey === key).length > 1
+        state.sort === key && canReverseSort(key)
           ? state.dir === "asc"
             ? "desc"
             : "asc"
           : defaultDirection(key),
     });
   }
-  const selectedSort =
-    sortOptions.find(([key, dir]) => key === state.sort && dir === state.dir) ||
-    sortOptions[0];
-  const sortLabel = words(selectedSort[2], selectedSort[3]);
+  const sortLabel = words(sortLabels[state.sort][0], sortLabels[state.sort][1]);
   const itemHref = (row: Product) =>
     `/item/${row.item_id}?hours=${period.hours}`;
   const craftBadge = (row: Product) =>
@@ -487,31 +485,25 @@ export default function Prices() {
                           aria-label={words("排序：", "Sort: ") + sortLabel}
                         >
                           <Icon name="sort" />
-                          <span data-sort-label>{sortLabel}</span>
+                          <span data-sort-label>
+                            {sortLabel}
+                            {canReverseSort(state.sort) ? ` ${direction}` : ""}
+                          </span>
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
-                        <DropdownMenuRadioGroup
-                          value={`${state.sort}:${state.dir}`}
-                          onValueChange={(value) => {
-                            const option = sortOptions.find(
-                              ([key, dir]) => `${key}:${dir}` === value,
-                            );
-                            if (option)
-                              update({ sort: option[0], dir: option[1] });
-                          }}
-                        >
-                          {sortOptions.map(([key, dir, zh, english]) => (
+                        <DropdownMenuRadioGroup value={state.sort}>
+                          {sortFields.map((key) => (
                             <DropdownMenuRadioItem
-                              value={`${key}:${dir}`}
-                              key={`${key}:${dir}`}
-                              data-sort={
-                                dir === defaultDirection(key)
-                                  ? key
-                                  : `${key}-${dir}`
-                              }
+                              value={key}
+                              key={key}
+                              data-sort={key}
+                              onSelect={() => sort(key)}
                             >
-                              {words(zh, english)}
+                              {words(sortLabels[key][0], sortLabels[key][1])}
+                              {key === state.sort &&
+                                canReverseSort(key) &&
+                                ` ${direction}`}
                             </DropdownMenuRadioItem>
                           ))}
                         </DropdownMenuRadioGroup>
@@ -859,7 +851,7 @@ export default function Prices() {
                             <SiteLink className="it" href={itemHref(row)}>
                               <Slot url={row.icon_url} />
                               <ItemNames row={row} />
-                        {craftBadge(row)}
+                              {craftBadge(row)}
                             </SiteLink>
                           </td>
                           <td>

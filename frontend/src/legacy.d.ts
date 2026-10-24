@@ -3,3 +3,5 @@
 declare module "/web/js/lib/*";
 declare module "/web/js/pages/*";
 declare module "/web/collect/*";
+
+declare const __SITE_ASSET_VERSION__: string;

@@ -1,6 +1,6 @@
 const pendingStyles = new Map<string, Promise<void>>();
 export function ensureStyle(name: string) {
-  const path = `/web/css/${name}.css?v=20261023-react-1`;
+  const path = `/web/css/${name}.css?v=${__SITE_ASSET_VERSION__}`;
   if (!pendingStyles.has(path))
     pendingStyles.set(
       path,

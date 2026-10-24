@@ -34,29 +34,28 @@ export const sortLabels = {
   lastsale: ["最新成交", "Latest sales"],
 } as const;
 export type Sort = keyof typeof sortLabels;
-export const sortOptions = [
-  ["sales", "desc", "成交最多", "Most sold"],
-  ["price", "asc", "成交价最低", "Lowest sale price"],
-  ["price", "desc", "成交价最高", "Highest sale price"],
-  ["low", "asc", "报价最低", "Lowest ask"],
-  ["low", "desc", "报价最高", "Highest ask"],
-  ["name", "asc", "名称", "Name"],
-  ["recent", "desc", "最新报价", "Latest offers"],
-  ["lastsale", "desc", "最新成交", "Latest sales"],
+export const sortFields = [
+  "sales",
+  "price",
+  "low",
+  "name",
+  "recent",
+  "lastsale",
 ] as const;
+export const canReverseSort = (sort: string) =>
+  sort === "price" || sort === "low";
 export const defaultDirection = (sort: string) =>
   ["low", "name"].includes(sort) ? "asc" : "desc";
 export function readPriceState(search: string) {
   const params = new URLSearchParams(search);
-  const sort = sortOptions.some(([key]) => key === params.get("sort"))
+  const sort = sortFields.some((key) => key === params.get("sort"))
     ? (params.get("sort") as Sort)
     : "sales";
   const requestedDirection = params.get("dir") || defaultDirection(sort);
-  const dir = sortOptions.some(
-    ([key, direction]) => key === sort && direction === requestedDirection,
-  )
-    ? requestedDirection
-    : defaultDirection(sort);
+  const dir =
+    canReverseSort(sort) && ["asc", "desc"].includes(requestedDirection)
+      ? requestedDirection
+      : defaultDirection(sort);
   const level = (key: string) =>
     /^\d{1,3}$/.test(params.get(key) || "") ? Number(params.get(key)) : null;
   return {

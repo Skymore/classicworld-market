@@ -40,6 +40,18 @@ pub const PAGE_ROUTES: &[&str] = &[
     "/v2",
 ];
 
+/// Entry URLs change with each frontend source build, including server-rendered pages.
+pub(crate) fn frontend_asset_version() -> String {
+    let root = std::env::var_os("WEB_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from("web"));
+    std::fs::read_to_string(root.join("react/asset-version.txt"))
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| value.len() == 16 && value.bytes().all(|b| b.is_ascii_hexdigit()))
+        .unwrap_or_else(|| "dev".to_owned())
+}
+
 pub fn routes(web_dir: &Path) -> Router<AppState> {
     let releases = std::env::var_os("COLLECTOR_RELEASE_DIR")
         .map(std::path::PathBuf::from)

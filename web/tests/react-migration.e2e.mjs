@@ -9,6 +9,8 @@ const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const screenshots = process.env.REACT_SCREENSHOT_DIR;
 if (screenshots) await mkdir(screenshots, { recursive: true });
 const now = Date.now() / 1000;
+const previousWeb = process.env.CACHE_PREVIOUS_WEB_ROOT;
+let servePrevious = Boolean(previousWeb);
 let price = 24000;
 const products = [
   { item_id: 2000000, name_zh: '红色药水', name_en: 'Red Potion', category: '消耗品', last_seen: now, last_sale_at: now },
@@ -38,8 +40,10 @@ const server = createServer(async (req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.end(`<!doctype html><html lang="${en ? 'en' : 'zh-CN'}" data-lang="${en ? 'en' : 'zh'}" data-theme="light"><head><meta name="viewport" content="width=device-width,initial-scale=1"><script src="/web/js/lib/boot.js"></script><link rel="stylesheet" href="/web/css/base.css"><link rel="stylesheet" href="/web/react/style.css"><script type="module" src="/web/react/shell.js"></script></head><body><div id="app" class="app"><header class="ptop">Old header</header><header class="dhead">Old header</header><main class="pmain dwrap"><section class="stall"><h1 data-server-content>Catalogue content from Rust</h1><div data-search-results></div></section></main><nav class="dock"></nav></div></body></html>`);
   }
-  const file = url.pathname.startsWith('/web/') ? path.resolve(root, '.' + url.pathname.slice(4)) : path.join(root, 'index.html');
-  if (!file.startsWith(root + path.sep)) { res.writeHead(404); return res.end(); }
+  const activeRoot = servePrevious ? previousWeb : root;
+  const file = url.pathname.startsWith('/web/') ? path.resolve(activeRoot, '.' + url.pathname.slice(4)) : path.join(activeRoot, 'index.html');
+  res.setHeader('Cache-Control', url.pathname.startsWith('/web/') ? 'public,max-age=14400' : 'no-store');
+  if (!file.startsWith(activeRoot + path.sep)) { res.writeHead(404); return res.end(); }
   try { res.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.svg') ? 'image/svg+xml' : 'text/html; charset=utf-8'); res.end(await readFile(file)); }
   catch { res.writeHead(404); res.end(); }
 });
@@ -48,6 +52,22 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 try {
   browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+  if (previousWeb) {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const entries = [];
+    page.on('request', request => { if (new URL(request.url()).pathname === '/web/react/app.js') entries.push(request.url()); });
+    await page.goto(origin + '/prices?hours=all&lang=zh');
+    await page.locator('[data-sort-btn]').click();
+    assert.equal(await page.locator('[data-sort-dir]').count(), 2, 'seed the actual obsolete direction menu in the browser cache');
+    servePrevious = false;
+    await page.reload();
+    await page.locator('[data-sort-btn]').click();
+    assert.equal(await page.locator('[role=menuitemradio]').count(), 6, 'a normal reload replaces a four-hour cached entry');
+    assert.equal(await page.locator('[data-sort-dir]').count(), 0);
+    assert.equal(new Set(entries).size, 2, 'the new HTML uses a different entry URL rather than reusing the cached module');
+    await page.close();
+    console.log('PASS warm browser cache: obsolete direction menu is replaced on an ordinary reload');
+  }
   for (const mobile of [true, false]) {
     const page = await browser.newPage({ viewport: { width: mobile ? 375 : 1280, height: 900 }, isMobile: mobile, hasTouch: mobile, colorScheme: 'light' });
     const errors = []; page.on('pageerror', error => errors.push(error.message));
@@ -72,9 +92,9 @@ try {
     await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=low]').click();
     assert.match(await rows.first().textContent(), /蓝色头巾/);
     assert.match(await rows.last().textContent(), /蜗牛壳/, 'items without an ask stay last');
-    assert.equal(await page.locator('[data-sort-label]').textContent(), '报价最低');
+    assert.equal(await page.locator('[data-sort-label]').textContent(), '最低报价 ↑');
     await page.locator('[data-sort-btn]').click();
-    assert.equal(await page.locator('[role=menuitemradio]').count(), 8, 'one list contains useful field/direction combinations');
+    assert.equal(await page.locator('[role=menuitemradio]').count(), 6, 'one list contains useful field/direction combinations');
     assert.equal(await page.locator('[data-sort-dir]').count(), 0, 'there is no separate direction control');
     assert.equal(await page.getByRole('menuitemradio', { name: /从旧到新|从少到多/ }).count(), 0);
     if (screenshots && mobile) await page.screenshot({ path: path.join(screenshots, 'sort-menu-phone.png') });
@@ -94,17 +114,21 @@ try {
         }
       }
       await page.locator('[data-lang-toggle]:visible').click();
-      assert.equal(await page.locator('[data-sort-label]').textContent(), 'Lowest ask');
+      assert.equal(await page.locator('[data-sort-label]').textContent(), 'Lowest ask ↑');
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.locator('[data-lang-toggle]:visible').click();
     }
-    await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=low-desc]').click();
+    await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=low]').click();
     assert.equal(new URL(page.url()).searchParams.get('dir'), 'desc');
-    assert.equal(await page.locator('[data-sort-label]').textContent(), '报价最高');
+    assert.equal(await page.locator('[data-sort-label]').textContent(), '最低报价 ↓');
     assert.match(await rows.first().textContent(), /红色药水/);
     assert.match(await rows.last().textContent(), /蜗牛壳/);
     await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=price]').click();
     if (mobile) assert.equal(await page.locator('[data-mobile-price-heading]').textContent(), '成交价');
+    assert.equal(await page.locator('[data-sort-label]').textContent(), '成交价 ↓');
+    await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=price]').click();
+    assert.equal(await page.locator('[data-sort-label]').textContent(), '成交价 ↑');
+
     await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=lastsale]').click();
     assert.equal(await page.locator('[data-sort-label]').textContent(), '最新成交');
     assert.match(await rows.first().textContent(), /红色药水/);

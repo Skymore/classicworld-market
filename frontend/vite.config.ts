@@ -2,9 +2,13 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
+import { assetVersion, versionAssets } from "./build-assets";
+const projectRoot = fileURLToPath(new URL("../", import.meta.url));
+const siteVersion = assetVersion(projectRoot);
 
 export default defineConfig(({ command }) => ({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), versionAssets(projectRoot, siteVersion)],
+  define: { __SITE_ASSET_VERSION__: JSON.stringify(siteVersion) },
   base: command === "serve" ? "/" : "/web/react/",
   server: {
     proxy: {
