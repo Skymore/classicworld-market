@@ -541,3 +541,14 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
 .market-record .unit {
   font-size: var(--record-small-size);
 }
+
+.market-record .name-stack > .name-primary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.market-record .name-primary .evi {
+  flex: none;
+  margin-left: 0;
+  align-self: center;
+}

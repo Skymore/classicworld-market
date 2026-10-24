@@ -47,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-DpxG9i_c.js": {
-    "file": "chunks/main-DpxG9i_c.js",
+  "_main-Cto-nAmV.js": {
+    "file": "chunks/main-Cto-nAmV.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -119,7 +119,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DpxG9i_c.js"
+      "_main-Cto-nAmV.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -266,7 +266,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DpxG9i_c.js"
+      "_main-Cto-nAmV.js"
     ]
   },
   "style.css": {

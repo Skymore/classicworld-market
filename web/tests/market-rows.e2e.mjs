@@ -57,6 +57,8 @@ try {
       assert.equal(await sold.locator('.offer-equipment').count(), 0, 'decorations do not display an unknown-attribute line');
       assert(!/未采集|not captured/.test(await sold.textContent()));
       assert.equal(await sold.locator('.name-primary .evi').count(), 1, 'Sold sits beside the primary name');
+      assert(await sold.locator('.name-primary').evaluate(node=>{const title=node.getBoundingClientRect(),badge=node.querySelector('.evi').getBoundingClientRect();return Math.abs((title.top+title.bottom-badge.top-badge.bottom)/2)<1;}),'status aligns vertically with the item title');
+
       assert.deepEqual(await sold.locator('.record-value').evaluate(node => [...node.children].map(child=>child.className)), ['record-time','ware-price','record-stock']);
 
       await page.locator('[data-tab=quotes]').click();
