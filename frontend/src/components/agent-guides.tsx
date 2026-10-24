@@ -19,8 +19,8 @@ export function AgentGuides({en}:{en:boolean}) {
     <button className="chat-guide-toggle" onClick={()=>{setSelected(null);setFilter("");setOpen(true);}} title={word("浏览内置指南","Browse built-in guides")} aria-label={word("浏览内置指南","Browse built-in guides")}><BookOpen size={16}/><span>{word("指南","Guides")}</span></button>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="chat-guide-dialog">
-        <DialogTitle>{detail?.title||word("内置冒险指南","Built-in adventure guides")}</DialogTitle>
-        <DialogDescription>{word("经典世界国际服 · 中文整理 · 保留来源与核对日期","Global Classic World · Chinese notes with sources and review dates")}</DialogDescription>
+        <DialogTitle className="chat-guide-title">{detail?.title||word("内置冒险指南","Built-in adventure guides")}</DialogTitle>
+        <DialogDescription className="chat-guide-caption">{word("经典世界国际服 · 中文整理 · 保留来源与核对日期","Global Classic World · Chinese notes with sources and review dates")}</DialogDescription>
         {selected?<button className="chat-guide-back" onClick={()=>setSelected(null)}><ArrowLeft size={15}/>{word("全部指南","All guides")}</button>:<input className="chat-guide-filter" aria-label={word("搜索内置指南","Search built-in guides")} placeholder={word("搜索转职、交易、公民、住房…","Search jobs, trading, citizenship, housing…")} value={filter} onChange={e=>setFilter(e.target.value)}/>}
         {pending?<p>{word("正在读取指南…","Loading guide…")}</p>:error?<p role="alert">{word("指南暂时无法读取，请稍后重试。","Could not load the guides. Please try again.")}</p>:detail?<article className="chat-guide-content">
           <p className="chat-guide-date">{word("核对日期：","Reviewed: ")}{detail.checked_on} · {detail.checked_timezone}</p>
