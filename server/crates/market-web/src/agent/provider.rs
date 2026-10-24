@@ -1,4 +1,4 @@
-use super::{data, ChatRequest};
+use super::{data, stream::Sink, ChatRequest};
 use axum::http::StatusCode;
 use serde_json::{json, Value};
 use sqlx::PgPool;
@@ -75,7 +75,7 @@ impl OpenRouter {
         .map(Some)
     }
 
-    fn new(key: String, model: String, endpoint: String) -> anyhow::Result<Self> {
+    pub(super) fn new(key: String, model: String, endpoint: String) -> anyhow::Result<Self> {
         anyhow::ensure!(
             model == "openrouter/free"
                 || model == "openai/gpt-6-luna"
@@ -103,12 +103,17 @@ impl OpenRouter {
         self.slots.clone().try_acquire_owned()
     }
 
-    async fn completion(&self, messages: &[Value], final_turn: bool) -> Result<Value, Failure> {
+    async fn completion(
+        &self,
+        messages: &[Value],
+        final_turn: bool,
+        sink: Option<&Sink>,
+    ) -> Result<Value, Failure> {
         let mut payload = json!({"model":self.model,"messages":messages,"tools":data::definitions(),
             "tool_choice":if final_turn {"none"} else {"auto"},
             "provider":{"require_parameters":true},
             "reasoning":{"effort":"none","exclude":true},
-            "max_tokens":3200,"stream":false});
+            "max_tokens":3200,"stream":sink.is_some()});
         if !self.model.starts_with("openai/") {
             payload["provider"]["max_price"] = json!({"prompt":0,"completion":0});
             payload["temperature"] = json!(0.2);
@@ -138,6 +143,9 @@ impl OpenRouter {
                 _ => (StatusCode::BAD_GATEWAY, "agent_provider_unavailable"),
             });
         }
+        if let Some(sink) = sink {
+            return super::stream::read_model_stream(response, sink).await;
+        }
         let mut body = Vec::new();
         while let Some(chunk) = response
             .chunk()
@@ -162,6 +170,15 @@ impl OpenRouter {
     }
 
     pub async fn chat(&self, db: &PgPool, request: ChatRequest) -> Result<Value, Failure> {
+        self.chat_with_events(db, request, None).await
+    }
+
+    pub async fn chat_with_events(
+        &self,
+        db: &PgPool,
+        request: ChatRequest,
+        sink: Option<Sink>,
+    ) -> Result<Value, Failure> {
         let mut messages = vec![
             json!({"role":"system","content":format!("{SYSTEM}\nCurrent Unix time: {}. Answer language: {}.",
             crate::unix_now(),if request.language=="en" {"English"} else {"简体中文"})}),
@@ -177,7 +194,18 @@ impl OpenRouter {
         let mut sources = std::collections::BTreeSet::new();
         for round in 0..5 {
             let final_turn = round == 4 || trace.len() >= 10;
-            let mut answer = self.completion(&messages, final_turn).await?;
+            let step = sink.as_ref().map(|s| {
+                let mut s = s.clone();
+                s.text_id = format!("answer-{round}");
+                s.partial.lock().unwrap().clear();
+                s
+            });
+            if let Some(s) = &step {
+                s.emit(json!({"type":"start-step"})).await;
+            }
+            let mut answer = self
+                .completion(&messages, final_turn, step.as_ref())
+                .await?;
             let mut calls = answer["tool_calls"].as_array().cloned().unwrap_or_default();
             // Some providers emit their training-time XML protocol as content.
             // Normalize only fully parsed, allowlisted read-only calls; never show code as an answer.
@@ -194,14 +222,25 @@ impl OpenRouter {
                     .filter(|s| !s.trim().is_empty())
                     .ok_or((StatusCode::BAD_GATEWAY, "agent_invalid_response"))?;
                 if contains_tool_protocol(text) {
+                    if let Some(s) = &step {
+                        s.reset().await;
+                        s.emit(json!({"type":"finish-step"})).await;
+                    }
                     if round == 4 {
                         return Err((StatusCode::BAD_GATEWAY, "agent_invalid_response"));
                     }
                     messages.push(json!({"role":"system","content":"Your previous output used invalid tool syntax and was not shown. Use the native tool_calls function interface to query data. Never print XML, function calls, arguments, or tool schemas as the user-facing answer. If you have already queried enough evidence, give a concise natural-language recommendation now."}));
                     continue;
                 }
+                if let Some(s) = &step {
+                    s.emit(json!({"type":"finish-step"})).await;
+                }
                 return Ok(json!({"answer":text,"model":self.model,"tool_calls":trace,
                     "sources":sources,"generated_at":crate::unix_now()}));
+            }
+            if let Some(s) = &step {
+                s.reset().await;
+                s.emit(json!({"type":"finish-step"})).await;
             }
             if final_turn || calls.len() > 32 {
                 return Err((StatusCode::BAD_GATEWAY, "agent_tool_limit"));
@@ -229,6 +268,10 @@ impl OpenRouter {
                     continue;
                 }
                 let name = call["function"]["name"].as_str().unwrap();
+                if let Some(s) = &sink {
+                    s.emit(json!({"type":"data-status","data":{"tool":name},"transient":true}))
+                        .await;
+                }
                 let args =
                     serde_json::from_str::<Value>(call["function"]["arguments"].as_str().unwrap())
                         .ok();
@@ -253,6 +296,10 @@ impl OpenRouter {
                 }
                 trace
                     .push(json!({"name":name,"arguments":args,"ok":result.get("error").is_none()}));
+                if let Some(s) = &sink {
+                    *s.metadata.lock().unwrap() =
+                        json!({"model":self.model,"tool_calls":trace,"sources":sources});
+                }
                 messages.push(
                     json!({"role":"tool","tool_call_id":call["id"],"content":result.to_string()}),
                 );
@@ -262,7 +309,7 @@ impl OpenRouter {
     }
 }
 
-fn contains_tool_protocol(text: &str) -> bool {
+pub(super) fn contains_tool_protocol(text: &str) -> bool {
     [
         "<tool_call",
         "<function=",

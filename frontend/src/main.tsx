@@ -25,6 +25,7 @@ const Home = lazy(() => import("./pages/home"));
 const Prices = lazy(() => import("./pages/prices"));
 const Account = lazy(() => import("./pages/account"));
 const Contributors = lazy(() => import("./pages/contributors"));
+const Agent = lazy(() => import("./pages/agent"));
 const pageRoutes = [
   "/",
   "/prices",
@@ -155,7 +156,8 @@ function Application() {
             <Route path="/prices/*" element={<Prices />} />
             <Route path="/account" element={<Account />} />
             <Route path="/contributors" element={<Contributors />} />
-            {["watch", "alerts", "agent", "selling", "privacy"].map((name) => (
+            <Route path="/agent/*" element={<Agent />} />
+            {["watch", "alerts", "selling", "privacy"].map((name) => (
               <Route
                 key={name}
                 path={`/${name}/*`}

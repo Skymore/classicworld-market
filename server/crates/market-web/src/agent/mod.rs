@@ -1,7 +1,9 @@
 //! Read-only market tools, shared by the HTTP API and the OpenRouter agent.
 //! Tool execution never accepts arbitrary SQL, URLs, or collector credentials.
 mod data;
+mod history;
 mod provider;
+mod stream;
 
 pub use provider::OpenRouter;
 
@@ -25,6 +27,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/agent/tools", get(catalog))
         .route("/api/v1/agent/tools/{name}", post(call_tool))
         .route("/api/v1/agent/chat", post(chat))
+        .merge(history::router())
         .layer(DefaultBodyLimit::max(32 * 1024))
 }
 

@@ -1,0 +1,4 @@
+minimumReleaseAgeExclude:
+  - '@ai-sdk/gateway@4.0.125'
+  - '@ai-sdk/react@4.0.156'
+  - ai@7.0.152

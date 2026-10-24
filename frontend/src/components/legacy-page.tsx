@@ -52,7 +52,7 @@ export function LegacyPage({
     async function mount() {
       try {
         await ensureStyle(css[name] || "lists");
-        const url = `/web/js/pages/${name}.js?v=${name === "agent" ? "20261023-agent-luna-optional-1" : "20261023-header-icons-2"}`;
+        const url = `/web/js/pages/${name}.js?v=${name === "privacy" ? "20261024-agent-history-1" : "20261023-header-icons-2"}`;
         const module = await import(/* @vite-ignore */ url);
         if (!active) return;
         const stop = await module.mount(root, {

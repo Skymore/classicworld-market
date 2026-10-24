@@ -65,6 +65,27 @@ curl https://mxd.ruit.me/api/v1/agent/tools/get_price_advice \
 
 `message` 1–2000 字符；`history` 最多 12 条 `{role: "user"|"assistant", content: "..."}`，每条最多 4000 字符；`language=zh|en`。请求体上限 32 KiB。响应包含 `answer`、`model`、实际执行的 `tool_calls`（名称、参数、是否成功）、来自成功工具的站内 `sources` 及 `generated_at`。
 
-查询接口沿用现有 `PUBLIC_READ`、采集令牌/登录 cookie 和每分钟 60 次读取限制；对话额外限制每 IP 每分钟 4 次、全站同时 2 次，单次总超时 150 秒。工具不允许任意 URL、SQL 或写入。上游错误、密钥不会回传浏览器。聊天记录只保存在页面内存中，刷新后清空；当前问题、历史和工具结果会发送给 OpenRouter。
+查询接口沿用现有 `PUBLIC_READ`、采集令牌/登录 cookie 和每分钟 60 次读取限制；旧 JSON 对话接口额外限制每 IP 每分钟 4 次、全站同时 2 次，单次总超时 150 秒。工具不允许任意 URL、SQL 或写入。上游错误、密钥不会回传浏览器。当前问题、必要历史和工具结果会发送给 OpenRouter。
+
+## 账号历史与流式对话
+
+网页采用 [Vercel AI SDK `useChat`](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) 和 `DefaultChatTransport` 管理消息、流式状态、停止与重试。Rust 后端遵循 [UI Message Stream 协议](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol)，不需要额外的 Node 服务。上游 `stream:true` 由 `eventsource-stream` 解码；文本增量直接发送，工具查询阶段发送进度事件。保留了工具协议文本拦截与最多 10 次工具执行预算。
+
+`POST /api/v1/agent/stream` 接受 `{message,thread_id?,request_id?,language?,retry?,history?}`，返回 `text/event-stream`，带 `x-vercel-ai-ui-message-stream:v1`，以 `[DONE]` 结束。`request_id` 用于去重；仅最后一条失败或已停止回复可用 `retry:true` 重试。流式请求每账号或匿名 IP 每分钟 6 次，每 IP 合计 12 次；全站仍最多 2 个生成任务。
+
+登录用户复用站点的账号 Cookie、Origin 与 `X-CSRF-Token`。历史存于 PostgreSQL 的 `agent_threads`、`agent_messages`，通过账号归属校验访问。服务端自行读取最近 12 条上下文，忽略登录客户端提供的历史，且不会将账号凭据附带给模型。刷新或换设备登录同一账号后可继续对话；切换账号清理旧账号的页面缓存。未登录用户仍可临时聊天，不保存服务端历史。
+
+| 接口 | 内容 |
+|---|---|
+| `GET /api/v1/agent/threads?before=ID` | 当前账号的会话列表，每页 50 条，返回 `next_cursor` |
+| `POST /api/v1/agent/threads` | 新建空会话；也可在首次流式提问时自动创建 |
+| `GET /api/v1/agent/threads/ID?before_seq=N` | 读取消息，每页 100 条，返回 `has_more` |
+| `PATCH /api/v1/agent/threads/ID` | `{title}` 重命名，1–80 字符 |
+| `DELETE /api/v1/agent/threads/ID` | 删除会话及其所有消息 |
+| `POST /api/v1/agent/threads/ID/stop` | 停止当前账号该会话的生成 |
+
+生成前事务性保存用户消息并锁定会话；同一会话不能同时生成两个回复。生成过程中定期保存部分文本，完成后保存回复、来源与工具轨迹。停止或断线保留部分回复并标记 `aborted`，失败标记 `error`；进程中断的陈旧任务在读取时恢复为可重试状态。删除会话会级联删除消息，不影响其他账号。
+
+调研还比较了 [assistant-ui](https://www.assistant-ui.com/docs/runtimes/custom/external-store)：它提供较完整的对话 UI 运行时；本项目选用 AI SDK 的传输与消息状态管理，界面沿用现有市集主题，账号和数据继续由现有 Rust/PostgreSQL 服务管理。持久化模式参考 [SDK 历史示例](https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-message-persistence)，账号权限校验由本站实现。
 
 常见错误：`agent_not_configured` 尚未配置密钥；`agent_free_quota_exceeded` 上游额度/速率受限；`agent_busy`/`agent_rate_limited` 稍后重试；`agent_provider_configuration` 检查密钥与账号；`agent_timeout` 超时；`market_data_unavailable` 数据查询失败。没有跨模型自动回退。

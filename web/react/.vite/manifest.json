@@ -1,36 +1,60 @@
 {
-  "_legacy-page-vstsxp2c.js": {
-    "file": "chunks/legacy-page-vstsxp2c.js",
+  "_dialog-CRzi0o96.js": {
+    "file": "chunks/dialog-CRzi0o96.js",
+    "name": "dialog",
+    "imports": [
+      "_shared-CLEW8Lmm.js",
+      "_react-dom-BIXB4WHZ.js",
+      "_dist-DC2jrkxj.js"
+    ]
+  },
+  "_dist-DC2jrkxj.js": {
+    "file": "chunks/dist-DC2jrkxj.js",
+    "name": "dist",
+    "imports": [
+      "_shared-CLEW8Lmm.js",
+      "_react-dom-BIXB4WHZ.js"
+    ]
+  },
+  "_legacy-page-Tb_DX6a0.js": {
+    "file": "chunks/legacy-page-Tb_DX6a0.js",
     "name": "legacy-page",
     "imports": [
-      "_shell-RGkk9GjA.js"
+      "_shared-CLEW8Lmm.js"
     ]
   },
-  "_preload-helper-HWFXrRZl.js": {
-    "file": "chunks/preload-helper-HWFXrRZl.js",
+  "_preload-helper-BiS0prYv.js": {
+    "file": "chunks/preload-helper-BiS0prYv.js",
     "name": "preload-helper",
     "imports": [
-      "_shell-RGkk9GjA.js",
-      "_react-dom-20PnVD-d.js"
+      "_shared-CLEW8Lmm.js",
+      "_react-dom-BIXB4WHZ.js"
     ]
   },
-  "_react-dom-20PnVD-d.js": {
-    "file": "chunks/react-dom-20PnVD-d.js",
+  "_react-dom-BIXB4WHZ.js": {
+    "file": "chunks/react-dom-BIXB4WHZ.js",
     "name": "react-dom",
     "imports": [
-      "_shell-RGkk9GjA.js"
+      "_shared-CLEW8Lmm.js"
     ]
   },
-  "_shell-RGkk9GjA.js": {
-    "file": "chunks/shell-RGkk9GjA.js",
-    "name": "shell"
+  "_shared-CLEW8Lmm.js": {
+    "file": "chunks/shared-CLEW8Lmm.js",
+    "name": "shared"
   },
-  "_tabs-CYvn_hLB.js": {
-    "file": "chunks/tabs-CYvn_hLB.js",
+  "_shell-CjcN8h67.js": {
+    "file": "chunks/shell-CjcN8h67.js",
+    "name": "shell",
+    "imports": [
+      "_shared-CLEW8Lmm.js"
+    ]
+  },
+  "_tabs-Dsf0wjII.js": {
+    "file": "chunks/tabs-Dsf0wjII.js",
     "name": "tabs",
     "imports": [
-      "_shell-RGkk9GjA.js",
-      "_react-dom-20PnVD-d.js"
+      "_shared-CLEW8Lmm.js",
+      "_dist-DC2jrkxj.js"
     ]
   },
   "src/main.tsx": {
@@ -39,56 +63,74 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_shell-RGkk9GjA.js",
-      "_preload-helper-HWFXrRZl.js",
-      "_legacy-page-vstsxp2c.js"
+      "_shared-CLEW8Lmm.js",
+      "_preload-helper-BiS0prYv.js",
+      "_shell-CjcN8h67.js",
+      "_legacy-page-Tb_DX6a0.js"
     ],
     "dynamicImports": [
       "src/pages/home.tsx",
       "src/pages/prices.tsx",
       "src/pages/account.tsx",
-      "src/pages/contributors.tsx"
+      "src/pages/contributors.tsx",
+      "src/pages/agent.tsx"
     ]
   },
   "src/pages/account.tsx": {
-    "file": "chunks/account-CWU1oVUn.js",
+    "file": "chunks/account-CsLVZGv5.js",
     "name": "account",
     "src": "src/pages/account.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_shell-RGkk9GjA.js"
+      "_shared-CLEW8Lmm.js",
+      "_shell-CjcN8h67.js"
+    ]
+  },
+  "src/pages/agent.tsx": {
+    "file": "chunks/agent-EdAPY_D1.js",
+    "name": "agent",
+    "src": "src/pages/agent.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_shared-CLEW8Lmm.js",
+      "_dialog-CRzi0o96.js"
     ]
   },
   "src/pages/contributors.tsx": {
-    "file": "chunks/contributors-xpJq0_Y8.js",
+    "file": "chunks/contributors-DAKQbwGq.js",
     "name": "contributors",
     "src": "src/pages/contributors.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_shell-RGkk9GjA.js",
-      "_tabs-CYvn_hLB.js"
+      "_shared-CLEW8Lmm.js",
+      "_shell-CjcN8h67.js",
+      "_tabs-Dsf0wjII.js"
     ]
   },
   "src/pages/home.tsx": {
-    "file": "chunks/home-BuuWJ5Om.js",
+    "file": "chunks/home-DJf4uLG7.js",
     "name": "home",
     "src": "src/pages/home.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_shell-RGkk9GjA.js",
-      "_tabs-CYvn_hLB.js"
+      "_shared-CLEW8Lmm.js",
+      "_shell-CjcN8h67.js",
+      "_tabs-Dsf0wjII.js"
     ]
   },
   "src/pages/prices.tsx": {
-    "file": "chunks/prices-Beta6oFb.js",
+    "file": "chunks/prices-C6JKWO32.js",
     "name": "prices",
     "src": "src/pages/prices.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_shell-RGkk9GjA.js",
-      "_react-dom-20PnVD-d.js",
-      "_legacy-page-vstsxp2c.js",
-      "_tabs-CYvn_hLB.js"
+      "_shared-CLEW8Lmm.js",
+      "_react-dom-BIXB4WHZ.js",
+      "_shell-CjcN8h67.js",
+      "_legacy-page-Tb_DX6a0.js",
+      "_dialog-CRzi0o96.js",
+      "_dist-DC2jrkxj.js",
+      "_tabs-Dsf0wjII.js"
     ]
   },
   "src/server.tsx": {
@@ -97,9 +139,10 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_shell-RGkk9GjA.js",
-      "_preload-helper-HWFXrRZl.js",
-      "_react-dom-20PnVD-d.js"
+      "_shared-CLEW8Lmm.js",
+      "_preload-helper-BiS0prYv.js",
+      "_react-dom-BIXB4WHZ.js",
+      "_shell-CjcN8h67.js"
     ]
   },
   "style.css": {
