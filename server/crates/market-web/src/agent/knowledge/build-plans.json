@@ -219,7 +219,7 @@
   },
   "bowman": {
     "class_name": "Archer",
-    "label": "Arrow Blow 与命中路线",
+    "label": "断魂箭与命中路线",
     "job_start_level": 10,
     "target_level": 30,
     "total_sp": 61,
