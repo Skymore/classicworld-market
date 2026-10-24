@@ -39,8 +39,8 @@
       "_shared-DxSzmOdy.js"
     ]
   },
-  "_main-CA9DpO5X.js": {
-    "file": "chunks/main-CA9DpO5X.js",
+  "_main-qxvqj7Yf.js": {
+    "file": "chunks/main-qxvqj7Yf.js",
     "name": "main",
     "imports": [
       "_shared-DxSzmOdy.js",
@@ -104,7 +104,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CA9DpO5X.js"
+      "_main-qxvqj7Yf.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -247,7 +247,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CA9DpO5X.js"
+      "_main-qxvqj7Yf.js"
     ]
   },
   "style.css": {
