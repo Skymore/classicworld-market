@@ -32,7 +32,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.4884002,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -184,7 +184,8 @@
         "Threaten",
         "Thunder Bolt"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "training",
@@ -220,7 +221,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.4919186,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -412,7 +413,8 @@
         "Zombie Lupin",
         "map/"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "warrior-build",
@@ -435,7 +437,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.4894085,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -488,7 +490,8 @@
         "Stirge",
         "Wild Boar"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "fighter-build",
@@ -511,7 +514,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.489912,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -562,7 +565,8 @@
         "Sword Booster",
         "Sword Mastery"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "page-build",
@@ -584,7 +588,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.489912,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -635,7 +639,8 @@
         "Sword Mastery",
         "Threaten"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "spearman-build",
@@ -660,7 +665,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.489912,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -718,7 +723,8 @@
         "Spear Mastery",
         "Spearman"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "magician-build",
@@ -746,7 +752,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.4894085,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -806,7 +812,8 @@
         "SP",
         "Slime"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "fire-poison-build",
@@ -834,7 +841,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.4909155,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -884,7 +891,8 @@
         "Teleport",
         "Zombie Lupin"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "ice-lightning-build",
@@ -912,7 +920,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.489912,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -1031,7 +1039,8 @@
         "Zombie Mushroom",
         "map/"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "cleric-build",
@@ -1057,7 +1066,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.4909155,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -1172,7 +1181,8 @@
         "Wraith",
         "Zombie Lupin"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "bowman-build",
@@ -1199,7 +1209,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.4894085,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -1257,7 +1267,8 @@
         "Stirge",
         "The Eye of Amazon"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "hunter-skills",
@@ -1283,7 +1294,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.4909155,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -1342,7 +1353,8 @@
         "Stirge",
         "The Eye of Amazon"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "crossbowman-build",
@@ -1367,7 +1379,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.4909155,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -1428,7 +1440,8 @@
         "STR",
         "Soul Arrow"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "thief-build",
@@ -1453,7 +1466,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.489912,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -1504,7 +1517,8 @@
         "Sindit",
         "Stirge"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "assassin-build",
@@ -1530,7 +1544,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.4909155,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -1592,7 +1606,8 @@
         "SP",
         "Stirge"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "bandit-build",
@@ -1620,7 +1635,7 @@
       ],
       "checked_on": "2026-10-24",
       "checked_at": 1792827621.4919186,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch; client snapshot 2026-10-21; research 2026-10-24",
       "always_search_live": false,
@@ -1680,7 +1695,8 @@
         "Sindit",
         "Steal"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "getting-started",
@@ -1699,7 +1715,7 @@
       ],
       "checked_on": "2026-10-23",
       "checked_at": 1792823653.76449,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
       "always_search_live": false,
@@ -1732,7 +1748,8 @@
         "Windows",
         "macOS"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "job-advancement",
@@ -1752,7 +1769,7 @@
       ],
       "checked_on": "2026-10-23",
       "checked_at": 1792823653.76449,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
       "always_search_live": false,
@@ -1801,7 +1818,8 @@
         "Warrior",
         "Wizard"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "quest-help",
@@ -1819,7 +1837,7 @@
       ],
       "checked_on": "2026-10-23",
       "checked_at": 1792823653.76449,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
       "always_search_live": false,
@@ -1849,7 +1867,8 @@
         "Teo",
         "s Weird Hobby"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "trade-unlock",
@@ -1866,7 +1885,7 @@
       ],
       "checked_on": "2026-10-23",
       "checked_at": 1792823653.7654903,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
       "always_search_live": false,
@@ -1890,7 +1909,8 @@
         "Grand Launch",
         "Nexon"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "kerning-pq",
@@ -1907,7 +1927,7 @@
       ],
       "checked_on": "2026-10-23",
       "checked_at": 1792823653.7654903,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
       "always_search_live": false,
@@ -1942,7 +1962,8 @@
         "King Slime",
         "Lakelis"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "crafting",
@@ -1959,7 +1980,7 @@
       ],
       "checked_on": "2026-10-23",
       "checked_at": 1792823653.7654903,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
       "always_search_live": false,
@@ -1992,7 +2013,8 @@
         "Weaponcrafting",
         "Woodcrafting"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "citizenship",
@@ -2008,7 +2030,7 @@
       ],
       "checked_on": "2026-10-23",
       "checked_at": 1792823653.7654903,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
       "always_search_live": false,
@@ -2038,7 +2060,8 @@
         "Kerning City Civic Center",
         "Roxy"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "housing",
@@ -2055,7 +2078,7 @@
       ],
       "checked_on": "2026-10-23",
       "checked_at": 1792823653.7654903,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
       "always_search_live": false,
@@ -2086,7 +2109,8 @@
         "Visitor",
         "mesos"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "market-and-equipment",
@@ -2105,7 +2129,7 @@
       ],
       "checked_on": "2026-10-23",
       "checked_at": 1792823653.7664912,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
       "always_search_live": false,
@@ -2121,7 +2145,8 @@
         "DEX",
         "NPC"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     },
     {
       "id": "launch-events",
@@ -2138,7 +2163,7 @@
       ],
       "checked_on": "2026-10-23",
       "checked_at": 1792823653.7664912,
-      "checked_timezone": "America/Los_Angeles",
+      "checked_timezone": "太平洋时间",
       "edition": "Global MapleStory Classic World",
       "version": "Grand Launch / 2026-10-21 client snapshot; see individual sources",
       "always_search_live": true,
@@ -2165,7 +2190,8 @@
         "The Journey Begins",
         "UTC"
       ],
-      "language": "zh"
+      "language": "zh",
+      "checked_timezone_id": "America/Los_Angeles"
     }
   ]
 }
