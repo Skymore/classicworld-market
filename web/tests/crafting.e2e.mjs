@@ -74,6 +74,15 @@ try {
     const quote=quotes.first();assert.equal(await quote.locator('.slot,.ware-name,.name-secondary').count(),0,'same-item variant rows omit repeated identity');
     assert.equal(await quote.locator('.record-shop').textContent(),'Fixture shop 0');assert.equal(await quote.locator('.loc b').textContent(),'CH 24');assert.equal(await quote.locator('.ware-price').textContent(),'3K');assert.match(await quote.locator('.record-stock').textContent(),/1$/);
     assert.match(await quote.locator('.offer-equipment').textContent(),/物攻|Weapon ATK/);
+    assert.deepEqual(await quote.locator('.record-value').evaluate(node=>[...node.children].map(child=>child.className)),['ware-price','record-stock'],'variant price and stock occupy only two lines');
+    for(const width of mobile?[320,390,430]:[1280]){
+      await page.setViewportSize({width,height:844});
+      assert(await quotes.evaluateAll(nodes=>nodes.every(node=>{
+        const bounds=node.getBoundingClientRect(),location=node.querySelector('.record-meta').getBoundingClientRect(),time=node.querySelector('.record-detail .record-time').getBoundingClientRect(),detail=node.querySelector('.record-detail').getBoundingClientRect();
+        return bounds.height<=55&&time.top>=location.bottom&&time.left>=location.left&&time.right<=location.right&&detail.height<20&&node.querySelectorAll('.record-value .record-time').length===0;
+      })),'variant time sits below location without creating a third line or increasing the compact row height');
+    }
+    await page.setViewportSize({width:mobile?390:1280,height:844});
     await where.locator('.variant-summary').first().click();assert(await where.locator('.listing-offer').first().evaluate(node=>node.open),'captured full stats still expand');
     await page.locator('[data-offer-filter-open]').click();const dialog=page.locator('#offer-filter-dialog');await dialog.locator('[name=maxPrice]').fill('4000');
     await dialog.locator('[data-offer-apply]').click();assert.equal(await where.locator('.variant-record').count(),1);

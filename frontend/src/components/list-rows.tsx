@@ -90,16 +90,31 @@ export function OfferRow({
             </span>
           )}
         </span>
-        {equip && (
-          <span className="offer-equipment" title={equip}>
-            {equip}
+        {hideIdentity ? (
+          <span className="record-detail">
+            <span className="record-time">
+              <RelativeTime at={sale ? row.time : row.observed} />
+            </span>
+            {equip && (
+              <span className="offer-equipment" title={equip}>
+                {equip}
+              </span>
+            )}
           </span>
+        ) : (
+          equip && (
+            <span className="offer-equipment" title={equip}>
+              {equip}
+            </span>
+          )
         )}
       </span>
       <span className="record-value">
-        <span className="record-time">
-          <RelativeTime at={sale ? row.time : row.observed} />
-        </span>
+        {!hideIdentity && (
+          <span className="record-time">
+            <RelativeTime at={sale ? row.time : row.observed} />
+          </span>
+        )}
         <span className="ware-price">
           <Price value={sale ? row.sale_unit_price : row.unit_price} />
           <span dangerouslySetInnerHTML={{ __html: priceUnit(row) }} />

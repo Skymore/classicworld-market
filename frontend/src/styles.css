@@ -566,7 +566,7 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
   align-self: center;
 }
 
-.market-record.variant-record{grid-template-columns:minmax(0,1fr) auto;min-height:62px;padding:8px 10px}
+.market-record.variant-record{grid-template-columns:minmax(0,1fr) auto;min-height:54px;padding:6px 10px}
 .variant-record .record-meta{margin-top:0}
 .variant-summary{position:relative;list-style:none;padding-right:24px;cursor:pointer}
 .variant-summary::-webkit-details-marker{display:none}
@@ -581,3 +581,9 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
 .where-well .offer-filter-summary button,.watch-page .offer-filter-summary button{padding:3px 6px;font-size:11px}
 .where-well .offer-filter-summary small,.watch-page .offer-filter-summary small{flex-basis:100%;font-size:11px}
 @media(max-width:640px){.where-well .where-tools [data-offer-sort],.watch-list-tools select{font-size:16px}}
+
+.variant-record .record-detail{display:flex;align-items:baseline;gap:6px;min-width:0;margin-top:3px}
+.variant-record .record-detail .record-time{flex:none;font-size:var(--record-small-size);line-height:1.4;color:var(--ink-3)}
+.variant-record .record-detail .offer-equipment{min-width:0;margin-top:0}
+.variant-record .record-value .ware-price{line-height:1.2}
+.variant-record .record-value .record-stock{line-height:1.4}
