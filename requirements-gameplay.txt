@@ -1,0 +1,4 @@
+dxcam==0.3.0; sys_platform == "win32"
+opencv-python-headless==4.11.0.86
+numpy>=2,<3
+Pillow>=10,<13
