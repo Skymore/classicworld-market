@@ -14,7 +14,10 @@ from unittest.mock import patch
 import collector_update as update
 
 
-def metadata(tag='v0.6.5'):
+def metadata(tag=None):
+    if tag is None:
+        major,minor,patch_version=map(int,update.VERSION.split('.'))
+        tag=f'v{major}.{minor}.{patch_version+1}'
     name=f'ClassicWorldCollector-windows-x64-{tag}.zip'
     return dict(schema=1,version=tag,channel='stable',windows_x64=dict(
         url=f'https://mxd.ruit.me/web/releases/{tag}/{name}',sha256='a'*64,size=100))
@@ -41,7 +44,7 @@ class CollectorUpdate(unittest.TestCase):
         valid=metadata()['windows_x64']['url']
         bad=[valid.replace('https:','http:'),valid.replace('mxd.ruit.me','mxd.ruit.me.evil.example'),
              valid.replace('mxd.ruit.me','user@mxd.ruit.me'),valid+'?redirect=evil',valid+'#ignored',
-             valid.replace('/v0.6.5/','/v0.6.6/'),valid.replace('/web/releases/','/web/releases/../'),
+             valid.replace('/'+metadata()['version']+'/','/v0.0.0/'),valid.replace('/web/releases/','/web/releases/../'),
              'https://github.com/Skymore/classicworld-market/releases/download/v0.5.11/update.zip']
         for url in bad:
             self.assertFalse(update.official_download_url(url),url)
