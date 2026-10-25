@@ -6,7 +6,7 @@ import {
   EQUIPMENT_STATS,
   normalizeOfferFilters,
   filterOffers,
-} from "/web/js/lib/item-offer-filters.js?v=20261025-equipment-stats-1";
+} from "/web/js/lib/item-offer-filters.js?v=20261025-equipment-stats-2";
 import "./offer-filters.css";
 export default function OfferFilterDialog({
   open,
@@ -33,7 +33,7 @@ export default function OfferFilterDialog({
     : filterOffers(rows, "price", draft);
   useEffect(() => {
     if (open) {
-      setDraft({ ...filters });
+      setDraft(normalizeOfferFilters(filters));
       dialog.current?.showModal();
     } else if (dialog.current?.open) dialog.current.close();
   }, [open]);
@@ -208,19 +208,120 @@ export default function OfferFilterDialog({
                       ["bonus", words("只看有加成属性", "Bonus stats only")],
                     ],
                   )}
-                  {field("stat", words("筛选属性", "Filter stat"), [
-                    ["all", words("全部属性", "Any stat")],
-                    ...EQUIPMENT_STATS.map(
-                      ([key, zh, en]: string[]) =>
-                        [key, words(zh, en)] as [string, string],
-                    ),
-                  ])}
-                  {draft.stat &&
-                    draft.stat !== "all" &&
-                    field("minStat", words("最低属性值", "Minimum stat value"))}
                 </>
               )}
             </div>
+            {equipment && (
+              <div className="offer-stat-conditions">
+                {(draft.stats || []).map((condition: any, index: number) => (
+                  <div className="offer-stat-row" data-stat-row key={index}>
+                    <label className="offer-field">
+                      <span>{words("属性", "Stat")}</span>
+                      <select
+                        aria-label={words(
+                          `属性 ${index + 1}`,
+                          `Stat ${index + 1}`,
+                        )}
+                        data-stat-key
+                        value={condition.stat}
+                        onChange={(event) =>
+                          setDraft((old: any) => ({
+                            ...old,
+                            stats: old.stats.map((row: any, i: number) =>
+                              i === index
+                                ? { ...row, stat: event.target.value }
+                                : row,
+                            ),
+                          }))
+                        }
+                      >
+                        {EQUIPMENT_STATS.filter(
+                          ([key]: string[]) =>
+                            key === condition.stat ||
+                            !draft.stats.some((row: any) => row.stat === key),
+                        ).map(([key, zh, en]: string[]) => (
+                          <option key={key} value={key}>
+                            {words(zh, en)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="offer-field">
+                      <span>{words("最低属性值", "Minimum value")}</span>
+                      <input
+                        aria-label={words(
+                          `最低属性值 ${index + 1}`,
+                          `Minimum value ${index + 1}`,
+                        )}
+                        data-stat-min
+                        type="number"
+                        min="0"
+                        max="65535"
+                        step="1"
+                        inputMode="numeric"
+                        placeholder="1"
+                        value={condition.min ?? ""}
+                        onChange={(event) =>
+                          setDraft((old: any) => ({
+                            ...old,
+                            stats: old.stats.map((row: any, i: number) =>
+                              i === index
+                                ? { ...row, min: event.target.value }
+                                : row,
+                            ),
+                          }))
+                        }
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      data-stat-remove
+                      aria-label={words(
+                        "移除属性条件",
+                        "Remove stat condition",
+                      )}
+                      onClick={() =>
+                        setDraft((old: any) => ({
+                          ...old,
+                          stats: old.stats.filter(
+                            (_: any, i: number) => i !== index,
+                          ),
+                        }))
+                      }
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="btn"
+                  data-stat-add
+                  disabled={
+                    (draft.stats || []).length >= EQUIPMENT_STATS.length
+                  }
+                  onClick={() =>
+                    setDraft((old: any) => ({
+                      ...old,
+                      stats: [
+                        ...(old.stats || []),
+                        {
+                          stat: EQUIPMENT_STATS.find(
+                            ([key]: string[]) =>
+                              !(old.stats || []).some(
+                                (row: any) => row.stat === key,
+                              ),
+                          )[0],
+                          min: null,
+                        },
+                      ],
+                    }))
+                  }
+                >
+                  {words("＋ 添加属性", "+ Add stat")}
+                </button>
+              </div>
+            )}
           </fieldset>
         </div>
         <footer className="offer-filter-foot">

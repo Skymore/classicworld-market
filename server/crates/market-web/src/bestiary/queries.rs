@@ -91,8 +91,101 @@ pub async fn item_page_window(
     now: f64,
     all: bool,
 ) -> sqlx::Result<Option<ItemPage>> {
-    let mut page = item_page(db, id, now).await?;
+    item_page_selected(db, id, now, all, &ItemSelection::default()).await
+}
+
+#[derive(Default)]
+pub struct ItemSelection {
+    pub variant: Option<i64>,
+    pub attributes: Vec<(String, i64)>,
+    pub equipment: String,
+}
+
+fn equipment_group_key(variant: &Variant) -> (Vec<(&str, i64)>, i64, Option<i64>, usize) {
+    let mut stats: Vec<_> = variant
+        .stats
+        .iter()
+        .filter(|s| {
+            !matches!(
+                s.key.as_str(),
+                "weapon_defense" | "magic_defense" | "pdd" | "mdd"
+            )
+        })
+        .map(|s| (s.key.as_str(), s.value))
+        .collect();
+    stats.sort_unstable();
+    (
+        stats,
+        variant.enhancements.unwrap_or(0),
+        variant.remaining_upgrades,
+        variant.unknown_fields,
+    )
+}
+
+pub async fn item_page_selected(
+    db: &PgPool,
+    id: i32,
+    now: f64,
+    all: bool,
+    selection: &ItemSelection,
+) -> sqlx::Result<Option<ItemPage>> {
+    let mut selected_variant = None;
+    let scoped = selection.variant.is_some()
+        || !selection.attributes.is_empty()
+        || matches!(
+            selection.equipment.as_str(),
+            "captured" | "missing" | "bonus"
+        );
+    let variant_ids = if scoped {
+        let variants: Vec<(i64, Value)> =
+            sqlx::query_as("SELECT id, stats FROM equipment_variants WHERE item_id=$1")
+                .bind(id)
+                .fetch_all(db)
+                .await?;
+        let variants: Vec<_> = variants
+            .iter()
+            .map(|(id, value)| parse_variant(*id, value))
+            .collect();
+        if let Some(wanted) = selection.variant {
+            let Some(found) = variants.iter().find(|v| v.id == wanted) else {
+                return Ok(None);
+            };
+            selected_variant = Some(found.clone());
+        }
+        let record: Option<Value> =
+            sqlx::query_scalar("SELECT record FROM item_records WHERE item_id=$1")
+                .bind(id)
+                .fetch_optional(db)
+                .await?;
+        let base = record.as_ref().map(reference_stats).unwrap_or_default();
+        let mut ids: Vec<i64> = variants
+            .iter()
+            .filter(|variant| {
+                selected_variant.as_ref().is_none_or(|selected| {
+                    equipment_group_key(selected) == equipment_group_key(variant)
+                }) && selection.attributes.iter().all(|(key, minimum)| {
+                    variant
+                        .stats
+                        .iter()
+                        .any(|s| &s.key == key && s.value >= *minimum)
+                }) && selection.equipment != "missing"
+                    && (selection.equipment != "bonus" || super::pages::has_bonus(variant, &base))
+            })
+            .map(|v| v.id)
+            .collect();
+        if selected_variant.is_none()
+            && selection.attributes.is_empty()
+            && !matches!(selection.equipment.as_str(), "captured" | "bonus")
+        {
+            ids.push(0); // Unknown equipment has no variant id.
+        }
+        Some(ids)
+    } else {
+        None
+    };
+    let mut page = item_page_scoped(db, id, now, variant_ids.as_deref()).await?;
     if let Some(p) = &mut page {
+        p.selected_variant = selected_variant;
         if !all {
             p.market
                 .sales
@@ -102,8 +195,37 @@ pub async fn item_page_window(
             "SELECT count(*), percentile_cont(0.5) WITHIN GROUP (ORDER BY unit_price),
              percentile_cont(0.25) WITHIN GROUP (ORDER BY unit_price),
              percentile_cont(0.75) WITHIN GROUP (ORDER BY unit_price)
-             FROM market_sales WHERE item_id=$1 AND detected_at<=to_timestamp($4) AND ($2::bool OR detected_at>=to_timestamp($3))")
-            .bind(id).bind(all).bind(now-72.0*3600.0).bind(now).fetch_one(db).await?;
+             FROM market_sales WHERE item_id=$1 AND detected_at<=to_timestamp($4) AND ($2::bool OR detected_at>=to_timestamp($3))
+             AND ($5::bigint[] IS NULL OR coalesce(variant_id,0)=ANY($5))")
+            .bind(id).bind(all).bind(now-72.0*3600.0).bind(now).bind(variant_ids.as_deref()).fetch_one(db).await?;
+        if scoped {
+            let shops: std::collections::HashSet<_> = p
+                .market
+                .listings
+                .iter()
+                .map(|l| {
+                    l.grouping
+                        .as_ref()
+                        .map(|g| g.shop_key.clone())
+                        .unwrap_or_else(|| format!("{:?}:{:?}:{}", l.channel, l.room, l.shop))
+                })
+                .collect();
+            p.stats = Some(MarketStats {
+                typical: None,
+                typical_low: None,
+                typical_high: None,
+                sales_24h: 0,
+                change_24h: None,
+                lowest_ask: p
+                    .market
+                    .listings
+                    .first()
+                    .map(|l| l.unit_price.round() as i64),
+                listings_count: p.market.listings.len().min(i32::MAX as usize) as i32,
+                shops_count: shops.len().min(i32::MAX as usize) as i32,
+                as_of: p.market.as_of.unwrap_or_else(Utc::now),
+            });
+        }
         if let Some(s) = &mut p.stats {
             s.sales_24h = row.0.min(i32::MAX as i64) as i32;
             s.typical = row.1.map(|v| v.round() as i64);
@@ -117,6 +239,15 @@ pub async fn item_page_window(
 }
 
 pub async fn item_page(db: &PgPool, id: i32, now: f64) -> sqlx::Result<Option<ItemPage>> {
+    item_page_scoped(db, id, now, None).await
+}
+
+async fn item_page_scoped(
+    db: &PgPool,
+    id: i32,
+    now: f64,
+    variant_ids: Option<&[i64]>,
+) -> sqlx::Result<Option<ItemPage>> {
     let item = sqlx::query_as::<_, ItemSummary>(
         "SELECT id, name_zh, name_en, category, subcategory, req_level, icon_url, is_cash
          FROM items WHERE id = $1",
@@ -142,7 +273,7 @@ pub async fn item_page(db: &PgPool, id: i32, now: f64) -> sqlx::Result<Option<It
         droppers(db, id),
         npc_offers(db, id),
         record,
-        item_market(db, id, now),
+        item_market(db, id, now, variant_ids),
     )?;
     let Some(item) = item else {
         return Ok(None);
@@ -150,6 +281,7 @@ pub async fn item_page(db: &PgPool, id: i32, now: f64) -> sqlx::Result<Option<It
     market.base_stats = record.as_ref().map(reference_stats).unwrap_or_default();
     Ok(Some(ItemPage {
         item,
+        selected_variant: None,
         stats,
         droppers,
         npc_offers,
@@ -372,7 +504,12 @@ fn parse_variant(id: i64, value: &Value) -> Variant {
 
 /// Listings, sales and the 7-day inputs of one item. Same windows and order
 /// as `views::item_page`, so the page and the poll it refreshes from agree.
-async fn item_market(db: &PgPool, id: i32, now: f64) -> sqlx::Result<ItemMarket> {
+async fn item_market(
+    db: &PgPool,
+    id: i32,
+    now: f64,
+    variant_ids: Option<&[i64]>,
+) -> sqlx::Result<ItemMarket> {
     #[derive(FromRow)]
     struct ListingRow {
         shop_key: String,
@@ -412,10 +549,12 @@ async fn item_market(db: &PgPool, id: i32, now: f64) -> sqlx::Result<ItemMarket>
          JOIN shops sh ON sh.id = l.shop_id JOIN observations o ON o.id = l.observation_id
          LEFT JOIN equipment_variants v ON v.id = l.variant_id
          WHERE l.item_id = $1 AND l.stock > 0 AND sh.last_seen_at >= to_timestamp($2)
+           AND ($3::bigint[] IS NULL OR coalesce(l.variant_id,0)=ANY($3))
          ORDER BY l.price::float8 / l.bundle, sh.public_key, l.slot",
     )
     .bind(id)
     .bind(Window::recent(now).cutoff)
+    .bind(variant_ids)
     .fetch_all(db);
     let sales = sqlx::query_as::<_, SaleRow>(
         "SELECT s.kind, s.unit_price, s.quantity,
@@ -429,11 +568,14 @@ async fn item_market(db: &PgPool, id: i32, now: f64) -> sqlx::Result<ItemMarket>
          FROM market_sales s
          LEFT JOIN observations o ON o.id = s.observation_id LEFT JOIN shops sh ON sh.id = s.shop_id
          LEFT JOIN equipment_variants v ON v.id = s.variant_id
-         WHERE s.item_id = $1
+         WHERE s.item_id = $1 AND s.detected_at <= to_timestamp($3)
+           AND ($4::bigint[] IS NULL OR coalesce(s.variant_id,0)=ANY($4))
          ORDER BY s.detected_at DESC, s.observation_id, s.position LIMIT $2",
     )
     .bind(id)
     .bind(SALES_SHOWN)
+    .bind(now)
+    .bind(variant_ids)
     .fetch_all(db);
     let (as_of, listings, sales) = tokio::try_join!(as_of, listings, sales)?;
     let as_of = as_of.flatten();
@@ -457,6 +599,9 @@ async fn item_market(db: &PgPool, id: i32, now: f64) -> sqlx::Result<ItemMarket>
         })
         .collect();
     for row in crate::external::quote_rows(db, &[id], Window::recent(now).cutoff).await? {
+        if variant_ids.is_some_and(|ids| !ids.contains(&0)) {
+            continue;
+        }
         if let Some(seen_at) =
             DateTime::from_timestamp(row["time"].as_f64().unwrap_or(0.) as i64, 0)
         {
@@ -497,6 +642,7 @@ async fn item_market(db: &PgPool, id: i32, now: f64) -> sqlx::Result<ItemMarket>
                 sqlx::types::chrono::DateTime::from_timestamp(now as i64, 0)
                     .expect("valid current time")
                     .date_naive(),
+                variant_ids,
             )
             .await?
         }
@@ -518,18 +664,37 @@ async fn seven_days(
     db: &PgPool,
     id: i32,
     last: NaiveDate,
+    variant_ids: Option<&[i64]>,
 ) -> sqlx::Result<(Vec<Day>, Vec<SalePoint>)> {
     let first = (1..MARKET_DAYS).fold(last, |d, _| d.pred_opt().unwrap_or(d));
     type DailyRow = (NaiveDate, Option<f64>, Option<f64>, Option<f64>, i32);
-    let rows: Vec<DailyRow> = sqlx::query_as(
-        "SELECT day, median, low, high, count FROM item_daily
+    let rows: Vec<DailyRow> = if let Some(ids) = variant_ids {
+        sqlx::query_as(
+            "SELECT (detected_at AT TIME ZONE 'UTC')::date,
+             percentile_cont(0.5) WITHIN GROUP (ORDER BY unit_price),
+             min(unit_price), max(unit_price), count(*)::int
+             FROM market_sales WHERE item_id=$1 AND unit_price>0
+             AND detected_at >= ($2::date)::timestamp AT TIME ZONE 'UTC'
+             AND detected_at < (($3::date)+1)::timestamp AT TIME ZONE 'UTC'
+             AND coalesce(variant_id,0)=ANY($4) GROUP BY 1",
+        )
+        .bind(id)
+        .bind(first)
+        .bind(last)
+        .bind(ids)
+        .fetch_all(db)
+        .await?
+    } else {
+        sqlx::query_as(
+            "SELECT day, median, low, high, count FROM item_daily
          WHERE item_id = $1 AND day BETWEEN $2 AND $3",
-    )
-    .bind(id)
-    .bind(first)
-    .bind(last)
-    .fetch_all(db)
-    .await?;
+        )
+        .bind(id)
+        .bind(first)
+        .bind(last)
+        .fetch_all(db)
+        .await?
+    };
     let days: Vec<Day> = first
         .iter_days()
         .take(MARKET_DAYS as usize)
@@ -550,11 +715,13 @@ async fn seven_days(
          FROM market_sales s
          WHERE s.item_id = $1 AND s.unit_price > 0
            AND s.detected_at >= ($2::date)::timestamp AT TIME ZONE 'UTC'
-           AND s.detected_at < (($3::date) + 1)::timestamp AT TIME ZONE 'UTC'",
+           AND s.detected_at < (($3::date) + 1)::timestamp AT TIME ZONE 'UTC'
+           AND ($4::bigint[] IS NULL OR coalesce(s.variant_id,0)=ANY($4))",
     )
     .bind(id)
     .bind(first)
     .bind(last)
+    .bind(variant_ids)
     .fetch_all(db)
     .await?;
     let sale_points = points

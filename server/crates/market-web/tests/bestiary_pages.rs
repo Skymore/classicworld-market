@@ -162,6 +162,7 @@ fn market() -> ItemMarket {
 
 fn item_page(stats: Option<MarketStats>, market: ItemMarket) -> ItemPage {
     ItemPage {
+        selected_variant: None,
         item: ItemSummary {
             id: 4000019,
             name_zh: Some("蜗牛壳<script>".into()),
@@ -364,9 +365,9 @@ fn equipment_tooltips_mark_bonus_stats() {
     page.item.id = 1302000;
     let html = pages::item_page(&page, &zh()).into_string();
     assert!(html.contains("装备属性"));
-    assert!(html.contains("只看有加成属性"));
-    assert!(html.contains(r#"<div class="tip" data-bonus="1">"#));
-    assert!(html.contains(r#"<div class="tip" data-bonus="0">"#));
+    assert!(!html.contains("data-bonus-only"));
+    assert!(html.contains("equipment-group-link"));
+    assert!(html.contains("variant=1") && html.contains("variant=2"));
     assert!(html.contains("<b>+19</b><i>(+2)</i>"));
     assert!(html.contains("可升级次数：7"));
     assert!(!html.contains("报价来自摊位快照"));

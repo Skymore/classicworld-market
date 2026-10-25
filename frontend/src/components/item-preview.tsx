@@ -19,7 +19,12 @@ type Hit = {
 };
 export function previewItem(target: Element, origin: string): Hit | null {
   const anchor = target.closest<HTMLElement>("a[href],tr[data-open]");
-  if (!anchor || anchor.closest(".item-peek")) return null;
+  if (
+    !anchor ||
+    anchor.closest(".item-peek") ||
+    anchor.hasAttribute("data-no-preview")
+  )
+    return null;
   if (anchor.matches("tr[data-open]"))
     return /^\d+$/.test(anchor.dataset.open || "")
       ? { anchor, id: Number(anchor.dataset.open) }
@@ -31,6 +36,7 @@ export function previewItem(target: Element, origin: string): Hit | null {
     return null;
   }
   const match = url.origin === origin && /^\/item\/(\d+)$/.exec(url.pathname);
+  if (url.searchParams.has("variant")) return null;
   return match ? { anchor, id: Number(match[1]) } : null;
 }
 export function previewPosition(
@@ -383,10 +389,7 @@ export default function ItemPreview() {
             ) : (
               Math.floor(item.id / 1000000) === 1 && (
                 <p className="peek-note">
-                  {words(
-                    "暂无基础属性",
-                    "Base stats unavailable",
-                  )}
+                  {words("暂无基础属性", "Base stats unavailable")}
                 </p>
               )
             )}

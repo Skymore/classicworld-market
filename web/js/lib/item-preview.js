@@ -13,10 +13,11 @@ export function previewPosition(anchor, box, viewport) {
 
 export function previewItem(target, origin) {
   const anchor=target.closest('a[href],tr[data-open]');
-  if(!anchor || anchor.closest('.item-peek'))return null;
+  if(!anchor || anchor.closest('.item-peek') || anchor.hasAttribute('data-no-preview'))return null;
   if(anchor.matches('tr[data-open]'))return /^\d+$/.test(anchor.dataset.open)?{anchor,id:Number(anchor.dataset.open)}:null;
   let url;try {url=new URL(anchor.href,origin);}catch{return null;}
   const match=url.origin===origin && /^\/item\/(\d+)$/.exec(url.pathname);
+  if(url.searchParams.has('variant'))return null;
   return match?{anchor,id:Number(match[1])}:null;
 }
 

@@ -47,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-BcreMOa7.js": {
-    "file": "chunks/main-BcreMOa7.js",
+  "_main-XA-1_I0a.js": {
+    "file": "chunks/main-XA-1_I0a.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -80,8 +80,8 @@
       "_createLucideIcon-AGXdf3oX.js"
     ]
   },
-  "_offer-filters-DE8KCpQ8.js": {
-    "file": "chunks/offer-filters-DE8KCpQ8.js",
+  "_offer-filters-BOLJVU0m.js": {
+    "file": "chunks/offer-filters-BOLJVU0m.js",
     "name": "offer-filters",
     "imports": [
       "_shared-CXQsMgcK.js"
@@ -135,7 +135,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BcreMOa7.js"
+      "_main-XA-1_I0a.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -176,16 +176,17 @@
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-DrLiS4R9.js",
+    "file": "chunks/catalogue-uMNTFVMt.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shared-CXQsMgcK.js",
       "_item-market-B9VDolw_.js",
+      "_shell-DmaT9iF5.js",
       "_list-rows-DtgYsXRT.js",
       "_live-CndOBpub.js",
-      "_offer-filters-DE8KCpQ8.js"
+      "_offer-filters-BOLJVU0m.js"
     ]
   },
   "src/pages/collect.tsx": {
@@ -277,7 +278,7 @@
     ]
   },
   "src/pages/watch.tsx": {
-    "file": "chunks/watch-E6F5Clql.js",
+    "file": "chunks/watch-BLQdUj5w.js",
     "name": "watch",
     "src": "src/pages/watch.tsx",
     "isDynamicEntry": true,
@@ -287,7 +288,7 @@
       "_toasts-CUDnM_pt.js",
       "_list-copy-DOEUOUBP.js",
       "_live-CndOBpub.js",
-      "_offer-filters-DE8KCpQ8.js"
+      "_offer-filters-BOLJVU0m.js"
     ]
   },
   "src/server.tsx": {
@@ -296,7 +297,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BcreMOa7.js"
+      "_main-XA-1_I0a.js"
     ]
   },
   "style.css": {

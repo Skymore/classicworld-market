@@ -93,6 +93,8 @@ impl NpcRef {
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ItemPage {
     pub item: ItemSummary,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selected_variant: Option<Variant>,
     pub stats: Option<MarketStats>,
     pub droppers: Vec<Dropper>,
     pub npc_offers: Vec<NpcOffer>,

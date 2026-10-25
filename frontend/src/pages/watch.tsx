@@ -27,7 +27,7 @@ import {
   filterOffers,
   offerFilterTokens,
   clearOfferFilter,
-} from "/web/js/lib/item-offer-filters.js?v=20261025-equipment-stats-1";
+} from "/web/js/lib/item-offer-filters.js?v=20261025-equipment-stats-2";
 import { OfferRow, Location } from "../components/list-rows";
 import { announce, OfferReminder } from "../components/toasts";
 import "../lib/list-copy";
@@ -100,8 +100,7 @@ export default function Watch() {
       return normalizeOfferFilters({
         ...JSON.parse(rawFilters),
         equipment: "all",
-        stat: "all",
-        minStat: null,
+        stats: [],
       });
     } catch {
       return normalizeOfferFilters();

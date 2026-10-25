@@ -32,7 +32,7 @@ pub fn item_page(page: &ItemPage, ctx: &Ctx) -> Markup {
             }
             section.stall.item-stall data-item=(page.item.id) data-mark=(market::mark(page)) data-as-of=(v.as_of.timestamp()) {
                 div.stall-bar {
-                    h2 { (ctx.t("物品详情", "Item")) span.on-desktop { " · " (name) } }
+                    h2 { (if page.selected_variant.is_some() {ctx.t("属性详情", "Stat detail")} else {ctx.t("物品详情", "Item")}) span.on-desktop { " · " (name) } }
                     span.bar-meta.on-desktop data-fresh hidden[fresh.is_none()] {
                         span { @if let Some(text) = &fresh { (text) } }
                     }
@@ -45,6 +45,17 @@ pub fn item_page(page: &ItemPage, ctx: &Ctx) -> Markup {
                     (star_button(ctx, page.item.id))
                 }
                 (market::head(&v))
+                @if let Some(selected) = &page.selected_variant {
+                    div.selected-attributes data-selected-attributes {
+                        div.tags {
+                            @for s in selected.stats.iter().filter(|s| !matches!(s.key.as_str(), "weapon_defense" | "magic_defense" | "pdd" | "mdd") && s.value > 0) {
+                                span.tagx { (&s.label) " +" (s.value) }
+                            }
+                            @if let Some(left) = selected.remaining_upgrades { span.tagx { (ctx.t("可升级", "Upgrades left")) " " (left) } }
+                        }
+                        a data-all-attributes href=(format!("/item/{}?hours={}&lang={}", page.item.id, if ctx.here.contains("hours=all") {"all"} else {"72"}, if ctx.lang==Lang::En {"en"} else {"zh"})) { (ctx.t("查看全部属性", "All equipment stats")) }
+                    }
+                }
                 div.ibox {
                     div.src-box { (sources_well(&v)) }
                     (market::where_well(&v))

@@ -973,11 +973,6 @@ pub fn equipment_well(v: &View) -> Option<Markup> {
                 div.well-h {
                     h3 { (v.t("装备属性", "Equipment stats")) }
                     small { (count(v, offers.len(), "种在售", "on sale")) }
-                    @if !offers.is_empty() {
-                        button.toggle.right type="button" data-bonus-only aria-pressed="false" {
-                            i {} (v.t("只看有加成属性", "bonus stats only"))
-                        }
-                    }
                 }
                 @if offers.is_empty() {
                     p.note { (v.t("最近 72 小时没有看到带属性的在售装备。", "No listed instance with decoded stats in the last 72 hours.")) }
@@ -985,7 +980,7 @@ pub fn equipment_well(v: &View) -> Option<Markup> {
                     div.tips {
                         @for (i, o) in offers.iter().enumerate() {
                             @let bonus = has_bonus(o.variant, base);
-                            div.tip.extra[i >= VARIANTS_SHOWN] data-bonus=(if bonus { "1" } else { "0" }) {
+                            a.tip.equipment-group-link.extra[i >= VARIANTS_SHOWN] href=(format!("/item/{}?variant={}&hours={}&lang={}", v.page.item.id, o.variant.id, if v.ctx.here.contains("hours=all") {"all"} else {"72"}, if v.ctx.lang==Lang::En {"en"} else {"zh"})) data-bonus=(if bonus { "1" } else { "0" }) {
                                 (variant_stats(v, o.variant))
                                 div.tip-f {
                                     @let cheapest = o.listings[0];
@@ -993,6 +988,7 @@ pub fn equipment_well(v: &View) -> Option<Markup> {
                                     " · " (count(v, o.listings.len(), "件", "listed")) " · "
                                     (loc(v.ctx.lang, cheapest.channel, cheapest.room))
                                 }
+                                span.tip-link { (v.t("查看报价 ›", "View offers ›")) }
                             }
                         }
                     }

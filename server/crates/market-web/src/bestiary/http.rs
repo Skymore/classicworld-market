@@ -168,6 +168,51 @@ struct ItemParams {
     part: String,
     #[serde(default)]
     hours: String,
+    variant: Option<i64>,
+    #[serde(default)]
+    attributes: String,
+    #[serde(default)]
+    equipment: String,
+}
+
+impl ItemParams {
+    fn selection(&self) -> Option<queries::ItemSelection> {
+        let attributes: Vec<(String, i64)> = if self.attributes.is_empty() {
+            vec![]
+        } else {
+            serde_json::from_str(&self.attributes).ok()?
+        };
+        let allowed = [
+            "weapon_attack",
+            "magic_attack",
+            "str",
+            "dex",
+            "int",
+            "luk",
+            "hp",
+            "mp",
+            "accuracy",
+            "avoid",
+            "speed",
+            "jump",
+            "weapon_defense",
+            "magic_defense",
+        ];
+        if attributes.len() > allowed.len()
+            || attributes
+                .iter()
+                .any(|(key, min)| !allowed.contains(&key.as_str()) || !(0..=65535).contains(min))
+            || self.variant.is_some_and(|id| id <= 0)
+            || !["", "all", "captured", "missing", "bonus"].contains(&self.equipment.as_str())
+        {
+            return None;
+        }
+        Some(queries::ItemSelection {
+            variant: self.variant,
+            attributes,
+            equipment: self.equipment.clone(),
+        })
+    }
 }
 
 async fn item(
@@ -179,7 +224,12 @@ async fn item(
     let Some(id) = parse_id(&raw) else {
         return not_found(ITEM, &ctx);
     };
-    let found = queries::item_page_window(&state.db, id, unix_now(), params.hours == "all").await;
+    let Some(selection) = params.selection() else {
+        return html(StatusCode::BAD_REQUEST, NO_STORE, pages::error_page(&ctx));
+    };
+    let found =
+        queries::item_page_selected(&state.db, id, unix_now(), params.hours == "all", &selection)
+            .await;
     if params.part == "market" {
         return detail(found, &ctx, ITEM, NO_STORE, pages::item_market_fragment);
     }
@@ -504,7 +554,17 @@ async fn catalog_page(
                 return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_query"}));
             };
             loaded(
-                queries::item_page_window(&state.db, id, unix_now(), params.hours == "all")
+                {
+                    let Some(selection) = params.selection() else {
+                        return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_query"}));
+                    };
+                    queries::item_page_selected(
+                        &state.db,
+                        id,
+                        unix_now(),
+                        params.hours == "all",
+                        &selection,
+                    )
                     .await
                     .map(|page| {
                         page.map(|page| {
@@ -514,7 +574,8 @@ async fn catalog_page(
                             value["unit"] = json!(unit);
                             value
                         })
-                    }),
+                    })
+                },
                 "item",
             )
         }

@@ -12,6 +12,8 @@ import {
 } from "../components/shared";
 import Item from "./item";
 import { catalogKey, loadCatalog } from "../lib/catalog";
+import { useUserValue } from "../lib/live";
+import { normalizeOfferFilters } from "/web/js/lib/item-offer-filters.js?v=20261025-equipment-stats-2";
 export function useNames() {
   const { language } = usePreferences();
   return (names: any) =>
@@ -698,7 +700,30 @@ export default function Catalogue() {
   const route = useLocation(),
     words = useWords();
   const { language } = usePreferences();
-  const url = route.pathname + route.search;
+  const [rawFilters] = useUserValue("market.offerFilters", "{}");
+  const params = new URLSearchParams(route.search);
+  if (
+    route.pathname.startsWith("/item/") &&
+    Math.floor(Number(route.pathname.split("/")[2]) / 1000000) === 1
+  ) {
+    let filters;
+    try {
+      filters = normalizeOfferFilters(JSON.parse(rawFilters));
+    } catch {
+      filters = normalizeOfferFilters();
+    }
+    if (filters.stats.length)
+      params.set(
+        "attributes",
+        JSON.stringify(
+          filters.stats.map((row: any) => [row.stat, row.min ?? 1]),
+        ),
+      );
+    else params.delete("attributes");
+    if (filters.equipment !== "all") params.set("equipment", filters.equipment);
+    else params.delete("equipment");
+  }
+  const url = route.pathname + (params.size ? "?" + params : "");
   const query = useQuery<any>({
     queryKey: catalogKey(url),
     queryFn: ({ signal }) => loadCatalog(url, signal),
@@ -744,7 +769,16 @@ export default function Catalogue() {
         </div>
       </section>
     );
-  if (!data) return <Loading />;
+  if (
+    !data ||
+    (params.get("variant") &&
+      String(data.page?.selected_variant?.id) !== params.get("variant"))
+  )
+    return query.isError ? (
+      <ErrorState retry={() => void query.refetch()} />
+    ) : (
+      <Loading />
+    );
   return (
     <div
       className={"dwrap " + (data.kind === "item" ? "ipage" : "dex")}
@@ -752,7 +786,10 @@ export default function Catalogue() {
       aria-busy={query.isFetching}
     >
       {data.kind === "item" ? (
-        <Item key={data.page.item.id} page={data.page} />
+        <Item
+          key={data.page.item.id + ":" + (params.get("variant") || "")}
+          page={data.page}
+        />
       ) : data.kind === "mob" ? (
         <Mob page={data.page} />
       ) : data.kind === "map" ? (

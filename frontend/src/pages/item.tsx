@@ -9,8 +9,7 @@ import {
   offerFilterTokens,
   clearOfferFilter,
   EQUIPMENT_STATS,
-  matchesEquipmentStat,
-} from "/web/js/lib/item-offer-filters.js?v=20261025-equipment-stats-1";
+} from "/web/js/lib/item-offer-filters.js?v=20261025-equipment-stats-2";
 import { useUserValue } from "../lib/live";
 import {
   hasBonus,
@@ -31,6 +30,7 @@ import {
   Search as QuickSearch,
 } from "../components/shared";
 import { Location, OfferRow } from "../components/list-rows";
+import { SiteLink } from "../components/shell";
 import OfferFilterDialog from "../components/offer-filters";
 import { Well, MobPicture, Secondary, useNames } from "./catalogue";
 import Crafting from "../components/crafting";
@@ -410,8 +410,8 @@ export default function Item({ page }: { page: any }) {
   const [tab, setTab] = useState("ladder"),
     [more, setMore] = useState<Set<string>>(new Set()),
     [channels, setChannels] = useState<Record<string, boolean>>({}),
-    [bonus, setBonus] = useState(false),
     [offersOpen, setOffersOpen] = useState<Set<string>>(new Set()),
+    [salesOpen, setSalesOpen] = useState<Set<string>>(new Set()),
     [filterOpen, setFilterOpen] = useState(false),
     [, tick] = useState(0);
   const opener = useRef<HTMLButtonElement>(null);
@@ -419,7 +419,7 @@ export default function Item({ page }: { page: any }) {
     try {
       return normalizeOfferFilters({
         ...JSON.parse(raw),
-        ...(!equipment ? { equipment: "all", stat: "all", minStat: null } : {}),
+        ...(!equipment ? { equipment: "all", stats: [] } : {}),
       });
     } catch {
       return normalizeOfferFilters();
@@ -453,6 +453,44 @@ export default function Item({ page }: { page: any }) {
     [market, equipment, item.id],
   );
   const filtered = filterOffers(rows, sort, filters);
+  const saleKeys = new Map<string, number>();
+  const sales = filterOffers(
+    market.sales.map((row: any) => {
+      const identity = JSON.stringify([
+        row.detected_at,
+        row.shop,
+        row.unit_price,
+        row.quantity,
+        row.variant?.id,
+        row.channel,
+        row.room,
+      ]);
+      const occurrence = saleKeys.get(identity) || 0;
+      saleKeys.set(identity, occurrence + 1);
+      return {
+        ...row,
+        key: identity + ":" + occurrence,
+        price: row.unit_price,
+        observed: timestamp(row.detected_at),
+        stock: NaN,
+        isEquipment: equipment,
+        hasStats: !!row.variant,
+        bonus: hasBonus(row.variant, market.base_stats || []),
+      };
+    }),
+    sort,
+    { ...filters, stock: "all", minStock: null },
+  ).rows;
+  const selectedVariant = page.selected_variant;
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [selectedVariant?.id]);
+  const itemHref = (variant?: any) => {
+    const params = new URLSearchParams(route.search);
+    params.delete("variant");
+    if (variant) params.set("variant", String(variant.id));
+    return route.pathname + (params.size ? "?" + params : "");
+  };
   const groups = offerGroups(filtered.rows, false);
   const flat = [...filtered.rows].sort(
     (a, b) =>
@@ -588,25 +626,13 @@ export default function Item({ page }: { page: any }) {
   }
   const saleList = (withShop: boolean) => (
     <>
-      {market.sales.length ? (
+      {sales.length ? (
         <>
           <div className={"sales-list " + (withShop ? "salegrid" : "")}>
-            {market.sales.map((row: any, i: number) => {
-              const isBonus = hasBonus(row.variant, market.base_stats || []);
-              return (
-                <div
-                  className={"sale " + (i >= 10 ? "extra" : "")}
-                  data-bonus={isBonus ? "1" : "0"}
-                  hidden={
-                    (bonus && !isBonus) ||
-                    !matchesEquipmentStat(
-                      row.variant,
-                      filters.stat,
-                      filters.minStat,
-                    )
-                  }
-                  key={i}
-                >
+            {sales.map((row: any, i: number) => {
+              const key = row.key;
+              const content = (
+                <>
                   <span className={"evi " + row.kind}>
                     {t("evidence." + row.kind)}
                   </span>
@@ -631,19 +657,68 @@ export default function Item({ page }: { page: any }) {
                   <span className="sa">
                     <RelativeTime at={timestamp(row.detected_at)} />
                   </span>
+                  {equipment && (
+                    <span className="sale-stat-state">
+                      {row.variant
+                        ? words("属性 ›", "Stats ›")
+                        : words("属性未采集", "Stats not captured")}
+                    </span>
+                  )}
+                </>
+              );
+              return equipment ? (
+                <details
+                  className={"sale-details " + (i >= 10 ? "extra" : "")}
+                  data-sale-details
+                  key={key}
+                  open={salesOpen.has(key)}
+                  onToggle={(event) => {
+                    const open = event.currentTarget.open;
+                    setSalesOpen((old) => {
+                      if (old.has(key) === open) return old;
+                      const next = new Set(old);
+                      open ? next.add(key) : next.delete(key);
+                      return next;
+                    });
+                  }}
+                >
+                  <summary className="sale">{content}</summary>
+                  <div className="sale-stat-body">
+                    {row.variant ? (
+                      <>
+                        <div className="tip">
+                          <Variant variant={row.variant} page={page} />
+                        </div>
+                        <SiteLink className="btn" href={itemHref(row.variant)}>
+                          {words("查看同属性报价", "Find matching offers")}
+                        </SiteLink>
+                      </>
+                    ) : (
+                      <p className="note">
+                        {words(
+                          "这条成交没有采集到装备属性。",
+                          "Equipment stats were not captured for this sale.",
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </details>
+              ) : (
+                <div className={"sale " + (i >= 10 ? "extra" : "")} key={key}>
+                  {content}
                 </div>
               );
             })}
           </div>
-          {market.sales.length > 10 && (
+          {sales.length > 10 && (
             <button
               className="more"
               data-more="sales"
               onClick={() => show("sales")}
             >
               {words(
-                `显示全部 ${market.sales.length} 条 `,
-                `Show all ${market.sales.length} `,
+                `显示全部 ${sales.length} 条 `,
+                `Show all ${sales.length} `,
               )}
               <Icon name="chev" />
             </button>
@@ -659,18 +734,7 @@ export default function Item({ page }: { page: any }) {
       )}
     </>
   );
-  const allVariants = groupEquipmentVariants(rows);
-  const variants = groupEquipmentVariants(
-    rows.filter(
-      (row: any) =>
-        (!bonus || row.bonus) &&
-        matchesEquipmentStat(row.variant, filters.stat, filters.minStat),
-    ),
-  );
-  const updateStatFilter = (value: any) =>
-    saveFilters(
-      JSON.stringify(normalizeOfferFilters({ ...filters, ...value })),
-    );
+  const variants = groupEquipmentVariants(filtered.rows);
   return (
     <>
       <div className="mobile-item-search">
@@ -697,16 +761,28 @@ export default function Item({ page }: { page: any }) {
           )}
         </span>
         <Icon name="chev" />
-        <span>{words(item.name_zh || item.name_en, item.name_en)}</span>
+        {selectedVariant ? (
+          <>
+            <SiteLink data-no-preview href={itemHref()}>
+              {words(item.name_zh || item.name_en, item.name_en)}
+            </SiteLink>
+            <Icon name="chev" />
+            <span>{words("属性详情", "Stat detail")}</span>
+          </>
+        ) : (
+          <span>{words(item.name_zh || item.name_en, item.name_en)}</span>
+        )}
       </nav>
       <section
-        className={"stall item-stall " + (bonus ? "bonus-only" : "")}
+        className="stall item-stall"
         data-item={item.id}
         data-as-of={timestamp(market.as_of)}
       >
         <div className="stall-bar">
           <h2>
-            {words("物品详情", "Item")}
+            {selectedVariant
+              ? words("属性详情", "Stat detail")
+              : words("物品详情", "Item")}
             <span className="on-desktop">
               {" "}
               · {words(item.name_zh || item.name_en, item.name_en)}
@@ -842,6 +918,44 @@ export default function Item({ page }: { page: any }) {
             <span className="range">{range}</span>
           </div>
         </div>
+        {selectedVariant && (
+          <div className="selected-attributes" data-selected-attributes>
+            <div className="tags">
+              {selectedVariant.stats
+                .filter(
+                  (stat: any) =>
+                    !["weapon_defense", "magic_defense", "pdd", "mdd"].includes(
+                      stat.key,
+                    ) && stat.value > 0,
+                )
+                .map((stat: any) => (
+                  <span className="tagx" key={stat.key}>
+                    {words(
+                      stat.label || stat.key,
+                      EQUIPMENT_STATS.find(
+                        ([key]: string[]) => key === stat.key,
+                      )?.[2] || stat.key,
+                    )}{" "}
+                    +{stat.value}
+                  </span>
+                ))}
+              {selectedVariant.enhancements > 0 && (
+                <span className="tagx">
+                  {words("强化", "Enhanced")} +{selectedVariant.enhancements}
+                </span>
+              )}
+              {selectedVariant.remaining_upgrades != null && (
+                <span className="tagx">
+                  {words("可升级", "Upgrades left")}{" "}
+                  {selectedVariant.remaining_upgrades}
+                </span>
+              )}
+            </div>
+            <SiteLink data-no-preview href={itemHref()} data-all-attributes>
+              {words("查看全部属性", "All equipment stats")}
+            </SiteLink>
+          </div>
+        )}
         <div className="ibox">
           <div className="src-box">
             <CollapsibleWell
@@ -1233,70 +1347,11 @@ export default function Item({ page }: { page: any }) {
               <Well
                 className={"equip-well " + (more.has("equip") ? "all" : "")}
                 title={words("装备属性", "Equipment stats")}
-                note={
-                  <>
-                    {words(
-                      `${variants.length} 种在售`,
-                      `${variants.length} on sale`,
-                    )}
-                    {!!allVariants.length && (
-                      <button
-                        className={"toggle right " + (bonus ? "on" : "")}
-                        data-bonus-only
-                        aria-pressed={bonus}
-                        onClick={() => setBonus(!bonus)}
-                      >
-                        <i />
-                        {words("只看有加成属性", "bonus stats only")}
-                      </button>
-                    )}
-                  </>
-                }
-              >
-                {!!allVariants.length && (
-                  <div className="equipment-stat-filters">
-                    <label className="offer-field">
-                      <span>{words("筛选属性", "Filter stat")}</span>
-                      <select
-                        data-equipment-stat
-                        value={filters.stat}
-                        onChange={(event) =>
-                          updateStatFilter({
-                            stat: event.target.value,
-                            minStat: null,
-                          })
-                        }
-                      >
-                        <option value="all">
-                          {words("全部属性", "Any stat")}
-                        </option>
-                        {EQUIPMENT_STATS.map(([key, zh, en]: string[]) => (
-                          <option key={key} value={key}>
-                            {words(zh, en)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {filters.stat !== "all" && (
-                      <label className="offer-field">
-                        <span>{words("最低属性值", "Minimum stat value")}</span>
-                        <input
-                          data-equipment-stat-min
-                          type="number"
-                          min="0"
-                          max="65535"
-                          step="1"
-                          inputMode="numeric"
-                          placeholder="1"
-                          value={filters.minStat ?? ""}
-                          onChange={(event) =>
-                            updateStatFilter({ minStat: event.target.value })
-                          }
-                        />
-                      </label>
-                    )}
-                  </div>
+                note={words(
+                  `${variants.length} 种在售`,
+                  `${variants.length} on sale`,
                 )}
+              >
                 {variants.length ? (
                   <>
                     <div className="tips">
@@ -1307,8 +1362,12 @@ export default function Item({ page }: { page: any }) {
                           offers[0],
                         );
                         return (
-                          <div
-                            className={"tip " + (i >= 3 ? "extra" : "")}
+                          <SiteLink
+                            href={itemHref(selectedVariant || variant)}
+                            className={
+                              "tip equipment-group-link " +
+                              (i >= 3 ? "extra" : "")
+                            }
                             key={key}
                             data-equipment-group={key}
                             data-bonus={
@@ -1330,7 +1389,12 @@ export default function Item({ page }: { page: any }) {
                               )}{" "}
                               · <Location value={cheapest} />
                             </div>
-                          </div>
+                            {!selectedVariant && (
+                              <span className="tip-link">
+                                {words("查看报价 ›", "View offers ›")}
+                              </span>
+                            )}
+                          </SiteLink>
                         );
                       })}
                     </div>
@@ -1351,10 +1415,10 @@ export default function Item({ page }: { page: any }) {
                 ) : (
                   <p className="note">
                     {words(
-                      allVariants.length
+                      rows.some((row: any) => row.variant)
                         ? "没有符合条件的装备。"
                         : "最近 72 小时没有看到带属性的在售装备。",
-                      allVariants.length
+                      rows.some((row: any) => row.variant)
                         ? "No equipment matches these filters."
                         : "No listed instance with decoded stats in the last 72 hours.",
                     )}
@@ -1387,7 +1451,7 @@ export default function Item({ page }: { page: any }) {
                     onClick={() => setTab(key)}
                   >
                     {words(zh, en)}
-                    {key === "sales" && " " + market.sales.length}
+                    {key === "sales" && " " + sales.length}
                   </button>
                 ))}
               </div>
@@ -1411,8 +1475,8 @@ export default function Item({ page }: { page: any }) {
               className={"sales-well " + (more.has("sales") ? "all" : "")}
               title={words("最近成交", "Recent sales")}
               note={words(
-                `${market.sales.length} 条 · 新的在前`,
-                `${market.sales.length} · newest first`,
+                `${sales.length} 条 · 新的在前`,
+                `${sales.length} · newest first`,
               )}
             >
               {saleList(true)}

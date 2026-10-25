@@ -140,12 +140,25 @@
 .offer-field-wide {
   grid-column: 1/-1;
 }
-.equipment-stat-filters {
+.offer-stat-conditions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  padding: 12px;
-  border-bottom: 1px solid var(--rule);
+  margin-top: 12px;
+}
+.offer-stat-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 36px;
+  gap: 8px;
+  align-items: end;
+}
+.offer-stat-row > button {
+  height: 42px;
+  border: 1px solid var(--rule);
+  font-size: 22px;
+}
+.offer-stat-conditions > .btn {
+  justify-self: start;
+  min-height: 42px;
 }
 .offer-field input,
 .offer-field select {

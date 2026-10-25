@@ -80,11 +80,22 @@ test('specific stat and minimum use only the captured offer and combine with oth
   assert.deepEqual(ids(filterOffers(offers,'price',{stat:'dex',minStat:0})),['dex2','dex4','zero']);
   assert.deepEqual(ids(filterOffers(offers,'price',{stat:'weapon_defense',minStat:20})),['dex4']);
   assert.deepEqual(ids(filterOffers(offers,'price',{stat:'dex',equipment:'missing'})),[]);
-  assert.equal(normalizeOfferFilters({stat:'unknown',minStat:20}).minStat,null);
-  assert.equal(normalizeOfferFilters({stat:'dex',minStat:Infinity}).minStat,null);
-  assert.equal(normalizeOfferFilters({stat:'dex',minStat:65536}).minStat,null);
-  assert.equal(normalizeOfferFilters({stat:'dex',minStat:2.9}).minStat,2);
+  assert.equal(normalizeOfferFilters({stat:'unknown',minStat:20}).stats.length,0);
+  assert.equal(normalizeOfferFilters({stat:'dex',minStat:Infinity}).stats[0].min,null);
+  assert.equal(normalizeOfferFilters({stat:'dex',minStat:65536}).stats[0].min,null);
+  assert.equal(normalizeOfferFilters({stat:'dex',minStat:2.9}).stats[0].min,2);
   assert.equal(offerFilterTokens({stat:'dex',minStat:4})[0].label,'敏捷 ≥ 4');
   assert.equal(offerFilterTokens({stat:'dex'},true)[0].label,'DEX ≥ 1');
   assert.deepEqual(clearOfferFilter({stat:'dex',minStat:4},'stat'),normalizeOfferFilters());
+});
+
+
+test('multiple attribute conditions use AND, normalize duplicates, and clear independently', () => {
+  const offers=[{key:'both',isEquipment:true,variant:{stats:[{key:'str',value:11},{key:'dex',value:3}]}},{key:'str-only',isEquipment:true,variant:{stats:[{key:'str',value:12}]}},{key:'low-dex',isEquipment:true,variant:{stats:[{key:'str',value:11},{key:'dex',value:2}]}}];
+  const filters={stats:[{stat:'str',min:11},{stat:'dex',min:3}]};
+  assert.deepEqual(ids(filterOffers(offers,'price',filters)),['both']);
+  assert.deepEqual(offerFilterTokens(filters).map(row=>row.key),['stat:str','stat:dex']);
+  assert.deepEqual(clearOfferFilter(filters,'stat:dex').stats,[{stat:'str',min:11}]);
+  assert.deepEqual(normalizeOfferFilters({stats:[{stat:'dex',min:2},{stat:'dex',min:4},{stat:'bad',min:1},null]}).stats,[{stat:'dex',min:4}]);
+  assert.deepEqual(normalizeOfferFilters({stat:'dex',minStat:3}).stats,[{stat:'dex',min:3}]);
 });
