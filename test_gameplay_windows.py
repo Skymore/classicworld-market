@@ -172,6 +172,65 @@ class NativeHookTests(unittest.TestCase):
 @unittest.skipUnless(os.name == "nt" and os.environ.get("GAMEPLAY_SCREEN_SMOKE") == "1",
                      "Opt-in capture of a visible generated test window")
 class NativeScreenTests(unittest.TestCase):
+    def test_live_recorder_overlay_pause_resume_and_save(self):
+        import tkinter as tk
+        from gameplay_overlay import StatusOverlay
+        enable_dpi_awareness()
+        root = tk.Tk()
+        root.title("录制流程自检（自动关闭）")
+        root.geometry("640x280+80+100")
+        root.configure(bg="#204080")
+        root.attributes("-topmost", True)
+        root.update()
+        overlay = StatusOverlay(root)
+        native = overlay.native
+        hwnd = native.user.GetAncestor(root.winfo_id(), 2)
+        bounds = WindowTarget(hwnd, []).bounds()
+        recorder = None
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+
+        def pump(seconds):
+            deadline = time.monotonic() + seconds
+            while time.monotonic() < deadline:
+                root.update()
+                overlay.update(recorder.display_status(), bounds)
+                time.sleep(.02)
+
+        try:
+            # Do not take focus from the user: only this scope check is simulated.
+            # Screenshot, hook lifecycle, encoding and overlay are real Windows APIs.
+            with patch.object(WindowTarget, "focused", return_value=True):
+                recorder = Recorder(dict(hwnd=hwnd), temporary.name, [])  # no gameplay keys observed
+                recorder.start()
+                pump(1.2)
+                self.assertEqual(recorder.display_status()["state"], "recording", recorder.error)
+                self.assertGreater(recorder.actual_fps(), 10)
+                recorder.control("pause")
+                elapsed = recorder.progress.snapshot()["elapsed_seconds"]
+                pump(.4)
+                self.assertEqual(recorder.progress.snapshot()["elapsed_seconds"], elapsed)
+                self.assertEqual(recorder.display_status()["state"], "paused")
+                recorder.control("pause")
+                pump(.8)
+                recorder.control("stop")
+                deadline = time.monotonic() + 10
+                while not recorder.finished.is_set() and time.monotonic() < deadline:
+                    pump(.05)
+                self.assertTrue(recorder.finished.is_set())
+                self.assertIsNone(recorder.error)
+                self.assertEqual(recorder.display_status()["state"], "saved")
+                report = validate_session(recorder.session.directory)
+                self.assertTrue(report["ok"], report)
+                self.assertGreater(report["frames"], 15)
+                self.assertEqual(report["key_events"], 0)
+        finally:
+            if recorder and not recorder.finished.is_set():
+                recorder.control("stop")
+                recorder.finished.wait(10)
+            overlay.close()
+            root.destroy()
+
     def test_capture_generated_window_with_real_dxgi_timestamps(self):
         import tkinter as tk
         enable_dpi_awareness()

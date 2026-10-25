@@ -4,7 +4,9 @@
 
 ## 启动
 
-在项目目录运行：
+日常使用双击构建目录中的 **`GameplayRecorder.exe`**，或项目目录中的“游戏操作录制”快捷方式。程序附带 Python 和依赖，不需要启动命令行；移动到其他位置时保留同目录的 `_internal` 文件夹。
+
+开发时也可以在项目目录运行：
 
 ```powershell
 .\run_gameplay_recorder.ps1
@@ -14,7 +16,23 @@
 
 选择游戏窗口、确认录制键位，点击“开始录制”，然后切回游戏。F8 暂停/继续，F9 停止并保存。切出游戏自动停止保存画面和按键；切回时重新同步当前按住的键，开始新的 episode。关闭窗口会等待视频保存。录制按键使用逗号分隔；F8/F9 为保留控制键。
 
+开始后，游戏客户区右上角显示悬浮状态条：**录制状态、实际帧率、累计录制时长**。绿色为录制/保存完成，黄色为暂停，红色为失败。悬浮窗不抢焦点、鼠标穿透；主窗口最小化后仍可见，关闭主窗口时一同关闭。保存完成状态会保留，直到开始下一次录制或关闭程序。
+
+时长从第一帧成功进入写入队列开始累计，暂停、切出游戏和保存收尾期间不计时。帧率使用最近最多 40 个进入队列的帧的时间戳估算；暂停或超过 500ms 没有新帧时显示 0。主窗口另有丢帧计数。
+
+悬浮窗通过 Windows `WDA_EXCLUDEFROMCAPTURE` 排除在 DXGI 截图之外；不能启用时会报错并不开始录制。已提供“先排除、再取消排除、再恢复”的原生像素对照自检。适用于 Windows 10 2004 及以上的桌面合成环境；游戏采用窗口或无边框模式，独占全屏的悬浮显示不作保证。
+
 默认写入 `shared_data/gameplay_recordings/日期时间-随机ID/`，该目录受仓库默认忽略规则保护。视频和按键数据只保存在本机，不进入网站发行包。可在界面选择其他保存位置。
+
+源码启动时路径相对项目目录；直接启动 exe 时相对 exe 所在目录。项目快捷方式通过 `--output` 固定到项目的 `shared_data/gameplay_recordings`，升级程序不会改变录制位置。
+
+## 构建桌面程序
+
+```powershell
+.\build_gameplay_recorder.ps1
+```
+
+构建脚本使用独立依赖环境和 PyInstaller 6.22.3，在新的 `dist/gameplay-日期时间/GameplayRecorder/` 中生成无控制台 exe，自动验证真实成品的合成视频录制和桌面悬浮窗，并更新项目目录的“游戏操作录制”快捷方式。不会覆盖旧程序或已有录制。需要可交互的 Windows 桌面来执行自检。`build-manifest.json` 记录源码提交、是否有未提交改动、源码与全部发行文件哈希、成品自检结果；发行目录与依赖环境不提交 Git。
 
 命令行方式：
 
@@ -61,8 +79,9 @@ DXcam 在后台按 60 FPS 获取图像及其呈现时间，录制器每 50ms 取
 
 ```powershell
 .\run_gameplay_recorder.ps1 -SelfTest
-.\.gameplay-venv\Scripts\python.exe -m unittest test_gameplay_recording test_gameplay_windows -v
+.\.gameplay-venv\Scripts\python.exe -m unittest test_gameplay_recording test_gameplay_windows test_gameplay_status -v
 .\.gameplay-venv\Scripts\python.exe record_gameplay.py --validate shared_data/gameplay_recordings/会话目录
+.\.gameplay-venv\Scripts\python.exe record_gameplay.py --desktop-self-test --report shared_data/desktop-test.json
 ```
 
 自检使用生成画面和模拟按键事件，不操作游戏，并标记 `metadata.synthetic=true`。验证器会解码全部视频，检查帧数、尺寸、时间顺序和按键状态重建。正式示范数据应排除 synthetic 会话和 failed/未完成会话，并检查丢帧及暂停边界。
@@ -70,3 +89,5 @@ DXcam 在后台按 60 FPS 获取图像及其呈现时间，录制器每 50ms 取
 默认测试跳过需要桌面会话的原生检查。设置 `GAMEPLAY_NATIVE_SMOKE=1` 可验证键盘钩子安装/卸载（按键白名单为空）；设置 `GAMEPLAY_SCREEN_SMOKE=1` 可验证真实 DXGI 截图及时间戳（显示一个自动关闭的纯色测试窗口，仅抓取其客户区）。
 
 采集后端接口依据 [DXcam 0.3.0](https://github.com/ra1nty/DXcam/tree/v0.3.0)；本录制器没有复制 MapleStoryAuto 的控制或训练代码。
+
+原生悬浮窗依据微软的 [SetWindowDisplayAffinity](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowdisplayaffinity) 与 [扩展窗口样式](https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles)；打包使用 [PyInstaller](https://pyinstaller.org/en/stable/usage.html)。

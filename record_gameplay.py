@@ -4,16 +4,18 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import threading
 import time
-from collections import deque
 from pathlib import Path
 
 from gameplay_recording import Cadence, DEFAULT_KEYS, RecordingSession, validate_session
 from gameplay_windows import DXcamSource, KeyboardObserver, WindowTarget, enable_dpi_awareness, list_windows, parse_keys
+from gameplay_status import RecordingProgress
 
 
-DEFAULT_OUTPUT = Path(__file__).resolve().parent / "shared_data" / "gameplay_recordings"
+APP_DIRECTORY = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
+DEFAULT_OUTPUT = APP_DIRECTORY / "shared_data" / "gameplay_recordings"
 
 
 class Recorder:
@@ -27,7 +29,8 @@ class Recorder:
         self.error = None
         self.status = "正在准备"
         self.preview = None
-        self.sample_times = deque(maxlen=60)
+        self.progress = RecordingProgress()
+        self.last_bounds = None
         self.thread = None
         self._scope_lock = threading.RLock()
 
@@ -39,6 +42,7 @@ class Recorder:
         with self._scope_lock:
             if action == "stop":
                 self.stop_event.set()
+                self.progress.pause()
                 if self.session and not self.session.closed:
                     self.session.timeline.gate(False, "stopping")
             elif action == "pause":
@@ -46,6 +50,7 @@ class Recorder:
                     self.paused.clear()
                 else:
                     self.paused.set()
+                    self.progress.pause()
                     if self.session and not self.session.closed:
                         self.session.timeline.gate(False, "manual_pause")
 
@@ -56,6 +61,8 @@ class Recorder:
                       else "manual_pause" if self.paused.is_set() else "window_unfocused")
             held = target.held() if active and not self.session.timeline.active else ()
             self.session.timeline.gate(active, reason, held)
+            if not active:
+                self.progress.pause()
             return active
 
     def _on_key(self, target, name, down, **extra):
@@ -91,6 +98,7 @@ class Recorder:
                     raise RuntimeError(self.session.failure or observer.failure)
                 if self._gate(target):
                     bounds = target.bounds()
+                    self.last_bounds = bounds
                     source.configure(bounds)
                     read_begin = time.perf_counter_ns()
                     result = source.read()
@@ -103,15 +111,21 @@ class Recorder:
                             raise RuntimeError("DXcam timestamp is incompatible with the monotonic clock")
                         # Moving/resizing/focus changes invalidate an in-flight screen crop.
                         if self._gate(target) and target.bounds() == bounds:
-                            self.session.frame(image, sample_ns=read_end, read_begin_ns=read_begin,
-                                               read_end_ns=read_end, source_present_ns=presented,
-                                               source_received_ns=received, source_frame_id=source_id,
-                                               bounds=list(bounds))
-                            self.sample_times.append(read_end)
+                            # Serialize the last scope check and progress update with F8/F9.
+                            with self._scope_lock:
+                                if not self._gate(target):
+                                    continue
+                                accepted = self.session.frame(image, sample_ns=read_end, read_begin_ns=read_begin,
+                                                              read_end_ns=read_end, source_present_ns=presented,
+                                                              source_received_ns=received, source_frame_id=source_id,
+                                                              bounds=list(bounds))
+                                if accepted:
+                                    self.progress.sample(read_end)
                             self.preview = image
                             self.status = "录制中"
                             waiting_since = None
                     else:
+                        self.progress.pause()
                         waiting_since = waiting_since or time.monotonic()
                         if time.monotonic() - waiting_since > 5:
                             raise RuntimeError("No screen frames arrived within five seconds")
@@ -119,7 +133,6 @@ class Recorder:
                 else:
                     source.close()
                     waiting_since = None
-                    self.sample_times.clear()
                     self.status = "已暂停" if self.paused.is_set() else "等待游戏切到前台"
                 skipped = cadence.advance(time.perf_counter_ns())
                 if skipped:
@@ -138,14 +151,30 @@ class Recorder:
                         self.error = self.error or str(exc)
                     self.error = self.error or getattr(resource, "failure", None)
             if self.session:
-                self.session.close(error=self.error)
+                try:
+                    self.session.close(error=self.error)
+                except Exception as exc:
+                    self.error = self.error or f"保存失败: {exc}"
                 self.error = self.error or self.session.failure
             self.status = "录制失败" if self.error else "已保存"
             self.finished.set()
 
     def actual_fps(self):
-        values = self.sample_times.copy()
-        return (len(values) - 1) * 1e9 / (values[-1] - values[0]) if len(values) > 1 else 0.0
+        return self.progress.snapshot()["fps"]
+
+    def display_status(self):
+        with self._scope_lock:
+            if self.finished.is_set():
+                state, label = ("error", "录制失败") if self.error else ("saved", "已保存")
+            elif self.stop_event.is_set():
+                state, label = "saving", "正在保存"
+            elif self.paused.is_set():
+                state, label = "paused", "已暂停"
+            elif self.session and self.session.timeline.active and self.status == "录制中":
+                state, label = "recording", "录制中"
+            else:
+                state, label = "waiting", "等待游戏"
+            return dict(state=state, label=label, **self.progress.snapshot())
 
 
 def self_test(output, seconds=4):
@@ -191,10 +220,11 @@ def self_test(output, seconds=4):
     return report
 
 
-def gui(output):
+def gui(output, *, smoke_test=False):
     import tkinter as tk
     from tkinter import filedialog, messagebox, ttk
     from PIL import Image, ImageTk
+    from gameplay_overlay import StatusOverlay
 
     root = tk.Tk()
     root.title("操作录制")
@@ -215,6 +245,7 @@ def gui(output):
     window_choice.grid(row=1, column=1, sticky="ew", padx=8)
     windows = []
     recorder = None
+    overlay = None
     closing = False
 
     def refresh():
@@ -252,20 +283,29 @@ def gui(output):
     buttons.grid(row=7, column=0, columnspan=3, sticky="ew")
 
     def start():
-        nonlocal recorder
+        nonlocal recorder, overlay
+        new_overlay = None
         try:
             index = window_choice.current()
             if index < 0:
                 raise ValueError("请先选择游戏窗口")
             keys = parse_keys(keys_var.get())
-            recorder = Recorder(windows[index], output_var.get(), keys)
-            recorder.start()
+            bounds = WindowTarget(windows[index]["hwnd"], keys).bounds()
+            new_overlay = StatusOverlay(root)
+            next_recorder = Recorder(windows[index], output_var.get(), keys)
+            new_overlay.update(next_recorder.display_status(), bounds)
+            next_recorder.start()
+            if overlay:
+                overlay.close()
+            recorder, overlay = next_recorder, new_overlay
             start_button.configure(state="disabled")
             for widget in (window_choice, keys_entry, output_entry, refresh_button, folder_button):
                 widget.configure(state="disabled")
             pause_button.configure(state="normal")
             stop_button.configure(state="normal")
         except Exception as exc:
+            if new_overlay and new_overlay is not overlay:
+                new_overlay.close()
             messagebox.showerror("无法开始", str(exc), parent=root)
 
     def open_folder():
@@ -286,7 +326,10 @@ def gui(output):
         nonlocal last_finished
         if recorder:
             count = recorder.session.counts if recorder.session else {}
-            status_var.set(f"{recorder.status} · {recorder.actual_fps():.1f} Hz · {count.get('written', 0)} 帧 · 丢帧 {count.get('dropped', 0)}")
+            snapshot = recorder.display_status()
+            status_var.set(f"{snapshot['label']} · {snapshot['fps']:.1f} Hz · {snapshot['duration']} · 丢帧 {count.get('dropped', 0)}")
+            if overlay:
+                overlay.update(snapshot, recorder.last_bounds)
             if recorder.preview is not None:
                 image = Image.fromarray(recorder.preview[:, :, ::-1])
                 image.thumbnail((540, 235))
@@ -317,6 +360,8 @@ def gui(output):
     root.protocol("WM_DELETE_WINDOW", close)
     refresh()
     update()
+    if smoke_test:
+        root.after(500, close)
     root.mainloop()
 
 
@@ -332,15 +377,26 @@ def main():
     parser.add_argument("--segment-seconds", type=float, default=60)
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--validate", type=Path)
+    parser.add_argument("--report", type=Path, help="Write diagnostic results to JSON (also works without a console)")
+    parser.add_argument("--desktop-self-test", action="store_true", help="Show and capture a generated test window; no input recording")
     args = parser.parse_args()
     if args.duration < 0 or args.segment_seconds <= 0 or not 1 <= args.fps <= 60:
         parser.error("duration must be nonnegative, segment-seconds positive, and fps between 1 and 60")
-    if args.validate:
-        result = validate_session(args.validate)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 0 if result["ok"] else 1
-    if args.self_test:
-        result = self_test(args.output, args.duration or 4)
+    if args.validate or args.self_test or args.desktop_self_test:
+        try:
+            if args.desktop_self_test:
+                from gameplay_smoke import desktop_self_test
+                result = desktop_self_test()
+                gui(args.output, smoke_test=True)
+            elif args.validate:
+                result = validate_session(args.validate)
+            else:
+                result = self_test(args.output, args.duration or 4)
+        except Exception as exc:
+            result = dict(ok=False, error=f"{type(exc).__name__}: {exc}")
+        if args.report:
+            args.report.parent.mkdir(parents=True, exist_ok=True)
+            args.report.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result["ok"] else 1
     enable_dpi_awareness()
@@ -372,4 +428,22 @@ def main():
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # GUI executables have no console streams; native libraries may still print.
+    for stream in ("stdout", "stderr"):
+        if getattr(sys, stream) is None:
+            setattr(sys, stream, open(os.devnull, "w", encoding="utf-8"))
+    try:
+        raise SystemExit(main())
+    except Exception:
+        import traceback
+        message = traceback.format_exc()
+        try:
+            (APP_DIRECTORY / "gameplay-error.log").write_text(message, encoding="utf-8")
+        except OSError:
+            pass
+        if getattr(sys, "frozen", False):
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, message, "操作录制启动失败", 0x10)
+        else:
+            raise
+        raise SystemExit(1)
