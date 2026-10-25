@@ -1,10 +1,37 @@
 import tempfile
+import json
 import threading
 import time
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 from scanner_desktop import DesktopAPI, DesktopController, status_text
+import collector_dashboard
+
+
+class DashboardReadinessTests(unittest.TestCase):
+    def test_readiness_retries_parent_read_handle_on_windows(self):
+        server = Mock(server_port=8780)
+        original = Path.replace
+        attempts = []
+        def replace(path, target):
+            attempts.append(path)
+            if len(attempts) < 3:
+                raise PermissionError('reader briefly holds file')
+            return original(path, target)
+        with tempfile.TemporaryDirectory() as folder, patch.object(collector_dashboard, 'create_server', return_value=server), patch.object(Path, 'replace', new=replace):
+            collector_dashboard.run(folder, {}, folder, instance='synthetic')
+            self.assertEqual(json.loads((Path(folder)/'dashboard.json').read_text())['instance'], 'synthetic')
+        self.assertEqual(len(attempts), 3)
+        server.serve_forever.assert_called_once()
+        server.server_close.assert_called_once()
+
+    def test_persistent_readiness_failure_closes_socket(self):
+        server = Mock(server_port=8780)
+        with tempfile.TemporaryDirectory() as folder, patch.object(collector_dashboard, 'create_server', return_value=server), patch.object(Path, 'replace', side_effect=PermissionError('locked')), patch.object(collector_dashboard.time, 'monotonic', side_effect=[0, 4]):
+            with self.assertRaises(PermissionError): collector_dashboard.run(folder, {}, folder)
+        server.server_close.assert_called_once()
+        server.serve_forever.assert_not_called()
 
 
 class DesktopTests(unittest.TestCase):

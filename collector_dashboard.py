@@ -375,7 +375,18 @@ def run(home, config, folder, port=8780, instance='', parent_pid=0, parent_creat
                  instance=instance, started_at=time.time())
     temporary = home/'dashboard.json.tmp'
     temporary.write_text(json.dumps(ready), encoding='utf-8')
-    temporary.replace(home/'dashboard.json')
+    # The parent reads this file while waiting for readiness. On Windows its
+    # brief read handle can deny replacement; retry without restarting capture.
+    deadline = time.monotonic() + 3
+    while True:
+        try:
+            temporary.replace(home/'dashboard.json')
+            break
+        except PermissionError:
+            if time.monotonic() >= deadline:
+                server.server_close()
+                raise
+            time.sleep(.025)
     print('Personal alerts: '+ready['url'], flush=True)
     if parent:
         def stop_with_parent():
