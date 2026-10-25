@@ -82,7 +82,11 @@ class CollectorRuntime:
             main(self.capture_args, stop_event=self.stop_event, update_argv=self.launch_argv,
                  on_event=self._notify)
         except Exception as error:
+            import traceback
             self.error = str(error)
+            print(json.dumps(dict(time=time.time(),event='collector_runtime_failed',
+                error=type(error).__name__,message=str(error))),flush=True)
+            traceback.print_exc()
             self.ready.set()
 
     def add_listener(self, callback):

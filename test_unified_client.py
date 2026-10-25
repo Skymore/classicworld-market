@@ -5,12 +5,30 @@ import sys
 import tempfile
 import threading
 import unittest
+import io
+import contextlib
 from pathlib import Path
 from unittest.mock import patch
 from unified_client import CollectorRuntime
 from build_unified_client import modules
 
 class UnifiedTests(unittest.TestCase):
+    def test_capture_failure_keeps_traceback_in_runtime_log(self):
+        with tempfile.TemporaryDirectory() as folder:
+            options=argparse.Namespace(home=Path(folder),config=None,folder=None,
+                backend='windows',no_update=True)
+            with patch('threading.Thread.start'):
+                runtime=CollectorRuntime(options,[])
+            output=io.StringIO()
+            with patch('shared_client.ensure_identity',return_value={}), \
+                 patch('shared_client.main',side_effect=PermissionError('synthetic locked status')), \
+                 contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+                runtime._run()
+            self.assertEqual(runtime.error,'synthetic locked status')
+            self.assertIn('collector_runtime_failed',output.getvalue())
+            self.assertIn('Traceback',output.getvalue())
+            self.assertIn('PermissionError',output.getvalue())
+
     @unittest.skipUnless(os.name == 'nt', 'Windows windowed launcher')
     def test_windowed_diagnostics_preserve_old_updater_pipes(self):
         code = ('import sys; sys.stdin = sys.stdout = sys.stderr = None; '

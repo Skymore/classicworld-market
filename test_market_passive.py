@@ -1,6 +1,8 @@
 import struct
 import tempfile
 import unittest
+import json
+from unittest.mock import patch
 from pathlib import Path
 from market_passive import Stream,Decoder,Collector,packet,SNIFF_RECV_ONLY
 from classicworld_codec import frame_header,advance
@@ -14,6 +16,30 @@ def raw(seq,data=b'',flags=0x18):
 
 
 class PassiveTests(unittest.TestCase):
+    def test_busy_status_file_does_not_stop_capture_or_retry_every_packet(self):
+        with tempfile.TemporaryDirectory() as folder:
+            collector=Collector(folder)
+            collector.tick(now=10)
+            path=Path(folder)/'passive_status.json'
+            previous=path.read_bytes()
+            with patch.object(Path,'replace',side_effect=PermissionError('reader holds file')) as replace:
+                collector.tick(now=13)
+                collector.tick(now=13.1)
+                collector.tick(now=13.2)
+                self.assertEqual(replace.call_count,1)
+                self.assertEqual(collector.last_status,10)
+                self.assertEqual(path.read_bytes(),previous)
+            collector.captured=42
+            collector.tick(now=16)
+            self.assertEqual(json.loads(path.read_text())['packets'],42)
+            self.assertEqual(collector.last_status,16)
+
+    def test_native_diagnostics_write_failure_is_nonfatal(self):
+        with tempfile.TemporaryDirectory() as folder:
+            collector=Collector(folder)
+            with patch.object(Path,'open',side_effect=PermissionError('busy')):
+                self.assertFalse(collector.write_status(Path(folder)/'native_health.json',{}))
+
     def test_reordered_duplicate_and_wrap(self):
         stream=Stream(0xfffffffe)
         self.assertEqual(stream.feed(1,b'def',0),b'')

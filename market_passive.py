@@ -92,6 +92,24 @@ class Collector:
     def __init__(self,folder,owner=game_owner):
         self.folder=Path(folder);self.folder.mkdir(parents=True,exist_ok=True)
         self.owner=owner;self.flows={};self.ignored=0;self.captured=0;self.last_status=0;self.message_counts={};self.last_shop_at=None
+        self.last_status_attempt=0
+        self._status_warnings={}
+    def write_status(self, path, state):
+        """UI diagnostics are best effort; file readers must not stop capture."""
+        temporary=path.with_suffix('.json.tmp')
+        try:
+            with temporary.open('w',encoding='utf-8') as out:
+                json.dump(state,out);out.flush();os.fsync(out.fileno())
+            temporary.replace(path)
+            self._status_warnings.pop(path.name,None)
+            return True
+        except OSError as error:
+            now=time.monotonic()
+            if now-self._status_warnings.get(path.name,-float('inf'))>=60:
+                self._status_warnings[path.name]=now
+                print(json.dumps(dict(time=time.time(),event='status_write_deferred',
+                    file=path.name,error=type(error).__name__,winerror=getattr(error,'winerror',None))),flush=True)
+            return False
     def event(self,kind,**fields):
         entry=dict(time=time.time(),event=kind,**fields)
         if kind=='shop_list':self.last_shop_at=entry['time']
@@ -165,7 +183,8 @@ class Collector:
             if now-flow['last']>600:self.flows.pop(key,None);continue
             gap=flow['stream'].gap_since
             if not flow['failed'] and gap is not None and now-gap>10:self.fail(flow,'TCP gap timeout')
-        if now-self.last_status>2:
+        if now-self.last_status_attempt>2:
+            self.last_status_attempt=now
             state=dict(time=time.time(),mode=getattr(self,'mode','windivert-sniff-recv-only'),packets=self.captured,
                 waiting_for_handshake=self.ignored,connections=len(self.flows),
                 decoding=sum(bool(f['decoder'] and f['decoder'].iv and not f['failed']) for f in self.flows.values()),
@@ -176,10 +195,7 @@ class Collector:
                 health_state=getattr(self,'health_state',None),
                 location=getattr(self,'last_location',None),last_map_at=getattr(self,'last_map_at',None))
             status=self.folder/'passive_status.json'
-            temporary=status.with_suffix('.json.tmp')
-            with temporary.open('w',encoding='utf-8') as out:
-                json.dump(state,out);out.flush();os.fsync(out.fileno())
-            temporary.replace(status);self.last_status=now
+            if self.write_status(status,state):self.last_status=now
 
 
 class Sniffer:
@@ -330,12 +346,10 @@ def run(folder,seconds=0,backend="windivert",stop_event=None):
             collector.tick()
             if backend=="windows" and collector.last_status!=previous_status:
                 diagnostic=collector.folder/'native_health.json'
-                temporary=diagnostic.with_suffix('.json.tmp')
-                temporary.write_text(json.dumps(dict(time=time.time(),reader_alive=thread.is_alive(),
+                collector.write_status(diagnostic,dict(time=time.time(),reader_alive=thread.is_alive(),
                     sockets=len(sniffer.sockets),received_datagrams=sniffer.received_datagrams,
                     matched_datagrams=sniffer.matched_datagrams,tcp_datagrams=sniffer.tcp_datagrams,
-                    game_outbound_datagrams=sniffer.game_outbound_datagrams)),encoding='utf-8')
-                temporary.replace(diagnostic)
+                    game_outbound_datagrams=sniffer.game_outbound_datagrams))
     finally:
         sniffer.close();thread.join(timeout=2);collector.event('capture_stopped')
 

@@ -350,7 +350,7 @@ class DesktopController:
             if self.collector.error:
                 self._stop.set()
                 self._change(capture='offline', message='采集服务已停止，请重新启动程序。')
-            if self.collector.stopped():
+            if self.collector.stopped() and not self.collector.error:
                 self.close()
             value = json.dumps(self.snapshot(), ensure_ascii=False)
             if value != last and self._window and self._ready:

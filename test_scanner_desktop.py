@@ -35,6 +35,20 @@ class DashboardReadinessTests(unittest.TestCase):
 
 
 class DesktopTests(unittest.TestCase):
+    def test_capture_failure_keeps_window_open_with_error(self):
+        self.runtime.error='synthetic capture failure'
+        self.runtime.stopped.return_value=True
+        original_get=self.controller._events.get
+        def finish_one_iteration(*args,**kwargs):
+            self.controller._closed.set()
+            return original_get(*args,**kwargs)
+        with patch.object(self.controller,'close') as close, \
+             patch.object(self.controller._events,'get',side_effect=finish_one_iteration):
+            self.controller.pump()
+        close.assert_not_called()
+        self.assertEqual(self.controller.snapshot()['capture'],'offline')
+        self.assertTrue(self.controller._stop.is_set())
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
