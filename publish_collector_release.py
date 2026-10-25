@@ -56,6 +56,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        '修复边缘店铺误点人物资料：避开店主位置，误开资料后自动关闭并继续。\n'
         '全新官网同款界面，支持浅色、深色和跟随系统主题。启动只显示扫描器窗口。\n'
         '修复更新自检超时，保留账号、设置与采集记录。\n'
         '自动扫描、手动采集、上传、账号和关注提醒合并到一个程序。请关闭旧扫描器和旧采集器。\n'
