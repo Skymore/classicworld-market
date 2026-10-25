@@ -44,6 +44,7 @@ def stage(root, scanner, destination):
                     ignore=shutil.ignore_patterns('images', 'releases', 'tests', '*.map'))
     shutil.copytree(scanner / 'tools/market_bot_templates', destination / 'tools/market_bot_templates')
     shutil.copytree(root / 'desktop_ui', destination / 'desktop_ui')
+    shutil.copy2(root / 'assets/app-icon.ico', destination / 'app-icon.ico')
     return core, scan
 
 
@@ -67,6 +68,7 @@ def main():
     if not (driver.parent/'LICENSE').is_file() or not args.windivert_source.is_file():
         raise ValueError('WinDivert license and corresponding source are required')
     command=[sys.executable,'-m','PyInstaller','--noconfirm','--clean','--onedir','--windowed',
+        '--icon',str(source/'app-icon.ico'),
         '--name','ClassicWorldCollector','--distpath',str(output),'--workpath',str(output/'build'),
         '--specpath',str(output),'--paths',str(source),'--collect-all','cryptography',
         '--collect-submodules','mss','--hidden-import','psutil','--collect-all','webview',
@@ -77,7 +79,7 @@ def main():
     policy=Path(ssl.__file__).with_name('codex-rejected-cas.pem')
     if policy.is_file():
         command += ['--add-data',f'{policy};.']
-    for name in ('maple_crypto_constants.cs','market_index.html','market_ui.js','market_ui.css','market_i18n.js','market_watchlist.js'):
+    for name in ('maple_crypto_constants.cs','market_index.html','market_ui.js','market_ui.css','market_i18n.js','market_watchlist.js','app-icon.ico'):
         command += ['--add-data',f'{source/name};.']
     for name in ('web','tools/market_bot_templates','desktop_ui'):
         command += ['--add-data',f'{source/name};{name}']

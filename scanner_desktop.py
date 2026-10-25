@@ -1,6 +1,7 @@
 """Local React desktop shell. Game actions stay in the existing scanner engine."""
 import ctypes
 import json
+import sys
 import os
 import queue
 import re
@@ -435,4 +436,5 @@ def main(collector, argv=None):
         threading.Thread(target=bounded_close, daemon=True).start()
     webview.settings['ALLOW_FILE_URLS'] = False
     webview.start(run, gui='edgechromium', private_mode=False,
+                  icon=str(Path(__file__).resolve().parent / ('app-icon.ico' if getattr(sys, 'frozen', False) else 'assets/app-icon.ico')),
                   storage_path=str(collector.home/'desktop-webview'), debug=False)

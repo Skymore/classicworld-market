@@ -25,6 +25,12 @@
 /tools/*
 !/tools/market_bot_templates/
 !/tools/ui_screens.mjs
+!/tools/build_app_icon.mjs
+!/assets/
+/assets/*
+!/assets/app-icon.svg
+!/assets/app-icon.png
+!/assets/app-icon.ico
 !/tools/niadb_portals.py
 !/web/
 !/design/
