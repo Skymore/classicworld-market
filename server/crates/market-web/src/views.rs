@@ -862,10 +862,18 @@ pub async fn latest_records(
     let cutoff = hours.window(now).cutoff;
     let rows = if sales {
         let sql = format!(
-            "{} WHERE s.detected_at>=to_timestamp($1)
-            ORDER BY s.item_id,s.detected_at DESC,s.observation_id DESC NULLS LAST,
-            s.position DESC NULLS LAST,s.source_key",
-            sales_from().replacen("SELECT ", "SELECT DISTINCT ON (s.item_id) ", 1)
+            "WITH latest AS MATERIALIZED (
+              SELECT pick.id FROM item_stats st CROSS JOIN LATERAL (
+                SELECT id FROM sales WHERE item_id=st.item_id AND detected_at>=to_timestamp($1)
+                ORDER BY detected_at DESC,observation_id DESC NULLS LAST,
+                  position DESC NULLS LAST,source_key LIMIT 1
+              ) pick
+            ) {}",
+            sales_from().replacen(
+                "FROM market_sales s",
+                "FROM latest JOIN market_sales s ON s.id=latest.id",
+                1
+            )
         );
         sqlx::query(&sql)
             .bind(cutoff)
@@ -876,11 +884,12 @@ pub async fn latest_records(
             .collect::<Vec<_>>()
     } else {
         let sql = format!(
-            "WITH latest AS (
-            SELECT DISTINCT ON (l.item_id) l.* FROM listings l
-            JOIN observations o ON o.id=l.observation_id
-            WHERE l.stock>0 AND o.observed_at>=to_timestamp($1)
-            ORDER BY l.item_id,o.observed_at DESC,l.observation_id DESC,l.slot
+            "WITH latest AS MATERIALIZED (
+            SELECT pick.* FROM item_stats st CROSS JOIN LATERAL (
+              SELECT l.* FROM listings l WHERE l.item_id=st.item_id
+                AND l.stock>0 AND l.last_seen_at>=to_timestamp($1)
+              ORDER BY l.last_seen_at DESC,l.observation_id DESC,l.slot LIMIT 1
+            ) pick
           ) SELECT {} FROM latest l JOIN shops sh ON sh.id=l.shop_id
           JOIN observations o ON o.id=l.observation_id JOIN items i ON i.id=l.item_id
           LEFT JOIN equipment_variants v ON v.id=l.variant_id",
@@ -946,9 +955,11 @@ pub async fn recent_quotes(db: &PgPool, hours: Hours, limit: i64, now: f64) -> s
     let cutoff = hours.window(now).cutoff;
     let items: Vec<i32> = sqlx::query_scalar(
         "SELECT item_id FROM (
-            SELECT l.item_id, max(o.observed_at) AS seen FROM listings l
-            JOIN observations o ON o.id=l.observation_id
-            WHERE l.stock>0 AND o.observed_at>=to_timestamp($1) GROUP BY l.item_id
+            SELECT st.item_id,pick.last_seen_at AS seen FROM item_stats st CROSS JOIN LATERAL (
+              SELECT last_seen_at FROM listings WHERE item_id=st.item_id
+                AND stock>0 AND last_seen_at>=to_timestamp($1)
+              ORDER BY last_seen_at DESC,observation_id DESC,slot LIMIT 1
+            ) pick
             UNION ALL
             SELECT item_id, max(seen_at) AS seen FROM external_market_listings
             WHERE up AND seen_at>=to_timestamp($1) GROUP BY item_id

@@ -67,6 +67,7 @@ pub struct AppState {
     /// Short task leases must not queue behind market aggregation or uploads.
     pub scan_db: PgPool,
     pub market_lists: Arc<market_cache::MarketListCache>,
+    pub alert_calculations: Arc<tokio::sync::Semaphore>,
     pub started: Instant,
     pub settings: Arc<Settings>,
     pub limiter: Arc<auth::RateLimiter>,
@@ -86,6 +87,7 @@ impl AppState {
             db,
             scan_db,
             market_lists: Arc::default(),
+            alert_calculations: Arc::new(tokio::sync::Semaphore::new(2)),
             started: Instant::now(),
             settings: Arc::new(settings),
             limiter: Arc::default(),

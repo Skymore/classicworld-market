@@ -212,7 +212,7 @@ fn not_modified(headers: &HeaderMap, tag: &str) -> bool {
         })
 }
 
-fn json_response(tag: Option<&str>, body: Vec<u8>) -> Response {
+pub(crate) fn json_response(tag: Option<&str>, body: Vec<u8>) -> Response {
     let mut response = Response::new(Body::from(body));
     let headers = response.headers_mut();
     headers.insert(
@@ -615,10 +615,17 @@ async fn market_records(
     if not_modified(&headers, &tag) {
         return unchanged(&tag);
     }
-    match views::latest_records(&state.db, hours, sales, unix_now()).await {
-        Ok(value) => json_response(
-            Some(&tag),
-            serde_json::to_vec(&value).expect("serialisable"),
+    match state
+        .market_lists
+        .report(
+            &state.db,
+            crate::market_cache::Report::Records(hours, sales),
+        )
+        .await
+    {
+        Ok((version, body)) => json_response(
+            Some(&etag(version, &format!("records|{}|{sales}", hours.key()))),
+            body,
         ),
         Err(err) => internal(err),
     }
@@ -654,10 +661,14 @@ async fn quotes_recent(
     if not_modified(&headers, &tag) {
         return unchanged(&tag);
     }
-    match views::recent_quotes(&state.db, hours, limit, unix_now()).await {
-        Ok(value) => json_response(
-            Some(&tag),
-            serde_json::to_vec(&value).expect("serialisable"),
+    match state
+        .market_lists
+        .report(&state.db, crate::market_cache::Report::Quotes(hours, limit))
+        .await
+    {
+        Ok((version, body)) => json_response(
+            Some(&etag(version, &format!("quotes|{}|{limit}", hours.key()))),
+            body,
         ),
         Err(err) => internal(err),
     }

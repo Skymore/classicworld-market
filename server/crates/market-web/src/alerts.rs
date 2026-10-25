@@ -74,8 +74,17 @@ pub async fn personal(
     let Some(hours) = hours else {
         return error(StatusCode::BAD_REQUEST, "hours must be 72 or all");
     };
+    // Queue before loading reference rows, without occupying a DB connection.
+    // Move the permit into the calculation so a disconnected client cannot
+    // release it while its blocking worker is still using CPU.
+    let permit = state
+        .alert_calculations
+        .clone()
+        .acquire_owned()
+        .await
+        .expect("alerts gate open");
     let now = unix_now();
-    match personal_alerts(&state.db, &collector, hours, now).await {
+    match calculate_alerts(&state.db, &collector, hours, now, Some(permit)).await {
         Ok(found) => {
             Json(json!({"personal_alerts": true, "collector_id": collector.public_id, "generated_at": now, "opportunities": found}))
                 .into_response()
@@ -134,13 +143,28 @@ pub async fn personal_alerts(
     hours: Hours,
     now: f64,
 ) -> sqlx::Result<Vec<Opportunity>> {
+    calculate_alerts(db, collector, hours, now, None).await
+}
+
+async fn calculate_alerts(
+    db: &PgPool,
+    collector: &Collector,
+    hours: Hours,
+    now: f64,
+    permit: Option<tokio::sync::OwnedSemaphorePermit>,
+) -> sqlx::Result<Vec<Opportunity>> {
     let visits = recent_visits(db, collector.id, now).await?;
     let items = candidate_items(&visits, now);
     if items.is_empty() {
         return Ok(vec![]);
     }
     let reference = reference(db, &items, hours.window(now), now).await?;
-    Ok(opportunities::personal_alerts(&reference, &visits, now))
+    tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        opportunities::personal_alerts(&reference, &visits, now)
+    })
+    .await
+    .map_err(|err| sqlx::Error::Io(std::io::Error::other(err)))
 }
 
 fn place(row: &PgRow, offset: usize) -> Place {

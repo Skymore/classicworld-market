@@ -195,12 +195,9 @@ fn evidence(reference: &Reference, item: &ItemReference, visit: &Visit, cutoff: 
         .iter()
         .filter(|q| other(q.shop, q.time) && q.time >= cutoff && q.time < visit.time)
         .collect();
-    let mut by_shop: Vec<(i64, Vec<f64>)> = Vec::new();
+    let mut by_shop: HashMap<i64, Vec<f64>> = HashMap::new();
     for q in quotes.iter().filter(|q| q.unit_price > 0.0) {
-        match by_shop.iter_mut().find(|(shop, _)| *shop == q.shop) {
-            Some((_, prices)) => prices.push(q.unit_price),
-            None => by_shop.push((q.shop, vec![q.unit_price])),
-        }
+        by_shop.entry(q.shop).or_default().push(q.unit_price);
     }
     let listed: Vec<&&RefQuote> = quotes
         .iter()
@@ -227,7 +224,7 @@ fn evidence(reference: &Reference, item: &ItemReference, visit: &Visit, cutoff: 
                 equipment: None,
             })
             .collect(),
-        shop_medians: by_shop.iter().filter_map(|(_, v)| median(v)).collect(),
+        shop_medians: by_shop.values().filter_map(|v| median(v)).collect(),
         listing_count: listed.len(),
         listed_quantity: listed.iter().map(|q| q.stock).sum(),
     }

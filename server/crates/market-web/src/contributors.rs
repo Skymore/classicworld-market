@@ -168,7 +168,11 @@ async fn me(State(state): State<AppState>, headers: HeaderMap) -> Response {
             Ok(n) => n,
             Err(e) => return internal(e),
         };
-    let stats = match personal_stats(&state.db, Some(s.id), None).await {
+    let stats = match state
+        .market_lists
+        .personal_stats(&state.db, Some(s.id), None)
+        .await
+    {
         Ok(s) => s,
         Err(e) => return internal(e),
     };
@@ -221,19 +225,42 @@ async fn collector_profile(State(state): State<AppState>, headers: HeaderMap) ->
         Err(e) => return e,
     };
     let result:Result<(String,bool,bool,bool),_>=sqlx::query_as("SELECT coalesce(a.nickname,c.nickname),coalesce(a.listed,c.listed),c.account_id IS NOT NULL,coalesce(a.nickname_temporary,c.nickname_temporary) FROM collectors c LEFT JOIN accounts a ON a.id=c.account_id WHERE c.id=$1").bind(c.id).fetch_one(&state.db).await;
-    let stats = match personal_stats(&state.db, None, Some(c.id)).await {
+    let stats = match state
+        .market_lists
+        .personal_stats(&state.db, None, Some(c.id))
+        .await
+    {
         Ok(s) => s,
         Err(e) => return internal(e),
     };
     match result {Ok((name,listed,linked,temporary))=>Json(json!({"nickname":name,"temporary":temporary,"listed":listed,"linked":linked,"stats":stats,"google_enabled":state.google.is_some()})).into_response(),Err(e)=>internal(e)}
 }
-async fn personal_stats(
+pub(crate) async fn personal_stats(
     db: &PgPool,
     account: Option<i64>,
     collector: Option<i64>,
 ) -> sqlx::Result<Value> {
-    let (shops,quotes):(i64,i64)=sqlx::query_as("SELECT count(DISTINCT o.shop_id),count(DISTINCT (o.shop_id,r.slot,r.item_id,r.variant_id,r.price,r.bundle,r.stock)) FROM observations o JOIN collectors c ON c.id=o.collector_id JOIN observation_rows r ON r.observation_id=o.id WHERE (c.account_id=$1 OR c.id=$2) AND o.observed_at<=now()")
-        .bind(account).bind(collector).fetch_one(db).await?;
+    let mut tx = db.begin().await?;
+    sqlx::query("SET LOCAL work_mem='32MB'")
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("SET LOCAL statement_timeout='5s'")
+        .execute(&mut *tx)
+        .await?;
+    let (shops, quotes): (i64, i64) = sqlx::query_as(
+        "WITH states AS (
+      SELECT o.shop_id,r.slot,r.item_id,r.variant_id,r.price,r.bundle,r.stock
+      FROM observations o JOIN collectors c ON c.id=o.collector_id
+      JOIN observation_rows r ON r.observation_id=o.id
+      WHERE (c.account_id=$1 OR c.id=$2) AND o.observed_at<=now()
+      GROUP BY o.shop_id,r.slot,r.item_id,r.variant_id,r.price,r.bundle,r.stock
+    ) SELECT count(DISTINCT shop_id),count(*) FROM states",
+    )
+    .bind(account)
+    .bind(collector)
+    .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
     Ok(json!({"shops":shops,"quotes":quotes}))
 }
 async fn save_collector(
@@ -354,6 +381,38 @@ async fn leaderboard(
         "all" => 0,
         _ => return error(StatusCode::BAD_REQUEST, "invalid_period"),
     };
+    match state
+        .market_lists
+        .report(&state.db, crate::market_cache::Report::Leaderboard(days))
+        .await
+    {
+        Ok((_, body)) => crate::api::json_response(None, body),
+        Err(e) => internal(e),
+    }
+}
+
+// Include privacy/profile changes in the cache identity even without an upload.
+pub(crate) async fn board_identity(db: &PgPool) -> sqlx::Result<String> {
+    sqlx::query_scalar(
+        "SELECT COALESCE(json_agg(p ORDER BY id)::text,'[]') FROM (
+      SELECT c.id,c.active,c.account_id,coalesce(a.listed,c.listed) listed,
+        coalesce(a.nickname,c.nickname) nickname
+      FROM collectors c LEFT JOIN accounts a ON a.id=c.account_id) p",
+    )
+    .fetch_one(db)
+    .await
+}
+
+pub(crate) async fn board(db: &PgPool, days: i32) -> sqlx::Result<Value> {
+    let mut tx = db.begin().await?;
+    // Only the bounded report rebuilds get this allowance; avoid a global
+    // work_mem increase and prevent a large distinct-state sort spilling to disk.
+    sqlx::query("SET LOCAL work_mem='32MB'")
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("SET LOCAL statement_timeout='5s'")
+        .execute(&mut *tx)
+        .await?;
     // A row/price/stock state counts only once per person, across linked devices.
     // Rank by distinct shops, so repeatedly reopening one shop cannot farm rank.
     let rows=sqlx::query_as::<_,BoardRow>(r#"
@@ -362,19 +421,27 @@ async fn leaderboard(
                  coalesce(a.nickname,c.nickname) nickname
           FROM collectors c LEFT JOIN accounts a ON a.id=c.account_id
           WHERE c.active AND coalesce(a.listed,c.listed) AND coalesce(a.nickname,c.nickname)<>''
-        ), contributions AS (
-          SELECT p.actor,p.nickname,o.shop_id,o.observed_at,r.slot,r.item_id,r.variant_id,r.price,r.bundle,r.stock
+        ), visits AS MATERIALIZED (
+          SELECT p.actor,p.nickname,o.id,o.shop_id,(o.observed_at AT TIME ZONE 'UTC')::date AS observed_day
           FROM public_collectors p JOIN observations o ON o.collector_id=p.id
-          JOIN observation_rows r ON r.observation_id=o.id
           WHERE o.observed_at<=now() AND ($1=0 OR o.observed_at>=now()-make_interval(days=>$1))
+            AND EXISTS (SELECT 1 FROM observation_rows r WHERE r.observation_id=o.id)
+        ), states AS (
+          SELECT v.actor,v.shop_id,r.slot,r.item_id,r.variant_id,r.price,r.bundle,r.stock
+          FROM visits v JOIN observation_rows r ON r.observation_id=v.id
+          GROUP BY v.actor,v.shop_id,r.slot,r.item_id,r.variant_id,r.price,r.bundle,r.stock
+        ), quote_counts AS (
+          SELECT actor,count(*)::bigint quotes FROM states GROUP BY actor
+        ), visit_counts AS (
+          SELECT actor,nickname,count(DISTINCT shop_id)::bigint shops,
+            count(DISTINCT observed_day)::bigint days FROM visits GROUP BY actor,nickname
         )
-        SELECT nickname,count(DISTINCT shop_id)::bigint shops,
-          count(DISTINCT (shop_id,slot,item_id,variant_id,price,bundle,stock))::bigint quotes,
-          count(DISTINCT (observed_at AT TIME ZONE 'UTC')::date)::bigint days
-        FROM contributions GROUP BY actor,nickname
-        ORDER BY shops DESC,quotes DESC,days DESC,actor LIMIT 100
-    "#).bind(days).fetch_all(&state.db).await;
-    match rows {Ok(rows)=>Json(json!({"period":if days==0{"all"}else if days==30{"month"}else{"week"},"contributors":rows})).into_response(),Err(e)=>internal(e)}
+        SELECT v.nickname,v.shops,q.quotes,v.days FROM visit_counts v
+        JOIN quote_counts q ON q.actor=v.actor
+        ORDER BY shops DESC,quotes DESC,days DESC,v.actor LIMIT 100
+    "#).bind(days).fetch_all(&mut *tx).await?;
+    tx.commit().await?;
+    Ok(json!({"period":if days==0{"all"}else if days==30{"month"}else{"week"},"contributors":rows}))
 }
 
 #[derive(Deserialize)]

@@ -134,14 +134,11 @@ pub fn recommend(input: PricingInput<'_>) -> Recommendation {
 
     // One value per shop: the median of its listings. Python dict order does
     // not matter here because every later step sorts.
-    let mut by_shop: Vec<(i64, Vec<f64>)> = Vec::new();
+    let mut by_shop: HashMap<i64, Vec<f64>> = HashMap::new();
     for q in quotes.iter().filter(|q| usable(q.unit_price)) {
-        match by_shop.iter_mut().find(|(shop, _)| *shop == q.shop) {
-            Some((_, prices)) => prices.push(q.unit_price),
-            None => by_shop.push((q.shop, vec![q.unit_price])),
-        }
+        by_shop.entry(q.shop).or_default().push(q.unit_price);
     }
-    let values: Vec<f64> = by_shop.iter().filter_map(|(_, v)| median(v)).collect();
+    let values: Vec<f64> = by_shop.values().filter_map(|v| median(v)).collect();
 
     // A sold listing seen repeatedly counts once per (slot, variant, price).
     let mut sold_by_shop: HashMap<i64, HashMap<SoldListing, f64>> = HashMap::new();

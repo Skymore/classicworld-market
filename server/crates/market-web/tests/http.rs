@@ -580,6 +580,134 @@ async fn same_shop_quotes_group_before_limit_without_changing_notification_rows(
 }
 
 #[tokio::test]
+async fn public_report_cache_coalesces_and_uploads_invalidate_all_price_windows() {
+    use market_web::{market_cache::Report, views::Hours};
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let (client, token) = market(&db).await;
+    let reports = [
+        Report::Records(Hours::Recent, false),
+        Report::Records(Hours::All, false),
+        Report::Records(Hours::Recent, true),
+        Report::Records(Hours::All, true),
+        Report::Quotes(Hours::Recent, 8),
+        Report::Quotes(Hours::All, 8),
+    ];
+    let mut previous = Vec::new();
+    for report in reports {
+        let results = futures_util::future::join_all(
+            (0..8).map(|_| client.state.market_lists.report(&db.pool, report)),
+        )
+        .await;
+        let first = results[0].as_ref().unwrap();
+        assert!(results.iter().all(|r| r.as_ref().unwrap() == first));
+        previous.push(first.clone());
+    }
+    // Cached public reports no longer touch historical/listing tables.
+    let mut locked = db.pool.begin().await.unwrap();
+    sqlx::raw_sql("LOCK TABLE sales,listings IN ACCESS EXCLUSIVE MODE")
+        .execute(&mut *locked)
+        .await
+        .unwrap();
+    for (report, old) in reports.into_iter().zip(&previous) {
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            client.state.market_lists.report(&db.pool, report),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(&result, old);
+    }
+    locked.rollback().await.unwrap();
+    let value = observation("cache-refresh", unix_now() - 1., 7);
+    assert_eq!(
+        client
+            .post(
+                "/api/v1/observations",
+                &value,
+                &[("authorization", &format!("Bearer {token}"))]
+            )
+            .await
+            .status(),
+        StatusCode::CREATED
+    );
+    for (report, old) in reports.into_iter().zip(&previous) {
+        let (version, body) = client
+            .state
+            .market_lists
+            .report(&db.pool, report)
+            .await
+            .unwrap();
+        assert!(version > old.0);
+        let payload: Value = serde_json::from_slice(&body).unwrap();
+        match report {
+            Report::Records(_, false) => assert_eq!(payload["records"][0]["stock"], 7),
+            Report::Quotes(_, _) => assert_eq!(payload["listings"][0]["stock"], 7),
+            _ => {}
+        }
+    }
+    // A different limit must not reuse the previous request's shape.
+    let (_, body) = client
+        .state
+        .market_lists
+        .report(&db.pool, Report::Quotes(Hours::Recent, 1))
+        .await
+        .unwrap();
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap()["listings"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    db.close().await;
+}
+
+#[tokio::test]
+async fn private_statistics_cache_never_shares_counts_on_shard_collision() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let (client, token) = market(&db).await;
+    let owner = market_web::auth::authenticate(&db.pool, Some(&token))
+        .await
+        .unwrap()
+        .unwrap();
+    let other = db.collector("empty-account").await;
+    let other_id = owner.id + 16;
+    sqlx::query("UPDATE collectors SET id=$1 WHERE id=$2")
+        .bind(other_id)
+        .bind(other.id)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    let own = client
+        .state
+        .market_lists
+        .personal_stats(&db.pool, None, Some(owner.id))
+        .await
+        .unwrap();
+    let empty = client
+        .state
+        .market_lists
+        .personal_stats(&db.pool, None, Some(other_id))
+        .await
+        .unwrap();
+    let own_again = client
+        .state
+        .market_lists
+        .personal_stats(&db.pool, None, Some(owner.id))
+        .await
+        .unwrap();
+    assert_eq!(own, json!({"shops":1,"quotes":3}));
+    assert_eq!(empty, json!({"shops":0,"quotes":0}));
+    assert_eq!(own_again, own);
+    db.close().await;
+}
+
+#[tokio::test]
 async fn recent_quotes_keep_the_observation_price_location_and_stock_together() {
     let Some(db) = TestDb::new().await else {
         return;
