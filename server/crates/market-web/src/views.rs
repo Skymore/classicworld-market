@@ -969,8 +969,46 @@ pub async fn recent_quotes(db: &PgPool, hours: Hours, limit: i64, now: f64) -> s
     .bind(limit)
     .fetch_all(db)
     .await?;
-    let mut rows: Vec<_> = quotes(db, &items, cutoff)
-        .await?
+    // Each distinct timestamp contributes at least one presentation group.
+    // Keeping the newest `limit` timestamps (including every tied slot) is
+    // enough for both top-N rows and top-N merged groups. Avoid hydrating
+    // thousands of old quotes for a popular item just to return eight rows.
+    let floor: Option<f64> = sqlx::query_scalar(
+        "SELECT extract(epoch FROM min(seen))::float8 FROM (
+           SELECT DISTINCT seen FROM (
+             (SELECT DISTINCT last_seen_at AS seen FROM listings
+              WHERE item_id=ANY($1) AND stock>0 AND last_seen_at>=to_timestamp($2)
+              ORDER BY seen DESC LIMIT $3)
+             UNION ALL
+             (SELECT DISTINCT seen_at AS seen FROM external_market_listings
+              WHERE item_id=ANY($1) AND up AND seen_at>=to_timestamp($2)
+              ORDER BY seen DESC LIMIT $3)
+           ) candidates ORDER BY seen DESC LIMIT $3
+         ) newest",
+    )
+    .bind(&items)
+    .bind(cutoff)
+    .bind(limit)
+    .fetch_one(db)
+    .await?;
+    let floor = floor.unwrap_or(cutoff);
+    let sql = format!(
+        "SELECT {} FROM listings l
+         JOIN shops sh ON sh.id=l.shop_id JOIN observations o ON o.id=l.observation_id
+         JOIN items i ON i.id=l.item_id LEFT JOIN equipment_variants v ON v.id=l.variant_id
+         WHERE l.item_id=ANY($1) AND l.stock>0 AND l.last_seen_at>=to_timestamp($2)
+           AND sh.last_seen_at>=to_timestamp($3)",
+        row_columns("l")
+    );
+    let native = sqlx::query(&sql)
+        .bind(&items)
+        .bind(floor)
+        .bind(cutoff)
+        .fetch_all(db)
+        .await?;
+    let mut recent: Vec<_> = native.iter().map(row_json).collect();
+    recent.extend(crate::external::quote_rows(db, &items, floor).await?);
+    let mut rows: Vec<_> = recent
         .into_iter()
         .filter(|row| row["time"].as_f64().is_some_and(|time| time >= cutoff))
         .map(|mut row| {

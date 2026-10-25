@@ -565,6 +565,38 @@ async fn same_shop_quotes_group_before_limit_without_changing_notification_rows(
         .unwrap();
     assert_eq!(group["stock"], 4);
     assert_eq!(group["merged_count"], 2);
+    for n in 0..4 {
+        let mut older = observation(&format!("older-shop-{n}"), unix_now() - 100. - n as f64, 99);
+        older["shop_id"] = json!(100 + n);
+        assert_eq!(
+            client
+                .post(
+                    "/api/v1/observations",
+                    &older,
+                    &[("authorization", &format!("Bearer {token}"))]
+                )
+                .await
+                .status(),
+            StatusCode::CREATED
+        );
+    }
+    let two = json_body(
+        client
+            .get("/api/v1/quotes/recent?limit=2&hours=all", &[])
+            .await,
+    )
+    .await;
+    let grouped_stock = |rows: &Value| {
+        rows.as_array()
+            .unwrap()
+            .iter()
+            .map(|row| json!([row["id"], row["stock"], row["merged_count"]]))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        grouped_stock(&two["grouped_listings"]),
+        grouped_stock(&watch["grouped_listings"])
+    );
     let recent = json_body(
         client
             .get("/api/v1/quotes/recent?limit=1&hours=all", &[])
