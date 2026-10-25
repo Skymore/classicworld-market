@@ -418,9 +418,11 @@ async fn reconcile_owner_listings(
           AND l.shop_id <> (SELECT shop_id FROM latest) RETURNING l.item_id",
     )
     .bind(shop)
-    .fetch_all(conn)
+    .fetch_all(&mut *conn)
     .await?;
-    Ok(removed.into_iter().collect())
+    let mut changed: BTreeSet<i32> = removed.into_iter().collect();
+    changed.extend(crate::presence::expire(conn, Some(shop), None).await?);
+    Ok(changed)
 }
 
 fn map_context(raw: &[u8]) -> Option<(i16, i32)> {

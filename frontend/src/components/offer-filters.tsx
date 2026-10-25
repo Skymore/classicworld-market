@@ -6,7 +6,7 @@ import {
   EQUIPMENT_STATS,
   normalizeOfferFilters,
   filterOffers,
-} from "/web/js/lib/item-offer-filters.js?v=20261025-equipment-stats-2";
+} from "/web/js/lib/item-offer-filters.js?v=20261025-presence-1";
 import "./offer-filters.css";
 export default function OfferFilterDialog({
   open,

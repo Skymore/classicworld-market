@@ -55,7 +55,7 @@ export function filterOffers(rows, mode, filters, now = Date.now() / 1000) {
   const f = normalizeOfferFilters(filters);
   let cap = null;
   if (f.percentile !== 'all') {
-    const prices = rows.map(row => row.price).filter(price => Number.isFinite(price) && price >= 0).sort((a, b) => a - b);
+    const prices = rows.filter(row => !row.invalidated_at).map(row => row.price).filter(price => Number.isFinite(price) && price >= 0).sort((a, b) => a - b);
     cap = prices[Math.ceil(prices.length * Number(f.percentile) / 100) - 1] ?? null;
   }
   const cutoff = f.hours === 'all' ? null : now - Number(f.hours) * 3600;
@@ -64,7 +64,7 @@ export function filterOffers(rows, mode, filters, now = Date.now() / 1000) {
     if (f.percentile !== 'all' && !(cap !== null && Number.isFinite(row.price) && row.price >= 0 && row.price <= cap)) return false;
     if (f.minPrice !== null && !(Number.isFinite(row.price) && row.price >= f.minPrice)) return false;
     if (f.maxPrice !== null && !(Number.isFinite(row.price) && row.price <= f.maxPrice)) return false;
-    const known = Number.isFinite(row.stock) && row.stock >= 0;
+    const known = !row.invalidated_at && Number.isFinite(row.stock) && row.stock >= 0;
     if ((f.stock === 'known' && !known) || (f.stock === 'unknown' && known)) return false;
     if (f.minStock !== null && !(known && row.stock >= f.minStock)) return false;
     if (f.equipment === 'captured' && !row.hasStats) return false;

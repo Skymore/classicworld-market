@@ -512,6 +512,8 @@ async fn item_market(
 ) -> sqlx::Result<ItemMarket> {
     #[derive(FromRow)]
     struct ListingRow {
+        owner_name: Option<String>,
+        invalidated_at: Option<DateTime<Utc>>,
         shop_key: String,
         slot: i32,
         visit_key: String,
@@ -543,7 +545,7 @@ async fn item_market(
         .fetch_optional(db);
     let listings = sqlx::query_as::<_, ListingRow>(
         "SELECT sh.public_key AS shop_key, l.slot, o.visit_key, l.bundle, o.source,
-                sh.title, sh.channel, sh.room, market_unit_price(l.item_id,l.price,l.bundle) AS unit_price, l.stock,
+                sh.owner_name, NULL::timestamptz AS invalidated_at, sh.title, sh.channel, sh.room, market_unit_price(l.item_id,l.price,l.bundle) AS unit_price, l.stock,
                 o.observed_at, l.variant_id, v.stats
          FROM listings l
          JOIN shops sh ON sh.id = l.shop_id JOIN observations o ON o.id = l.observation_id
@@ -556,6 +558,16 @@ async fn item_market(
     .bind(Window::recent(now).cutoff)
     .bind(variant_ids)
     .fetch_all(db);
+    let expired = sqlx::query_as::<_, ListingRow>(
+        "SELECT sh.public_key AS shop_key,l.slot,o.visit_key,l.bundle,o.source,sh.owner_name,
+          l.invalidated_at,sh.title,sh.channel,sh.room,market_unit_price(l.item_id,l.price,l.bundle) AS unit_price,
+          l.stock,o.observed_at,l.variant_id,v.stats FROM expired_listings l
+          JOIN shops sh ON sh.id=l.shop_id JOIN observations o ON o.id=l.observation_id
+          LEFT JOIN equipment_variants v ON v.id=l.variant_id
+          WHERE l.item_id=$1 AND l.invalidated_at>=to_timestamp($2)
+          AND ($3::bigint[] IS NULL OR coalesce(l.variant_id,0)=ANY($3))
+          ORDER BY l.invalidated_at DESC,l.observation_id DESC,l.slot LIMIT 200"
+    ).bind(id).bind(Window::recent(now).cutoff).bind(variant_ids).fetch_all(db);
     let sales = sqlx::query_as::<_, SaleRow>(
         "SELECT s.kind, s.unit_price, s.quantity,
                 COALESCE(sh.title,s.source_seller,'') AS title,
@@ -577,11 +589,11 @@ async fn item_market(
     .bind(now)
     .bind(variant_ids)
     .fetch_all(db);
-    let (as_of, listings, sales) = tokio::try_join!(as_of, listings, sales)?;
+    let (as_of, listings, sales, expired) = tokio::try_join!(as_of, listings, sales, expired)?;
     let as_of = as_of.flatten();
-    let mut listings: Vec<Listing> = listings
-        .into_iter()
-        .map(|r| Listing {
+    let listing = |r: ListingRow| Listing {
+            owner_name: r.owner_name,
+            invalidated_at: r.invalidated_at,
             grouping: Some(ListingIdentity {
                 shop_key: r.shop_key,
                 slot: r.slot,
@@ -596,8 +608,9 @@ async fn item_market(
             stock: Some(r.stock),
             seen_at: r.observed_at,
             variant: r.variant.variant(),
-        })
-        .collect();
+        };
+    let expired_listings = expired.into_iter().map(listing).collect();
+    let mut listings: Vec<Listing> = listings.into_iter().map(listing).collect();
     for row in crate::external::quote_rows(db, &[id], Window::recent(now).cutoff).await? {
         if variant_ids.is_some_and(|ids| !ids.contains(&0)) {
             continue;
@@ -606,6 +619,8 @@ async fn item_market(
             DateTime::from_timestamp(row["time"].as_f64().unwrap_or(0.) as i64, 0)
         {
             listings.push(Listing {
+                owner_name: None,
+                invalidated_at: None,
                 grouping: None,
                 shop: row["shop"].as_str().unwrap_or("").to_owned(),
                 channel: row["location"]["channel"].as_i64().map(|v| v as i16),
@@ -649,6 +664,7 @@ async fn item_market(
         None => (Vec::new(), Vec::new()),
     };
     Ok(ItemMarket {
+        expired_listings,
         as_of,
         listings,
         sales,

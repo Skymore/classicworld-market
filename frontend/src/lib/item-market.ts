@@ -139,6 +139,8 @@ export function offerGroups(
   now = Date.now() / 1000,
 ) {
   const minimum = (items: any[]) => {
+    items = items.filter((row) => !row.invalidated_at);
+    if (!items.length) return null;
     const fresh = items.filter(
       (row) => now - timestamp(row.seen_at) <= 48 * 3600,
     );
@@ -170,9 +172,9 @@ export function offerGroups(
     }))
     .sort((a, b) =>
       recent
-        ? b.observed - a.observed || a.price - b.price
+        ? b.observed - a.observed || (a.price ?? Infinity) - (b.price ?? Infinity)
         : Number(a.key === "unknown") - Number(b.key === "unknown") ||
-          a.price - b.price ||
+          (a.price ?? Infinity) - (b.price ?? Infinity) ||
           b.observed - a.observed,
     );
 }

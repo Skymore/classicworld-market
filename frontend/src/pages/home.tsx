@@ -1,4 +1,4 @@
-import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261024-groups-1";
+import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261025-presence-1";
 import { useState } from "react";
 import {
   byChange,

@@ -1,4 +1,4 @@
-import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261024-groups-1";
+import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261025-presence-1";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "/web/js/lib/i18n.js";
@@ -10,7 +10,7 @@ import {
   offerFilterTokens,
   clearOfferFilter,
   EQUIPMENT_STATS,
-} from "/web/js/lib/item-offer-filters.js?v=20261025-equipment-stats-2";
+} from "/web/js/lib/item-offer-filters.js?v=20261025-presence-1";
 import { useUserValue } from "../lib/live";
 import {
   hasBonus,
@@ -429,12 +429,13 @@ export default function Item({ page }: { page: any }) {
   const rows = useMemo(
     () =>
       mergeShopOffers(
-        market.listings.map((row: any, i: number) => ({
+        [...market.listings, ...(market.expired_listings || [])].map((row: any, i: number) => ({
           ...row,
           item_id: item.id,
           key: JSON.stringify([
             row.shop_key,
             row.slot ?? i,
+            row.invalidated_at,
             row.shop,
             row.channel,
             row.room,
@@ -1248,7 +1249,7 @@ export default function Item({ page }: { page: any }) {
                                 (_, index) => index + 1,
                               ).map((room) => {
                                 const here = group.rows.filter(
-                                    (row: any) => row.room === room,
+                                    (row: any) => row.room === room && !row.invalidated_at,
                                   ),
                                   fresh = here.filter(
                                     (row: any) =>

@@ -39,6 +39,7 @@ pub fn router() -> Router<AppState> {
         // The collector posts to /observations; /upload is the plan's name.
         .route("/api/v1/observations", post(upload))
         .route("/api/v1/upload", post(upload))
+        .route("/api/v1/collector/player-departure", post(crate::presence::upload))
         .route(
             "/api/v1/collector/missing-locations",
             get(missing_locations),
@@ -68,11 +69,11 @@ pub fn router() -> Router<AppState> {
         .layer(DefaultBodyLimit::max(MAX_BODY))
 }
 
-fn error(status: StatusCode, message: &str) -> Response {
+pub(crate) fn error(status: StatusCode, message: &str) -> Response {
     (status, Json(json!({"error": message}))).into_response()
 }
 
-fn internal(err: impl std::fmt::Display) -> Response {
+pub(crate) fn internal(err: impl std::fmt::Display) -> Response {
     tracing::error!(error = %err, "request failed");
     error(StatusCode::INTERNAL_SERVER_ERROR, "Internal error")
 }
@@ -102,7 +103,7 @@ impl<S: Send + Sync> FromRequestParts<S> for ClientAddr {
     }
 }
 
-fn bearer(headers: &HeaderMap) -> Option<&str> {
+pub(crate) fn bearer(headers: &HeaderMap) -> Option<&str> {
     headers
         .get(header::AUTHORIZATION)?
         .to_str()

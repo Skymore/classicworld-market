@@ -116,7 +116,7 @@ class Collector:
             label=hex(opcode)
             if label in self.message_counts or len(self.message_counts)<256:
                 self.message_counts[label]=self.message_counts.get(label,0)+1
-            if opcode not in (0x1a6,0x1a9,0x23a,0x23d,0x577,0x578,0x57a,0x57b):return
+            if opcode not in (0x1a6,0x1a9,0x22a,0x22b,0x22d,0x22e,0x23a,0x23d,0x577,0x578,0x57a,0x57b):return
             try:session.observe(plain)
             except Exception as error:
                 session.pending_open=None;session.pending_raw_path=None

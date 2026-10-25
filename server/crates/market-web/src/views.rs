@@ -402,7 +402,7 @@ pub async fn item_page(db: &PgPool, item: i32, now: f64) -> sqlx::Result<Option<
 /// Columns every row builder reads. `{r}` is the table holding the row.
 fn row_columns(r: &str) -> String {
     format!(
-        "o.visit_key, extract(epoch FROM o.observed_at)::float8 AS time, sh.title, sh.shop_id AS game_shop_id,
+        "o.visit_key, extract(epoch FROM o.observed_at)::float8 AS time, sh.title, sh.owner_name, sh.shop_id AS game_shop_id,
          COALESCE(sh.channel, o.map_channel) AS channel, sh.room, o.map_id AS observed_map_id,
          (SELECT name_zh FROM maps WHERE id=o.map_id) AS map_name_zh,
          (SELECT name_en FROM maps WHERE id=o.map_id) AS map_name_en, sh.public_key, {r}.slot, {r}.item_id, {r}.variant_id, v.stats_hash,
@@ -461,6 +461,7 @@ fn row_json(r: &PgRow) -> Map<String, Value> {
     }
     let value = json!({
         "visit_id": r.get::<Option<String>, _>("visit_key"), "world": WORLD, "time": r.get::<f64, _>("time"),
+        "owner_name": r.try_get::<Option<String>, _>("owner_name").ok().flatten(),
         "shop": r.get::<String, _>("title"), "shop_id": r.get::<Option<i64>, _>("game_shop_id"), "item_id": item,
         "category": category_name(i64::from(item)), "variant": variant, "slot": r.get::<Option<i32>, _>("slot"),
         "price": price, "bundle": bundle, "unit_price": r.get::<f64,_>("unit_price"),
@@ -756,7 +757,7 @@ fn watch_listing(row: &Value) -> Value {
         sha256_hex(pyjson::dumps(&offer_identity, Dumps::ASCII).as_bytes())[..24].to_string();
     json!({
         "id": offer, "listing_key": key, "world": WORLD, "item_id": row["item_id"], "slot": row["slot"],
-        "observed": observed, "shop": row["shop"], "location": row["location"], "price": row["price"],
+        "observed": observed, "owner_name": row["owner_name"], "shop": row["shop"], "location": row["location"], "price": row["price"],
         "bundle": row["bundle"], "unit_price": row["unit_price"], "stock": row["stock"],
         "equipment": row["equipment"], "name_zh": row["name_zh"], "name_en": row["name_en"],
         "shop_key": row["shop_key"], "visit_id": row["visit_id"], "source": row["source"],
@@ -1044,6 +1045,9 @@ pub async fn personal_watch_listings(
         WHERE o.collector_id=$1 AND r.item_id=ANY($2) AND r.stock>0
           AND o.observed_at>=to_timestamp($3) AND o.observed_at<=to_timestamp($4)
           AND o.received_at>=to_timestamp($3)
+          AND NOT EXISTS (SELECT 1 FROM player_departures d WHERE d.world=sh.world
+            AND d.character_id=sh.owner_character_id AND d.channel=sh.channel AND d.room=sh.room
+            AND d.observed_at>=o.observed_at)
         ORDER BY o.observed_at DESC,o.id DESC,r.position LIMIT 2000",
         row_columns("r")
     );

@@ -106,6 +106,8 @@ fn listing(
     seen: DateTime<Utc>,
 ) -> Listing {
     Listing {
+        owner_name: None,
+        invalidated_at: None,
         grouping: None,
         shop: shop.into(),
         channel,
@@ -128,6 +130,7 @@ fn market() -> ItemMarket {
         })
         .collect();
     ItemMarket {
+        expired_listings: vec![],
         as_of: Some(at(19, 23)),
         listings: vec![
             listing("Cheap<b>", Some(14), 8, 950.0, at(19, 20)),

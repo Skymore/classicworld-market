@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useWords } from "../providers";
 import { Slot, ItemNames, Price, RelativeTime } from "./shared";
 import { SiteLink } from "./shell";
@@ -8,11 +9,14 @@ import { priceUnit } from "/web/js/lib/market-source.js?v=20261022-external-1";
 export function Location({
   value,
   shop,
+  owner,
 }: {
   value?: any;
   shop?: string | null;
+  owner?: string | null;
 }) {
   const words = useWords();
+  const [showOwner, setShowOwner] = useState(false);
   const channel = value?.channel;
   const room = value?.room;
   const label =
@@ -35,9 +39,16 @@ export function Location({
       >
         <b>{channel == null ? "CH —" : "CH " + channel}</b>
         <span className="loc-room">{room == null ? "FM —" : "FM" + room}</span>
-        <span className="record-shop" title={shop || undefined}>
-          {shop || "—"}
-        </span>
+        {owner ? (
+          <button type="button" className="record-shop shop-name-toggle"
+            aria-pressed={showOwner}
+            aria-label={showOwner ? words("显示店铺名", "Show shop name") : words("显示玩家名", "Show player name")}
+            title={showOwner ? words("点击切换店铺名", "Click for shop name") : words("点击切换玩家名", "Click for player name")}
+            onClick={(event) => { event.preventDefault(); event.stopPropagation(); setShowOwner(!showOwner); }}>
+            {showOwner ? owner : shop || "—"}
+          </button>
+        ) : <span className="record-shop" title={shop || undefined}>{shop || "—"}</span>}
+
       </span>
     );
   return channel == null ? (
@@ -101,7 +112,8 @@ export function OfferRow({
           </span>
         )}
         <span className="record-meta">
-          <Location value={row.location} shop={row.shop || null} />
+          <Location value={row.location} shop={row.shop || null} owner={row.owner_name} />
+          {row.invalidated_at && <span className="quote-expired" title={new Date(row.invalidated_at).toLocaleString()}>{words("已失效", "Expired")}</span>}
           {row.bundle > 1 && (
             <span className="record-bundle">
               {words(`每组 ${row.bundle} 件`, `${row.bundle} per bundle`)}
@@ -138,13 +150,13 @@ export function OfferRow({
           <span dangerouslySetInnerHTML={{ __html: priceUnit(row) }} />
         </span>
         <span className="record-stock" title={row.merged_count > 1 ? words(`${row.merged_count} 条同店报价的库存合计`, `Combined stock of ${row.merged_count} offers in this shop`) : undefined}>
-          {words("库存", "Stock")} {row.stock ?? "—"}
+          {row.invalidated_at ? words("当时库存", "Previous stock") : words("库存", "Stock")} {row.stock ?? "—"}
         </span>
       </span>
     </>
   );
   const props = {
-    className: "ware market-record" + (hideIdentity ? " variant-record" : ""),
+    className: "ware market-record" + (hideIdentity ? " variant-record" : "") + (row.invalidated_at ? " expired-record" : ""),
     "data-item-row": "",
     "data-id": row.id,
     "data-record-kind": sale ? "sale" : "quote",
@@ -153,8 +165,11 @@ export function OfferRow({
   return plain ? (
     <span {...props}>{content}</span>
   ) : (
-    <SiteLink {...props} href={href || "/item/" + Number(row.item_id)}>
+    <span {...props}>
       {content}
-    </SiteLink>
+      <SiteLink className="record-open" href={href || "/item/" + Number(row.item_id)}>
+        <span className="sr">{words("查看物品", "View item")} {row.name_zh || row.name_en || row.item_id}</span>
+      </SiteLink>
+    </span>
   );
 }

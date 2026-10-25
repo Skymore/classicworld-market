@@ -154,6 +154,7 @@ pub struct NpcOffer {
 /// (72-hour listings, latest 50 sales) plus the 7-day ladder inputs.
 #[derive(Debug, Clone, PartialEq, Default, serde::Serialize)]
 pub struct ItemMarket {
+    pub expired_listings: Vec<Listing>,
     /// Latest observation in the market; relative times are measured from it.
     pub as_of: Option<DateTime<Utc>>,
     /// Cheapest unit price first.
@@ -179,6 +180,8 @@ pub struct ListingIdentity {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Listing {
+    pub owner_name: Option<String>,
+    pub invalidated_at: Option<DateTime<Utc>>,
     #[serde(flatten)]
     pub grouping: Option<ListingIdentity>,
     pub shop: String,

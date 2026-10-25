@@ -12,7 +12,7 @@ function identity(row) {
   if (gear && (!eq || (eq.status && eq.status !== 'candidate') ||
       !Array.isArray(eq.stats) || (Array.isArray(eq.unknown_fields) ? eq.unknown_fields.length : eq.unknown_fields))) return null;
   return stable([row.world ?? '', row.source ?? '', row.shop_key, row.visit_id, at,
-    row.item_id, row.unit_price, row.bundle, row.unit_basis ?? '', gear ? eq : null]);
+    row.invalidated_at ?? null, row.item_id, row.unit_price, row.bundle, row.unit_basis ?? '', gear ? eq : null]);
 }
 export function mergeShopOffers(rows) {
   const output = [], groups = new Map();

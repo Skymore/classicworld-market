@@ -14,7 +14,7 @@ import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
-VERSION = '0.6.6'
+VERSION = '0.6.7'
 LATEST = 'https://mxd.ruit.me/web/releases/stable.json'
 DOWNLOAD_BASES = ('https://mxd.ruit.me/web/releases/', 'https://download.ruit.me/collector/')
 EXE = 'ClassicWorldCollector.exe'
@@ -249,7 +249,11 @@ def install_bundle(bundle, install, backup):
         raise ValueError('Invalid update directories')
     managed = json.loads((install/'install-manifest.json').read_text(encoding='utf-8-sig'))['files']
     managed = {p.casefold() for p in managed}
-    candidate = Path(tempfile.mkdtemp(prefix='.collector-new-', dir=install.parent))
+    # Inherit the install parent's ACL. Python's private 0700 temp directories
+    # make an elevated update unreadable to Explorer/the normal desktop user.
+    import uuid
+    candidate = install.parent / ('.collector-new-' + uuid.uuid4().hex)
+    candidate.mkdir(mode=0o777)
     shutil.copytree(bundle, candidate, dirs_exist_ok=True)
     # Configuration/captures normally live in LOCALAPPDATA; custom files placed
     # beside the EXE are retained too. New package files take precedence.

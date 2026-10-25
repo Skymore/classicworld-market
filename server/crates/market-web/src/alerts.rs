@@ -186,6 +186,9 @@ async fn recent_visits(db: &PgPool, collector: i64, now: f64) -> sqlx::Result<Ve
         "SELECT o.id, extract(epoch FROM o.observed_at)::float8, sh.shop_id, sh.title, sh.channel, sh.room
          FROM observations o JOIN shops sh ON sh.id = o.shop_id
          WHERE o.collector_id = $1 AND o.received_at >= to_timestamp($2)
+           AND NOT EXISTS (SELECT 1 FROM player_departures d WHERE d.world=sh.world
+             AND d.character_id=sh.owner_character_id AND d.channel=sh.channel AND d.room=sh.room
+             AND d.observed_at>=o.observed_at)
          ORDER BY o.received_at DESC, o.id DESC LIMIT $3",
     )
     .bind(collector)

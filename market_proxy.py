@@ -78,6 +78,8 @@ class Session:
         self.trace_index = 0
         self.pending_raw_path = None
         self.market_location = None
+        from market_presence import PlayerPresence
+        self.presence = PlayerPresence()
 
     def trace(self, direction, plain, source='forwarded'):
         if getattr(self.app, 'market_only', False) is True:
@@ -222,6 +224,7 @@ class Session:
         op = int.from_bytes(plain[:2], 'little')
         if op in (MAP_ENTRY, 0x1A9):
             self.market_location = None
+            self.presence.players.clear()
             self.signs.clear()
             self.pending_open = None
             self.pending_raw_path = None
@@ -234,6 +237,16 @@ class Session:
                 out.write(json.dumps(dict(time=observed, session=self.id, host=self.host,
                     port=self.port, location=location, evidence=evidence))+'\n')
             self.event('map_location', location=location, length=len(plain))
+        elif op in (0x22A, 0x22B, 0x22D, 0x22E):
+            if self.market_location and 1 <= self.market_location.get('room', 0) <= 22:
+                event = self.presence.observe(plain, time.time())
+                if event:
+                    event.update(version=1, world='ClassicWorld', event_id=uuid.uuid4().hex,
+                                 location={k: self.market_location[k] for k in ('channel', 'room')})
+                    path = self.app.folder / ('presence_' + event['event_id'] + '.json')
+                    temporary = path.with_suffix('.tmp')
+                    temporary.write_text(json.dumps(event), encoding='utf-8')
+                    temporary.replace(path)
         elif op == 0x32:
             self.table = opcode_table(plain)
             self.event('opcode_map_ready', entries=len(self.table))

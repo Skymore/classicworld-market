@@ -1,4 +1,4 @@
-import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261024-groups-1";
+import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261025-presence-1";
 import { useQueries } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api, getJson, qs } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
@@ -27,7 +27,7 @@ import {
   filterOffers,
   offerFilterTokens,
   clearOfferFilter,
-} from "/web/js/lib/item-offer-filters.js?v=20261025-equipment-stats-2";
+} from "/web/js/lib/item-offer-filters.js?v=20261025-presence-1";
 import { OfferRow, Location } from "../components/list-rows";
 import { announce, OfferReminder } from "../components/toasts";
 import "../lib/list-copy";
