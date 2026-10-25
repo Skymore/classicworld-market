@@ -150,7 +150,7 @@ def stop_dashboard(process):
     except subprocess.TimeoutExpired:process.kill();process.wait(timeout=5)
 
 
-def main(argv=None, stop_event=None, update_argv=None):
+def main(argv=None, stop_event=None, update_argv=None, on_event=None):
     default=Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'ClassicWorldMarket'
     parser=argparse.ArgumentParser()
     parser.add_argument('--home',type=Path,default=default)
@@ -260,12 +260,15 @@ def main(argv=None, stop_event=None, update_argv=None):
                     source=Path(extra)
                     extra_ledger=args.home/('upload_'+hashlib.sha256(str(source.resolve()).encode()).hexdigest()[:12]+'.sqlite')
                     count+=upload_once(source,config,extra_ledger,stop=stopping)
-                if count:print(f'Uploaded {count} observations.',flush=True)
+                if count:
+                    print(f'Uploaded {count} observations.',flush=True)
+                    if on_event:on_event({'type':'uploaded','count':count})
             except Exception as error:
                 if args.once:
                     raise
                 retry=True
                 print(f'Upload unavailable ({type(error).__name__}); will retry.',flush=True)
+                if on_event:on_event({'type':'upload_error'})
             if args.once or stopping.is_set():break
             capture_changed.wait(5 if retry else None)
     def owner_history_worker():

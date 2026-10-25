@@ -65,3 +65,4 @@ __pycache__/
 !/frontend/
 /frontend/node_modules/
 /web/react/
+!/desktop_ui/

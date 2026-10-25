@@ -25,8 +25,9 @@ def modules(root, initial):
 
 
 def stage(root, scanner, destination):
-    core = modules(root, ['unified_client', 'shared_client'])
-    scan = modules(scanner, ['market_screen_scanner.scanner_gui'])
+    core = modules(root, ['unified_client', 'shared_client', 'market_movement'])
+    scan = modules(scanner, ['full_market_scan', 'channel_state_collector',
+                            'position_state_collector', 'cloud_scan', 'control_state'])
     # Never accidentally bundle the scanner repository's older collector files.
     if core & scan:
         raise ValueError('Conflicting runtime modules: ' + str(core & scan))
@@ -42,6 +43,7 @@ def stage(root, scanner, destination):
     shutil.copytree(root / 'web', destination / 'web',
                     ignore=shutil.ignore_patterns('images', 'releases', 'tests', '*.map'))
     shutil.copytree(scanner / 'tools/market_bot_templates', destination / 'tools/market_bot_templates')
+    shutil.copytree(root / 'desktop_ui', destination / 'desktop_ui')
     return core, scan
 
 
@@ -52,6 +54,9 @@ def main():
     parser.add_argument('--windivert-source',type=Path,required=True)
     args=parser.parse_args()
     root=Path(__file__).resolve().parent
+    # Fail here rather than ship a successful freeze with missing optional
+    # imports that only fail when an updater starts the scanner self-test.
+    import cv2, numpy, mss, pyautogui, webview, clr
     from collector_update import VERSION
     output=root/'dist'/('unified-'+time.strftime('%Y%m%d_%H%M%S'))
     source=output/'source';source.mkdir(parents=True)
@@ -61,22 +66,32 @@ def main():
         if not (driver/name).is_file(): raise ValueError('Missing driver: '+name)
     if not (driver.parent/'LICENSE').is_file() or not args.windivert_source.is_file():
         raise ValueError('WinDivert license and corresponding source are required')
-    command=[sys.executable,'-m','PyInstaller','--noconfirm','--clean','--onedir',
+    command=[sys.executable,'-m','PyInstaller','--noconfirm','--clean','--onedir','--windowed',
         '--name','ClassicWorldCollector','--distpath',str(output),'--workpath',str(output/'build'),
         '--specpath',str(output),'--paths',str(source),'--collect-all','cryptography',
-        '--collect-submodules','mss','--hidden-import','psutil','--exclude-module','PIL.AvifImagePlugin']
+        '--collect-submodules','mss','--hidden-import','psutil','--collect-all','webview',
+        '--hidden-import','webview.platforms.edgechromium','--hidden-import','clr',
+        '--exclude-module','PIL.AvifImagePlugin','--exclude-module','tkinter',
+        '--exclude-module','PyQt5','--exclude-module','PyQt6','--exclude-module','PySide6']
     import ssl
     policy=Path(ssl.__file__).with_name('codex-rejected-cas.pem')
     if policy.is_file():
         command += ['--add-data',f'{policy};.']
     for name in ('maple_crypto_constants.cs','market_index.html','market_ui.js','market_ui.css','market_i18n.js','market_watchlist.js'):
         command += ['--add-data',f'{source/name};.']
-    for name in ('web','tools/market_bot_templates'):
+    for name in ('web','tools/market_bot_templates','desktop_ui'):
         command += ['--add-data',f'{source/name};{name}']
     command += ['--add-binary',f'{driver/"WinDivert.dll"};vendor/windivert/WinDivert-2.2.2-A/x64',
                 '--add-data',f'{driver/"WinDivert64.sys"};vendor/windivert/WinDivert-2.2.2-A/x64',str(source/'unified_client.py')]
     subprocess.run(command,cwd=source,check=True)
     bundle=output/'ClassicWorldCollector'
+    # Exercise the actual windowed executable, including its stdout pipes.
+    for flag, marker in [('--version', VERSION), ('--self-test', 'Codec self-test passed'),
+                         ('--scanner-self-test', 'Scanner self-test passed')]:
+        result=subprocess.run([str(bundle/'ClassicWorldCollector.exe'),flag],capture_output=True,
+            timeout=30,creationflags=subprocess.CREATE_NO_WINDOW if sys.platform=='win32' else 0)
+        if result.returncode or marker.encode() not in result.stdout:
+            raise RuntimeError(f'Packaged {flag} failed: {result.stderr.decode("utf-8", errors="replace")}')
     # The scanner uses images only, never OpenCV's video decoder. Keep the
     # archive below older collectors' 80 MiB automatic-update limit.
     for library in (bundle/'_internal/cv2').glob('opencv_videoio_ffmpeg*.dll'):

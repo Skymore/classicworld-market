@@ -9,10 +9,56 @@ from pathlib import Path
 HOME = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'ClassicWorldMarket'
 
 
+def prepare_standard_streams():
+    """Keep updater diagnostic pipes working in the windowed Windows build.
+
+    PyInstaller sets Python streams to None without a console, even when an
+    older updater supplies stdout/stderr pipes. Reuse those inherited handles;
+    never allocate or attach a console for a normal desktop launch.
+    """
+    if os.name != 'nt':
+        return
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.GetStdHandle.argtypes = [wintypes.DWORD]
+    kernel.GetStdHandle.restype = wintypes.HANDLE
+    kernel.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel.GetFileType.argtypes = [wintypes.HANDLE]
+    kernel.GetFileType.restype = wintypes.DWORD
+    kernel.DuplicateHandle.argtypes = [wintypes.HANDLE, wintypes.HANDLE,
+        wintypes.HANDLE, ctypes.POINTER(wintypes.HANDLE), wintypes.DWORD,
+        wintypes.BOOL, wintypes.DWORD]
+    kernel.DuplicateHandle.restype = wintypes.BOOL
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    process = kernel.GetCurrentProcess()
+    for name, number, mode, flags in [('stdin', -10, 'r', os.O_RDONLY),
+                                    ('stdout', -11, 'w', os.O_WRONLY),
+                                    ('stderr', -12, 'w', os.O_WRONLY)]:
+        if getattr(sys, name) is not None:
+            continue
+        handle = kernel.GetStdHandle(number)
+        stream = None
+        if handle and kernel.GetFileType(handle) in (1, 3):  # disk or pipe
+            duplicate = wintypes.HANDLE()
+            if kernel.DuplicateHandle(process, handle, process,
+                                      ctypes.byref(duplicate), 0, False, 2):
+                try:
+                    fd = msvcrt.open_osfhandle(duplicate.value, flags | os.O_BINARY)
+                except OSError:
+                    kernel.CloseHandle(duplicate)
+                else:
+                    stream = os.fdopen(fd, mode, encoding='utf-8', errors='replace', buffering=1)
+        setattr(sys, name, stream or open(os.devnull, mode, encoding='utf-8'))
+
+
 class CollectorRuntime:
     def __init__(self, options, launch_argv):
         self.home = options.home
         self.config_path = options.config or self.home/'member.json'
+        self.folder = options.folder or self.home/'captures'
+        self._listeners = []
         self.capture_args = ['--no-browser','--home',str(self.home),'--config',str(self.config_path),
                              '--backend',options.backend]
         if options.folder:
@@ -33,10 +79,21 @@ class CollectorRuntime:
             self.home.mkdir(parents=True, exist_ok=True)
             self.config = ensure_identity(self.config_path)
             self.ready.set()
-            main(self.capture_args, stop_event=self.stop_event, update_argv=self.launch_argv)
+            main(self.capture_args, stop_event=self.stop_event, update_argv=self.launch_argv,
+                 on_event=self._notify)
         except Exception as error:
             self.error = str(error)
             self.ready.set()
+
+    def add_listener(self, callback):
+        self._listeners.append(callback)
+
+    def _notify(self, event):
+        for listener in tuple(self._listeners):
+            try:
+                listener(event)
+            except Exception:
+                pass
 
     def configuration(self):
         if not self.ready.wait(10):
@@ -63,12 +120,15 @@ class CollectorRuntime:
 
 
 def main():
+    prepare_standard_streams()
     from shared_client import main as collector_main
     if '--scanner-self-test' in sys.argv:
-        from market_screen_scanner.scanner_gui import ScannerWindow
+        from scanner_desktop import scanner_modules
+        scanner_modules()
         from channel_plan import ChannelPlan
         from cloud_scan import LeaseStopEvent
-        import cv2, numpy, mss, tkinter
+        import cv2, numpy, mss, webview, clr
+        assert (Path(__file__).resolve().parent/'desktop_ui/index.html').is_file()
         assert ChannelPlan().channel == 1
         assert not LeaseStopEvent().is_set()
         print('Scanner self-test passed', flush=True)
@@ -94,8 +154,8 @@ def main():
     kernel.CreateMutexW.restype = ctypes.c_void_p
     mutex = kernel.CreateMutexW(None, False, 'Local\\ClassicWorldMarketUnified')
     if not mutex or kernel.GetLastError() == 183:
-        from tkinter import messagebox
-        messagebox.showinfo('枫叶市集', '采集器已经在运行，请使用已打开的窗口。')
+        ctypes.windll.user32.MessageBoxW(None,
+            '扫描器已经在运行，请使用已打开的窗口。', '枫叶市集', 0x40)
         return
     import argparse
     parser=argparse.ArgumentParser(add_help=False)
@@ -110,18 +170,34 @@ def main():
     sys.argv=[sys.argv[0],*scanner_argv]
     options.home.mkdir(parents=True, exist_ok=True)
     log = (options.home / 'unified-client.log').open('a', encoding='utf-8', buffering=1)
+    old_stdout, old_stderr = sys.stdout, sys.stderr
     sys.stdout = sys.stderr = log
     runtime = CollectorRuntime(options,launch_argv)
-    from market_screen_scanner.scanner_gui import main as scanner_main
+    from scanner_desktop import main as scanner_main
     try:
         scanner_main(collector=runtime)
     finally:
         runtime.close()
         runtime.thread.join(timeout=90)
+        sys.stdout, sys.stderr = old_stdout, old_stderr
         log.close()
         kernel.CloseHandle.argtypes = [ctypes.c_void_p]
         kernel.CloseHandle(mutex)
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as error:
+        import traceback
+        prepare_standard_streams()
+        traceback.print_exc()
+        # Diagnostic commands must return failure, not block an old updater on
+        # PyInstaller's exception dialog until its timeout expires.
+        diagnostic = any(arg in sys.argv for arg in ('--scanner-self-test', '--self-test',
+            '--version', '--check-updates', '--apply-update', '--dashboard-only'))
+        if not diagnostic:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None,
+                '启动未完成，请确认安装包已完整解压。\n' + str(error), '枫叶市集', 0x10)
+        raise SystemExit(1)

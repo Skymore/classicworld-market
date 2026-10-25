@@ -56,6 +56,8 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        '全新官网同款界面，支持浅色、深色和跟随系统主题。启动只显示扫描器窗口。\n'
+        '修复更新自检超时，保留账号、设置与采集记录。\n'
         '自动扫描、手动采集、上传、账号和关注提醒合并到一个程序。请关闭旧扫描器和旧采集器。\n'
         '每人每次领取一个洞，完成后再领取下一个；暂停或断线后让其他在线扫描器接手。\n'
         '从 CH1 顺序扫描，连续三个空频道后从 CH40 倒序扫描，避免漏掉高频道的店铺。\n'

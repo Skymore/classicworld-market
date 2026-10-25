@@ -1,4 +1,7 @@
 import argparse
+import os
+import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -8,6 +11,19 @@ from unified_client import CollectorRuntime
 from build_unified_client import modules
 
 class UnifiedTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == 'nt', 'Windows windowed launcher')
+    def test_windowed_diagnostics_preserve_old_updater_pipes(self):
+        code = ('import sys; sys.stdin = sys.stdout = sys.stderr = None; '
+                'from unified_client import prepare_standard_streams; '
+                'prepare_standard_streams(); '
+                'print("diagnostic output", flush=True); '
+                'print("diagnostic error", file=sys.stderr, flush=True)')
+        result = subprocess.run([sys.executable, '-c', code], capture_output=True,
+                                creationflags=subprocess.CREATE_NO_WINDOW, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), b'diagnostic output')
+        self.assertEqual(result.stderr.strip(), b'diagnostic error')
+
     def test_existing_identity_paths_and_update_arguments_are_preserved(self):
         with tempfile.TemporaryDirectory() as folder:
             home=Path(folder)/'existing'

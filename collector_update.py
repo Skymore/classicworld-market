@@ -14,7 +14,7 @@ import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
-VERSION = '0.6.2'
+VERSION = '0.6.3'
 LATEST = 'https://mxd.ruit.me/web/releases/stable.json'
 DOWNLOAD_BASES = ('https://mxd.ruit.me/web/releases/', 'https://download.ruit.me/collector/')
 EXE = 'ClassicWorldCollector.exe'
@@ -326,7 +326,7 @@ def apply_plan(path, executable=None):
                     creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
         else:
             subprocess.Popen([str(install/EXE), *arguments], cwd=install,
-                creationflags=subprocess.CREATE_NEW_CONSOLE if os.name=='nt' else 0)
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
     try:
         update_status(home, 'installing', available=plan['version'])
         install_bundle(bundle, install, backup)
