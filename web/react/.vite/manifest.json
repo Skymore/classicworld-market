@@ -47,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-55_gxh2C.js": {
-    "file": "chunks/main-55_gxh2C.js",
+  "_main-DrKeQhe3.js": {
+    "file": "chunks/main-DrKeQhe3.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -135,7 +135,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-55_gxh2C.js"
+      "_main-DrKeQhe3.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -231,7 +231,7 @@
     ]
   },
   "src/pages/prices.tsx": {
-    "file": "chunks/prices-CQ-Jcjrv.js",
+    "file": "chunks/prices-BxU5hr5W.js",
     "name": "prices",
     "src": "src/pages/prices.tsx",
     "isDynamicEntry": true,
@@ -297,7 +297,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-55_gxh2C.js"
+      "_main-DrKeQhe3.js"
     ]
   },
   "style.css": {

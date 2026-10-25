@@ -79,6 +79,11 @@ export default function Prices() {
   const navigate = useNavigate();
   const period = usePeriod();
   const state = useMemo(() => readPriceState(route.search), [route.search]);
+  const [queryDraft, setQueryDraft] = useState(state.q);
+  const composing = useRef(false);
+  useEffect(() => {
+    if (!composing.current) setQueryDraft(state.q);
+  }, [state.q]);
   const recordMode =
     state.tab === "all" && ["recent", "lastsale"].includes(state.sort);
   const recordKind = state.sort === "lastsale" ? "sales" : "quotes";
@@ -440,8 +445,23 @@ export default function Prices() {
                   <input
                     type="search"
                     data-q
-                    value={state.q}
-                    onChange={(event) => update({ q: event.target.value })}
+                    value={queryDraft}
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
+                      // Keep the controlled value synchronous while the IME owns
+                      // its draft; route navigation can otherwise restore old text.
+                      setQueryDraft(value);
+                      if (!composing.current) update({ q: value });
+                    }}
+                    onCompositionStart={() => {
+                      composing.current = true;
+                    }}
+                    onCompositionEnd={(event) => {
+                      composing.current = false;
+                      const value = event.currentTarget.value;
+                      setQueryDraft(value);
+                      update({ q: value });
+                    }}
                     autoComplete="off"
                     aria-label={words("搜索物品", "Search items")}
                     placeholder={words("搜索物品", "Search items")}

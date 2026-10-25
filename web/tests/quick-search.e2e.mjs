@@ -77,6 +77,55 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 try {
   browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+  if (nativeReact) for (const mobile of [false, true]) {
+    const page = await browser.newPage({ viewport: { width: mobile ? 390 : 1280, height: 844 }, isMobile: mobile, hasTouch: mobile });
+    const errors = []; page.on('pageerror', error => errors.push(error.message));
+    await page.goto(origin + '/prices?hours=all&lang=zh');
+    const input = page.locator('[data-q]');
+    await input.focus();
+    await page.waitForFunction(() => document.documentElement.dataset.liveConnection === 'connected');
+    await input.evaluate(node => { window.savedPriceInput = node; });
+    const cdp = await page.context().newCDPSession(page);
+    for (const [drafts, committed] of [[['b', 'ba', 'bai', 'baig', 'baigong'], '白宫'], [['n', 'na', 'nage'], '那个']]) {
+      const before = await input.inputValue();
+      for (const text of drafts) {
+        await cdp.send('Input.imeSetComposition', { text, selectionStart: text.length, selectionEnd: text.length });
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        assert.equal(await input.inputValue(), before + text, 'composition replaces its previous draft without duplicating pinyin');
+        assert.equal(new URL(page.url()).searchParams.get('q') || '', before, 'do not publish uncommitted IME text to the route');
+      }
+      const reads = marketReads;
+      generation++;
+      for (const stream of streams) stream.write('event: market\ndata: {}\n\n');
+      const deadline = Date.now() + 10000;
+      while (marketReads === reads && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 20));
+      assert(marketReads > reads, 'SSE refetches market data during composition');
+      await page.waitForFunction(expected => [...document.querySelectorAll('[data-fresh]')].some(node => Number(node.dataset.asOf) === expected), now + generation);
+      assert.equal(await input.inputValue(), before + drafts.at(-1), 'SSE preserves the active composition');
+      assert(await input.evaluate(node => node === window.savedPriceInput && node === document.activeElement), 'SSE preserves the composing input and focus');
+      await cdp.send('Input.insertText', { text: committed });
+      await page.waitForURL(url => url.searchParams.get('q') === before + committed);
+      assert.equal(await input.inputValue(), before + committed, 'commit only the chosen Chinese text');
+    }
+    await input.fill('红色药水');
+    await page.waitForURL(url => url.searchParams.get('q') === '红色药水');
+    await page.locator('[data-clear-price-filters="everything"]').click();
+    await page.waitForFunction(() => document.querySelector('[data-q]').value === '');
+    await input.fill('Potion');
+    await page.waitForURL(url => url.searchParams.get('q') === 'Potion');
+    await input.fill('');
+    await page.waitForURL(url => !url.searchParams.has('q'));
+    await page.evaluate(() => {
+      history.pushState(null, '', '/prices?hours=all&lang=zh&q=蜗牛');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await page.waitForFunction(() => document.querySelector('[data-q]').value === '蜗牛');
+    await page.goBack();
+    await page.waitForFunction(() => document.querySelector('[data-q]').value === '');
+    assert.deepEqual(errors, []);
+    await page.close();
+    console.log(`PASS ${mobile ? 'phone' : 'desktop'} prices: native IME replacement/commit, repeated Chinese composition, SSE, plain typing, clear and history`);
+  }
   for (const [mobile, route] of [[true, '/'], [false, '/'], [false, '/prices']]) {
     const page = await browser.newPage({ viewport: { width: mobile ? 390 : 1280, height: 844 }, isMobile: mobile, hasTouch: mobile });
     const errors = []; page.on('pageerror', error => errors.push(error.message));
