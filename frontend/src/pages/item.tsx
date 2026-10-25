@@ -1334,10 +1334,39 @@ export default function Item({ page }: { page: any }) {
               <Well
                 className={"equip-well " + (more.has("equip") ? "all" : "")}
                 title={words("装备属性", "Equipment stats")}
-                note={words(
-                  `${variants.length} 种在售`,
-                  `${variants.length} on sale`,
-                )}
+                note={
+                  <>
+                    <span>
+                      {words(
+                        `${variants.length} 种在售`,
+                        `${variants.length} on sale`,
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      className={
+                        "toggle right " +
+                        (filters.equipment === "bonus" ? "on" : "")
+                      }
+                      data-bonus-only
+                      aria-pressed={filters.equipment === "bonus"}
+                      onClick={() =>
+                        saveFilters(
+                          JSON.stringify(
+                            normalizeOfferFilters({
+                              ...filters,
+                              equipment:
+                                filters.equipment === "bonus" ? "all" : "bonus",
+                            }),
+                          ),
+                        )
+                      }
+                    >
+                      <i aria-hidden="true" />
+                      {words("只看有加成", "Bonus only")}
+                    </button>
+                  </>
+                }
               >
                 {variants.length ? (
                   <>

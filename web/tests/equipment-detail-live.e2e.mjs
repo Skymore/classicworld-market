@@ -44,7 +44,10 @@ try {
     assert.equal(await page.locator('.item-peek:visible').count(),0,'attribute links navigate directly on touch devices');
     assert.equal(await page.locator('[data-equipment-group]').count(),1);
     assert.equal(await page.locator('[data-offer-filter-open]').count(),1);
-    assert.equal(await page.locator('[data-equipment-stat],[data-bonus-only]').count(),0);
+    assert.equal(await page.locator('[data-equipment-stat]').count(),0);
+    const bonus=page.locator('[data-bonus-only]');await bonus.click();assert.equal(await bonus.getAttribute('aria-pressed'),'true');
+    await page.locator('[data-offer-filter-open]').click();assert.equal(await page.locator('dialog [name=equipment]').inputValue(),'bonus');await page.keyboard.press('Escape');
+    await bonus.click();assert.equal(await bonus.getAttribute('aria-pressed'),'false');
     await page.reload();await page.locator('[data-selected-attributes]').waitFor();
     await page.locator('[data-all-attributes]').click();await page.locator('[data-selected-attributes]').waitFor({state:'detached'});
     await page.locator('[data-offer-filter-open]').click();

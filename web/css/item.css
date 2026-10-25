@@ -130,6 +130,9 @@ html[lang=en] .salegrid .sale{grid-template-columns:96px minmax(0,1fr) auto minm
 /* ---------- equipment: the game's tooltip box ---------- */
 .item-stall.bonus-only [data-bonus="0"]{display:none}
 .equip-well .toggle{min-height:44px}
+.equip-well .well-h{flex-wrap:wrap}
+.equip-well .well-h>small{display:flex;align-items:center;gap:6px;flex:1;min-width:max-content}
+.equip-well .well-h>small>span,.equip-well .toggle{white-space:nowrap}
 .equipment-group-link{text-decoration:none;color:#eef1f6}
 .equipment-group-link:hover,.equipment-group-link:focus-visible{border-color:var(--mark);outline:2px solid var(--mark);outline-offset:1px}
 .tip-link{align-self:flex-end;font-size:12px;color:#d7e6fc}
