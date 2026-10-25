@@ -42,7 +42,7 @@ const server = createServer(async (req, res) => {
   if (url.pathname.startsWith('/api/')) {
     res.setHeader('Content-Type','application/json');
     if(url.pathname==='/api/v1/account')return res.end(JSON.stringify({signed_in:false}));
-    if(url.pathname==='/api/v1/catalog/page')return res.end(JSON.stringify({kind:'item',page:{item:{id:1002000,name_zh:'测试装备',name_en:'Test equipment',category:'装备',req_level:10},stats:null,droppers:[],npc_offers:[],npc_sell:null,market:{as_of:new Date((now+revision)*1000).toISOString(),base_stats:[['weapon_attack',1]],days:[],sale_points:[],sales:[],listings:offers.map(r=>({shop:r.id,channel:r.ch==='unknown'?null:Number(r.ch),room:r.room,unit_price:r.price,seen_at:new Date((now-r.age)*1000).toISOString(),stock:r.stock===undefined?1:r.stock,variant:r.captured?{id:original.findIndex(v=>v.id===r.id)+100+offers.indexOf(r),stats:[{key:'weapon_attack',label:'物理攻击',value:17}],enhancements:1,remaining_upgrades:0,unknown_fields:0}:null}))}}}));
+    if(url.pathname==='/api/v1/catalog/page')return res.end(JSON.stringify({kind:'item',page:{item:{id:1002000,name_zh:'测试装备',name_en:'Test equipment',category:'装备',req_level:10},stats:null,droppers:[],npc_offers:[],npc_sell:null,market:{as_of:new Date((now+revision)*1000).toISOString(),base_stats:[['weapon_attack',1],['str',1],['weapon_defense',10],['magic_defense',5]],days:[],sale_points:[],sales:[],listings:offers.map(r=>({shop:r.id,channel:r.ch==='unknown'?null:Number(r.ch),room:r.room,unit_price:r.price,seen_at:new Date((now-r.age)*1000).toISOString(),stock:r.stock===undefined?1:r.stock,variant:r.captured?{id:original.findIndex(v=>v.id===r.id)+100+offers.indexOf(r),stats:r.stats||[{key:'weapon_attack',label:'物理攻击',value:17}],enhancements:r.enhancements??1,remaining_upgrades:0,unknown_fields:0}:null}))}}}));
     return res.end('{}');
   }
   if (url.pathname.startsWith('/web/')) {
@@ -70,7 +70,7 @@ try {
       HTMLElement.prototype.focus = function(...args) { if (this.tagName === 'SELECT') window.selectFocusCalls++; return focus.apply(this, args); };
     });
     const url = origin + `/item/1002000?hours=all&lang=${mobile ? 'zh' : 'en'}&device=${mobile ? 'phone' : 'desktop'}`;
-    const visibleRows = () => page.locator('.where-well [data-quote]:visible').evaluateAll(els => els.map(el => el.querySelector('.lshop').textContent.trim().replace('›','')));
+    const visibleRows = () => page.locator('.where-well [data-quote]:visible').evaluateAll(els => els.map(el => el.querySelector('.record-shop,.lshop').textContent.trim().replace('›','')));
     const waitRevision = () => page.waitForFunction(rev => Number(document.querySelector('.item-stall')?.dataset.asOf) === rev, now+revision);
     const open = async () => { await page.locator('[data-offer-filter-open]').click(); await page.locator('dialog[open]').waitFor(); };
     const submit = async () => { await page.locator('[data-offer-apply]').click(); await page.locator('dialog[open]').waitFor({state:'hidden'}); };
@@ -151,6 +151,49 @@ try {
     await open(); await page.selectOption('[data-offer-hours]','1'); await submit();
     assert.equal(await page.locator('.cgroup:visible').count(), 3);
     assert.equal(await page.locator('[data-more]:visible').count(), 0);
+
+    // Useful-stat grouping ignores physical and magic defence rolls.
+    await page.locator('[data-offer-clear=all]').click();
+    const stats=(key,value,def,magic=5)=>[{key,label:key,value},{key:'weapon_defense',label:'物理防御',value:def},{key:'magic_defense',label:'魔法防御',value:magic}];
+    offers=[
+      {id:'plain-a',stats:stats('str',1,10)},
+      {id:'plain-b',stats:stats('str',1,15,9)},
+      {id:'dex2-a',stats:stats('dex',2,12)},
+      {id:'dex2-b',stats:stats('dex',2,18,8)},
+      {id:'dex4',stats:stats('dex',4,8)},
+      {id:'def-enhanced',stats:stats('str',1,30),enhancements:1},
+    ].map((r,i)=>({...r,ch:'1',room:1,price:10000+i*1000,age:60,stock:1,equipment:true,captured:true,enhancements:r.enhancements??0}));
+    revision++;broadcast();await waitRevision();
+    const groups=()=>page.locator('[data-equipment-group]:visible');
+    assert.equal(await page.locator('[data-equipment-group]').count(),4);
+    const plain=page.locator('[data-equipment-group]').filter({hasText:'+10–15'});
+    assert.equal(await plain.count(),1);assert.match(await plain.textContent(),mobile?/2 件/:/2 listed/);
+    assert.match(await plain.textContent(),/10K/,'group minimum includes both defence rolls');
+    await page.locator('[data-bonus-only]').click();
+    assert.equal(await groups().count(),2,'defence-only rolls and defensive enhancements are excluded');
+    await page.selectOption('[data-equipment-stat]','dex');
+    await page.locator('[data-equipment-stat-min]').fill('3');
+    assert.equal(await groups().count(),1);assert.match(await groups().textContent(),/\+4/);
+    assert.deepEqual(await visibleRows(),['dex4']);
+    await page.reload();await waitRevision();
+    assert.equal(await page.locator('[data-equipment-stat]').inputValue(),'dex');
+    assert.equal(await page.locator('[data-equipment-stat-min]').inputValue(),'3');
+    assert.equal(await groups().count(),1);
+    await page.selectOption('[data-equipment-stat]','all');
+    await open();await page.selectOption('dialog [name=stat]','dex');
+    await page.locator('dialog [name=minStat]').fill('4');
+    offers=[...offers,{...offers[4],id:'live-dex5',stats:stats('dex',5,40),price:16000}];
+    revision++;broadcast();await waitRevision();
+    assert.equal(await page.locator('dialog [name=minStat]').inputValue(),'4');
+    assert.match(await page.locator('[data-offer-apply]').textContent(),/2/);
+    await page.screenshot({path:path.join(output,`attribute-panel-${mobile?'mobile':'desktop'}.png`)});
+    await submit();
+    assert.deepEqual(await visibleRows(),['dex4','live-dex5']);
+    assert.equal(await groups().count(),2);
+    await page.screenshot({path:path.join(output,`attribute-groups-${mobile?'mobile':'desktop'}.png`),fullPage:true});
+    await page.locator('[data-offer-clear=stat]').click();
+    assert.equal(await page.locator('[data-equipment-stat]').inputValue(),'all');
+    assert.equal(await page.locator('[data-equipment-group]').count(),5);
     assert.deepEqual(errors, []); await page.close();
     console.log(`PASS ${mobile?'mobile Chinese':'desktop English'}: adjacent button, draft/apply/reset, combined filters, sort independence, reload, realtime dialog, room map, pagination and layout`);
   }

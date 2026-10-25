@@ -3,9 +3,10 @@ import { useWords } from "../providers";
 import {
   OFFER_HOURS,
   OFFER_PERCENTILES,
+  EQUIPMENT_STATS,
   normalizeOfferFilters,
   filterOffers,
-} from "/web/js/lib/item-offer-filters.js?v=20261023-advanced-offers-1";
+} from "/web/js/lib/item-offer-filters.js?v=20261025-equipment-stats-1";
 import "./offer-filters.css";
 export default function OfferFilterDialog({
   open,
@@ -65,10 +66,11 @@ export default function OfferFilterDialog({
           type="number"
           name={key}
           min={min}
-          step={key === "minStock" ? "1" : "any"}
+          step={key === "minStock" || key === "minStat" ? "1" : "any"}
+          max={key === "minStat" ? 65535 : undefined}
           inputMode="decimal"
           value={draft[key] ?? ""}
-          placeholder={words("不限", "Any")}
+          placeholder={key === "minStat" ? "1" : words("不限", "Any")}
           onChange={(event) =>
             setDraft((old: any) => ({ ...old, [key]: event.target.value }))
           }
@@ -191,17 +193,33 @@ export default function OfferFilterDialog({
                 undefined,
                 1,
               )}
-              {equipment &&
-                field(
-                  "equipment",
-                  words("装备实际属性", "Captured equipment stats"),
-                  [
-                    ["all", words("全部属性", "Any stats")],
-                    ["captured", words("已采集实际属性", "Stats captured")],
-                    ["missing", words("未采集实际属性", "Stats not captured")],
-                    ["bonus", words("只看有加成属性", "Bonus stats only")],
-                  ],
-                )}
+              {equipment && (
+                <>
+                  {field(
+                    "equipment",
+                    words("装备实际属性", "Captured equipment stats"),
+                    [
+                      ["all", words("全部属性", "Any stats")],
+                      ["captured", words("已采集实际属性", "Stats captured")],
+                      [
+                        "missing",
+                        words("未采集实际属性", "Stats not captured"),
+                      ],
+                      ["bonus", words("只看有加成属性", "Bonus stats only")],
+                    ],
+                  )}
+                  {field("stat", words("筛选属性", "Filter stat"), [
+                    ["all", words("全部属性", "Any stat")],
+                    ...EQUIPMENT_STATS.map(
+                      ([key, zh, en]: string[]) =>
+                        [key, words(zh, en)] as [string, string],
+                    ),
+                  ])}
+                  {draft.stat &&
+                    draft.stat !== "all" &&
+                    field("minStat", words("最低属性值", "Minimum stat value"))}
+                </>
+              )}
             </div>
           </fieldset>
         </div>

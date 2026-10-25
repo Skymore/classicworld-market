@@ -27,7 +27,7 @@ import {
   filterOffers,
   offerFilterTokens,
   clearOfferFilter,
-} from "/web/js/lib/item-offer-filters.js?v=20261023-advanced-offers-1";
+} from "/web/js/lib/item-offer-filters.js?v=20261025-equipment-stats-1";
 import { OfferRow, Location } from "../components/list-rows";
 import { announce, OfferReminder } from "../components/toasts";
 import "../lib/list-copy";
@@ -100,6 +100,8 @@ export default function Watch() {
       return normalizeOfferFilters({
         ...JSON.parse(rawFilters),
         equipment: "all",
+        stat: "all",
+        minStat: null,
       });
     } catch {
       return normalizeOfferFilters();
@@ -173,9 +175,11 @@ export default function Watch() {
   );
   const listings = shared.data?.listings || [];
   const summary = Core.summary(listings, ids, settings);
-  const baseMatches = Core.matching(shared.data?.grouped_listings ?? mergeShopOffers(listings), ids, settings).map(
-    (row: any) => ({ ...row, price: row.unit_price }),
-  );
+  const baseMatches = Core.matching(
+    shared.data?.grouped_listings ?? mergeShopOffers(listings),
+    ids,
+    settings,
+  ).map((row: any) => ({ ...row, price: row.unit_price }));
   function filterWatchRows(rows: any[], filters: any) {
     return {
       cap: null,

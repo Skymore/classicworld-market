@@ -65,3 +65,26 @@ test('active condition chips count groups and remove only the chosen condition',
   assert.equal(offerFilterTokens(filters, true)[1].label, 'Lowest 50%');
   assert.equal(filters.minPrice, 10);
 });
+
+test('specific stat and minimum use only the captured offer and combine with other filters', () => {
+  const offers = [
+    { key:'dex2',isEquipment:true,hasStats:true,bonus:true,price:10,variant:{stats:[{key:'dex',value:2}]} },
+    { key:'dex4',isEquipment:true,hasStats:true,bonus:true,price:20,variant:{stats:[{key:'dex',value:4},{key:'weapon_defense',value:20}]} },
+    { key:'int3',isEquipment:true,hasStats:true,bonus:true,price:15,variant:{stats:[{key:'int',value:3}]} },
+    { key:'unknown',isEquipment:true,hasStats:false,price:5 },
+    { key:'zero',isEquipment:true,hasStats:true,variant:{stats:[{key:'dex',value:0}]} },
+  ];
+  assert.deepEqual(ids(filterOffers(offers,'price',{stat:'dex'})),['dex2','dex4']);
+  assert.deepEqual(ids(filterOffers(offers,'recent',{stat:'dex',minStat:4})),['dex4']);
+  assert.deepEqual(ids(filterOffers(offers,'price',{stat:'dex',minStat:4,maxPrice:15})),[]);
+  assert.deepEqual(ids(filterOffers(offers,'price',{stat:'dex',minStat:0})),['dex2','dex4','zero']);
+  assert.deepEqual(ids(filterOffers(offers,'price',{stat:'weapon_defense',minStat:20})),['dex4']);
+  assert.deepEqual(ids(filterOffers(offers,'price',{stat:'dex',equipment:'missing'})),[]);
+  assert.equal(normalizeOfferFilters({stat:'unknown',minStat:20}).minStat,null);
+  assert.equal(normalizeOfferFilters({stat:'dex',minStat:Infinity}).minStat,null);
+  assert.equal(normalizeOfferFilters({stat:'dex',minStat:65536}).minStat,null);
+  assert.equal(normalizeOfferFilters({stat:'dex',minStat:2.9}).minStat,2);
+  assert.equal(offerFilterTokens({stat:'dex',minStat:4})[0].label,'敏捷 ≥ 4');
+  assert.equal(offerFilterTokens({stat:'dex'},true)[0].label,'DEX ≥ 1');
+  assert.deepEqual(clearOfferFilter({stat:'dex',minStat:4},'stat'),normalizeOfferFilters());
+});

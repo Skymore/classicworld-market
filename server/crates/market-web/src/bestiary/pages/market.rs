@@ -870,13 +870,18 @@ pub fn sales_well(v: &View) -> Markup {
 // ---------- equipment stats ----------
 
 /// A listed instance has bonus stats when a stat beats the item's reference
-/// value (or the reference lacks it) or it was enhanced.
+/// value (or the reference lacks it), excluding physical and magic defence.
 pub fn has_bonus(variant: &Variant, base: &[(String, i64)]) -> bool {
-    variant.enhancements.unwrap_or(0) > 0
-        || variant.stats.iter().any(|s| {
-            let reference = base.iter().find(|(k, _)| *k == s.key).map(|(_, b)| *b);
-            s.value > reference.unwrap_or(0)
-        })
+    variant.stats.iter().any(|s| {
+        if matches!(
+            s.key.as_str(),
+            "weapon_defense" | "magic_defense" | "pdd" | "mdd"
+        ) {
+            return false;
+        }
+        let reference = base.iter().find(|(k, _)| *k == s.key).map(|(_, b)| *b);
+        s.value > reference.unwrap_or(0)
+    })
 }
 
 fn bonus_attr(v: &View, variant: Option<&Variant>) -> Option<&'static str> {
@@ -1107,7 +1112,15 @@ mod tests {
         let base = vec![("weapon_attack".to_string(), 17)];
         assert!(!has_bonus(&variant(17, 0), &base));
         assert!(has_bonus(&variant(18, 0), &base));
-        assert!(has_bonus(&variant(15, 1), &base), "enhanced");
+        assert!(
+            !has_bonus(&variant(15, 1), &base),
+            "enhancements alone do not imply useful bonus stats"
+        );
+        for key in ["weapon_defense", "magic_defense"] {
+            let mut defence_only = variant(25, 1);
+            defence_only.stats[0].key = key.into();
+            assert!(!has_bonus(&defence_only, &[]));
+        }
         assert!(
             has_bonus(&variant(1, 0), &[]),
             "no reference: any stat counts"

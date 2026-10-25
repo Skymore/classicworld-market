@@ -8,10 +8,13 @@ import {
   filterOffers,
   offerFilterTokens,
   clearOfferFilter,
-} from "/web/js/lib/item-offer-filters.js?v=20261023-advanced-offers-1";
+  EQUIPMENT_STATS,
+  matchesEquipmentStat,
+} from "/web/js/lib/item-offer-filters.js?v=20261025-equipment-stats-1";
 import { useUserValue } from "../lib/live";
 import {
   hasBonus,
+  groupEquipmentVariants,
   makeLadder,
   offerGroups,
   timestamp,
@@ -107,10 +110,15 @@ function Variant({ variant, page }: { variant: any; page: any }) {
               <span>
                 {words(stat.label || stat.key, labels[stat.key] || stat.key)}
               </span>
-              <b>+{stat.value}</b>
-              {reference != null && stat.value > reference && (
-                <i>(+{stat.value - reference})</i>
-              )}
+              <b>
+                +{stat.value}
+                {stat.maxValue > stat.value && `–${stat.maxValue}`}
+              </b>
+              {reference != null &&
+                stat.value > reference &&
+                !(stat.maxValue > stat.value) && (
+                  <i>(+{stat.value - reference})</i>
+                )}
             </li>
           );
         })}
@@ -411,7 +419,7 @@ export default function Item({ page }: { page: any }) {
     try {
       return normalizeOfferFilters({
         ...JSON.parse(raw),
-        ...(!equipment ? { equipment: "all" } : {}),
+        ...(!equipment ? { equipment: "all", stat: "all", minStat: null } : {}),
       });
     } catch {
       return normalizeOfferFilters();
@@ -420,26 +428,28 @@ export default function Item({ page }: { page: any }) {
   const tokens = offerFilterTokens(filters, language === "en");
   const rows = useMemo(
     () =>
-      mergeShopOffers(market.listings.map((row: any, i: number) => ({
-        ...row,
-        item_id: item.id,
-        key: JSON.stringify([
-          row.shop_key,
-          row.slot ?? i,
-          row.shop,
-          row.channel,
-          row.room,
-          row.variant?.id,
-          row.unit_price,
-          row.seen_at,
-        ]),
-        price: row.unit_price,
-        observed: timestamp(row.seen_at),
-        isEquipment: equipment,
-        hasStats: !!row.variant,
-        bonus: hasBonus(row.variant, market.base_stats || []),
-        index: i,
-      }))),
+      mergeShopOffers(
+        market.listings.map((row: any, i: number) => ({
+          ...row,
+          item_id: item.id,
+          key: JSON.stringify([
+            row.shop_key,
+            row.slot ?? i,
+            row.shop,
+            row.channel,
+            row.room,
+            row.variant?.id,
+            row.unit_price,
+            row.seen_at,
+          ]),
+          price: row.unit_price,
+          observed: timestamp(row.seen_at),
+          isEquipment: equipment,
+          hasStats: !!row.variant,
+          bonus: hasBonus(row.variant, market.base_stats || []),
+          index: i,
+        })),
+      ),
     [market, equipment, item.id],
   );
   const filtered = filterOffers(rows, sort, filters);
@@ -587,7 +597,14 @@ export default function Item({ page }: { page: any }) {
                 <div
                   className={"sale " + (i >= 10 ? "extra" : "")}
                   data-bonus={isBonus ? "1" : "0"}
-                  hidden={bonus && !isBonus}
+                  hidden={
+                    (bonus && !isBonus) ||
+                    !matchesEquipmentStat(
+                      row.variant,
+                      filters.stat,
+                      filters.minStat,
+                    )
+                  }
                   key={i}
                 >
                   <span className={"evi " + row.kind}>
@@ -642,13 +659,18 @@ export default function Item({ page }: { page: any }) {
       )}
     </>
   );
-  const variants = [
-    ...new Map(
-      rows
-        .filter((row: any) => row.variant)
-        .map((row: any) => [row.variant.id, row.variant]),
-    ).values(),
-  ] as any[];
+  const allVariants = groupEquipmentVariants(rows);
+  const variants = groupEquipmentVariants(
+    rows.filter(
+      (row: any) =>
+        (!bonus || row.bonus) &&
+        matchesEquipmentStat(row.variant, filters.stat, filters.minStat),
+    ),
+  );
+  const updateStatFilter = (value: any) =>
+    saveFilters(
+      JSON.stringify(normalizeOfferFilters({ ...filters, ...value })),
+    );
   return (
     <>
       <div className="mobile-item-search">
@@ -1217,7 +1239,7 @@ export default function Item({ page }: { page: any }) {
                       `${variants.length} 种在售`,
                       `${variants.length} on sale`,
                     )}
-                    {!!variants.length && (
+                    {!!allVariants.length && (
                       <button
                         className={"toggle right " + (bonus ? "on" : "")}
                         data-bonus-only
@@ -1231,24 +1253,68 @@ export default function Item({ page }: { page: any }) {
                   </>
                 }
               >
+                {!!allVariants.length && (
+                  <div className="equipment-stat-filters">
+                    <label className="offer-field">
+                      <span>{words("筛选属性", "Filter stat")}</span>
+                      <select
+                        data-equipment-stat
+                        value={filters.stat}
+                        onChange={(event) =>
+                          updateStatFilter({
+                            stat: event.target.value,
+                            minStat: null,
+                          })
+                        }
+                      >
+                        <option value="all">
+                          {words("全部属性", "Any stat")}
+                        </option>
+                        {EQUIPMENT_STATS.map(([key, zh, en]: string[]) => (
+                          <option key={key} value={key}>
+                            {words(zh, en)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {filters.stat !== "all" && (
+                      <label className="offer-field">
+                        <span>{words("最低属性值", "Minimum stat value")}</span>
+                        <input
+                          data-equipment-stat-min
+                          type="number"
+                          min="0"
+                          max="65535"
+                          step="1"
+                          inputMode="numeric"
+                          placeholder="1"
+                          value={filters.minStat ?? ""}
+                          onChange={(event) =>
+                            updateStatFilter({ minStat: event.target.value })
+                          }
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
                 {variants.length ? (
                   <>
                     <div className="tips">
-                      {variants.map((variant: any, i: number) => {
-                        const offers = rows.filter(
-                            (row: any) => row.variant?.id === variant.id,
-                          ),
-                          cheapest = offers.reduce(
-                            (pick: any, row: any) =>
-                              row.unit_price < pick.unit_price ? row : pick,
-                            offers[0],
-                          );
+                      {variants.map(({ key, variant, offers }, i: number) => {
+                        const cheapest = offers.reduce(
+                          (pick: any, row: any) =>
+                            row.unit_price < pick.unit_price ? row : pick,
+                          offers[0],
+                        );
                         return (
                           <div
                             className={"tip " + (i >= 3 ? "extra" : "")}
-                            key={variant.id}
+                            key={key}
+                            data-equipment-group={key}
                             data-bonus={
-                              hasBonus(variant, market.base_stats) ? "1" : "0"
+                              hasBonus(variant, market.base_stats || [])
+                                ? "1"
+                                : "0"
                             }
                           >
                             <Variant variant={variant} page={page} />
@@ -1285,8 +1351,12 @@ export default function Item({ page }: { page: any }) {
                 ) : (
                   <p className="note">
                     {words(
-                      "最近 72 小时没有看到带属性的在售装备。",
-                      "No listed instance with decoded stats in the last 72 hours.",
+                      allVariants.length
+                        ? "没有符合条件的装备。"
+                        : "最近 72 小时没有看到带属性的在售装备。",
+                      allVariants.length
+                        ? "No equipment matches these filters."
+                        : "No listed instance with decoded stats in the last 72 hours.",
                     )}
                   </p>
                 )}
