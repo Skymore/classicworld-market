@@ -159,6 +159,58 @@ async fn an_upload_changes_the_list_tag() {
 }
 
 #[tokio::test]
+async fn concurrent_lists_share_precomputed_results_without_reading_sales() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let (client, _) = market(&db).await;
+    let mut lock = db.pool.begin().await.unwrap();
+    sqlx::query("LOCK TABLE sales IN ACCESS EXCLUSIVE MODE")
+        .execute(&mut *lock)
+        .await
+        .unwrap();
+    let mut requests = tokio::task::JoinSet::new();
+    for _ in 0..16 {
+        let state = client.state.clone();
+        requests.spawn(async move {
+            state
+                .market_lists
+                .get(&state.db, market_web::views::Hours::Recent, true)
+                .await
+                .unwrap()
+        });
+    }
+    let first = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        let first = requests.join_next().await.unwrap().unwrap();
+        while let Some(answer) = requests.join_next().await {
+            assert_eq!(
+                answer.unwrap(),
+                first,
+                "same-version requests must reuse the exact response"
+            );
+        }
+        let all = client
+            .state
+            .market_lists
+            .get(&db.pool, market_web::views::Hours::All, true)
+            .await
+            .unwrap();
+        let all: Value = serde_json::from_slice(&all.1).unwrap();
+        assert_eq!(all["hours"], Value::Null);
+        assert_eq!(all["products"][0]["sales_window"], 2);
+        first
+    })
+    .await
+    .expect("list reads must not wait for the sales history table");
+    let body: Value = serde_json::from_slice(&first.1).unwrap();
+    assert_eq!(body["hours"], 72);
+    assert_eq!(body["products"][0]["sales_window"], 2);
+    assert_eq!(body["products"][0]["typical_window"], 500.0);
+    lock.rollback().await.unwrap();
+    db.close().await;
+}
+
+#[tokio::test]
 async fn recent_sales_pages_newest_first() {
     let Some(db) = TestDb::new().await else {
         return;

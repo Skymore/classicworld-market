@@ -515,6 +515,20 @@ async fn market(
     let summary = query_param(&query, "summary").as_deref() == Some("1");
     let (db, public, now) = (&state.db, state.settings.public_read, unix_now());
 
+    if layout == "list" && item.is_empty() {
+        return match state.market_lists.get(db, hours, public).await {
+            Ok((version, body)) => {
+                let tag = etag(version, &format!("market|list|{}", hours.key()));
+                if not_modified(&headers, &tag) {
+                    unchanged(&tag)
+                } else {
+                    json_response(Some(&tag), body)
+                }
+            }
+            Err(err) => internal(err),
+        };
+    }
+
     let version = match views::version(db).await {
         Ok(v) => v,
         Err(err) => return internal(err),

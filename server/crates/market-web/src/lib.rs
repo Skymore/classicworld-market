@@ -33,6 +33,7 @@ pub mod crafting;
 pub mod external;
 pub mod ingest;
 pub mod legacy;
+pub mod market_cache;
 pub mod realtime;
 pub mod scan_assignments;
 pub(crate) mod search;
@@ -65,6 +66,7 @@ pub struct AppState {
     pub db: PgPool,
     /// Short task leases must not queue behind market aggregation or uploads.
     pub scan_db: PgPool,
+    pub market_lists: Arc<market_cache::MarketListCache>,
     pub started: Instant,
     pub settings: Arc<Settings>,
     pub limiter: Arc<auth::RateLimiter>,
@@ -83,6 +85,7 @@ impl AppState {
         Self {
             db,
             scan_db,
+            market_lists: Arc::default(),
             started: Instant::now(),
             settings: Arc::new(settings),
             limiter: Arc::default(),

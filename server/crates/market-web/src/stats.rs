@@ -188,6 +188,42 @@ fn list_fields(item_id: i32, s: &SalesStats, w: &WindowFigures) -> String {
     members[1..members.len() - 1].to_string()
 }
 
+// Raw selected-period sales, matching the former list SQL. Pricing filters
+// for equipment/outliers must not change these transaction-count metrics.
+fn add_period_fields(row: &mut Value, sales: &[SaleEvent], window: Window, now: f64) {
+    let mut current = Vec::new();
+    let mut previous = Vec::new();
+    for sale in sales.iter().filter(|s| s.time <= now) {
+        if sale.time >= window.cutoff {
+            current.push(sale.unit_price);
+        } else if window.hours.is_some() && sale.time >= window.cutoff - 259200.0 {
+            previous.push(sale.unit_price);
+        }
+    }
+    current.sort_by(f64::total_cmp);
+    previous.sort_by(f64::total_cmp);
+    let percentile = |v: &[f64], q: f64| -> Option<f64> {
+        if v.is_empty() {
+            return None;
+        }
+        let p = (v.len() - 1) as f64 * q;
+        let i = p as usize;
+        Some(v[i] + (v[(i + 1).min(v.len() - 1)] - v[i]) * (p - i as f64))
+    };
+    let median = percentile(&current, 0.5);
+    let change = percentile(&previous, 0.5)
+        .filter(|v| *v > 0.0)
+        .and_then(|p| median.map(|m| (m / p - 1.0) * 100.0));
+    let fields = json!({"sales_window":current.len(), "typical_window":median,
+        "typical_window_low":percentile(&current,0.25), "typical_window_high":percentile(&current,0.75),
+        "change_window":change}).to_string();
+    row["list_fields"] = json!(format!(
+        "{},{}",
+        row["list_fields"].as_str().unwrap(),
+        &fields[1..fields.len() - 1]
+    ));
+}
+
 const WINDOW_COLUMNS: &str = "lowest_ask float8, median_ask float8, highest_ask float8, listings_count int, \
     shops_count int, variant_count int, sold_out_count int, sold_out_median float8, sales_count int, \
     quick_sell float8, normal_sell float8, recommendation jsonb, list_fields text";
@@ -201,11 +237,21 @@ async fn write(
     now: f64,
     last_seen: &HashMap<i32, f64>,
     exact_last_seen: bool,
+    data: &ItemData,
 ) -> sqlx::Result<()> {
     let anchor = now;
     let stats: Vec<Value> = figures
         .iter()
-        .map(|(id, f)| stats_json(*id, f, anchor, as_of, last_seen.get(id).copied()))
+        .map(|(id, f)| {
+            let mut row = stats_json(*id, f, anchor, as_of, last_seen.get(id).copied());
+            add_period_fields(
+                &mut row,
+                data.get(id).map(|d| d.1.as_slice()).unwrap_or(&[]),
+                Window::recent(now),
+                now,
+            );
+            row
+        })
         .collect();
     let all: Vec<Value> = figures
         .iter()
@@ -213,6 +259,12 @@ async fn write(
             let mut row = window_json(&f.all);
             row["item_id"] = json!(id);
             row["list_fields"] = json!(list_fields(*id, &f.stats, &f.all));
+            add_period_fields(
+                &mut row,
+                data.get(id).map(|d| d.1.as_slice()).unwrap_or(&[]),
+                Window::ALL,
+                now,
+            );
             row
         })
         .collect();
@@ -296,12 +348,15 @@ async fn write(
     Ok(())
 }
 
-fn compute(items: &[i32], mut data: ItemData, _as_of: f64, now: f64) -> Vec<(i32, ItemFigures)> {
+fn compute(items: &[i32], data: &ItemData, _as_of: f64, now: f64) -> Vec<(i32, ItemFigures)> {
     let anchor = anchor(None, now);
     items
         .iter()
         .map(|&id| {
-            let (listings, sales) = data.remove(&id).unwrap_or_default();
+            let (listings, sales) = data
+                .get(&id)
+                .map(|(l, s)| (l.as_slice(), s.as_slice()))
+                .unwrap_or((&[], &[]));
             (
                 id,
                 item_figures(i64::from(id), &listings, &sales, anchor, now),
@@ -323,8 +378,8 @@ pub async fn recompute_items(
         return Ok(());
     }
     let data = load(conn, Some(items)).await?;
-    let figures = compute(items, data, as_of, now);
-    write(conn, &figures, as_of, now, seen_at, false).await
+    let figures = compute(items, &data, as_of, now);
+    write(conn, &figures, as_of, now, seen_at, false, &data).await
 }
 
 /// Recompute every observed item. Returns the number of items written.
@@ -351,8 +406,8 @@ pub async fn refresh_all(conn: &mut PgConnection, now: f64) -> sqlx::Result<usiz
     let mut items: Vec<i32> = last_seen.keys().copied().collect();
     items.sort_unstable();
     let data = load(conn, None).await?;
-    let figures = compute(&items, data, as_of, now);
-    write(conn, &figures, as_of, now, &last_seen, true).await?;
+    let figures = compute(&items, &data, as_of, now);
+    write(conn, &figures, as_of, now, &last_seen, true, &data).await?;
     sqlx::query(
         "UPDATE market_state SET version = version + 1, as_of = to_timestamp($1), refreshed_at = to_timestamp($2),
              refreshed_cutoff = to_timestamp($3), refreshed_as_of = to_timestamp($1),
@@ -416,4 +471,56 @@ pub async fn refresh_if_due(db: &PgPool, now: f64) -> sqlx::Result<bool> {
     }
     tx.commit().await?;
     Ok(due)
+}
+
+#[cfg(test)]
+mod period_tests {
+    use super::*;
+
+    #[test]
+    fn period_metrics_preserve_boundaries_quartiles_and_all_history() {
+        let now = 1_000_000.0;
+        let cutoff = Window::recent(now).cutoff;
+        let sales: Vec<SaleEvent> = [
+            (cutoff - 259201.0, 1.0),
+            (cutoff - 259200.0, 5.0),
+            (cutoff - 1.0, 15.0),
+            (cutoff, 10.0),
+            (now - 2.0, 20.0),
+            (now - 1.0, 30.0),
+            (now, 40.0),
+            (now + 1.0, 999.0),
+        ]
+        .into_iter()
+        .map(|(time, unit_price)| SaleEvent {
+            time,
+            unit_price,
+            kind: SaleKind::parse("found_sold").unwrap(),
+            shop: 1,
+            slot: 1,
+            variant: None,
+            upgrade: None,
+        })
+        .collect();
+        let read = |window, time| {
+            let mut row = json!({"list_fields":"\"existing\":true"});
+            add_period_fields(&mut row, &sales, window, time);
+            serde_json::from_str::<Value>(&format!("{{{}}}", row["list_fields"].as_str().unwrap()))
+                .unwrap()
+        };
+        let recent = read(Window::recent(now), now);
+        assert_eq!(recent["sales_window"], 4);
+        assert_eq!(recent["typical_window"], 25.0);
+        assert_eq!(recent["typical_window_low"], 17.5);
+        assert_eq!(recent["typical_window_high"], 32.5);
+        assert_eq!(recent["change_window"], 150.0);
+        let all = read(Window::ALL, now);
+        assert_eq!(all["sales_window"], 7);
+        assert_eq!(all["typical_window"], 15.0);
+        assert_eq!(all["change_window"], Value::Null);
+        let later = now + 7.0 * 86400.0;
+        let empty = read(Window::recent(later), later);
+        assert_eq!(empty["sales_window"], 0);
+        assert_eq!(empty["typical_window"], Value::Null);
+    }
 }

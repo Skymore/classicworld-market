@@ -260,23 +260,10 @@ pub async fn market_list(
         ),
     };
     let rows = sqlx::query(&format!(
-        "WITH period AS (
-           SELECT item_id,
-             count(*) FILTER (WHERE $1::float8 IS NULL OR detected_at >= to_timestamp($1)) AS n,
-             percentile_cont(0.5) WITHIN GROUP (ORDER BY unit_price) FILTER (WHERE $1::float8 IS NULL OR detected_at >= to_timestamp($1)) AS median,
-             percentile_cont(0.25) WITHIN GROUP (ORDER BY unit_price) FILTER (WHERE $1::float8 IS NULL OR detected_at >= to_timestamp($1)) AS lo,
-             percentile_cont(0.75) WITHIN GROUP (ORDER BY unit_price) FILTER (WHERE $1::float8 IS NULL OR detected_at >= to_timestamp($1)) AS hi,
-             percentile_cont(0.5) WITHIN GROUP (ORDER BY unit_price) FILTER (WHERE $1::float8 IS NOT NULL AND detected_at < to_timestamp($1)) AS previous
-           FROM market_sales WHERE detected_at <= to_timestamp($2) AND ($1::float8 IS NULL OR detected_at >= to_timestamp($1 - 259200)) GROUP BY item_id
-         )
-         SELECT st.item_id, COALESCE(NULLIF(i.name_zh, ''), st.item_id::text), i.name_en, i.icon_url,
-                i.subcategory, i.req_level, i.req_job_mask, extract(epoch FROM st.last_seen_at)::float8, {fields},
-                COALESCE(p.n,0), p.median, p.lo, p.hi,
-                CASE WHEN p.previous > 0 THEN (p.median/p.previous-1)*100 ELSE NULL END
-         FROM item_stats st JOIN items i ON i.id = st.item_id {join} LEFT JOIN period p ON p.item_id=st.item_id ORDER BY st.item_id"
+        "SELECT st.item_id, COALESCE(NULLIF(i.name_zh, ''), st.item_id::text), i.name_en, i.icon_url,
+                i.subcategory, i.req_level, i.req_job_mask, extract(epoch FROM st.last_seen_at)::float8, {fields}
+         FROM item_stats st JOIN items i ON i.id = st.item_id {join} ORDER BY st.item_id"
     ))
-    .bind(hours.window(now).cutoff)
-    .bind(now)
     .fetch_all(db)
     .await?;
 
@@ -315,18 +302,12 @@ pub async fn market_list(
         }
         serde_json::to_writer(&mut body, &catalogue).expect("serialisable");
         body.pop();
-        let metrics = json!({"sales_window": r.get::<i64,_>(9), "typical_window": r.get::<Option<f64>,_>(10),
-            "typical_window_low": r.get::<Option<f64>,_>(11), "typical_window_high": r.get::<Option<f64>,_>(12),
-            "change_window": r.get::<Option<f64>,_>(13)}).to_string();
-        body.push(b',');
-        body.extend_from_slice(&metrics.as_bytes()[1..]);
         let fields: &str = r.get(8);
         if !fields.is_empty() {
-            body.pop();
             body.push(b',');
             body.extend_from_slice(fields.as_bytes());
-            body.push(b'}');
         }
+        body.push(b'}');
     }
     body.extend_from_slice(b"]}");
     Ok((head.version, body))
