@@ -111,5 +111,49 @@ async fn leases_exclude_other_workers_and_fence_disconnected_sessions() {
     )
     .await;
     assert_ne!(next.1["assignment"]["room"], fresh.1["assignment"]["room"]);
+    s.scan_db.close().await;
+    db.close().await;
+}
+
+#[tokio::test]
+async fn task_lease_survives_exhausted_market_pool() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let s = AppState::new(db.pool.clone(), Settings::default());
+    let collector = auth::register(&db.pool, "busy market scanner")
+        .await
+        .unwrap();
+    // Hold every connection used by market pages and ingestion. Claim and
+    // authentication must also use the reserved pool, not just heartbeat SQL.
+    let mut held = Vec::new();
+    for _ in 0..4 {
+        held.push(db.pool.acquire().await.unwrap());
+    }
+    let scenario = async {
+        let session = json!({"session_id":"cccccccccccccccc"});
+        let (status, claimed) = call(&s, &collector.token, "claim", session).await;
+        assert_eq!(status, StatusCode::OK);
+        let lease = json!({"session_id":"cccccccccccccccc", "lease_id":claimed["assignment"]["lease_id"], "channel":14});
+        assert_eq!(
+            call(&s, &collector.token, "heartbeat", lease.clone())
+                .await
+                .0,
+            StatusCode::OK
+        );
+        assert_eq!(
+            call(&s, &collector.token, "release", lease.clone()).await.0,
+            StatusCode::OK
+        );
+        assert_eq!(
+            call(&s, &collector.token, "heartbeat", lease).await.0,
+            StatusCode::CONFLICT
+        );
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(2), scenario)
+        .await
+        .expect("market traffic must not block short task leases");
+    drop(held);
+    s.scan_db.close().await;
     db.close().await;
 }

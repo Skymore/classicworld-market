@@ -2,7 +2,7 @@
 //! and the tools build the router or call the modules directly.
 
 use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use axum::{
     extract::State,
@@ -12,7 +12,7 @@ use axum::{
     Json, Router,
 };
 use serde::Serialize;
-use sqlx::PgPool;
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use tower_http::{
     compression::CompressionLayer,
     set_header::SetResponseHeaderLayer,
@@ -63,6 +63,8 @@ impl Default for Settings {
 #[derive(Clone)]
 pub struct AppState {
     pub db: PgPool,
+    /// Short task leases must not queue behind market aggregation or uploads.
+    pub scan_db: PgPool,
     pub started: Instant,
     pub settings: Arc<Settings>,
     pub limiter: Arc<auth::RateLimiter>,
@@ -74,8 +76,13 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(db: PgPool, settings: Settings) -> Self {
+        let scan_db = PgPoolOptions::new()
+            .max_connections(2)
+            .acquire_timeout(Duration::from_secs(2))
+            .connect_lazy_with(db.connect_options().as_ref().clone());
         Self {
             db,
+            scan_db,
             started: Instant::now(),
             settings: Arc::new(settings),
             limiter: Arc::default(),

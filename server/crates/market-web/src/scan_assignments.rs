@@ -41,7 +41,7 @@ async fn identity(state: &AppState, headers: &HeaderMap, request: &Request) -> R
         .get("authorization")
         .and_then(|s| s.to_str().ok())
         .and_then(|s| s.strip_prefix("Bearer "));
-    let collector = auth::authenticate(&state.db, token)
+    let collector = auth::authenticate(&state.scan_db, token)
         .await
         .map_err(db_error)?
         .ok_or_else(|| {
@@ -68,7 +68,7 @@ async fn claim(
     Json(r): Json<Request>,
 ) -> Result<Json<Value>, Error> {
     let id = identity(&state, &headers, &r).await?;
-    let mut tx = state.db.begin().await.map_err(db_error)?;
+    let mut tx = state.scan_db.begin().await.map_err(db_error)?;
     // Serializes the tiny allocation transaction, including expiry and same-worker claims.
     sqlx::query("SELECT pg_advisory_xact_lock(82739122)")
         .execute(&mut *tx)
@@ -127,7 +127,7 @@ async fn change(
         .as_deref()
         .filter(|s| !s.is_empty() && s.len() <= 64)
         .ok_or_else(|| error(StatusCode::BAD_REQUEST, "Lease required"))?;
-    let mut tx = state.db.begin().await.map_err(db_error)?;
+    let mut tx = state.scan_db.begin().await.map_err(db_error)?;
     // Same global lock as claim prevents expiry/reassignment racing renewal/release.
     sqlx::query("SELECT pg_advisory_xact_lock(82739122)")
         .execute(&mut *tx)
