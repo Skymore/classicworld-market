@@ -65,10 +65,10 @@ try {
     await page.locator('[data-offer-clear=all]').click();
     if(width<640)await page.locator('[data-tab=sales]').click();
     const panel=page.locator(width<640?'[data-pane=sales]':'.sales-well');
-    const sale=panel.locator('[data-sale-details]').first();
+    const sale=panel.locator('[data-sale-stats]').first();
     if(await sale.count()){
-      await sale.locator('summary').click();
-      assert(await sale.locator('.tip,.note').isVisible());
+      assert(await sale.locator('.sale-equipment').isVisible(),'sale stats are visible without a disclosure');
+      assert.equal(await panel.locator('details,summary').count(),0);
     }
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     assert.deepEqual(errors,[]);await page.close();

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "/web/js/lib/i18n.js";
 import { meso, fullTime } from "/web/js/lib/format.js";
+import { equipmentSummary } from "/web/js/lib/equipment-summary.js?v=20261024-records-3";
 import {
   normalizeOfferFilters,
   filterOffers,
@@ -411,7 +412,6 @@ export default function Item({ page }: { page: any }) {
     [more, setMore] = useState<Set<string>>(new Set()),
     [channels, setChannels] = useState<Record<string, boolean>>({}),
     [offersOpen, setOffersOpen] = useState<Set<string>>(new Set()),
-    [salesOpen, setSalesOpen] = useState<Set<string>>(new Set()),
     [filterOpen, setFilterOpen] = useState(false),
     [, tick] = useState(0);
   const opener = useRef<HTMLButtonElement>(null);
@@ -631,12 +631,31 @@ export default function Item({ page }: { page: any }) {
           <div className={"sales-list " + (withShop ? "salegrid" : "")}>
             {sales.map((row: any, i: number) => {
               const key = row.key;
-              const content = (
-                <>
+              const summary = equipment
+                ? equipmentSummary(
+                    {
+                      item_id: item.id,
+                      equipment: row.variant
+                        ? { ...row.variant, status: "candidate" }
+                        : null,
+                    },
+                    language === "en",
+                  )
+                : "";
+              return (
+                <div
+                  className={
+                    "sale " +
+                    (equipment ? "sale-with-stats " : "") +
+                    (i >= 10 ? "extra" : "")
+                  }
+                  data-sale-stats={equipment ? "" : undefined}
+                  key={key}
+                >
                   <span className={"evi " + row.kind}>
                     {t("evidence." + row.kind)}
                   </span>
-                  <span>
+                  <span className="sale-price">
                     <span className="sp">
                       <Price value={row.unit_price} />
                     </span>
@@ -654,58 +673,26 @@ export default function Item({ page }: { page: any }) {
                     }}
                   />
                   {withShop && <span className="ss">{row.shop}</span>}
-                  <span className="sa">
-                    <RelativeTime at={timestamp(row.detected_at)} />
-                  </span>
-                  {equipment && (
-                    <span className="sale-stat-state">
-                      {row.variant
-                        ? words("属性 ›", "Stats ›")
-                        : words("属性未采集", "Stats not captured")}
+                  {equipment ? (
+                    <span className="sale-meta">
+                      <span className="sale-time">
+                        <RelativeTime at={timestamp(row.detected_at)} />
+                      </span>
+                      <span
+                        className="sale-equipment"
+                        title={summary || undefined}
+                      >
+                        {summary ||
+                          (row.variant
+                            ? words("暂无可显示属性", "No decoded stats")
+                            : words("属性未采集", "Stats not captured"))}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="sa">
+                      <RelativeTime at={timestamp(row.detected_at)} />
                     </span>
                   )}
-                </>
-              );
-              return equipment ? (
-                <details
-                  className={"sale-details " + (i >= 10 ? "extra" : "")}
-                  data-sale-details
-                  key={key}
-                  open={salesOpen.has(key)}
-                  onToggle={(event) => {
-                    const open = event.currentTarget.open;
-                    setSalesOpen((old) => {
-                      if (old.has(key) === open) return old;
-                      const next = new Set(old);
-                      open ? next.add(key) : next.delete(key);
-                      return next;
-                    });
-                  }}
-                >
-                  <summary className="sale">{content}</summary>
-                  <div className="sale-stat-body">
-                    {row.variant ? (
-                      <>
-                        <div className="tip">
-                          <Variant variant={row.variant} page={page} />
-                        </div>
-                        <SiteLink className="btn" href={itemHref(row.variant)}>
-                          {words("查看同属性报价", "Find matching offers")}
-                        </SiteLink>
-                      </>
-                    ) : (
-                      <p className="note">
-                        {words(
-                          "这条成交没有采集到装备属性。",
-                          "Equipment stats were not captured for this sale.",
-                        )}
-                      </p>
-                    )}
-                  </div>
-                </details>
-              ) : (
-                <div className={"sale " + (i >= 10 ? "extra" : "")} key={key}>
-                  {content}
                 </div>
               );
             })}
