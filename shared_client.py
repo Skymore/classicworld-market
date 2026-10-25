@@ -327,7 +327,7 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None):
         if not args.proxy:
             from market_passive import run
             print('Receive-only capture: ' + args.backend + ' backend. Reconnect once, then browse manually.',flush=True)
-            run(folder,args.seconds,args.backend,stop_event=stopping);return
+            run(folder,args.seconds,args.backend,stop_event=stopping,on_event=on_event);return
         from market_proxy import Proxy
         print('Local proxy 127.0.0.1:1088. Reconnect game channel after importing profile. Browse manually. Close game session before stopping collector.',flush=True)
         asyncio.run(Proxy(folder,allow_requests=False,market_only=True).run())

@@ -101,6 +101,7 @@ class DesktopTests(unittest.TestCase):
         self.modules.update({'channel_capture': lambda path, stop: stop.wait(2), 'position_capture': lambda path, stop: stop.wait(2),
                              'DEFAULT_STATE': None, 'POSITION_STATE': None, 'CloudScan': Mock(return_value=lease), 'run': run})
         with patch('scanner_desktop.focus_game'), patch('scanner_desktop.release_keys'), patch('scanner_desktop.RUNS', Path(self.temp.name)/'runs'):
+            self.controller._change(run_shops=12,run_items=90)
             self.controller.start(12)
             self.assertTrue(started.wait(2))
             self.controller.command('pause')
@@ -114,6 +115,8 @@ class DesktopTests(unittest.TestCase):
         self.runtime.close.assert_not_called()
         self.assertEqual(self.controller.snapshot()['room'], 8)
         self.assertEqual(self.controller.snapshot()['phase'], 'stopped')
+        self.assertEqual(self.controller.snapshot()['run_shops'],12)
+        self.assertEqual(self.controller.snapshot()['run_items'],90)
 
     def test_internal_event_names_do_not_leak_into_ui(self):
         self.assertEqual(status_text('full_scanning_room_8_channel_12'), '正在扫描 8 洞 · CH 12')

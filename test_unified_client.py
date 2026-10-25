@@ -13,6 +13,37 @@ from unified_client import CollectorRuntime
 from build_unified_client import modules
 
 class UnifiedTests(unittest.TestCase):
+    def test_session_statistics_use_saved_captures_not_uploads_or_room_progress(self):
+        from market_passive import Collector
+        from scanner_desktop import DesktopController
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as folder:
+            options=argparse.Namespace(home=Path(folder),config=None,folder=None,backend='windows',no_update=True)
+            with patch('threading.Thread.start'):
+                runtime=CollectorRuntime(options,[])
+            capture=Collector(Path(folder)/'captures',on_event=runtime._notify)
+            capture.event('shop_list',file='first.json',item_count=3)
+            controller=DesktopController(runtime,modules={'LeaseStopEvent':threading.Event},windows=lambda:[])
+            self.assertEqual(controller.snapshot()['run_items'],3,'early captures survive listener registration')
+            controller._on_scan('full_scanning_room_8_channel_12')
+            capture.event('shop_list',file='first.json',item_count=3)
+            capture.event('observation_rejected',file='bad.json',item_count=99)
+            runtime._notify({'type':'uploaded','count':150})
+            runtime._notify({'type':'upload_error'})
+            self.assertEqual(controller.snapshot()['run_shops'],1)
+            self.assertEqual(controller.snapshot()['run_items'],3)
+            controller._on_scan('full_scanning_room_9_channel_1')
+            controller._change(phase='paused')
+            capture.event('shop_list',file='second.json',item_count=2)
+            controller._change(phase='stopped',mode='manual')
+            capture.event('shop_list',file='empty.json',item_count=0)
+            self.assertEqual(controller.snapshot()['run_shops'],3)
+            self.assertEqual(controller.snapshot()['run_items'],5)
+            self.assertEqual(controller.snapshot()['run_started_at'],runtime.statistics()['run_started_at'])
+            with patch('threading.Thread.start'):
+                next_runtime=CollectorRuntime(options,[])
+            self.assertEqual(next_runtime.statistics()['run_shops'],0,'fresh launch does not count historical files')
+
     def test_capture_failure_keeps_traceback_in_runtime_log(self):
         with tempfile.TemporaryDirectory() as folder:
             options=argparse.Namespace(home=Path(folder),config=None,folder=None,

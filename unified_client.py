@@ -59,6 +59,9 @@ class CollectorRuntime:
         self.config_path = options.config or self.home/'member.json'
         self.folder = options.folder or self.home/'captures'
         self._listeners = []
+        self._stats_lock = threading.Lock()
+        self._captured_files = set()
+        self._stats = dict(run_started_at=time.time(), run_shops=0, run_items=0)
         self.capture_args = ['--no-browser','--home',str(self.home),'--config',str(self.config_path),
                              '--backend',options.backend]
         if options.folder:
@@ -93,11 +96,26 @@ class CollectorRuntime:
         self._listeners.append(callback)
 
     def _notify(self, event):
+        if event.get('type') == 'captured':
+            filename, items = event.get('file'), event.get('items')
+            if not isinstance(filename, str) or not filename or type(items) is not int or items < 0:
+                return
+            with self._stats_lock:
+                if filename in self._captured_files:
+                    return
+                self._captured_files.add(filename)
+                self._stats['run_shops'] += 1
+                self._stats['run_items'] += items
+                event = dict(type='run_stats', **self._stats)
         for listener in tuple(self._listeners):
             try:
                 listener(event)
             except Exception:
                 pass
+
+    def statistics(self):
+        with self._stats_lock:
+            return dict(self._stats)
 
     def configuration(self):
         if not self.ready.wait(10):

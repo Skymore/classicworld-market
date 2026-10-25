@@ -89,11 +89,12 @@ def game_owner(key):
 
 class Collector:
     market_only=True
-    def __init__(self,folder,owner=game_owner):
+    def __init__(self,folder,owner=game_owner,on_event=None):
         self.folder=Path(folder);self.folder.mkdir(parents=True,exist_ok=True)
         self.owner=owner;self.flows={};self.ignored=0;self.captured=0;self.last_status=0;self.message_counts={};self.last_shop_at=None
         self.last_status_attempt=0
         self._status_warnings={}
+        self.on_event=on_event
     def write_status(self, path, state):
         """UI diagnostics are best effort; file readers must not stop capture."""
         temporary=path.with_suffix('.json.tmp')
@@ -119,6 +120,11 @@ class Collector:
             path.replace(self.folder/'passive_events.previous.jsonl')
         with path.open('a',encoding='utf-8') as out:out.write(json.dumps(entry,ensure_ascii=False)+'\n')
         print(json.dumps(entry,ensure_ascii=True),flush=True)
+        if kind=='shop_list' and self.on_event:
+            try:
+                self.on_event(dict(type='captured',file=fields.get('file'),items=fields.get('item_count')))
+            except Exception as error:
+                print(f'Capture statistics unavailable ({type(error).__name__}).',flush=True)
     def check_owner(self,key,flow,now):
         if flow['decoder'] is None and now>=flow['check']:
             flow['check']=now+0.2
@@ -306,8 +312,8 @@ def capture_health(collector,game_connected,elapsed):
     return 'waiting','Waiting for inbound game packets / 正在检查游戏入站收包。'
 
 
-def run(folder,seconds=0,backend="windivert",stop_event=None):
-    collector=Collector(folder);sniffer=WindowsSniffer() if backend=="windows" else Sniffer();collector.mode=getattr(sniffer,"mode","windivert-sniff-recv-only");packets=queue.Queue(maxsize=8192);overflow=threading.Event()
+def run(folder,seconds=0,backend="windivert",stop_event=None,on_event=None):
+    collector=Collector(folder,on_event=on_event);sniffer=WindowsSniffer() if backend=="windows" else Sniffer();collector.mode=getattr(sniffer,"mode","windivert-sniff-recv-only");packets=queue.Queue(maxsize=8192);overflow=threading.Event()
     def receive():
         while sniffer.handle is not None:
             try:raw=sniffer.recv()

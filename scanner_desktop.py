@@ -111,6 +111,7 @@ class DesktopController:
         self._bound = 0
         self._state = dict(version=VERSION, phase='idle', mode='scan', message='准备就绪，选择游戏后即可开始。',
                            room=None, channel=None, visited=0, uploaded=0, started_at=None, stopped_at=None,
+                           run_shops=0, run_items=0, run_started_at=time.time(),
                            capture='connecting', upload='ready', last_shop_at=None, windows=[],
                            selected=None, theme='system', updates='checking', activities=[])
         try:
@@ -120,6 +121,12 @@ class DesktopController:
         except (OSError, ValueError):
             pass
         collector.add_listener(self._collector_event)
+        self._read_statistics()
+
+    def _read_statistics(self):
+        stats = self.collector.statistics()
+        if isinstance(stats, dict):
+            self._change(**{key: stats[key] for key in ('run_shops', 'run_items', 'run_started_at') if key in stats})
 
     def snapshot(self):
         with self._lock:
@@ -142,7 +149,9 @@ class DesktopController:
         self._events.put(None)
 
     def _collector_event(self, event):
-        if event['type'] == 'uploaded':
+        if event['type'] == 'run_stats':
+            self._read_statistics()
+        elif event['type'] == 'uploaded':
             with self._lock:
                 self._state['uploaded'] += event['count']
                 self._state['upload'] = 'ready'
@@ -350,6 +359,7 @@ class DesktopController:
             if self.collector.error:
                 self._stop.set()
                 self._change(capture='offline', message='采集服务已停止，请重新启动程序。')
+                self._activity('采集服务已停止，请重新启动程序。', 'warning')
             if self.collector.stopped() and not self.collector.error:
                 self.close()
             value = json.dumps(self.snapshot(), ensure_ascii=False)
