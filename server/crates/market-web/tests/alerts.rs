@@ -186,6 +186,16 @@ async fn authenticated_history_location_repair_preserves_quotes_and_merges_shop(
     let response = client.send(request(&owner, &fixed)).await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(json_body(response).await["repaired"], true);
+    let contributions: (i64, i64) =
+        sqlx::query_as("SELECT count(DISTINCT shop_id),count(*) FROM contribution_states")
+            .fetch_one(&db.pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        contributions,
+        (1, 2),
+        "location repair merges the contribution shop without losing its two stock states"
+    );
     assert_eq!(
         json_body(client.send(request(&owner, &fixed)).await).await["repaired"],
         false

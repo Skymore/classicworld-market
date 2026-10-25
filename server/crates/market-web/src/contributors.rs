@@ -248,13 +248,19 @@ pub(crate) async fn personal_stats(
         .execute(&mut *tx)
         .await?;
     let (shops, quotes): (i64, i64) = sqlx::query_as(
-        "WITH states AS (
-      SELECT o.shop_id,r.slot,r.item_id,r.variant_id,r.price,r.bundle,r.stock
-      FROM observations o JOIN collectors c ON c.id=o.collector_id
-      JOIN observation_rows r ON r.observation_id=o.id
-      WHERE (c.account_id=$1 OR c.id=$2) AND o.observed_at<=now()
-      GROUP BY o.shop_id,r.slot,r.item_id,r.variant_id,r.price,r.bundle,r.stock
-    ) SELECT count(DISTINCT shop_id),count(*) FROM states",
+        "WITH selected AS (
+      SELECT id FROM collectors WHERE account_id=$1 OR id=$2
+    ), states AS (
+      SELECT r.shop_id,r.slot,r.item_id,r.variant_id,r.price,r.bundle,r.stock
+      FROM contribution_states r JOIN selected c ON c.id=r.collector_id
+      WHERE (SELECT count(*) FROM selected)>1 AND r.first_seen<=now()
+      GROUP BY r.shop_id,r.slot,r.item_id,r.variant_id,r.price,r.bundle,r.stock
+    ), shop_counts AS (
+      SELECT r.shop_id,count(*)::bigint quotes FROM contribution_states r
+      JOIN selected c ON c.id=r.collector_id
+      WHERE (SELECT count(*) FROM selected)=1 AND r.first_seen<=now() GROUP BY r.shop_id
+      UNION ALL SELECT shop_id,count(*)::bigint quotes FROM states GROUP BY shop_id
+    ) SELECT count(*),coalesce(sum(quotes),0)::bigint FROM shop_counts",
     )
     .bind(account)
     .bind(collector)
@@ -372,7 +378,9 @@ async fn leaderboard(
     ClientAddr(addr): ClientAddr,
     Query(q): Query<BoardQuery>,
 ) -> Response {
-    if !state.limiter.allow(&format!("contributors:{addr}"), 60) {
+    // An open board refetches on each market event. Keep burst protection
+    // without cutting off legitimate live readers at one upload per second.
+    if !state.limiter.allow(&format!("contributors:{addr}"), 600) {
         return error(StatusCode::TOO_MANY_REQUESTS, "rate_limited");
     }
     let days = match q.period.as_str() {
@@ -417,28 +425,40 @@ pub(crate) async fn board(db: &PgPool, days: i32) -> sqlx::Result<Value> {
     // Rank by distinct shops, so repeatedly reopening one shop cannot farm rank.
     let rows=sqlx::query_as::<_,BoardRow>(r#"
         WITH public_collectors AS (
-          SELECT c.id, CASE WHEN a.id IS NULL THEN 'c:'||c.id ELSE 'a:'||a.id END actor,
-                 coalesce(a.nickname,c.nickname) nickname
+          SELECT c.id, CASE WHEN a.id IS NULL THEN c.id ELSE -a.id END actor,
+                 coalesce(a.nickname,c.nickname) nickname,
+                 count(*) OVER (PARTITION BY CASE WHEN a.id IS NULL THEN c.id ELSE -a.id END) devices
           FROM collectors c LEFT JOIN accounts a ON a.id=c.account_id
           WHERE c.active AND coalesce(a.listed,c.listed) AND coalesce(a.nickname,c.nickname)<>''
-        ), visits AS MATERIALIZED (
-          SELECT p.actor,p.nickname,o.id,o.shop_id,(o.observed_at AT TIME ZONE 'UTC')::date AS observed_day
-          FROM public_collectors p JOIN observations o ON o.collector_id=p.id
-          WHERE o.observed_at<=now() AND ($1=0 OR o.observed_at>=now()-make_interval(days=>$1))
-            AND EXISTS (SELECT 1 FROM observation_rows r WHERE r.observation_id=o.id)
-        ), states AS (
-          SELECT v.actor,v.shop_id,r.slot,r.item_id,r.variant_id,r.price,r.bundle,r.stock
-          FROM visits v JOIN observation_rows r ON r.observation_id=v.id
-          GROUP BY v.actor,v.shop_id,r.slot,r.item_id,r.variant_id,r.price,r.bundle,r.stock
+        ), shared_states AS (
+          SELECT p.actor,r.shop_id,r.slot,r.item_id,r.variant_id,r.price,r.bundle,r.stock
+          FROM public_collectors p JOIN contribution_states r ON r.collector_id=p.id
+          WHERE p.devices>1 AND CASE $1 WHEN 0 THEN r.first_seen<=now()
+            WHEN 7 THEN r.week_windows @> now() ELSE r.month_windows @> now() END
+          GROUP BY p.actor,r.shop_id,r.slot,r.item_id,r.variant_id,r.price,r.bundle,r.stock
+        ), shop_counts AS (
+          SELECT p.actor,r.shop_id,count(*)::bigint quotes
+          FROM public_collectors p JOIN contribution_states r ON r.collector_id=p.id
+          WHERE p.devices=1 AND CASE $1 WHEN 0 THEN r.first_seen<=now()
+            WHEN 7 THEN r.week_windows @> now() ELSE r.month_windows @> now() END
+          GROUP BY p.actor,r.shop_id
+          UNION ALL
+          SELECT actor,shop_id,count(*)::bigint quotes FROM shared_states GROUP BY actor,shop_id
         ), quote_counts AS (
-          SELECT actor,count(*)::bigint quotes FROM states GROUP BY actor
+          SELECT actor,count(*)::bigint shops,sum(quotes)::bigint quotes
+          FROM shop_counts GROUP BY actor
         ), visit_counts AS (
-          SELECT actor,nickname,count(DISTINCT shop_id)::bigint shops,
-            count(DISTINCT observed_day)::bigint days FROM visits GROUP BY actor,nickname
+          SELECT p.actor,count(DISTINCT d.day)::bigint days
+          FROM public_collectors p JOIN contribution_days d ON d.collector_id=p.id
+          WHERE CASE $1 WHEN 0 THEN d.first_seen<=now()
+            WHEN 7 THEN d.week_windows @> now() ELSE d.month_windows @> now() END
+          GROUP BY p.actor
         )
-        SELECT v.nickname,v.shops,q.quotes,v.days FROM visit_counts v
-        JOIN quote_counts q ON q.actor=v.actor
-        ORDER BY shops DESC,quotes DESC,days DESC,v.actor LIMIT 100
+        SELECT p.nickname,q.shops,q.quotes,v.days FROM quote_counts q
+        JOIN visit_counts v ON v.actor=q.actor
+        JOIN (SELECT DISTINCT actor,nickname FROM public_collectors) p ON p.actor=q.actor
+        ORDER BY shops DESC,quotes DESC,days DESC,
+          CASE WHEN q.actor<0 THEN 'a:'||(-q.actor) ELSE 'c:'||q.actor END LIMIT 100
     "#).bind(days).fetch_all(&mut *tx).await?;
     tx.commit().await?;
     Ok(json!({"period":if days==0{"all"}else if days==30{"month"}else{"week"},"contributors":rows}))

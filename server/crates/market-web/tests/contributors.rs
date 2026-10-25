@@ -60,6 +60,207 @@ async fn upload(state: &AppState, token: &str, id: &str, shop: i64, when: f64) {
     .await;
     assert_eq!(result.0, StatusCode::CREATED, "{}", result.2);
 }
+
+#[tokio::test]
+async fn contributions_update_on_commit_without_a_time_cache_or_history_reads() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let state = AppState::new(db.pool.clone(), Settings::default());
+    let credentials = auth::register(&db.pool, "realtime").await.unwrap();
+    let token = &credentials.token;
+    let headers = [("authorization", format!("Bearer {token}"))];
+    for period in ["week", "month", "all"] {
+        let board = request(
+            &state,
+            "GET",
+            &format!("/api/v1/contributors?period={period}"),
+            Value::Null,
+            &[],
+        )
+        .await
+        .2;
+        assert_eq!(board["contributors"], json!([]));
+    }
+    assert_eq!(
+        request(
+            &state,
+            "GET",
+            "/api/v1/collector/profile",
+            Value::Null,
+            &headers
+        )
+        .await
+        .2["stats"]["quotes"],
+        0
+    );
+    let mut listener = sqlx::postgres::PgListener::connect_with(&db.pool)
+        .await
+        .unwrap();
+    listener.listen("market_changed").await.unwrap();
+    let now = unix_now();
+    upload(&state, token, "live-first", 101, now - 60.).await;
+    tokio::time::timeout(std::time::Duration::from_secs(2), listener.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    for period in ["week", "month", "all"] {
+        let board = request(
+            &state,
+            "GET",
+            &format!("/api/v1/contributors?period={period}"),
+            Value::Null,
+            &[],
+        )
+        .await
+        .2;
+        assert_eq!(board["contributors"][0]["shops"], 1);
+        assert_eq!(
+            board["contributors"][0]["quotes"], 1,
+            "first push must not return cached zero"
+        );
+    }
+    assert_eq!(
+        request(
+            &state,
+            "GET",
+            "/api/v1/collector/profile",
+            Value::Null,
+            &headers
+        )
+        .await
+        .2["stats"]["quotes"],
+        1
+    );
+    upload(&state, token, "live-second", 102, now - 40.).await;
+    let board = request(&state, "GET", "/api/v1/contributors", Value::Null, &[])
+        .await
+        .2;
+    assert_eq!(
+        board["contributors"][0]["shops"], 2,
+        "next upload immediately invalidates the populated cache"
+    );
+    let burst = futures_util::future::join_all(
+        (0..80).map(|_| request(&state, "GET", "/api/v1/contributors", Value::Null, &[])),
+    )
+    .await;
+    assert!(burst.iter().all(
+        |(status, _, body)| *status == StatusCode::OK && body["contributors"][0]["shops"] == 2
+    ));
+    upload(&state, token, "live-repeat", 102, now - 20.).await;
+    upload(&state, token, "live-old", 103, now - 9. * 86400.).await;
+    upload(&state, token, "live-future", 104, now + 60.).await;
+    // Latest timestamp alone would incorrectly discard this valid prior visit.
+    upload(&state, token, "live-future-repeat", 101, now + 80.).await;
+    for (period, expected) in [("week", 2), ("month", 3), ("all", 3)] {
+        let board = request(
+            &state,
+            "GET",
+            &format!("/api/v1/contributors?period={period}"),
+            Value::Null,
+            &[],
+        )
+        .await
+        .2;
+        assert_eq!(board["contributors"][0]["shops"], expected);
+        assert_eq!(board["contributors"][0]["quotes"], expected);
+    }
+    // Changing the state counts as an additional quote, without another shop.
+    let changed = json!({"version":1,"world":"ClassicWorld","complete":true,"observation_id":"live-changed","observed_at":now-5.,"shop_id":102,"title":"Shop 102","location":{"channel":30,"room":3},"items":[{"item_id":4010001,"category":4,"slot":1,"price":90,"bundle":1,"stock":4}]});
+    assert_eq!(
+        request(&state, "POST", "/api/v1/observations", changed, &headers)
+            .await
+            .0,
+        StatusCode::CREATED
+    );
+    // Fresh service + locked raw history: statistics must use the incrementally
+    // maintained summaries, not merely a warmed in-process response cache.
+    let fresh = AppState::new(db.pool.clone(), Settings::default());
+    let mut locked = db.pool.begin().await.unwrap();
+    sqlx::raw_sql("LOCK TABLE observations,observation_rows IN ACCESS EXCLUSIVE MODE")
+        .execute(&mut *locked)
+        .await
+        .unwrap();
+    let board = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        request(&fresh, "GET", "/api/v1/contributors", Value::Null, &[]),
+    )
+    .await
+    .unwrap()
+    .2;
+    assert_eq!(board["contributors"][0]["shops"], 2);
+    assert_eq!(board["contributors"][0]["quotes"], 3);
+    let own = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        request(
+            &fresh,
+            "GET",
+            "/api/v1/collector/profile",
+            Value::Null,
+            &headers,
+        ),
+    )
+    .await
+    .unwrap()
+    .2;
+    assert_eq!(own["stats"], json!({"shops":3,"quotes":4}));
+    locked.rollback().await.unwrap();
+    drop(listener);
+    db.close().await;
+}
+
+#[tokio::test]
+async fn contribution_windows_preserve_gaps_boundaries_and_backfill() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let state = AppState::new(db.pool.clone(), Settings::default());
+    let credentials = auth::register(&db.pool, "windows").await.unwrap();
+    let now = unix_now();
+    upload(&state, &credentials.token, "old", 201, now - 9. * 86400.).await;
+    upload(&state, &credentials.token, "future", 201, now + 60.).await;
+    let exact: bool = sqlx::query_scalar("SELECT NOT(week_windows @> now()) AND month_windows @> now() AND week_windows @> first_seen AND week_windows @> (first_seen+interval '7 days') FROM contribution_states").fetch_one(&db.pool).await.unwrap();
+    assert!(
+        exact,
+        "a future repeat must not bridge a gap in a rolling window"
+    );
+    let before: String = sqlx::query_scalar(
+        "SELECT json_agg(s ORDER BY collector_id,shop_id,slot)::text FROM contribution_states s",
+    )
+    .fetch_one(&db.pool)
+    .await
+    .unwrap();
+    let days_before: String = sqlx::query_scalar(
+        "SELECT json_agg(d ORDER BY collector_id,day)::text FROM contribution_days d",
+    )
+    .fetch_one(&db.pool)
+    .await
+    .unwrap();
+    let mut tx = db.pool.begin().await.unwrap();
+    sqlx::raw_sql("DROP TRIGGER contribution_rows_inserted ON observation_rows; DROP TRIGGER contribution_shop_moved ON observations; DROP FUNCTION record_inserted_contributions(); DROP FUNCTION move_contribution_shop(); DROP FUNCTION record_contribution(bigint); DROP FUNCTION rebuild_contribution_shop(bigint,bigint); DROP TABLE contribution_states,contribution_days;").execute(&mut *tx).await.unwrap();
+    sqlx::raw_sql(include_str!(
+        "../../../migrations/0026_contribution_summaries.sql"
+    ))
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+    let after: String = sqlx::query_scalar(
+        "SELECT json_agg(s ORDER BY collector_id,shop_id,slot)::text FROM contribution_states s",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap();
+    let days_after: String = sqlx::query_scalar(
+        "SELECT json_agg(d ORDER BY collector_id,day)::text FROM contribution_days d",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap();
+    assert_eq!(before, after);
+    assert_eq!(days_before, days_after);
+    tx.rollback().await.unwrap();
+    db.close().await;
+}
 #[tokio::test]
 async fn nickname_board_preserves_identity_deduplicates_and_honors_privacy() {
     let Some(db) = TestDb::new().await else {

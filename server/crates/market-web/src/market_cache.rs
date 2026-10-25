@@ -51,10 +51,11 @@ impl MarketListCache {
             account.or(collector).unwrap_or_default().unsigned_abs() as usize % self.personal.len();
         let mut entry = self.personal[slot].lock().await;
         let _permit = self.rebuilds.acquire().await.expect("cache gate open");
-        let version = (unix_now() / 30.0) as i64;
+        let version = views::version(db).await?;
         let identity = format!(
-            "{account:?}:{collector:?}:{}",
-            crate::contributors::board_identity(db).await?
+            "{account:?}:{collector:?}:{}:{}",
+            crate::contributors::board_identity(db).await?,
+            unix_now() as i64
         );
         if let Some((old_version, old_identity, body)) = entry.as_ref() {
             if *old_version == version && *old_identity == identity {
@@ -86,16 +87,17 @@ impl MarketListCache {
         let mut entry = self.reports[slot].lock().await;
         // Bound distinct concurrent rebuilds as well as coalescing identical ones.
         let _permit = self.rebuilds.acquire().await.expect("cache gate open");
-        let version = if matches!(report, Report::Leaderboard(_)) {
-            // Rankings may reuse counts for 30s; prices/alerts never use this clock.
-            // The separate profile identity still makes opt-out/rename immediate.
-            (unix_now() / 30.0) as i64
-        } else {
-            views::version(db).await?
-        };
+        // Every committed upload invalidates contribution counts too. The time
+        // component below only expires rolling windows on subsequent reads;
+        // it never delays invalidation after an upload.
+        let version = views::version(db).await?;
         let identity = match report {
             Report::Quotes(_, limit) => limit.to_string(),
-            Report::Leaderboard(_) => crate::contributors::board_identity(db).await?,
+            Report::Leaderboard(_) => format!(
+                "{}:{}",
+                crate::contributors::board_identity(db).await?,
+                unix_now() as i64
+            ),
             _ => String::new(),
         };
         if let Some((old_version, old_identity, body)) = entry.as_ref() {
