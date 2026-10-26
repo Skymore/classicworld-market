@@ -39,7 +39,10 @@ pub fn router() -> Router<AppState> {
         // The collector posts to /observations; /upload is the plan's name.
         .route("/api/v1/observations", post(upload))
         .route("/api/v1/upload", post(upload))
-        .route("/api/v1/collector/player-departure", post(crate::presence::upload))
+        .route(
+            "/api/v1/collector/player-departure",
+            post(crate::presence::upload),
+        )
         .route("/api/v1/collector/room-roster", post(crate::roster::upload))
         .route(
             "/api/v1/collector/missing-locations",
@@ -57,6 +60,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/quotes/recent", get(quotes_recent))
         .route("/api/v1/market/records", get(market_records))
         .route("/api/v1/items/{id}", get(item_record))
+        .route("/api/v1/enhancement/scrolls/{id}", get(enhancement_scrolls))
         .route("/api/v1/crafting/prices", get(crafting_prices))
         .route("/api/v1/item/{id}", get(item_page))
         .route("/api/v1/watchlist/catalog", get(watch_catalog))
@@ -709,6 +713,24 @@ async fn item_record(
     match views::item_record(&state.db, id).await {
         Ok(Some(record)) => Json(record).into_response(),
         Ok(None) => error(StatusCode::NOT_FOUND, "Not found"),
+        Err(err) => internal(err),
+    }
+}
+
+async fn enhancement_scrolls(
+    State(state): State<AppState>,
+    ClientAddr(addr): ClientAddr,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    if let Err(response) = reader(&state, &headers, &addr, "enhancement").await {
+        return response;
+    }
+    let Some(id) = item_id(&id).filter(|id| (1_000_000..2_000_000).contains(id)) else {
+        return error(StatusCode::BAD_REQUEST, "Choose an equipment item");
+    };
+    match views::enhancement_scrolls(&state.db, id).await {
+        Ok(records) => Json(json!({"scrolls": records})).into_response(),
         Err(err) => internal(err),
     }
 }

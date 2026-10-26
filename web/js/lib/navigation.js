@@ -6,7 +6,7 @@ export const NAVIGATION = [
   ['agent','/agent','助手','Assistant',I.search],
   ['dex','/search?kind=item','图鉴','Catalogue',I.book],
   ['watch','/watch','关注','Watch',I.star],
-  ['alerts','/alerts','采集','Collect',I.coin],
+  ['tools','/tools','工具','Tools',I.coin],
 ];
 let accountState,accountRequest;
 function accountLabels(){
@@ -27,7 +27,8 @@ export function renderSiteNavigation(root, active) {
   accountLabels();
   if(!accountRequest)accountRequest=fetch('/api/v1/account',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(data=>{if(data)accountState=data;accountLabels();}).catch(()=>{});
   const path=location.pathname;
-  active=active || (path.startsWith('/agent')?'agent':path.startsWith('/selling')?'selling':path.startsWith('/prices')||path.startsWith('/sales')?'prices':path.startsWith('/watch')?'watch':path.startsWith('/alerts')?'alerts':path==='/'?'home':'dex');
+  if(active==='alerts')active='tools';
+  active=active || (path.startsWith('/agent')?'agent':path.startsWith('/selling')?'selling':path.startsWith('/prices')||path.startsWith('/sales')?'prices':path.startsWith('/watch')?'watch':['/tools','/alerts','/collect','/web/download.html'].some(prefix=>path===prefix||path.startsWith(prefix+'/'))?'tools':path==='/'?'home':'dex');
   for(const nav of root.querySelectorAll('.dnav,.dock')) {
     const dock=nav.classList.contains('dock');
     nav.innerHTML=NAVIGATION.map(([key,href,zh,en,icon])=>{

@@ -1263,6 +1263,18 @@ pub async fn agent_advice(db: &PgPool, item: i32, hours: i32, now: f64) -> sqlx:
     )
 }
 
+/// Ordinary upgrade scroll families match the equipment inventory family.
+pub async fn enhancement_scrolls(db: &PgPool, equipment: i32) -> sqlx::Result<Vec<Value>> {
+    let family = 20_400 + equipment / 10_000 - 100;
+    sqlx::query_scalar(
+        "SELECT record FROM item_records WHERE item_id >= $1 AND item_id < $2 ORDER BY item_id",
+    )
+    .bind(family * 100)
+    .bind((family + 1) * 100)
+    .fetch_all(db)
+    .await
+}
+
 pub async fn item_record(db: &PgPool, item: i32) -> sqlx::Result<Option<Value>> {
     sqlx::query_scalar("SELECT record FROM item_records WHERE item_id = $1")
         .bind(item)

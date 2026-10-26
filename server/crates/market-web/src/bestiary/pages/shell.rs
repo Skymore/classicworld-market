@@ -192,7 +192,7 @@ fn desk_nav(ctx: &Ctx, active: Nav) -> Markup {
             Some(Nav::Dex),
         ),
         ("/watch", ctx.t("关注", "Watch"), None),
-        ("/alerts", ctx.t("采集", "Collect"), None),
+        ("/tools", ctx.t("工具", "Tools"), None),
         ("/selling", ctx.t("背包／摆摊", "Bag & shop"), None),
     ];
     html! {
@@ -223,13 +223,7 @@ fn dock(ctx: &Ctx, active: Nav) -> Markup {
             "dex",
         ),
         ("/watch", ctx.t("关注", "Watch"), Icon::Star, None, "watch"),
-        (
-            "/alerts",
-            ctx.t("采集", "Collect"),
-            Icon::Coin,
-            None,
-            "alerts",
-        ),
+        ("/tools", ctx.t("工具", "Tools"), Icon::Coin, None, "tools"),
         (
             "/selling",
             ctx.t("背包／摆摊", "Bag & shop"),

@@ -11,7 +11,7 @@ const navigation = [
   ["agent", "/agent", "助手", "Assistant", "search"],
   ["dex", "/search?kind=item", "图鉴", "Catalogue", "book"],
   ["watch", "/watch", "关注", "Watch", "star"],
-  ["alerts", "/alerts", "采集", "Collect", "coin"],
+  ["tools", "/tools", "工具", "Tools", "coin"],
 ];
 export function Freshness() {
   const [at, setAt] = useState<number | null>(
@@ -155,8 +155,10 @@ export function Navigation({ dock = false }: { dock?: boolean }) {
       ? "prices"
       : path.startsWith("/watch")
         ? "watch"
-        : path.startsWith("/alerts")
-          ? "alerts"
+        : ["/tools", "/alerts", "/collect", "/web/download.html"].some(
+              (prefix) => path === prefix || path.startsWith(prefix + "/"),
+            )
+          ? "tools"
           : path === "/" || path === "/v2"
             ? "home"
             : ["/search", "/item", "/mob", "/map", "/route"].some(
@@ -280,6 +282,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }
         id="main"
       >
+        {(["/alerts", "/collect", "/web/download.html"].some(
+          (prefix) =>
+            route.pathname === prefix ||
+            route.pathname.startsWith(prefix + "/"),
+        ) ||
+          route.pathname === "/tools/enhancement") && (
+          <div className="tool-breadcrumb">
+            <SiteLink href="/tools">{words("工具", "Tools")}</SiteLink>
+            <span aria-hidden="true">/</span>
+            <span>
+              {route.pathname === "/tools/enhancement"
+                ? words("强化计算器", "Enhancement calculator")
+                : words("采集", "Collection")}
+            </span>
+          </div>
+        )}
         {children}
       </main>
       <nav className="dock" aria-label={words("主导航", "Main navigation")}>

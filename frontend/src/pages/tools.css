@@ -1,0 +1,347 @@
+.tools-page {
+  max-width: 900px;
+  margin-inline: auto;
+}
+.tool-list,
+.enhance-body {
+  padding: 18px;
+  display: grid;
+  gap: 20px;
+}
+.tool-entry {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  color: var(--ink);
+  text-decoration: none;
+  min-height: 88px;
+}
+.tool-entry > span:not(.contents) {
+  display: grid;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+.tool-entry small {
+  color: var(--ink-3);
+}
+.tool-entry:hover {
+  background: var(--sheet-hi);
+}
+.tool-breadcrumb {
+  max-width: 900px;
+  margin: 0 auto 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.tool-breadcrumb a {
+  color: var(--bar-text);
+  padding: 8px 0;
+}
+.enhance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.enhance-picker {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.enhance-picker > label,
+.enhance-field,
+.enhance-parameters label {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.enhance-selected {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  min-width: 0;
+}
+.enhance-selected a {
+  color: var(--bar-text);
+  overflow-wrap: anywhere;
+}
+.enhance-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--rule);
+  background: var(--sheet-hi);
+  padding: 0 10px;
+  border-radius: 2px;
+  min-width: 0;
+}
+.enhance-search input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 10px 0;
+  font: inherit;
+  font-size: 16px;
+}
+.enhance-choices {
+  position: absolute;
+  top: 100%;
+  inset-inline: 0;
+  z-index: 15;
+  padding: 6px;
+  box-shadow: var(--hard);
+  max-height: 320px;
+  overflow: auto;
+}
+.enhance-choices > button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.enhance-choices > button:hover,
+.enhance-choices > button:focus-visible {
+  background: var(--sheet-lo);
+}
+.enhance-choices > button > span:not(.contents) {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.enhance-choices small {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.enhance-choices > span {
+  display: block;
+  padding: 10px;
+  color: var(--ink-3);
+}
+.enhance-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.enhance-field > input,
+.enhance-field > select,
+.enhance-parameters select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--sheet-hi);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+.enhance-quote {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-3);
+  min-height: 22px;
+  flex-wrap: wrap;
+}
+.enhance-quote button.link {
+  border: 0;
+  background: transparent;
+  color: var(--bar-text);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px;
+}
+.enhance-parameters {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.enhance-parameters label {
+  display: grid;
+  gap: 8px;
+  flex: 1;
+  min-width: 160px;
+}
+.enhance-summary {
+  font-size: 13px;
+  color: var(--ink-3);
+  padding-bottom: 10px;
+}
+.enhance-result {
+  border-top: 1px solid var(--rule);
+  padding-top: 18px;
+  display: grid;
+  gap: 18px;
+}
+.enhance-total {
+  display: grid;
+  gap: 6px;
+}
+.enhance-total > span {
+  color: var(--ink-3);
+  font-size: 13px;
+}
+.enhance-total strong {
+  font-size: 28px;
+  color: var(--bar-text);
+  overflow-wrap: anywhere;
+}
+.enhance-total strong small {
+  font-size: 13px;
+  font-weight: 400;
+}
+.enhance-counts {
+  display: flex;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+.enhance-counts > span {
+  display: grid;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.enhance-counts b {
+  font-size: 16px;
+  color: var(--ink);
+}
+.enhance-strategy h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.enhance-strategy p {
+  margin: 6px 0;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.enhance-strategy ul {
+  margin: 0;
+  padding-inline-start: 20px;
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+.enhance-assumption {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.enhance-problem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-3);
+}
+.enhance-goal {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+.enhance-target-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--sheet-hi);
+  padding: 0 10px;
+  font-size: 16px;
+}
+.enhance-target-input input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  min-height: 44px;
+}
+.enhance-target-input > span:last-child {
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.enhance-scroll-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.enhance-scroll-price .enhance-selected {
+  flex-wrap: wrap;
+  gap: 6px;
+  font-weight: 400;
+  font-size: 13px;
+}
+.enhance-scroll-price .enhance-selected > b {
+  color: var(--bar-text);
+  font-size: 13px;
+}
+.enhance-first {
+  font-weight: 600;
+}
+.enhance-steps {
+  margin-top: 12px;
+}
+.enhance-steps summary {
+  padding: 8px 0;
+  color: var(--bar-text);
+  cursor: pointer;
+}
+.enhance-steps table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.enhance-steps th,
+.enhance-steps td {
+  text-align: start;
+  border-bottom: 1px solid var(--rule);
+  padding: 8px 4px;
+}
+@media (max-width: 640px) {
+  .enhance-scroll-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tool-list,
+  .enhance-body {
+    padding: 14px;
+    gap: 18px;
+  }
+  .enhance-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+  .tool-entry {
+    padding: 14px;
+  }
+  .enhance-summary {
+    padding-bottom: 0;
+  }
+  .enhance-parameters {
+    align-items: start;
+  }
+  .enhance-total strong {
+    font-size: 25px;
+  }
+}

@@ -26,18 +26,18 @@ try {
     assert.equal(await page.evaluate(() => window.reactDocumentId), identity);
     assert(await page.evaluate(() => window.savedHeader === document.querySelector('.ptop')));
     if (screenshots) await page.screenshot({ path: path.join(screenshots, `home-${mobile ? 'phone' : 'desktop'}-${theme}.png`) });
-    for (const [key, selector] of [['watch', '[data-search]'], ['alerts', '.alerts-page h1']]) {
+    for (const [key, selector] of [['watch', '[data-search]'], ['tools', '.tools-page h1']]) {
       await page.locator(`[data-nav-key=${key}]:visible`).click(); await page.locator(selector).waitFor();
       assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), theme);
-      if (key === 'alerts') assert.equal(await page.locator(selector).textContent(), '采集');
+      if (key === 'tools') assert.equal(await page.locator(selector).textContent(), '工具');
     }
     await page.locator('[data-account-link]:visible').click(); await page.locator('[data-account]').waitFor();
     assert.equal(await page.locator('.dnav a[aria-current],.dock a[aria-current]').count(), 0, 'account must not select a market navigation tab');
     await page.goto(origin + '/contributors?lang=zh'); await page.locator('[data-board=week]').waitFor();
     await page.locator('[data-nav-key=dex]:visible').click();
     await page.locator('#site-react-shell').waitFor({ state: 'attached' });
-    await page.locator('[data-nav-key=alerts]:visible').waitFor();
-    assert.equal(await page.locator('[data-nav-key=alerts]:visible').textContent(), '采集');
+    await page.locator('[data-nav-key=tools]:visible').waitFor();
+    assert.equal(await page.locator('[data-nav-key=tools]:visible').textContent(), '工具');
     await page.locator('[data-react-catalogue=search] [data-search-results]').waitFor();
     assert(await page.locator('#search-item').count(), 'catalogue results render in React');
     await page.goto(origin + '/item/2000000?hours=all&lang=zh');

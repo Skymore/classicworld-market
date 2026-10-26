@@ -27,6 +27,8 @@ import { trackPage } from "/web/js/lib/traffic.js";
 
 const Watch = lazy(() => import("./pages/watch"));
 const Alerts = lazy(() => import("./pages/alerts"));
+const Tools = lazy(() => import("./pages/tools"));
+const Enhancement = lazy(() => import("./pages/enhancement"));
 const Agent = lazy(() => import("./pages/agent"));
 const Selling = lazy(async () => {
   await ensureStyle("selling");
@@ -58,6 +60,7 @@ const pageRoutes = [
   "/prices",
   "/watch",
   "/alerts",
+  "/tools",
   "/account",
   "/privacy",
   "/contributors",
@@ -123,6 +126,9 @@ function Application() {
     prices: words("价格表", "Prices"),
     watch: words("关注", "Watch"),
     alerts: words("采集", "Collect"),
+    tools: route.pathname.startsWith("/tools/enhancement")
+      ? words("强化计算器", "Enhancement calculator")
+      : words("工具", "Tools"),
     account: words("我的", "My profile"),
     privacy: words("账号隐私说明", "Account privacy"),
     contributors: words("采集贡献榜", "Contributors"),
@@ -221,6 +227,8 @@ function Application() {
             <Route path="/traffic" element={<Traffic />} />
             <Route path="/watch/*" element={<Watch />} />
             <Route path="/alerts/*" element={<Alerts />} />
+            <Route path="/tools" element={<Tools />} />
+            <Route path="/tools/enhancement" element={<Enhancement />} />
             <Route path="/agent/*" element={<Agent />} />
             <Route path="/selling/*" element={<Selling />} />
             <Route path="/privacy" element={<Privacy />} />

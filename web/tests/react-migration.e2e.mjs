@@ -80,7 +80,7 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.dataset.reactApp), '1');
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
     assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--sheet').trim()), '#232b38');
-    assert.equal(await page.locator('[data-nav-key=alerts]:visible').textContent(), '采集');
+    assert.equal(await page.locator('[data-nav-key=tools]:visible').textContent(), '工具');
     if (mobile) assert(await page.locator('.dock a').evaluateAll(links => { const boxes=links.map(link=>link.getBoundingClientRect()); return boxes.length===6&&boxes.every(box=>Math.abs(box.top-boxes[0].top)<1&&box.right<=innerWidth&&box.bottom<=innerHeight); }), 'six navigation entries remain on one row');
     const identity = await page.evaluate(() => { window.savedHeader = document.querySelector('.ptop'); return window.documentIdentity; });
     const nav = key => page.locator(`[data-nav-key=${key}]:visible`);
@@ -186,7 +186,7 @@ try {
     await page.locator('[data-react-catalogue=search] #search-item').waitFor();
     assert.equal(await page.evaluate(() => window.documentIdentity), afterReload, 'catalogue links stay inside the React document');
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
-    assert.equal(await page.locator('[data-nav-key=alerts]:visible').textContent(), '采集');
+    assert.equal(await page.locator('[data-nav-key=tools]:visible').textContent(), '工具');
     await page.locator('[data-theme-toggle]:visible').click();
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark', 'server header toggles once');
     await nav('prices').click(); await rows.first().waitFor();

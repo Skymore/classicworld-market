@@ -68,6 +68,8 @@ async fn web_shell_and_assets() {
         "/sales",
         "/watch",
         "/alerts",
+        "/tools",
+        "/tools/enhancement",
         "/v2",
     ] {
         let res = get(path).await.unwrap();

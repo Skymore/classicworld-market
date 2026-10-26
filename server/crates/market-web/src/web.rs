@@ -34,6 +34,7 @@ pub const PAGE_ROUTES: &[&str] = &[
     "/sales",
     "/watch",
     "/alerts",
+    "/tools",
     "/account",
     "/privacy",
     "/contributors",
