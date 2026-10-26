@@ -241,7 +241,7 @@ def activate(root, commit):
     return previous_commit
 
 
-def deploy(root, artifact, commit):
+def deploy(root, artifact, commit, *, backup_database_before_deploy=False):
     root, artifact = Path(root).resolve(), Path(artifact).resolve()
     verify_bundle(artifact, commit)
     data = root / "shared_data"
@@ -264,7 +264,7 @@ def deploy(root, artifact, commit):
         verify_bundle(pending, commit)
         pending.rename(release)
     verify_bundle(release, commit)
-    backup = backup_database(root, native, commit)
+    backup = backup_database(root, native, commit) if backup_database_before_deploy else None
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 18766))
     with (data / "deploy/candidate.log").open("ab") as log:
@@ -283,7 +283,7 @@ def deploy(root, artifact, commit):
                 candidate.wait(timeout=15)
     previous = activate(root, commit)
     write_json(data / "deploy/status.json", {"commit": commit, "previous": previous,
-               "deployed_at": time.time(), "database_backup": str(backup), "healthy": True})
+               "deployed_at": time.time(), "database_backup": str(backup) if backup else None, "healthy": True})
     print(f"Deployed {commit}; previous={previous}; readiness=ok")
 
 
@@ -300,11 +300,14 @@ def main():
     install.add_argument("--root", default=str(Path(__file__).resolve().parent))
     install.add_argument("--artifact", required=True)
     install.add_argument("--commit", required=True)
+    install.add_argument("--backup-database", action="store_true",
+                         help="Back up PostgreSQL before high-risk schema or data changes")
     args = parser.parse_args()
     if args.command == "package":
         package(args.root, args.binary, args.output, args.commit, args.base_release)
     else:
-        deploy(args.root, args.artifact, args.commit)
+        deploy(args.root, args.artifact, args.commit,
+               backup_database_before_deploy=args.backup_database)
 
 
 if __name__ == "__main__":

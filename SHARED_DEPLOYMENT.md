@@ -56,8 +56,12 @@ R2 发布配置在本机 `shared_data/r2-publisher.json`，仅含 `account_id`�
 合并前先获取远端主分支，并核对 `shared_data/deploy/current.json` 指向的线上提交；
 主分支应包含完整线上更新历史，保留账号、图鉴、助手等已有改动。
 原工作区的未提交改动保留在原处，独立工作目录用于合并与验证。
-部署继续使用不可变产物、候选服务检查、数据库备份和 supervisor 原子切换；
+部署继续使用不可变产物、候选服务检查和 supervisor 原子切换；
 上线后核对公网静态文件与发布清单一致。
+
+用户最新偏好（2026-10-25）：常规网站改动和发布不备份数据库。
+数据库迁移、批量修改或删除等高风险操作前才备份；高风险发布使用
+`deploy_market.py deploy --backup-database ...`。既有数据库备份继续保留。
 
 ## 历史 GitHub RoomTalk 自动发布（已停用）
 
@@ -74,8 +78,9 @@ Windows 计划任务 `ClassicWorld Market Deploy Runner` 在当前用户登录�
 用户离线时部署 job 等待 runner 恢复，无需开放入站部署端口。
 
 `deploy_market.py` 核验 commit、文件清单和 SHA256，将新版本放入
-`shared_data/deploy/releases/<sha>`，先通过 `pg_dump` 备份 PostgreSQL，再在
-18766 端口验证候选服务与网页/WASM。成功后原子更新 `current.json`，由
+`shared_data/deploy/releases/<sha>`，常规发布直接在 18766 端口验证候选服务与网页/WASM；
+显式传入 `--backup-database` 时才先用 `pg_dump` 备份 PostgreSQL。
+成功后原子更新 `current.json`，由
 `shared_supervisor.py` 只重启 web 子进程；数据库、采集上传和 Cloudflare Tunnel
 继续运行。8766 健康检查失败时恢复上一版程序与网页。
 数据库迁移不自动逆向执行，备份保留在 `shared_data/backups/deploy-*.pgdump`。

@@ -1,5 +1,6 @@
 """Deployment boundary checks use synthetic artifacts and never contact production."""
 import json
+import time
 from pathlib import Path
 import tempfile
 import subprocess
@@ -42,6 +43,35 @@ class DeploymentTests(unittest.TestCase):
         (artifact / "bin/market-web.exe").write_bytes(b"tampered")
         with self.assertRaisesRegex(ValueError, "hash mismatch"):
             deployment.verify_bundle(artifact, SHA)
+
+    def test_routine_deploy_skips_database_backup_and_high_risk_deploy_requests_it(self):
+        artifact = self.bundle()
+        data = self.root / "shared_data"
+        deployment.write_json(data / "supervisor_status.json",
+                              {"deployment_support": 1, "time": time.time()})
+        deployment.write_json(data / "native-runtime.json",
+                              {"enabled": True, "database_url": "synthetic"})
+        for required in [False, True]:
+            with self.subTest(backup_required=required), \
+                    patch.object(deployment, "web_runtime", return_value=(None, None, PREVIOUS)), \
+                    patch.object(deployment, "backup_database", return_value=data / "backup.pgdump") as backup, \
+                    patch.object(deployment, "wait_for_health"), \
+                    patch.object(deployment, "activate", return_value=PREVIOUS), \
+                    patch.object(deployment.socket, "socket"), \
+                    patch.object(deployment.subprocess, "Popen") as popen, \
+                    patch.object(deployment.urllib.request, "urlopen") as request:
+                popen.return_value.poll.return_value = 0
+                response = request.return_value.__enter__.return_value
+                response.status = 200
+                response.read.return_value = b"synthetic"
+                deployment.deploy(self.root, artifact, SHA,
+                                  backup_database_before_deploy=required)
+                if required:
+                    backup.assert_called_once_with(self.root, {"enabled": True, "database_url": "synthetic"}, SHA)
+                else:
+                    backup.assert_not_called()
+                status = json.loads((data / "deploy/status.json").read_text())
+                self.assertEqual(status["database_backup"], str(data / "backup.pgdump") if required else None)
 
     def test_path_escape_is_rejected_before_reading_external_file(self):
         artifact = self.bundle()
