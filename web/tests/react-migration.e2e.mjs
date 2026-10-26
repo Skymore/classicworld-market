@@ -164,7 +164,7 @@ try {
     assert.match(await offers.first().textContent(), /红色药水/);
     assert.equal(await offers.first().locator('.ware-price').textContent(), '32K', 'offers show the actual newest listing price, not the item minimum');
     assert.equal(await offers.first().locator('[data-relative-time]').getAttribute('data-relative-time'), String(now));
-    assert.equal(await offers.first().getAttribute('href'), '/item/2000000?hours=all');
+    assert.equal(await offers.first().locator('.record-open').getAttribute('href'), '/item/2000000?hours=all');
     await page.locator('[data-lang-toggle]:visible').click();
     assert.equal(await page.locator('[data-tab=quotes]').textContent(), 'Latest offers');
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'four home tabs fit within the page in English');
@@ -172,7 +172,7 @@ try {
     await page.locator('[data-pane=quotes] .more').click(); await rows.first().waitFor();
     assert.equal(new URL(page.url()).searchParams.get('sort'), 'recent');
     assert.equal(new URL(page.url()).searchParams.get('hours'), 'all');
-    await nav('alerts').click(); await page.locator('.alerts-page h1').waitFor();
+    await nav('tools').click(); await page.locator('[data-tool=collection]').click(); await page.locator('.alerts-page h1').waitFor();
     assert.equal(await page.locator('.alerts-page h1').textContent(), '采集');
     assert.match(await page.title(), /^采集/);
     await nav('prices').click(); await rows.first().waitFor();

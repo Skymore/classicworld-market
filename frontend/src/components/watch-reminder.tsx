@@ -32,7 +32,8 @@ export default function WatchReminder({
 }) {
   const words = useWords(),
     root = useRef<HTMLDivElement>(null),
-    trigger = useRef<HTMLButtonElement>(null);
+    trigger = useRef<HTMLButtonElement>(null),
+    advancedTrigger = useRef<HTMLButtonElement>(null);
   const [menu, setMenu] = useState(false),
     [manual, setManual] = useState(false),
     [advanced, setAdvanced] = useState(false);
@@ -44,6 +45,7 @@ export default function WatchReminder({
     document.documentElement.lang === "en",
   );
   const selected = reminderSelection(rows, id, setting, reference);
+  const enabled = setting.notify !== false;
   useEffect(() => {
     if (!menu) return;
     const outside = (event: PointerEvent) => {
@@ -87,6 +89,16 @@ export default function WatchReminder({
     >
       <button
         type="button"
+        className={"toggle watch-notify " + (enabled ? "on" : "")}
+        aria-pressed={enabled}
+        data-notify={id}
+        onClick={() => onChange({ notify: !enabled })}
+      >
+        <i />
+        {words("报价提醒", "Alerts")}
+      </button>
+      <button
+        type="button"
         className="watch-reminder-trigger"
         ref={trigger}
         data-watch-reminder={id}
@@ -99,7 +111,7 @@ export default function WatchReminder({
           setDraft(String(setting.cap ?? ""));
         }}
       >
-        <span>
+        <span className="watch-reminder-mode">
           <small>{words("提醒价格", "Alert price")}</small>
           {reminder.percentile === "all"
             ? words("手动输入", "Manual")
@@ -118,6 +130,22 @@ export default function WatchReminder({
           )}{" "}
           <Icon name="caret" />
         </span>
+      </button>
+      <button
+        type="button"
+        className="watch-reminder-advanced"
+        ref={advancedTrigger}
+        data-reminder-advanced
+        aria-haspopup="dialog"
+        aria-expanded={advanced}
+        onClick={() => {
+          setMenu(false);
+          setManual(false);
+          setAdvanced(true);
+        }}
+      >
+        {words("高级", "Advanced")}
+        {tokens.length > 0 && <b>{tokens.length}</b>}
       </button>
       {menu && (
         <div className="watch-reminder-menu" id={`watch-reminder-menu-${id}`}>
@@ -209,27 +237,6 @@ export default function WatchReminder({
               )}
             </div>
           )}
-          <button
-            type="button"
-            className="watch-reminder-advanced"
-            data-reminder-advanced
-            onClick={() => {
-              close();
-              setAdvanced(true);
-            }}
-          >
-            <span>
-              <Icon name="funnel" /> {words("高级选项", "Advanced")}
-            </span>
-            <small>
-              {tokens.length
-                ? words(
-                    `${tokens.length} 项条件`,
-                    `${tokens.length} conditions`,
-                  )
-                : words("价格 · 库存", "Price · stock")}
-            </small>
-          </button>
         </div>
       )}
       {tokens.length > 0 && (
@@ -237,13 +244,6 @@ export default function WatchReminder({
           {tokens.map((token: any) => (
             <span key={token.key}>{token.label}</span>
           ))}
-          <button
-            type="button"
-            data-reminder-edit
-            onClick={() => setAdvanced(true)}
-          >
-            {words("编辑", "Edit")}
-          </button>
         </div>
       )}
       <OfferFilterDialog
@@ -277,7 +277,7 @@ export default function WatchReminder({
         }
         onClose={() => {
           setAdvanced(false);
-          trigger.current?.focus({ preventScroll: true });
+          advancedTrigger.current?.focus({ preventScroll: true });
         }}
       />
     </div>

@@ -1,6 +1,10 @@
 .watch-reminder {
   flex: 1 1 100%;
   min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
 }
 .watch-reminder-trigger {
   display: flex;
@@ -9,25 +13,35 @@
   gap: 8px;
   width: 100%;
   min-height: 44px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border: 1px solid var(--edge);
   background: var(--sheet);
   text-align: left;
   font-size: 14px;
+  min-width: 0;
+  justify-content: center;
 }
-.watch-reminder-trigger small {
-  margin-right: 8px;
-  color: var(--ink-3);
-  font-size: 12px;
+.watch-reminder-mode {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .watch-reminder-value {
-  white-space: nowrap;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 .watch-reminder-menu {
+  grid-column: 1 / -1;
   margin-top: 6px;
   padding: 4px;
   border: 1px solid var(--edge);
@@ -58,11 +72,26 @@
 }
 .watch-reminder-advanced {
   color: var(--mark);
-}
-.watch-reminder-advanced > span {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.watch-reminder-advanced b {
+  font-size: 11px;
+}
+.watch-notify.toggle {
+  padding: 0;
   gap: 5px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.watch-notify.toggle i {
+  width: 30px;
 }
 .watch-reminder-manual {
   padding: 8px;
@@ -93,6 +122,7 @@
   margin-top: 5px;
 }
 .watch-reminder-summary {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -105,16 +135,14 @@
   border: 1px solid var(--rule);
   background: var(--sheet-hi);
 }
-.watch-reminder-summary > button {
-  padding: 4px;
-  color: var(--mark);
-  text-decoration: underline;
-}
 .watch-page .wcards .wcard .wc-set {
   display: flex;
+  padding: 6px 8px;
 }
 .watch-page .wc-head {
   grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px;
+  padding: 2px 4px 2px 8px;
 }
 .watch-page .wc-count-link {
   display: flex;
@@ -137,9 +165,57 @@
 .watch-page .wc-nums > span {
   flex-direction: column;
   align-items: flex-start;
+  justify-content: flex-start;
+  gap: 1px;
+  padding: 6px 8px;
 }
 .watch-page .wc-nums .price {
   overflow-wrap: anywhere;
+}
+.watch-page .wc-nums {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.watch-page .wc-nums small {
+  font-size: 11px;
+}
+.watch-page .wc-nums b {
+  font-size: 15px;
+}
+.watch-page .wc-count-link {
+  height: 22px;
+}
+.watch-page .wc-details {
+  min-width: 44px;
+  min-height: 44px;
+}
+.watch-heading h1 {
+  flex: none;
+}
+.watch-heading .bar-meta {
+  white-space: normal;
+  padding-right: 0;
+}
+.watch-collapse {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  min-height: 44px;
+  padding: 0 6px;
+  font-size: 13px;
+}
+.watch-collapse[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.watch-page .wadd {
+  padding: 8px;
+}
+.watch-page .wadd .finder {
+  height: 44px;
+}
+.watch-page .wcards {
+  padding: 8px;
+  gap: 8px;
 }
 .watch-focus {
   display: flex;
@@ -154,22 +230,6 @@
   text-decoration: underline;
 }
 @media (max-width: 640px) {
-  .watch-page .wc-nums {
-    grid-template-columns: 1fr 1fr;
-  }
-  .watch-page .wc-nums > span:last-child {
-    grid-column: 1/-1;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .watch-page .wc-details {
-    min-width: 44px;
-    min-height: 44px;
-  }
-  .watch-reminder-trigger small {
-    display: block;
-  }
   .watch-reminder-manual input {
     min-height: 44px;
   }

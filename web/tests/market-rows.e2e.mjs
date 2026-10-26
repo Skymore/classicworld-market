@@ -145,7 +145,8 @@ try {
 
       if (screenshots) await page.screenshot({ path: path.join(screenshots, `quotes-${width}-${lang}.png`) });
       await page.locator('[data-nav-key=watch]:visible').click();
-      await page.locator('[data-preset]').click();
+      await page.locator('[data-search]').fill(String(product.item_id));
+      await page.locator(`[data-add="${product.item_id}"]`).click();
       const matches = page.locator('[data-matches] .market-record');
       await matches.first().waitFor();
       await page.locator('[data-watch-sort]').selectOption('recent');

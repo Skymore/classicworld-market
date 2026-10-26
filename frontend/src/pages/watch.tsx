@@ -55,6 +55,7 @@ export default function Watch() {
   const [list, writeList] = useUserValue(LIST_KEY, "[]"),
     [setting, writeSettings] = useUserValue(SETTINGS_KEY, "{}"),
     [sort, writeSort] = useUserValue("watch.offerSort", "price"),
+    [collapsed, writeCollapsed] = useUserValue("watch.listCollapsed", "false"),
     [rawFilters, writeFilters] = useUserValue("watch.offerFilters", "{}"),
     [token] = useUserValue("cwm.collector.token");
   const ids = useMemo<number[]>(
@@ -412,7 +413,6 @@ export default function Watch() {
     saveIds(Core.add(ids, item.item_id));
   }
   const found = catalog.data?.items || [];
-  const preset = presets.data?.presets?.[0];
   function submit(event: FormEvent) {
     event.preventDefault();
     const exact = found.filter(
@@ -435,217 +435,217 @@ export default function Watch() {
       data-capture-path={personal?.base ? "desktop" : "browser"}
     >
       <section className="stall lpage">
-        <div className="stall-bar">
+        <div className="stall-bar watch-heading">
           <h1>{t("watch.title")}</h1>
           <span className="bar-meta" data-meta>
             {ids.length ? t("watch.meta", { n: ids.length, m: hits }) : ""}
           </span>
-        </div>
-        <p className="sale-note">{t("watch.note")}</p>
-        <div className="wadd">
-          <form
-            className="finder"
-            role="search"
-            data-search-form
-            onSubmit={submit}
-          >
-            <Icon name="search" />
-            <input
-              type="search"
-              autoComplete="off"
-              placeholder={t("watch.search")}
-              aria-label={t("watch.search")}
-              data-search
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setFocused(true);
-              }}
-              onFocus={() => {
-                setFocused(true);
-                setSearch(query.trim());
-              }}
-              onCompositionStart={() => {
-                composing.current = true;
-              }}
-              onCompositionEnd={(event) => {
-                composing.current = false;
-                setSearch(event.currentTarget.value.trim());
-              }}
-            />
-          </form>
           <button
-            className="btn"
-            data-preset
-            disabled={!preset?.items?.length}
-            onClick={() => saveIds(Core.addPreset(ids, preset))}
+            type="button"
+            className="watch-collapse"
+            data-watch-collapse
+            aria-expanded={collapsed !== "true"}
+            aria-controls="watch-list"
+            onClick={() =>
+              writeCollapsed(collapsed === "true" ? "false" : "true")
+            }
           >
-            {preset
-              ? (document.documentElement.lang === "en"
-                  ? preset.name_en
-                  : preset.name_zh) || t("watch.preset")
-              : t("watch.preset")}
-          </button>
-          <button
-            className="btn"
-            data-allow
-            hidden={permission !== "default"}
-            onClick={() => Notification.requestPermission().then(setPermission)}
-          >
-            {t("watch.allow_notify")}
+            {collapsed === "true"
+              ? words("展开", "Expand")
+              : words("收起", "Collapse")}
+            <Icon name="caret" />
           </button>
         </div>
-        <div className="wresults" data-results hidden={!focused}>
-          {catalog.isLoading ? (
-            <p className="lend">{t("common.loading")}</p>
-          ) : found.length ? (
-            <>
-              {found.slice(0, limit).map((item: any) => (
-                <button
-                  type="button"
-                  className="ware wres"
-                  key={item.item_id}
-                  data-add={item.item_id}
-                  aria-disabled={ids.includes(item.item_id)}
-                  onClick={() => add(item)}
-                >
-                  <Slot url={item.icon_url} />
-                  <span className="w-main">
-                    <span className="ware-name">
-                      <ItemNames row={item} />
-                    </span>
-                    <span className="w-sub">
-                      {[item.level && `Lv.${item.level}`, item.item_id]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                  </span>
-                  <span
-                    className={
-                      "wres-act " + (ids.includes(item.item_id) ? "" : "go")
-                    }
+        <div id="watch-list" hidden={collapsed === "true"}>
+          <div className="wadd">
+            <form
+              className="finder"
+              role="search"
+              data-search-form
+              onSubmit={submit}
+            >
+              <Icon name="search" />
+              <input
+                type="search"
+                autoComplete="off"
+                placeholder={t("watch.search")}
+                aria-label={t("watch.search")}
+                data-search
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setFocused(true);
+                }}
+                onFocus={() => {
+                  setFocused(true);
+                  setSearch(query.trim());
+                }}
+                onCompositionStart={() => {
+                  composing.current = true;
+                }}
+                onCompositionEnd={(event) => {
+                  composing.current = false;
+                  setSearch(event.currentTarget.value.trim());
+                }}
+              />
+            </form>
+            <button
+              className="btn"
+              data-allow
+              hidden={permission !== "default"}
+              onClick={() =>
+                Notification.requestPermission().then(setPermission)
+              }
+            >
+              {t("watch.allow_notify")}
+            </button>
+          </div>
+          <div className="wresults" data-results hidden={!focused}>
+            {catalog.isLoading ? (
+              <p className="lend">{t("common.loading")}</p>
+            ) : found.length ? (
+              <>
+                {found.slice(0, limit).map((item: any) => (
+                  <button
+                    type="button"
+                    className="ware wres"
+                    key={item.item_id}
+                    data-add={item.item_id}
+                    aria-disabled={ids.includes(item.item_id)}
+                    onClick={() => add(item)}
                   >
-                    {t(
-                      ids.includes(item.item_id) ? "watch.added" : "watch.add",
-                    )}
-                  </span>
-                </button>
-              ))}
-              {found.length > limit && (
-                <button
-                  className="more"
-                  data-search-more
-                  onClick={() => setLimit((old) => old + 40)}
-                >
-                  {words("显示更多商品", "Show more items")} ({limit} /{" "}
-                  {found.length})
-                </button>
-              )}
-            </>
-          ) : (
-            <p className="lend">
-              {t(catalog.isError ? "watch.search_failed" : "watch.no_results")}
-            </p>
-          )}
-        </div>
-        <p className="wstatus" data-status role="status">
-          {notice || shared.error
-            ? t(notice ? "watch.full" : "watch.failed")
-            : ""}
-        </p>
-        <div className="wcards" data-cards>
-          {ids.length ? (
-            ids.map((id) => {
-              const item = items.get(id) || {
-                item_id: id,
-                name_zh: String(id),
-              };
-              const current = settings[id] || { cap: null, notify: true };
-              const enabled = settings[id]?.notify !== false;
-              return (
-                <article className="well wcard open" data-card={id} key={id}>
-                  <div className="wc-head">
-                    <Slot url={item.icon_url} size={32} />
-                    <a className="wc-name" href={"/item/" + id}>
-                      <b>{itemName(item)}</b>
-                      <small>
-                        {[
-                          document.documentElement.lang === "en"
-                            ? item.name_zh
-                            : item.name_en,
-                          id,
-                        ]
+                    <Slot url={item.icon_url} />
+                    <span className="w-main">
+                      <span className="ware-name">
+                        <ItemNames row={item} />
+                      </span>
+                      <span className="w-sub">
+                        {[item.level && `Lv.${item.level}`, item.item_id]
                           .filter(Boolean)
                           .join(" · ")}
-                      </small>
-                    </a>
-                    <button
-                      className="bar-btn wc-x"
-                      data-remove={id}
-                      aria-label={t("watch.remove", { name: itemName(item) })}
-                      onClick={() => saveIds(Core.remove(ids, id))}
-                    >
-                      <Icon name="close" />
-                    </button>
-                  </div>
-                  <div className="wc-nums">
-                    <span>
-                      <small>{t("watch.lowest")}</small>
-                      <b data-lowest>
-                        <Price value={summary[id]?.lowest} />
-                      </b>
-                    </span>
-                    <span>
-                      <small>{t("watch.typical")}</small>
-                      <b>
-                        <Price value={item.typical} />
-                      </b>
-                    </span>
-                    <span
-                      className={summary[id]?.under ? "hit" : ""}
-                      data-under-box
-                    >
-                      <small>{t("watch.under")}</small>
-                      <span className="wc-count-link">
-                        <b data-under>{summary[id]?.under || 0}</b>
-                        <SiteLink
-                          className="wc-details"
-                          href={`/watch?item=${id}#watch-matches`}
-                          aria-label={words(
-                            `查看${itemName(item)}符合提醒的报价`,
-                            `View matching offers for ${itemName(item)}`,
-                          )}
-                        >
-                          ↗
-                        </SiteLink>
                       </span>
                     </span>
-                  </div>
-                  <div className="wc-set" id={"wc-set-" + id}>
-                    <WatchReminder
-                      id={id}
-                      name={itemName(item)}
-                      setting={current}
-                      rows={grouped}
-                      reference={reference}
-                      onChange={(patch) => update(id, patch)}
-                    />
-                    <button
-                      className={"toggle " + (enabled ? "on" : "")}
-                      aria-pressed={enabled}
-                      data-notify={id}
-                      onClick={() => update(id, { notify: !enabled })}
+                    <span
+                      className={
+                        "wres-act " + (ids.includes(item.item_id) ? "" : "go")
+                      }
                     >
-                      <i />
-                      {t("watch.notify")}
-                    </button>
-                  </div>
-                </article>
-              );
-            })
-          ) : (
-            <Empty text={t("watch.empty")} />
-          )}
+                      {t(
+                        ids.includes(item.item_id)
+                          ? "watch.added"
+                          : "watch.add",
+                      )}
+                    </span>
+                  </button>
+                ))}
+                {found.length > limit && (
+                  <button
+                    className="more"
+                    data-search-more
+                    onClick={() => setLimit((old) => old + 40)}
+                  >
+                    {words("显示更多商品", "Show more items")} ({limit} /{" "}
+                    {found.length})
+                  </button>
+                )}
+              </>
+            ) : (
+              <p className="lend">
+                {t(
+                  catalog.isError ? "watch.search_failed" : "watch.no_results",
+                )}
+              </p>
+            )}
+          </div>
+          <p className="wstatus" data-status role="status">
+            {notice || shared.error
+              ? t(notice ? "watch.full" : "watch.failed")
+              : ""}
+          </p>
+          <div className="wcards" data-cards>
+            {ids.length ? (
+              ids.map((id) => {
+                const item = items.get(id) || {
+                  item_id: id,
+                  name_zh: String(id),
+                };
+                const current = settings[id] || { cap: null, notify: true };
+                return (
+                  <article className="well wcard open" data-card={id} key={id}>
+                    <div className="wc-head">
+                      <Slot url={item.icon_url} size={32} />
+                      <a className="wc-name" href={"/item/" + id}>
+                        <b>{itemName(item)}</b>
+                        <small>
+                          {[
+                            document.documentElement.lang === "en"
+                              ? item.name_zh
+                              : item.name_en,
+                            id,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </small>
+                      </a>
+                      <button
+                        className="bar-btn wc-x"
+                        data-remove={id}
+                        aria-label={t("watch.remove", { name: itemName(item) })}
+                        onClick={() => saveIds(Core.remove(ids, id))}
+                      >
+                        <Icon name="close" />
+                      </button>
+                    </div>
+                    <div className="wc-nums">
+                      <span>
+                        <small>{t("watch.lowest")}</small>
+                        <b data-lowest>
+                          <Price value={summary[id]?.lowest} />
+                        </b>
+                      </span>
+                      <span>
+                        <small>{t("watch.typical")}</small>
+                        <b>
+                          <Price value={item.typical} />
+                        </b>
+                      </span>
+                      <span
+                        className={summary[id]?.under ? "hit" : ""}
+                        data-under-box
+                      >
+                        <small>{t("watch.under")}</small>
+                        <span className="wc-count-link">
+                          <b data-under>{summary[id]?.under || 0}</b>
+                          <SiteLink
+                            className="wc-details"
+                            href={`/watch?item=${id}#watch-matches`}
+                            aria-label={words(
+                              `查看${itemName(item)}符合提醒的报价`,
+                              `View matching offers for ${itemName(item)}`,
+                            )}
+                          >
+                            ↗
+                          </SiteLink>
+                        </span>
+                      </span>
+                    </div>
+                    <div className="wc-set" id={"wc-set-" + id}>
+                      <WatchReminder
+                        id={id}
+                        name={itemName(item)}
+                        setting={current}
+                        rows={grouped}
+                        reference={reference}
+                        onChange={(patch) => update(id, patch)}
+                      />
+                    </div>
+                  </article>
+                );
+              })
+            ) : (
+              <Empty text={t("watch.empty")} />
+            )}
+          </div>
         </div>
       </section>
       <section
