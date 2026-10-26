@@ -47,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-DflPdm6k.js": {
-    "file": "chunks/main-DflPdm6k.js",
+  "_main-BEdSzi6v.js": {
+    "file": "chunks/main-BEdSzi6v.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -144,7 +144,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DflPdm6k.js"
+      "_main-BEdSzi6v.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -228,7 +228,7 @@
     ]
   },
   "src/pages/enhancement.tsx": {
-    "file": "chunks/enhancement-B0exdt-7.js",
+    "file": "chunks/enhancement-Cq53rU2d.js",
     "name": "enhancement",
     "src": "src/pages/enhancement.tsx",
     "isDynamicEntry": true,
@@ -328,7 +328,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DflPdm6k.js"
+      "_main-BEdSzi6v.js"
     ]
   },
   "style.css": {
