@@ -371,7 +371,7 @@ function TrendChart({
             )}
         </div>
         {!!comparison.length && (
-          <div>{words("推定成交", "Inferred sales")}</div>
+          <div>{words("成交价", "Sale prices")}</div>
         )}
         <dl>
           {[
@@ -413,8 +413,8 @@ function TrendChart({
         <span>
           <i className="k-med" style={{ background: color }} />
           {words(
-            listing ? "挂单中位" : "推定成交中位",
-            listing ? "listing median" : "inferred sale median",
+            listing ? "挂单中位" : "成交价中位",
+            listing ? "listing median" : "sale price median",
           )}
         </span>
         {!comparison.length && (

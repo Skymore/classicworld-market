@@ -4,7 +4,7 @@ import { esc } from '../lib/format.js';
 function messages(en) { return en ? {
   title:'Market assistant', intro:'Tell me what you want to buy or sell. I’ll look up our market data for you.',
   placeholder:'I want to sell 100 ores. What price should I ask?', label:'Your market question', send:'Ask', stop:'Stop', clear:'New conversation',
-  hint:'Queries cover observed offers and inferred sales. Availability and equipment attributes need checking in game.',
+  hint:'Queries cover observed offers and sales. Availability and equipment attributes need checking in game.',
   welcome:'What are you looking for?', subtitle:'Compare offers, plan a sale, or check the market.',
   examples:['Where can I buy Red Potions cheaply?','I want to sell Steel Ores. How much should I ask?','What items have sold most recently?'],
   pending:'Looking up market data…', you:'You', assistant:'Market assistant', tools:'Data queries', sources:'View item data',
@@ -16,7 +16,7 @@ function messages(en) { return en ? {
 } : {
   title:'市场助手', intro:'告诉我你想买什么、卖什么，我帮你查市集数据。',
   placeholder:'例如：我要卖 100 个钢铁，挂多少合适？', label:'你的市场问题', send:'问一问', stop:'停止', clear:'新对话',
-  hint:'依据已采集的报价和推定成交。是否仍在售、装备属性，请在游戏里核对。',
+  hint:'依据已采集的报价和成交价。是否仍在售、装备属性，请在游戏里核对。',
   welcome:'今天想买点什么？', subtitle:'找低价、看卖价，也可以问问最近行情。',
   examples:['我要买红色药水，去哪买便宜？','我要卖钢铁，挂多少比较合适？','最近哪些物品卖得多？'],
   pending:'正在查询市场数据…', you:'你', assistant:'市场助手', tools:'本次数据查询', sources:'查看物品数据',

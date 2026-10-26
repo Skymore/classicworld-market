@@ -39,7 +39,7 @@ pub fn definitions() -> Value {
             json!({"item_id":id}), json!(["item_id"])),
         def("get_listings", "Cheapest observed offers in the past 72 hours with channel, room/map, shop, stock, equipment, source and observation time. Listings are not guaranteed still available. purchase_details distinguishes remaining bundles from individual items.",
             json!({"item_id":id,"limit":limit,"channel":{"type":"integer","minimum":1,"maximum":99},"max_unit_price":{"type":"number","minimum":0}}), json!(["item_id"])),
-        def("get_recent_sales", "Recent inferred sale evidence, newest first. Optional item filter. Not confirmed transactions or whole-market volume. Time window is measured from now. sale_details distinguishes price per purchase from inferred total value.",
+        def("get_recent_sales", "Recent sales, newest first. Optional item filter. Covers observed sources rather than whole-market volume. Time window is measured from now. sale_details distinguishes price per purchase from total value.",
             json!({"item_id":id,"limit":limit,"hours":hours}), json!([])),
         def("get_price_advice", "Sell pricing: the site's quick/normal sale recommendations and their evidence, current asks, and sale median/quartiles/count for the selected window. Compare equipment attributes separately.",
             json!({"item_id":id,"hours":hours}), json!(["item_id"])),
