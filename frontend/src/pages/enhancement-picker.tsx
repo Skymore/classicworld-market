@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useMarketQuery } from "../lib/query";
 import { usePreferences, useWords } from "../providers";
 import { Icon, Slot } from "../components/shared";
@@ -26,40 +26,79 @@ export default function Picker({
     [query, setQuery] = useState(""),
     [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null),
-    composing = useRef(false);
+    composing = useRef(false),
+    selectedRows = useRef<Choice[] | null>(null),
+    visibleRows = useRef<Choice[]>([]),
+    debounce = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
+    focusTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  function checkFocus() {
+    clearTimeout(focusTimer.current);
+    focusTimer.current = setTimeout(() => {
+      if (
+        !selectedRows.current &&
+        !box.current?.contains(document.activeElement)
+      )
+        setOpen(false);
+    }, 0);
+  }
   const name = (row: Choice) =>
     language === "en" ? row.name_en || row.name_zh : row.name_zh || row.name_en;
   useEffect(() => {
-    if (composing.current) return;
-    const timer = setTimeout(() => setQuery(draft.trim()), 200);
-    return () => clearTimeout(timer);
-  }, [draft]);
+    if (!open || composing.current || selectedRows.current) return;
+    debounce.current = setTimeout(() => setQuery(draft.trim()), 200);
+    return () => clearTimeout(debounce.current);
+  }, [draft, open]);
   useEffect(() => {
     const outside = (event: PointerEvent) => {
-      if (!box.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Element;
+      // iOS can blur the input without focusing the tapped result. Keep the
+      // visible rows mounted through blur/IME updates until its click arrives.
+      selectedRows.current =
+        event.button === 0 &&
+        box.current?.contains(target) &&
+        target.closest("[data-enhance-choice]")
+          ? visibleRows.current
+          : null;
+      if (selectedRows.current) clearTimeout(debounce.current);
+      if (!box.current?.contains(target)) setOpen(false);
+    };
+    const finish = () => {
+      if (!selectedRows.current) return;
+      selectedRows.current = null;
+      checkFocus();
+    };
+    const cancel = () => {
+      // A cancelled touch may be scrolling the results; never select or
+      // remove them while that native scrolling gesture is in progress.
+      clearTimeout(focusTimer.current);
+      selectedRows.current = null;
     };
     document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
+    document.addEventListener("pointercancel", cancel);
+    document.addEventListener("click", finish, true);
+    return () => {
+      clearTimeout(focusTimer.current);
+      clearTimeout(debounce.current);
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("pointercancel", cancel);
+      document.removeEventListener("click", finish, true);
+    };
   }, []);
   const result = useMarketQuery<{ items: Choice[] }>(
     "/api/v1/watchlist/catalog?" + new URLSearchParams({ q: query }),
     open && !!query,
     false,
   );
-  const choices = (result.data?.items || []).filter((row) =>
-    kind === "equipment"
-      ? row.item_id >= 1000000 && row.item_id < 2000000
-      : row.item_id >= 2040000 && row.item_id < 2050000,
-  );
+  const choices =
+    selectedRows.current ||
+    (result.data?.items || []).filter((row) =>
+      kind === "equipment"
+        ? row.item_id >= 1000000 && row.item_id < 2000000
+        : row.item_id >= 2040000 && row.item_id < 2050000,
+    );
+  visibleRows.current = choices;
   return (
-    <div
-      className="enhance-picker"
-      ref={box}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node))
-          setOpen(false);
-      }}
-    >
+    <div className="enhance-picker" ref={box} onBlur={checkFocus}>
       <label htmlFor={id}>
         {kind === "equipment"
           ? words("装备", "Equipment")
@@ -92,12 +131,16 @@ export default function Picker({
           }}
           onCompositionStart={() => {
             composing.current = true;
+            clearTimeout(debounce.current);
           }}
           onCompositionEnd={(event) => {
             composing.current = false;
-            setQuery(event.currentTarget.value.trim());
+            if (!selectedRows.current)
+              setQuery(event.currentTarget.value.trim());
           }}
           onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
+            selectedRows.current = null;
             if (event.key === "Escape") setOpen(false);
             if (event.key === "Enter") event.preventDefault();
           }}
@@ -105,9 +148,10 @@ export default function Picker({
       </div>
       {open && !!draft.trim() && (
         <div className="enhance-choices well" id={id + "-results"}>
-          {result.isFetching || query !== draft.trim() ? (
+          {!selectedRows.current &&
+          (result.isFetching || query !== draft.trim()) ? (
             <span role="status">{words("搜索中…", "Searching…")}</span>
-          ) : result.isError ? (
+          ) : result.isError && !selectedRows.current ? (
             <button
               className="btn"
               type="button"
@@ -120,7 +164,9 @@ export default function Picker({
               <button
                 type="button"
                 key={row.item_id}
+                data-enhance-choice={row.item_id}
                 onClick={() => {
+                  selectedRows.current = null;
                   choose(row);
                   setDraft("");
                   setQuery("");

@@ -61,9 +61,36 @@ try{
   await page.locator('#enhance-target').fill('');await page.locator('[data-enhance-total]').waitFor({state:'detached'});
   await page.locator('#enhance-target').fill('999');assert.equal(await page.locator('[data-enhance-total]').count(),0);
   await page.locator('#enhance-target').fill('10');await page.locator('[data-enhance-total]').waitFor();
-  const input=page.locator('.enhance-picker input');await input.fill('战斗弓');await page.locator('.enhance-choices button').first().click();
+  const input=page.locator('.enhance-picker input');await input.fill('战斗弓');
+  const firstChoice=page.locator('.enhance-choices button').first();await firstChoice.waitFor();
+  if(width===375){
+   await firstChoice.dispatchEvent('pointerdown',{pointerType:'touch',pointerId:1,button:0});
+   await input.evaluate(node=>node.blur());
+   await firstChoice.dispatchEvent('pointercancel',{pointerType:'touch',pointerId:1});
+   await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
+   assert.equal(await page.locator('.enhance-picker .enhance-selected a').getAttribute('href'),'/item/1082000','scrolling/cancelling a touch never selects equipment');
+   assert.equal(await page.locator('.enhance-choices button').count(),2,'cancelled touch preserves the scrollable results');
+   await input.focus();
+   // Safari may blur the search input with relatedTarget=null before delivering
+   // the result's click. Keep the original result mounted until that click.
+   await firstChoice.dispatchEvent('pointerdown',{pointerType:'touch',pointerId:1,button:0});
+   await input.evaluate(node=>node.blur());
+   generation=6;for(const stream of streams)stream.write('event: market\ndata: {}\n\n');
+   await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
+   assert.equal(await page.locator('.enhance-choices button').count(),2,'touch blur must preserve the equipment results until selection');
+   await firstChoice.tap();
+  }else await firstChoice.click();
   await page.locator('#enhance-scroll-2044501').waitFor();await page.locator('[data-enhance-total]').waitFor();assert.equal(await page.locator('#enhance-target').inputValue(),'10');
+  assert.equal(await page.locator('.enhance-picker .enhance-selected a').getAttribute('href'),'/item/1452003');
+  assert.equal(await input.inputValue(),'');assert.equal(await page.locator('.enhance-choices').count(),0);
   assert.match(await page.locator('.enhance-quote').first().textContent(),/7 次/);
+  await input.fill('工地手套');await page.locator('[data-enhance-choice="1082000"]').waitFor();
+  if(width===375)await page.locator('[data-enhance-choice="1082000"]').tap();
+  else {await input.press('Tab');await page.keyboard.press('Tab');await page.keyboard.press('Enter');}
+  await page.locator('#enhance-scroll-2040801').waitFor();assert.equal(await page.locator('.enhance-picker .enhance-selected a').getAttribute('href'),'/item/1082000');
+  await input.fill('战斗弓');await firstChoice.waitFor();await input.press('Escape');await page.locator('.enhance-choices').waitFor({state:'detached'});
+  await input.fill('战斗弓');await firstChoice.waitFor();await page.locator('#enhance-target').focus();await page.locator('.enhance-choices').waitFor({state:'detached'});
+  await input.focus();await firstChoice.waitFor();await page.locator('.enhancement-page h1').click();await page.locator('.enhance-choices').waitFor({state:'detached'});
   for(const theme of ['light','dark']){
    if(theme==='dark')await page.locator('[data-theme-toggle]:visible').click();
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal overflow');

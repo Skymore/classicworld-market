@@ -41,8 +41,22 @@ try{
    await page.waitForFunction(value=>Math.abs(Number(document.querySelector('[data-enhance-total]')?.dataset.enhanceTotal)-value)<=1e-7*Math.max(1,value),expected.expectedCost);
   }
   assert.equal(await page.locator('[data-nav-key=tools]:visible').getAttribute('aria-current'),'page');
+  // Reproduce the reported iPhone search, including blur before the result click.
+  const search=page.locator('.enhance-picker input');await search.fill('Vaul');
+  const result=page.locator('[data-enhance-choice="1452006"]');await result.waitFor();
+  if(width===375){
+   await result.dispatchEvent('pointerdown',{pointerType:'touch',pointerId:1,button:0});
+   await search.evaluate(node=>node.blur());
+   await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
+   assert.equal(await result.count(),1,'the Vaulter result survives mobile blur');
+   await result.tap();
+  }else await result.click();
+  await page.waitForFunction(()=>document.querySelector('.enhance-picker .enhance-selected a')?.getAttribute('href')==='/item/1452006');
+  await page.locator('#enhance-scroll-2044501').waitFor();
+  assert.match(await page.locator('.enhance-quote').first().textContent(),/7 次/);
+  assert.equal(await search.inputValue(),'');assert.equal(await page.locator('.enhance-choices').count(),0);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal overflow');
   if(process.env.ENHANCEMENT_SCREENSHOTS){await mkdir(process.env.ENHANCEMENT_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.ENHANCEMENT_SCREENSHOTS,`enhancement-live-${width}.png`),fullPage:true});}
-  assert.deepEqual(errors,[]);await page.close();console.log(`PASS ${origin} ${width}px: real percentile prices, original stats, read-only prices and typed +6/+7/+10/+12 plans`);
+  assert.deepEqual(errors,[]);await page.close();console.log(`PASS ${origin} ${width}px: real percentile prices, original stats, typed plans and Vaul equipment selection after blur`);
  }
 }finally{await browser.close();}
