@@ -46,8 +46,9 @@ function snapshot(url) {
   const matches=row=>row.variant&&selected&&groupEquipmentVariants([{variant:selected},row]).length===1;
   listings=listings.filter(matches);sales=sales.filter(matches);
  }
- return {kind:'item',page:{item:{id:1002000,name_zh:'测试装备',name_en:'Test equipment',category:'装备',req_level:10},selected_variant:selected,stats:null,droppers:[],npc_offers:[],npc_sell:null,market:{as_of:new Date((now+revision)*1000).toISOString(),base_stats:[['weapon_attack',1],['str',1],['weapon_defense',10],['magic_defense',5]],days:[],sale_points:[],sales,listings}}};
+ return {kind:'item',page:{item:{id:Number(target.pathname.split('/')[2]),name_zh:'测试装备',name_en:'Test equipment',category:'装备',req_level:10},selected_variant:selected,stats:null,droppers:[],npc_offers:[],npc_sell:null,market:{as_of:new Date((now+revision)*1000).toISOString(),base_stats:[['weapon_attack',1],['str',1],['weapon_defense',10],['magic_defense',5]],days:[],sale_points:[],sales,listings}}};
 }
+const catalogRequests=[];
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname === '/api/v1/events') {
@@ -57,7 +58,7 @@ const server = createServer(async (req, res) => {
   if (url.pathname.startsWith('/api/')) {
     res.setHeader('Content-Type','application/json');
     if(url.pathname==='/api/v1/account')return res.end(JSON.stringify({signed_in:false}));
-    if(url.pathname==='/api/v1/catalog/page')return res.end(JSON.stringify(snapshot(url)));
+    if(url.pathname==='/api/v1/catalog/page'){catalogRequests.push(url.searchParams.get('url'));return res.end(JSON.stringify(snapshot(url)));}
     return res.end('{}');
   }
   if (url.pathname.startsWith('/web/')) {
@@ -90,6 +91,8 @@ try {
     const open = async () => { await page.locator('[data-offer-filter-open]').click(); await page.locator('dialog[open]').waitFor(); };
     const submit = async () => { await page.locator('[data-offer-apply]').click(); await page.locator('dialog[open]').waitFor({state:'hidden'}); };
     await page.goto(url); await waitRevision();
+    await page.evaluate(()=>localStorage.setItem('market.offerFilters','{"hours":"1","equipment":"bonus"}'));
+    await page.reload();await waitRevision();
     if (!mobile) await page.evaluate(() => document.documentElement.dataset.theme = 'dark');
     assert.equal(await page.locator('.offer-filter-summary').isVisible(), false);
     const placement = await page.locator('.offer-actions').evaluate(el => {
@@ -137,6 +140,26 @@ try {
     assert.deepEqual(await visibleRows(), ['fresh'], 'all conditions survive sort changes');
     await page.reload(); await waitRevision();
     assert.deepEqual(await visibleRows(), ['fresh'], 'all conditions survive reload');
+    await page.locator('.show-expired-toggle input').uncheck();
+    const switchItem=async id=>{
+      await page.evaluate(id=>{history.pushState({},'',`/item/${id}?hours=all`);dispatchEvent(new PopStateEvent('popstate'));},id);
+      await page.locator(`.item-stall[data-item="${id}"]`).waitFor();
+    };
+    await switchItem(1002001);
+    const requested=new URL(catalogRequests.at(-1),'http://fixture');
+    assert.equal(requested.searchParams.has('attributes'),false,'server fetch must not inherit another product attributes');
+    assert.equal(requested.searchParams.has('equipment'),false);
+    assert.equal(await page.locator('.offer-filter-summary').isVisible(),false,'another product starts with independent filters');
+    assert.equal(await page.locator('.show-expired-toggle input').isChecked(),true,'expired toggle is per product');
+    await open();await page.locator('dialog [name=maxPrice]').fill('20000');await submit();
+    await switchItem(1002000);
+    assert.deepEqual(await visibleRows(),['fresh'],'SPA navigation restores the original product filters');
+    assert.equal(await page.locator('.show-expired-toggle input').isChecked(),false);
+    await page.goBack();await page.locator('.item-stall[data-item="1002001"]').waitFor();
+    await open();assert.equal(await page.locator('dialog [name=maxPrice]').inputValue(),'20000');await page.keyboard.press('Escape');
+    await page.locator('[data-offer-clear=all]').click();
+    await switchItem(1002000);
+    assert.deepEqual(await visibleRows(),['fresh'],'clearing one product preserves the other');
     offers = [...original, { id:'incoming',ch:'35',room:3,price:24000,age:0,stock:10,equipment:true,captured:true }]; revision++; broadcast(); await waitRevision();
     assert.equal(await page.locator('.where-well .well-h > small').textContent(), mobile ? '2 条挂单 · 2 摊' : '2 listings · 2 shops');
     await open(); await page.locator('dialog [name=maxPrice]').fill('23000');
@@ -233,7 +256,10 @@ try {
     assert.deepEqual(await visibleRows(),['dex2-a','dex2-b'],'the child page combines defence rolls and keeps buying locations');
     assert.equal(await page.locator('[data-equipment-group]').count(),1);
     await page.screenshot({path:path.join(output,`attribute-child-${mobile?'mobile':'desktop'}.png`),fullPage:true});
+    await open();await page.locator('dialog [name=maxPrice]').fill('20000');await submit();
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('item.offerFilters.1002000')).maxPrice),20000,'variant detail saves under the same item');
     await page.reload();await page.locator('[data-selected-attributes]').waitFor();
+    await open();assert.equal(await page.locator('dialog [name=maxPrice]').inputValue(),'20000');await page.keyboard.press('Escape');
     assert.deepEqual(await visibleRows(),['dex2-a','dex2-b']);
     const shared=await browser.newPage({viewport:{width:375,height:812}});
     await shared.goto(page.url());await shared.locator('[data-selected-attributes]').waitFor();

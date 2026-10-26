@@ -138,6 +138,88 @@ fn settings(cap: i64) -> Value {
 }
 
 #[tokio::test]
+async fn item_filters_are_saved_per_product_and_account() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let state = AppState::new(db.pool.clone(), Settings::default());
+    let (a, csrf, _) = signup(&state, "filter_player").await;
+    let (b, _, _) = signup(&state, "other_filter_player").await;
+    let pref = |key: &str, value: Value, version: i64| json!({"kind":"pref","key":key,"value":value,"version":version});
+    let first = json!({"hours":"6","stats":[{"stat":"dex","min":3}]}).to_string();
+    let second = json!({"percentile":"25"}).to_string();
+    assert_eq!(
+        post(
+            &state,
+            "/api/v1/account/data",
+            json!({"operations":[
+                pref("item.offerFilters.1002000",json!(first),0),
+                pref("item.offerFilters.1002001",json!(second),0),
+                pref("item.showExpired.1002000",json!("false"),0)
+            ]}),
+            &a,
+            &csrf
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let saved = records(&state, &a).await;
+    assert_eq!(saved.as_array().unwrap().len(), 3);
+    assert_eq!(
+        saved
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["key"] == "item.offerFilters.1002000")
+            .unwrap()["value"],
+        first
+    );
+    assert_eq!(records(&state, &b).await, json!([]));
+    assert_eq!(
+        post(
+            &state,
+            "/api/v1/account/data",
+            json!({"operations":[pref("item.offerFilters.1002000",Value::Null,1)]}),
+            &a,
+            &csrf
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let saved = records(&state, &a).await;
+    assert_eq!(
+        saved
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["key"] == "item.offerFilters.1002001")
+            .unwrap()["value"],
+        second
+    );
+    assert!(saved
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["key"] == "item.offerFilters.1002000")
+        .unwrap()["value"]
+        .is_null());
+    assert_eq!(
+        post(
+            &state,
+            "/api/v1/account/data",
+            json!({"operations":[pref("item.offerFilters.1002000",json!("{\"hours\":\"2\"}"),2)]}),
+            &a,
+            &csrf
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    db.close().await;
+}
+#[tokio::test]
 async fn reminder_rules_sync_with_each_watch_and_reject_time_conditions() {
     let Some(db) = TestDb::new().await else {
         return;

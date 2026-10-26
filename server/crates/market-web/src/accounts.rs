@@ -633,6 +633,36 @@ fn valid_reminder(value: &Value) -> bool {
             _ => false,
         })
 }
+fn valid_item_filters(raw: &str) -> bool {
+    if raw.len() > 4096 {
+        return false;
+    }
+    let Ok(Value::Object(mut filters)) = serde_json::from_str::<Value>(raw) else {
+        return false;
+    };
+    for (key, choices) in [
+        ("hours", &["all", "1", "6", "24", "48", "72", "168"][..]),
+        ("percentile", &["all", "10", "25", "50", "75"][..]),
+    ] {
+        if filters
+            .remove(key)
+            .is_some_and(|v| !v.as_str().is_some_and(|s| choices.contains(&s)))
+        {
+            return false;
+        }
+    }
+    for key in ["minPrice", "maxPrice"] {
+        if filters.remove(key).is_some_and(|v| {
+            !v.is_null()
+                && !v
+                    .as_f64()
+                    .is_some_and(|n| n.is_finite() && (0.0..=9_007_199_254_740_991.0).contains(&n))
+        }) {
+            return false;
+        }
+    }
+    valid_reminder(&Value::Object(filters))
+}
 fn valid_record(r: &Record) -> bool {
     if r.version < 0 || r.version == i64::MAX {
         return false;
@@ -662,6 +692,25 @@ fn valid_record(r: &Record) -> bool {
     }
     if r.kind != "pref" {
         return false;
+    }
+    for prefix in ["item.offerFilters.", "item.showExpired."] {
+        if let Some(key) = r.key.strip_prefix(prefix) {
+            if !key
+                .parse::<u32>()
+                .is_ok_and(|id| (1000000..=5999999).contains(&id) && id.to_string() == key)
+            {
+                return false;
+            }
+            return r.value.as_ref().is_none_or(|v| {
+                v.as_str().is_some_and(|s| {
+                    if prefix == "item.showExpired." {
+                        s == "true" || s == "false"
+                    } else {
+                        valid_item_filters(s)
+                    }
+                })
+            });
+        }
     }
     let Some(v) = &r.value else {
         return [
@@ -804,6 +853,43 @@ mod tests {
         assert!(!valid_record(&r));
     }
 
+    #[test]
+    fn validates_per_item_filter_preferences() {
+        let mut r = Record {
+            kind: "pref".into(), key: "item.offerFilters.1002000".into(),
+            value: Some(json!(json!({"hours":"6","percentile":"75","minPrice":null,"maxPrice":9007199254740991u64,"stock":"known","minStock":2,"equipment":"bonus","stats":[{"stat":"dex","min":3}]}).to_string())), version: 0,
+        };
+        assert!(valid_record(&r));
+        for invalid in [
+            json!({"hours":"2"}),
+            json!({"maxPrice":-1}),
+            json!({"stats":[{"stat":"dex","min":65536}]}),
+            json!({"secret":"no"}),
+            json!([]),
+        ] {
+            r.value = Some(json!(invalid.to_string()));
+            assert!(!valid_record(&r));
+        }
+        r.value = None;
+        assert!(valid_record(&r));
+        for key in [
+            "item.offerFilters.01002000",
+            "item.offerFilters.999999",
+            "item.offerFilters.6000000",
+            "item.offerFilters.1002000.other",
+        ] {
+            r.key = key.into();
+            assert!(!valid_record(&r));
+        }
+        r.key = "item.showExpired.1002000".into();
+        r.value = Some(json!("false"));
+        assert!(valid_record(&r));
+        r.value = Some(json!("yes"));
+        assert!(!valid_record(&r));
+        r.key = "item.offerFilters.1002000".into();
+        r.value = Some(json!("x".repeat(4097)));
+        assert!(!valid_record(&r));
+    }
     #[test]
     fn validates_per_item_reminders_without_time_filters() {
         let valid = json!({"percentile":"25","minPrice":null,"stock":"known","minStock":5,"equipment":"bonus","stats":[{"stat":"weapon_attack","min":45}]});

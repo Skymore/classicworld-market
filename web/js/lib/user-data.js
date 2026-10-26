@@ -2,6 +2,9 @@
 // are namespaced by a server-confirmed public account ID. Credentials stay in cookies.
 const PREFS=['lang','theme','market.offerSort','watch.offerSort','market.hours'];
 const KEYS=['watchlist','watchlist_settings',...PREFS];
+const itemPref=key=>/^item\.(offerFilters|showExpired)\.[1-5]\d{6}$/.test(key);
+const preference=key=>PREFS.includes(key)||itemPref(key);
+const managed=key=>KEYS.includes(key)||itemPref(key);
 const PREFIX='cwm.user-data.v1.';
 const SIGNAL='cwm.account-signal.v1';
 const ACTIVE_PREFERENCES='cwm.preferences.account.v1';
@@ -21,7 +24,7 @@ export function subscribeSync(fn){listeners.add(fn);fn(getSyncState());return()=
 function persist(){if(context&&owner)try{write(PREFIX+owner,JSON.stringify(context));persistent=true;}catch{persistent=false;}}
 function valuesFrom(records){
  const values={},watches=[];const settings={};
- for(const r of records){if(r.value==null)continue;if(r.kind==='pref'&&PREFS.includes(r.key))values[r.key]=String(r.value);
+ for(const r of records){if(r.value==null)continue;if(r.kind==='pref'&&preference(r.key))values[r.key]=String(r.value);
   if(r.kind==='watch'){const id=Number(r.key);if(!Number.isSafeInteger(id))continue;watches.push({id,position:r.value.position});settings[id]={cap:r.value.cap??null,notify:r.value.notify!==false,...(r.value.reminder?{reminder:r.value.reminder}:{})};}}
  watches.sort((a,b)=>a.position-b.position||a.id-b.id);values.watchlist=JSON.stringify(watches.map(w=>w.id));values.watchlist_settings=JSON.stringify(settings);return values;
 }
@@ -29,7 +32,7 @@ function recordsFrom(values){
  const raw=parse(values.watchlist,[]),ids=[...new Set((Array.isArray(raw)?raw:[]).map(Number).filter(id=>Number.isSafeInteger(id)&&id>=1000000&&id<=5999999))];
  const settings=parse(values.watchlist_settings,{})||{};
  const records=ids.map((id,position)=>({kind:'watch',key:String(id),value:{cap:Number.isFinite(settings[id]?.cap)?settings[id].cap:null,notify:settings[id]?.notify!==false,position,...(settings[id]?.reminder?{reminder:settings[id].reminder}:{})}}));
- for(const key of PREFS)if(values[key]!=null)records.push({kind:'pref',key,value:values[key]});return records;
+ for(const key of Object.keys(values))if(preference(key)&&values[key]!=null)records.push({kind:'pref',key,value:values[key]});return records;
 }
 function queue(){
  if(!owner||!context)return;
@@ -46,11 +49,11 @@ function queue(){
 }
 export const userStorage={
  getItem(key){
-  if(owner&&context){if(key==='market.period-manual.v1')return context.values['market.hours']?'1':null;if(KEYS.includes(key))return context.values[key]??null;}
+  if(owner&&context){if(key==='market.period-manual.v1')return context.values['market.hours']?'1':null;if(managed(key))return context.values[key]??null;}
   return read(key);
  },
  setItem(key,value){
-  if(owner&&context&&(KEYS.includes(key)||key==='market.period-manual.v1')){
+  if(owner&&context&&(managed(key)||key==='market.period-manual.v1')){
    if(key==='market.period-manual.v1')return;
    if(key==='watchlist'&&parse(value,[]).length>100)throw new Error('watch_limit');
    if(context.values[key]===String(value))return;
@@ -58,7 +61,7 @@ export const userStorage={
   }
   write(key,String(value));
  },
- removeItem(key){if(owner&&context&&(KEYS.includes(key)||key==='market.period-manual.v1')){if(!(key in context.values))return;delete context.values[key];queue();return;}native().removeItem(key);}
+ removeItem(key){if(owner&&context&&(managed(key)||key==='market.period-manual.v1')){if(!(key in context.values))return;delete context.values[key];queue();return;}native().removeItem(key);}
 };
 function changed(){
  if(!browser)return;
@@ -134,11 +137,15 @@ export async function refreshIdentity(){
 }
 export async function importGuest(){
  if(!owner)throw new Error('login_required');
- const values=Object.fromEntries(KEYS.map(key=>[key,read(key)]));
+ const keys=[...KEYS];try{for(let i=0;i<native().length;i++){const key=native().key(i);if(itemPref(key))keys.push(key);}}catch{}
+ const values=Object.fromEntries(keys.map(key=>[key,read(key)]));
  const operations=recordsFrom(values).map(r=>({...r,version:0}));if(!operations.length)return;
  const mine=epoch;
- const result=await request('/api/v1/account/data/import',{operations});
- if(mine===epoch){reconcile(result.records||[]);try{write(PREFIX+owner+'.imported','1');}catch{}}
+ for(let i=0;i<operations.length;i+=120){
+  const result=await request('/api/v1/account/data/import',{operations:operations.slice(i,i+120)});
+  if(mine!==epoch)return;reconcile(result.records||[]);
+ }
+ try{write(PREFIX+owner+'.imported','1');}catch{}
 }
 export function guestImportAvailable(){return !!owner&&!read(PREFIX+owner+'.imported')&&guestIds().length>0;}
 export function retryConflicts(){

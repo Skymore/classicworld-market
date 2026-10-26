@@ -405,8 +405,8 @@ export default function Item({ page }: { page: any }) {
     equipment = Math.floor(item.id / 1000000) === 1;
   const [watch, saveWatch] = useUserValue("watchlist", "[]"),
     [sort, saveSort] = useUserValue("market.offerSort", "price"),
-    [showExpired, saveShowExpired] = useUserValue("market.showExpired", "true"),
-    [raw, saveFilters] = useUserValue("market.offerFilters", "{}");
+    [showExpired, saveShowExpired] = useUserValue(`item.showExpired.${item.id}`, "true"),
+    [raw, saveFilters] = useUserValue(`item.offerFilters.${item.id}`, "{}");
   const [tab, setTab] = useState("ladder"),
     [more, setMore] = useState<Set<string>>(new Set()),
     [channels, setChannels] = useState<Record<string, boolean>>({}),

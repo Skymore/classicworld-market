@@ -32,7 +32,8 @@ async function init(stall) {
   // sorting handler is still waiting for that request.
   const state = { tab: 'ladder', channels: new Map(), tier: null, more: new Set(), bonusOnly: false };
   try{state.offerSort=localStorage.getItem('market.offerSort')==='recent'?'recent':'price';}catch{state.offerSort='price';}
-  try { state.offerFilters = normalizeOfferFilters(JSON.parse(localStorage.getItem('market.offerFilters'))); }
+  const filterKey = `item.offerFilters.${stall.dataset.item}`;
+  try { state.offerFilters = normalizeOfferFilters(JSON.parse(localStorage.getItem(filterKey))); }
   catch { state.offerFilters = normalizeOfferFilters(); }
   if (!stall.querySelector('.listing-offer')) state.offerFilters.equipment = 'all';
   let offerPanel;
@@ -43,7 +44,7 @@ async function init(stall) {
   const saveOffers = () => {
     try {
       localStorage.setItem('market.offerSort', state.offerSort);
-      localStorage.setItem('market.offerFilters', JSON.stringify(state.offerFilters));
+      localStorage.setItem(filterKey, JSON.stringify(state.offerFilters));
     } catch { /* private mode */ }
     applyOffers();
   };

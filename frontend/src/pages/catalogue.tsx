@@ -700,7 +700,10 @@ export default function Catalogue() {
   const route = useLocation(),
     words = useWords();
   const { language } = usePreferences();
-  const [rawFilters] = useUserValue("market.offerFilters", "{}");
+  const [rawFilters] = useUserValue(
+    `item.offerFilters.${route.pathname.split("/")[2]}`,
+    "{}",
+  );
   const params = new URLSearchParams(route.search);
   if (
     route.pathname.startsWith("/item/") &&
@@ -771,6 +774,8 @@ export default function Catalogue() {
     );
   if (
     !data ||
+    (route.pathname.startsWith("/item/") &&
+      String(data.page?.item?.id) !== route.pathname.split("/")[2]) ||
     (params.get("variant") &&
       String(data.page?.selected_variant?.id) !== params.get("variant"))
   )

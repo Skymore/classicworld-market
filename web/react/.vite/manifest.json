@@ -40,15 +40,15 @@
       "_shell-DAst3R10.js"
     ]
   },
-  "_live-DkHVPGWr.js": {
-    "file": "chunks/live-DkHVPGWr.js",
+  "_live-Bl9syyd3.js": {
+    "file": "chunks/live-Bl9syyd3.js",
     "name": "live",
     "imports": [
       "_shared-bEWK-VIT.js"
     ]
   },
-  "_main-C8dKXdSX.js": {
-    "file": "chunks/main-C8dKXdSX.js",
+  "_main-Cl6IWbH0.js": {
+    "file": "chunks/main-Cl6IWbH0.js",
     "name": "main",
     "imports": [
       "_shared-bEWK-VIT.js",
@@ -144,7 +144,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-C8dKXdSX.js"
+      "_main-Cl6IWbH0.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -185,7 +185,7 @@
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-CJ9Wqnha.js",
+    "file": "chunks/catalogue-BTQaDUpE.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
@@ -194,7 +194,7 @@
       "_item-market-CrTtFZFT.js",
       "_shell-DAst3R10.js",
       "_list-rows-Djfnt8sZ.js",
-      "_live-DkHVPGWr.js",
+      "_live-Bl9syyd3.js",
       "_offer-filters-BtOqpOxI.js"
     ]
   },
@@ -250,7 +250,7 @@
     ]
   },
   "src/pages/prices.tsx": {
-    "file": "chunks/prices-CZYLMrGY.js",
+    "file": "chunks/prices-B_bin782.js",
     "name": "prices",
     "src": "src/pages/prices.tsx",
     "isDynamicEntry": true,
@@ -262,7 +262,7 @@
       "_list-rows-Djfnt8sZ.js",
       "_dist-QY5R-Icj.js",
       "_list-copy-B0Gm1dmd.js",
-      "_live-DkHVPGWr.js",
+      "_live-Bl9syyd3.js",
       "_tabs-Cp63efpQ.js"
     ]
   },
@@ -307,7 +307,7 @@
     ]
   },
   "src/pages/watch.tsx": {
-    "file": "chunks/watch-BRplmFYM.js",
+    "file": "chunks/watch-BSmELlqf.js",
     "name": "watch",
     "src": "src/pages/watch.tsx",
     "isDynamicEntry": true,
@@ -318,7 +318,7 @@
       "_list-rows-Djfnt8sZ.js",
       "_toasts-CAT0ngCs.js",
       "_list-copy-B0Gm1dmd.js",
-      "_live-DkHVPGWr.js",
+      "_live-Bl9syyd3.js",
       "_offer-filters-BtOqpOxI.js"
     ]
   },
@@ -328,7 +328,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-C8dKXdSX.js"
+      "_main-Cl6IWbH0.js"
     ]
   },
   "style.css": {

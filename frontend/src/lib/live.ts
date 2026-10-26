@@ -41,7 +41,10 @@ const subscribe = (callback: () => void) => {
   };
 };
 export function useUserValue(key: string, fallback = "") {
-  const [temporary, setTemporary] = useState<string | null>(null);
+  const [temporary, setTemporary] = useState<{
+    key: string;
+    value: string;
+  } | null>(null);
   useEffect(() => {
     const reset = () => setTemporary(null);
     window.addEventListener("user-preferences", reset);
@@ -49,14 +52,17 @@ export function useUserValue(key: string, fallback = "") {
   }, [key]);
   const value = useSyncExternalStore(
     subscribe,
-    () => temporary ?? userStorage.getItem(key) ?? fallback,
+    () =>
+      (temporary?.key === key ? temporary.value : null) ??
+      userStorage.getItem(key) ??
+      fallback,
   );
   const write = (next: string) => {
     try {
       userStorage.setItem(key, next);
       setTemporary(null);
     } catch {
-      setTemporary(next);
+      setTemporary({ key, value: next });
     }
     window.dispatchEvent(new StorageEvent("storage", { key, newValue: next }));
   };

@@ -46,6 +46,9 @@ let browser;const errors=[];
 const state=page=>page.evaluate(async()=>{const m=await import('/web/js/lib/user-data.js');return{...m.getSyncState(),ids:JSON.parse(m.userStorage.getItem('watchlist')||'[]'),settings:JSON.parse(m.userStorage.getItem('watchlist_settings')||'{}')};});
 const refresh=page=>page.evaluate(async()=>{await(await import('/web/js/lib/user-data.js')).refreshIdentity();});
 const setCap=(page,cap)=>page.evaluate(async cap=>{const m=await import('/web/js/lib/user-data.js');m.userStorage.setItem('watchlist_settings',JSON.stringify({4010001:{cap,notify:true}}));await m.flush();},cap);
+const filterKey='item.offerFilters.1002000',otherFilterKey='item.offerFilters.1002001';
+const getPref=(page,key)=>page.evaluate(async key=>(await import('/web/js/lib/user-data.js')).userStorage.getItem(key),key);
+const setPref=(page,key,value)=>page.evaluate(async({key,value})=>{const m=await import('/web/js/lib/user-data.js');if(value===null)m.userStorage.removeItem(key);else m.userStorage.setItem(key,value);await m.flush();},{key,value});
 async function auth(page,name,register=false){
  await page.goto(origin+'/account?lang=zh');await page.locator('[data-auth]').waitFor();
  if(register)await page.locator('[data-auth-tab=register]').click();
@@ -59,15 +62,38 @@ try{
  await a.addInitScript(()=>{if(!localStorage.getItem('seeded')){localStorage.setItem('watchlist','[4010001]');localStorage.setItem('watchlist_settings','{"4010001":{"cap":100,"notify":true}}');localStorage.setItem('seeded','1');}});
  const pageA=await a.newPage();pageA.on('pageerror',e=>errors.push(e.message));
  await pageA.goto(origin+'/account?lang=zh');await pageA.locator('[data-auth]').waitFor();
+ await setPref(pageA,filterKey,'{"hours":"1"}');
  await pageA.screenshot({path:path.join(output,'login-mobile.png'),fullPage:true});
  await auth(pageA,'maple_one',true);await pageA.locator('.recovery-code').waitFor();assert.equal(await pageA.locator('.recovery-code').textContent(),'r'.repeat(43));
  assert.deepEqual((await state(pageA)).ids,[],'registration must not silently import guest watches');
+ assert.equal(await getPref(pageA,filterKey),null,'new accounts must not inherit guest filters');
  await pageA.locator('[data-import-guest]').click();await pageA.locator('[data-import-guest]').waitFor({state:'detached'});
  assert.deepEqual((await state(pageA)).ids,[4010001]);await pageA.locator('[data-dismiss-recovery]').click();
+ assert.equal(await getPref(pageA,filterKey),'{"hours":"1"}','explicit guest import includes per-product filters');
  assert(await pageA.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'mobile account overflows');
  await pageA.screenshot({path:path.join(output,'account-mobile.png'),fullPage:true});
  const b=await browser.newContext({viewport:{width:1280,height:900}}),pageB=await b.newPage();pageB.on('pageerror',e=>errors.push(e.message));
  await auth(pageB,'maple_one');assert.deepEqual((await state(pageB)).ids,[4010001]);
+ assert.equal(await getPref(pageB,filterKey),'{"hours":"1"}');
+ await setPref(pageA,filterKey,'{"stock":"known","stats":[{"stat":"str","min":2}]}');
+ await setPref(pageA,'item.showExpired.1002000','false');
+ await setPref(pageB,otherFilterKey,'{"percentile":"25"}');
+ await refresh(pageA);await refresh(pageB);
+ assert.equal(await getPref(pageB,'item.showExpired.1002000'),'false');
+ assert.equal(await getPref(pageA,otherFilterKey),'{"percentile":"25"}');
+ const savedFilters=await getPref(pageA,filterKey);
+ assert.equal(await getPref(pageB,filterKey),savedFilters,'per-product filters sync across devices');
+ await pageB.reload();await pageB.locator('[data-logout]').waitFor();assert.equal(await getPref(pageB,filterKey),savedFilters);
+ // Independent product edits made offline merge without deleting other products.
+ await pageA.route('**/api/v1/account/data',route=>route.abort());
+ await setPref(pageA,filterKey,'{"hours":"6"}');
+ await setPref(pageB,otherFilterKey,'{"percentile":"50"}');
+ await pageA.unroute('**/api/v1/account/data');await refresh(pageA);await refresh(pageB);
+ assert.equal(await getPref(pageB,filterKey),'{"hours":"6"}');
+ assert.equal(await getPref(pageA,otherFilterKey),'{"percentile":"50"}');
+ await setPref(pageA,filterKey,null);await refresh(pageB);
+ assert.equal(await getPref(pageB,filterKey),null,'clearing one product syncs its deletion');
+ assert.equal(await getPref(pageB,otherFilterKey),'{"percentile":"50"}');
  const reminder={percentile:'25',minPrice:10,stock:'known',minStock:5,equipment:'all',stats:[]};
  await pageA.evaluate(async reminder=>{const m=await import('/web/js/lib/user-data.js');m.userStorage.setItem('watchlist_settings',JSON.stringify({4010001:{cap:100,notify:true,reminder}}));await m.flush();},reminder);
  await refresh(pageB);assert.deepEqual((await state(pageB)).settings[4010001].reminder,reminder);
@@ -85,7 +111,10 @@ try{
  // Theme choices sync too.
  await pageB.evaluate(async()=>{const m=await import('/web/js/lib/user-data.js');m.userStorage.setItem('theme','dark');await m.flush();});await refresh(pageA);assert.equal(await pageA.locator('html').getAttribute('data-theme'),'dark');
  await pageA.locator('[data-logout]').click();await pageA.locator('[data-auth]').waitFor();assert.deepEqual((await state(pageA)).ids,[4010001],'logout restores the original guest list');
+ assert.equal(await getPref(pageA,filterKey),'{"hours":"1"}','logout restores guest filters');
  await auth(pageA,'maple_two',true);assert.deepEqual((await state(pageA)).ids,[],'another account must not inherit account one data or edits');assert.equal((await state(pageA)).pending,0);assert.equal((await state(pageA)).conflicts,0);
+ assert.equal(await getPref(pageA,otherFilterKey),null,'another user has independent product preferences');
+ assert.equal(await getPref(pageA,'item.showExpired.1002000'),null);
  // Tabs share a browser cache but must retain independent pending item edits.
  const otherTab=await a.newPage();otherTab.on('pageerror',e=>errors.push(e.message));await otherTab.goto(origin+'/account?lang=zh');await otherTab.locator('[data-logout]').waitFor();
  await Promise.all([pageA,otherTab].map((page,i)=>page.evaluate(async id=>{const m=await import('/web/js/lib/user-data.js');m.userStorage.setItem('watchlist',JSON.stringify([id]));},4010010+i)));
