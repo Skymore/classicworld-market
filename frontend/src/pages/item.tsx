@@ -416,6 +416,32 @@ export default function Item({ page }: { page: any }) {
     [filterOpen, setFilterOpen] = useState(false),
     [, tick] = useState(0);
   const opener = useRef<HTMLButtonElement>(null);
+  const itemHead = useRef<HTMLDivElement>(null);
+  const [compactHead, setCompactHead] = useState(false);
+  useEffect(() => {
+    const head = itemHead.current;
+    if (!head) return;
+    const siteHeader = document.querySelector(".dhead");
+    let observer: IntersectionObserver;
+    const observe = () => {
+      observer?.disconnect();
+      const top = siteHeader?.getBoundingClientRect().height || 0;
+      setCompactHead(head.getBoundingClientRect().bottom <= top);
+      observer = new IntersectionObserver(
+        ([entry]) => setCompactHead(entry.boundingClientRect.bottom <= top),
+        { rootMargin: `-${top}px 0px 0px 0px` },
+      );
+      observer.observe(head);
+    };
+    const resize = new ResizeObserver(observe);
+    resize.observe(head);
+    if (siteHeader) resize.observe(siteHeader);
+    observe();
+    return () => {
+      observer.disconnect();
+      resize.disconnect();
+    };
+  }, [item.id, page.selected_variant?.id]);
   const filters = useMemo(() => {
     try {
       return normalizeOfferFilters({
@@ -828,7 +854,7 @@ export default function Item({ page }: { page: any }) {
             </span>
           </button>
         </div>
-        <div data-market="head">
+        <div data-market="head" ref={itemHead}>
           <div className="ihead">
             <Slot empty url={item.icon_url} size={44} />
             <div>
@@ -910,6 +936,34 @@ export default function Item({ page }: { page: any }) {
             )}
             <span className="range">{range}</span>
           </div>
+        </div>
+        <div className="item-summary-sticky">
+          {compactHead && (
+            <div
+              className="item-summary"
+              role="region"
+              aria-label={words("物品摘要", "Item summary")}
+            >
+              <Slot empty url={item.icon_url} size={28} />
+              <b
+                className="item-summary-name"
+                title={words(item.name_zh || item.name_en, item.name_en)}
+              >
+                {words(item.name_zh || item.name_en, item.name_en)}
+              </b>
+              <span
+                className="item-summary-price"
+                title={
+                  stats?.typical != null
+                    ? words("金币 · 成交中位", "mesos · typical sale")
+                    : words("还没有成交价", "no sales yet")
+                }
+              >
+                <Price value={stats?.typical} />
+                {page.unit === "set" && <small>{words("/组", "/set")}</small>}
+              </span>
+            </div>
+          )}
         </div>
         {selectedVariant && (
           <div className="selected-attributes" data-selected-attributes>

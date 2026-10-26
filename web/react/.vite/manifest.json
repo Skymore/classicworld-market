@@ -47,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-BUJjIS1k.js": {
-    "file": "chunks/main-BUJjIS1k.js",
+  "_main-Bk_LqC8P.js": {
+    "file": "chunks/main-Bk_LqC8P.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -144,7 +144,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BUJjIS1k.js"
+      "_main-Bk_LqC8P.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -185,7 +185,7 @@
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-CQNRv4Vm.js",
+    "file": "chunks/catalogue-CVpBamWO.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
@@ -327,7 +327,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BUJjIS1k.js"
+      "_main-Bk_LqC8P.js"
     ]
   },
   "style.css": {

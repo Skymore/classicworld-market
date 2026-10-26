@@ -178,6 +178,50 @@
 .react-price-sticky {
   display: contents;
 }
+.item-summary-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: 0;
+}
+.item-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 10px;
+  background: var(--sheet);
+  border-bottom: 2px solid var(--edge);
+  box-shadow: var(--hard);
+}
+.item-summary .slot {
+  flex-shrink: 0;
+}
+.item-summary-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.item-summary-price {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 18px;
+  font-weight: 800;
+}
+.item-summary-price small {
+  margin-left: 3px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-3);
+}
+@media (min-width: 641px) {
+  .item-summary-sticky {
+    top: 62px;
+  }
+}
 .react-price-cols {
   display: none;
 }
