@@ -6,7 +6,11 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
-const { mergeShopOffers } = await import('data:text/javascript,' + encodeURIComponent(await readFile(path.join(root, 'js/lib/quote-groups.js'), 'utf8')));
+const groupSource=await readFile(path.join(root, 'js/lib/quote-groups.js'), 'utf8');
+const { mergeShopOffers } = await import('data:text/javascript,' + encodeURIComponent(groupSource));
+// Old tabs/caches already have this URL without the newly exported identity.
+const legacyGroups=groupSource.replace('export function shopOfferIdentity(', 'function identity(').replace('const key = shopOfferIdentity(row);','const key = identity(row);');
+const legacyReminders=(await readFile(path.join(root,'js/lib/watch-reminders.js'),'utf8')).replace(/\.\/quote-groups\.js\?v=[^'"]+/, './quote-groups.js?v=20261025-presence-1');
 const streams = new Set(), now = () => Date.now() / 1000;
 const products = [2000000,2000001,1452003].map(item_id=>({item_id,name_zh:item_id===1452003?'战斗弓':'测试药水',name_en:item_id===1452003?'Battle Bow':'Test Potion',category:item_id===1452003?'装备':'消耗品',typical:100}));
 let shared=[],personal=[],revision=0,rawLimit=5;
@@ -27,6 +31,12 @@ const server=createServer(async(req,res)=>{
  if(url.pathname==='/api/v1/collector/status')return json(res,{collector_id:'fixture',local_collector:true});
  if(url.pathname==='/api/v1/collector/watch-listings')return json(res,{collector_id:'fixture',personal:true,listings:personal,generated_at:now(),revision});
  if(url.pathname.startsWith('/api/'))return json(res,{});
+ if(url.pathname==='/web/js/lib/quote-groups.js'&&url.searchParams.get('v')==='20261025-presence-1'){
+  res.writeHead(200,{'Content-Type':'text/javascript','Cache-Control':'public, max-age=3600'});return res.end(legacyGroups);
+ }
+ if(url.pathname==='/web/js/lib/watch-reminders.js'&&url.searchParams.get('v')==='20261026-reminders-1'){
+  res.writeHead(200,{'Content-Type':'text/javascript','Cache-Control':'public, max-age=3600'});return res.end(legacyReminders);
+ }
  const file=url.pathname.startsWith('/web/')?path.resolve(root,'.'+url.pathname.slice(4)):path.join(root,'index.html');
  if(!file.startsWith(root+path.sep)){res.writeHead(404);return res.end();}
  try{res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.svg')?'image/svg+xml':'text/html; charset=utf-8');res.end(await readFile(file));}catch{res.writeHead(404);res.end();}
@@ -50,7 +60,7 @@ try{
    if(!localStorage.getItem('watchlist')){localStorage.setItem('watchlist','[2000000,2000001,1452003]');localStorage.setItem('watchlist_settings',JSON.stringify({2000000:{cap:1200,notify:true},2000001:{cap:1200,notify:true},1452003:{cap:1200,notify:true}}));localStorage.setItem('watch.offerFilters',JSON.stringify({maxPrice:50}));}
    window.desktopNotifications=[];window.toastCount=0;document.addEventListener('market-toast',()=>window.toastCount++);window.Notification=class{static permission='granted';static async requestPermission(){return'granted';}constructor(title,options){window.desktopNotifications.push(options.tag);}};
   });
-  await page.goto(origin+'/watch?lang=zh');await page.locator('[data-card="2000000"] [data-under]').waitFor();await page.waitForFunction(()=>document.documentElement.dataset.liveConnection==='connected');await frames(page);
+  await page.goto(origin+'/watch?lang=zh');await page.locator('.watch-page,.react-error').first().waitFor();assert.equal(await page.locator('.react-error').count(),0,'watch modules must load even when old quote-group and reminder URLs still return cached scripts');await page.locator('[data-card="2000000"] [data-under]').waitFor();await page.waitForFunction(()=>document.documentElement.dataset.liveConnection==='connected');await frames(page);
   const card=page.locator('[data-card="2000000"]'),other=page.locator('[data-card="2000001"]');
   assert.match(await card.locator('[data-watch-reminder]').textContent(),/手动输入.*1,200/s);
   for(const [percentile,cap] of [['10','100'],['25','300'],['50','500']]){await preset(page,2000000,percentile);assert.match(await card.locator('.watch-reminder-value').textContent(),new RegExp(cap));}
@@ -72,6 +82,6 @@ try{
   await page.reload();await page.locator('[data-matches] [data-id="right-stats"]').waitFor();assert.match(await card.locator('[data-watch-reminder]').textContent(),/手动输入.*125/s);assert.equal(await bow.locator('[data-under]').textContent(),'1');await notificationsEqual(page,[]);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);
   if(process.env.WATCH_SCREENSHOT_DIR){await mkdir(process.env.WATCH_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.WATCH_SCREENSHOT_DIR,`watch-${mobile?'phone':'desktop'}.png`),fullPage:true});}
-  await page.close();console.log(`PASS ${mobile?'phone':'desktop'}: presets, manual/SSE draft, per-item advanced AND filters, full grouped-stock popup, personal/shared dedup, icon link and reload`);
+  await page.close();console.log(`PASS ${mobile?'phone':'desktop'}: old module caches, presets, manual/SSE draft, per-item advanced AND filters, full grouped-stock popup, personal/shared dedup, icon link and reload`);
  }
 }finally{await browser?.close();for(const stream of streams)stream.end();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}

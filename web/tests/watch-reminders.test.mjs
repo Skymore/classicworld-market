@@ -5,7 +5,7 @@ const source = async name => 'data:text/javascript,' + encodeURIComponent(await 
 const filters = await source('item-offer-filters'), groups = await source('quote-groups');
 const code = (await readFile(new URL('../js/lib/watch-reminders.js', import.meta.url), 'utf8'))
   .replace("'./item-offer-filters.js?v=20261025-presence-1'", JSON.stringify(filters))
-  .replace("'./quote-groups.js?v=20261025-presence-1'", JSON.stringify(groups));
+  .replace(/'\.\/quote-groups\.js\?v=[^']+'/, JSON.stringify(groups));
 const { normalizeReminder, reminderSelection, matchingReminders, notificationEligibility } = await import('data:text/javascript,' + encodeURIComponent(code));
 const { combinedNotifications, readSettings } = await import(await source('watchlist-core'));
 const item = 2000000, gear = 1452003;

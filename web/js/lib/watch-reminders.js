@@ -1,5 +1,5 @@
 import { normalizeOfferFilters, filterOffers, offerFilterTokens } from './item-offer-filters.js?v=20261025-presence-1';
-import { mergeShopOffers, shopOfferIdentity } from './quote-groups.js?v=20261025-presence-1';
+import { mergeShopOffers, shopOfferIdentity } from './quote-groups.js?v=20261026-reminders-2';
 
 export function normalizeReminder(value = {}) {
   const f = normalizeOfferFilters({ ...value, hours: 'all', maxPrice: null, percentile: 'all' });

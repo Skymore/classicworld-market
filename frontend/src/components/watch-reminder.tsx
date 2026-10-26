@@ -6,7 +6,7 @@ import {
   normalizeReminder,
   reminderSelection,
   reminderTokens,
-} from "/web/js/lib/watch-reminders.js?v=20261026-reminders-1";
+} from "/web/js/lib/watch-reminders.js?v=20261026-reminders-2";
 import "./watch-reminder.css";
 
 const exactPrice = (value: number) =>

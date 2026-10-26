@@ -1,4 +1,4 @@
-import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261025-presence-1";
+import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261026-reminders-2";
 import { useQueries } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { SiteLink } from "../components/shell";
@@ -9,7 +9,7 @@ import {
   matchingReminders,
   notificationEligibility,
   reminderSelection,
-} from "/web/js/lib/watch-reminders.js?v=20261026-reminders-1";
+} from "/web/js/lib/watch-reminders.js?v=20261026-reminders-2";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api, getJson, qs } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
 import { t, itemName } from "/web/js/lib/i18n.js";
