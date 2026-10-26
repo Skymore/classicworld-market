@@ -12,7 +12,7 @@ const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const screenshots = process.env.PREVIEW_SCREENSHOT_DIR;
 if (screenshots) await mkdir(screenshots, { recursive: true });
 const streams = new Set();
-let phase = 0, salesReads = 0, previewDelay = 0;
+let phase = 0, salesReads = 0, previewDelay = 0, previewReads = 0;
 let accountRecords = [];
 const json = (res, data) => { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
 const server = createServer(async (req, res) => {
@@ -43,6 +43,7 @@ const server = createServer(async (req, res) => {
     })) });
   }
   if (url.pathname === '/api/v1/catalog/page') {
+    if (url.searchParams.get('preview') === 'true') previewReads++;
     const target=new URL(url.searchParams.get('url'),'http://localhost'),id=Number(target.pathname.split('/').pop());
     const body={kind:'item',page:{item:{id,name_zh:'鹰弩',name_en:'Eagle Crow',category:'装备',req_level:30},stats:{typical:10000,lowest_ask:9000,listings_count:5,shops_count:3,sales_24h:7,as_of:new Date().toISOString()},droppers:[],npc_offers:[],npc_sell:1000,market:{as_of:new Date().toISOString(),listings:[],sales:[],days:[],sale_points:[],base_stats:Array.from({length:24},(_,i)=>['stat'+i,49+i])}}};
     return setTimeout(()=>json(res,body),previewDelay);
@@ -70,7 +71,7 @@ try {
   browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   for (const width of [390, 320, 1280]) {
     const mobile = width <= 640;
-    phase = 0; previewDelay = 0; accountRecords = [];
+    phase = 0; previewDelay = 0; accountRecords = []; previewReads = 0;
     const page = await browser.newPage({ viewport: { width, height: mobile ? 640 : 900 }, isMobile: mobile, hasTouch: mobile });
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.clock.install();
@@ -80,6 +81,7 @@ try {
     if (mobile) await row.tap(); else { await row.focus(); await page.keyboard.press('Alt+ArrowDown'); }
     const popup = page.locator('#item-quick-preview');
     await popup.locator('[data-preview-item="1462004"]').waitFor();
+    assert(previewReads > 0, 'cards must request the lightweight snapshot');
     const watch = popup.locator('[data-preview-watch="1462004"]');
     const position = await watch.evaluate(button => {
       const header = button.closest('.peek-head');
@@ -149,7 +151,7 @@ try {
     await page.keyboard.press('Escape');
     assert.equal(await popup.isVisible(), false, 'Escape closes the preview');
     assert.equal(await page.locator('.peek-scrim').isVisible(), false);
-    const next = page.locator('.home-market [data-item-row]').first();
+    const next = page.locator('.home-market [data-item-row] a.record-open').first();
     if (mobile) await next.tap(); else { await next.focus(); await page.keyboard.press('Alt+ArrowDown'); }
     await popup.locator('[data-preview-item]').waitFor();
     assert.equal(await popup.locator('[data-preview-watch]').getAttribute('aria-pressed'), 'false', 'another item gets its own watch state');

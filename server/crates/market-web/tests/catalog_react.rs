@@ -72,3 +72,31 @@ async fn catalog_snapshots_keep_search_filters_and_do_not_expose_arbitrary_paths
     }
     db.close().await;
 }
+
+#[tokio::test]
+async fn quick_preview_does_not_read_market_history_or_full_listings() {
+    let Some(db) = common::TestDb::new().await else { return };
+    sqlx::query("INSERT INTO items(id,name_zh,name_en,category) VALUES(2000000,'红色药水','Red Potion','消耗')")
+        .execute(&db.pool).await.unwrap();
+    sqlx::query("INSERT INTO item_records(item_id,record) VALUES(2000000,'{\"npc_price\":25}')")
+        .execute(&db.pool).await.unwrap();
+    let application = app(AppState::new(db.pool.clone(), Settings::default()));
+    let mut locked = db.pool.begin().await.unwrap();
+    sqlx::raw_sql("LOCK TABLE observation_rows,listings,expired_listings,sales,drops IN ACCESS EXCLUSIVE MODE")
+        .execute(&mut *locked).await.unwrap();
+    for hours in ["72","all"] {
+        let response = tokio::time::timeout(std::time::Duration::from_secs(2), application.clone().oneshot(
+            Request::get(format!("/api/v1/catalog/page?preview=true&url=%2Fitem%2F2000000%3Fhours%3D{hours}"))
+                .body(Body::empty()).unwrap())).await.unwrap().unwrap();
+        assert_eq!(response.status(),StatusCode::OK);
+        assert!(response.headers().contains_key("server-timing"));
+        let body:serde_json::Value=serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+        assert_eq!(body["kind"],"item_preview");
+        assert_eq!(body["page"]["item"]["id"],2000000);
+        assert_eq!(body["page"]["npc_sell"],25);
+        assert!(body["page"]["market"].get("listings").is_none());
+        assert!(body["page"].get("droppers").is_none());
+    }
+    locked.rollback().await.unwrap();
+    db.close().await;
+}

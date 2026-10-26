@@ -50,7 +50,6 @@ impl MarketListCache {
         let slot =
             account.or(collector).unwrap_or_default().unsigned_abs() as usize % self.personal.len();
         let mut entry = self.personal[slot].lock().await;
-        let _permit = self.rebuilds.acquire().await.expect("cache gate open");
         let version = views::version(db).await?;
         let identity = format!(
             "{account:?}:{collector:?}:{}:{}",
@@ -62,6 +61,7 @@ impl MarketListCache {
                 return Ok(serde_json::from_slice(body).expect("cached stats JSON"));
             }
         }
+        let _permit = self.rebuilds.acquire().await.expect("cache gate open");
         let value = crate::contributors::personal_stats(db, account, collector).await?;
         *entry = Some((
             version,
@@ -86,7 +86,6 @@ impl MarketListCache {
         };
         let mut entry = self.reports[slot].lock().await;
         // Bound distinct concurrent rebuilds as well as coalescing identical ones.
-        let _permit = self.rebuilds.acquire().await.expect("cache gate open");
         // Every committed upload invalidates contribution counts too. The time
         // component below only expires rolling windows on subsequent reads;
         // it never delays invalidation after an upload.
@@ -105,6 +104,7 @@ impl MarketListCache {
                 return Ok((version, body.clone()));
             }
         }
+        let _permit = self.rebuilds.acquire().await.expect("cache gate open");
         let now = unix_now();
         let value = match report {
             Report::Records(hours, sales) => views::latest_records(db, hours, sales, now).await?,

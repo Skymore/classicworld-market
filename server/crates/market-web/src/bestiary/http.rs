@@ -464,6 +464,8 @@ async fn css() -> impl IntoResponse {
 #[derive(Deserialize)]
 struct CatalogRequest {
     url: String,
+    #[serde(default)]
+    preview: bool,
 }
 
 // Separate JSON URL keeps CDN HTML caches and public page data independent.
@@ -558,6 +560,13 @@ async fn catalog_page(
                     let Some(selection) = params.selection() else {
                         return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_query"}));
                     };
+                    if request.preview {
+                        if selection.variant.is_some() || !selection.attributes.is_empty()
+                            || !selection.equipment.is_empty() {
+                            return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_query"}));
+                        }
+                        return loaded(queries::item_preview(&state.db, id, params.hours == "all").await, "item_preview");
+                    }
                     queries::item_page_selected(
                         &state.db,
                         id,

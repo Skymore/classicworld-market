@@ -151,7 +151,29 @@ pub fn app_with_web(state: AppState, web_dir: Option<&std::path::Path>) -> Route
             TraceLayer::new_for_http()
                 .on_response(DefaultOnResponse::new().latency_unit(LatencyUnit::Micros)),
         )
+        .layer(axum::middleware::from_fn(request_timing))
         .with_state(state)
+}
+
+/// Log route templates, never query strings, cookies or request bodies.
+async fn request_timing(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let route = request.extensions().get::<axum::extract::MatchedPath>()
+        .map(|p| p.as_str().to_owned()).unwrap_or_default();
+    let started = Instant::now();
+    let mut response = next.run(request).await;
+    let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
+    if route.starts_with("/api/") {
+        if let Ok(value) = HeaderValue::from_str(&format!("app;dur={elapsed_ms:.1}")) {
+            response.headers_mut().insert("server-timing", value);
+        }
+        if elapsed_ms >= 250.0 {
+            tracing::warn!(route, elapsed_ms, status = response.status().as_u16(), "slow API request");
+        }
+    }
+    response
 }
 
 #[derive(Serialize)]

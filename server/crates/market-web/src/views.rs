@@ -676,11 +676,13 @@ pub async fn recent_sales(db: &PgPool, q: &SalesQuery, now: f64) -> sqlx::Result
              ORDER BY s.detected_at DESC, s.observation_id DESC, s.position DESC OFFSET $2 - 1 LIMIT 1
          ), more AS (
              SELECT EXISTS (SELECT 1 FROM market_sales s WHERE {filters} AND s.detected_at < (SELECT detected_at FROM edge)) AS more
+         ), page AS MATERIALIZED (
+             SELECT s.* FROM market_sales s WHERE {filters}
+             AND s.detected_at >= COALESCE((SELECT detected_at FROM edge), '-infinity')
          )
          {} CROSS JOIN more
-         WHERE {filters} AND s.detected_at >= COALESCE((SELECT detected_at FROM edge), '-infinity')
          ORDER BY s.detected_at DESC, s.observation_id DESC, s.position DESC",
-        sales_from().replacen(" FROM market_sales s", ", more.more FROM market_sales s", 1)
+        sales_from().replacen(" FROM market_sales s", ", more.more FROM page s", 1)
     );
     let mut query = sqlx::query(&sql)
         .bind(q.before.unwrap_or(f64::INFINITY))

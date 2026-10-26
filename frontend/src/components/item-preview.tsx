@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { readPeriod } from "/web/js/lib/period.js?v=20261022-regressions-1";
 import { trapFocus } from "/web/js/lib/dialog.js";
 import { watchIds, toggleWatch } from "/web/js/lib/watch-ids.js";
-import { loadCatalog, catalogKey } from "../lib/catalog";
+import { loadCatalog } from "../lib/catalog";
 import { timestamp } from "../lib/item-market";
 import { usePreferences, useWords } from "../providers";
 import { Icon, Slot, RelativeTime } from "./shared";
@@ -78,9 +78,10 @@ export default function ItemPreview() {
   active.current = hit;
   const url = hit ? `/item/${hit.id}?hours=${readPeriod()}` : "";
   const query = useQuery<any>({
-    queryKey: catalogKey(url),
+    queryKey: ["item-preview", url],
     enabled: !!hit,
-    queryFn: ({ signal }) => loadCatalog(url, signal),
+    queryFn: ({ signal }) => loadCatalog(url, signal, true),
+    meta: { market: true },
     staleTime: 30000,
   });
   function close(restore = false) {

@@ -14,6 +14,30 @@ use serde_json::{json, Value};
 
 const DAY: f64 = 86400.0;
 
+#[tokio::test]
+async fn periodic_refresh_keeps_counters_without_rescanning_observation_history() {
+    let Some(db) = TestDb::new().await else { return };
+    let now = unix_now();
+    let collector = db.collector("refresh-batches").await;
+    let mut data = base(now);
+    data["items"] = json!((0..33).map(|slot| json!({"item_id":4010000+slot,
+        "slot":slot+1,"price":500,"bundle":1,"stock":8})).collect::<Vec<_>>());
+    send(&db,&collector,&data,now).await.unwrap();
+    let counters = sqlx::query_as::<_,(i64,i64,i64)>("SELECT visits,observation_rows,shops FROM market_state")
+        .fetch_one(&db.pool).await.unwrap();
+    let mut locked = db.pool.begin().await.unwrap();
+    sqlx::raw_sql("LOCK TABLE observations,observation_rows IN ACCESS EXCLUSIVE MODE")
+        .execute(&mut *locked).await.unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(5),refresh_if_due(&db.pool,now))
+        .await.expect("periodic work must not read observation history").unwrap();
+    assert_eq!(sqlx::query_as::<_,(i64,i64,i64)>("SELECT visits,observation_rows,shops FROM market_state")
+        .fetch_one(&db.pool).await.unwrap(),counters);
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM item_stats WHERE listings_count=1")
+        .fetch_one(&db.pool).await.unwrap(),33);
+    locked.rollback().await.unwrap();
+    db.close().await;
+}
+
 fn base(now: f64) -> Value {
     json!({
         "version": 1, "world": "ClassicWorld", "observation_id": "first", "complete": true,

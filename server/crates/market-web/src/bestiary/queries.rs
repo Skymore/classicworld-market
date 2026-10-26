@@ -83,6 +83,34 @@ fn optional_names(zh: Option<String>, en: Option<String>) -> Option<Names> {
 
 // ---------- item ----------
 
+/// The quick card only needs catalogue fields and the already-computed market
+/// summary. Do not load listings, charts, sales history or drop locations here.
+pub async fn item_preview(db: &PgPool, id: i32, all: bool) -> sqlx::Result<Option<Value>> {
+    let item = sqlx::query_as::<_, ItemSummary>(
+        "SELECT id,name_zh,name_en,category,subcategory,req_level,icon_url,is_cash FROM items WHERE id=$1",
+    ).bind(id).fetch_optional(db).await?;
+    let Some(item) = item else { return Ok(None) };
+    let summary = sqlx::query_as::<_, (Value, Option<i64>, i32, i32, DateTime<Utc>)>(
+        "SELECT ('{' || CASE WHEN $2 THEN a.list_fields ELSE s.list_fields END || '}')::jsonb,
+            round(s.lowest_ask)::bigint,s.listings_count,s.shops_count,s.as_of
+         FROM item_stats s JOIN item_stats_all a USING(item_id) WHERE item_id=$1",
+    ).bind(id).bind(all).fetch_optional(db);
+    let record = sqlx::query_scalar::<_, Value>("SELECT record FROM item_records WHERE item_id=$1")
+        .bind(id).fetch_optional(db);
+    let (summary, record, offers) = tokio::try_join!(summary, record, npc_offers(db, id))?;
+    let stats = summary.map(|(fields, low, listings, shops, as_of)| {
+        let price = |key: &str| fields[key].as_f64().map(|v| v.round() as i64);
+        serde_json::json!({"typical":price("typical_window"),
+            "typical_low":price("typical_window_low"),"typical_high":price("typical_window_high"),
+            "lowest_ask":low,"sales_24h":fields["sales_window"],
+            "listings_count":listings,"shops_count":shops,"as_of":as_of,"change_24h":null})
+    });
+    Ok(Some(serde_json::json!({"item":item,"stats":stats,"npc_offers":offers,
+        "npc_sell":record.as_ref().and_then(npc_sell_price),
+        "market":{"as_of":stats.as_ref().map(|s| &s["as_of"]),
+            "base_stats":record.as_ref().map(reference_stats).unwrap_or_default()}})))
+}
+
 /// `now` sets the 72-hour listing window, as `/api/v1/item/<id>` does. The
 /// reads are independent, so they run concurrently on the pool.
 pub async fn item_page_window(
@@ -561,11 +589,13 @@ async fn item_market(
     let expired = sqlx::query_as::<_, ListingRow>(
         "SELECT sh.public_key AS shop_key,l.slot,o.visit_key,l.bundle,o.source,sh.owner_name,
           l.invalidated_at,sh.title,sh.channel,sh.room,market_unit_price(l.item_id,l.price,l.bundle) AS unit_price,
-          l.stock,o.observed_at,l.variant_id,v.stats FROM expired_listings l
+          l.stock,o.observed_at,l.variant_id,v.stats FROM (
+            SELECT * FROM expired_listings WHERE item_id=$1 AND invalidated_at>=to_timestamp($2)
+              AND ($3::bigint[] IS NULL OR coalesce(variant_id,0)=ANY($3))
+            ORDER BY invalidated_at DESC,observation_id DESC,slot LIMIT 200
+          ) l
           JOIN shops sh ON sh.id=l.shop_id JOIN observations o ON o.id=l.observation_id
           LEFT JOIN equipment_variants v ON v.id=l.variant_id
-          WHERE l.item_id=$1 AND l.invalidated_at>=to_timestamp($2)
-          AND ($3::bigint[] IS NULL OR coalesce(l.variant_id,0)=ANY($3))
           ORDER BY l.invalidated_at DESC,l.observation_id DESC,l.slot LIMIT 200"
     ).bind(id).bind(Window::recent(now).cutoff).bind(variant_ids).fetch_all(db);
     let sales = sqlx::query_as::<_, SaleRow>(

@@ -9,6 +9,42 @@ use market_web::{app, auth, contributors, unix_now, AppState, Settings};
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
+#[tokio::test]
+async fn shop_rollups_match_exact_states_across_devices_and_window_boundaries() {
+    let Some(db) = TestDb::new().await else { return };
+    let state = AppState::new(db.pool.clone(), Settings::default());
+    let a = auth::register(&db.pool, "rollup-a").await.unwrap();
+    let b = auth::register(&db.pool, "rollup-b").await.unwrap();
+    let now = unix_now();
+    for (index, offset) in [-29.0*86400.0, -8.0*86400.0, -60.0, 60.0].into_iter().enumerate() {
+        upload(&state, &a.token, &format!("a-{index}"), 101, now+offset).await;
+        upload(&state, &b.token, &format!("b-{index}"), 101, now+offset).await;
+    }
+    upload(&state, &b.token, "b-unique", 102, now-60.0).await;
+    upload(&state, &a.token, "a-future", 103, now+60.0).await;
+    let ids: Vec<i64> = sqlx::query_scalar("SELECT id FROM collectors ORDER BY id")
+        .fetch_all(&db.pool).await.unwrap();
+    for selected in [&ids[..1], &ids[..]] {
+        for period in [0, 7, 30] {
+            for offset in [-36.0*86400.0, -86400.0, 0.0, 59.999, 60.0,
+                7.0*86400.0+60.0,7.0*86400.0+60.001,31.0*86400.0] {
+                let at = now+offset;
+                let cached: Vec<(i64,i64)> = sqlx::query_as(
+                    "SELECT * FROM contribution_shop_counts($1,$2,to_timestamp($3)) ORDER BY shop_id")
+                    .bind(selected).bind(period).bind(at).fetch_all(&db.pool).await.unwrap();
+                let exact: Vec<(i64,i64)> = sqlx::query_as(
+                    "SELECT shop_id,count(*) FROM (SELECT DISTINCT shop_id,slot,item_id,variant_id,price,bundle,stock
+                     FROM contribution_states WHERE collector_id=ANY($1) AND CASE $2 WHEN 0 THEN first_seen<=to_timestamp($3)
+                       WHEN 7 THEN week_windows @> to_timestamp($3) ELSE month_windows @> to_timestamp($3) END) states
+                     GROUP BY shop_id ORDER BY shop_id")
+                    .bind(selected).bind(period).bind(at).fetch_all(&db.pool).await.unwrap();
+                assert_eq!(cached,exact,"period={period} offset={offset} devices={}",selected.len());
+            }
+        }
+    }
+    db.close().await;
+}
+
 async fn request(
     state: &AppState,
     method: &str,

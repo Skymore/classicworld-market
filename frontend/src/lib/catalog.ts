@@ -1,7 +1,7 @@
 export const catalogKey = (url: string) => ["catalog", url];
-export async function loadCatalog(url: string, signal?: AbortSignal) {
+export async function loadCatalog(url: string, signal?: AbortSignal, preview = false) {
   const response = await fetch(
-    "/api/v1/catalog/page?" + new URLSearchParams({ url }),
+    "/api/v1/catalog/page?" + new URLSearchParams({ url, ...(preview ? { preview: "true" } : {}) }),
     { signal, credentials: "same-origin", cache: "no-store" },
   );
   if (!response.ok)
