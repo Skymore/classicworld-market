@@ -47,8 +47,8 @@
       "_shared-dgXAszFs.js"
     ]
   },
-  "_main-DVe8HkCH.js": {
-    "file": "chunks/main-DVe8HkCH.js",
+  "_main-BIl9wUrD.js": {
+    "file": "chunks/main-BIl9wUrD.js",
     "name": "main",
     "imports": [
       "_shared-dgXAszFs.js",
@@ -144,7 +144,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DVe8HkCH.js"
+      "_main-BIl9wUrD.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -307,7 +307,7 @@
     ]
   },
   "src/pages/watch.tsx": {
-    "file": "chunks/watch-BDJwAt0q.js",
+    "file": "chunks/watch-h1jlPt8M.js",
     "name": "watch",
     "src": "src/pages/watch.tsx",
     "isDynamicEntry": true,
@@ -328,7 +328,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DVe8HkCH.js"
+      "_main-BIl9wUrD.js"
     ]
   },
   "style.css": {

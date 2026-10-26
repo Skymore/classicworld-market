@@ -115,19 +115,23 @@ export default function WatchReminder({
           <small>{words("提醒价格", "Alert price")}</small>
           {reminder.percentile === "all"
             ? words("手动输入", "Manual")
-            : words(
-                `最低 ${reminder.percentile}%`,
-                `Lowest ${reminder.percentile}%`,
-              )}
+            : words("最低", "Lowest")}
         </span>
         <span className="watch-reminder-value">
-          {reminder.percentile !== "all" && selected.cap === null ? (
-            words("暂无挂价", "No offers")
-          ) : selected.cap === null ? (
-            words("不限", "Any price")
-          ) : (
-            <>≤ {exactPrice(selected.cap)}</>
-          )}{" "}
+          {reminder.percentile !== "all" && (
+            <span className="watch-reminder-percent">
+              {reminder.percentile}%
+            </span>
+          )}
+          <span className="watch-reminder-price">
+            {reminder.percentile !== "all" && selected.cap === null ? (
+              words("暂无挂价", "No offers")
+            ) : selected.cap === null ? (
+              words("不限", "Any price")
+            ) : (
+              <>≤ {exactPrice(selected.cap)}</>
+            )}
+          </span>
           <Icon name="caret" />
         </span>
       </button>

@@ -446,13 +446,15 @@ export default function Watch() {
             data-watch-collapse
             aria-expanded={collapsed !== "true"}
             aria-controls="watch-list"
+            aria-label={
+              collapsed === "true"
+                ? words("展开关注列表", "Expand watchlist")
+                : words("收起关注列表", "Collapse watchlist")
+            }
             onClick={() =>
               writeCollapsed(collapsed === "true" ? "false" : "true")
             }
           >
-            {collapsed === "true"
-              ? words("展开", "Expand")
-              : words("收起", "Collapse")}
             <Icon name="caret" />
           </button>
         </div>

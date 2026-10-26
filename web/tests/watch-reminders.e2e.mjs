@@ -63,6 +63,8 @@ try{
   await page.goto(origin+'/watch?lang=zh');await page.locator('.watch-page,.react-error').first().waitFor();assert.equal(await page.locator('.react-error').count(),0,'watch modules must load even when old quote-group and reminder URLs still return cached scripts');await page.locator('[data-card="2000000"] [data-under]').waitFor();await page.waitForFunction(()=>document.documentElement.dataset.liveConnection==='connected');await frames(page);
   const card=page.locator('[data-card="2000000"]'),other=page.locator('[data-card="2000001"]');
   assert.equal(await page.locator('[data-preset]').count(),0,'the bow/crossbow shortcut is removed');
+  assert.equal(await page.locator('[data-watch-collapse]').innerText(),'','collapse uses only an icon');
+  assert.equal(await page.locator('[data-watch-collapse]').getAttribute('aria-label'),'收起关注列表');
   const compact=async()=>{
    const metrics=await card.evaluate(el=>({height:el.getBoundingClientRect().height,stats:[...el.querySelectorAll('.wc-nums > span')].map(n=>n.getBoundingClientRect().top),controls:[...el.querySelectorAll('[data-notify],[data-watch-reminder],[data-reminder-advanced]')].map(n=>n.getBoundingClientRect().top)}));
    assert.equal(new Set(metrics.stats).size,1,'all three stats share one row');assert.equal(new Set(metrics.controls).size,1,'alerts, price and advanced share one row');assert(metrics.height<190,`compact card height: ${metrics.height}`);
@@ -75,7 +77,7 @@ try{
   await page.locator('[data-watch-collapse]').click();assert.equal(await page.locator('#watch-list').isVisible(),false);assert(await page.locator('[data-matches-panel]').isVisible());await refresh(page);assert.equal(await page.locator('[data-watch-collapse]').getAttribute('aria-expanded'),'false','SSE preserves collapse');
   await page.reload();await page.locator('[data-watch-collapse]').waitFor();assert.equal(await page.locator('#watch-list').isVisible(),false,'reload remembers collapse');await page.locator('[data-watch-collapse]').click();await card.waitFor();await page.waitForFunction(()=>document.documentElement.dataset.liveConnection==='connected');await frames(page);
   assert.match(await card.locator('[data-watch-reminder]').textContent(),/手动输入.*1,200/s);
-  for(const [percentile,cap] of [['10','100'],['25','300'],['50','500']]){await preset(page,2000000,percentile);assert.match(await card.locator('.watch-reminder-value').textContent(),new RegExp(cap));}
+  for(const [percentile,cap] of [['10','100'],['25','300'],['50','500']]){await preset(page,2000000,percentile);assert.equal(await card.locator('.watch-reminder-percent').innerText(),`${percentile}%`);assert(await card.locator('.watch-reminder-percent').isVisible());assert.match(await card.locator('.watch-reminder-price').innerText(),new RegExp(cap));await compact();}
   assert.match(await other.locator('[data-watch-reminder]').textContent(),/手动输入.*1,200/s);
   await preset(page,2000000,'10');assert.equal(await card.locator('[data-under]').textContent(),'1');
   assert.equal(await card.locator('.wc-details').textContent(),'↗');await card.locator('.wc-details').click();assert.equal(new URL(page.url()).searchParams.get('item'),'2000000');assert.equal(await page.locator('[data-matches] [data-item-row]').count(),1,'detail bypasses unrelated global browsing filters');assert.equal(await page.locator('[data-matches] [data-item-row][data-id="old-2000000-0"]').count(),1);

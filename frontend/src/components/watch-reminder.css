@@ -40,6 +40,15 @@
   overflow-wrap: anywhere;
   min-width: 0;
 }
+.watch-reminder-percent {
+  flex: none;
+  color: var(--ink-3);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.watch-reminder-price {
+  min-width: 0;
+}
 .watch-reminder-menu {
   grid-column: 1 / -1;
   margin-top: 6px;
@@ -198,8 +207,9 @@
 .watch-collapse {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  justify-content: center;
   flex: none;
+  min-width: 44px;
   min-height: 44px;
   padding: 0 6px;
   font-size: 13px;
