@@ -12,7 +12,7 @@ const offer=(shop,price,age)=>({shop_key:shop,visit_id:shop,slot:1,bundle:1,sour
  owner_name:shop==='Gone shop'?'ExampleHost':null,channel:26,room:1,unit_price:price,stock:5,
  seen_at:new Date((now-age)*1000).toISOString(),variant:{id:1,stats:[{key:'str',label:'力量',value:6}],remaining_upgrades:0,enhancements:3,unknown_fields:0}});
 const snapshot=()=>({kind:'item',page:{item:{id:1002000,name_zh:'测试装备',name_en:'Test equipment',category:'装备',req_level:10},stats:null,
- droppers:[],npc_offers:[],npc_sell:null,market:{as_of:new Date((now+revision)*1000).toISOString(),base_stats:[],days:[],sale_points:[],sales:[],
+ droppers:[],npc_offers:[],npc_sell:null,market:{as_of:new Date((now+revision)*1000).toISOString(),base_stats:[],days:[{date:'2026-10-24',median:200,low:100,high:300,count:2},{date:'2026-10-25',median:null,low:null,high:null,count:0}],listing_days:[{date:'2026-10-24',median:800,low:600,high:1000,count:3},{date:'2026-10-25',median:900,low:900,high:900,count:1}],sale_points:[],sales:[],
  listings:[offer('Live shop',900,10)],expired_listings:[{...offer('Gone shop',100,30),invalidated_at:new Date((now-5)*1000).toISOString()}]}}});
 const server=createServer(async(req,res)=>{
  const url=new URL(req.url,'http://localhost');
@@ -46,6 +46,18 @@ try{
   assert.equal(await page.locator('.where-well [data-quote]').first().getAttribute('data-unit-price'),'900');
   assert.equal(await page.locator('.shop-name-toggle').count(),1,'unknown owners do not get a misleading button');
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.getByRole('tab',{name:'走势',exact:true}).click();
+  const modes=page.getByRole('group',{name:'走势类型'});
+  await modes.getByRole('button',{name:'挂单',exact:true}).click();
+  await page.locator('[data-trend-day="1"]').click();
+  assert.equal(await page.locator('[data-trend-value="median"]').textContent(),'900');
+  await modes.getByRole('button',{name:'对比',exact:true}).click();
+  assert.equal(await page.locator('[data-listing-series] circle').count(),2);
+  assert.match(await page.locator('[data-listing-readout]').textContent(),/900/);
+  assert.equal(await page.locator('[data-trend-value="median"]').textContent(),'—','missing sales must not become listing prices');
+  revision++;for(const stream of streams)stream.write('event: market\ndata: {}\n\n');
+  await page.waitForFunction(v=>Number(document.querySelector('.item-stall')?.dataset.asOf)===v,now+revision);
+  assert.equal(await modes.getByRole('button',{name:'对比',exact:true}).getAttribute('aria-pressed'),'true');
   assert.deepEqual(errors,[]);
   if(process.env.REACT_SCREENSHOT_DIR){await mkdir(process.env.REACT_SCREENSHOT_DIR,{recursive:true});await page.locator('.where-well').screenshot({path:path.join(process.env.REACT_SCREENSHOT_DIR,`expired-${width}.png`)});}
   await page.close();

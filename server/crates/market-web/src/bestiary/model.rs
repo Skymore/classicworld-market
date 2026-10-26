@@ -163,6 +163,8 @@ pub struct ItemMarket {
     pub sales: Vec<Sale>,
     /// Seven UTC calendar days ending on the `as_of` day, oldest first.
     pub days: Vec<Day>,
+    /// Daily observed asking prices, one latest positive-stock quote per shop/slot/day.
+    pub listing_days: Vec<Day>,
     /// Unit price of every sale detected on `days`.
     pub sale_points: Vec<SalePoint>,
     /// Reference stats of the item, to tell bonus stats on a listed instance.

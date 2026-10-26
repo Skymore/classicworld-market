@@ -149,6 +149,7 @@ fn market() -> ItemMarket {
             variant: None,
         }],
         days,
+        listing_days: vec![],
         sale_points: vec![
             SalePoint {
                 day: 6,

@@ -1480,7 +1480,7 @@ export default function Item({ page }: { page: any }) {
                 <Ladder page={page} />
               </div>
               <div className="pane" data-pane="trend" hidden={tab !== "trend"}>
-                <ItemTrend days={market.days} />
+                <ItemTrend days={market.days} listingDays={market.listing_days} />
               </div>
               <div className="pane" data-pane="sales" hidden={tab !== "sales"}>
                 {saleList(false)}
