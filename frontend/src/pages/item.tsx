@@ -407,6 +407,7 @@ export default function Item({ page }: { page: any }) {
     equipment = Math.floor(item.id / 1000000) === 1;
   const [watch, saveWatch] = useUserValue("watchlist", "[]"),
     [sort, saveSort] = useUserValue("market.offerSort", "price"),
+    [showExpired, saveShowExpired] = useUserValue("market.showExpired", "true"),
     [raw, saveFilters] = useUserValue("market.offerFilters", "{}");
   const [tab, setTab] = useState("ladder"),
     [more, setMore] = useState<Set<string>>(new Set()),
@@ -453,7 +454,11 @@ export default function Item({ page }: { page: any }) {
       ),
     [market, equipment, item.id],
   );
-  const filtered = filterOffers(rows, sort, filters);
+  const filtered = filterOffers(
+    showExpired === "false" ? rows.filter((row: any) => !row.invalidated_at) : rows,
+    sort,
+    filters,
+  );
   const saleKeys = new Map<string, number>();
   const sales = filterOffers(
     market.sales.map((row: any) => {
@@ -1111,6 +1116,14 @@ export default function Item({ page }: { page: any }) {
                     <span>{words("筛选", "Filters")}</span>
                     {tokens.length > 0 && <b>{tokens.length}</b>}
                   </button>
+                  <label className="show-expired-toggle">
+                    <input
+                      type="checkbox"
+                      checked={showExpired !== "false"}
+                      onChange={(event) => saveShowExpired(String(event.target.checked))}
+                    />
+                    {words("显示已失效", "Show expired")}
+                  </label>
                 </div>
               )}
               {tokens.length > 0 && (
