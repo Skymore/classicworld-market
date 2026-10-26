@@ -21,7 +21,7 @@ export function notifications(listings, watches, seen, started, now) {
   const fresh = [];
   for (const row of listings) {
     const watch = selected.get(row?.item_id);
-    if (!watch || typeof row.id !== 'string' || !Number.isFinite(row.unit_price) || row.unit_price < 0 || !Number.isFinite(row.stock) || row.stock <= 0) continue;
+    if (!watch || row.invalidated_at || typeof row.id !== 'string' || !Number.isFinite(row.unit_price) || row.unit_price < 0 || (row.stock != null && (!Number.isFinite(row.stock) || row.stock <= 0))) continue;
     if (watch.max_price != null && row.unit_price > watch.max_price) continue;
     if (!Number.isFinite(row.observed) || row.observed > now) continue;
     if (!seen.has(row.id) && row.observed >= Math.max(started, watch.added_at || 0) && now - row.observed <= LIVE_SECONDS) fresh.push(row);
@@ -34,7 +34,7 @@ export function notifications(listings, watches, seen, started, now) {
 
 // Shared offers and the caller's own visits have independent "seen" sets.
 // The same update delivered through both feeds still produces one popup.
-export function combinedNotifications(rows,watches,state,started,now,source='shared',collector=''){
+export function combinedNotifications(rows,watches,state,started,now,source='shared',collector='',eligibleIds=null){
  if(source==='personal'&&!collector)return [];
  let seen=state.shared;
  if(source==='personal'){
@@ -43,8 +43,16 @@ export function combinedNotifications(rows,watches,state,started,now,source='sha
  }
  const fresh=notifications(rows,watches,seen,started,now);
  for(const [id,entry] of state.delivered)if(now-entry.at>86400)state.delivered.delete(id);
- const found=fresh.filter(row=>{const previous=state.delivered.get(row.id);return !previous||(previous.observed!==row.observed&&now-previous.at>5);});
- for(const row of found)state.delivered.set(row.id,{at:now,observed:row.observed});
+ const found=[];
+ for(const row of fresh){
+  if(eligibleIds!==null&&!eligibleIds.has(row.id))continue;
+  const key=eligibleIds?.get?.(row.id)?.reminder_delivery_key??row.id;
+  const previous=state.delivered.get(key)??state.delivered.get(row.id);
+  if(!previous||(previous.observed!==row.observed&&now-previous.at>5)){
+   found.push(row);state.delivered.set(key,{at:now,observed:row.observed});
+  }
+  state.delivered.set(row.id,{at:now,observed:row.observed});
+ }
  while(state.delivered.size>2000)state.delivered.delete(state.delivered.keys().next().value);
  return found;
 }
@@ -75,6 +83,7 @@ export function readSettings(storage, ids) {
   for (const id of ids) {
     const s = raw && typeof raw === 'object' ? raw[id] : null;
     found[id] = { cap: validCap(s?.cap), notify: s?.notify !== false };
+    if (s?.reminder && typeof s.reminder === 'object' && !Array.isArray(s.reminder)) found[id].reminder = s.reminder;
   }
   return found;
 }

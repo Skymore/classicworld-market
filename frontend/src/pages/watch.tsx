@@ -1,5 +1,15 @@
 import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261025-presence-1";
 import { useQueries } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
+import { SiteLink } from "../components/shell";
+import WatchReminder from "../components/watch-reminder";
+import {
+  activeOffers,
+  normalizeReminder,
+  matchingReminders,
+  notificationEligibility,
+  reminderSelection,
+} from "/web/js/lib/watch-reminders.js?v=20261026-reminders-1";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api, getJson, qs } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
 import { t, itemName } from "/web/js/lib/i18n.js";
@@ -7,7 +17,7 @@ import Core, {
   LIST_KEY,
   SETTINGS_KEY,
   MAX_WATCHES,
-} from "/web/js/lib/watchlist-core.js";
+} from "/web/js/lib/watchlist-core.js?v=20261026-reminders-1";
 import { userStorage } from "/web/js/lib/user-data.js";
 import { sortWatchQuotes } from "/web/js/lib/quote-order.js?v=20261023-watch-cap-1";
 import { useLiveData, useUserValue } from "../lib/live";
@@ -38,48 +48,10 @@ const started = Date.now() / 1000,
     delivered: new Map(),
   },
   addedAt: Record<number, number> = {};
-function Cap({
-  id,
-  value,
-  save,
-}: {
-  id: number;
-  value: number | null;
-  save(value: number | null): void;
-}) {
-  const [draft, setDraft] = useState(String(value ?? ""));
-  const focused = useRef(false);
-  useEffect(() => {
-    if (!focused.current) setDraft(String(value ?? ""));
-  }, [value]);
-  return (
-    <input
-      type="number"
-      inputMode="decimal"
-      min="0"
-      step="any"
-      value={draft}
-      data-cap={id}
-      placeholder={t("watch.cap_any")}
-      onFocus={() => {
-        focused.current = true;
-      }}
-      onChange={(event) => {
-        setDraft(event.target.value);
-        const next =
-          event.target.value === "" ? null : Number(event.target.value);
-        if (next === null || (Number.isFinite(next) && next >= 0)) save(next);
-      }}
-      onBlur={() => {
-        focused.current = false;
-        setDraft(String(value ?? ""));
-      }}
-    />
-  );
-}
 export default function Watch() {
   usePageReady();
   const words = useWords();
+  const route = useLocation();
   const [list, writeList] = useUserValue(LIST_KEY, "[]"),
     [setting, writeSettings] = useUserValue(SETTINGS_KEY, "{}"),
     [sort, writeSort] = useUserValue("watch.offerSort", "price"),
@@ -115,7 +87,6 @@ export default function Watch() {
     [focused, setFocused] = useState(false),
     [limit, setLimit] = useState(40),
     [all, setAll] = useState(false),
-    [open, setOpen] = useState<Set<number>>(new Set()),
     [notice, setNotice] = useState(""),
     [permission, setPermission] = useState(() =>
       typeof Notification === "undefined"
@@ -172,13 +143,46 @@ export default function Watch() {
       ...(catalog.data?.items || []),
     ].map((row: any) => [row.item_id, row]),
   );
-  const listings = shared.data?.listings || [];
-  const summary = Core.summary(listings, ids, settings);
-  const baseMatches = Core.matching(
-    shared.data?.grouped_listings ?? mergeShopOffers(listings),
-    ids,
-    settings,
-  ).map((row: any) => ({ ...row, price: row.unit_price }));
+  const grouped = useMemo<any[]>(
+    () =>
+      shared.data?.grouped_listings ??
+      mergeShopOffers(shared.data?.listings || []),
+    [shared.data],
+  );
+  const reference = useMemo(
+    () => ({
+      rows: grouped,
+      percentiles: shared.data?.percentile_caps,
+      baseStats: shared.data?.base_stats,
+    }),
+    [grouped, shared.data],
+  );
+  const baseMatches = useMemo<any[]>(
+    () => matchingReminders(grouped, ids, settings, reference),
+    [grouped, ids, settings, reference],
+  );
+  const summary = Object.fromEntries(
+    ids.map((id) => {
+      const prices = activeOffers(grouped)
+        .filter((row: any) => row.item_id === id)
+        .map((row: any) => row.unit_price);
+      return [
+        id,
+        {
+          lowest: prices.length ? Math.min(...prices) : null,
+          under: baseMatches.filter((row: any) => row.item_id === id).length,
+        },
+      ];
+    }),
+  );
+  const requestedId = Number(new URLSearchParams(route.search).get("item"));
+  const focusId = ids.includes(requestedId) ? requestedId : null;
+  useEffect(() => {
+    if (focusId !== null)
+      document
+        .getElementById("watch-matches")
+        ?.scrollIntoView({ block: "start" });
+  }, [focusId, route.key]);
   function filterWatchRows(rows: any[], filters: any) {
     return {
       cap: null,
@@ -193,7 +197,9 @@ export default function Watch() {
     };
   }
   const matches = sortWatchQuotes(
-    filterWatchRows(baseMatches, filters).rows,
+    focusId === null
+      ? filterWatchRows(baseMatches, filters).rows
+      : baseMatches.filter((row: any) => row.item_id === focusId),
     sort === "recent" ? "recent" : "price",
   );
   const hits = ids.filter((id) => summary[id]?.under > 0).length;
@@ -299,24 +305,49 @@ export default function Watch() {
     ];
     for (const [packet, source, identity] of packets) {
       if (!packet) continue;
+      if (source === "personal" && !shared.data) continue;
+      const eligible = notificationEligibility(
+        packet,
+        ids,
+        settings,
+        reference,
+      );
+      const candidates = (packet.listings || []).filter(
+        (row: any) =>
+          source !== "personal" ||
+          normalizeReminder(settings[row.item_id]?.reminder).percentile ===
+            "all" ||
+          reminderSelection(
+            grouped,
+            row.item_id,
+            settings[row.item_id],
+            reference,
+          ).ready,
+      );
       const fresh = Core.combinedNotifications(
-        packet.listings || [],
-        Core.watches(ids, settings, addedAt),
+        candidates,
+        Core.watches(ids, settings, addedAt).map((watch: any) => ({
+          ...watch,
+          max_price: null,
+        })),
         notifications,
         started,
         Date.now() / 1000,
         source,
         identity,
+        eligible,
       );
-      for (const row of mergeShopOffers([
-        ...new Map(fresh.map((row: any) => [row.id, row])).values(),
-      ]).slice(0, 5) as any[]) {
-        if (settings[row.item_id]?.notify === false) continue;
+      const delivered = new Map<string, any>();
+      for (const raw of fresh) {
+        const row = eligible.get(raw.id);
+        if (row) delivered.set(row.id, row);
+      }
+      for (const row of [...delivered.values()].slice(0, 5)) {
         const item = { ...items.get(row.item_id), ...row };
         const title = t("watch.toast_title"),
           line = t("watch.toast_line", {
             price: row.unit_price,
-            stock: row.stock,
+            stock: row.stock ?? words("未知", "unknown"),
           });
         announce(
           title,
@@ -326,7 +357,7 @@ export default function Watch() {
         );
       }
     }
-  }, [shared.data, own.data, list, setting]);
+  }, [shared.data, own.data, list, setting, personal?.id]);
   function saveIds(next: number[]) {
     for (const id of next)
       if (!ids.includes(id)) addedAt[id] = Date.now() / 1000;
@@ -529,14 +560,10 @@ export default function Watch() {
                 item_id: id,
                 name_zh: String(id),
               };
-              const cap = settings[id]?.cap ?? null;
+              const current = settings[id] || { cap: null, notify: true };
               const enabled = settings[id]?.notify !== false;
               return (
-                <article
-                  className={"well wcard " + (open.has(id) ? "open" : "")}
-                  data-card={id}
-                  key={id}
-                >
+                <article className="well wcard open" data-card={id} key={id}>
                   <div className="wc-head">
                     <Slot url={item.icon_url} size={32} />
                     <a className="wc-name" href={"/item/" + id}>
@@ -552,26 +579,6 @@ export default function Watch() {
                           .join(" · ")}
                       </small>
                     </a>
-                    <button
-                      className="btn wc-edit"
-                      data-edit={id}
-                      aria-expanded={open.has(id)}
-                      aria-controls={"wc-set-" + id}
-                      onClick={() =>
-                        setOpen((old) => {
-                          const next = new Set(old);
-                          next.has(id) ? next.delete(id) : next.add(id);
-                          return next;
-                        })
-                      }
-                    >
-                      {t("watch.cap_short")}{" "}
-                      {cap === null ? (
-                        t("watch.cap_any")
-                      ) : (
-                        <Price value={cap} />
-                      )}
-                    </button>
                     <button
                       className="bar-btn wc-x"
                       data-remove={id}
@@ -599,18 +606,30 @@ export default function Watch() {
                       data-under-box
                     >
                       <small>{t("watch.under")}</small>
-                      <b data-under>{summary[id]?.under || 0}</b>
+                      <span className="wc-count-link">
+                        <b data-under>{summary[id]?.under || 0}</b>
+                        <SiteLink
+                          className="wc-details"
+                          href={`/watch?item=${id}#watch-matches`}
+                          aria-label={words(
+                            `查看${itemName(item)}符合提醒的报价`,
+                            `View matching offers for ${itemName(item)}`,
+                          )}
+                        >
+                          ↗
+                        </SiteLink>
+                      </span>
                     </span>
                   </div>
                   <div className="wc-set" id={"wc-set-" + id}>
-                    <label className="wc-cap">
-                      <span>{t("watch.cap")}</span>
-                      <Cap
-                        id={id}
-                        value={cap}
-                        save={(cap) => update(id, { cap })}
-                      />
-                    </label>
+                    <WatchReminder
+                      id={id}
+                      name={itemName(item)}
+                      setting={current}
+                      rows={grouped}
+                      reference={reference}
+                      onChange={(patch) => update(id, patch)}
+                    />
                     <button
                       className={"toggle " + (enabled ? "on" : "")}
                       aria-pressed={enabled}
@@ -632,6 +651,7 @@ export default function Watch() {
       <section
         className="stall lpage wmatches"
         data-matches-panel
+        id="watch-matches"
         hidden={!ids.length}
       >
         <div className="stall-bar">
@@ -640,6 +660,19 @@ export default function Watch() {
             {matches.length || ""}
           </span>
         </div>
+        {focusId !== null && (
+          <div className="watch-focus">
+            <span>{itemName(items.get(focusId) || { item_id: focusId })}</span>
+            <SiteLink href="/watch#watch-matches">
+              {words("全部关注", "All watched items")}
+            </SiteLink>
+          </div>
+        )}
+        {shared.data?.truncated && (
+          <p className="sale-note">
+            {words("显示最近 200 条报价", "Showing the latest 200 offers")}
+          </p>
+        )}
         <div className="watch-list-tools">
           <select
             data-watch-sort
@@ -651,6 +684,7 @@ export default function Watch() {
             <option value="recent">{t("watch.sort_recent")}</option>
           </select>
           <button
+            hidden={focusId !== null}
             ref={filterButton}
             className={"offer-filter-trigger " + (tokens.length ? "on" : "")}
             data-watch-filter
@@ -663,7 +697,7 @@ export default function Watch() {
             {tokens.length > 0 && <b>{tokens.length}</b>}
           </button>
         </div>
-        {tokens.length > 0 && (
+        {focusId === null && tokens.length > 0 && (
           <div className="offer-filter-summary">
             {tokens.map((token: any) => (
               <button

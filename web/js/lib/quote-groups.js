@@ -2,7 +2,7 @@
 const stable = value => JSON.stringify(value, (_, v) =>
   v && typeof v === 'object' && !Array.isArray(v)
     ? Object.fromEntries(Object.keys(v).sort().map(key => [key, v[key]])) : v);
-function identity(row) {
+export function shopOfferIdentity(row) {
   const at = row.seen_at ?? row.observed ?? row.time;
   if (!row.shop_key || !row.visit_id || !Number.isInteger(row.slot) ||
       !Number.isInteger(row.item_id) || !Number.isFinite(row.unit_price) ||
@@ -17,7 +17,7 @@ function identity(row) {
 export function mergeShopOffers(rows) {
   const output = [], groups = new Map();
   for (const row of rows) {
-    const key = identity(row);
+    const key = shopOfferIdentity(row);
     if (key === null) { output.push(row); continue; }
     let group = groups.get(key);
     if (!group) {

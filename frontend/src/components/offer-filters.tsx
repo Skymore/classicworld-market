@@ -16,6 +16,8 @@ export default function OfferFilterDialog({
   rows,
   equipment = true,
   filterRows,
+  reminder = false,
+  title,
 }: {
   open: boolean;
   onClose(): void;
@@ -24,6 +26,8 @@ export default function OfferFilterDialog({
   rows: any[];
   equipment?: boolean;
   filterRows?: (rows: any[], filters: any) => any;
+  reminder?: boolean;
+  title?: string;
 }) {
   const words = useWords(),
     dialog = useRef<HTMLDialogElement>(null);
@@ -67,7 +71,13 @@ export default function OfferFilterDialog({
           name={key}
           min={min}
           step={key === "minStock" || key === "minStat" ? "1" : "any"}
-          max={key === "minStat" ? 65535 : undefined}
+          max={
+            key === "minStat"
+              ? 65535
+              : reminder && key === "minPrice"
+                ? 1e15
+                : undefined
+          }
           inputMode="decimal"
           value={draft[key] ?? ""}
           placeholder={key === "minStat" ? "1" : words("不限", "Any")}
@@ -111,9 +121,9 @@ export default function OfferFilterDialog({
         <header className="offer-filter-head">
           <div>
             <h3 id="offer-filter-title">
-              {words("筛选报价", "Filter offers")}
+              {title || words("筛选报价", "Filter offers")}
             </h3>
-            <p>
+            <p hidden={reminder}>
               {words(
                 "组合条件，找到合适的报价",
                 "Combine conditions to find the right offer",
@@ -132,43 +142,50 @@ export default function OfferFilterDialog({
         </header>
         <div className="offer-filter-body">
           <fieldset>
-            <legend>{words("时间与价格", "Time and price")}</legend>
+            <legend>
+              {reminder
+                ? words("价格", "Price")
+                : words("时间与价格", "Time and price")}
+            </legend>
             <div className="offer-field-grid">
-              {field(
-                "hours",
-                words("报价时间", "Last observed"),
-                OFFER_HOURS.map((value: string) => [
-                  value,
-                  value === "all"
-                    ? words("全部时间", "Any time")
-                    : value === "168"
-                      ? words("最近 7 天", "Last 7 days")
-                      : words(
-                          `最近 ${value} 小时`,
-                          `Last ${value} ${value === "1" ? "hour" : "hours"}`,
-                        ),
-                ]),
-              )}
-              {field(
-                "percentile",
-                words("价格百分位", "Price percentile"),
-                OFFER_PERCENTILES.map((value: string) => [
-                  value,
-                  value === "all"
-                    ? words("全部价格", "Any price")
-                    : words(`最低 ${value}%`, `Lowest ${value}%`),
-                ]),
-              )}
+              {!reminder &&
+                field(
+                  "hours",
+                  words("报价时间", "Last observed"),
+                  OFFER_HOURS.map((value: string) => [
+                    value,
+                    value === "all"
+                      ? words("全部时间", "Any time")
+                      : value === "168"
+                        ? words("最近 7 天", "Last 7 days")
+                        : words(
+                            `最近 ${value} 小时`,
+                            `Last ${value} ${value === "1" ? "hour" : "hours"}`,
+                          ),
+                  ]),
+                )}
+              {!reminder &&
+                field(
+                  "percentile",
+                  words("价格百分位", "Price percentile"),
+                  OFFER_PERCENTILES.map((value: string) => [
+                    value,
+                    value === "all"
+                      ? words("全部价格", "Any price")
+                      : words(`最低 ${value}%`, `Lowest ${value}%`),
+                  ]),
+                )}
               {field(
                 "minPrice",
                 words("最低单价（金币）", "Min unit price (mesos)"),
               )}
-              {field(
-                "maxPrice",
-                words("最高单价（金币）", "Max unit price (mesos)"),
-              )}
+              {!reminder &&
+                field(
+                  "maxPrice",
+                  words("最高单价（金币）", "Max unit price (mesos)"),
+                )}
             </div>
-            <p className="offer-field-hint">
+            <p className="offer-field-hint" hidden={reminder}>
               {words(
                 filterRows
                   ? "百分位按每种物品符合关注条件的报价分别计算，临界同价一起保留。"
@@ -325,7 +342,12 @@ export default function OfferFilterDialog({
           </fieldset>
         </div>
         <footer className="offer-filter-foot">
-          <p data-offer-preview role="status" aria-live="polite">
+          <p
+            data-offer-preview
+            role="status"
+            aria-live="polite"
+            hidden={reminder}
+          >
             {preview.cap == null
               ? words(
                   "所有条件同时生效，排序方式不影响筛选。",
@@ -347,8 +369,12 @@ export default function OfferFilterDialog({
             </button>
             <button type="submit" className="btn primary" data-offer-apply>
               {words(
-                `显示 ${preview.rows.length} 条报价`,
-                `Show ${preview.rows.length} offers`,
+                reminder
+                  ? `保存 · ${preview.rows.length} 条`
+                  : `显示 ${preview.rows.length} 条报价`,
+                reminder
+                  ? `Save · ${preview.rows.length} offers`
+                  : `Show ${preview.rows.length} offers`,
               )}
             </button>
           </div>

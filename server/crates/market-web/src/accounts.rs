@@ -580,6 +580,59 @@ async fn data(State(state): State<AppState>, headers: HeaderMap) -> Response {
 struct Changes {
     operations: Vec<Record>,
 }
+fn valid_reminder(value: &Value) -> bool {
+    let Some(o) = value.as_object() else {
+        return false;
+    };
+    let price = |v: &Value| {
+        v.is_null()
+            || v.as_f64()
+                .is_some_and(|n| n.is_finite() && (0.0..=1e15).contains(&n))
+    };
+    o.len() <= 6
+        && o.iter().all(|(key, v)| match key.as_str() {
+            "percentile" => matches!(v.as_str(), Some("all" | "10" | "25" | "50")),
+            "minPrice" => price(v),
+            "stock" => matches!(v.as_str(), Some("all" | "known" | "unknown")),
+            "minStock" => {
+                v.is_null()
+                    || v.as_u64()
+                        .is_some_and(|n| (1..=9_007_199_254_740_991).contains(&n))
+            }
+            "equipment" => matches!(v.as_str(), Some("all" | "captured" | "missing" | "bonus")),
+            "stats" => v.as_array().is_some_and(|rows| {
+                rows.len() <= 14
+                    && rows.iter().all(|row| {
+                        row.as_object().is_some_and(|stat| {
+                            stat.len() == 2
+                                && stat.get("stat").and_then(Value::as_str).is_some_and(|key| {
+                                    [
+                                        "weapon_attack",
+                                        "magic_attack",
+                                        "str",
+                                        "dex",
+                                        "int",
+                                        "luk",
+                                        "hp",
+                                        "mp",
+                                        "accuracy",
+                                        "avoid",
+                                        "speed",
+                                        "jump",
+                                        "weapon_defense",
+                                        "magic_defense",
+                                    ]
+                                    .contains(&key)
+                                })
+                                && stat.get("min").is_some_and(|n| {
+                                    n.is_null() || n.as_u64().is_some_and(|n| n <= 65535)
+                                })
+                        })
+                    })
+            }),
+            _ => false,
+        })
+}
 fn valid_record(r: &Record) -> bool {
     if r.version < 0 || r.version == i64::MAX {
         return false;
@@ -594,7 +647,7 @@ fn valid_record(r: &Record) -> bool {
         }
         return r.value.as_ref().is_none_or(|v| {
             v.as_object().is_some_and(|o| {
-                o.len() == 3
+                (o.len() == 3 || (o.len() == 4 && o.get("reminder").is_some_and(valid_reminder)))
                     && o.get("cap").is_some_and(|c| {
                         c.is_null()
                             || c.as_f64()
@@ -749,5 +802,24 @@ mod tests {
         r.key = "cwm.collector.token".into();
         r.value = Some(json!("secret"));
         assert!(!valid_record(&r));
+    }
+
+    #[test]
+    fn validates_per_item_reminders_without_time_filters() {
+        let valid = json!({"percentile":"25","minPrice":null,"stock":"known","minStock":5,"equipment":"bonus","stats":[{"stat":"weapon_attack","min":45}]});
+        assert!(valid_reminder(&valid));
+        for (key, value) in [
+            ("hours", json!("1")),
+            ("percentile", json!("75")),
+            ("minStock", json!(-1)),
+            ("stats", json!([{"stat":"secret","min":1}])),
+        ] {
+            let mut invalid = valid.clone();
+            invalid[key] = value;
+            assert!(!valid_reminder(&invalid));
+        }
+        assert!(!valid_reminder(
+            &json!({"stats":[{"stat":"str","min":65536}]})
+        ));
     }
 }

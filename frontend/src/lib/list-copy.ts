@@ -26,7 +26,7 @@ addMessages({
     "watch.empty": "还没有关注的物品。点任意物品旁的 ☆ 开始关注。",
     "watch.lowest": "当前最低",
     "watch.typical": "典型成交价",
-    "watch.under": "符合上限",
+    "watch.under": "符合提醒",
     "watch.under_n": "{n} 条",
     "watch.cap": "最高单价",
     "watch.cap_short": "上限",
@@ -42,7 +42,7 @@ addMessages({
     "watch.no_matches":
       "暂无符合关注条件的在售报价；继续采集或等待共享市场更新。",
     "watch.note":
-      "添加想买的物品，设置最高单价；保持本页打开，有新低价时提醒你。",
+      "添加想买的物品，设置提醒条件；保持本页打开，有符合条件的新报价时提醒。",
     "watch.help_title": "提醒如何工作？",
     "watch.help":
       "共享市场的新报价和自己刚逛到的摊位都能提醒。别人之前扫过的报价，自己第一次扫到且符合条件时也会提醒；同次更新只弹一次，反复开同一报价不刷屏。支持装备等所有物品，按最高单价和有货条件筛选。关注清单和价格上限只保存在当前浏览器，不与别人共享。保持本页打开，允许浏览器通知后可在后台接收提醒。实际库存与价格请到游戏内核对。采集使用另一套规则。",
@@ -81,7 +81,7 @@ addMessages({
       "No watched items yet. Tap the ☆ next to any item to start watching it.",
     "watch.lowest": "Lowest now",
     "watch.typical": "Typical sale",
-    "watch.under": "Under cap",
+    "watch.under": "Matching alerts",
     "watch.under_n": "{n}",
     "watch.cap": "Max unit price",
     "watch.cap_short": "Cap",
@@ -97,7 +97,7 @@ addMessages({
     "watch.no_matches":
       "No offers match your watches yet; keep collecting or wait for the shared market to update.",
     "watch.note":
-      "Add items and set your maximum unit price. Keep this page open for new low-price offers.",
+      "Add items and set alert conditions. Keep this page open for matching new offers.",
     "watch.help_title": "How do notifications work?",
     "watch.help":
       "Get alerts for new shared offers and shops you just visited, even if another player saw the offer earlier. One update produces one alert; repeated visits to the same offer do not spam. All items, including equipment, follow your price cap and in-stock rules. Your list and caps stay in this browser. Keep this page open; browser notifications can alert you in the background. Verify prices and stock in game. Collect uses separate rules.",

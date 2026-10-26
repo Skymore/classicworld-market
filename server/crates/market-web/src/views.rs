@@ -832,6 +832,30 @@ fn grouped_quotes(rows: &[Value], limit: usize) -> Vec<Value> {
     output
 }
 
+fn watch_percentiles(rows: &[Value]) -> serde_json::Map<String, Value> {
+    let mut prices: std::collections::BTreeMap<i64, Vec<f64>> = std::collections::BTreeMap::new();
+    for row in rows {
+        if let (Some(id), Some(price)) = (row["item_id"].as_i64(), row["unit_price"].as_f64()) {
+            if price.is_finite() && price >= 0.0 {
+                prices.entry(id).or_default().push(price);
+            }
+        }
+    }
+    let mut percentiles = serde_json::Map::new();
+    for (id, mut values) in prices {
+        values.sort_by(f64::total_cmp);
+        let mut caps = serde_json::Map::new();
+        for p in [10usize, 25, 50] {
+            caps.insert(
+                p.to_string(),
+                json!(values[(values.len() * p).div_ceil(100) - 1]),
+            );
+        }
+        percentiles.insert(id.to_string(), Value::Object(caps));
+    }
+    percentiles
+}
+
 /// `report_listings` over the 72-hour window.
 pub async fn watch_listings(db: &PgPool, items: &[i32], now: f64) -> sqlx::Result<Value> {
     let mut found: Vec<Value> = quotes(db, items, Window::recent(now).cutoff)
@@ -845,11 +869,28 @@ pub async fn watch_listings(db: &PgPool, items: &[i32], now: f64) -> sqlx::Resul
             .then_with(|| a["id"].as_str().cmp(&b["id"].as_str()))
     });
     let total = found.len();
-    let grouped = grouped_quotes(&found, WATCH_LIMIT);
+    let mut grouped = grouped_quotes(&found, usize::MAX);
+    let percentiles = watch_percentiles(&grouped);
+    let mut base_stats = serde_json::Map::new();
+    for row in sqlx::query(
+        "SELECT item_id, record FROM item_records WHERE item_id=ANY($1) AND item_id<2000000",
+    )
+    .bind(items)
+    .fetch_all(db)
+    .await?
+    {
+        let id: i32 = row.get("item_id");
+        let record: Value = row.get("record");
+        base_stats.insert(
+            id.to_string(),
+            json!(crate::bestiary::queries::reference_stats(&record)),
+        );
+    }
+    grouped.truncate(WATCH_LIMIT);
     found.truncate(WATCH_LIMIT);
     Ok(
         json!({"listings": found, "grouped_listings": grouped, "total": total, "truncated": total > WATCH_LIMIT,
-              "generated_at": now, "hours": RECENT_HOURS}),
+              "generated_at": now, "hours": RECENT_HOURS, "percentile_caps": percentiles, "base_stats": base_stats}),
     )
 }
 
@@ -1376,6 +1417,16 @@ mod tests {
         );
         gear2["equipment"]["stats"][0]["value"] = json!(51);
         assert_eq!(grouped_quotes(&[gear, gear2], 200).len(), 2);
+    }
+
+    #[test]
+    fn watch_percentiles_include_groups_beyond_the_public_limit() {
+        let rows: Vec<Value> = (1..=500)
+            .map(|price| json!({"item_id":2000000,"unit_price":price}))
+            .collect();
+        let caps = watch_percentiles(&rows);
+        assert_eq!(caps["2000000"], json!({"10":50.0,"25":125.0,"50":250.0}));
+        assert!(watch_percentiles(&[]).is_empty());
     }
 
     #[test]

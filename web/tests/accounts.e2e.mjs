@@ -68,6 +68,10 @@ try{
  await pageA.screenshot({path:path.join(output,'account-mobile.png'),fullPage:true});
  const b=await browser.newContext({viewport:{width:1280,height:900}}),pageB=await b.newPage();pageB.on('pageerror',e=>errors.push(e.message));
  await auth(pageB,'maple_one');assert.deepEqual((await state(pageB)).ids,[4010001]);
+ const reminder={percentile:'25',minPrice:10,stock:'known',minStock:5,equipment:'all',stats:[]};
+ await pageA.evaluate(async reminder=>{const m=await import('/web/js/lib/user-data.js');m.userStorage.setItem('watchlist_settings',JSON.stringify({4010001:{cap:100,notify:true,reminder}}));await m.flush();},reminder);
+ await refresh(pageB);assert.deepEqual((await state(pageB)).settings[4010001].reminder,reminder);
+ await pageB.reload();await pageB.locator('[data-logout]').waitFor();assert.deepEqual((await state(pageB)).settings[4010001].reminder,reminder);
  await setCap(pageA,150);await refresh(pageB);assert.equal((await state(pageB)).settings[4010001].cap,150);
  // Offline edits remain queued, and a conflicting remote write is not overwritten.
  await pageA.route('**/api/v1/account/data',route=>route.abort());await setCap(pageA,200);assert.equal((await state(pageA)).pending,1);

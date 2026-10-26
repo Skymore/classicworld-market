@@ -22,13 +22,13 @@ function persist(){if(context&&owner)try{write(PREFIX+owner,JSON.stringify(conte
 function valuesFrom(records){
  const values={},watches=[];const settings={};
  for(const r of records){if(r.value==null)continue;if(r.kind==='pref'&&PREFS.includes(r.key))values[r.key]=String(r.value);
-  if(r.kind==='watch'){const id=Number(r.key);if(!Number.isSafeInteger(id))continue;watches.push({id,position:r.value.position});settings[id]={cap:r.value.cap??null,notify:r.value.notify!==false};}}
+  if(r.kind==='watch'){const id=Number(r.key);if(!Number.isSafeInteger(id))continue;watches.push({id,position:r.value.position});settings[id]={cap:r.value.cap??null,notify:r.value.notify!==false,...(r.value.reminder?{reminder:r.value.reminder}:{})};}}
  watches.sort((a,b)=>a.position-b.position||a.id-b.id);values.watchlist=JSON.stringify(watches.map(w=>w.id));values.watchlist_settings=JSON.stringify(settings);return values;
 }
 function recordsFrom(values){
  const raw=parse(values.watchlist,[]),ids=[...new Set((Array.isArray(raw)?raw:[]).map(Number).filter(id=>Number.isSafeInteger(id)&&id>=1000000&&id<=5999999))];
  const settings=parse(values.watchlist_settings,{})||{};
- const records=ids.map((id,position)=>({kind:'watch',key:String(id),value:{cap:Number.isFinite(settings[id]?.cap)?settings[id].cap:null,notify:settings[id]?.notify!==false,position}}));
+ const records=ids.map((id,position)=>({kind:'watch',key:String(id),value:{cap:Number.isFinite(settings[id]?.cap)?settings[id].cap:null,notify:settings[id]?.notify!==false,position,...(settings[id]?.reminder?{reminder:settings[id].reminder}:{})}}));
  for(const key of PREFS)if(values[key]!=null)records.push({kind:'pref',key,value:values[key]});return records;
 }
 function queue(){

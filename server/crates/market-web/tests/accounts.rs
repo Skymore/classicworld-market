@@ -136,6 +136,41 @@ fn watch(id: &str, value: Value, version: i64) -> Value {
 fn settings(cap: i64) -> Value {
     json!({"cap":cap,"notify":true,"position":0})
 }
+
+#[tokio::test]
+async fn reminder_rules_sync_with_each_watch_and_reject_time_conditions() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let state = AppState::new(db.pool.clone(), Settings::default());
+    let (cookie, csrf, _) = signup(&state, "reminder_player").await;
+    let mut value = settings(200);
+    value["reminder"] = json!({"percentile":"10","minPrice":null,"stock":"all","minStock":null,"equipment":"all","stats":[{"stat":"str","min":2}]});
+    let result = post(
+        &state,
+        "/api/v1/account/data",
+        json!({"operations":[watch("1452003",value.clone(),0)]}),
+        &cookie,
+        &csrf,
+    )
+    .await;
+    assert_eq!(result.0, StatusCode::OK);
+    assert_eq!(records(&state, &cookie).await[0]["value"], value);
+    value["reminder"]["hours"] = json!("1");
+    assert_eq!(
+        post(
+            &state,
+            "/api/v1/account/data",
+            json!({"operations":[watch("1452003",value,1)]}),
+            &cookie,
+            &csrf
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    db.close().await;
+}
 async fn records(state: &AppState, cookie: &str) -> Value {
     request(
         state,

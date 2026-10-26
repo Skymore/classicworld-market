@@ -342,7 +342,7 @@ const REFERENCE_KEYS: [(&str, &str); 14] = [
 
 /// The item's reference stats in variant keys: Mapledex first (it has weapon
 /// attack), then DVG `base_stats` for keys Mapledex lacks.
-fn reference_stats(record: &Value) -> Vec<(String, i64)> {
+pub(crate) fn reference_stats(record: &Value) -> Vec<(String, i64)> {
     let mut out: Vec<(String, i64)> = Vec::new();
     let mut put = |source: &str, value: Option<i64>| {
         let key = REFERENCE_KEYS.iter().find(|(from, _)| *from == source);
