@@ -72,14 +72,14 @@ def release_keys():
 
 def status_text(value):
     for pattern, template in [
-        (r'full_scanning_room_(\d+)_channel_(\d+)', '正在扫描 {0} 洞 · CH {1}'),
-        (r'full_switching_room_(\d+)_channel_(\d+)', '正在切换 {0} 洞 · CH {1}'),
+        (r'full_scanning_room_(\d+)_channel_(\d+)', '正在扫描 {0} 洞 · {1}频道'),
+        (r'full_switching_room_(\d+)_channel_(\d+)', '正在切换 {0} 洞 · {1}频道'),
         (r'full_entering_room_(\d+)', '正在前往 {0} 洞'),
         (r'full_exiting_room_(\d+)', '正在离开 {0} 洞'),
         (r'full_returning_room_(\d+)_channel_(\d+)', '正在准备离开 {0} 洞'),
-        (r'full_retrying_(?:scan|channel|return)_room_(\d+)_channel_(\d+)_attempt_(\d+)', '正在重试 {0} 洞 · CH {1}'),
-        (r'route_calibration_trying_channel_(\d+)', '正在连接 CH {0}'),
-        (r'route_calibration_connection_ready_(\d+)', '已连接 CH {0}'),
+        (r'full_retrying_(?:scan|channel|return)_room_(\d+)_channel_(\d+)_attempt_(\d+)', '正在重试 {0} 洞 · {1}频道'),
+        (r'route_calibration_trying_channel_(\d+)', '正在连接 {0}频道'),
+        (r'route_calibration_connection_ready_(\d+)', '已连接 {0}频道'),
     ]:
         match = re.fullmatch(pattern, value)
         if match:

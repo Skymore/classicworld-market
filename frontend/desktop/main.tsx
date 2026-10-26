@@ -35,7 +35,7 @@ function App() {
   const action = async (name: string, value?: unknown) => { if (!window.pywebview?.api || busy) return; setBusy(true); setError(''); try { setState(await window.pywebview.api.command(name, value)); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); } };
   const active = ['scanning','paused','stopping'].includes(state.phase), live = ['connected','capturing'].includes(state.capture);
   const progressStatus = state.phase === 'scanning'
-    ? ['扫描中', state.room ? `${state.room} 洞` : '', state.channel ? `CH ${state.channel}` : ''].filter(Boolean).join(' · ')
+    ? ['扫描中', state.room ? `${state.room} 洞` : '', state.channel ? `${state.channel}频道` : ''].filter(Boolean).join(' · ')
     : ['stopped','paused'].includes(state.phase)
       ? `${phases[state.phase]} · ${live ? '手动采集中' : (health[state.capture] || '等待游戏连接')}`
       : state.mode === 'manual' && live ? '手动采集中' : (phases[state.phase] || '准备中');

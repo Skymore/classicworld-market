@@ -114,7 +114,7 @@ function whereWell(id, listings, asOf = Date.now() / 1000) {
   const full = `<a class="more" href="${itemHref(id)}">${esc(groups.length ? t('drawer.full', { n: groups.length }) : t('drawer.full_short'))} ${I.chev}</a>`;
   if (!listings.length) return `<section class="well">${top}<p class="note">${esc(t('drawer.none'))}</p>${full}</section>`;
   const rows = groups.slice(0, CHANNELS_SHOWN).map((g) => {
-    const label = g.ch === 'unknown' ? `<span class="chno unk">${esc(t('loc.unknown'))}</span>` : `<span class="chno">CH ${g.ch}</span>`;
+    const label = g.ch === 'unknown' ? `<span class="chno unk">${esc(t('loc.unknown'))}</span>` : `<span class="chno">${esc(lang === 'en' ? `CH ${g.ch}` : `${g.ch}频道`)}</span>`;
     return `<div class="cg-head cg-static">${label}<span class="cg-meta">${esc(t('drawer.group', { shops: g.shops, stock: num(g.stock) }))}</span><span class="cg-min">${esc(t('drawer.min'))} <b>${meso(g.min)}</b></span></div>`;
   }).join('');
   return `<section class="well">${top}<div class="cg-list">${rows}</div>${full}</section>`;

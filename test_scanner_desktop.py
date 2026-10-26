@@ -119,6 +119,6 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(self.controller.snapshot()['run_items'],90)
 
     def test_internal_event_names_do_not_leak_into_ui(self):
-        self.assertEqual(status_text('full_scanning_room_8_channel_12'), '正在扫描 8 洞 · CH 12')
+        self.assertEqual(status_text('full_scanning_room_8_channel_12'), '正在扫描 8 洞 · 12频道')
         self.assertIsNone(status_text('unknown_internal_event'))
         self.assertEqual(status_text('已领到 8 洞'), '已领到 8 洞')

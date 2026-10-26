@@ -56,7 +56,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
-        '本次运行显示累计已扫店铺、商品和运行时长，扫描位置统一显示在标题右侧。\n'
+        '网站、扫描器与采集器的中文位置统一显示为频道和洞，包含状态、动态、提醒与使用说明。\n'
         '新增枫叶市集应用图标，统一程序、任务栏和桌面快捷方式。\n'
         '重新进洞或换频道时核对完整玩家名单，已离开的店主旧报价标记失效。\n'
         '修复扫描中途无提示退出；状态刷新暂时失败时继续采集，遇到采集异常保留窗口提示。\n'
@@ -65,7 +65,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
         '修复更新自检超时，保留账号、设置与采集记录。\n'
         '自动扫描、手动采集、上传、账号和关注提醒合并到一个程序。请关闭旧扫描器和旧采集器。\n'
         '每人每次领取一个洞，完成后再领取下一个；暂停或断线后让其他在线扫描器接手。\n'
-        '从 CH1 顺序扫描，连续三个空频道后从 CH40 倒序扫描，避免漏掉高频道的店铺。\n'
+        '从 1频道 顺序扫描，连续三个空频道后从 40频道 倒序扫描，避免漏掉高频道的店铺。\n'
         '保留原有账号和记录，后台自动检查、下载更新，退出游戏后安装。\n'
         'v0.5.10 及以后的采集器可以自动升级；旧独立扫描器和 v0.5.9 及以前的采集器需要手动安装这一次。\n', encoding='utf-8')
     if activate:

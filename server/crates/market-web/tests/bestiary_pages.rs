@@ -243,8 +243,8 @@ fn where_to_buy_groups_by_channel() {
     let html = pages::item_page(&item_page(Some(stats()), market()), &zh()).into_string();
     assert!(html.contains("Cheap&lt;b&gt;"));
     // CH 14 first (cheapest fresh 950; the stale 900 does not count), open, with the 22-room grid.
-    let ch14 = html.find("CH 14").unwrap();
-    let ch3 = html.find("CH 3<").unwrap();
+    let ch14 = html.find("14频道").unwrap();
+    let ch3 = html.find("3频道<").unwrap();
     assert!(ch14 < ch3);
     assert!(html.contains(r#"<div class="cgroup open" data-ch-key="14">"#));
     assert!(html.contains("最低 <b>950</b>"));
@@ -285,7 +285,7 @@ fn ladder_trend_and_sales() {
     assert!(html.contains("发现已售"));
     assert!(html.contains("数量未知"));
     assert!(!html.contains("时间是发现时间，不是实际成交时间"));
-    assert!(html.contains(r#"<span class="loc"><b>CH 4</b><span>8洞</span></span>"#));
+    assert!(html.contains(r#"<span class="loc"><b>4频道</b><span>8洞</span></span>"#));
 }
 
 #[test]

@@ -157,7 +157,7 @@ export function applyOfferSort(stall, mode, filters = {}) {
   if (latest) {
     for (const row of [...rows].sort((a, b) => compareQuotes(a, b, true))) {
       const room = row.el.querySelector('.lroom');
-      if (room) room.textContent = (row.channel === 'unknown' ? (en ? 'Channel ?' : '频道未知') : 'CH ' + row.channel) + ' · ' + row.room;
+      if (room) room.textContent = (row.channel === 'unknown' ? (en ? 'Channel ?' : '频道未知') : en ? 'CH ' + row.channel : row.channel + '频道') + ' · ' + row.room;
       saved.flat.append(row.el);
     }
   }

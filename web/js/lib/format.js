@@ -46,9 +46,9 @@ export function loc(ch, room, context = null) {
   if(room == null) {
     const name=context?.[lang==='en'?'map_name_en':'map_name_zh'] || context?.map_name_en || context?.map_name_zh;
     const label=name || (context?.map_id != null ? `${lang==='en'?'Map':'地图'} ${context.map_id}` : (lang==='en'?'Room not recorded':'洞号未记录'));
-    return `<span class="loc" title="${esc(label)}"><b>CH ${Number(ch)}</b><span>${esc(label)}</span></span>`;
+    return `<span class="loc" title="${esc(label)}"><b>${lang === 'en' ? `CH ${Number(ch)}` : `${Number(ch)}频道`}</b><span>${esc(label)}</span></span>`;
   }
-  return `<span class="loc"><b>CH ${ch}</b><span>${t('loc.room', { n: room })}</span></span>`;
+  return `<span class="loc"><b>${esc(lang === 'en' ? `CH ${ch}` : `${ch}频道`)}</b><span>${t('loc.room', { n: room })}</span></span>`;
 }
 
 export const mobImg = (id, pose) => `https://maplestory.io/api/GMS/83/mob/${id}/render/${pose || 'stand'}`;
