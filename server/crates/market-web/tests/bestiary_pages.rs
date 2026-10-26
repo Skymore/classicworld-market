@@ -30,6 +30,23 @@ fn zh() -> Ctx {
 }
 
 #[test]
+fn item_bootstrap_reuses_public_data_and_escapes_script_delimiters() {
+    let mut page = item_page(Some(stats()), market());
+    page.item.name_en = "</script><script>alert('shop')</script>&\u{2028}".into();
+    let ctx = zh();
+    let rendered = pages::item_page(&page, &ctx).into_string();
+    let raw = rendered.split("<script id=\"catalog-snapshot\" type=\"application/json\">")
+        .nth(1).unwrap().split("</script>").next().unwrap();
+    assert!(!raw.contains('<'));
+    assert!(!raw.contains('&'));
+    let snapshot: serde_json::Value = serde_json::from_str(raw).unwrap();
+    assert_eq!(snapshot["url"], ctx.here);
+    assert_eq!(snapshot["updatedAt"], ctx.now.timestamp_millis());
+    assert_eq!(snapshot["data"]["kind"], "item");
+    assert_eq!(snapshot["data"]["page"], serde_json::to_value(&page).unwrap());
+}
+
+#[test]
 fn item_window_and_observed_location_are_explicit() {
     let mut page = item_page(Some(stats()), market());
     page.market.sales[0].room = None;

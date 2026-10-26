@@ -203,7 +203,9 @@ try {
     ].map((r,i)=>({...r,variantId:100+i,ch:'1',room:1,price:10000+i*1000,age:60,stock:1,equipment:true,captured:true,enhancements:r.enhancements??0}));
     revision++;broadcast();await waitRevision();
     const groups=()=>page.locator('[data-equipment-group]:visible');
-    assert.equal(await page.locator('[data-equipment-group]').count(),4);
+    assert.equal(await page.locator('[data-equipment-group]').count(),3,'hidden equipment cards are deferred');
+    await page.locator('[data-more=equip]').click();
+    assert.equal(await page.locator('[data-equipment-group]').count(),4,'show all still exposes every equipment group');
     const plain=page.locator('[data-equipment-group]').filter({hasText:'+10–15'});
     assert.equal(await plain.count(),1);assert.match(await plain.textContent(),mobile?/2 件/:/2 listed/);
     assert.match(await plain.textContent(),/10K/,'group minimum includes both defence rolls');

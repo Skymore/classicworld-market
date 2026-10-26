@@ -1122,7 +1122,7 @@ export default function Item({ page }: { page: any }) {
               className={
                 "where-well " +
                 (sort === "recent" ? "recent-order " : "") +
-                (more.has("where") ? "all" : "")
+                (more.has(sort === "recent" ? "recent" : "where") ? "all" : "")
               }
               title={words("在哪买", "Where to buy")}
               note={words(
@@ -1230,7 +1230,13 @@ export default function Item({ page }: { page: any }) {
                 </p>
               ) : sort === "recent" ? (
                 <div className="recent-offers">
-                  {flat.map((row) => quote(row, true))}
+                  {flat.slice(0, more.has("recent") ? undefined : 50).map((row) => quote(row, true))}
+                  {flat.length > 50 && (
+                    <button className="more" data-more="recent" onClick={() => show("recent")}>
+                      {words(`显示全部 ${flat.length} 条报价 `, `Show all ${flat.length} offers `)}
+                      <Icon name="chev" />
+                    </button>
+                  )}
                 </div>
               ) : (
                 <>
@@ -1300,7 +1306,7 @@ export default function Item({ page }: { page: any }) {
                             <Icon name="caret" />
                           </span>
                         </button>
-                        <div className="cg-body">
+                        {opened && <div className="cg-body">
                           {group.channel != null && (
                             <div
                               className="holes"
@@ -1361,7 +1367,7 @@ export default function Item({ page }: { page: any }) {
                           <div className="cg-list">
                             {group.rows.map((row) => quote(row))}
                           </div>
-                        </div>
+                        </div>}
                       </div>
                     );
                   })}
@@ -1437,7 +1443,7 @@ export default function Item({ page }: { page: any }) {
                 {variants.length ? (
                   <>
                     <div className="tips">
-                      {variants.map(({ key, variant, offers }, i: number) => {
+                      {variants.slice(0, more.has("equip") ? undefined : 3).map(({ key, variant, offers }, i: number) => {
                         const cheapest = offers.reduce(
                           (pick: any, row: any) =>
                             row.unit_price < pick.unit_price ? row : pick,

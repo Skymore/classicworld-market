@@ -211,7 +211,16 @@ pub async fn item_page_selected(
     } else {
         None
     };
-    let mut page = item_page_scoped(db, id, now, variant_ids.as_deref()).await?;
+    let summary = sqlx::query_as::<_, (i64, Option<f64>, Option<f64>, Option<f64>)>(
+        "SELECT count(*), percentile_cont(0.5) WITHIN GROUP (ORDER BY unit_price),
+         percentile_cont(0.25) WITHIN GROUP (ORDER BY unit_price),
+         percentile_cont(0.75) WITHIN GROUP (ORDER BY unit_price)
+         FROM market_sales WHERE item_id=$1 AND detected_at<=to_timestamp($4) AND ($2::bool OR detected_at>=to_timestamp($3))
+         AND ($5::bigint[] IS NULL OR coalesce(variant_id,0)=ANY($5))")
+        .bind(id).bind(all).bind(now-72.0*3600.0).bind(now).bind(variant_ids.as_deref()).fetch_one(db);
+    let (mut page, row) = tokio::try_join!(
+        item_page_scoped(db, id, now, variant_ids.as_deref()), summary,
+    )?;
     if let Some(p) = &mut page {
         p.selected_variant = selected_variant;
         if !all {
@@ -219,13 +228,6 @@ pub async fn item_page_selected(
                 .sales
                 .retain(|sale| sale.detected_at.timestamp() as f64 >= now - 72.0 * 3600.0);
         }
-        let row: (i64, Option<f64>, Option<f64>, Option<f64>) = sqlx::query_as(
-            "SELECT count(*), percentile_cont(0.5) WITHIN GROUP (ORDER BY unit_price),
-             percentile_cont(0.25) WITHIN GROUP (ORDER BY unit_price),
-             percentile_cont(0.75) WITHIN GROUP (ORDER BY unit_price)
-             FROM market_sales WHERE item_id=$1 AND detected_at<=to_timestamp($4) AND ($2::bool OR detected_at>=to_timestamp($3))
-             AND ($5::bigint[] IS NULL OR coalesce(variant_id,0)=ANY($5))")
-            .bind(id).bind(all).bind(now-72.0*3600.0).bind(now).bind(variant_ids.as_deref()).fetch_one(db).await?;
         if scoped {
             let shops: std::collections::HashSet<_> = p
                 .market
@@ -607,11 +609,12 @@ async fn item_market(
                 WHEN sh.room IS NULL AND o.map_id IS NOT NULL THEN
                   COALESCE((SELECT COALESCE(name_zh,name_en) FROM maps WHERE id=o.map_id),o.map_id::text)
                 END AS observed_location, s.detected_at AS observed_at, s.variant_id, v.stats
-         FROM market_sales s
+         FROM (SELECT * FROM market_sales
+           WHERE item_id = $1 AND detected_at <= to_timestamp($3)
+             AND ($4::bigint[] IS NULL OR coalesce(variant_id,0)=ANY($4))
+           ORDER BY detected_at DESC, observation_id, position LIMIT $2) s
          LEFT JOIN observations o ON o.id = s.observation_id LEFT JOIN shops sh ON sh.id = s.shop_id
          LEFT JOIN equipment_variants v ON v.id = s.variant_id
-         WHERE s.item_id = $1 AND s.detected_at <= to_timestamp($3)
-           AND ($4::bigint[] IS NULL OR coalesce(s.variant_id,0)=ANY($4))
          ORDER BY s.detected_at DESC, s.observation_id, s.position LIMIT $2",
     )
     .bind(id)
@@ -619,8 +622,25 @@ async fn item_market(
     .bind(now)
     .bind(variant_ids)
     .fetch_all(db);
-    let (as_of, listings, sales, expired) = tokio::try_join!(as_of, listings, sales, expired)?;
-    let as_of = as_of.flatten();
+    let history = async {
+        let as_of = as_of.await?.flatten();
+        let (days, sale_points) = if as_of.is_some() {
+            seven_days(
+                db, id,
+                DateTime::from_timestamp(now as i64, 0).expect("valid current time").date_naive(),
+                variant_ids,
+            ).await?
+        } else {
+            (Vec::new(), Vec::new())
+        };
+        Ok::<_, sqlx::Error>((as_of, days, sale_points))
+    };
+    let item_ids = [id];
+    let ((as_of, days, sale_points), listings, sales, expired, external, listing_days) = tokio::try_join!(
+        history, listings, sales, expired,
+        crate::external::quote_rows(db, &item_ids, Window::recent(now).cutoff),
+        listing_days(db, id, now, variant_ids),
+    )?;
     let listing = |r: ListingRow| Listing {
             owner_name: r.owner_name,
             invalidated_at: r.invalidated_at,
@@ -641,7 +661,7 @@ async fn item_market(
         };
     let expired_listings = expired.into_iter().map(listing).collect();
     let mut listings: Vec<Listing> = listings.into_iter().map(listing).collect();
-    for row in crate::external::quote_rows(db, &[id], Window::recent(now).cutoff).await? {
+    for row in external {
         if variant_ids.is_some_and(|ids| !ids.contains(&0)) {
             continue;
         }
@@ -679,21 +699,6 @@ async fn item_market(
             })
         })
         .collect();
-    let (days, sale_points) = match as_of {
-        Some(_) => {
-            seven_days(
-                db,
-                id,
-                sqlx::types::chrono::DateTime::from_timestamp(now as i64, 0)
-                    .expect("valid current time")
-                    .date_naive(),
-                variant_ids,
-            )
-            .await?
-        }
-        None => (Vec::new(), Vec::new()),
-    };
-    let listing_days = listing_days(db, id, now, variant_ids).await?;
     Ok(ItemMarket {
         expired_listings,
         as_of,

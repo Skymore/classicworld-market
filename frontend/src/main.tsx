@@ -19,7 +19,7 @@ import { Providers, useWords, initializePreferences } from "./providers";
 import { AppShell } from "./components/shell";
 import { ensureStyle } from "./lib/styles";
 import { queryClient } from "./lib/query";
-import { loadCatalog, catalogKey } from "./lib/catalog";
+import { loadCatalog, catalogKey, readCatalogSnapshot } from "./lib/catalog";
 import { ToastHost } from "./components/toasts";
 import { Loading, ErrorState } from "./components/shared";
 import "./styles.css";
@@ -39,10 +39,14 @@ const Download = lazy(async () => {
   await ensureStyle("download");
   return import("./pages/download");
 });
-const Catalogue = lazy(async () => {
-  await Promise.all([ensureStyle("dex"), ensureStyle("item")]);
-  return import("./pages/catalogue");
-});
+let catalogueModule: Promise<typeof import("./pages/catalogue")> | undefined;
+const loadCatalogueModule = () =>
+  (catalogueModule ??= Promise.all([
+    import("./pages/catalogue"),
+    ensureStyle("dex"),
+    ensureStyle("item"),
+  ]).then(([module]) => module));
+const Catalogue = lazy(loadCatalogueModule);
 const Collect = lazy(async () => {
   await ensureStyle("collect");
   return import("./pages/collect");
@@ -251,16 +255,22 @@ function Application() {
   );
 }
 
-await initializePreferences();
-if (
+const catalogueLocation =
   ["/search", "/route"].includes(location.pathname) ||
-  /^\/(item|mob|map)\//.test(location.pathname)
-) {
+  /^\/(item|mob|map)\//.test(location.pathname);
+// Load the route module alongside account preferences/data, not after them.
+const catalogueReady = catalogueLocation ? loadCatalogueModule() : undefined;
+const snapshot = readCatalogSnapshot();
+if (snapshot)
+  queryClient.setQueryData(catalogKey(snapshot.url), snapshot.data, {
+    updatedAt: snapshot.updatedAt,
+  });
+await initializePreferences();
+if (catalogueLocation) {
   document.documentElement.dataset.reactShell = "1";
   await Promise.all([
-    ensureStyle("dex"),
-    ensureStyle("item"),
-    queryClient.prefetchQuery({
+    catalogueReady,
+    !snapshot && queryClient.prefetchQuery({
       queryKey: catalogKey(location.pathname + location.search),
       queryFn: ({ signal }) =>
         loadCatalog(location.pathname + location.search, signal),

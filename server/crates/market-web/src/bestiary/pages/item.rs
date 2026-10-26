@@ -21,7 +21,21 @@ pub fn item_page(page: &ItemPage, ctx: &Ctx) -> Markup {
     let names = page.item.names();
     let name = names.get(ctx.lang);
     let fresh = page.market.as_of.map(|_| fresh_text(&v));
+    // Reuse the public data already read for this first paint. Escape raw-text
+    // delimiters: item/shop names must never be able to close the JSON script.
+    let snapshot = serde_json::json!({
+        "url": ctx.here,
+        "updatedAt": ctx.now.timestamp_millis(),
+        "data": {"kind": "item", "page": page},
+    })
+    .to_string()
+    .replace('&', "\\u0026")
+    .replace('<', "\\u003c")
+    .replace('>', "\\u003e")
+    .replace('\u{2028}', "\\u2028")
+    .replace('\u{2029}', "\\u2029");
     let body = html! {
+        script id="catalog-snapshot" type="application/json" { (PreEscaped(snapshot)) }
         div.dwrap.ipage {
             nav.crumb.on-desktop aria-label=(ctx.t("位置", "Breadcrumb")) {
                 a href="/prices" { (ctx.t("价格表", "Price table")) }
