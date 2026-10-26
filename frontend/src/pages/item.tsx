@@ -93,6 +93,7 @@ function Variant({ variant, page }: { variant: any; page: any }) {
   return (
     <>
       <div className="tip-h">
+        <Slot empty url={page.item.icon_url} size={28} />
         <b>
           {words(page.item.name_zh || page.item.name_en, page.item.name_en)}
         </b>
@@ -133,9 +134,6 @@ function Variant({ variant, page }: { variant: any; page: any }) {
           {variant.remaining_upgrades}
         </div>
       )}
-      <div className="tip-s">
-        {words(page.item.name_en, page.item.name_zh || "")}
-      </div>
     </>
   );
 }
@@ -1462,22 +1460,25 @@ export default function Item({ page }: { page: any }) {
                           >
                             <Variant variant={variant} page={page} />
                             <div className="tip-f">
-                              {words("最低 ", "from ")}
-                              <b>
-                                <Price value={cheapest.unit_price} />
-                              </b>{" "}
-                              ·{" "}
-                              {words(
-                                `${offers.reduce((n: number, row: any) => n + (row.merged_count || 1), 0)} 件`,
-                                `${offers.reduce((n: number, row: any) => n + (row.merged_count || 1), 0)} listed`,
-                              )}{" "}
-                              · <Location value={cheapest} />
-                            </div>
-                            {!selectedVariant && (
-                              <span className="tip-link">
-                                {words("查看报价 ›", "View offers ›")}
+                              <span className="tip-market">
+                                <span className="tip-price">
+                                  {words("最低 ", "from ")}
+                                  <b><Price value={cheapest.unit_price} /></b>
+                                </span>
+                                <span className="tip-count">
+                                  · {words(
+                                    `${offers.reduce((n: number, row: any) => n + (row.merged_count || 1), 0)} 件`,
+                                    `${offers.reduce((n: number, row: any) => n + (row.merged_count || 1), 0)} listed`,
+                                  )}
+                                </span>
+                                <Location value={cheapest} />
                               </span>
-                            )}
+                              {!selectedVariant && (
+                                <span className="tip-link">
+                                  {words("查看报价 ›", "View offers ›")}
+                                </span>
+                              )}
+                            </div>
                           </SiteLink>
                         );
                       })}
