@@ -25,6 +25,21 @@ DATABASE_URL=postgres://market:<密码>@127.0.0.1:5432/market BIND=127.0.0.1:808
 
 ## 测试
 
+接口性能抽样：`python tools/benchmark_api.py --base http://127.0.0.1:8766 --samples 3`
+（从仓库根目录运行），可用 `--output` 保存结果、`--base https://mxd.ruit.me` 比较公网耗时。
+它只访问公开读接口，不登录、不上传。服务为 API 返回 `Server-Timing`，超过 250ms 的请求
+以路由模板记录为 `slow API request`，不记录查询参数、账号凭据或请求内容。
+
+贡献榜使用上传事务内维护的 `contribution_shop_rollups`：普通摊位读取汇总，关联设备
+重复采集的摊位仍按完整报价状态去重；汇总过期后回退到精确窗口计算，后台分批续算。
+账号合并、退出榜单、未来时间及滚动窗口边界仍立即生效。该表由 0030 迁移创建，
+首次部署需数据库备份；旧程序回滚后，数据库触发器仍持续维护新增汇总。
+
+商品卡片使用 `/api/v1/catalog/page?preview=true&url=...` 的轻量快照，沿用价格表的
+预计算价格口径和刷新周期，不查询历史曲线、完整在售列表或掉落地点。
+周期统计每批 16 个商品释放写锁，不再每分钟重扫观察历史和重新计数；完整重建仍保留
+在 `stats::refresh_all` 供导入和修复调用。
+
 ```sh
 cargo test --workspace
 ```
