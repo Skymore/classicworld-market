@@ -421,6 +421,7 @@ async fn reconcile_owner_listings(
     .fetch_all(&mut *conn)
     .await?;
     let mut changed: BTreeSet<i32> = removed.into_iter().collect();
+    crate::roster::reconcile(conn, Some(shop), None).await?;
     changed.extend(crate::presence::expire(conn, Some(shop), None).await?);
     Ok(changed)
 }

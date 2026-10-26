@@ -188,7 +188,7 @@ async fn recent_visits(db: &PgPool, collector: i64, now: f64) -> sqlx::Result<Ve
          WHERE o.collector_id = $1 AND o.received_at >= to_timestamp($2)
            AND NOT EXISTS (SELECT 1 FROM player_departures d WHERE d.world=sh.world
              AND d.character_id=sh.owner_character_id AND d.channel=sh.channel AND d.room=sh.room
-             AND d.observed_at>=o.observed_at)
+             AND d.observed_at>=o.observed_at AND (d.evidence_kind='player_departure' OR d.observed_at>o.observed_at))
          ORDER BY o.received_at DESC, o.id DESC LIMIT $3",
     )
     .bind(collector)

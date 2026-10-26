@@ -88,6 +88,26 @@ with psycopg.connect(os.environ['DATABASE_URL'], autocommit=True) as admin, temp
             page = request('/api/v1/catalog/page?'+urlencode(dict(url='/item/4010001?hours=all')))['page']
             assert len(page['market']['listings']) == 1 and len(page['market']['expired_listings']) == 1
             print('PASS isolated HTTP: authenticated departure, expired API history, active minima, new quote recovery, market SSE')
+            roster = dict(version=1,world='ClassicWorld',parser='cw_room_roster_v1',complete=True,
+                          event_id='b'*32,location=dict(channel=26,room=1),
+                          started_at=now+2,observed_at=now+2.1,character_ids=[999])
+            for token, payload, code in [(None,roster,401),(identity['token'],dict(roster,complete=False),400)]:
+                try:
+                    request('/api/v1/collector/room-roster',payload,token)
+                    raise AssertionError('Unproven roster accepted')
+                except urllib.error.HTTPError as error:
+                    assert error.code==code
+            listener.join(timeout=2)
+            received.clear();stream=opener.open(origin+'/api/v1/events',timeout=10)
+            listener=threading.Thread(target=listen,daemon=True);listener.start()
+            result=request('/api/v1/collector/room-roster',roster,identity['token'])
+            assert result['ok'] and result['created']
+            assert received.wait(10),'Roster expiration did not emit market SSE'
+            assert not request('/api/v1/collector/room-roster',roster,identity['token'])['created']
+            page=request('/api/v1/catalog/page?'+urlencode(dict(url='/item/4010001?hours=all')))['page']
+            assert not page['market']['listings'] and len(page['market']['expired_listings'])==2
+            assert page['stats']['lowest_ask'] is None
+            print('PASS isolated HTTP: roster auth/validation/idempotency, expired history, minima and live SSE')
     finally:
         if process is not None and process.poll() is None:
             process.terminate()

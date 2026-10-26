@@ -8,6 +8,12 @@ def enter(character=123, name=b'ExampleHost', op=0x22d):
 
 
 class PresenceTest(unittest.TestCase):
+    def test_extended_entity_handle_layout_uses_persistent_identity(self):
+        body = struct.pack('<HQIIIH', 0x22d, 900001, 123, 0, 48, 4) + b'Loon' + bytes(100)
+        p = PlayerPresence(); p.observe(body, 10)
+        self.assertEqual(p.players, {123: ('Loon', 10)})
+        self.assertEqual(p.observe(struct.pack('<HI', 0x22e, 123), 11)['name'], 'Loon')
+
     def test_upload_is_allowlisted_and_not_counted_as_a_shop_visit(self):
         import json
         import tempfile

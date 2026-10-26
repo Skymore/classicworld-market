@@ -3,15 +3,33 @@
 Collector v0.6.7 forwards **explicit** player departure evidence. For the current
 protocol, player entry is `0x22d`: the character ID is at byte 6 (the handle at
 byte 2 is a different ID), and the length-prefixed character name starts at 18.
+The observed extended-handle layout has a zero high handle word and shifts those
+fields to 10 and 22; its four captured identities were checked against shop-owner
+records. Malformed/unrecognized player layouts invalidate the entire roster.
 Departure is exactly six bytes, `0x22e` followed by the character ID. The legacy
 opcode pair is `0x22a`/`0x22b`. A departure is accepted only after a valid entry
 for that character in the same decoded map/session. Local captured entries were
 cross-checked against 61 known shop-owner identities; all 61 matched.
 
-Changing maps, reconnecting, capture gaps, silence and unobserved roster entries
-do not produce departures. We do **not** claim that a partially received roster
-proves that every absent owner has left. Historical offers without affirmative
-departure evidence remain unconfirmed, rather than being expired by age.
+Collector v0.6.11 also reconciles absent owners against complete map-entry rosters.
+The decoded TCP stream must include a validated map entry, the roster prefix
+`1fa/3/00`, all `22d` player entries, and the ordered initialization suffix
+`209/12`, `ae/4`, `82/2`, `20f/7/zero`, `211/6/zero`. This is a strict observed
+protocol-layout boundary, not a timer or a visual scan count. Unexpected or
+malformed frames, missing prefix/suffix, decode gaps and unknown map layouts
+cannot produce a complete snapshot. Ten seconds is a rejection bound only.
+
+The observer's own character ID is read from the validated channel-entry
+character block (equal IDs at 158/162 and ASCII name at 170) and included because
+it is not a remote-player spawn. Portal entry retains it; a new connection or
+unknown long entry must establish it again. Manual browsing uses the same path.
+
+The server stores authenticated rosters per exact world/channel/room and
+materializes missing known owners as `room_roster` absence evidence. Only quotes
+strictly older than the map-entry start are invalidated. A present player is
+retained even without a shop sign/click. Unknown shop owners are retained.
+Delayed uploads are reconciled too; newer observations can become live again.
+Rosters never use a scan-count, silence, age alone or a partially received list.
 
 The authenticated endpoint accepts only structured identity, location and event
 times. No packet bodies or local paths are uploaded. Duplicate events are

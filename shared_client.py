@@ -63,13 +63,17 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None):
         connection.execute('CREATE TABLE IF NOT EXISTS sent (path TEXT PRIMARY KEY, status TEXT, updated REAL)')
         timeline=LocationTimeline(folder/'map_observations.jsonl')
         total=0
-        for path in sorted([*folder.glob('shop_*.json'), *folder.glob('presence_*.json')]):
+        for path in sorted([*folder.glob('shop_*.json'), *folder.glob('presence_*.json'), *folder.glob('roster_*.json')]):
             if stop is not None and stop.is_set():break
             if path.stem.endswith('_zh'):continue
             if connection.execute('SELECT 1 FROM sent WHERE path=?',(path.name,)).fetchone():continue
             try:
                 data=json.loads(path.read_text(encoding='utf-8'))
-                if path.name.startswith('presence_'):
+                if path.name.startswith('roster_'):
+                    from market_presence import roster_payload
+                    payload = roster_payload(data)
+                    route = '/api/v1/collector/room-roster'
+                elif path.name.startswith('presence_'):
                     from market_presence import departure_payload
                     payload = departure_payload(data)
                     route = '/api/v1/collector/player-departure'
@@ -93,7 +97,7 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None):
                 with upload_opener().open(request,timeout=15) as response:
                     result=json.load(response)
                     if not result.get('ok'):raise ValueError('Upload was not acknowledged')
-                state='sent';total+=int(not path.name.startswith('presence_'))
+                state='sent';total+=int(path.name.startswith('shop_'))
             except urllib.error.HTTPError as error:
                 if error.code in (400,409,413):
                     state='rejected_'+str(error.code)
@@ -301,7 +305,7 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None):
     class CaptureHandler(FileSystemEventHandler):
         def on_any_event(self,event):
             path=Path(getattr(event,'dest_path','') or event.src_path)
-            if not event.is_directory and (path.match('shop_*.json') or path.match('presence_*.json') or path.name=='map_observations.jsonl'):
+            if not event.is_directory and (path.match('shop_*.json') or path.match('presence_*.json') or path.match('roster_*.json') or path.name=='map_observations.jsonl'):
                 capture_changed.set()
     observer=Observer()
     sources={folder.resolve(),*(Path(p).resolve() for p in config.get('extra_folders',[]))}

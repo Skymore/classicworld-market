@@ -1047,7 +1047,7 @@ pub async fn personal_watch_listings(
           AND o.received_at>=to_timestamp($3)
           AND NOT EXISTS (SELECT 1 FROM player_departures d WHERE d.world=sh.world
             AND d.character_id=sh.owner_character_id AND d.channel=sh.channel AND d.room=sh.room
-            AND d.observed_at>=o.observed_at)
+            AND d.observed_at>=o.observed_at AND (d.evidence_kind='player_departure' OR d.observed_at>o.observed_at))
         ORDER BY o.observed_at DESC,o.id DESC,r.position LIMIT 2000",
         row_columns("r")
     );

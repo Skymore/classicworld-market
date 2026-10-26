@@ -40,6 +40,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/observations", post(upload))
         .route("/api/v1/upload", post(upload))
         .route("/api/v1/collector/player-departure", post(crate::presence::upload))
+        .route("/api/v1/collector/room-roster", post(crate::roster::upload))
         .route(
             "/api/v1/collector/missing-locations",
             get(missing_locations),

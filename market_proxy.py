@@ -78,8 +78,9 @@ class Session:
         self.trace_index = 0
         self.pending_raw_path = None
         self.market_location = None
-        from market_presence import PlayerPresence
+        from market_presence import PlayerPresence, RoomRoster
         self.presence = PlayerPresence()
+        self.roster = RoomRoster()
 
     def trace(self, direction, plain, source='forwarded'):
         if getattr(self.app, 'market_only', False) is True:
@@ -222,6 +223,15 @@ class Session:
 
     def observe(self, plain):
         op = int.from_bytes(plain[:2], 'little')
+        if op not in (MAP_ENTRY, 0x1A9):
+            roster = self.roster.observe(plain, time.time())
+            if roster:
+                roster.update(version=1, world='ClassicWorld', event_id=uuid.uuid4().hex)
+                path = self.app.folder / ('roster_' + roster['event_id'] + '.json')
+                temporary = path.with_suffix('.tmp')
+                temporary.write_text(json.dumps(roster), encoding='utf-8')
+                temporary.replace(path)
+                self.event('room_roster_complete', location=roster['location'], players=len(roster['character_ids']))
         if op in (MAP_ENTRY, 0x1A9):
             self.market_location = None
             self.presence.players.clear()
@@ -230,6 +240,7 @@ class Session:
             self.pending_raw_path = None
             location, evidence = inspect_map(plain)
             observed = time.time()
+            self.roster.begin(plain, location, observed)
             if location:
                 location.update(time=observed, session=self.id)
                 self.market_location = location

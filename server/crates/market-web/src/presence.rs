@@ -67,15 +67,30 @@ pub async fn expire(
     shop: Option<i64>,
     owner: Option<i64>,
 ) -> sqlx::Result<Vec<i32>> {
+    expire_at(conn, shop, owner, None).await
+}
+
+pub async fn expire_room(conn: &mut PgConnection, place: &Place) -> sqlx::Result<Vec<i32>> {
+    expire_at(conn, None, None, Some(place)).await
+}
+
+async fn expire_at(
+    conn: &mut PgConnection,
+    shop: Option<i64>,
+    owner: Option<i64>,
+    place: Option<&Place>,
+) -> sqlx::Result<Vec<i32>> {
     sqlx::query_scalar(
         "WITH retired AS (
           DELETE FROM listings l USING shops s, observations o
           WHERE s.id=l.shop_id AND o.id=l.observation_id
             AND ($1::bigint IS NULL OR s.id=$1)
             AND ($2::bigint IS NULL OR s.owner_character_id=$2)
+            AND ($3::smallint IS NULL OR (s.channel=$3 AND s.room=$4))
             AND EXISTS (SELECT 1 FROM player_departures d WHERE d.world=s.world
               AND d.character_id=s.owner_character_id AND d.channel=s.channel AND d.room=s.room
-              AND d.observed_at >= o.observed_at)
+              AND d.observed_at >= o.observed_at
+              AND (d.evidence_kind='player_departure' OR d.observed_at>o.observed_at))
           RETURNING l.*
         ), archived AS (
           INSERT INTO expired_listings(shop_id,observation_id,slot,item_id,variant_id,price,bundle,stock,invalidated_at)
@@ -83,11 +98,12 @@ pub async fn expire(
             (SELECT min(d.observed_at) FROM player_departures d JOIN shops s ON s.id=l.shop_id
               JOIN observations o ON o.id=l.observation_id WHERE d.world=s.world
               AND d.character_id=s.owner_character_id AND d.channel=s.channel AND d.room=s.room
-              AND d.observed_at>=o.observed_at)
+              AND d.observed_at>=o.observed_at
+              AND (d.evidence_kind='player_departure' OR d.observed_at>o.observed_at))
           FROM retired l WHERE l.stock>0
           ON CONFLICT(observation_id,slot) DO UPDATE SET invalidated_at=LEAST(expired_listings.invalidated_at,EXCLUDED.invalidated_at)
         ) SELECT DISTINCT item_id FROM retired"
-    ).bind(shop).bind(owner).fetch_all(conn).await
+    ).bind(shop).bind(owner).bind(place.map(|p|p.channel)).bind(place.map(|p|p.room)).fetch_all(conn).await
 }
 
 pub async fn ingest(

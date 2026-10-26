@@ -140,9 +140,14 @@ class Collector:
             label=hex(opcode)
             if label in self.message_counts or len(self.message_counts)<256:
                 self.message_counts[label]=self.message_counts.get(label,0)+1
-            if opcode not in (0x1a6,0x1a9,0x22a,0x22b,0x22d,0x22e,0x23a,0x23d,0x577,0x578,0x57a,0x57b):return
+            # Roster completion needs the ordered stream, including unexpected
+            # frames that invalidate an incomplete initialization envelope.
+            if opcode == 0x32:
+                session.roster.reset()
+                return
             try:session.observe(plain)
             except Exception as error:
+                session.roster.reset()
                 session.pending_open=None;session.pending_raw_path=None
                 if opcode in (0x1a6,0x1a9):session.market_location=None
                 self.event('observation_rejected',opcode=opcode,reason=str(error))

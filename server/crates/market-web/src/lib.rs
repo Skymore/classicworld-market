@@ -33,6 +33,7 @@ pub mod crafting;
 pub mod external;
 pub mod ingest;
 pub mod presence;
+pub mod roster;
 pub mod legacy;
 pub mod market_cache;
 pub mod realtime;
