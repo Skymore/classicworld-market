@@ -88,7 +88,7 @@ function TrendChart({
   );
   const highs = [...days, ...comparison]
     .filter((day) => day.median != null)
-    .map((day) => day.high ?? day.median);
+    .map((day) => (comparison.length ? day.median : (day.high ?? day.median)));
   if (!highs.length || days.length < 2)
     return (
       <p className="note">
@@ -99,7 +99,7 @@ function TrendChart({
       </p>
     );
   if (listing && values && day?.count === 0) values.count = "0";
-  const color = listing ? "var(--bar)" : "var(--mark)";
+  const color = listing ? "#3b6089" : "#c34838";
   const comparisonDay = comparison[index];
   const comparisonValues = comparisonDay
     ? trendValues(
@@ -212,16 +212,19 @@ function TrendChart({
               fill="var(--ink-3)"
               opacity=".28"
             />
-            {day.median != null && day.low != null && day.high != null && (
-              <rect
-                x={x(i) - 2}
-                y={y(day.high)}
-                width="4"
-                height={y(day.low) - y(day.high)}
-                fill={color}
-                opacity=".35"
-              />
-            )}
+            {!comparison.length &&
+              day.median != null &&
+              day.low != null &&
+              day.high != null && (
+                <rect
+                  x={x(i) - 2}
+                  y={y(day.high)}
+                  width="4"
+                  height={y(day.low) - y(day.high)}
+                  fill={color}
+                  opacity=".35"
+                />
+              )}
           </g>
         ))}
         <path d={path} fill="none" stroke={color} strokeWidth="2" />
@@ -414,10 +417,12 @@ function TrendChart({
             listing ? "listing median" : "inferred sale median",
           )}
         </span>
-        <span>
-          <i className="k-span" />
-          {words("最低–最高", "low–high")}
-        </span>
+        {!comparison.length && (
+          <span>
+            <i className="k-span" />
+            {words("最低–最高", "low–high")}
+          </span>
+        )}
         <span>
           <i className="k-count" />
           {words(
