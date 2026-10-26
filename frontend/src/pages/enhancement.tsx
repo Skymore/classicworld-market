@@ -5,6 +5,7 @@ import {
   compatibleScroll,
   enhancementMetadata,
   enhancementQuote,
+  enhancementBaseOptions,
 } from "/web/js/lib/enhancement.js";
 import { getJson } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
 import { useMarketQuery } from "../lib/query";
@@ -34,8 +35,8 @@ export default function Enhancement() {
     name_zh: "工地手套",
     name_en: "Work Gloves",
   });
-  const [equipmentPrice, setEquipmentPrice] = useState<string | null>(null),
-    [scrollPrices, setScrollPrices] = useState<Record<number, string>>({});
+  const [percentile, setPercentile] = useState(0.5);
+  const [baseFilters, setBaseFilters] = useState<Record<string, string>>({});
   const [target, setTarget] = useState("6"),
     [stat, setStat] = useState("incPAD");
   const equipmentRecord = useMarketQuery<any>(
@@ -96,44 +97,37 @@ export default function Enhancement() {
     })),
   });
   const slots = equipmentInfo.slots;
+  const baseOptions = useMemo(
+    () => (slots ? enhancementBaseOptions(equipmentMarket.data, slots) : []),
+    [equipmentMarket.data, slots],
+  );
   const equipmentAsk = slots
-    ? enhancementQuote(equipmentMarket.data, slots)
+    ? enhancementQuote(equipmentMarket.data, slots, percentile, baseFilters)
     : null;
-  const x =
-    equipmentPrice ?? (equipmentAsk == null ? "" : String(equipmentAsk));
-  const scrolls = candidates.map((row, index) => {
-    const ask = enhancementQuote(quotes[index]?.data);
-    const draft = scrollPrices[row.item_id] ?? (ask == null ? "" : String(ask));
-    return {
-      ...row,
-      id: row.item_id,
-      ask,
-      draft,
-      price: draft.trim() === "" ? null : Number(draft),
-      gain: row.effects.find((value: Effect) => value.key === effect.key).value,
-    };
-  });
+  const scrolls = candidates.map((row, index) => ({
+    ...row,
+    id: row.item_id,
+    price: enhancementQuote(quotes[index]?.data, null, percentile),
+    gain: row.effects.find((value: Effect) => value.key === effect.key).value,
+  }));
   const priced = scrolls.filter(
     (row) => Number.isFinite(row.price) && row.price > 0,
   );
   const pending =
     equipmentRecord.isPending ||
     catalog.isPending ||
-    quotes.some(
-      (query, index) =>
-        query.isPending &&
-        scrollPrices[candidates[index].item_id] === undefined,
-    );
+    equipmentMarket.isPending ||
+    quotes.some((query) => query.isPending);
   const failed = equipmentRecord.isError || catalog.isError;
   const validEquipment =
-    x.trim() !== "" && Number.isFinite(Number(x)) && Number(x) >= 0;
+    equipmentAsk !== null && Number.isFinite(equipmentAsk) && equipmentAsk >= 0;
   const targetValue = Number(target),
     validTarget =
       target.trim() !== "" && Number.isInteger(targetValue) && targetValue > 0;
   const plan =
     !pending && slots && validEquipment && validTarget && priced.length
       ? calculateMixedEnhancement({
-          equipmentPrice: Number(x),
+          equipmentPrice: equipmentAsk,
           slots,
           target: targetValue,
           scrolls: priced,
@@ -168,14 +162,11 @@ export default function Enhancement() {
             )
           : !validEquipment
             ? words(
-                "暂无白装报价，请填写装备单价",
-                "No unenhanced equipment quote; enter its price",
+                "暂无匹配底材报价",
+                "No matching unenhanced equipment quotes",
               )
             : !priced.length
-              ? words(
-                  "暂无卷轴报价，请填写卷轴单价",
-                  "No scroll quotes; enter a scroll price",
-                )
+              ? words("暂无可用卷轴报价", "No scroll prices available")
               : !validTarget
                 ? words(
                     "请输入正整数目标提升",
@@ -200,8 +191,7 @@ export default function Enhancement() {
               value={{ ...equipment, ...equipmentRecord.data }}
               choose={(row) => {
                 setEquipment(row);
-                setEquipmentPrice(null);
-                setScrollPrices({});
+                setBaseFilters({});
                 setStat("incPAD");
               }}
             />
@@ -239,44 +229,145 @@ export default function Enhancement() {
               </label>
             </div>
           </div>
-          <label className="enhance-field" htmlFor="enhance-equipment-price">
-            {words("装备单价", "Equipment price")}
-            <input
+          <div className="enhance-pricing">
+            <span>{words("市场价格", "Market prices")}</span>
+            <div
+              className="chips"
+              role="group"
+              aria-label={words("价格档位", "Price percentile")}
+            >
+              {[0.25, 0.5, 0.7].map((value) => (
+                <button
+                  className={"chip " + (percentile === value ? "on" : "")}
+                  type="button"
+                  key={value}
+                  data-enhance-percentile={value * 100}
+                  aria-pressed={percentile === value}
+                  onClick={() => setPercentile(value)}
+                >
+                  {value * 100}%
+                  {value === 0.5 ? words("（中位）", " (median)") : ""}
+                </button>
+              ))}
+            </div>
+          </div>
+          <details className="enhance-base">
+            <summary>
+              {words("底材属性", "Base equipment stats")}
+              {Object.values(baseFilters).some((value) => value !== "") && (
+                <span> · {words("已筛选", "Filtered")}</span>
+              )}
+            </summary>
+            <div className="enhance-base-body">
+              <div className="enhance-base-toolbar">
+                <select
+                  aria-label={words("添加底材属性", "Add base stat")}
+                  value=""
+                  onChange={(event) => {
+                    const key = event.target.value;
+                    if (key)
+                      setBaseFilters((current) => ({ ...current, [key]: "" }));
+                  }}
+                >
+                  <option value="">{words("添加属性…", "Add a stat…")}</option>
+                  {baseOptions
+                    .filter((row: any) => !(row.key in baseFilters))
+                    .map((row: any) => (
+                      <option key={row.key} value={row.key}>
+                        {language === "en" ? row.en : row.zh}
+                      </option>
+                    ))}
+                </select>
+                {Object.keys(baseFilters).length > 0 && (
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => setBaseFilters({})}
+                  >
+                    {words("清除", "Clear")}
+                  </button>
+                )}
+              </div>
+              {Object.entries(baseFilters).map(([key, value]) => {
+                const row = baseOptions.find(
+                  (option: any) => option.key === key,
+                );
+                const values = [
+                  ...new Set([
+                    ...(row?.values || []),
+                    ...(value !== "" ? [Number(value)] : []),
+                  ]),
+                ].sort((a: any, b: any) => a - b);
+                return (
+                  <label className="enhance-base-row" key={key}>
+                    <span>
+                      {words("原始", "Base ")}
+                      {row ? (language === "en" ? row.en : row.zh) : key}
+                    </span>
+                    <select
+                      aria-label={
+                        words("原始", "Base ") +
+                        (row ? (language === "en" ? row.en : row.zh) : key)
+                      }
+                      value={value}
+                      onChange={(event) =>
+                        setBaseFilters((current) => ({
+                          ...current,
+                          [key]: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">{words("不限", "Any")}</option>
+                      {values.map((stat: any) => (
+                        <option key={stat} value={stat}>
+                          {stat >= 0 ? "+" : ""}
+                          {stat}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="btn"
+                      type="button"
+                      aria-label={words("移除属性", "Remove stat")}
+                      onClick={() =>
+                        setBaseFilters((current) => {
+                          const next = { ...current };
+                          delete next[key];
+                          return next;
+                        })
+                      }
+                    >
+                      ×
+                    </button>
+                  </label>
+                );
+              })}
+            </div>
+          </details>
+          <div className="enhance-field">
+            <span>{words("装备单价", "Equipment price")}</span>
+            <output
               id="enhance-equipment-price"
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="any"
-              value={x}
-              placeholder={words("手动输入", "Enter price")}
-              onChange={(event) => setEquipmentPrice(event.target.value)}
-            />
+              data-price={equipmentAsk ?? ""}
+            >
+              {equipmentAsk == null ? "—" : number(equipmentAsk)}
+            </output>
             <span className="enhance-quote">
               {equipmentAsk == null
-                ? words("暂无满次数白装报价", "No unenhanced full-slot quote")
-                : words("在售最低 ", "Lowest ask ") + number(equipmentAsk)}
-              {equipmentAsk != null && equipmentPrice !== null && (
-                <button
-                  className="link"
-                  type="button"
-                  onClick={() => setEquipmentPrice(null)}
-                >
-                  {words("采用", "Use")}
-                </button>
-              )}
+                ? words("暂无匹配底材报价", "No matching base equipment quotes")
+                : words("满次数白装", "Unenhanced, full slots")}
               {slots && (
                 <span>
                   · {words(`${slots} 次强化机会`, `${slots} upgrade slots`)}
                 </span>
               )}
             </span>
-          </label>
+          </div>
           {scrolls.length > 0 && (
             <div className="enhance-scroll-list">
               {scrolls.map((row) => (
-                <label
+                <div
                   className="enhance-field enhance-scroll-price"
-                  htmlFor={"enhance-scroll-" + row.id}
                   key={row.id}
                 >
                   <span className="enhance-selected">
@@ -286,45 +377,18 @@ export default function Enhancement() {
                       {number(row.successRate * 100)}% · +{row.gain}
                     </b>
                   </span>
-                  <input
+                  <output
                     id={"enhance-scroll-" + row.id}
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="any"
-                    value={row.draft}
-                    placeholder={words(
-                      "暂无报价，可手动输入",
-                      "No quote; enter a price",
-                    )}
-                    onChange={(event) =>
-                      setScrollPrices((current) => ({
-                        ...current,
-                        [row.id]: event.target.value,
-                      }))
-                    }
-                  />
-                  <span className="enhance-quote">
-                    {row.ask == null
-                      ? words("暂无在售报价", "No current quote")
-                      : words("在售最低 ", "Lowest ask ") + number(row.ask)}
-                    {row.ask != null && scrollPrices[row.id] !== undefined && (
-                      <button
-                        className="link"
-                        type="button"
-                        onClick={() =>
-                          setScrollPrices((current) => {
-                            const next = { ...current };
-                            delete next[row.id];
-                            return next;
-                          })
-                        }
-                      >
-                        {words("采用", "Use")}
-                      </button>
-                    )}
-                  </span>
-                </label>
+                    data-price={row.price ?? ""}
+                  >
+                    {row.price == null ? "—" : number(row.price)}
+                  </output>
+                  {row.price == null && (
+                    <span className="enhance-quote">
+                      {words("暂无在售报价", "No current quotes")}
+                    </span>
+                  )}
+                </div>
               ))}
             </div>
           )}
@@ -350,8 +414,8 @@ export default function Enhancement() {
               {scrolls.length > priced.length && (
                 <small className="enhance-assumption">
                   {words(
-                    "未填写有效价格的卷轴不参与计算",
-                    "Scrolls without a valid price are excluded",
+                    "暂无报价的卷轴不参与计算",
+                    "Scrolls without market quotes are excluded",
                   )}
                 </small>
               )}

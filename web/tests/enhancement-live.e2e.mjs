@@ -4,7 +4,7 @@ import {readFile,mkdir} from 'node:fs/promises';
 import path from 'node:path';
 const {chromium}=createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE||'playwright');
 const origin=process.env.ENHANCEMENT_TEST_ORIGIN||'http://127.0.0.1:18769';
-const {calculateMixedEnhancement,enhancementMetadata}=await import('data:text/javascript;base64,'+Buffer.from(await readFile(new URL('../js/lib/enhancement.js',import.meta.url))).toString('base64'));
+const {calculateMixedEnhancement,enhancementMetadata,enhancementQuote,enhancementBaseOptions}=await import('data:text/javascript;base64,'+Buffer.from(await readFile(new URL('../js/lib/enhancement.js',import.meta.url))).toString('base64'));
 const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
 try{
  for(const width of [375,1280]){
@@ -15,17 +15,34 @@ try{
   const records=(await response.json()).scrolls;
   assert(records.some(row=>enhancementMetadata(row).successRate===.1));assert(records.some(row=>enhancementMetadata(row).successRate===.6));
   await page.goto(origin+'/tools/enhancement',{waitUntil:'domcontentloaded'});await page.locator('[data-enhance-total]').waitFor();
+  const equipmentResponse=await page.request.get(origin+'/api/v1/item/1082000');const market=await equipmentResponse.json();
+  assert.equal(await page.locator('.enhancement-page input[type=number]').count(),1,'market prices cannot be edited');
+  for(const level of [25,50,70]){
+   await page.locator(`[data-enhance-percentile="${level}"]`).click();
+   const expected=enhancementQuote(market,5,level/100);
+   assert.equal(Number(await page.locator('#enhance-equipment-price').getAttribute('data-price')),expected);
+  }
+  const choice=enhancementBaseOptions(market,5).find(row=>row.values.length>1);
+  if(choice){
+   await page.locator('.enhance-base summary').click();
+   await page.getByRole('combobox',{name:'添加底材属性',exact:true}).selectOption(choice.key);
+   await page.getByRole('combobox',{name:'原始'+choice.zh,exact:true}).selectOption(String(choice.values[0]));
+   const expected=enhancementQuote(market,5,.7,{[choice.key]:choice.values[0]});
+   assert.equal(Number(await page.locator('#enhance-equipment-price').getAttribute('data-price')),expected);
+   await page.getByRole('button',{name:'清除',exact:true}).click();
+  }
+  await page.locator('[data-enhance-percentile="50"]').click();
   for(const target of [6,7,10,12]){
    await page.locator('#enhance-target').fill(String(target));await page.locator('[data-enhance-total]').waitFor();
-   const input=await page.locator('.enhance-scroll-price input').evaluateAll(nodes=>nodes.map(node=>({id:Number(node.id.replace('enhance-scroll-','')),price:Number(node.value)})));
+   const input=await page.locator('.enhance-scroll-price output').evaluateAll(nodes=>nodes.map(node=>({id:Number(node.id.replace('enhance-scroll-','')),price:Number(node.dataset.price)})));
    const scrolls=input.filter(row=>row.price>0).map(row=>{const info=enhancementMetadata(records.find(record=>record.item_id===row.id));return{...row,gain:info.effects.find(effect=>effect.key==='incPAD').value,successRate:info.successRate};});
    assert(scrolls.some(row=>row.successRate===.1)&&scrolls.some(row=>row.successRate===.6),'both market quotes are available');
-   const expected=calculateMixedEnhancement({equipmentPrice:Number(await page.locator('#enhance-equipment-price').inputValue()),slots:5,target,scrolls});
+   const expected=calculateMixedEnhancement({equipmentPrice:Number(await page.locator('#enhance-equipment-price').getAttribute('data-price')),slots:5,target,scrolls});
    await page.waitForFunction(value=>Math.abs(Number(document.querySelector('[data-enhance-total]')?.dataset.enhanceTotal)-value)<=1e-7*Math.max(1,value),expected.expectedCost);
   }
   assert.equal(await page.locator('[data-nav-key=tools]:visible').getAttribute('aria-current'),'page');
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal overflow');
   if(process.env.ENHANCEMENT_SCREENSHOTS){await mkdir(process.env.ENHANCEMENT_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.ENHANCEMENT_SCREENSHOTS,`enhancement-live-${width}.png`),fullPage:true});}
-  assert.deepEqual(errors,[]);await page.close();console.log(`PASS ${origin} ${width}px: real 10%/60% catalogue, market prices and typed +6/+7/+10/+12 plans`);
+  assert.deepEqual(errors,[]);await page.close();console.log(`PASS ${origin} ${width}px: real percentile prices, original stats, read-only prices and typed +6/+7/+10/+12 plans`);
  }
 }finally{await browser.close();}

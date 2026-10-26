@@ -47,8 +47,8 @@
       "_shared-CXQsMgcK.js"
     ]
   },
-  "_main-0zG14jdo.js": {
-    "file": "chunks/main-0zG14jdo.js",
+  "_main-CFJzCsLE.js": {
+    "file": "chunks/main-CFJzCsLE.js",
     "name": "main",
     "imports": [
       "_shared-CXQsMgcK.js",
@@ -144,7 +144,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-0zG14jdo.js"
+      "_main-CFJzCsLE.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -228,7 +228,7 @@
     ]
   },
   "src/pages/enhancement.tsx": {
-    "file": "chunks/enhancement-9cD0SS4k.js",
+    "file": "chunks/enhancement-B0exdt-7.js",
     "name": "enhancement",
     "src": "src/pages/enhancement.tsx",
     "isDynamicEntry": true,
@@ -327,7 +327,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-0zG14jdo.js"
+      "_main-CFJzCsLE.js"
     ]
   },
   "style.css": {

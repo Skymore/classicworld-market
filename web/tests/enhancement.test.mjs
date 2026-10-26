@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFile} from 'node:fs/promises';
 const source=await readFile(new URL('../js/lib/enhancement.js',import.meta.url),'utf8');
-const {calculateEnhancement:calculate,calculateMixedEnhancement:mixed,enhancementMetadata,compatibleScroll,enhancementQuote}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const {calculateEnhancement:calculate,calculateMixedEnhancement:mixed,enhancementMetadata,compatibleScroll,enhancementQuote,enhancementBaseOptions}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const near=(actual,expected)=>assert(Math.abs(actual-expected)<1e-8*Math.max(1,expected),`${actual} ≠ ${expected}`);
 const solve=(slots,successes,x=1,p=.6)=>calculate({equipmentPrice:x,scrollPrice:1,slots,successes,successRate:p});
 test('known optimal renewal costs and price-dependent abandon thresholds',()=>{
@@ -49,6 +49,33 @@ test('equipment quotes exclude enhanced, spent-slot and unparsed items',()=>{
   const row=(price,equipment)=>({unit_price:price,stock:1,equipment});
   const data={listings:[row(1,{enhancements:1,remaining_upgrades:5}),row(2,{enhancements:0,remaining_upgrades:4}),row(3,null),row(100,{enhancements:0,remaining_upgrades:5}),{...row(4,{enhancements:0,remaining_upgrades:5}),stock:0}]};
   assert.equal(enhancementQuote(data,5),100);assert.equal(enhancementQuote({listings:[]},5),null);
+});
+test('default prices use the median of eligible unit asks and ignore extreme listings',()=>{
+  const rows=prices=>prices.map(unit_price=>({unit_price,stock:1,equipment:{enhancements:0,remaining_upgrades:5}}));
+  const data={listings:rows([1000000,90,1,100,110])};
+  assert.equal(enhancementQuote(data),100);assert.equal(enhancementQuote(data,5),100);
+  assert.equal(enhancementQuote({listings:rows([200,100,20,120])}),110);
+  assert.equal(enhancementQuote({listings:rows([10,20,NaN,Infinity,-10,0])}),15);
+  assert.equal(enhancementQuote({listings:[...rows([100]),{unit_price:1,stock:0},{unit_price:2,stock:1,invalidated_at:1}]}),100);
+  assert.deepEqual(data.listings.map(row=>row.unit_price),[1000000,90,1,100,110],'does not reorder shared market data');
+});
+test('25/50/70 percentile prices interpolate eligible unit prices only',()=>{
+  const snapshot={listings:[10,100,200,300,10000].map(unit_price=>({unit_price,stock:1,equipment:{enhancements:0,remaining_upgrades:5}}))};
+  assert.equal(enhancementQuote(snapshot,5,.25),100);assert.equal(enhancementQuote(snapshot,5,.5),200);assert.equal(enhancementQuote(snapshot,5,.7),280);
+  assert.equal(enhancementQuote(snapshot,null,0),10);assert.equal(enhancementQuote(snapshot,null,1),10000);
+  assert.equal(enhancementQuote(snapshot,5,1.1),null);assert.equal(enhancementQuote(snapshot,5,NaN),null);
+});
+test('base stats use captured original values, combine with AND and never include upgraded equipment',()=>{
+  const row=(price,attack,dex,upgrades=5,enhancements=0)=>({unit_price:price,stock:1,equipment:{enhancements,remaining_upgrades:upgrades,stats:[{key:'weapon_attack',value:attack},{key:'dex',value:dex}]}});
+  const snapshot={listings:[row(100,20,3),row(200,20,5),row(300,30,3),row(1,20,3,5,1),row(2,20,3,4),{unit_price:3,stock:1,equipment:{enhancements:0,remaining_upgrades:5}}]};
+  assert.equal(enhancementQuote(snapshot,5,.5,{weapon_attack:20}),150);
+  assert.equal(enhancementQuote(snapshot,5,.5,{weapon_attack:20,dex:3}),100);
+  assert.equal(enhancementQuote(snapshot,5,.5,{weapon_attack:30,dex:5}),null);
+  assert.equal(enhancementQuote(snapshot,5,.25,{weapon_attack:20}),125);
+  assert.equal(enhancementQuote(snapshot,5,.5,{str:0,dex:3}),200,'known absent numeric stats are zero, while unparsed stats are excluded');
+  assert.equal(enhancementQuote(snapshot,5,.5,{weapon_attack:'',dex:3}),200);
+  assert.equal(enhancementQuote(snapshot,5,.5,{weapon_attack:'not a number'}),null);
+  const options=enhancementBaseOptions(snapshot,5);assert.deepEqual(options.find(stat=>stat.key==='weapon_attack').values,[20,30]);assert.deepEqual(options.find(stat=>stat.key==='dex').values,[3,5]);
 });
 test('mixed 10% and 60% actions match exhaustive discard-and-scroll policies',()=>{
   for(const [n,target,x,tenPrice] of [[2,3,0,.1],[2,4,.2,.1],[3,4,.1,.2],[3,6,1,.1],[3,8,2,1]]){

@@ -98,11 +98,39 @@ export function compatibleScroll(equipmentId,scrollId) {
   const family = Math.floor(equipmentId/10000);
   return Math.floor(scrollId/100) === 20400+family-100;
 }
-export function enhancementQuote(snapshot,slots=null) {
+export const enhancementBaseStats = [
+  ['weapon_attack','incPAD','攻击力','Weapon attack'],['magic_attack','incMAD','魔法攻击力','Magic attack'],
+  ['str','incSTR','力量','STR'],['dex','incDEX','敏捷','DEX'],['int','incINT','智力','INT'],['luk','incLUK','运气','LUK'],
+  ['accuracy','incACC','命中','Accuracy'],['avoid','incEVA','回避','Avoidability'],
+  ['speed','incSpeed','移动速度','Speed'],['jump','incJump','跳跃力','Jump'],
+  ['hp','incMHP','生命','HP'],['mp','incMMP','魔法','MP'],
+  ['weapon_defense','incPDD','物理防御','Weapon defense'],['magic_defense','incMDD','魔法防御','Magic defense'],
+];
+export function enhancementBaseValue(equipment,key) {
+  if (!Array.isArray(equipment?.stats)) return null;
+  const definition = enhancementBaseStats.find(row => row[0] === key);
+  if (!definition) return null;
+  const stat = equipment.stats.find(row => row.key === key || row.key === definition[1] || key === 'avoid' && row.key === 'avoidability');
+  return stat ? Number.isFinite(stat.value) ? stat.value : null : 0;
+}
+function enhancementListings(snapshot,slots=null,stats={}) {
   const rows = (snapshot?.listings || []).filter(row => {
     if (row.stock != null && row.stock <= 0 || row.invalidated_at || !Number.isFinite(row.unit_price) || row.unit_price <= 0) return false;
     if (slots === null) return true;
-    return row.equipment?.enhancements === 0 && row.equipment?.remaining_upgrades === slots;
+    if (row.equipment?.enhancements !== 0 || row.equipment?.remaining_upgrades !== slots) return false;
+    return Object.entries(stats).every(([key,value]) => value === '' || Number.isFinite(Number(value)) && enhancementBaseValue(row.equipment,key) === Number(value));
   });
-  return rows.length ? Math.min(...rows.map(row => row.unit_price)) : null;
+  return rows;
+}
+export function enhancementBaseOptions(snapshot,slots) {
+  const rows = enhancementListings(snapshot,slots);
+  return enhancementBaseStats.map(([key,reference,zh,en]) => ({key,reference,zh,en,values:[...new Set(rows.map(row => enhancementBaseValue(row.equipment,key)).filter(value => value !== null))].sort((a,b) => a-b)})).filter(row => row.values.length);
+}
+export function enhancementQuote(snapshot,slots=null,percentile=.5,stats={}) {
+  if (!Number.isFinite(percentile) || percentile < 0 || percentile > 1) return null;
+  const rows = enhancementListings(snapshot,slots,stats);
+  if (!rows.length) return null;
+  const prices = rows.map(row => row.unit_price).sort((a,b) => a-b);
+  const position = (prices.length-1)*percentile, lower = Math.floor(position), weight = position-lower;
+  return prices[lower]*(1-weight)+prices[Math.ceil(position)]*weight;
 }

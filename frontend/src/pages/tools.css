@@ -163,14 +163,55 @@
   min-height: 22px;
   flex-wrap: wrap;
 }
-.enhance-quote button.link {
-  border: 0;
-  background: transparent;
+.enhance-field > output {
+  font-size: 20px;
+  font-weight: 600;
   color: var(--bar-text);
-  font: inherit;
-  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+.enhance-pricing {
+  display: grid;
+  gap: 10px;
+  color: var(--ink-2);
+}
+.enhance-base summary {
+  padding: 8px 0;
   cursor: pointer;
-  padding: 4px;
+  color: var(--bar-text);
+}
+.enhance-base-body {
+  display: grid;
+  gap: 12px;
+  padding-top: 8px;
+}
+.enhance-base-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.enhance-base-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(90px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+.enhance-base select {
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--sheet-hi);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+.enhance-base-toolbar > select {
+  flex: 1;
+}
+.enhance-base-row .btn {
+  min-width: 44px;
+  min-height: 44px;
 }
 .enhance-parameters {
   display: flex;
