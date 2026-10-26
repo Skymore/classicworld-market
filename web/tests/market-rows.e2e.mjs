@@ -81,12 +81,13 @@ try {
       await offers.first().waitFor();
       assert.equal(await offers.count(), 3);
       assert.equal(await offers.first().locator('.ware-price').textContent(), '900', 'the newest quote can be more expensive than the per-item minimum');
-      assert.equal(await offers.first().locator('.loc b').textContent(), 'CH 23');
+      assert.equal(await offers.first().locator('.loc b').textContent(), lang === 'zh' ? '23频道' : 'CH 23');
       assert.match(await offers.first().locator('.loc-room').textContent(), /9/);
       assert.equal(await offers.first().locator('[data-relative-time]').getAttribute('data-relative-time'), String(now));
       assert.match(await offers.first().locator('.record-stock').textContent(), /7$/,'home uses the complete API group stock');
       assert.match(await offers.nth(1).locator('.record-stock').textContent(), /—$/);
-      assert.match(await offers.nth(1).locator('.loc').textContent(), /CH —FM —/,'unknown channel and FM stay explicit');
+      assert.equal(await offers.nth(1).locator('.loc b').textContent(), lang === 'zh' ? '频道 —' : 'CH —');
+      assert.equal(await offers.nth(1).locator('.loc-room').textContent(), lang === 'zh' ? '洞 —' : 'FM —');
       async function checkLayout(row) {
         const result = await row.evaluate(node => {
           const meta = node.querySelector('.record-meta');
@@ -109,7 +110,9 @@ try {
       const cells=await offers.first().locator('.loc-shop').evaluate(node=>[...node.children].map(child=>child.getBoundingClientRect().width));
       assert.equal(cells.length,3);assert.equal(cells[0],50);assert.equal(cells[1],44);
       assert(await offers.locator('.loc-shop').evaluateAll(nodes=>nodes.every(node=>{const cells=[...node.children].map(child=>child.getBoundingClientRect().width);return cells[0]===50&&cells[1]===44&&Math.abs(cells.reduce((a,b)=>a+b,0)-node.clientWidth)<1;})),'CH and FM retain the same column widths across rows while shop uses the remaining space');
-      assert.equal(await offers.first().locator('.loc-room').textContent(),'FM9');
+      assert.equal(await offers.first().locator('.loc-room').textContent(),lang === 'zh' ? '9洞' : 'FM9');
+      assert.match(await offers.first().locator('.loc-shop').getAttribute('title'), lang === 'zh' ? /^23频道 · 9洞 · / : /^CH 23 · FM9 · /);
+      assert(await offers.locator('.loc-shop').evaluateAll(nodes=>nodes.every(node=>[...node.children].slice(0,2).every(cell=>cell.scrollWidth<=cell.clientWidth))),'translated channel and room labels fit their columns');
       const longShop=offers.first().locator('.record-shop');
       const naturalShop=await longShop.evaluate(node=>{node.textContent='hi';node.title='hi';const frame=node.parentElement.getBoundingClientRect();return {width:frame.width,available:node.closest('.record-meta').getBoundingClientRect().width,shopWidth:node.getBoundingClientRect().width};});
       assert(naturalShop.width<naturalShop.available-10&&naturalShop.shopWidth<30,'short shop names keep the frame fitted to their content');
@@ -152,7 +155,7 @@ try {
       await page.locator('[data-watch-sort]').selectOption('price');
       await page.waitForFunction(() => document.querySelector('[data-matches] [data-item-row]')?.dataset.id === 'unknown-stock');
       assert.equal(await matches.first().getAttribute('data-id'), 'unknown-stock');
-      await page.locator('[data-watch-filter]').click();const watchFilters=page.locator('#offer-filter-dialog');
+      await page.locator('[data-watch-filter]').click();const watchFilters=page.locator('#offer-filter-dialog[open]');
       await watchFilters.locator('[name=minPrice]').fill('100');await watchFilters.locator('[data-offer-apply]').click();
       assert.equal(await matches.count(),1);assert.equal(await matches.first().getAttribute('data-id'),'recent-expensive');
       await page.reload();await matches.first().waitFor();assert.equal(await matches.count(),1,'watch view filters survive reload');

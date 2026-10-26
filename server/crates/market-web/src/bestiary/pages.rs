@@ -61,11 +61,18 @@ fn mob_pic(mob_id: i32, image_id: Option<i32>) -> Markup {
     }
 }
 
-/// `CH 14 | 8洞`, as `loc()` in `web/js/lib/format.js`.
+fn channel_label(lang: Lang, channel: i16) -> String {
+    match lang {
+        Lang::Zh => format!("{channel}频道"),
+        Lang::En => format!("CH {channel}"),
+    }
+}
+
+/// `14频道 | 8洞` in Chinese, with abbreviated English labels.
 fn loc(lang: Lang, channel: Option<i16>, room: Option<i16>) -> Markup {
     match (channel, room) {
         (Some(ch), Some(room)) => html! {
-            span.loc { b { "CH " (ch) } span { (market::room_label(lang, room)) } }
+            span.loc { b { (channel_label(lang, ch)) } span { (market::room_label(lang, room)) } }
         },
         _ => html! { span.loc.unk { (lang.t("位置未知", "location unknown")) } },
     }
@@ -125,8 +132,11 @@ mod tests {
         let html = loc(Lang::Zh, Some(14), Some(8)).into_string();
         assert_eq!(
             html,
-            r#"<span class="loc"><b>CH 14</b><span>8洞</span></span>"#
+            r#"<span class="loc"><b>14频道</b><span>8洞</span></span>"#
         );
+        assert!(loc(Lang::En, Some(14), Some(8))
+            .into_string()
+            .contains("<b>CH 14</b>"));
         assert!(loc(Lang::En, None, None)
             .into_string()
             .contains("location unknown"));

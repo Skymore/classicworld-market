@@ -1282,7 +1282,7 @@ export default function Item({ page }: { page: any }) {
                           >
                             {group.channel == null
                               ? words("位置未知", "unknown")
-                              : "CH " + group.channel}
+                              : words(`${group.channel}频道`, "CH " + group.channel)}
                           </span>
                           <span className="cg-meta">
                             {words(

@@ -19,26 +19,34 @@ export function Location({
   const [showOwner, setShowOwner] = useState(false);
   const channel = value?.channel;
   const room = value?.room;
+  const channelLabel = words(
+    channel == null ? "频道 —" : `${channel}频道`,
+    channel == null ? "CH —" : "CH " + channel,
+  );
+  const roomLabel = words(
+    room == null ? "洞 —" : `${room}洞`,
+    room == null ? "FM —" : "FM" + room,
+  );
   const label =
     room != null
-      ? `FM${room}`
+      ? roomLabel
       : value?.text ||
         (document.documentElement.lang === "en"
           ? value?.map_name_en
           : value?.map_name_zh) ||
-        words("FM 未记录", "FM not recorded");
+        words("洞未记录", "FM not recorded");
   if (shop !== undefined)
     return (
       <span
         className="loc loc-shop"
         title={[
-          channel == null ? "CH —" : "CH " + channel,
-          room == null ? label : "FM" + room,
+          channelLabel,
+          label,
           shop || "—",
         ].join(" · ")}
       >
-        <b>{channel == null ? "CH —" : "CH " + channel}</b>
-        <span className="loc-room">{room == null ? "FM —" : "FM" + room}</span>
+        <b>{channelLabel}</b>
+        <span className="loc-room">{roomLabel}</span>
         {owner ? (
           <button type="button" className="record-shop shop-name-toggle"
             aria-pressed={showOwner}
@@ -59,7 +67,7 @@ export function Location({
     </span>
   ) : (
     <span className="loc" title={label}>
-      <b>CH {channel}</b>
+      <b>{channelLabel}</b>
       <span className="loc-room">{label}</span>
     </span>
   );

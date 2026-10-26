@@ -166,6 +166,12 @@ try {
     await page.reload();
     await page.locator('.craft-label:visible').first().waitFor();
     assert.equal(new URL(page.url()).searchParams.get('craft'), '1');
+    await page.goto(origin + '/item/1452003?lang=zh');
+    await page.locator('.where-well .market-record').first().waitFor();
+    await page.locator('[data-offer-sort]').selectOption('price');
+    assert.equal(await page.locator('.where-well .chno').first().textContent(),'24频道');
+    assert.equal(await page.locator('.where-well .loc b').first().textContent(),'24频道');
+    assert.equal(await page.locator('.where-well .loc-room').first().textContent(),'10洞');
     assert.deepEqual(errors, []);
     await page.close();
     console.log(`PASS ${mobile ? 'phone' : 'desktop'}: folded readonly crafting in Sources, bilingual material pictures, exact prices, SSE disclosure state, date columns, aligned navigation and persistent filters`);

@@ -302,7 +302,7 @@ fn channel_group(v: &View, g: &Group, index: usize) -> Markup {
         div.cgroup.open[open].xp[index >= CHANNELS_PHONE].xd[index >= CHANNELS_DESKTOP] data-ch-key=(key) {
             button.cg-head type="button" data-ch aria-expanded=(open) {
                 @match g.channel {
-                    Some(ch) => span.chno { "CH " (ch) },
+                    Some(ch) => span.chno { (super::channel_label(v.ctx.lang, ch)) },
                     None => span.chno.unk { (v.t("位置未知", "unknown")) },
                 }
                 span.cg-meta { (count(v, g.shops, "摊", "shops")) " · " (count(v, g.listings.len(), "条挂单", "listings")) }
@@ -791,7 +791,7 @@ fn sale_row(v: &View, s: &Sale, with_shop: bool, extra: bool) -> Markup {
             }
             @if let Some(place) = &s.observed_location {
                 span.loc title=(v.t("采集时所在地图，不保证摊位仍在此处", "Observed map; current shop location is not guaranteed")) {
-                    @if let Some(ch)=s.channel { b { "CH " (ch) } }
+                    @if let Some(ch)=s.channel { b { (super::channel_label(v.ctx.lang, ch)) } }
                     span { (place) }
                 }
             } @else { (loc(v.ctx.lang, s.channel, s.room)) }
