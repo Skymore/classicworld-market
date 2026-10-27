@@ -5,7 +5,7 @@ use crate::{
     views::{self, Hours},
 };
 use sqlx::PgPool;
-use std::{sync::atomic::{AtomicU64, Ordering}, time::Instant};
+use std::{collections::VecDeque, sync::{Arc, Mutex as RegistryMutex, atomic::{AtomicU64, Ordering}}, time::Instant};
 use tokio::sync::{Mutex, Semaphore};
 
 #[derive(PartialEq)]
@@ -40,9 +40,14 @@ struct Counters {
     requests: AtomicU64,
     hits: AtomicU64,
     rebuilds: AtomicU64,
-    collisions: AtomicU64,
+    evictions: AtomicU64,
+    bypasses: AtomicU64,
+    cold: AtomicU64,
+    expired: AtomicU64,
+    invalidated: AtomicU64,
     lookup_us: AtomicU64,
-    wait_us: AtomicU64,
+    key_wait_us: AtomicU64,
+    permit_wait_us: AtomicU64,
     build_us: AtomicU64,
 }
 
@@ -51,23 +56,70 @@ pub struct CacheMetrics {
     pub requests: u64,
     pub hits: u64,
     pub rebuilds: u64,
-    pub collisions: u64,
+    pub evictions: u64,
+    pub bypasses: u64,
+    pub cold: u64,
+    pub expired: u64,
+    pub invalidated: u64,
+    pub entries: usize,
     pub lookup_ms: f64,
     pub wait_ms: f64,
+    pub key_wait_ms: f64,
+    pub permit_wait_ms: f64,
     pub build_ms: f64,
 }
 
 struct PublicEntry {
-    key: String,
     revision: Revision,
     built: Instant,
     value: Option<serde_json::Value>,
 }
 
-/// Shared public snapshots only. Full keys prevent shard collisions from mixing
-/// filters/items; transactional item revisions invalidate related commits.
+type PublicSlot = Arc<Mutex<Option<PublicEntry>>>;
+
+#[derive(Default)]
+struct PublicLane {
+    // At most 32 exact keys, oldest use first. This lock only protects the
+    // registry, never a query, a response copy or an async wait.
+    entries: RegistryMutex<VecDeque<(String, PublicSlot)>>,
+}
+
+impl PublicLane {
+    fn slot(&self, key: &str, counters: &Counters) -> Option<PublicSlot> {
+        let mut entries = self.entries.lock().expect("public cache registry");
+        if let Some(index) = entries.iter().position(|(old, _)| old == key) {
+            let entry = entries.remove(index).expect("existing cache key");
+            let slot = entry.1.clone();
+            entries.push_back(entry);
+            return Some(slot);
+        }
+        let mut retired = None;
+        if entries.len() == 32 {
+            // A caller owns an Arc until it releases the entry lock. Never
+            // evict a building entry or detach waiters from a shared rebuild.
+            if let Some(index) = entries.iter().position(|(_, slot)| Arc::strong_count(slot) == 1) {
+                retired = entries.remove(index);
+                counters.evictions.fetch_add(1, Ordering::Relaxed);
+            } else {
+                // All keys are in use: keep memory bounded and run uncached,
+                // still subject to the lane's database rebuild limit.
+                counters.bypasses.fetch_add(1, Ordering::Relaxed);
+                return None;
+            }
+        }
+        let slot = Arc::new(Mutex::new(None));
+        entries.push_back((key.to_owned(), slot.clone()));
+        drop(entries);
+        // Dropping a large retired response must not hold the registry lock.
+        drop(retired);
+        Some(slot)
+    }
+}
+
+/// Shared public snapshots only. Exact keys isolate filters/items without hash
+/// slot collisions; transactional item revisions invalidate related commits.
 pub struct PublicReadCache {
-    slots: [[Mutex<Option<PublicEntry>>; 32]; 3],
+    lanes: [PublicLane; 3],
     rebuilds: [Semaphore; 3],
     counters: [Counters; 3],
 }
@@ -75,7 +127,7 @@ pub struct PublicReadCache {
 impl Default for PublicReadCache {
     fn default() -> Self {
         Self {
-            slots: std::array::from_fn(|_| std::array::from_fn(|_| Mutex::new(None))),
+            lanes: std::array::from_fn(|_| PublicLane::default()),
             rebuilds: [Semaphore::new(2), Semaphore::new(1), Semaphore::new(1)],
             counters: std::array::from_fn(|_| Counters::default()),
         }
@@ -97,43 +149,48 @@ impl PublicReadCache {
     async fn get_scoped<F>(&self, db: &PgPool, key: &str, items: Option<&[i32]>, build: F)
         -> sqlx::Result<Option<serde_json::Value>>
     where F: std::future::Future<Output = sqlx::Result<Option<serde_json::Value>>> {
-        use std::hash::{Hash, Hasher};
         let requested = Instant::now();
         // Slow full histories cannot occupy crafting/watch rebuild permits or
-        // collide with their cache shards. Each class remains independently bounded.
+        // displace their cache entries. Each class remains independently bounded.
         let lane = if key == "crafting" { 1 } else if key.starts_with("watch:") { 2 } else { 0 };
         let counters = &self.counters[lane];
         counters.requests.fetch_add(1, Ordering::Relaxed);
         let requested_revision = revision(db, items).await?;
         counters.lookup_us.fetch_add(requested.elapsed().as_micros() as u64, Ordering::Relaxed);
-        let mut hash = std::collections::hash_map::DefaultHasher::new();
-        key.hash(&mut hash);
-        let slots = &self.slots[lane];
         let waiting = Instant::now();
-        let mut slot = slots[hash.finish() as usize % slots.len()].lock().await;
-        if let Some(hit) = slot.as_ref() {
+        let slot = self.lanes[lane].slot(key, counters);
+        let mut entry = match slot.as_ref() {
+            Some(slot) => Some(slot.lock().await),
+            None => None,
+        };
+        counters.key_wait_us.fetch_add(waiting.elapsed().as_micros() as u64, Ordering::Relaxed);
+        let mut cause = &counters.cold;
+        if let Some(hit) = entry.as_deref().and_then(Option::as_ref) {
             // Every watched item's revision must be at least the one this
             // request observed. Compare membership too: deletion must never
             // hit a larger stale revision; recreated rows have new revisions.
-            if hit.key == key && hit.revision.covers(&requested_revision)
-                && hit.built.elapsed().as_secs_f64() < 2.0 {
+            let current = hit.revision.covers(&requested_revision);
+            if current && hit.built.elapsed().as_secs_f64() < 2.0 {
                 counters.hits.fetch_add(1, Ordering::Relaxed);
-                counters.wait_us.fetch_add(waiting.elapsed().as_micros() as u64, Ordering::Relaxed);
                 return Ok(hit.value.clone());
             }
-            if hit.key != key { counters.collisions.fetch_add(1, Ordering::Relaxed); }
+            cause = if current { &counters.expired } else { &counters.invalidated };
         }
+        let waiting = Instant::now();
         let _permit = self.rebuilds[lane].acquire().await.expect("public cache gate open");
-        counters.wait_us.fetch_add(waiting.elapsed().as_micros() as u64, Ordering::Relaxed);
+        counters.permit_wait_us.fetch_add(waiting.elapsed().as_micros() as u64, Ordering::Relaxed);
         // Capture current revisions after waiting, without holding a database
         // connection in the queue. No listener or invalidation message can be lost.
         let started = Instant::now();
         let revision = revision(db, items).await?;
         counters.rebuilds.fetch_add(1, Ordering::Relaxed);
+        cause.fetch_add(1, Ordering::Relaxed);
         let result = build.await;
         counters.build_us.fetch_add(started.elapsed().as_micros() as u64, Ordering::Relaxed);
         let value = result?;
-        *slot = Some(PublicEntry { key: key.to_owned(), revision, built: Instant::now(), value: value.clone() });
+        if let Some(entry) = entry.as_deref_mut() {
+            *entry = Some(PublicEntry { revision, built: Instant::now(), value: value.clone() });
+        }
         Ok(value)
     }
 
@@ -142,10 +199,15 @@ impl PublicReadCache {
         std::array::from_fn(|lane| {
             let c = &self.counters[lane];
             let take = |v: &AtomicU64| v.swap(0, Ordering::Relaxed);
+            let key_wait_ms = take(&c.key_wait_us) as f64 / 1000.;
+            let permit_wait_ms = take(&c.permit_wait_us) as f64 / 1000.;
             (["item", "crafting", "watch"][lane], CacheMetrics {
                 requests: take(&c.requests), hits: take(&c.hits), rebuilds: take(&c.rebuilds),
-                collisions: take(&c.collisions), lookup_ms: take(&c.lookup_us) as f64 / 1000.,
-                wait_ms: take(&c.wait_us) as f64 / 1000., build_ms: take(&c.build_us) as f64 / 1000.,
+                evictions: take(&c.evictions), bypasses: take(&c.bypasses), cold: take(&c.cold),
+                expired: take(&c.expired), invalidated: take(&c.invalidated),
+                entries: self.lanes[lane].entries.lock().expect("public cache registry").len(),
+                lookup_ms: take(&c.lookup_us) as f64 / 1000., key_wait_ms, permit_wait_ms,
+                wait_ms: key_wait_ms + permit_wait_ms, build_ms: take(&c.build_us) as f64 / 1000.,
             })
         })
     }
