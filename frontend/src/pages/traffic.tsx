@@ -8,6 +8,11 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Monitor, RefreshCw, Smartphone, Tablet } from "lucide-react";
 import { usePreferences, useWords } from "../providers";
 import {
+  TrafficChart,
+  trafficDate,
+  type TrafficDay,
+} from "../components/traffic-chart";
+import {
   ErrorState,
   Loading,
   Stall,
@@ -24,7 +29,9 @@ interface Region {
   count: number;
 }
 interface Report {
+  days: number;
   pageviews: number;
+  daily: TrafficDay[];
   today: { pageviews: number; visitors: number };
   regions: Region[];
   sources: Count[];
@@ -217,7 +224,7 @@ function RegionMap({ regions }: { regions: Region[] }) {
 export default function Traffic() {
   usePageReady();
   const words = useWords();
-  const [days, setDays] = useState(7);
+  const [days, setDays] = useState(30);
   const query = useQuery({
     queryKey: ["traffic", days],
     staleTime: 30_000,
@@ -234,20 +241,6 @@ export default function Traffic() {
         h1
         action={
           <div className="traffic-tools">
-            <label>
-              <span className="sr">{words("统计范围", "Period")}</span>
-              <select
-                aria-label={words("统计范围", "Period")}
-                value={days}
-                onChange={(event) => setDays(Number(event.target.value))}
-              >
-                {[7, 30, 90].map((value) => (
-                  <option key={value} value={value}>
-                    {words(`${value} 天`, `${value} days`)}
-                  </option>
-                ))}
-              </select>
-            </label>
             <button
               className="bar-btn"
               type="button"
@@ -260,25 +253,40 @@ export default function Traffic() {
           </div>
         }
       >
+        <div className="traffic-trend-toolbar">
+          <span className="traffic-date-range">
+            {data?.daily.length
+              ? `${trafficDate(data.daily[0].day)} — ${trafficDate(data.daily.at(-1)!.day)}`
+              : "—"}
+          </span>
+          <div
+            className="traffic-ranges"
+            role="group"
+            aria-label={words("统计范围", "Period")}
+          >
+            {[7, 30, 90].map((value) => (
+              <button
+                key={value}
+                type="button"
+                data-traffic-days={value}
+                aria-pressed={days === value}
+                onClick={() => setDays(value)}
+              >
+                {words(`近 ${value} 天`, `${value} days`)}
+              </button>
+            ))}
+          </div>
+        </div>
         {query.isError && !data ? (
           <ErrorState retry={() => void query.refetch()} />
         ) : !data ? (
           <Loading />
         ) : (
-          <dl className="traffic-metrics">
-            <div>
-              <dt>{words("今日浏览量", "Views today")}</dt>
-              <dd data-traffic-today-pv>{num(data.today.pageviews)}</dd>
-            </div>
-            <div>
-              <dt>{words("今日访客", "Visitors today")}</dt>
-              <dd data-traffic-today-uv>{num(data.today.visitors)}</dd>
-            </div>
-            <div>
-              <dt>{words(`${days} 天浏览量`, `${days}-day views`)}</dt>
-              <dd data-traffic-pv>{num(data.pageviews)}</dd>
-            </div>
-          </dl>
+          <TrafficChart
+            daily={data.daily}
+            pageviews={data.pageviews}
+            updatedAt={query.dataUpdatedAt}
+          />
         )}
       </Stall>
       {data && (

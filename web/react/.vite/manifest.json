@@ -47,8 +47,8 @@
       "_shared-dgXAszFs.js"
     ]
   },
-  "_main-BO8wQLMP.js": {
-    "file": "chunks/main-BO8wQLMP.js",
+  "_main-j16EpMyp.js": {
+    "file": "chunks/main-j16EpMyp.js",
     "name": "main",
     "imports": [
       "_shared-dgXAszFs.js",
@@ -144,7 +144,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BO8wQLMP.js"
+      "_main-j16EpMyp.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -296,7 +296,7 @@
     ]
   },
   "src/pages/traffic.tsx": {
-    "file": "chunks/traffic-Df4rds5L.js",
+    "file": "chunks/traffic-ClUKO0O_.js",
     "name": "traffic",
     "src": "src/pages/traffic.tsx",
     "isDynamicEntry": true,
@@ -328,7 +328,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BO8wQLMP.js"
+      "_main-j16EpMyp.js"
     ]
   },
   "style.css": {
