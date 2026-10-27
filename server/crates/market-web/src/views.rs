@@ -752,30 +752,104 @@ pub async fn recent_sales(db: &PgPool, q: &SalesQuery, now: f64) -> sqlx::Result
 }
 
 /// `market_watchlist.listing`: ids stay stable while only stock changes.
-fn watch_listing(row: &Value) -> Value {
-    let observed = row["time"].as_f64().expect("time");
+fn watch_ids(row: &Map<String, Value>) -> (String, String) {
+    let field = |name: &str| row.get(name).unwrap_or(&Value::Null);
+    let observed = field("time").as_f64().expect("time");
     let day = floordiv(observed, 86400.0) as i64;
     let identity = json!([
         WORLD,
-        row["shop_key"],
+        field("shop_key"),
         day,
-        row["item_id"],
-        row["slot"],
-        row["variant"]
+        field("item_id"),
+        field("slot"),
+        field("variant")
     ]);
     let key = sha256_hex(pyjson::dumps(&identity, Dumps::ASCII).as_bytes())[..24].to_string();
-    let offer_identity = json!([key, row["price"], row["bundle"]]);
+    let offer_identity = json!([key, field("price"), field("bundle")]);
     let offer =
         sha256_hex(pyjson::dumps(&offer_identity, Dumps::ASCII).as_bytes())[..24].to_string();
-    json!({
-        "id": offer, "listing_key": key, "world": WORLD, "item_id": row["item_id"], "slot": row["slot"],
-        "observed": observed, "owner_name": row["owner_name"], "shop": row["shop"], "location": row["location"], "price": row["price"],
-        "bundle": row["bundle"], "unit_price": row["unit_price"], "stock": row["stock"],
-        "equipment": row["equipment"], "name_zh": row["name_zh"], "name_en": row["name_en"],
-        "shop_key": row["shop_key"], "visit_id": row["visit_id"], "source": row["source"],
-        "variant": row["variant"], "unit_basis": row["unit_basis"], "icon_url": row["icon_url"],
-        "requires_validation": true,
-    })
+    (key, offer)
+}
+
+fn watch_listing(row: Map<String, Value>) -> Value {
+    let ids = watch_ids(&row);
+    watch_listing_with_ids(row, ids)
+}
+
+fn watch_listing_with_ids(mut row: Map<String, Value>, (key, offer): (String, String)) -> Value {
+    let observed = row["time"].as_f64().expect("time");
+    // Transfer owned fields instead of cloning every equipment/location tree.
+    let mut listing = Map::new();
+    for field in [
+        "item_id",
+        "slot",
+        "owner_name",
+        "shop",
+        "location",
+        "price",
+        "bundle",
+        "unit_price",
+        "stock",
+        "equipment",
+        "name_zh",
+        "name_en",
+        "shop_key",
+        "visit_id",
+        "source",
+        "variant",
+        "unit_basis",
+        "icon_url",
+    ] {
+        listing.insert(field.into(), row.remove(field).unwrap_or(Value::Null));
+    }
+    for (field, value) in [
+        ("id", json!(offer)),
+        ("listing_key", json!(key)),
+        ("world", json!(WORLD)),
+        ("observed", json!(observed)),
+        ("requires_validation", json!(true)),
+    ] {
+        listing.insert(field.into(), value);
+    }
+    Value::Object(listing)
+}
+
+fn quote_group_key(row: &Value) -> Option<String> {
+    let equipment = &row["equipment"];
+    let gear = row["item_id"]
+        .as_i64()
+        .is_some_and(|id| id / 1_000_000 == 1);
+    let known_gear = equipment["status"] == "candidate"
+        && equipment["stats"].is_array()
+        && equipment["unknown_fields"]
+            .as_array()
+            .is_none_or(Vec::is_empty);
+    let valid = row["shop_key"].as_str().is_some_and(|s| !s.is_empty())
+        && row["visit_id"].as_str().is_some_and(|s| !s.is_empty())
+        && row["slot"].is_i64()
+        && row["observed"].as_f64().is_some_and(|v| v > 0.)
+        && row["unit_price"]
+            .as_f64()
+            .is_some_and(|v| v.is_finite() && v >= 0.)
+        && row["bundle"].as_i64().is_some_and(|v| v > 0)
+        && (!gear || known_gear);
+    if !valid {
+        return None;
+    }
+    let key = serde_json::to_string(&(
+        &row["world"],
+        &row["source"],
+        &row["shop_key"],
+        &row["visit_id"],
+        &row["observed"],
+        &row["item_id"],
+        &row["unit_price"],
+        &row["bundle"],
+        &row["unit_basis"],
+        if gear { equipment } else { &Value::Null },
+    ))
+    .expect("group identity JSON");
+    Some(key)
 }
 
 /// Group presentation rows before applying the public list limit. Raw rows stay
@@ -785,41 +859,10 @@ fn grouped_quotes(rows: &[Value], limit: usize) -> Vec<Value> {
     let mut groups: HashMap<String, (usize, HashSet<i64>)> = HashMap::new();
     let mut output: Vec<Value> = Vec::new();
     for row in rows {
-        let equipment = &row["equipment"];
-        let gear = row["item_id"]
-            .as_i64()
-            .is_some_and(|id| id / 1_000_000 == 1);
-        let known_gear = equipment["status"] == "candidate"
-            && equipment["stats"].is_array()
-            && equipment["unknown_fields"]
-                .as_array()
-                .is_none_or(Vec::is_empty);
-        let valid = row["shop_key"].as_str().is_some_and(|s| !s.is_empty())
-            && row["visit_id"].as_str().is_some_and(|s| !s.is_empty())
-            && row["slot"].is_i64()
-            && row["observed"].as_f64().is_some_and(|v| v > 0.)
-            && row["unit_price"]
-                .as_f64()
-                .is_some_and(|v| v.is_finite() && v >= 0.)
-            && row["bundle"].as_i64().is_some_and(|v| v > 0)
-            && (!gear || known_gear);
-        if !valid {
+        let Some(key) = quote_group_key(row) else {
             output.push(row.clone());
             continue;
-        }
-        let key = json!([
-            row["world"],
-            row["source"],
-            row["shop_key"],
-            row["visit_id"],
-            row["observed"],
-            row["item_id"],
-            row["unit_price"],
-            row["bundle"],
-            row["unit_basis"],
-            if gear { equipment.clone() } else { Value::Null }
-        ])
-        .to_string();
+        };
         let slot = row["slot"].as_i64().unwrap();
         if let Some((index, slots)) = groups.get_mut(&key) {
             if !slots.insert(slot) {
@@ -844,7 +887,9 @@ fn grouped_quotes(rows: &[Value], limit: usize) -> Vec<Value> {
     output
 }
 
-fn watch_percentiles(rows: &[Value]) -> serde_json::Map<String, Value> {
+fn watch_percentiles<'a>(
+    rows: impl IntoIterator<Item = &'a Value>,
+) -> serde_json::Map<String, Value> {
     let mut prices: std::collections::BTreeMap<i64, Vec<f64>> = std::collections::BTreeMap::new();
     for row in rows {
         if let (Some(id), Some(price)) = (row["item_id"].as_i64(), row["unit_price"].as_f64()) {
@@ -868,21 +913,141 @@ fn watch_percentiles(rows: &[Value]) -> serde_json::Map<String, Value> {
     percentiles
 }
 
+struct WatchRows {
+    found: Vec<Value>,
+    grouped: Vec<Value>,
+    percentiles: Map<String, Value>,
+    total: usize,
+    identities: usize,
+}
+
+/// All rows participate in grouping/percentiles. Only possible display rows
+/// need Python-compatible SHA identities and full presentation objects.
+fn select_watch_rows(quotes: Vec<Map<String, Value>>, limit: usize) -> WatchRows {
+    use std::collections::{HashMap, HashSet};
+    let mut rows: Vec<Value> = quotes
+        .into_iter()
+        .map(|mut row| {
+            row.insert(
+                "observed".into(),
+                json!(row["time"].as_f64().expect("time")),
+            );
+            row.insert("world".into(), json!(WORLD));
+            Value::Object(row)
+        })
+        .collect();
+    let observed = |row: &Value| row["observed"].as_f64().unwrap();
+    rows.sort_by(|a, b| observed(b).total_cmp(&observed(a)));
+    let total = rows.len();
+    let mut keys = HashMap::new();
+    let mut groups: Vec<(bool, Vec<usize>)> = Vec::new();
+    for (index, row) in rows.iter().enumerate() {
+        if let Some(key) = quote_group_key(row) {
+            let group = *keys.entry(key).or_insert_with(|| {
+                groups.push((true, Vec::new()));
+                groups.len() - 1
+            });
+            groups[group].1.push(index);
+        } else {
+            groups.push((false, vec![index]));
+        }
+    }
+    let percentiles = watch_percentiles(groups.iter().map(|(_, members)| &rows[members[0]]));
+    // Include every tie at the time cutoff; IDs, not input order, break ties.
+    let prefix = |count: usize, time: &dyn Fn(usize) -> f64| {
+        let mut end = limit.min(count);
+        if end > 0 {
+            let cutoff = time(end - 1);
+            while end < count && time(end) >= cutoff {
+                end += 1;
+            }
+        }
+        end
+    };
+    let raw_end = prefix(rows.len(), &|i| observed(&rows[i]));
+    let group_end = prefix(groups.len(), &|i| observed(&rows[groups[i].1[0]]));
+    let mut ids: Vec<Option<(String, String)>> = vec![None; total];
+    for i in (0..raw_end).chain(
+        groups[..group_end]
+            .iter()
+            .flat_map(|(_, members)| members.iter().copied()),
+    ) {
+        if ids[i].is_none() {
+            ids[i] = Some(watch_ids(rows[i].as_object().unwrap()));
+        }
+    }
+    let order = |a: &usize, b: &usize| {
+        observed(&rows[*b])
+            .total_cmp(&observed(&rows[*a]))
+            .then_with(|| {
+                ids[*a]
+                    .as_ref()
+                    .unwrap()
+                    .1
+                    .cmp(&ids[*b].as_ref().unwrap().1)
+            })
+    };
+    let present = |index: usize| {
+        watch_listing_with_ids(
+            rows[index].as_object().unwrap().clone(),
+            ids[index].clone().unwrap(),
+        )
+    };
+    let mut selected: Vec<usize> = (0..raw_end).collect();
+    selected.sort_by(order);
+    let found = selected.into_iter().take(limit).map(present).collect();
+    for (_, members) in &mut groups[..group_end] {
+        members.sort_by(order);
+    }
+    let mut selected: Vec<usize> = (0..group_end).collect();
+    selected.sort_by(|a, b| order(&groups[*a].1[0], &groups[*b].1[0]));
+    let grouped = selected
+        .into_iter()
+        .take(limit)
+        .map(|index| {
+            let (merge, members) = &groups[index];
+            let mut first = present(members[0]);
+            if *merge {
+                let mut slots = HashSet::from([rows[members[0]]["slot"].as_i64().unwrap()]);
+                for &member in &members[1..] {
+                    if !slots.insert(rows[member]["slot"].as_i64().unwrap()) {
+                        continue;
+                    }
+                    first["stock"] = match (first["stock"].as_i64(), rows[member]["stock"].as_i64())
+                    {
+                        (Some(a), Some(b)) if a >= 0 && b >= 0 => {
+                            a.checked_add(b).map_or(Value::Null, Value::from)
+                        }
+                        _ => Value::Null,
+                    };
+                }
+                first["merged_count"] = json!(slots.len());
+            }
+            first
+        })
+        .collect();
+    WatchRows {
+        found,
+        grouped,
+        percentiles,
+        total,
+        identities: ids.iter().filter(|id| id.is_some()).count(),
+    }
+}
+
 /// `report_listings` over the 72-hour window.
 pub async fn watch_listings(db: &PgPool, items: &[i32], now: f64) -> sqlx::Result<Value> {
-    let mut found: Vec<Value> = quotes(db, items, Window::recent(now).cutoff)
-        .await?
-        .into_iter()
-        .map(|row| watch_listing(&Value::Object(row)))
-        .collect();
-    found.sort_by(|a, b| {
-        let t = |v: &Value| v["observed"].as_f64().unwrap_or(0.0);
-        t(b).total_cmp(&t(a))
-            .then_with(|| a["id"].as_str().cmp(&b["id"].as_str()))
-    });
-    let total = found.len();
-    let mut grouped = grouped_quotes(&found, usize::MAX);
-    let percentiles = watch_percentiles(&grouped);
+    let started = std::time::Instant::now();
+    let quotes = quotes(db, items, Window::recent(now).cutoff).await?;
+    let quoted = std::time::Instant::now();
+    let WatchRows {
+        found,
+        grouped,
+        percentiles,
+        total,
+        identities,
+    } = select_watch_rows(quotes, WATCH_LIMIT);
+    let grouped_at = std::time::Instant::now();
     let mut base_stats = serde_json::Map::new();
     for row in sqlx::query(
         "SELECT item_id, record FROM item_records WHERE item_id=ANY($1) AND item_id<2000000",
@@ -898,8 +1063,17 @@ pub async fn watch_listings(db: &PgPool, items: &[i32], now: f64) -> sqlx::Resul
             json!(crate::bestiary::queries::reference_stats(&record)),
         );
     }
-    grouped.truncate(WATCH_LIMIT);
-    found.truncate(WATCH_LIMIT);
+    if started.elapsed().as_millis() >= 100 {
+        tracing::info!(
+            rows = total,
+            identities,
+            elapsed_ms = started.elapsed().as_secs_f64() * 1000.,
+            quotes_ms = (quoted - started).as_secs_f64() * 1000.,
+            grouping_ms = (grouped_at - quoted).as_secs_f64() * 1000.,
+            metadata_ms = grouped_at.elapsed().as_secs_f64() * 1000.,
+            "slow watch phases"
+        );
+    }
     Ok(
         json!({"listings": found, "grouped_listings": grouped, "total": total, "truncated": total > WATCH_LIMIT,
               "generated_at": now, "hours": RECENT_HOURS, "percentile_caps": percentiles, "base_stats": base_stats}),
@@ -970,8 +1144,8 @@ pub async fn latest_records(
             continue;
         }
         if !sales {
-            let listing = watch_listing(&Value::Object(row.clone()));
-            row.insert("id".into(), listing["id"].clone());
+            let (_, id) = watch_ids(&row);
+            row.insert("id".into(), json!(id));
             row.insert("observed".into(), json!(time));
         }
         row.retain(|key, _| {
@@ -1066,8 +1240,8 @@ pub async fn recent_quotes(db: &PgPool, hours: Hours, limit: i64, now: f64) -> s
         .into_iter()
         .filter(|row| row["time"].as_f64().is_some_and(|time| time >= cutoff))
         .map(|mut row| {
-            let listing = watch_listing(&Value::Object(row.clone()));
-            row.insert("id".into(), listing["id"].clone());
+            let (_, id) = watch_ids(&row);
+            row.insert("id".into(), json!(id));
             row.insert("observed".into(), row["time"].clone());
             Value::Object(row)
         })
@@ -1114,7 +1288,7 @@ pub async fn personal_watch_listings(
     let mut ids = std::collections::HashSet::new();
     let mut found = Vec::new();
     for row in &rows {
-        let value = watch_listing(&Value::Object(row_json(row)));
+        let value = watch_listing(row_json(row));
         if ids.insert(value["id"].as_str().unwrap_or_default().to_string()) {
             found.push(value);
         }
@@ -1448,12 +1622,80 @@ mod tests {
         let row = json!({"shop_key": "k", "time": 86400.5, "item_id": 4010001, "slot": 4001, "variant": "standard",
                          "price": 500, "bundle": 1, "stock": 8, "shop": "Shop", "unit_price": 500.0,
                          "visit_id": "visit", "source": "packet"});
-        let listing = watch_listing(&row);
+        let listing = watch_listing(row.as_object().unwrap().clone());
         assert_eq!(listing["listing_key"], "ce2a01ff19180d0cbf9e9c9b");
         assert_eq!(listing["id"], "718651cd4234c9a7c142fbf6");
         assert_eq!(listing["shop_key"], "k");
         assert_eq!(listing["visit_id"], "visit");
         assert_eq!(listing["slot"], 4001);
         assert_eq!(listing["source"], "packet");
+    }
+
+    #[test]
+    fn bounded_watch_presentation_matches_full_sort_groups_and_percentiles() {
+        let mut quotes = Vec::new();
+        for group in 0..600 {
+            for slot in 1..=3 {
+                let mut row = json!({"time":10000. - (group / 3) as f64,"world":WORLD,
+                    "shop_key":format!("shop-{group}"),"visit_id":format!("visit-{group}"),
+                    "item_id":if group%7==0 {1002000} else {4010001},"slot":slot,
+                    "variant":"standard","source":"packet","price":group+1,"bundle":1,
+                    "unit_price":(group+1) as f64,"unit_basis":"item","stock":slot,
+                    "equipment":{"status":"candidate","stats":[],"unknown_fields":[]}});
+                if group % 11 == 0 {
+                    row["equipment"] = json!({"status":"unsupported"});
+                }
+                if group % 13 == 0 {
+                    row["stock"] = Value::Null;
+                }
+                if group % 17 == 0 {
+                    row["stock"] = json!(-1);
+                }
+                if group % 19 == 0 {
+                    row["stock"] = json!(i64::MAX);
+                }
+                if group % 23 == 0 {
+                    row["shop_key"] = json!("");
+                }
+                quotes.push(row.as_object().unwrap().clone());
+            }
+        }
+        // Duplicate slots with different IDs/stocks must choose by ID, including
+        // equal-time groups at the display cutoff, not by arrival/input order.
+        for i in [3, 20, 70, 220] {
+            let mut duplicate = quotes[i].clone();
+            duplicate.insert("variant".into(), json!("alternative"));
+            duplicate.insert("stock".into(), json!(99));
+            quotes.push(duplicate);
+        }
+        quotes.reverse();
+        let mut full: Vec<Value> = quotes.iter().cloned().map(watch_listing).collect();
+        full.sort_by(|a, b| {
+            b["observed"]
+                .as_f64()
+                .unwrap()
+                .total_cmp(&a["observed"].as_f64().unwrap())
+                .then_with(|| a["id"].as_str().cmp(&b["id"].as_str()))
+        });
+        let all_groups = grouped_quotes(&full, usize::MAX);
+        for limit in [0, 1, 7, 200] {
+            let selected = select_watch_rows(quotes.clone(), limit);
+            assert_eq!(selected.total, full.len());
+            assert_eq!(
+                selected.found,
+                full.iter().take(limit).cloned().collect::<Vec<_>>()
+            );
+            assert_eq!(
+                selected.grouped,
+                all_groups.iter().take(limit).cloned().collect::<Vec<_>>()
+            );
+            assert_eq!(selected.percentiles, watch_percentiles(&all_groups));
+            assert!(
+                selected.identities < quotes.len() / 2,
+                "dropped rows still computed display identities"
+            );
+        }
+        let empty = select_watch_rows(Vec::new(), 200);
+        assert!(empty.found.is_empty() && empty.grouped.is_empty() && empty.percentiles.is_empty());
     }
 }

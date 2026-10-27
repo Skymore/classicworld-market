@@ -36,6 +36,17 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(result["error_log_count"], 0)
         self.assertNotIn("private", json.dumps(result))
 
+    def test_tail_phases_keep_writer_types_separate_and_exclude_identifiers(self):
+        result = summarize([
+            '2026-10-27T10:01:00Z INFO slow writer phases kind="roster" outcome="committed" units=1 items=0 elapsed_ms=120 prepare_ms=0 pool_ms=90 lock_ms=5 write_ms=20 stats_ms=0 commit_ms=5 unfinished_ms=0',
+            '2026-10-27T10:01:01Z INFO slow writer phases kind="upload" outcome="committed" units=2 items=3 elapsed_ms=150 prepare_ms=1 pool_ms=2 lock_ms=3 write_ms=40 stats_ms=100 commit_ms=4 unfinished_ms=0',
+            '2026-10-27T10:01:02Z INFO slow watch phases rows=1000 elapsed_ms=130 quotes_ms=100 grouping_ms=25 metadata_ms=5 private="must not export"',
+        ], datetime(2026, 10, 27, 10, tzinfo=timezone.utc), datetime(2026, 10, 27, 11, tzinfo=timezone.utc))
+        self.assertEqual(result["slow_writer_phases_only"]["roster"]["mean_pool_ms"], 90)
+        self.assertEqual(result["slow_writer_phases_only"]["upload"]["mean_stats_ms"], 100)
+        self.assertEqual(result["slow_watch_phases_only"]["mean_quotes_ms"], 100)
+        self.assertNotIn("must not export", json.dumps(result))
+
 
 if __name__ == "__main__":
     unittest.main()

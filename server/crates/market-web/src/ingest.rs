@@ -24,6 +24,7 @@ use sqlx::{Acquire, PgConnection, PgPool, Row};
 
 use crate::auth::Collector;
 use crate::stats::{lock_writes, recompute_items};
+use crate::write_timing::{Phase, WriteTiming};
 
 #[derive(Debug, thiserror::Error)]
 pub enum IngestError {
@@ -76,11 +77,16 @@ pub async fn ingest_batch(
     inputs: &[Received<'_>],
 ) -> sqlx::Result<Vec<Result<IngestOutcome, IngestError>>> {
     if inputs.is_empty() { return Ok(Vec::new()); }
+    let mut timing = WriteTiming::new("upload");
+    timing.units = inputs.len();
     // CPU-only preparation does not extend the global writer lock.
     let prepared: Vec<_> = inputs.iter().map(|input|
         (input.upload.fingerprint(), gzip(input.raw))).collect();
+    timing.mark(Phase::Prepare);
     let mut tx = db.begin().await?;
+    timing.mark(Phase::Pool);
     lock_writes(&mut tx).await?;
+    timing.mark(Phase::Lock);
     let mut results = Vec::with_capacity(inputs.len());
     let mut items = BTreeSet::new();
     let mut seen_at: HashMap<i32, f64> = HashMap::new();
@@ -108,12 +114,16 @@ pub async fn ingest_batch(
             }
         }
     }
+    timing.items = items.len();
+    timing.mark(Phase::Write);
     if let Some((as_of, now)) = latest {
         recompute_items(&mut tx, &items.into_iter().collect::<Vec<_>>(), as_of, now, &seen_at).await?;
         // One notification after all raw data and statistics commit together.
         sqlx::query("SELECT pg_notify('market_changed', '')").execute(&mut *tx).await?;
     }
+    timing.mark(Phase::Stats);
     tx.commit().await?;
+    timing.committed();
     Ok(results)
 }
 

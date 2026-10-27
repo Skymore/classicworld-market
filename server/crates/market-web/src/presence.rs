@@ -14,7 +14,8 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::{PgConnection, PgPool};
+use sqlx::{PgConnection, PgPool, Postgres, QueryBuilder};
+use crate::write_timing::{Phase, WriteTiming};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -80,30 +81,38 @@ async fn expire_at(
     owner: Option<i64>,
     place: Option<&Place>,
 ) -> sqlx::Result<Vec<i32>> {
-    sqlx::query_scalar(
-        "WITH retired AS (
-          DELETE FROM listings l USING shops s, observations o
-          WHERE s.id=l.shop_id AND o.id=l.observation_id
-            AND ($1::bigint IS NULL OR s.id=$1)
-            AND ($2::bigint IS NULL OR s.owner_character_id=$2)
-            AND ($3::smallint IS NULL OR (s.channel=$3 AND s.room=$4))
-            AND EXISTS (SELECT 1 FROM player_departures d WHERE d.world=s.world
-              AND d.character_id=s.owner_character_id AND d.channel=s.channel AND d.room=s.room
-              AND d.observed_at >= o.observed_at
-              AND (d.evidence_kind='player_departure' OR d.observed_at>o.observed_at))
-          RETURNING l.*
+    // Departures are constrained to ClassicWorld. Include the leading world
+    // column and the partial-index predicate even for a room/owner lookup.
+    let mut query = QueryBuilder::<Postgres>::new(
+        "WITH scoped_shops AS MATERIALIZED (
+          SELECT id,world,channel,room,owner_character_id FROM shops
+          WHERE world='ClassicWorld' AND owner_character_id IS NOT NULL");
+    if let Some(shop) = shop { query.push(" AND id=").push_bind(shop); }
+    if let Some(owner) = owner { query.push(" AND owner_character_id=").push_bind(owner); }
+    if let Some(place) = place {
+        query.push(" AND channel=").push_bind(place.channel).push(" AND room=").push_bind(place.room);
+    }
+    query.push(
+        "), candidates AS MATERIALIZED (
+          SELECT l.shop_id,l.slot,d.invalidated_at FROM scoped_shops s
+          JOIN LATERAL (SELECT shop_id,slot,observation_id FROM listings WHERE shop_id=s.id OFFSET 0) l ON true
+          JOIN LATERAL (SELECT observed_at FROM observations WHERE id=l.observation_id OFFSET 0) o ON true
+          JOIN LATERAL (
+            SELECT observed_at AS invalidated_at FROM player_departures
+            WHERE world=s.world AND character_id=s.owner_character_id AND channel=s.channel AND room=s.room
+              AND observed_at>=o.observed_at AND (evidence_kind='player_departure' OR observed_at>o.observed_at)
+            ORDER BY observed_at LIMIT 1
+          ) d ON true
+        ), retired AS (
+          DELETE FROM listings l USING candidates c WHERE l.shop_id=c.shop_id AND l.slot=c.slot
+          RETURNING l.*,c.invalidated_at
         ), archived AS (
           INSERT INTO expired_listings(shop_id,observation_id,slot,item_id,variant_id,price,bundle,stock,invalidated_at)
-          SELECT l.shop_id,l.observation_id,l.slot,l.item_id,l.variant_id,l.price,l.bundle,l.stock,
-            (SELECT min(d.observed_at) FROM player_departures d JOIN shops s ON s.id=l.shop_id
-              JOIN observations o ON o.id=l.observation_id WHERE d.world=s.world
-              AND d.character_id=s.owner_character_id AND d.channel=s.channel AND d.room=s.room
-              AND d.observed_at>=o.observed_at
-              AND (d.evidence_kind='player_departure' OR d.observed_at>o.observed_at))
+          SELECT l.shop_id,l.observation_id,l.slot,l.item_id,l.variant_id,l.price,l.bundle,l.stock,l.invalidated_at
           FROM retired l WHERE l.stock>0
           ON CONFLICT(observation_id,slot) DO UPDATE SET invalidated_at=LEAST(expired_listings.invalidated_at,EXCLUDED.invalidated_at)
         ) SELECT DISTINCT item_id FROM retired"
-    ).bind(shop).bind(owner).bind(place.map(|p|p.channel)).bind(place.map(|p|p.room)).fetch_all(conn).await
+    ).build_query_scalar().fetch_all(conn).await
 }
 
 pub async fn ingest(
@@ -112,16 +121,22 @@ pub async fn ingest(
     event: &Departure,
     now: f64,
 ) -> sqlx::Result<bool> {
+    let mut timing = WriteTiming::new("departure");
     let mut tx = db.begin().await?;
+    timing.mark(Phase::Pool);
     stats::lock_writes(&mut tx).await?;
+    timing.mark(Phase::Lock);
     let inserted=sqlx::query("INSERT INTO player_departures(collector_id,event_id,world,channel,room,character_id,name,seen_at,observed_at)
         VALUES($1,$2,$3,$4,$5,$6,$7,to_timestamp($8),to_timestamp($9)) ON CONFLICT DO NOTHING")
         .bind(collector).bind(&event.event_id).bind(&event.world).bind(event.location.channel).bind(event.location.room)
         .bind(event.character_id).bind(&event.name).bind(event.seen_at).bind(event.observed_at).execute(&mut *tx).await?.rows_affected();
     if inserted == 0 {
+        timing.duplicate();
         return Ok(false);
     }
     let items = expire(&mut tx, None, Some(event.character_id)).await?;
+    timing.items = items.len();
+    timing.mark(Phase::Write);
     if !items.is_empty() {
         let as_of: f64 = sqlx::query_scalar(
             "UPDATE market_state SET version=version+1 RETURNING extract(epoch FROM as_of)::float8",
@@ -133,7 +148,9 @@ pub async fn ingest(
             .execute(&mut *tx)
             .await?;
     }
+    timing.mark(Phase::Stats);
     tx.commit().await?;
+    timing.committed();
     Ok(true)
 }
 

@@ -44,6 +44,7 @@ pub mod traffic;
 pub mod upload_queue;
 pub mod views;
 pub mod web;
+mod write_timing;
 
 /// Behaviour switches of `shared_server.create_app`.
 #[derive(Debug, Clone)]

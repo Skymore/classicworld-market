@@ -12,8 +12,9 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::{PgConnection, PgPool};
+use sqlx::{PgConnection, PgPool, Postgres, QueryBuilder};
 use std::collections::HashSet;
+use crate::write_timing::{Phase, WriteTiming};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -60,33 +61,43 @@ pub async fn reconcile(
     shop: Option<i64>,
     snapshot: Option<(&str, i64)>,
 ) -> sqlx::Result<()> {
-    sqlx::query("INSERT INTO player_departures
+    let mut query = QueryBuilder::<Postgres>::new("INSERT INTO player_departures
        (collector_id,event_id,world,channel,room,character_id,name,seen_at,observed_at,evidence_kind)
        SELECT DISTINCT r.collector_id,md5('roster:'||r.event_id||':'||s.owner_character_id::text),
          r.world,r.channel,r.room,s.owner_character_id,s.owner_name,r.started_at,r.started_at,'room_roster'
        FROM room_rosters r JOIN shops s ON s.world=r.world AND s.channel=r.channel AND s.room=r.room
-       WHERE ($1::bigint IS NULL OR s.id=$1)
-         AND ($2::text IS NULL OR (r.event_id=$2 AND r.collector_id=$3))
-         AND s.owner_character_id IS NOT NULL AND s.owner_name IS NOT NULL
+       WHERE s.owner_character_id IS NOT NULL AND s.owner_name IS NOT NULL
          AND NOT (s.owner_character_id=ANY(r.character_ids))
-         AND EXISTS (SELECT 1 FROM observations o WHERE o.shop_id=s.id AND o.observed_at < r.started_at)
-       ON CONFLICT DO NOTHING")
-       .bind(shop).bind(snapshot.map(|s|s.0)).bind(snapshot.map(|s|s.1)).execute(conn).await?;
+         AND EXISTS (SELECT 1 FROM observations o WHERE o.shop_id=s.id AND o.observed_at < r.started_at)");
+    // Separate query shapes retain index conditions in generic prepared plans.
+    // Nullable OR predicates otherwise scan every shop while holding the writer lock.
+    if let Some(shop) = shop { query.push(" AND s.id=").push_bind(shop); }
+    if let Some((event, collector)) = snapshot {
+        query.push(" AND r.event_id=").push_bind(event)
+            .push(" AND r.collector_id=").push_bind(collector);
+    }
+    query.push(" ON CONFLICT DO NOTHING").build().execute(conn).await?;
     Ok(())
 }
 
 pub async fn ingest(db: &PgPool, collector: i64, event: &Roster, now: f64) -> sqlx::Result<bool> {
+    let mut timing = WriteTiming::new("roster");
     let mut tx = db.begin().await?;
+    timing.mark(Phase::Pool);
     stats::lock_writes(&mut tx).await?;
+    timing.mark(Phase::Lock);
     let inserted=sqlx::query("INSERT INTO room_rosters(collector_id,event_id,world,channel,room,started_at,observed_at,character_ids)
       VALUES($1,$2,$3,$4,$5,to_timestamp($6),to_timestamp($7),$8) ON CONFLICT DO NOTHING")
       .bind(collector).bind(&event.event_id).bind(&event.world).bind(event.location.channel).bind(event.location.room)
       .bind(event.started_at).bind(event.observed_at).bind(&event.character_ids).execute(&mut *tx).await?.rows_affected();
     if inserted == 0 {
+        timing.duplicate();
         return Ok(false);
     }
     reconcile(&mut tx, None, Some((&event.event_id, collector))).await?;
     let items = presence::expire_room(&mut tx, &event.location).await?;
+    timing.items = items.len();
+    timing.mark(Phase::Write);
     if !items.is_empty() {
         let as_of: f64 = sqlx::query_scalar(
             "UPDATE market_state SET version=version+1 RETURNING extract(epoch FROM as_of)::float8",
@@ -98,7 +109,9 @@ pub async fn ingest(db: &PgPool, collector: i64, event: &Roster, now: f64) -> sq
             .execute(&mut *tx)
             .await?;
     }
+    timing.mark(Phase::Stats);
     tx.commit().await?;
+    timing.committed();
     Ok(true)
 }
 

@@ -13,6 +13,8 @@ FIELD = re.compile(r'(\w+)=(?:"([^"\n]*)"|([^\s]+))')
 CACHE_COUNTS = ("requests", "hits", "rebuilds", "collisions", "evictions", "bypasses",
                 "cold", "expired", "invalidated")
 CACHE_TIMES = ("lookup_ms", "wait_ms", "key_wait_ms", "permit_wait_ms", "build_ms")
+WRITER_TIMES = ("prepare_ms", "pool_ms", "lock_ms", "write_ms", "stats_ms", "commit_ms", "unfinished_ms")
+WATCH_TIMES = ("quotes_ms", "grouping_ms", "metadata_ms")
 
 
 def timing(values):
@@ -28,6 +30,7 @@ def summarize(lines, since, until):
     lanes = defaultdict(Counter)
     routes = defaultdict(list)
     slow_per_minute = Counter()
+    writers, watch = defaultdict(list), []
     uploads, batches, rollbacks = 0, [], 0
     errors, sql_slow, pool_waits = 0, 0, 0
     largest_batch = 0
@@ -65,6 +68,11 @@ def summarize(lines, since, until):
             largest_batch = max(largest_batch, count)
             batches.append(float(fields["elapsed_ms"]))
             rollbacks += fields.get("committed") != "true"
+        if "slow writer phases" in line and fields.get("kind") in ("upload", "roster", "departure"):
+            writers[fields["kind"]].append({name: float(fields[name]) for name in
+                                           ("elapsed_ms", "units", "items", *WRITER_TIMES)})
+        if "slow watch phases" in line:
+            watch.append({name: float(fields[name]) for name in ("elapsed_ms", "rows", *WATCH_TIMES)})
         errors += bool(re.search(r"\bERROR\b", line))
         sql_slow += "summary" in fields and "elapsed_secs" in fields
         pool_waits += "aquired_after_secs" in fields or "acquired_after_secs" in fields
@@ -77,10 +85,16 @@ def summarize(lines, since, until):
             divisor = values[field + "_samples"]
             row["mean_" + field] = round(values[field] / divisor, 3) if divisor else None
         cache[name] = row
+    def phases(rows, names):
+        return {**timing([row["elapsed_ms"] for row in rows]),
+                **{"mean_" + name: round(statistics.mean(row[name] for row in rows), 3) for name in names}}
     return {"since": since.isoformat(), "until": until.isoformat(), "cache": cache,
             "slow_requests_only": {name: timing(values) for name, values in
                                    sorted(routes.items(), key=lambda entry: -sum(entry[1]))},
             "slow_requests_per_minute": dict(sorted(slow_per_minute.items())),
+            "slow_writer_phases_only": {kind: phases(rows, ("units", "items", *WRITER_TIMES))
+                                        for kind, rows in writers.items()},
+            "slow_watch_phases_only": phases(watch, ("rows", *WATCH_TIMES)) if watch else {"count": 0},
             "upload_batches": {**timing(batches), "uploads": uploads, "largest_batch": largest_batch,
                                "mean_batch_size": round(uploads / len(batches), 2) if batches else None,
                                "rolled_back": rollbacks},
