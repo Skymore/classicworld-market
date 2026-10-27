@@ -14,7 +14,7 @@ import { mobImg } from "/web/js/lib/format.js";
 import { useWords } from "../providers";
 import { useMarketQuery } from "../lib/query";
 import { OfferRow } from "../components/list-rows";
-import type { Market, Product, Sale } from "../lib/types";
+import type { Product, Sale } from "../lib/types";
 import {
   Search,
   Icon,
@@ -39,8 +39,8 @@ export default function Home() {
   const words = useWords();
   const period = usePeriod();
   const [tab, setTab] = useState("recent");
-  const market = useMarketQuery<Market>(
-    `/api/v1/market?view=list&hours=${period.hours}`,
+  const market = useMarketQuery<{ product_count: number; changes: Product[]; busy: Product[] }>(
+    `/api/v1/market/overview?hours=${period.hours}`,
     period.ready,
   );
   const sales = useMarketQuery<{ sales: Sale[]; generated_at: number }>(
@@ -55,7 +55,6 @@ export default function Home() {
     true,
     false,
   );
-  const products = market.data?.products.map<Product>(periodProduct) || [];
   const wide = matchMedia("(min-width:641px)").matches;
   const tabs = {
     recent: words("最近成交", "Recent sales"),
@@ -117,7 +116,7 @@ export default function Home() {
       return <ErrorState retry={() => void market.refetch()} />;
     if (!market.data) return <Loading />;
     const rows = (
-      key === "changes" ? byChange(products) : byBusy(products)
+      key === "changes" ? byChange((market.data.changes || []).map(periodProduct)) : byBusy((market.data.busy || []).map(periodProduct))
     ).slice(0, 8);
     return rows.length ? (
       <div
@@ -161,8 +160,8 @@ export default function Home() {
             <small data-count="prices">
               {market.data
                 ? words(
-                    `${num(products.length)} 件物品`,
-                    `${num(products.length)} items`,
+                    `${num(market.data.product_count)} 件物品`,
+                    `${num(market.data.product_count)} items`,
                   )
                 : "—"}
             </small>

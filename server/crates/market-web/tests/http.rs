@@ -135,6 +135,60 @@ async fn list_view_is_slim_and_revalidates() {
 }
 
 #[tokio::test]
+async fn page_delivery_revalidates_unchanged_items_and_limits_market_payloads() {
+    let Some(db) = TestDb::new().await else { return };
+    let (client, token) = market(&db).await;
+    let auth = format!("Bearer {token}");
+    let now = unix_now();
+    assert_eq!(client.post("/api/v1/observations", &observation("live",now,5), &[("authorization",&auth)]).await.status(), StatusCode::CREATED);
+    let paths = ["/api/v1/watchlist/listings?ids=4010001", "/api/v1/catalog/page?url=%2Fitem%2F4010001", "/api/v1/market/selected?ids=4010001"];
+    let mut tags = Vec::new();
+    for path in paths {
+        let response = client.get(path, &[]).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "private, no-cache");
+        tags.push(response.headers()[header::ETAG].to_str().unwrap().to_owned());
+    }
+    // The HTML seed carries the same validator, including its unit and filters.
+    let html = client.get("/item/4010001", &[]).await.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(html.to_vec()).unwrap();
+    let seed = html.split("id=\"catalog-snapshot\"").nth(1).unwrap().split_once('>').unwrap().1.split("</script>").next().unwrap();
+    let seed: Value = serde_json::from_str(seed).unwrap();
+    assert_eq!(seed["etag"], tags[1]);
+    let mut other = observation("unrelated",now+1.,4);
+    other["shop_id"] = json!(8); other["items"][0]["item_id"] = json!(4010002);
+    assert_eq!(client.post("/api/v1/observations", &other, &[("authorization",&auth)]).await.status(), StatusCode::CREATED);
+    // New state forces a fresh rebuild: validators must survive cache expiry
+    // and global clock/version changes, not just the 2-second snapshot hit.
+    let fresh = Client::new(&db, true);
+    for (path, tag) in paths.iter().zip(&tags) {
+        let response = fresh.get(path, &[("if-none-match", tag)]).await;
+        assert_eq!(response.status(), StatusCode::NOT_MODIFIED, "{path}");
+        assert!(response.into_body().collect().await.unwrap().to_bytes().is_empty());
+    }
+    let selected = json_body(fresh.get(paths[2], &[]).await).await;
+    assert_eq!(selected["products"].as_array().unwrap().len(), 1);
+    assert_eq!(selected["products"][0]["item_id"], 4010001);
+    let other_selected = json_body(fresh.get("/api/v1/market/selected?ids=4010002", &[]).await).await;
+    assert_eq!(other_selected["products"].as_array().unwrap().len(),1);
+    assert_eq!(other_selected["products"][0]["item_id"],4010002,"shared projection cannot reuse another watch's selection");
+    let overview = json_body(fresh.get("/api/v1/market/overview", &[]).await).await;
+    assert_eq!(overview["product_count"], 2);
+    assert!(overview.get("products").is_none());
+    assert!(overview["busy"].as_array().unwrap().len() <= 8);
+    assert_eq!(fresh.get("/api/v1/market/selected?ids=invalid", &[]).await.status(),StatusCode::BAD_REQUEST);
+    assert_eq!(client.post("/api/v1/observations", &observation("changed",now+2.,3), &[("authorization",&auth)]).await.status(),StatusCode::CREATED);
+    for (path, tag) in paths.iter().zip(&tags) {
+        let response = fresh.get(path, &[("if-none-match",tag)]).await;
+        assert_eq!(response.status(),StatusCode::OK,"changed {path}");
+        assert_ne!(response.headers()[header::ETAG],tag.as_str());
+    }
+    let private = Client::new(&db, false);
+    assert_eq!(private.get("/api/v1/market/overview", &[]).await.status(),StatusCode::UNAUTHORIZED);
+    db.close().await;
+}
+
+#[tokio::test]
 async fn an_upload_changes_the_list_tag() {
     let Some(db) = TestDb::new().await else {
         return;

@@ -1,5 +1,21 @@
 # 枫叶市集服务（Rust）
 
+## 页面数据传输
+
+`/api/v1/market/overview?hours=72|all` 返回物品数量、涨跌榜和成交榜各前 8 项；
+最新报价和成交继续使用各自的限量接口。`/api/v1/market/selected?ids=...&hours=72|all`
+只返回指定物品，关注页不再下载全价格表。服务端每个周期仅保留一份当前版本的
+解析结果与首页摘要，同一版本的并发请求复用计算。
+
+图鉴快照、关注报价及上述小接口支持弱 ETag / 304，忽略响应生成时间和全站新鲜度
+时钟，价格、库存、筛选结果和时段边界变化仍会改变验证器。物品修订号仍控制
+服务端快照失效，原有 2 秒时效检查保持不变。HTML 首屏同时携带同一验证器；
+缺省周期与 72h 使用相同前端缓存键，自动周期相同时不改写地址。
+默认周期提示在内存中合并并发计算并缓存 5 分钟，不随全站上传版本失效。
+
+回归包括 `http::page_delivery_revalidates_unchanged_items_and_limits_market_payloads`、
+`delivery` 单元测试和 `web/tests/item-detail-loading.e2e.mjs` 的默认周期及初次 SSE 304 场景。
+
 计划见 `../REDESIGN_PLAN_V2.md`。工作区三个 crate：
 
 - `crates/market-core`：协议校验、定价、成交统计、读取器算法。无 IO，也编译成 WASM。

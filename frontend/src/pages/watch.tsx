@@ -80,7 +80,10 @@ export default function Watch() {
     [all, setAll] = useState(false),
     [notice, setNotice] = useState("");
   const composing = useRef(false);
-  const market = useMarketQuery<any>(api.list());
+  const market = useMarketQuery<any>(
+    "/api/v1/market/selected" + qs({ hours: "72", ids: [...ids].sort((a, b) => a - b).join(",") }),
+    ids.length > 0,
+  );
   const presets = useMarketQuery<any>(
     api.watchCatalog() + qs({ q: "" }),
     true,

@@ -23,6 +23,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/v1/account') data = { signed_in: false };
     if (url.pathname === '/api/v1/crafting/prices') data = { prices: [] };
     if (url.pathname === '/api/v1/market') data = { as_of: now + generation, products: [product] };
+    if (url.pathname === '/api/v1/market/overview') data = { as_of: now + generation, product_count: 1, changes: [], busy: [product] };
     if (url.pathname === '/api/v1/market/period-default') data = { default_hours: 'all' };
     if (url.pathname === '/api/v1/sales/recent') {
       saleReads++;

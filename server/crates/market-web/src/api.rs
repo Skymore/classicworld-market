@@ -56,6 +56,8 @@ pub fn router() -> Router<AppState> {
             get(crate::collector_updates::events),
         )
         .route("/api/v1/market", get(market))
+        .route("/api/v1/market/overview", get(market_overview))
+        .route("/api/v1/market/selected", get(market_selected))
         .route("/api/v1/sales/recent", get(sales_recent))
         .route("/api/v1/quotes/recent", get(quotes_recent))
         .route("/api/v1/market/records", get(market_records))
@@ -207,14 +209,14 @@ fn etag(version: i64, key: &str) -> String {
 }
 
 /// `market_views.not_modified`.
-fn not_modified(headers: &HeaderMap, tag: &str) -> bool {
+pub(crate) fn not_modified(headers: &HeaderMap, tag: &str) -> bool {
     headers
         .get(header::IF_NONE_MATCH)
         .and_then(|v| v.to_str().ok())
         .is_some_and(|v| {
             v.split(',')
                 .map(|t| t.trim().trim_start_matches("W/"))
-                .any(|t| t == tag || t == "*")
+                .any(|t| t == tag.trim_start_matches("W/") || t == "*")
         })
 }
 
@@ -231,7 +233,7 @@ pub(crate) fn json_response(tag: Option<&str>, body: Vec<u8>) -> Response {
     response
 }
 
-fn unchanged(tag: &str) -> Response {
+pub(crate) fn unchanged(tag: &str) -> Response {
     let mut response = StatusCode::NOT_MODIFIED.into_response();
     response
         .headers_mut()
@@ -494,6 +496,32 @@ async fn repair_owner(State(state): State<AppState>, headers: HeaderMap, body: B
             "Owner enrichment requires matching original observation",
         ),
         Err(IngestError::Db(err)) => internal(err),
+    }
+}
+
+async fn market_overview(State(state): State<AppState>, ClientAddr(addr): ClientAddr,
+    headers: HeaderMap, RawQuery(query): RawQuery) -> Response {
+    market_projection(state, addr, headers, query, true).await
+}
+
+async fn market_selected(State(state): State<AppState>, ClientAddr(addr): ClientAddr,
+    headers: HeaderMap, RawQuery(query): RawQuery) -> Response {
+    market_projection(state, addr, headers, query, false).await
+}
+
+async fn market_projection(state: AppState, addr: String, headers: HeaderMap, query: Option<String>, overview: bool) -> Response {
+    if let Err(response) = reader(&state, &headers, &addr, "read").await { return response; }
+    let Some(hours) = Hours::parse(query_param(&query, "hours").as_deref()) else {
+        return error(StatusCode::BAD_REQUEST, "hours must be 72 or all");
+    };
+    let Some(ids) = views::parse_item_ids(&query_param(&query, "ids").unwrap_or_default()) else {
+        return error(StatusCode::BAD_REQUEST, "Invalid item IDs");
+    };
+    match state.market_lists.projection(&state.db, hours, state.settings.public_read, if overview {None} else {Some(&ids)}).await {
+        Ok(value) => {
+            crate::delivery::revalidate(&headers, &format!("projection:{overview}:{}:{ids:?}", hours.key()), value)
+        }
+        Err(err) => internal(err),
     }
 }
 
@@ -825,7 +853,7 @@ async fn watch_listings(
     match state.public_reads.get_items(&state.db, &key, &ids, async {
         views::watch_listings(&state.db, &ids, unix_now()).await.map(Some)
     }).await {
-        Ok(Some(value)) => Json(value).into_response(),
+        Ok(Some(value)) => crate::delivery::revalidate(&headers, &key, value),
         Ok(None) => unreachable!("watch snapshot always exists"),
         Err(err) => internal(err),
     }

@@ -3,7 +3,7 @@
 
 use axum::{
     extract::{Path, Query, State},
-    http::{header, HeaderValue, StatusCode},
+    http::{header, HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
     Router,
@@ -473,20 +473,20 @@ struct CatalogRequest {
 async fn catalog_page(
     State(state): State<AppState>,
     Query(request): Query<CatalogRequest>,
+    headers: HeaderMap,
 ) -> Response {
     use axum::{http::Uri, Json};
     use serde_json::json;
     fn response(status: StatusCode, value: serde_json::Value) -> Response {
         (status, [(header::CACHE_CONTROL, NO_STORE)], Json(value)).into_response()
     }
-    fn loaded<T: serde::Serialize>(result: sqlx::Result<Option<T>>, kind: &str) -> Response {
+    fn loaded<T: serde::Serialize>(result: sqlx::Result<Option<T>>, kind: &str, headers: &HeaderMap) -> Response {
         #[derive(serde::Serialize)]
         struct Snapshot<'a, T> { kind: &'a str, page: T }
         match result {
-            // Serialize the envelope directly. json! would first copy the full
-            // cached history into another Value tree on every cache hit.
-            Ok(Some(page)) => (StatusCode::OK, [(header::CACHE_CONTROL, NO_STORE)],
-                Json(Snapshot { kind, page })).into_response(),
+            // Conditional requests keep unchanged snapshots off the wire.
+            Ok(Some(page)) => crate::delivery::revalidate(headers, kind,
+                serde_json::to_value(Snapshot { kind, page }).expect("catalog snapshot")),
             Ok(None) => response(StatusCode::NOT_FOUND, json!({"error":"not_found"})),
             Err(error) => {
                 tracing::error!(%error,"catalog snapshot failed");
@@ -535,7 +535,7 @@ async fn catalog_page(
             )
             .await
             .map(Some),
-            "search",
+            "search", &headers,
         );
     }
     if path == "/route" {
@@ -546,7 +546,7 @@ async fn catalog_page(
             route_page(&state, clip(&params.from), clip(&params.to))
                 .await
                 .map(Some),
-            "route",
+            "route", &headers,
         );
     }
     let Some((kind, raw)) = path.trim_start_matches('/').split_once('/') else {
@@ -570,7 +570,7 @@ async fn catalog_page(
                             || !selection.equipment.is_empty() {
                             return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_query"}));
                         }
-                        return loaded(queries::item_preview(&state.db, id, params.hours == "all").await, "item_preview");
+                        return loaded(queries::item_preview(&state.db, id, params.hours == "all").await, "item_preview", &headers);
                     }
                     let key = format!("item:{id}:{}:{:?}:{:?}:{}", params.hours == "all",
                         selection.variant, selection.attributes, selection.equipment);
@@ -594,11 +594,11 @@ async fn catalog_page(
                     })
                     }).await
                 },
-                "item",
+                "item", &headers,
             )
         }
-        "mob" => loaded(queries::mob_page(&state.db, id).await, "mob"),
-        "map" => loaded(queries::map_page(&state.db, id).await, "map"),
+        "mob" => loaded(queries::mob_page(&state.db, id).await, "mob", &headers),
+        "map" => loaded(queries::map_page(&state.db, id).await, "map", &headers),
         _ => response(StatusCode::NOT_FOUND, json!({"error":"not_found"})),
     }
 }

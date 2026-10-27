@@ -560,7 +560,7 @@ export default function Item({ page }: { page: any }) {
   useEffect(() => {
     if (
       period.ready &&
-      new URLSearchParams(route.search).get("hours") !== period.hours
+      (new URLSearchParams(route.search).get("hours") || "72") !== period.hours
     ) {
       const params = new URLSearchParams(route.search);
       params.set("hours", period.hours);

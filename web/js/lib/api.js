@@ -3,6 +3,11 @@ import { subscribeMarket } from './realtime.js?v=20261022-regressions-1';
 // If-None-Match so unchanged data costs a 304 (plan v1 搂8.5: <100 KB/min idle).
 const cache = new Map(); // url -> { etag, data }
 
+// Public server-rendered snapshots can revalidate on the initial SSE event too.
+export function seedJson(url, data, etag, checkedAt = Date.now()) {
+  if (typeof etag === 'string') cache.set(url, { data, etag, checkedAt });
+}
+
 export class ApiError extends Error {
   constructor(status, url) {
     super(`${status} ${url}`);

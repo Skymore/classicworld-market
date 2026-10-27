@@ -23,10 +23,13 @@ pub fn item_page(page: &ItemPage, ctx: &Ctx) -> Markup {
     let fresh = page.market.as_of.map(|_| fresh_text(&v));
     // Reuse the public data already read for this first paint. Escape raw-text
     // delimiters: item/shop names must never be able to close the JSON script.
+    let mut data = serde_json::json!({"kind":"item", "page":page});
+    data["page"]["unit"] = serde_json::json!(crate::external::unit(page.item.id));
+    let tag = crate::delivery::tag("item", &mut data);
     let snapshot = serde_json::json!({
         "url": ctx.here,
         "updatedAt": ctx.now.timestamp_millis(),
-        "data": {"kind": "item", "page": page},
+        "data": data, "etag":tag,
     })
     .to_string()
     .replace('&', "\\u0026")

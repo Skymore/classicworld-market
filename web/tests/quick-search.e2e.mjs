@@ -44,9 +44,9 @@ const server = createServer(async (req, res) => {
     let body = {};
     if (url.pathname === '/api/v1/account') body = { signed_in: false };
     if (url.pathname === '/api/v1/market/period-default') body = { default_hours: 'all' };
-    if (url.pathname === '/api/v1/market') {
+    if (['/api/v1/market','/api/v1/market/overview'].includes(url.pathname)) {
       marketReads++;
-      body = { as_of: now + generation, products: [] };
+      body = { as_of: now + generation, products: [], product_count: 0, changes: [], busy: [] };
     }
     if (url.pathname === '/api/v1/sales/recent') {
       body = { generated_at: now + generation, sales: [] };

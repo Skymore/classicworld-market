@@ -8,7 +8,7 @@ import path from 'node:path';
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const streams = new Set();
-let reads = 0, revision = 0, stale = false, delay = 0, craftReads = 0;
+let reads = 0, revision = 0, stale = false, delay = 0, craftReads = 0, unchanged = 0;
 const now = Date.now();
 const snapshot = () => ({kind:'item', page:{
   item:{id:4010001,name_zh:'青铜母矿',name_en:'Bronze Ore',category:'其他'},
@@ -26,11 +26,14 @@ const server = createServer(async(req,res)=>{
   }
   if(url.pathname==='/api/v1/catalog/page'){
     reads++;const value=snapshot();
+    const tag=`W/"fixture-${revision}"`;res.setHeader('ETag',tag);
+    if(req.headers['if-none-match']===tag){unchanged++;res.writeHead(304);return res.end();}
     if(delay)return setTimeout(()=>json(res,value),delay);
     return json(res,value);
   }
   if(url.pathname==='/api/v1/crafting/prices'){craftReads++;return json(res,{prices:[]});}
   if(url.pathname==='/api/v1/account')return json(res,{signed_in:false});
+  if(url.pathname==='/api/v1/market/period-default')return json(res,{default_hours:'72'});
   if(url.pathname.startsWith('/api/'))return json(res,{});
   if(url.pathname.startsWith('/web/')){
     const file=path.resolve(root,'.'+url.pathname.slice(4));
@@ -38,7 +41,7 @@ const server = createServer(async(req,res)=>{
     try {res.setHeader('Content-Type',file.endsWith('.css')?'text/css':'text/javascript');res.end(await readFile(file));}
     catch {res.writeHead(404);res.end();}return;
   }
-  const seed={url:'/item/4010001?hours=all',updatedAt:Date.now()-(stale?60000:0),data:snapshot()};
+  const seed={url:url.pathname+url.search,etag:`W/"fixture-${revision}"`,updatedAt:Date.now()-(stale?60000:0),data:snapshot()};
   const html=(await readFile(path.join(root,'index.html'),'utf8')).replace('</body>',
     `<script id="catalog-snapshot" type="application/json">${JSON.stringify(seed).replaceAll('<','\\u003c')}</script></body>`);
   res.setHeader('Content-Type','text/html');res.end(html);
@@ -85,5 +88,18 @@ try {
   assert.equal(reads,before+1,'an old cached HTML snapshot must refresh');
   assert.equal(craftReads,0,'items without recipes must not fetch crafting prices');
   assert.deepEqual(errors,[]);
+  await page.close();stale=false;
+  const defaultPage=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+  const defaultReads=reads;
+  await defaultPage.goto(origin+'/item/4010001?lang=zh');
+  await defaultPage.locator('[data-react-catalogue="item"]').waitFor();
+  await defaultPage.waitForTimeout(200);
+  assert.equal(reads,defaultReads,'default 72h must reuse the HTML snapshot');
+  assert.equal(new URL(defaultPage.url()).searchParams.has('hours'),false,'do not rewrite the unchanged default period');
+  const response=defaultPage.waitForResponse(r=>r.url().includes('/api/v1/catalog/page'));
+  for(const stream of streams)stream.write('event: market\ndata: {}\n\n');
+  assert.equal((await response).status(),304,'first unchanged SSE reuses the seeded validator');
+  assert(unchanged>0);
+  assert.equal(await defaultPage.locator('.where-well [data-quote]').count(),50,'304 retains rendered data');
   console.log('PASS item detail: no duplicate fresh request; cheapest 50 first; show all survives SSE; stale HTML refresh');
 }finally{await browser.close();for(const stream of streams)stream.end();await new Promise(resolve=>server.close(resolve));}

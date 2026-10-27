@@ -215,6 +215,22 @@ impl PublicReadCache {
 
 type Entry = Option<(i64, Vec<u8>)>;
 
+#[cfg(test)]
+mod hint_tests {
+    use super::*;
+    #[tokio::test]
+    async fn period_hint_coalesces_and_expires_without_market_invalidation() {
+        let cache=MarketListCache::default();
+        let calls=AtomicU64::new(0);
+        let build=|| async { calls.fetch_add(1,Ordering::Relaxed); tokio::task::yield_now().await; Ok(b"hint".to_vec()) };
+        let (a,b)=tokio::join!(cache.period_hint(build()),cache.period_hint(build()));
+        assert_eq!(a.unwrap(),b.unwrap());assert_eq!(calls.load(Ordering::Relaxed),1);
+        cache.period_hint(build()).await.unwrap();assert_eq!(calls.load(Ordering::Relaxed),1);
+        cache.period_hint.lock().await.as_mut().unwrap().0=Instant::now()-std::time::Duration::from_secs(301);
+        cache.period_hint(build()).await.unwrap();assert_eq!(calls.load(Ordering::Relaxed),2);
+    }
+}
+
 type ReportEntry = Option<(i64, String, Vec<u8>)>;
 
 #[derive(Clone, Copy)]
@@ -225,6 +241,8 @@ pub enum Report {
 }
 
 pub struct MarketListCache {
+    period_hint: Mutex<Option<(Instant, Vec<u8>)>>,
+    projections: [Mutex<Option<(i64, serde_json::Value, serde_json::Value)>>; 2],
     recent: Mutex<Entry>,
     all: Mutex<Entry>,
     reports: [Mutex<ReportEntry>; 9],
@@ -235,6 +253,8 @@ pub struct MarketListCache {
 impl Default for MarketListCache {
     fn default() -> Self {
         Self {
+            period_hint: Mutex::new(None),
+            projections: std::array::from_fn(|_| Mutex::new(None)),
             recent: Mutex::new(None),
             all: Mutex::new(None),
             reports: std::array::from_fn(|_| Mutex::new(None)),
@@ -245,6 +265,34 @@ impl Default for MarketListCache {
 }
 
 impl MarketListCache {
+    pub async fn projection(&self, db: &PgPool, hours: Hours, public: bool, ids: Option<&[i32]>)
+        -> sqlx::Result<serde_json::Value> {
+        let slot=usize::from(matches!(hours, Hours::All));
+        let mut entry=self.projections[slot].lock().await;
+        let revision=views::version(db).await?;
+        if entry.as_ref().is_none_or(|(version,_,_)| *version!=revision) {
+            // Decode the full table once per committed version, never once per
+            // visitor or watch combination. Only two bounded snapshots remain.
+            let (version,body)=self.get(db,hours,public).await?;
+            let market=serde_json::from_slice(&body).expect("cached market JSON");
+            let overview=crate::delivery::overview(&market);
+            *entry=Some((version,market,overview));
+        }
+        let (_,market,overview)=entry.as_ref().unwrap();
+        Ok(match ids { Some(ids)=>crate::delivery::selected(market,ids), None=>overview.clone() })
+    }
+
+    pub async fn period_hint<F>(&self, build: F) -> sqlx::Result<Vec<u8>>
+    where F: std::future::Future<Output = sqlx::Result<Vec<u8>>> {
+        let mut entry = self.period_hint.lock().await;
+        if let Some((at, body)) = entry.as_ref() {
+            if at.elapsed().as_secs() < 300 { return Ok(body.clone()); }
+        }
+        let body = build.await?;
+        *entry = Some((Instant::now(), body.clone()));
+        Ok(body)
+    }
+
     pub async fn personal_stats(
         &self,
         db: &PgPool,

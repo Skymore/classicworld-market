@@ -20,7 +20,8 @@ const server=createServer(async(req,res)=>{
  const url=new URL(req.url,'http://localhost');
  if(url.pathname==='/api/v1/events'){res.writeHead(200,{'Content-Type':'text/event-stream'});res.write(': ready\n\n');streams.add(res);req.on('close',()=>streams.delete(res));return;}
  if(url.pathname==='/api/v1/account')return json(res,{signed_in:false});
- if(url.pathname==='/api/v1/market')return json(res,{products,as_of:now()});
+ if(url.pathname==='/api/v1/market/selected')return json(res,{products:products.filter(p=>url.searchParams.get('ids').split(',').map(Number).includes(p.item_id)),as_of:now()});
+ if(url.pathname==='/api/v1/market')throw Error('watch page must not download the complete price table');
  if(url.pathname==='/api/v1/market/period-default')return json(res,{default_hours:'all'});
  if(url.pathname==='/api/v1/watchlist/catalog')return json(res,{items:products,presets:[]});
  if(url.pathname==='/api/v1/watchlist/listings'){
