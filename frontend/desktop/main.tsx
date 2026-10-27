@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Play, Pause, Square, Sun, Moon, Monitor, RefreshCw, UserRound, Minus, X, ArrowUpRight, Package, Clock3, ScanLine, MousePointer2, AlertCircle } from 'lucide-react';
 import '../../web/css/base.css';
 import './style.css';
+import Workspace from './workspace';
 
 type State = {
   version: string; phase: string; mode: string; message: string; room: number | null;
@@ -13,13 +14,14 @@ type State = {
   theme: 'light' | 'dark' | 'system'; activities: { at: number; text: string; kind: string }[];
   sweep?: {enabled:boolean;units:number;spent:number;message:string};
 };
-declare global { interface Window { pywebview?: { api: { ready(): Promise<State>; command(name: string, value?: unknown): Promise<State> } } } }
+declare global { interface Window { pywebview?: { api: { ready(): Promise<State>; command(name: string, value?: unknown): Promise<State>; workspace(name:string,value?:unknown):Promise<any> } } } }
 const initial: State = { version: '', phase: 'idle', mode: 'scan', message: '正在连接采集器…', room: null, channel: null, visited: 0, uploaded: 0, started_at: null, stopped_at: null, run_shops: 0, run_items: 0, run_started_at: null, capture: 'connecting', upload: 'ready', last_shop_at: null, updates: 'checking', selected: null, windows: [], theme: 'system', activities: [] };
 const phases: Record<string, string> = { idle: '准备就绪', scanning: '扫描中', paused: '已暂停', stopping: '正在停止', stopped: '已停止', error: '需要处理' };
 const health: Record<string, string> = { connecting: '正在连接', connected: '游戏已连接', capturing: '正在采集', waiting: '等待游戏连接', handshake: '请切一次频道', no_game: '等待打开游戏', no_inbound: '等待游戏数据', offline: '尚未连接', parse_error: '连接需要刷新' };
 function Leaf() { return <img src={new URL('../../assets/app-icon.svg', import.meta.url).href} width="34" height="34" alt="" aria-hidden="true" />; }
 function elapsed(start: number | null, now: number) { if (!start) return '—'; const secs = Math.max(0, Math.floor(now / 1000 - start)); return `${Math.floor(secs / 3600) ? `${Math.floor(secs / 3600)}:` : ''}${String(Math.floor(secs / 60) % 60).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`; }
 function App() {
+  const [tab,setTab]=useState<'scan'|'watch'|'account'>('scan');
   const [state, setState] = useState<State>(initial), [connected, setConnected] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(''), [now, setNow] = useState(Date.now());
   const [selected, setSelected] = useState<number | null>(null);
   useEffect(() => {
@@ -43,15 +45,17 @@ function App() {
   return <div className="desktop-app">
     <header className="app-header"><div className="app-brand pywebview-drag-region"><Leaf /><div><strong>枫叶市集</strong><span>扫描与采集</span></div></div><div className="header-tools">
       <div className="theme-switch" aria-label="主题">{([['system',Monitor,'跟随系统'],['light',Sun,'浅色主题'],['dark',Moon,'深色主题']] as const).map(([value, Icon, label]) => <button key={value} title={label} aria-label={label} aria-pressed={state.theme === value} onClick={() => action('theme',value)} disabled={!connected || busy}><Icon size={17}/></button>)}</div>
-      <button className="icon-btn" title="账号与提醒" aria-label="账号与提醒" onClick={() => action('account')} disabled={!connected || busy}><UserRound size={19}/></button>
+      <button className="icon-btn" title="账号与提醒" aria-label="账号与提醒" onClick={() => setTab('account')} disabled={!connected || busy}><UserRound size={19}/></button>
       <div className="window-controls" aria-label="窗口操作">
         <button title="最小化" aria-label="最小化" onClick={() => action('window','minimize')} disabled={!connected}><Minus size={17}/></button>
         <button className="window-close" title="关闭" aria-label="关闭" onClick={() => action('window','close')} disabled={!connected}><X size={19}/></button>
       </div>
     </div></header>
-    <main className="desktop-main">
-      <div className="page-heading"><div><div className="eyebrow">FREE MARKET</div><h1>让逛摊，更轻松。</h1><p>自动扫店，发现好价。每一份报价，都与大家共享。</p></div><div className="desktop-watch-actions"><button className="text-link" onClick={() => action('watch')} disabled={!connected}>关注与扫货 <ArrowUpRight size={16}/></button><button className="text-link" onClick={() => action('website')} disabled={!connected}>打开市集 <ArrowUpRight size={16}/></button></div></div>
-      {state.sweep&&<div className="desktop-sweep-status"><span>扫货内测 · {state.sweep.enabled?'模拟中':'模拟已停止'} · {state.sweep.units} 件 · {Number(state.sweep.spent).toLocaleString()} 金币</span><button className="text-link" onClick={()=>action('watch')}>查看记录</button></div>}
+    <nav className="desktop-tabs" aria-label="功能"><button aria-pressed={tab==='scan'} onClick={()=>setTab('scan')}>扫描采集</button><button aria-pressed={tab==='watch'} onClick={()=>setTab('watch')}>关注与扫货</button><button aria-pressed={tab==='account'} onClick={()=>setTab('account')}>账号</button></nav>
+    <main className={'desktop-main'+(tab!=='scan'?' workspace-main':'')}>
+      {tab==='scan'?<>
+      <div className="page-heading"><div><div className="eyebrow">FREE MARKET</div><h1>让逛摊，更轻松。</h1><p>自动扫店，发现好价。每一份报价，都与大家共享。</p></div><div className="desktop-watch-actions"><button className="text-link" onClick={() => setTab('watch')} disabled={!connected}>关注与扫货 <ArrowUpRight size={16}/></button><button className="text-link" onClick={() => action('website')} disabled={!connected}>打开市集 <ArrowUpRight size={16}/></button></div></div>
+      {state.sweep&&<div className="desktop-sweep-status"><span>扫货内测 · {state.sweep.enabled?'模拟中':'模拟已停止'} · {state.sweep.units} 件 · {Number(state.sweep.spent).toLocaleString()} 金币</span><button className="text-link" onClick={()=>setTab('watch')}>查看记录</button></div>}
       {error && <div role="alert" className="error-banner"><AlertCircle size={18}/><span>{error}</span></div>}
       <section className="stall scan-panel" aria-label="扫描控制"><div className="stall-bar"><ScanLine size={18}/><h2>开始采集</h2><span className={`connection ${live?'live':''}`}><i/>{health[state.capture] || '等待游戏连接'}</span></div>
         <div className="scan-body"><div className="mode-tabs" role="group" aria-label="采集方式"><button aria-pressed={state.mode==='scan'} disabled={!connected || active || busy} onClick={() => action('mode','scan')}><ScanLine size={17}/>自动扫描</button><button aria-pressed={state.mode==='manual'} disabled={!connected || active || busy} onClick={() => action('mode','manual')}><MousePointer2 size={17}/>手动逛摊</button></div>
@@ -66,6 +70,7 @@ function App() {
       </div></section>
       <div className="bottom-grid"><section className="stall activity-panel" aria-label="最近动态"><div className="stall-bar"><h2>最近动态</h2><span className="bar-meta">实时更新</span></div><div className="activity-list">{state.activities.length ? state.activities.slice(0,4).map((item,i) => <div className={`activity ${item.kind}`} key={`${item.at}-${i}`}><i/><span>{item.text}</span><time>{new Date(item.at*1000).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</time></div>) : <div className="activity-empty">开始扫描后，进度会显示在这里。</div>}</div></section>
       </div>
+      </>:<Workspace tab={tab}/> }
     </main>
     <footer className="app-footer"><span><kbd>F9</kbd> 停止扫描 <b>·</b> 扫描时保持游戏在前台</span><span>{state.version?`v${state.version}`:'正在连接'} <b>·</b> {state.updates==='waiting_for_game_exit'?'新版本已就绪，退出游戏后更新':state.updates==='retry_later'?'稍后重试更新':'自动更新已开启'}</span></footer>
   </div>;

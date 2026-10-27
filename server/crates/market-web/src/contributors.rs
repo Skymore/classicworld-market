@@ -97,7 +97,7 @@ fn bearer(headers: &HeaderMap) -> Option<&str> {
         .ok()?
         .strip_prefix("Bearer ")
 }
-async fn collector(state: &AppState, headers: &HeaderMap) -> Result<auth::Collector, Response> {
+pub(crate) async fn collector(state: &AppState, headers: &HeaderMap) -> Result<auth::Collector, Response> {
     auth::authenticate(&state.db, bearer(headers))
         .await
         .map_err(internal)?

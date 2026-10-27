@@ -25,6 +25,8 @@ const DUMMY_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$MDEyMzQ1Njc4OWFiY2RlZg$
 
 pub fn router() -> Router<AppState> {
     Router::new()
+        .route("/api/v1/collector/watch-data", get(collector_watch_data).post(collector_save_watch))
+        .route("/api/v1/collector/account-disconnect", post(collector_disconnect))
         .route("/api/v1/account/register", post(register))
         .route("/api/v1/account/login", post(login))
         .route("/api/v1/account/password", post(password))
@@ -840,9 +842,73 @@ async fn write_data(state: AppState, headers: HeaderMap, input: Changes, import:
     }
 }
 
+// A linked collector can synchronize watch rules only, never account credentials.
+async fn collector_watch_data(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let c = match identity::collector(&state, &headers).await { Ok(c)=>c, Err(e)=>return e };
+    collector_watch_snapshot(&state.db,c.id).await
+}
+async fn collector_watch_snapshot(db: &PgPool, collector: i64) -> Response {
+    let account: Option<(i64,String,String)> = match sqlx::query_as("SELECT a.id,a.public_id,a.nickname FROM collectors c JOIN accounts a ON a.id=c.account_id WHERE c.id=$1 AND c.active")
+        .bind(collector).fetch_optional(db).await { Ok(a)=>a,Err(e)=>return internal(e) };
+    let Some((id,public_id,nickname))=account else { return Json(json!({"linked":false,"records":[]})).into_response() };
+    let records: Vec<Record> = match sqlx::query_as("SELECT kind,key,value,version FROM account_data WHERE account_id=$1 AND (kind='watch' OR (kind='pref' AND key='watch.sweepSettings')) ORDER BY kind,key")
+        .bind(id).fetch_all(db).await { Ok(v)=>v,Err(e)=>return internal(e) };
+    Json(json!({"linked":true,"public_id":public_id,"nickname":nickname,"records":records})).into_response()
+}
+#[derive(Deserialize)]
+struct CollectorChanges { account: String, operations: Vec<Record> }
+fn valid_collector_changes(input: &CollectorChanges) -> bool {
+    !input.operations.is_empty() && input.operations.len()<=120 && input.operations.iter().all(|r|
+        valid_record(r) && (r.kind=="watch" || (r.kind=="pref" && r.key=="watch.sweepSettings")))
+        && input.operations.iter().map(|r|(&r.kind,&r.key)).collect::<std::collections::HashSet<_>>().len()==input.operations.len()
+}
+async fn collector_save_watch(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<CollectorChanges>) -> Response {
+    let c=match identity::collector(&state,&headers).await { Ok(c)=>c,Err(e)=>return e };
+    if !valid_collector_changes(&input) { return error(StatusCode::BAD_REQUEST,"invalid_data") }
+    let id: Option<i64> = match sqlx::query_scalar("SELECT a.id FROM accounts a JOIN collectors c ON c.account_id=a.id WHERE c.id=$1 AND a.public_id=$2 AND c.active")
+        .bind(c.id).bind(&input.account).fetch_optional(&state.db).await { Ok(v)=>v,Err(e)=>return internal(e) };
+    let Some(id)=id else { return error(StatusCode::UNAUTHORIZED,"login_required") };
+    if !state.limiter.allow(&format!("account-data:{id}"),120) { return error(StatusCode::TOO_MANY_REQUESTS,"rate_limited") }
+    let mut tx=match state.db.begin().await {Ok(t)=>t,Err(e)=>return internal(e)};
+    if let Err(e)=sqlx::query("SELECT id FROM accounts WHERE id=$1 FOR UPDATE").bind(id).execute(&mut *tx).await {return internal(e)}
+    let linked: Option<i64>=match sqlx::query_scalar("SELECT account_id FROM collectors WHERE id=$1 AND active FOR UPDATE")
+        .bind(c.id).fetch_optional(&mut *tx).await {Ok(v)=>v.flatten(),Err(e)=>return internal(e)};
+    if linked!=Some(id) {return error(StatusCode::UNAUTHORIZED,"login_required")}
+    for r in input.operations {
+        let version: Option<i64>=match sqlx::query_scalar("SELECT version FROM account_data WHERE account_id=$1 AND kind=$2 AND key=$3")
+            .bind(id).bind(&r.kind).bind(&r.key).fetch_optional(&mut *tx).await {Ok(v)=>v,Err(e)=>return internal(e)};
+        if version.unwrap_or(0)!=r.version {return error(StatusCode::CONFLICT,"sync_conflict")}
+        if let Err(e)=sqlx::query("INSERT INTO account_data(account_id,kind,key,value) VALUES($1,$2,$3,$4) ON CONFLICT(account_id,kind,key) DO UPDATE SET value=$4,version=account_data.version+1,updated_at=now()")
+            .bind(id).bind(r.kind).bind(r.key).bind(r.value).execute(&mut *tx).await {return internal(e)}
+    }
+    let count:i64=match sqlx::query_scalar("SELECT count(*) FROM account_data WHERE account_id=$1 AND kind='watch' AND value IS NOT NULL")
+        .bind(id).fetch_one(&mut *tx).await {Ok(n)=>n,Err(e)=>return internal(e)};
+    if count>100 {return error(StatusCode::CONFLICT,"watch_limit")}
+    if let Err(e)=tx.commit().await {return internal(e)}
+    collector_watch_snapshot(&state.db,c.id).await
+}
+#[derive(Deserialize)]
+struct Disconnect {account:String}
+async fn collector_disconnect(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<Disconnect>) -> Response {
+    let c=match identity::collector(&state,&headers).await {Ok(c)=>c,Err(e)=>return e};
+    match sqlx::query("UPDATE collectors SET account_id=NULL WHERE id=$1 AND account_id=(SELECT id FROM accounts WHERE public_id=$2)")
+        .bind(c.id).bind(input.account).execute(&state.db).await {
+        Ok(r) if r.rows_affected()==1=>Json(json!({"ok":true})).into_response(),
+        Ok(_)=>error(StatusCode::CONFLICT,"account_changed"),Err(e)=>internal(e)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn collector_scope_rejects_unrelated_preferences_and_duplicate_writes() {
+        let mut c=CollectorChanges {account:"synthetic".into(),operations:vec![Record{kind:"pref".into(),key:"theme".into(),value:Some(json!("dark")),version:0}]};
+        assert!(!valid_collector_changes(&c));
+        c.operations[0]=Record{kind:"watch".into(),key:"1002000".into(),value:None,version:1};
+        assert!(valid_collector_changes(&c));
+        c.operations.push(c.operations[0].clone());assert!(!valid_collector_changes(&c));
+    }
     #[test]
     fn watch_groups_empty_delete_and_upgrade_zero_are_valid() {
         let group = json!({"id":"default","name":"白板","cap":30000,"notify":true,"buy":false,"reminder":{"minUpgrades":0,"maxUpgrades":5}});

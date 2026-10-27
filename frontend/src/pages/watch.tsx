@@ -3,7 +3,6 @@ import { useQueries } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { SiteLink } from "../components/shell";
 import WatchGroups from "../components/watch-groups";
-import WatchSweep from "../components/watch-sweep";
 import {
   activeOffers,
   normalizeReminder,
@@ -565,7 +564,6 @@ export default function Watch() {
               ? t(notice ? "watch.full" : "watch.failed")
               : ""}
           </p>
-          <WatchSweep ids={ids} settings={settings} items={items} reference={reference} personal={personal}/>
           <div className="wcards" data-cards>
             {ids.length ? (
               ids.map((id) => {

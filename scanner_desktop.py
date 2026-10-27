@@ -403,6 +403,8 @@ class DesktopAPI:
     """The only methods exposed to bundled, local React code."""
     def __init__(self, controller):
         self._controller = controller
+        from desktop_workspace import DesktopWorkspace
+        self._workspace = DesktopWorkspace(controller.collector)
 
     def ready(self):
         self._controller._ready = True
@@ -410,6 +412,9 @@ class DesktopAPI:
 
     def command(self, name, value=None):
         return self._controller.command(name, value)
+
+    def workspace(self, name, value=None):
+        return self._workspace.run(name, value)
 
 
 def main(collector, argv=None):

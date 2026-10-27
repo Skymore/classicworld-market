@@ -339,6 +339,8 @@ def create_server(config, folder, port=8780):
                         revision = gateway.fetch('/api/v1/collector/watch-revision', 0, timeout=5)
                         if gateway.last_error or not isinstance(revision.get('revision'),str):
                             raise ValueError('关注同步暂不可用，请稍后再试')
+                        if data.get('expected_revision',revision['revision']) != revision['revision']:
+                            raise ValueError('条件刚刚变化，请重新开始')
                         sweep_revision.update(value=revision['revision'],checked=time.monotonic())
                     result={**sweep.command(data),'csrf':ui_nonce}
                 else:
