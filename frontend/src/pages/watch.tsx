@@ -1,26 +1,20 @@
-import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261026-reminders-2";
 import { useQueries } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { SiteLink } from "../components/shell";
 import WatchGroups from "../components/watch-groups";
 import {
   activeOffers,
-  normalizeReminder,
   matchingReminders,
-  notificationEligibility,
-  reminderSelection,
 } from "/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api, getJson, qs } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
 import { t, itemName } from "/web/js/lib/i18n.js";
 import Core, {
-  LIST_KEY,
-  SETTINGS_KEY,
   MAX_WATCHES,
 } from "/web/js/lib/watchlist-core.js?v=20261027-watch-groups-1";
 import { userStorage } from "/web/js/lib/user-data.js";
 import { sortWatchQuotes } from "/web/js/lib/quote-order.js?v=20261023-watch-cap-1";
-import { useLiveData, useUserValue } from "../lib/live";
+import { useUserValue } from "../lib/live";
 import { useMarketQuery } from "../lib/query";
 import { useWords } from "../providers";
 import {
@@ -38,34 +32,29 @@ import {
   offerFilterTokens,
   clearOfferFilter,
 } from "/web/js/lib/item-offer-filters.js?v=20261027-watch-groups-1";
-import { OfferRow, Location } from "../components/list-rows";
-import { announce, OfferReminder } from "../components/toasts";
+import { OfferRow } from "../components/list-rows";
+import { useWatchAlerts } from "../components/watch-alerts";
+import { NotificationSettings } from "../components/notification-settings";
 import "../lib/list-copy";
-const started = Date.now() / 1000,
-  notifications = {
-    shared: new Map(),
-    personal: new Map(),
-    delivered: new Map(),
-  },
-  addedAt: Record<number, number> = {};
 export default function Watch() {
   usePageReady();
   const words = useWords();
   const route = useLocation();
-  const [list, writeList] = useUserValue(LIST_KEY, "[]"),
-    [setting, writeSettings] = useUserValue(SETTINGS_KEY, "{}"),
-    [sort, writeSort] = useUserValue("watch.offerSort", "price"),
+  const {
+    ids,
+    settings,
+    writeList,
+    writeSettings,
+    saveIds,
+    shared,
+    grouped,
+    reference,
+    personal,
+    captureState,
+  } = useWatchAlerts();
+  const [sort, writeSort] = useUserValue("watch.offerSort", "price"),
     [collapsed, writeCollapsed] = useUserValue("watch.listCollapsed", "false"),
-    [rawFilters, writeFilters] = useUserValue("watch.offerFilters", "{}"),
-    [token] = useUserValue("cwm.collector.token");
-  const ids = useMemo<number[]>(
-    () => Core.readList({ getItem: () => list }),
-    [list],
-  );
-  const settings = useMemo<any>(
-    () => Core.readSettings({ getItem: () => setting }, ids),
-    [setting, list],
-  );
+    [rawFilters, writeFilters] = useUserValue("watch.offerFilters", "{}");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filterButton = useRef<HTMLButtonElement>(null);
   const filters = useMemo(() => {
@@ -88,19 +77,8 @@ export default function Watch() {
     [focused, setFocused] = useState(false),
     [limit, setLimit] = useState(40),
     [all, setAll] = useState(false),
-    [notice, setNotice] = useState(""),
-    [permission, setPermission] = useState(() =>
-      typeof Notification === "undefined"
-        ? "unsupported"
-        : Notification.permission,
-    );
-  const [personal, setPersonal] = useState<any>(null),
-    [captureState, setCaptureState] = useState(""),
-    [attempt, setAttempt] = useState(0);
+    [notice, setNotice] = useState("");
   const composing = useRef(false);
-  const personalRef = useRef(personal);
-  personalRef.current = personal;
-  const lastPersonalTry = useRef(0);
   const market = useMarketQuery<any>(api.list());
   const presets = useMarketQuery<any>(
     api.watchCatalog() + qs({ q: "" }),
@@ -123,19 +101,6 @@ export default function Watch() {
         (await getJson(api.watchCatalog() + qs({ q: id }), { signal })).data,
     })),
   });
-  const shared = useLiveData<any>(
-    ids.length
-      ? api.watchListings({ ids: [...ids].sort((a, b) => a - b).join(",") })
-      : null,
-  );
-  const own = useLiveData<any>(
-    personal && ids.length
-      ? personal.base +
-          "/api/v1/collector/watch-listings" +
-          qs({ ids: ids.join(",") })
-      : null,
-    personal?.token ? { Authorization: `Bearer ${personal.token}` } : undefined,
-  );
   const items = new Map<number, any>(
     [
       ...(market.data?.products || []),
@@ -143,20 +108,6 @@ export default function Watch() {
       ...resolved.flatMap((result) => (result.data as any)?.items || []),
       ...(catalog.data?.items || []),
     ].map((row: any) => [row.item_id, row]),
-  );
-  const grouped = useMemo<any[]>(
-    () =>
-      shared.data?.grouped_listings ??
-      mergeShopOffers(shared.data?.listings || []),
-    [shared.data],
-  );
-  const reference = useMemo(
-    () => ({
-      rows: grouped,
-      percentiles: shared.data?.percentile_caps,
-      baseStats: shared.data?.base_stats,
-    }),
-    [grouped, shared.data],
   );
   const baseMatches = useMemo<any[]>(
     () => matchingReminders(grouped, ids, settings, reference),
@@ -225,152 +176,6 @@ export default function Watch() {
     );
     return () => clearTimeout(timer);
   }, [query]);
-  useEffect(() => {
-    let active = true;
-    const abort = new AbortController();
-    setPersonal(null);
-    lastPersonalTry.current = Date.now();
-    const gateway =
-      ["localhost", "127.0.0.1"].includes(location.hostname) &&
-      !["8766", "8765"].includes(location.port);
-    const official = [
-      "https://mxd.ruit.me",
-      "http://127.0.0.1:8766",
-      "http://localhost:8766",
-    ].includes(location.origin);
-    const targets = [
-      ...(token || gateway ? [{ base: "", token }] : []),
-      ...(official ? [{ base: "http://127.0.0.1:8780", token: null }] : []),
-    ];
-    (async () => {
-      for (const target of targets) {
-        if (!active) return;
-        setCaptureState("connecting");
-        try {
-          const response = await fetch(
-            target.base + "/api/v1/collector/status",
-            {
-              headers: target.token
-                ? { Authorization: `Bearer ${target.token}` }
-                : {},
-              credentials: "same-origin",
-              cache: "no-store",
-              signal: AbortSignal.any([
-                abort.signal,
-                AbortSignal.timeout(15000),
-              ]),
-            },
-          );
-          if (!active) return;
-          setCaptureState("http-" + response.status);
-          if (response.ok) {
-            const data = await response.json();
-            if (target.token || data.local_collector === true) {
-              setPersonal({ ...target, id: data.collector_id });
-              setCaptureState("connected");
-              return;
-            }
-          }
-        } catch (error) {
-          if (active) setCaptureState((error as Error).name);
-        }
-      }
-    })();
-    const reconnect = () => {
-      if (!personalRef.current && Date.now() - lastPersonalTry.current >= 30000)
-        setAttempt((old) => old + 1);
-    };
-    window.addEventListener("focus", reconnect);
-    return () => {
-      active = false;
-      abort.abort();
-      window.removeEventListener("focus", reconnect);
-    };
-  }, [token, attempt]);
-  useEffect(() => {
-    if (
-      shared.data &&
-      !personalRef.current &&
-      Date.now() - lastPersonalTry.current >= 30000
-    )
-      setAttempt((old) => old + 1);
-  }, [shared.data]);
-  useEffect(() => {
-    const signal =
-      own.data && own.data.personal && own.data.collector_id === personal?.id
-        ? own.data
-        : null;
-    const packets: [[any, string, string?], [any, string, string?]] = [
-      [shared.data, "shared"],
-      [signal, "personal", personal?.id],
-    ];
-    for (const [packet, source, identity] of packets) {
-      if (!packet) continue;
-      if (source === "personal" && !shared.data) continue;
-      const eligible = notificationEligibility(
-        packet,
-        ids,
-        settings,
-        reference,
-      );
-      const candidates = (packet.listings || []).filter(
-        (row: any) =>
-          source !== "personal" ||
-          normalizeReminder(settings[row.item_id]?.reminder).percentile ===
-            "all" ||
-          reminderSelection(
-            grouped,
-            row.item_id,
-            settings[row.item_id],
-            reference,
-          ).ready,
-      );
-      const fresh = Core.combinedNotifications(
-        candidates,
-        Core.watches(ids, settings, addedAt).map((watch: any) => ({
-          ...watch,
-          max_price: null,
-        })),
-        notifications,
-        started,
-        Date.now() / 1000,
-        source,
-        identity,
-        eligible,
-      );
-      const delivered = new Map<string, any>();
-      for (const raw of fresh) {
-        const row = eligible.get(raw.id);
-        if (row) delivered.set(row.id, row);
-      }
-      for (const row of [...delivered.values()].slice(0, 5)) {
-        const item = { ...items.get(row.item_id), ...row };
-        const title = t("watch.toast_title"),
-          line = t("watch.toast_line", {
-            price: row.unit_price,
-            stock: row.stock ?? words("未知", "unknown"),
-          });
-        announce(
-          title,
-          `/item/${row.item_id}`,
-          <OfferReminder row={row} item={item} />,
-          { body: `${itemName(item)} · ${line} · ${row.shop}`, tag: row.id },
-        );
-      }
-    }
-  }, [shared.data, own.data, list, setting, personal?.id]);
-  function saveIds(next: number[]) {
-    for (const id of next)
-      if (!ids.includes(id)) addedAt[id] = Date.now() / 1000;
-    writeList(JSON.stringify(next));
-    writeSettings(
-      JSON.stringify(
-        Object.fromEntries(
-          next.map((id) => [id, settings[id] || { cap: null, notify: true }]),
-        ),
-      ),
-    );
-  }
   useEffect(() => {
     if (
       !["localhost", "127.0.0.1"].includes(location.hostname) ||
@@ -458,6 +263,7 @@ export default function Watch() {
             <Icon name="caret" />
           </button>
         </div>
+        <NotificationSettings />
         <div id="watch-list" hidden={collapsed === "true"}>
           <div className="wadd">
             <form
@@ -491,16 +297,6 @@ export default function Watch() {
                 }}
               />
             </form>
-            <button
-              className="btn"
-              data-allow
-              hidden={permission !== "default"}
-              onClick={() =>
-                Notification.requestPermission().then(setPermission)
-              }
-            >
-              {t("watch.allow_notify")}
-            </button>
           </div>
           <div className="wresults" data-results hidden={!focused}>
             {catalog.isLoading ? (

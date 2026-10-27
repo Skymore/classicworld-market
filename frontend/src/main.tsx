@@ -20,6 +20,7 @@ import { AppShell } from "./components/shell";
 import { ensureStyle } from "./lib/styles";
 import { queryClient } from "./lib/query";
 import { loadCatalog, catalogKey, readCatalogSnapshot } from "./lib/catalog";
+import { WatchAlertsProvider } from "./components/watch-alerts";
 import { ToastHost } from "./components/toasts";
 import { Loading, ErrorState } from "./components/shared";
 import "./styles.css";
@@ -281,7 +282,9 @@ await Promise.all(["home", "prices", "account", "lists"].map(ensureStyle));
 createRoot(document.getElementById("app")!).render(
   <BrowserRouter>
     <Providers>
-      <Application />
+      <WatchAlertsProvider>
+        <Application />
+      </WatchAlertsProvider>
     </Providers>
   </BrowserRouter>,
 );
