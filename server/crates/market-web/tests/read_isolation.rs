@@ -68,6 +68,34 @@ async fn public_snapshots_coalesce_and_commits_invalidate_without_losing_filters
 }
 
 #[tokio::test]
+async fn blocked_detail_rebuilds_do_not_block_crafting_or_watch_snapshots() {
+    let Some(db) = common::TestDb::new().await else { return };
+    let cache=Arc::new(PublicReadCache::default());
+    let started=Arc::new(tokio::sync::Barrier::new(3));
+    let mut pending=Vec::new();
+    // Select distinct item shards so both detail rebuild permits are occupied.
+    use std::hash::{Hash,Hasher};
+    let mut shards=std::collections::HashSet::new();
+    for index in 0..100 {
+        let key=format!("item:blocked:{index}");let mut hash=std::collections::hash_map::DefaultHasher::new();
+        key.hash(&mut hash);if !shards.insert(hash.finish()%32){continue;}
+        let (cache,pool,started)=(cache.clone(),db.pool.clone(),started.clone());
+        pending.push(tokio::spawn(async move {cache.get(&pool,&key,async {
+            started.wait().await;std::future::pending::<sqlx::Result<Option<serde_json::Value>>>().await
+        }).await}));
+        if pending.len()==2 {break;}
+    }
+    tokio::time::timeout(Duration::from_secs(3),started.wait()).await.unwrap();
+    for key in ["crafting","watch:[4010001]"] {
+        assert_eq!(tokio::time::timeout(Duration::from_secs(1),cache.get(&db.pool,key,async {
+            Ok(Some(json!({"ready":true})))
+        })).await.expect("unrelated public snapshot blocked by full details").unwrap(),Some(json!({"ready":true})));
+    }
+    for task in pending {task.abort();let _=task.await;}
+    db.close().await;
+}
+
+#[tokio::test]
 async fn event_bursts_keep_initial_snapshot_and_one_trailing_invalidation() {
     let Some(db) = common::TestDb::new().await else { return };
     let state = AppState::new(db.pool.clone(), Settings::default());

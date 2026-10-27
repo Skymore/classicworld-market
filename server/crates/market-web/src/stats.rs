@@ -333,16 +333,25 @@ async fn write(
     .execute(&mut *conn)
     .await?;
 
-    sqlx::query("DELETE FROM item_daily WHERE item_id = ANY($1)")
-        .bind(&ids)
-        .execute(&mut *conn)
-        .await?;
+    // Re-observing unchanged stock must not delete/reinsert every historical
+    // day. That churn generates WAL and vacuum work even for identical data.
     sqlx::query(
-        "INSERT INTO item_daily (item_id, day, median, low, high, count)
-         SELECT item_id, date '1970-01-01' + day, median, low, high, count
-         FROM jsonb_to_recordset($1) AS x(item_id int, day int, median float8, low float8, high float8, count int)",
+        "WITH incoming AS MATERIALIZED (
+         SELECT item_id, date '1970-01-01' + day AS day, median, low, high, count
+         FROM jsonb_to_recordset($1) AS x(item_id int, day int, median float8, low float8, high float8, count int)
+         ), removed AS (
+           DELETE FROM item_daily d WHERE d.item_id=ANY($2) AND NOT EXISTS (
+             SELECT 1 FROM incoming n WHERE n.item_id=d.item_id AND n.day=d.day
+           )
+         ) INSERT INTO item_daily (item_id,day,median,low,high,count)
+         SELECT item_id,day,median,low,high,count FROM incoming
+         ON CONFLICT (item_id,day) DO UPDATE SET
+           median=EXCLUDED.median,low=EXCLUDED.low,high=EXCLUDED.high,count=EXCLUDED.count
+         WHERE (item_daily.median,item_daily.low,item_daily.high,item_daily.count)
+           IS DISTINCT FROM (EXCLUDED.median,EXCLUDED.low,EXCLUDED.high,EXCLUDED.count)",
     )
     .bind(Value::Array(daily))
+    .bind(&ids)
     .execute(&mut *conn)
     .await?;
     Ok(())

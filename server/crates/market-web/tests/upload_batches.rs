@@ -76,6 +76,31 @@ async fn batch_matches_sequential_replay_and_recomputes_shared_items_once() {
 }
 
 #[tokio::test]
+async fn unchanged_daily_figures_do_not_generate_writes_and_removed_sales_clear_history() {
+    let Some(db)=TestDb::new().await else {return};
+    let collectors=vec![db.collector("daily").await];let now=unix_now();
+    batch(&db,&collectors,&[(0,observation("first",now-60.0,8,7)),
+        (0,observation("sold",now-30.0,0,7))],now).await.unwrap();
+    sqlx::raw_sql("CREATE TABLE daily_writes (operation text);
+        CREATE FUNCTION count_daily_writes() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+        INSERT INTO daily_writes VALUES(TG_OP); RETURN COALESCE(NEW,OLD); END $$;
+        CREATE TRIGGER fixture_daily AFTER INSERT OR UPDATE OR DELETE ON item_daily
+        FOR EACH ROW EXECUTE FUNCTION count_daily_writes();").execute(&db.pool).await.unwrap();
+    batch(&db,&collectors,&[(0,observation("same-stock",now-10.0,0,7))],now).await.unwrap();
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM item_daily").fetch_one(&db.pool).await.unwrap(),1);
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM daily_writes").fetch_one(&db.pool).await.unwrap(),0);
+    batch(&db,&collectors,&[(0,observation("late-drop",now-45.0,5,7))],now).await.unwrap();
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM daily_writes WHERE operation='UPDATE'").fetch_one(&db.pool).await.unwrap(),1);
+    let mut tx=db.pool.begin().await.unwrap();
+    sqlx::query("DELETE FROM sales WHERE item_id=4010001").execute(&mut *tx).await.unwrap();
+    market_web::stats::recompute_items(&mut tx,&[4010001],now,now,&Default::default()).await.unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM item_daily").fetch_one(&db.pool).await.unwrap(),0);
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM daily_writes WHERE operation='DELETE'").fetch_one(&db.pool).await.unwrap(),1);
+    db.close().await;
+}
+
+#[tokio::test]
 async fn statistics_failure_rolls_back_entire_batch_and_retry_is_safe() {
     let Some(db) = TestDb::new().await else {return};
     let collectors=vec![db.collector("rollback").await];let now=unix_now();

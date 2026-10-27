@@ -17,15 +17,15 @@ struct PublicEntry {
 /// Shared public snapshots only. Full keys prevent shard collisions from mixing
 /// filters/items; the database version invalidates committed changes immediately.
 pub struct PublicReadCache {
-    slots: [Mutex<Option<PublicEntry>>; 32],
-    rebuilds: Semaphore,
+    slots: [[Mutex<Option<PublicEntry>>; 32]; 3],
+    rebuilds: [Semaphore; 3],
 }
 
 impl Default for PublicReadCache {
     fn default() -> Self {
         Self {
-            slots: std::array::from_fn(|_| Mutex::new(None)),
-            rebuilds: Semaphore::new(2),
+            slots: std::array::from_fn(|_| std::array::from_fn(|_| Mutex::new(None))),
+            rebuilds: [Semaphore::new(2), Semaphore::new(1), Semaphore::new(1)],
         }
     }
 }
@@ -36,7 +36,11 @@ impl PublicReadCache {
         use std::hash::{Hash, Hasher};
         let mut hash = std::collections::hash_map::DefaultHasher::new();
         key.hash(&mut hash);
-        let mut slot = self.slots[hash.finish() as usize % self.slots.len()].lock().await;
+        // Slow full histories cannot occupy crafting/watch rebuild permits or
+        // collide with their cache shards. Each class remains independently bounded.
+        let lane = if key == "crafting" { 1 } else if key.starts_with("watch:") { 2 } else { 0 };
+        let slots = &self.slots[lane];
+        let mut slot = slots[hash.finish() as usize % slots.len()].lock().await;
         // Read after the lock, so a backlog of old requests cannot rebuild old
         // versions one by one. Waiters hold no database connection.
         let version = views::version(db).await?;
@@ -45,7 +49,7 @@ impl PublicReadCache {
                 return Ok(hit.value.clone());
             }
         }
-        let _permit = self.rebuilds.acquire().await.expect("public cache gate open");
+        let _permit = self.rebuilds[lane].acquire().await.expect("public cache gate open");
         let value = build.await?;
         *slot = Some(PublicEntry { key: key.to_owned(), version, built: std::time::Instant::now(), value: value.clone() });
         Ok(value)
