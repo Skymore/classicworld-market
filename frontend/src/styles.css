@@ -653,3 +653,19 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
 .show-expired-toggle input { width: 16px; height: 16px; margin: 0; accent-color: var(--mark); }
 
 .price-record-actions { z-index: 2; }
+
+.watch-notification-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 13px;
+}
+.watch-notification-state {
+  font-weight: 600;
+}
+.watch-notification-hint {
+  color: var(--ink-3);
+}
