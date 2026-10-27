@@ -36,12 +36,21 @@ def main():
     parser.add_argument("--base", default="http://127.0.0.1:8766")
     parser.add_argument("--item", type=int, default=2070001)
     parser.add_argument("--samples", type=int, default=3)
+    parser.add_argument("--path", action="append", help="Sample only this API path (repeatable)")
+    parser.add_argument("--interval", type=float, default=0,
+                        help="Seconds between requests; use >2 to avoid measuring only snapshot cache hits")
     parser.add_argument("--output")
     args = parser.parse_args()
+    if not 1 <= args.samples <= 100 or not 0 <= args.interval <= 60:
+        parser.error("samples must be 1..100 and interval must be 0..60 seconds")
+    if any(not p.startswith("/") or p.startswith("//") for p in args.path or []):
+        parser.error("path must be relative to --base, starting with a single /")
     results = []
-    for path in paths(args.item):
+    for path in args.path or paths(args.item):
         samples = []
         for _ in range(args.samples):
+            if samples and args.interval:
+                time.sleep(args.interval)
             started = time.perf_counter()
             request = urllib.request.Request(args.base.rstrip("/") + path, headers={"Accept-Encoding": "gzip"})
             try:

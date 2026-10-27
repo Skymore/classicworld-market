@@ -712,27 +712,37 @@ async fn item_market(
 
 /// Historical observed quotes remain history when a shop later disappears.
 /// Deduplicate repeated scans so frequent collectors do not skew the median.
+// Keep the lookup correlated even after PostgreSQL chooses a generic prepared
+// plan. A normal join estimates the date/variant parameters as selective, then
+// hashes the entire observation window (and spills it) for every item request.
+// OFFSET 0 prevents flattening; the item index bounds the observation lookups.
+const LISTING_DAYS_SQL: &str =
+    "WITH quotes AS (
+       SELECT DISTINCT ON ((o.observed_at AT TIME ZONE 'UTC')::date,o.shop_id,r.slot)
+         (o.observed_at AT TIME ZONE 'UTC')::date AS day,
+         market_unit_price(r.item_id,r.price,r.bundle) AS price
+       FROM observation_rows r
+       JOIN LATERAL (
+         SELECT observed_at,shop_id,visit_key FROM observations
+         WHERE id=r.observation_id OFFSET 0
+       ) o ON true
+       WHERE r.item_id=$1 AND r.stock>0 AND r.price>0 AND r.bundle>0
+         AND o.observed_at >= ($2::date)::timestamp AT TIME ZONE 'UTC'
+         AND o.observed_at <= to_timestamp($3)
+         AND ($4::bigint[] IS NULL OR coalesce(r.variant_id,0)=ANY($4))
+       ORDER BY (o.observed_at AT TIME ZONE 'UTC')::date,o.shop_id,r.slot,
+                o.observed_at DESC,o.visit_key DESC
+     ) SELECT day,percentile_cont(0.5) WITHIN GROUP (ORDER BY price),
+       min(price),max(price),count(*)::int FROM quotes GROUP BY day";
+
 async fn listing_days(
     db: &PgPool, id: i32, now: f64, variant_ids: Option<&[i64]>,
 ) -> sqlx::Result<Vec<Day>> {
     let last = DateTime::from_timestamp(now as i64, 0).expect("valid current time").date_naive();
     let first = (1..MARKET_DAYS).fold(last, |d, _| d.pred_opt().unwrap_or(d));
     type Row = (NaiveDate, Option<f64>, Option<f64>, Option<f64>, i32);
-    let rows: Vec<Row> = sqlx::query_as(
-        "WITH quotes AS (
-           SELECT DISTINCT ON ((o.observed_at AT TIME ZONE 'UTC')::date,o.shop_id,r.slot)
-             (o.observed_at AT TIME ZONE 'UTC')::date AS day,
-             market_unit_price(r.item_id,r.price,r.bundle) AS price
-           FROM observation_rows r JOIN observations o ON o.id=r.observation_id
-           WHERE r.item_id=$1 AND r.stock>0 AND r.price>0 AND r.bundle>0
-             AND o.observed_at >= ($2::date)::timestamp AT TIME ZONE 'UTC'
-             AND o.observed_at <= to_timestamp($3)
-             AND ($4::bigint[] IS NULL OR coalesce(r.variant_id,0)=ANY($4))
-           ORDER BY (o.observed_at AT TIME ZONE 'UTC')::date,o.shop_id,r.slot,
-                    o.observed_at DESC,o.visit_key DESC
-         ) SELECT day,percentile_cont(0.5) WITHIN GROUP (ORDER BY price),
-           min(price),max(price),count(*)::int FROM quotes GROUP BY day"
-    ).bind(id).bind(first).bind(now).bind(variant_ids).fetch_all(db).await?;
+    let rows: Vec<Row> = sqlx::query_as(LISTING_DAYS_SQL)
+        .bind(id).bind(first).bind(now).bind(variant_ids).fetch_all(db).await?;
     Ok(first.iter_days().take(MARKET_DAYS as usize).map(|date| {
         let row = rows.iter().find(|r| r.0 == date);
         Day { date, median: row.and_then(|r| r.1), low: row.and_then(|r| r.2),

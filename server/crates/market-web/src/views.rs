@@ -515,9 +515,19 @@ fn sale_json(r: &PgRow) -> Map<String, Value> {
 
 /// Live listings of `items` whose shop was seen at or after `cutoff`.
 async fn quotes(db: &PgPool, items: &[i32], cutoff: f64) -> sqlx::Result<Vec<Map<String, Value>>> {
+    // Anchor enrichment to the selected listings. Generic prepared plans for
+    // the array/cutoff otherwise hash all recent shops, spilling to disk even
+    // when a watch contains just one or two items. Keep both lookups correlated.
     let sql = format!(
         "SELECT {} FROM listings l
-         JOIN shops sh ON sh.id = l.shop_id JOIN observations o ON o.id = l.observation_id
+         JOIN LATERAL (
+           SELECT public_key,title,owner_name,shop_id,channel,room,last_seen_at
+           FROM shops WHERE id=l.shop_id OFFSET 0
+         ) sh ON true
+         JOIN LATERAL (
+           SELECT visit_key,observed_at,map_channel,map_id,source
+           FROM observations WHERE id=l.observation_id OFFSET 0
+         ) o ON true
          JOIN items i ON i.id = l.item_id LEFT JOIN equipment_variants v ON v.id = l.variant_id
          WHERE l.item_id = ANY($1) AND l.stock > 0 AND sh.last_seen_at >= to_timestamp($2)
          ORDER BY market_unit_price(l.item_id,l.price,l.bundle), sh.public_key, l.slot",
