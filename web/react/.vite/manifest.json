@@ -24,8 +24,8 @@
       "_react-dom-DKZvV7F6.js"
     ]
   },
-  "_item-market-CrTtFZFT.js": {
-    "file": "chunks/item-market-CrTtFZFT.js",
+  "_item-market-BZ3tulAG.js": {
+    "file": "chunks/item-market-BZ3tulAG.js",
     "name": "item-market"
   },
   "_list-copy-B0Gm1dmd.js": {
@@ -47,13 +47,13 @@
       "_shared-dgXAszFs.js"
     ]
   },
-  "_main-BIl9wUrD.js": {
-    "file": "chunks/main-BIl9wUrD.js",
+  "_main-BO8wQLMP.js": {
+    "file": "chunks/main-BO8wQLMP.js",
     "name": "main",
     "imports": [
       "_shared-dgXAszFs.js",
       "_react-dom-DKZvV7F6.js",
-      "_item-market-CrTtFZFT.js",
+      "_item-market-BZ3tulAG.js",
       "_shell-D2njFKUq.js",
       "_toasts-D9tNPVYB.js"
     ],
@@ -144,7 +144,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BIl9wUrD.js"
+      "_main-BO8wQLMP.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -185,13 +185,13 @@
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-jTzOWh2L.js",
+    "file": "chunks/catalogue-CgYu3yiE.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shared-dgXAszFs.js",
-      "_item-market-CrTtFZFT.js",
+      "_item-market-BZ3tulAG.js",
       "_shell-D2njFKUq.js",
       "_list-rows-dzurBytE.js",
       "_live-0N9vJoxp.js",
@@ -328,7 +328,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BIl9wUrD.js"
+      "_main-BO8wQLMP.js"
     ]
   },
   "style.css": {

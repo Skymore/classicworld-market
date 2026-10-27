@@ -129,7 +129,7 @@ pub struct ItemSelection {
     pub equipment: String,
 }
 
-fn equipment_group_key(variant: &Variant) -> (Vec<(&str, i64)>, i64, Option<i64>, usize) {
+fn equipment_group_key(variant: &Variant) -> (Vec<(&str, i64)>, Option<i64>, usize) {
     let mut stats: Vec<_> = variant
         .stats
         .iter()
@@ -144,7 +144,6 @@ fn equipment_group_key(variant: &Variant) -> (Vec<(&str, i64)>, i64, Option<i64>
     stats.sort_unstable();
     (
         stats,
-        variant.enhancements.unwrap_or(0),
         variant.remaining_upgrades,
         variant.unknown_fields,
     )

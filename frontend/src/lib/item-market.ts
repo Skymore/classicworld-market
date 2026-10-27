@@ -12,7 +12,7 @@ export function hasBonus(variant: any, base: [string, number][]) {
   );
 }
 
-// Defence rolls do not split otherwise identical equipment into separate groups.
+// Defence rolls and successful enhancement counts do not split identical stats.
 // Keep the original offers intact; ranges belong only to the grouped cards.
 export function groupEquipmentVariants(rows: any[]) {
   const defence = (key: string) =>
@@ -30,7 +30,6 @@ export function groupEquipmentVariants(rows: any[]) {
       .sort(([a]: any, [b]: any) => a.localeCompare(b));
     const key = JSON.stringify([
       stats,
-      variant.enhancements ?? 0,
       variant.remaining_upgrades ?? null,
       variant.unknown_fields ?? 0,
     ]);
@@ -49,6 +48,11 @@ export function groupEquipmentVariants(rows: any[]) {
     group.offers.push(row);
   }
   for (const group of groups.values()) {
+    const enhancements = group.offers.map(
+      (row) => row.variant.enhancements ?? 0,
+    );
+    group.variant.enhancements = Math.min(...enhancements);
+    group.variant.maxEnhancements = Math.max(...enhancements);
     for (const key of ["weapon_defense", "magic_defense", "pdd", "mdd"]) {
       const values = group.offers.flatMap((row) =>
         (row.variant.stats || [])
@@ -172,7 +176,8 @@ export function offerGroups(
     }))
     .sort((a, b) =>
       recent
-        ? b.observed - a.observed || (a.price ?? Infinity) - (b.price ?? Infinity)
+        ? b.observed - a.observed ||
+          (a.price ?? Infinity) - (b.price ?? Infinity)
         : Number(a.key === "unknown") - Number(b.key === "unknown") ||
           (a.price ?? Infinity) - (b.price ?? Infinity) ||
           b.observed - a.observed,

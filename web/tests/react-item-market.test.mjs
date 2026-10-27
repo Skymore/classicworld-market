@@ -15,12 +15,15 @@ test('React equipment bonuses use captured instance stats without inventing valu
  assert.equal(hasBonus({stats:[{key:'weapon_defense',value:50},{key:'dex',value:3}],enhancements:0},[['dex',2]]),true);
 });
 
-test('equipment groups ignore defence rolls while retaining upgrades and actual offer values',()=>{
+test('equipment groups ignore defence and enhancement counts but retain upgrade slots and actual offer values',()=>{
  const variant=(id,dex,def,magic,enhancements=0,remaining_upgrades=7)=>({id,stats:[{key:'dex',value:dex},{key:'weapon_defense',value:def},{key:'magic_defense',value:magic}],enhancements,remaining_upgrades});
  const rows=[{variant:variant(1,2,10,5),unit_price:100},{variant:variant(2,2,20,9),unit_price:50},{variant:variant(3,3,10,5),unit_price:80},{variant:variant(4,2,10,5,1),unit_price:90},{variant:variant(5,2,10,5,0,6),unit_price:90},{variant:null}];
  rows[1].variant.stats.reverse();
  const before=structuredClone(rows),groups=groupEquipmentVariants(rows);
- assert.equal(groups.length,4);assert.equal(groups[0].offers.length,2);
+ assert.equal(groups.length,3);assert.equal(groups[0].offers.length,3);
+ assert.deepEqual(groups[0].offers.map(row=>row.variant.id),[1,2,4]);
+ assert.equal(groups[0].variant.enhancements,0);assert.equal(groups[0].variant.maxEnhancements,1);
+ assert.equal(groups[2].variant.remaining_upgrades,6,'remaining upgrade slots still separate groups');
  assert.equal(Math.min(...groups[0].offers.map(row=>row.unit_price)),50);
  assert.deepEqual(groups[0].variant.stats.find(stat=>stat.key==='weapon_defense'),{key:'weapon_defense',value:10,maxValue:20});
  assert.deepEqual(groups[0].variant.stats.find(stat=>stat.key==='magic_defense'),{key:'magic_defense',value:5,maxValue:9});

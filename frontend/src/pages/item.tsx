@@ -97,8 +97,11 @@ function Variant({ variant, page }: { variant: any; page: any }) {
         <b>
           {words(page.item.name_zh || page.item.name_en, page.item.name_en)}
         </b>
-        {variant.enhancements > 0 && (
-          <span className="tip-up">+{variant.enhancements}</span>
+        {(variant.maxEnhancements ?? variant.enhancements) > 0 && (
+          <span className="tip-up">
+            +{variant.enhancements}
+            {variant.maxEnhancements > variant.enhancements && `–${variant.maxEnhancements}`}
+          </span>
         )}
       </div>
       <ul>
@@ -984,11 +987,6 @@ export default function Item({ page }: { page: any }) {
                     +{stat.value}
                   </span>
                 ))}
-              {selectedVariant.enhancements > 0 && (
-                <span className="tagx">
-                  {words("强化", "Enhanced")} +{selectedVariant.enhancements}
-                </span>
-              )}
               {selectedVariant.remaining_upgrades != null && (
                 <span className="tagx">
                   {words("可升级", "Upgrades left")}{" "}

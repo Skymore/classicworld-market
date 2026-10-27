@@ -190,25 +190,26 @@ try {
     assert.equal(await page.locator('.cgroup:visible').count(), 3);
     assert.equal(await page.locator('[data-more]:visible').count(), 0);
 
-    // Useful-stat grouping ignores physical and magic defence rolls.
+    // Useful-stat grouping ignores defence rolls and successful enhancement counts.
     await page.locator('[data-offer-clear=all]').click();
     const stats=(key,value,def,magic=5)=>[{key,label:key,value},{key:'weapon_defense',label:'物理防御',value:def},{key:'magic_defense',label:'魔法防御',value:magic}];
     offers=[
       {id:'plain-a',stats:stats('str',1,10)},
       {id:'plain-b',stats:stats('str',1,15,9)},
       {id:'dex2-a',stats:stats('dex',2,12)},
-      {id:'dex2-b',stats:stats('dex',2,18,8)},
+      {id:'dex2-b',stats:stats('dex',2,18,8),enhancements:2},
       {id:'dex4',stats:stats('dex',4,8)},
       {id:'def-enhanced',stats:stats('str',1,30),enhancements:1},
     ].map((r,i)=>({...r,variantId:100+i,ch:'1',room:1,price:10000+i*1000,age:60,stock:1,equipment:true,captured:true,enhancements:r.enhancements??0}));
     revision++;broadcast();await waitRevision();
     const groups=()=>page.locator('[data-equipment-group]:visible');
     assert.equal(await page.locator('[data-equipment-group]').count(),3,'hidden equipment cards are deferred');
-    await page.locator('[data-more=equip]').click();
-    assert.equal(await page.locator('[data-equipment-group]').count(),4,'show all still exposes every equipment group');
-    const plain=page.locator('[data-equipment-group]').filter({hasText:'+10–15'});
-    assert.equal(await plain.count(),1);assert.match(await plain.textContent(),mobile?/2 件/:/2 listed/);
-    assert.match(await plain.textContent(),/10K/,'group minimum includes both defence rolls');
+    assert.equal(await page.locator('[data-more=equip]').count(),0,'enhancement counts no longer add another group');
+    const plain=page.locator('[data-equipment-group]').filter({hasText:'+10–30'});
+    assert.equal(await plain.count(),1);assert.match(await plain.textContent(),mobile?/3 件/:/3 listed/);
+    assert.match(await plain.textContent(),/10K/,'group minimum includes all defence and enhancement counts');
+    assert.equal(await plain.locator('.tip-up').textContent(),'+0–1');
+    assert.equal(await page.locator('[data-equipment-group][href*="variant=102"] .tip-up').textContent(),'+0–2');
 
     assert.equal(await page.locator('[data-equipment-stat]').count(),0,'one filter dialog serves the entire page');
     const bonusSwitch=page.locator('[data-bonus-only]');
@@ -220,7 +221,7 @@ try {
     assert.equal(await groups().count(),2,'defence-only rolls and defensive enhancements are excluded');
     await open();assert.equal(await page.locator('dialog [name=equipment]').inputValue(),'bonus');await page.keyboard.press('Escape');
     await page.locator('[data-offer-clear=equipment]').click();assert.equal(await bonusSwitch.getAttribute('aria-pressed'),'false');
-    assert.equal(await page.locator('[data-equipment-group]').count(),4);
+    assert.equal(await page.locator('[data-equipment-group]').count(),3);
     await bonusSwitch.click();
     await open();await addStat('dex',3);await submit();
     assert.equal(await groups().count(),1);assert.deepEqual(await visibleRows(),['dex4']);
@@ -255,7 +256,7 @@ try {
     await page.locator('[data-equipment-group][href*="variant=102"]').click();
     await page.locator('[data-selected-attributes]').waitFor();
     assert.equal(new URL(page.url()).searchParams.get('variant'),'102');
-    assert.deepEqual(await visibleRows(),['dex2-a','dex2-b'],'the child page combines defence rolls and keeps buying locations');
+    assert.deepEqual(await visibleRows(),['dex2-a','dex2-b'],'the child page combines defence and enhancement counts and keeps buying locations');
     assert.equal(await page.locator('[data-equipment-group]').count(),1);
     await page.screenshot({path:path.join(output,`attribute-child-${mobile?'mobile':'desktop'}.png`),fullPage:true});
     await open();await page.locator('dialog [name=maxPrice]').fill('20000');await submit();

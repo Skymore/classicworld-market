@@ -47,17 +47,19 @@ async fn attribute_subpages_scope_before_sale_limits_and_recompute_every_price_i
             .bind(id).bind(id as i64).bind(id*100).execute(&db.pool).await.unwrap();
     }
     // Sixty newer sales of other attributes must not crowd matching sales out.
-    for slot in 1..=63 {
+    for slot in 1..=64 {
         let variant = if slot <= 2 {
             Some(slot as i64)
         } else if slot == 63 {
             None
+        } else if slot == 64 {
+            Some(4_i64)
         } else {
             Some(3_i64)
         };
         let age = if slot == 1 { 100.0 } else { 1.0 };
         sqlx::query("INSERT INTO sales(item_id,variant_id,shop_id,slot,kind,price,bundle,detected_at,observation_id,position) VALUES(1002000,$1,1,$2,'found_sold',$3,1,now()-($4::float8*interval '1 hour'),1,$5)")
-            .bind(variant).bind(slot).bind(slot*100).bind(age).bind(slot as i16).execute(&db.pool).await.unwrap();
+            .bind(variant).bind(slot).bind(if slot == 64 { 300 } else { slot*100 }).bind(age).bind(slot as i16).execute(&db.pool).await.unwrap();
     }
     let now = unix_now();
     let selection = ItemSelection {
@@ -75,27 +77,32 @@ async fn attribute_subpages_scope_before_sale_limits_and_recompute_every_price_i
             .iter()
             .map(|l| l.variant.as_ref().unwrap().id)
             .collect::<Vec<_>>(),
-        vec![1, 2]
+        vec![1, 2, 4]
     );
     assert_eq!(
         page.market.sales.len(),
-        2,
+        3,
         "filter before the fifty-sale limit"
     );
     let stats = page.stats.unwrap();
     assert_eq!(
         (stats.listings_count, stats.shops_count, stats.lowest_ask),
-        (2, 1, Some(100))
+        (3, 1, Some(100))
     );
-    assert_eq!((stats.sales_24h, stats.typical), (2, Some(150)));
-    assert_eq!(page.market.sale_points.len(), 2);
-    assert_eq!(page.market.days.iter().map(|d| d.count).sum::<i32>(), 2);
+    assert_eq!((stats.sales_24h, stats.typical), (3, Some(200)));
+    assert_eq!(page.market.sale_points.len(), 3);
+    assert_eq!(page.market.days.iter().map(|d| d.count).sum::<i32>(), 3);
+    let enhanced = item_page_selected(&db.pool, 1002000, now, true, &ItemSelection {
+        variant: Some(4), ..Default::default()
+    }).await.unwrap().unwrap();
+    assert_eq!(enhanced.market.listings.len(), 3, "enhanced links select the same group");
+    assert_eq!(enhanced.stats.unwrap().typical, Some(200));
     let recent = item_page_selected(&db.pool, 1002000, now, false, &selection)
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(recent.market.sales.len(), 1);
-    assert_eq!(recent.stats.unwrap().typical, Some(200));
+    assert_eq!(recent.market.sales.len(), 2);
+    assert_eq!(recent.stats.unwrap().typical, Some(250));
     let multiple = ItemSelection {
         attributes: vec![("str".into(), 11), ("dex".into(), 3)],
         ..Default::default()
@@ -132,7 +139,7 @@ async fn attribute_subpages_scope_before_sale_limits_and_recompute_every_price_i
             let dto: Value = serde_json::from_slice(&body).unwrap();
             assert_eq!(
                 dto["page"]["market"]["listings"].as_array().unwrap().len(),
-                2
+                3
             );
         } else {
             let text = String::from_utf8(body.to_vec()).unwrap();
