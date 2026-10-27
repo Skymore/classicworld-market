@@ -34,6 +34,10 @@ impl PublicReadCache {
     pub async fn get<F>(&self, db: &PgPool, key: &str, build: F) -> sqlx::Result<Option<serde_json::Value>>
     where F: std::future::Future<Output = sqlx::Result<Option<serde_json::Value>>> {
         use std::hash::{Hash, Hasher};
+        // Waiters need a snapshot at least as new as when their request began.
+        // Requiring the version at the end of the wait would serialize another
+        // rebuild per waiter whenever uploads commit during a slow history read.
+        let requested_version = views::version(db).await?;
         let mut hash = std::collections::hash_map::DefaultHasher::new();
         key.hash(&mut hash);
         // Slow full histories cannot occupy crafting/watch rebuild permits or
@@ -41,15 +45,15 @@ impl PublicReadCache {
         let lane = if key == "crafting" { 1 } else if key.starts_with("watch:") { 2 } else { 0 };
         let slots = &self.slots[lane];
         let mut slot = slots[hash.finish() as usize % slots.len()].lock().await;
-        // Read after the lock, so a backlog of old requests cannot rebuild old
-        // versions one by one. Waiters hold no database connection.
-        let version = views::version(db).await?;
         if let Some(hit) = slot.as_ref() {
-            if hit.key == key && hit.version == version && hit.built.elapsed().as_secs_f64() < 2.0 {
+            if hit.key == key && hit.version >= requested_version && hit.built.elapsed().as_secs_f64() < 2.0 {
                 return Ok(hit.value.clone());
             }
         }
         let _permit = self.rebuilds[lane].acquire().await.expect("public cache gate open");
+        // A queued rebuild uses the current version, never the old request's
+        // version. All waits above hold no database connection.
+        let version = views::version(db).await?;
         let value = build.await?;
         *slot = Some(PublicEntry { key: key.to_owned(), version, built: std::time::Instant::now(), value: value.clone() });
         Ok(value)

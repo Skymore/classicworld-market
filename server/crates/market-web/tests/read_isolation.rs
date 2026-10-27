@@ -54,7 +54,11 @@ async fn public_snapshots_coalesce_and_commits_invalidate_without_losing_filters
         requests.push(tokio::spawn(async move {
             cache.get(&pool, "item:1:variant:2", async {
                 builds.fetch_add(1, Ordering::SeqCst);
-                tokio::time::sleep(Duration::from_millis(50)).await;
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                // Uploads can commit while this shared history read runs. The
+                // waiting requests must still share it, rather than rebuilding
+                // once per waiter as the global version keeps advancing.
+                sqlx::query("UPDATE market_state SET version=version+1").execute(&pool).await?;
                 Ok(Some(json!({"variant":2})))
             }).await.unwrap()
         }));
