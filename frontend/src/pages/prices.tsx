@@ -860,16 +860,18 @@ export default function Prices() {
                             )}
                           </span>
                           <span className="pr quote-value">
-                            <Price
-                              value={
-                                showLowestAsk
-                                  ? row.low
-                                  : showLastSale
-                                    ? row.last_sale_price
-                                    : row.typical
-                              }
-                            />
-                            {unit(row)}
+                            <span className="quote-main">
+                              <Price
+                                value={
+                                  showLowestAsk
+                                    ? row.low
+                                    : showLastSale
+                                      ? row.last_sale_price
+                                      : row.typical
+                                }
+                              />
+                              {unit(row)}
+                            </span>
                             {!showLowestAsk && !showLastSale && (
                               <SampleBadge row={row} />
                             )}
@@ -940,14 +942,16 @@ export default function Prices() {
                               </td>
                               <td>
                                 <span className="pr quote-value">
-                                  <Price
-                                    value={
-                                      showLastSale
-                                        ? row.last_sale_price
-                                        : row.typical
-                                    }
-                                  />
-                                  {unit(row)}
+                                  <span className="quote-main">
+                                    <Price
+                                      value={
+                                        showLastSale
+                                          ? row.last_sale_price
+                                          : row.typical
+                                      }
+                                    />
+                                    {unit(row)}
+                                  </span>
                                   {!showLastSale && <SampleBadge row={row} />}
                                 </span>
                                 {!showLastSale &&

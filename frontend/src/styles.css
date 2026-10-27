@@ -62,6 +62,10 @@
   box-shadow: none;
   background: transparent;
 }
+.btn.ui-ghost:hover {
+  border-color: transparent;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
 .ui-icon-button {
   width: 44px;
   padding: 0;
@@ -392,8 +396,10 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
     gap: 8px;
   }
   .react-price-tools .finder {
-    grid-column: 1/-1;
+    grid-column: 1;
+    grid-row: 1;
     width: 100%;
+    height: 44px;
   }
   .react-price-tools .sortwrap {
     margin-left: 0;
@@ -402,10 +408,16 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
     max-width: 150px;
   }
   .react-price-tools .cats {
-    grid-column: 1;
+    grid-column: 1/-1;
+    grid-row: 2;
     order: 0;
     min-width: 0;
     overflow: auto;
+    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent);
+    mask-image: linear-gradient(90deg, #000 88%, transparent);
+  }
+  .react-price-tools .cat {
+    padding: 0 12px;
   }
   .react-price-tools [data-craft-only],
   .react-price-tools [data-watch-only] {
@@ -413,9 +425,11 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
   }
   .react-price-tools .sortwrap {
     grid-column: 2;
+    grid-row: 1;
   }
   .react-price-tools [data-filter-btn] {
     grid-column: 3;
+    grid-row: 1;
   }
   .react-price-tools [data-filter-btn] > span:not(.contents) {
     display: none;
@@ -617,14 +631,14 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
 .variant-chevron{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:22px;color:var(--ink-3)}
 .listing-offer[open]>.variant-summary .variant-chevron{transform:translateY(-50%) rotate(90deg)}
 .variant-offer,.listing-offer{border-top:1px solid var(--rule)}
-.where-well .where-tools,.watch-list-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:8px 10px;align-items:center;border-bottom:1px solid var(--rule)}
-.where-well .where-tools .sortb{min-height:36px;min-width:0;display:block}
-.where-well .where-tools [data-offer-sort],.watch-list-tools select{width:100%;min-width:0;min-height:36px;padding:5px 8px;border:1px solid var(--rule);border-radius:2px;background:var(--sheet-hi);color:var(--ink);font:inherit;font-size:13px}
-.where-well .where-tools .offer-filter-trigger,.watch-list-tools .offer-filter-trigger{min-height:36px;padding:5px 10px}
+.where-well .where-tools,.watch-list-tools{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:8px;padding:8px 10px;align-items:center;border-bottom:1px solid var(--rule)}
+.where-well .where-tools .sortb{min-height:36px;min-width:0;display:block;flex:0 1 auto}
+.where-well .where-tools [data-offer-sort],.watch-list-tools select{width:auto;max-width:100%;min-width:0;min-height:36px;height:36px;padding:5px 8px;border:1px solid var(--rule);border-radius:2px;background:var(--sheet-hi);color:var(--ink);font:inherit;font-size:13px}
+.where-well .where-tools .offer-filter-trigger,.watch-list-tools .offer-filter-trigger{min-height:36px;height:36px;padding:0 10px}
 .where-well .offer-filter-summary,.watch-page .offer-filter-summary{gap:5px;padding:6px 10px}
 .where-well .offer-filter-summary button,.watch-page .offer-filter-summary button{padding:3px 6px;font-size:11px}
 .where-well .offer-filter-summary small,.watch-page .offer-filter-summary small{flex-basis:100%;font-size:11px}
-@media(max-width:640px){.where-well .where-tools [data-offer-sort],.watch-list-tools select{font-size:16px}}
+@media(max-width:640px){.where-well .where-tools [data-offer-sort],.watch-list-tools select{font-size:16px}.where-well .where-tools .show-expired-toggle{grid-column:1/-1;justify-self:start;min-height:28px}}
 
 .variant-record .record-detail{display:flex;align-items:baseline;gap:6px;min-width:0;margin-top:3px}
 .variant-record .record-detail .record-time{flex:none;font-size:var(--record-small-size);line-height:1.4;color:var(--ink-3)}
@@ -649,7 +663,7 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
 .quote-expired { white-space: nowrap; border: 1px solid currentColor; padding: 0 4px; font-size: 12px; color: var(--muted, #766752); }
 .expired-record .ware-price { color: var(--muted, #766752); text-decoration: line-through; }
 .expired-record .record-stock { color: var(--muted, #766752); }
-.where-tools .show-expired-toggle { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; min-height: 28px; width: fit-content; cursor: pointer; font-size: 13px; }
+.where-tools .show-expired-toggle { justify-self: end; display: flex; align-items: center; gap: 6px; min-height: 36px; width: fit-content; cursor: pointer; font-size: 13px; color: var(--ink-2); }
 .show-expired-toggle input { width: 16px; height: 16px; margin: 0; accent-color: var(--mark); }
 
 .price-record-actions { z-index: 2; }
@@ -668,4 +682,71 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
 }
 .watch-notification-hint {
   color: var(--ink-3);
+}
+
+/* Filter dialogs: the close button sits on the blue title bar like other bar buttons. */
+.price-filter-dialog .ui-dialog-close,
+.react-list-filter .ui-dialog-close {
+  top: 0;
+  right: 0;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--bar-ink);
+}
+.price-filter-dialog .ui-dialog-close:hover,
+.react-list-filter .ui-dialog-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--bar-ink);
+}
+/* The URL-persistence note stays for screen readers only. */
+.price-filter-dialog > .ui-dialog-description {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.price-filter-dialog .fsec h4 small {
+  color: var(--ink-3);
+}
+/* Level fields: the label is the box, the input inside has no second border. */
+.ui-dialog-content .lvrow input {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: right;
+}
+.price-filter-dialog .fsec:last-child {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 12px;
+  border-bottom: 0;
+}
+.price-filter-dialog .fsec:last-child > h4 {
+  grid-column: 1 / -1;
+}
+.ui-dialog-content .filter-check {
+  min-height: 40px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.ui-dialog-content .filter-check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--bar);
+}
+@media (max-width: 640px) {
+  html:not([data-lang="en"]) .price-filter-dialog .equipment-types {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .price-filter-dialog .fsec:last-child {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

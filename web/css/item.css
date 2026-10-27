@@ -14,12 +14,15 @@ html[data-device=desktop] .ipage .ihead{border-bottom:2px solid var(--edge)}
 
 /* ---------- body: one column on phones, the mockup's grid on desktop ---------- */
 .ibox{display:grid;gap:12px;padding:12px}
-html[data-device=desktop] .ibox{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:16px;padding:16px;align-items:start}
-html[data-device=desktop] .ibox>.src-box{grid-column:1;grid-row:1}
+/* Desktop: where to buy is the main column; ladder/trend and sources share the side column.
+   The 1fr second row keeps sources directly under the ladder however long the offer list is. */
+html[data-device=desktop] .ibox{grid-template-columns:minmax(0,7fr) minmax(0,5fr);grid-template-rows:auto 1fr;gap:16px;padding:16px;align-items:start}
+html[data-device=desktop] .ibox>[data-market=where]{grid-column:1;grid-row:1/3}
 html[data-device=desktop] .ibox>[data-market=tabs]{grid-column:2;grid-row:1}
-html[data-device=desktop] .ibox>[data-market=where],
+html[data-device=desktop] .ibox>.src-box{grid-column:2;grid-row:2}
 html[data-device=desktop] .ibox>[data-market=equip],
 html[data-device=desktop] .ibox>[data-market=sales]{grid-column:1/-1}
+html[data-device=desktop] .ipage .ladder{--cell:40px;--barmax:60px}
 
 /* "more" lists: .xp hides past the phone count, .xd past the desktop count, .extra on both;
    item.js adds .all to the well. */
@@ -233,3 +236,11 @@ html[lang=en] .salegrid .sale-with-stats{grid-template-columns:96px max-content 
 .collapsible-well .well-toggle svg{width:14px;height:14px}
 .collapsible-well[open]>.well-h .well-toggle{transform:rotate(90deg)}
 .where-tools{justify-content:flex-end;padding:8px 10px;border-bottom:1px solid var(--rule);flex-wrap:wrap}
+
+/* ---------- where to buy ---------- */
+.where-well .where-tools{margin-left:0}
+/* Phones: wider price column on the ladder so "160K–180K" fits. */
+@media (max-width:640px){
+  .ladder .rung,.ladder .rung-h{grid-template-columns:minmax(0,1fr) 86px calc(var(--cell) * var(--days))}
+  .ladder .rung-p{font-size:12px}
+}

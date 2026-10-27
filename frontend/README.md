@@ -11,7 +11,7 @@ pnpm build
 
 React owns every page and its interactions: home, prices and sales, watch lists, collection alerts, assistant/history, account, privacy, contributors, download, browser capture and the item/monster/map/search/route catalogue. There is no legacy-page mount adapter. Existing legacy assets stay available to already-open browser sessions.
 
-Direct catalogue links retain their escaped Rust-rendered first paint and HTTP statuses for indexing and no-JavaScript visitors. The shared React application takes over using `/api/v1/catalog/page`, backed by the same queries and filter normalization. React owns catalogue filters, offer dialogs, instance stats, channel/room views, ladder, trend and quick previews; it never fetches an HTML fragment to replace the page.
+Direct catalogue links retain their escaped Rust-rendered first paint and HTTP statuses for indexing and no-JavaScript visitors. The shared React application takes over using `/api/v1/catalog/page`, backed by the same queries and filter normalization. React owns catalogue filters, offer dialogs, instance stats, the flat offer list (lowest price or newest first), ladder, trend and quick previews; it never fetches an HTML fragment to replace the page.
 
 The parser-blocking `boot.js` sets the theme before CSS. React uses the same account-scoped storage facade as watch settings and preferences. Keep initial theme resolution out of a mount effect. URL parameters own filters and sorting; the single market SSE stream invalidates market queries.
 

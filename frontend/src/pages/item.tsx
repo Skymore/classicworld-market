@@ -16,7 +16,6 @@ import {
   hasBonus,
   groupEquipmentVariants,
   makeLadder,
-  offerGroups,
   timestamp,
 } from "../lib/item-market";
 import { useWords, usePreferences } from "../providers";
@@ -412,7 +411,6 @@ export default function Item({ page }: { page: any }) {
     [raw, saveFilters] = useUserValue(`item.offerFilters.${item.id}`, "{}");
   const [tab, setTab] = useState("ladder"),
     [more, setMore] = useState<Set<string>>(new Set()),
-    [channels, setChannels] = useState<Record<string, boolean>>({}),
     [offersOpen, setOffersOpen] = useState<Set<string>>(new Set()),
     [filterOpen, setFilterOpen] = useState(false),
     [, tick] = useState(0);
@@ -524,13 +522,21 @@ export default function Item({ page }: { page: any }) {
     if (variant) params.set("variant", String(variant.id));
     return route.pathname + (params.size ? "?" + params : "");
   };
-  const groups = offerGroups(filtered.rows, false);
+  // One list for both orders: cheapest first (newer first on ties), or newest first.
+  const cheapest = [...filtered.rows].sort(
+    (a, b) =>
+      a.unit_price - b.unit_price ||
+      b.observed - a.observed ||
+      a.key.localeCompare(b.key),
+  );
   const flat = [...filtered.rows].sort(
     (a, b) =>
       b.observed - a.observed ||
       a.unit_price - b.unit_price ||
       a.key.localeCompare(b.key),
   );
+  const list = sort === "recent" ? flat : cheapest,
+    moreKey = sort === "recent" ? "recent" : "where";
   const ids = useMemo<any[]>(() => {
     try {
       const value = JSON.parse(watch);
@@ -1000,121 +1006,6 @@ export default function Item({ page }: { page: any }) {
           </div>
         )}
         <div className="ibox">
-          <div className="src-box">
-            <CollapsibleWell
-              className={"src-well " + (more.has("mobs") ? "all" : "")}
-              title={words("来源", "Sources")}
-              note={words("怎么拿到", "how to get it")}
-            >
-              <div className="sub-h">
-                {words("怪物掉落", "Monster drops")}
-                <small>
-                  {page.droppers.length
-                    ? words(
-                        `${page.droppers.length} 种怪物`,
-                        `${page.droppers.length} monsters`,
-                      )
-                    : words(
-                        "图鉴里没有怪物掉落记录",
-                        "no monster drops in the dex",
-                      )}
-                </small>
-              </div>
-              {page.droppers.map((drop: any, i: number) => (
-                <a
-                  className={
-                    "mob " + (i >= 4 ? "xp " : "") + (i >= 6 ? "xd" : "")
-                  }
-                  href={"/mob/" + drop.mob.id}
-                  key={drop.mob.id}
-                >
-                  <MobPicture mob={drop.mob} />
-                  <span className="mob-t">
-                    <b>{name(drop.mob.names)}</b>
-                    {drop.mob.level != null && (
-                      <span className="lv">Lv.{drop.mob.level}</span>
-                    )}
-                    <Secondary names={drop.mob.names} />
-                    <div className="maps">
-                      {drop.maps
-                        .slice(0, 3)
-                        .map((map: any) => name(map.names))
-                        .join(" · ")}
-                      {drop.maps.length > 3 &&
-                        words(
-                          ` 等 ${drop.maps.length} 张地图`,
-                          ` and ${drop.maps.length - 3} more`,
-                        )}
-                      {!drop.maps.length &&
-                        words("没有出现地图记录", "no maps recorded")}
-                    </div>
-                  </span>
-                  <span className="rate">
-                    {Number(drop.rate_pct).toLocaleString(undefined, {
-                      maximumFractionDigits: 4,
-                    })}
-                    %
-                  </span>
-                </a>
-              ))}
-              {page.droppers.length > 4 && (
-                <button
-                  className="more on-phone"
-                  data-more="mobs"
-                  onClick={() => show("mobs")}
-                >
-                  {words(
-                    `查看全部 ${page.droppers.length} 种怪物 `,
-                    `All ${page.droppers.length} monsters `,
-                  )}
-                  <Icon name="chev" />
-                </button>
-              )}
-              {page.droppers.length > 6 && (
-                <button
-                  className="more on-desktop"
-                  data-more="mobs"
-                  onClick={() => show("mobs")}
-                >
-                  {words(
-                    `查看全部 ${page.droppers.length} 种怪物 `,
-                    `All ${page.droppers.length} monsters `,
-                  )}
-                  <Icon name="chev" />
-                </button>
-              )}
-              <div className="sub-h ruled">
-                {words("NPC 商店", "NPC shops")}
-              </div>
-              <div className="npc">
-                {page.npc_offers.map((offer: any, i: number) => (
-                  <span key={i}>
-                    {name(offer.npc.names) || "NPC #" + offer.npc.id}
-                    {words(" 出售 ", " sells for ")}
-                    <b>
-                      <Price value={offer.price} />
-                    </b>
-                    {words(" / 个", " each")}
-                    <Secondary names={offer.npc.names} />
-                  </span>
-                ))}
-                {!page.npc_offers.length && (
-                  <span className="no">
-                    {words("没有 NPC 出售记录", "No NPC sells it")}
-                  </span>
-                )}
-                {page.npc_sell != null && (
-                  <span className="sell">
-                    {words("卖给 NPC 只得 ", "NPCs pay ")}
-                    <Price value={page.npc_sell} />
-                    {words(" / 个", " each")}
-                  </span>
-                )}
-              </div>
-              <Crafting key={page.item.id} itemId={page.item.id} />
-              <Verdict page={page} />
-            </CollapsibleWell>
-          </div>
           <div data-market="where">
             <CollapsibleWell
               className={
@@ -1226,178 +1117,70 @@ export default function Item({ page }: { page: any }) {
                     "No offers match. Try a wider filter.",
                   )}
                 </p>
-              ) : sort === "recent" ? (
-                <div className="recent-offers">
-                  {flat.slice(0, more.has("recent") ? undefined : 50).map((row) => quote(row, true))}
-                  {flat.length > 50 && (
-                    <button className="more" data-more="recent" onClick={() => show("recent")}>
-                      {words(`显示全部 ${flat.length} 条报价 `, `Show all ${flat.length} offers `)}
+              ) : (
+                <div className="recent-offers" data-offer-list>
+                  {list
+                    .slice(0, more.has(moreKey) ? undefined : 50)
+                    .map((row) => quote(row, sort === "recent"))}
+                  {list.length > 50 && (
+                    <button
+                      className="more"
+                      data-more={moreKey}
+                      onClick={() => show(moreKey)}
+                    >
+                      {words(
+                        `显示全部 ${list.length} 条报价 `,
+                        `Show all ${list.length} offers `,
+                      )}
                       <Icon name="chev" />
                     </button>
                   )}
                 </div>
-              ) : (
-                <>
-                  <div className="legend">
-                    <span>
-                      <i />
-                      {words(
-                        "有货（数字为该洞最低价）",
-                        "in stock (lowest price in the room)",
-                      )}
-                    </span>
-                    <span>
-                      <i className="best" />
-                      {words("本频道最低", "cheapest in channel")}
-                    </span>
-                    <span>
-                      <i className="stale" />
-                      {words("2 天没更新", "not seen for 2 days")}
-                    </span>
-                  </div>
-                  {groups.map((group, i) => {
-                    const opened = channels[group.key] ?? i === 0;
-                    return (
-                      <div
-                        className={
-                          "cgroup " +
-                          (opened ? "open " : "") +
-                          (i >= 6 ? "xp " : "") +
-                          (i >= 8 ? "xd" : "")
-                        }
-                        key={group.key}
-                        data-ch-key={group.key}
-                      >
-                        <button
-                          className="cg-head"
-                          data-ch
-                          aria-expanded={opened}
-                          onClick={() =>
-                            setChannels((old) => ({
-                              ...old,
-                              [group.key]: !opened,
-                            }))
-                          }
-                        >
-                          <span
-                            className={
-                              "chno " + (group.channel == null ? "unk" : "")
-                            }
-                          >
-                            {group.channel == null
-                              ? words("位置未知", "unknown")
-                              : words(`${group.channel}频道`, "CH " + group.channel)}
-                          </span>
-                          <span className="cg-meta">
-                            {words(
-                              `${group.shops} 摊 · ${group.rows.length} 条挂单`,
-                              `${group.shops} shops · ${group.rows.length} listings`,
-                            )}
-                          </span>
-                          <span className="cg-min">
-                            {words("最低 ", "from ")}
-                            <b>
-                              <Price value={group.price} />
-                            </b>
-                          </span>
-                          <span className="caret">
-                            <Icon name="caret" />
-                          </span>
-                        </button>
-                        {opened && <div className="cg-body">
-                          {group.channel != null && (
-                            <div
-                              className="holes"
-                              aria-label={words(
-                                "22 个洞的在售情况",
-                                "Listings in the 22 rooms",
-                              )}
-                            >
-                              {Array.from(
-                                { length: 22 },
-                                (_, index) => index + 1,
-                              ).map((room) => {
-                                const here = group.rows.filter(
-                                    (row: any) => row.room === room && !row.invalidated_at,
-                                  ),
-                                  fresh = here.filter(
-                                    (row: any) =>
-                                      Date.now() / 1000 - row.observed <=
-                                      48 * 3600,
-                                  ),
-                                  price = Math.min(
-                                    ...(fresh.length ? fresh : here).map(
-                                      (row: any) => row.unit_price,
-                                    ),
-                                  ),
-                                  stale = here.length > 0 && !fresh.length;
-                                return (
-                                  <span
-                                    className={
-                                      "hole " +
-                                      (here.length ? "lit " : "") +
-                                      (stale ? "stale " : "") +
-                                      (!stale && price === group.price
-                                        ? "best"
-                                        : "")
-                                    }
-                                    key={room}
-                                    title={
-                                      here.length
-                                        ? words(
-                                            `${room} 洞 最低 ${meso(price)}`,
-                                            `room ${room}, from ${meso(price)}`,
-                                          )
-                                        : undefined
-                                    }
-                                  >
-                                    <i>{room}</i>
-                                    {here.length > 0 && (
-                                      <b>
-                                        <Price value={price} />
-                                      </b>
-                                    )}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          )}
-                          <div className="cg-list">
-                            {group.rows.map((row) => quote(row))}
-                          </div>
-                        </div>}
-                      </div>
-                    );
-                  })}
-                  {groups.length > 6 && (
-                    <button
-                      className="more on-phone"
-                      data-more="where"
-                      onClick={() => show("where")}
-                    >
-                      {words(
-                        `显示其余 ${groups.length - 6} 个频道 `,
-                        `Show ${groups.length - 6} more channels `,
-                      )}
-                      <Icon name="chev" />
-                    </button>
-                  )}
-                  {groups.length > 8 && (
-                    <button
-                      className="more on-desktop"
-                      data-more="where"
-                      onClick={() => show("where")}
-                    >
-                      {words(
-                        `显示其余 ${groups.length - 8} 个频道 `,
-                        `Show ${groups.length - 8} more channels `,
-                      )}
-                      <Icon name="chev" />
-                    </button>
-                  )}
-                </>
               )}
             </CollapsibleWell>
+          </div>
+          <div data-market="tabs">
+            <section
+              className={"well tabs-well " + (more.has("sales") ? "all" : "")}
+            >
+              <div className="tabs" role="tablist">
+                {[
+                  ["ladder", "价格梯", "Ladder"],
+                  ["trend", "走势", "Trend"],
+                  ["sales", "最近成交", "Sales"],
+                ].map(([key, zh, en]) => (
+                  <button
+                    type="button"
+                    className={
+                      "tab " +
+                      (tab === key ? "on " : "") +
+                      (key === "sales" ? "on-phone" : "")
+                    }
+                    role="tab"
+                    aria-selected={tab === key}
+                    data-tab={key}
+                    key={key}
+                    onClick={() => setTab(key)}
+                  >
+                    {words(zh, en)}
+                    {key === "sales" && " " + sales.length}
+                  </button>
+                ))}
+              </div>
+              <div
+                className="pane"
+                data-pane="ladder"
+                hidden={tab !== "ladder"}
+              >
+                <Ladder page={page} />
+              </div>
+              <div className="pane" data-pane="trend" hidden={tab !== "trend"}>
+                <ItemTrend days={market.days} listingDays={market.listing_days} />
+              </div>
+              <div className="pane" data-pane="sales" hidden={tab !== "sales"}>
+                {saleList(false)}
+              </div>
+            </section>
           </div>
           {equipment && (
             <div data-market="equip">
@@ -1516,48 +1299,120 @@ export default function Item({ page }: { page: any }) {
               </Well>
             </div>
           )}
-          <div data-market="tabs">
-            <section
-              className={"well tabs-well " + (more.has("sales") ? "all" : "")}
+          <div className="src-box">
+            <CollapsibleWell
+              className={"src-well " + (more.has("mobs") ? "all" : "")}
+              title={words("来源", "Sources")}
+              note={words("怎么拿到", "how to get it")}
             >
-              <div className="tabs" role="tablist">
-                {[
-                  ["ladder", "价格梯", "Ladder"],
-                  ["trend", "走势", "Trend"],
-                  ["sales", "最近成交", "Sales"],
-                ].map(([key, zh, en]) => (
-                  <button
-                    type="button"
-                    className={
-                      "tab " +
-                      (tab === key ? "on " : "") +
-                      (key === "sales" ? "on-phone" : "")
-                    }
-                    role="tab"
-                    aria-selected={tab === key}
-                    data-tab={key}
-                    key={key}
-                    onClick={() => setTab(key)}
-                  >
-                    {words(zh, en)}
-                    {key === "sales" && " " + sales.length}
-                  </button>
+              <div className="sub-h">
+                {words("怪物掉落", "Monster drops")}
+                <small>
+                  {page.droppers.length
+                    ? words(
+                        `${page.droppers.length} 种怪物`,
+                        `${page.droppers.length} monsters`,
+                      )
+                    : words(
+                        "图鉴里没有怪物掉落记录",
+                        "no monster drops in the dex",
+                      )}
+                </small>
+              </div>
+              {page.droppers.map((drop: any, i: number) => (
+                <a
+                  className={
+                    "mob " + (i >= 4 ? "xp " : "") + (i >= 6 ? "xd" : "")
+                  }
+                  href={"/mob/" + drop.mob.id}
+                  key={drop.mob.id}
+                >
+                  <MobPicture mob={drop.mob} />
+                  <span className="mob-t">
+                    <b>{name(drop.mob.names)}</b>
+                    {drop.mob.level != null && (
+                      <span className="lv">Lv.{drop.mob.level}</span>
+                    )}
+                    <Secondary names={drop.mob.names} />
+                    <div className="maps">
+                      {drop.maps
+                        .slice(0, 3)
+                        .map((map: any) => name(map.names))
+                        .join(" · ")}
+                      {drop.maps.length > 3 &&
+                        words(
+                          ` 等 ${drop.maps.length} 张地图`,
+                          ` and ${drop.maps.length - 3} more`,
+                        )}
+                      {!drop.maps.length &&
+                        words("没有出现地图记录", "no maps recorded")}
+                    </div>
+                  </span>
+                  <span className="rate">
+                    {Number(drop.rate_pct).toLocaleString(undefined, {
+                      maximumFractionDigits: 4,
+                    })}
+                    %
+                  </span>
+                </a>
+              ))}
+              {page.droppers.length > 4 && (
+                <button
+                  className="more on-phone"
+                  data-more="mobs"
+                  onClick={() => show("mobs")}
+                >
+                  {words(
+                    `查看全部 ${page.droppers.length} 种怪物 `,
+                    `All ${page.droppers.length} monsters `,
+                  )}
+                  <Icon name="chev" />
+                </button>
+              )}
+              {page.droppers.length > 6 && (
+                <button
+                  className="more on-desktop"
+                  data-more="mobs"
+                  onClick={() => show("mobs")}
+                >
+                  {words(
+                    `查看全部 ${page.droppers.length} 种怪物 `,
+                    `All ${page.droppers.length} monsters `,
+                  )}
+                  <Icon name="chev" />
+                </button>
+              )}
+              <div className="sub-h ruled">
+                {words("NPC 商店", "NPC shops")}
+              </div>
+              <div className="npc">
+                {page.npc_offers.map((offer: any, i: number) => (
+                  <span key={i}>
+                    {name(offer.npc.names) || "NPC #" + offer.npc.id}
+                    {words(" 出售 ", " sells for ")}
+                    <b>
+                      <Price value={offer.price} />
+                    </b>
+                    {words(" / 个", " each")}
+                    <Secondary names={offer.npc.names} />
+                  </span>
                 ))}
+                {!page.npc_offers.length && (
+                  <span className="no">
+                    {words("没有 NPC 出售记录", "No NPC sells it")}
+                  </span>
+                )}
+                {page.npc_sell != null && (
+                  <span className="sell">
+                    {words("卖给 NPC 只得 ", "NPCs pay ")}
+                    <Price value={page.npc_sell} />
+                    {words(" / 个", " each")}
+                  </span>
+                )}
               </div>
-              <div
-                className="pane"
-                data-pane="ladder"
-                hidden={tab !== "ladder"}
-              >
-                <Ladder page={page} />
-              </div>
-              <div className="pane" data-pane="trend" hidden={tab !== "trend"}>
-                <ItemTrend days={market.days} listingDays={market.listing_days} />
-              </div>
-              <div className="pane" data-pane="sales" hidden={tab !== "sales"}>
-                {saleList(false)}
-              </div>
-            </section>
+              <Crafting key={page.item.id} itemId={page.item.id} />
+              <Verdict page={page} />
+            </CollapsibleWell>
           </div>
           <div className="on-desktop" data-market="sales">
             <Well

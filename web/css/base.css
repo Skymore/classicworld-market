@@ -548,3 +548,21 @@ html[data-theme=dark] .craft-tag{color:#9fd486;border-color:#6c9e71}
 .prow:has(.craft-label){min-height:72px;height:auto;padding-top:7px;padding-bottom:7px}
 
 @media(max-width:380px){.ptop .brand{flex-shrink:1;min-width:0}.ptop .brand>.px{flex-shrink:0}.ptop .brand>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis}.ptop .prefs{flex-shrink:0}}
+
+/* 悬停只换底色，形状和边框不变 */
+.btn:not(.primary):hover,.cat:not(.on):hover,.chip:not(.on):hover,.sortbtn:hover,.portal:hover{background:var(--lamp)}
+/* 数据时间和实时连接合成一个状态点：点的颜色表示连接状态 */
+html[data-live-connection=connected] .fresh i{background:#28935d}
+html[data-live-connection=reconnecting] .fresh i{background:#b47722}
+@media (max-width:640px){.fresh:not([hidden])~.prefs .live-status{display:none}}
+/* 桌面顶栏：状态点固定显示在数据时间的位置（没有数据时间的页面只显示点），切换页面时搜索框不跳动 */
+@media (min-width:1101px){
+  .dhead .live-status{display:none}
+  .dhead .fresh{min-width:128px;justify-content:flex-end}
+  .dhead .fresh[hidden]{display:flex!important}
+}
+/* 页面组件自己带 .dwrap 时（图鉴、物品页），不再叠一层外边距 */
+.dwrap .dwrap{padding:0;max-width:none}
+/* 工具页面包屑：外壳在 /alerts、/collect 等页面也会渲染，所以放在共享样式里 */
+.tool-breadcrumb{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:13px;color:var(--ink-3)}
+.tool-breadcrumb a{display:inline-flex;align-items:center;min-height:36px;color:var(--bar-text);font-weight:600}

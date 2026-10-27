@@ -169,7 +169,6 @@ try {
     await page.goto(origin + '/item/1452003?lang=zh');
     await page.locator('.where-well .market-record').first().waitFor();
     await page.locator('[data-offer-sort]').selectOption('price');
-    assert.equal(await page.locator('.where-well .chno').first().textContent(),'24频道');
     assert.equal(await page.locator('.where-well .loc b').first().textContent(),'24频道');
     assert.equal(await page.locator('.where-well .loc-room').first().textContent(),'10洞');
     assert.deepEqual(errors, []);

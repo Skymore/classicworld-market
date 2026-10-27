@@ -7,6 +7,8 @@
 .active-price-filters .clear-price-filters{border-color:transparent;background:transparent;text-decoration:underline;text-underline-offset:3px}
 .filter-empty-action{display:flex;justify-content:center;padding:0 12px 20px}
 .quote-value{display:inline-flex;flex-direction:column;align-items:flex-end;gap:2px}
+.quote-main{white-space:nowrap}
+.quote-main .unit{margin-left:2px;font-size:12px;font-weight:500;color:var(--ink-3)}
 .sample-badge{display:block;padding:0 4px;border:1px solid var(--rule);border-radius:2px;background:var(--sheet-lo);font-size:11px;font-weight:500;line-height:1.4;color:var(--ink-2);white-space:nowrap}
 @media(max-width:640px){.active-price-filters>button{min-height:40px}.quote-value{justify-content:center}}
 .sortwrap{position:relative;flex:none;display:inline-flex}

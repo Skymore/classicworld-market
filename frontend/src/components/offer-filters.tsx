@@ -123,12 +123,6 @@ export default function OfferFilterDialog({
             <h3 id="offer-filter-title">
               {title || words("筛选报价", "Filter offers")}
             </h3>
-            <p hidden={reminder}>
-              {words(
-                "组合条件，找到合适的报价",
-                "Combine conditions to find the right offer",
-              )}
-            </p>
           </div>
           <button
             type="button"
@@ -185,16 +179,6 @@ export default function OfferFilterDialog({
                   words("最高单价（金币）", "Max unit price (mesos)"),
                 )}
             </div>
-            <p className="offer-field-hint" hidden={reminder}>
-              {words(
-                filterRows
-                  ? "百分位按每种物品符合关注条件的报价分别计算，临界同价一起保留。"
-                  : "百分位按本物品全部挂单的单价计算，临界同价挂单一起保留。",
-                filterRows
-                  ? "Percentiles are calculated separately for each watched item’s matching offers, including ties."
-                  : "Percentiles use all offers for this item; ties at the cutoff are included.",
-              )}
-            </p>
           </fieldset>
           <fieldset>
             <legend>{words("库存与属性", "Stock and stats")}</legend>
@@ -348,17 +332,13 @@ export default function OfferFilterDialog({
             data-offer-preview
             role="status"
             aria-live="polite"
-            hidden={reminder}
+            hidden={reminder || preview.cap == null}
           >
-            {preview.cap == null
-              ? words(
-                  "所有条件同时生效，排序方式不影响筛选。",
-                  "All conditions apply together, regardless of sort order.",
-                )
-              : words(
-                  `价格百分位上限：单价 ${preview.cap.toLocaleString("zh-CN")}，含同价挂单。`,
-                  `Percentile cutoff: unit price ${preview.cap.toLocaleString("en-US")}, including ties.`,
-                )}
+            {preview.cap != null &&
+              words(
+                `价格百分位上限：单价 ${preview.cap.toLocaleString("zh-CN")}，含同价挂单。`,
+                `Percentile cutoff: unit price ${preview.cap.toLocaleString("en-US")}, including ties.`,
+              )}
           </p>
           <div>
             <button
