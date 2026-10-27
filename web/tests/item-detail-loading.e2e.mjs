@@ -57,7 +57,7 @@ try {
   assert.equal(reads,0,'fresh SSR data must avoid a second full-detail request');
   const quotes=page.locator('.where-well [data-quote]');
   assert.equal(await page.locator('.cgroup').count(),0,'lowest-price order is one list, not channel groups');
-  assert.equal(await quotes.count(),50,'the list starts with the cheapest 50 offers');
+  assert.equal(await quotes.count(),20,'phones start with the cheapest 20 offers');
   assert.equal(await quotes.first().getAttribute('data-unit-price'),'100','cheapest offer first');
   await page.locator('[data-more=where]').click();
   assert.equal(await quotes.count(),2000,'show all exposes every offer');
@@ -77,7 +77,7 @@ try {
   assert.equal(reads,beforeBurst+2,'an in-flight refresh finishes and a burst causes only one trailing request');
   delay=0;
   await page.selectOption('[data-offer-sort]','recent');
-  assert.equal(await page.locator('.recent-offers [data-quote]').count(),50,'recent order starts with the latest 50 offers');
+  assert.equal(await page.locator('.recent-offers [data-quote]').count(),20,'recent order starts with the latest 20 offers on phones');
   await page.locator('[data-more=recent]').click();
   assert.equal(await page.locator('.recent-offers [data-quote]').count(),2000,'all sorted offers stay accessible');
   await page.selectOption('[data-offer-sort]','price');
@@ -100,6 +100,6 @@ try {
   for(const stream of streams)stream.write('event: market\ndata: {}\n\n');
   assert.equal((await response).status(),304,'first unchanged SSE reuses the seeded validator');
   assert(unchanged>0);
-  assert.equal(await defaultPage.locator('.where-well [data-quote]').count(),50,'304 retains rendered data');
-  console.log('PASS item detail: no duplicate fresh request; cheapest 50 first; show all survives SSE; stale HTML refresh');
+  assert.equal(await defaultPage.locator('.where-well [data-quote]').count(),20,'304 retains rendered data');
+  console.log('PASS item detail: no duplicate fresh request; cheapest 20 first on phones; show all survives SSE; stale HTML refresh');
 }finally{await browser.close();for(const stream of streams)stream.end();await new Promise(resolve=>server.close(resolve));}

@@ -46,11 +46,13 @@ export default function Collect() {
             <span id="ver">{state.ver}</span>
           </p>
         </div>
-        <div className="verdict c-device">
-          <b>电脑专用</b>
-          <strong>手机浏览器不能共享屏幕</strong>
-          <small>请在电脑上用 Chrome、Edge 或 Firefox 打开这个页面。</small>
-        </div>
+        {!navigator.mediaDevices?.getDisplayMedia && (
+          <div className="verdict c-device">
+            <b>电脑专用</b>
+            <strong>这个浏览器不能共享屏幕</strong>
+            <small>请在电脑上用 Chrome、Edge 或 Firefox 打开这个页面。</small>
+          </div>
+        )}
       </section>
       <div className="c-grid">
         <section className="stall c-share" aria-labelledby="h-share">
@@ -277,38 +279,6 @@ export default function Collect() {
                 <Frame key={i} frame={frame} />
               ))}
             </div>
-          </div>
-        </section>
-        <section className="stall c-video" aria-labelledby="h-video">
-          <div className="stall-bar">
-            <h2 id="h-video">上传录像</h2>
-            <span className="bar-meta">服务端处理尚未上线</span>
-          </div>
-          <div className="stall-body c-body">
-            <p className="c-note">
-              录像由服务器用同一读取器处理，每段不超过 10 分钟。
-              <b>服务端接口 /api/v1/upload/video 还没有上线</b>
-              ，现在提交会失败；这里先放表单。
-            </p>
-            <form
-              id="video-form"
-              className="c-upload"
-              action="/api/v1/upload/video"
-              method="post"
-              encType="multipart/form-data"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void collector.uploadVideo(new FormData(event.currentTarget));
-              }}
-            >
-              <label className="c-file">
-                录像文件
-                <input type="file" name="video" accept="video/*" required />
-              </label>
-              <button className="btn" type="submit">
-                上传录像
-              </button>
-            </form>
           </div>
         </section>
       </div>

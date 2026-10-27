@@ -501,12 +501,6 @@ export default function Enhancement() {
                   </table>
                 </details>
               </div>
-              <small className="enhance-assumption">
-                {words(
-                  "目标按至少提升计算；失败消耗次数，淘汰装备无回收价。",
-                  "Target is a minimum gain; failures use a slot, with no resale value for discarded equipment.",
-                )}
-              </small>
             </div>
           )}
         </div>

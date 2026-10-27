@@ -159,9 +159,11 @@ export function OfferRow({
           <Price value={sale ? row.sale_unit_price : row.unit_price} />
           <span dangerouslySetInnerHTML={{ __html: priceUnit(row) }} />
         </span>
-        <span className="record-stock" title={row.merged_count > 1 ? words(`${row.merged_count} 条同店报价的库存合计`, `Combined stock of ${row.merged_count} offers in this shop`) : undefined}>
-          {row.invalidated_at ? words("当时库存", "Previous stock") : words("库存", "Stock")} {row.stock ?? "—"}
-        </span>
+        {!(sale && !Number.isFinite(row.stock)) && (
+          <span className="record-stock" title={row.merged_count > 1 ? words(`${row.merged_count} 条同店报价的库存合计`, `Combined stock of ${row.merged_count} offers in this shop`) : undefined}>
+            {row.invalidated_at ? words("当时库存", "Previous stock") : words("库存", "Stock")} {row.stock ?? "—"}
+          </span>
+        )}
       </span>
     </>
   );

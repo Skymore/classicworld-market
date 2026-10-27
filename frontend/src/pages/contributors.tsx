@@ -41,12 +41,6 @@ export default function Contributors() {
             "Thanks to everyone exploring the market",
           )}
         </h2>
-        <p>
-          {words(
-            "你打开的每一个摊位，都在帮大家找到更好的价格。",
-            "Every shop you visit helps others find better prices.",
-          )}
-        </p>
         <div className="contributor-tools">
           <Tabs value={period} onValueChange={setPeriod}>
             <TabsList aria-label={words("排行范围", "Ranking period")}>
@@ -115,12 +109,6 @@ export default function Contributors() {
             </>
           )}
         </div>
-        <p className="note">
-          {words(
-            "按不同摊位数排名，同一人重复打开同一摊位不重复加分。报价条目按商品、价格和库存去重；临时昵称可在「我的」修改或退出榜单。",
-            "Ranked by distinct shops. Reopening the same shop does not increase your rank. Change your nickname or leave the board under My profile.",
-          )}
-        </p>
       </div>
     </Stall>
   );

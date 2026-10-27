@@ -420,7 +420,9 @@ export default function Prices() {
               <>
                 <span className="bar-meta" data-meta>
                   {market.data &&
-                    `${num(rows.length)} / ${num(products.length)} ${words("件", "items")}`}
+                    (rows.length === products.length
+                      ? `${num(products.length)} ${words("件", "items")}`
+                      : `${num(rows.length)} / ${num(products.length)} ${words("件", "items")}`)}
                 </span>
                 <PeriodControl {...period} />
               </>

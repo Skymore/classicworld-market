@@ -79,7 +79,7 @@ export function NotificationSettings() {
       data-notification-state={permission}
     >
       <span className="watch-notification-state">
-        {words("桌面通知", "Desktop notifications")} ·{" "}
+        {words("通知", "Notifications")} ·{" "}
         {permission === "granted"
           ? words("已允许", "Allowed")
           : permission === "denied"
@@ -107,13 +107,13 @@ export function NotificationSettings() {
         {status ||
           (permission === "denied"
             ? words(
-                "请在地址栏的网站权限中允许通知。",
-                "Allow notifications in the address bar's site permissions.",
+                "在地址栏的网站设置里开启",
+                "Turn on in the address bar's site settings",
               )
             : permission === "unsupported"
               ? words(
-                  "请使用支持通知的浏览器打开本站。",
-                  "Open this site in a browser that supports notifications.",
+                  "此浏览器不支持通知",
+                  "This browser has no notifications",
                 )
               : words(
                   "本站任意页面打开即可提醒",
