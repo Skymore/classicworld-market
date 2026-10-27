@@ -48,8 +48,8 @@
       "_shared-dgXAszFs.js"
     ]
   },
-  "_main-Dn_BMEWm.js": {
-    "file": "chunks/main-Dn_BMEWm.js",
+  "_main-DF3cQde2.js": {
+    "file": "chunks/main-DF3cQde2.js",
     "name": "main",
     "imports": [
       "_shared-dgXAszFs.js",
@@ -145,7 +145,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Dn_BMEWm.js"
+      "_main-DF3cQde2.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -329,7 +329,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Dn_BMEWm.js"
+      "_main-DF3cQde2.js"
     ]
   },
   "style.css": {

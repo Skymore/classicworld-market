@@ -115,6 +115,11 @@ try {
       assert(await offers.locator('.loc-shop').evaluateAll(nodes=>nodes.every(node=>[...node.children].slice(0,2).every(cell=>cell.scrollWidth<=cell.clientWidth))),'translated channel and room labels fit their columns');
       const longShop=offers.first().locator('.record-shop');
       assert.equal(await longShop.locator('svg.lucide-store').count(),1);
+      for (const name of width===320?['Cheap']:['Cheap', 'Eq store', 'Viper store']) {
+        await longShop.locator('.record-shop-text').evaluate((node,name)=>node.textContent=name,name);
+        assert(await longShop.locator('.record-shop-text').evaluate(node=>node.scrollWidth<=node.clientWidth),'short shop names must not be prematurely clipped by toggle margins: '+name);
+      }
+      await longShop.locator('.record-shop-text').evaluate(node=>node.textContent='First shop');
       const beforeToggle=page.url();
       await longShop.click();
       assert.equal(await longShop.locator('.record-shop-text').textContent(),'Maple trader');
