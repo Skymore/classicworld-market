@@ -225,6 +225,9 @@ class DesktopController:
         elif name == 'website':
             import webbrowser
             webbrowser.open('https://mxd.ruit.me')
+        elif name == 'watch':
+            import webbrowser
+            webbrowser.open('https://mxd.ruit.me/watch')
         else:
             raise ValueError('未知操作')
         return self.snapshot()
@@ -321,6 +324,11 @@ class DesktopController:
 
     def read_local_status(self):
         folder = self.collector.folder
+        try:
+            sweep = json.loads((folder/'sweep-beta/status.json').read_text(encoding='utf-8'))
+            self._change(sweep={key:sweep.get(key) for key in ('enabled','units','spent','message')})
+        except (OSError, ValueError, TypeError):
+            pass
         try:
             capture = json.loads((folder/'passive_status.json').read_text(encoding='utf-8'))
             fresh = 0 <= time.time() - capture.get('time', 0) < 10

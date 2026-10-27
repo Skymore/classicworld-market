@@ -589,10 +589,11 @@ fn valid_reminder(value: &Value) -> bool {
             || v.as_f64()
                 .is_some_and(|n| n.is_finite() && (0.0..=1e15).contains(&n))
     };
-    o.len() <= 6
+    o.len() <= 8
         && o.iter().all(|(key, v)| match key.as_str() {
             "percentile" => matches!(v.as_str(), Some("all" | "10" | "25" | "50")),
             "minPrice" => price(v),
+            "minUpgrades" | "maxUpgrades" => v.is_null() || v.as_u64().is_some_and(|n| n <= 15),
             "stock" => matches!(v.as_str(), Some("all" | "known" | "unknown")),
             "minStock" => {
                 v.is_null()
@@ -677,7 +678,14 @@ fn valid_record(r: &Record) -> bool {
         }
         return r.value.as_ref().is_none_or(|v| {
             v.as_object().is_some_and(|o| {
-                (o.len() == 3 || (o.len() == 4 && o.get("reminder").is_some_and(valid_reminder)))
+                o.len() <= 6
+                    && o.keys().all(|k| matches!(k.as_str(), "cap" | "notify" | "position" | "reminder" | "groups" | "buyLimit"))
+                    && o.get("reminder").is_none_or(valid_reminder)
+                    && o.get("buyLimit").is_none_or(|v| v.as_u64().is_some_and(|n| (1..=9999).contains(&n)))
+                    && o.get("groups").is_none_or(|v| v.as_array().is_some_and(|groups| {
+                        let mut ids = std::collections::HashSet::new();
+                        groups.len() <= 12 && groups.iter().all(|g| valid_watch_group(g) && ids.insert(g["id"].as_str().unwrap_or_default()))
+                    }))
                     && o.get("cap").is_some_and(|c| {
                         c.is_null()
                             || c.as_f64()
@@ -719,6 +727,7 @@ fn valid_record(r: &Record) -> bool {
             "market.offerSort",
             "watch.offerSort",
             "market.hours",
+            "watch.sweepSettings",
         ]
         .contains(&r.key.as_str());
     };
@@ -727,8 +736,28 @@ fn valid_record(r: &Record) -> bool {
         "theme" => v == "light" || v == "dark",
         "market.offerSort" | "watch.offerSort" => v == "price" || v == "recent",
         "market.hours" => v == "72" || v == "all",
+        "watch.sweepSettings" => v.as_str().is_some_and(|s| {
+            s.len() <= 1024 && serde_json::from_str::<Value>(s).ok().is_some_and(|v| v.as_object().is_some_and(|o| {
+                o.len() == 6 && o.iter().all(|(k,v)| match k.as_str() {
+                    "budget" | "maxOrder" | "wallet" | "reserve" => v.as_u64().is_some_and(|n| n <= 1_000_000_000_000),
+                    "slots" | "reserveSlots" => v.as_u64().is_some_and(|n| n <= 96),
+                    _ => false,
+                })
+            }))
+        }),
         _ => false,
     }
+}
+fn valid_watch_group(v: &Value) -> bool {
+    v.as_object().is_some_and(|o| {
+        o.len() == 6
+            && o.get("id").and_then(Value::as_str).is_some_and(|s| !s.is_empty() && s.len() <= 64 && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'))
+            && o.get("name").and_then(Value::as_str).is_some_and(|s| s.chars().count() <= 40 && !s.chars().any(char::is_control))
+            && o.get("cap").is_some_and(|v| v.is_null() || v.as_f64().is_some_and(|n| n.is_finite() && (0.0..=1e15).contains(&n)))
+            && o.get("notify").is_some_and(Value::is_boolean)
+            && o.get("buy").is_some_and(Value::is_boolean)
+            && o.get("reminder").is_some_and(valid_reminder)
+    })
 }
 async fn save_data(
     State(state): State<AppState>,
@@ -814,6 +843,21 @@ async fn write_data(state: AppState, headers: HeaderMap, input: Changes, import:
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn watch_groups_empty_delete_and_upgrade_zero_are_valid() {
+        let group = json!({"id":"default","name":"白板","cap":30000,"notify":true,"buy":false,"reminder":{"minUpgrades":0,"maxUpgrades":5}});
+        assert!(valid_watch_group(&group));
+        let mut r = Record { kind:"watch".into(), key:"1002000".into(), version:0,
+            value:Some(json!({"cap":null,"notify":true,"position":0,"groups":[group.clone()],"buyLimit":3})) };
+        assert!(valid_record(&r));
+        r.value.as_mut().unwrap()["groups"] = json!([]);
+        assert!(valid_record(&r));
+        r.value.as_mut().unwrap()["groups"] = json!([group.clone(), group.clone()]);
+        assert!(!valid_record(&r));
+        let mut invalid = group;
+        invalid["reminder"]["minUpgrades"] = json!(16);
+        assert!(!valid_watch_group(&invalid));
+    }
     #[tokio::test]
     async fn password_hash_is_salted_and_verifies() {
         let a = hash_password("correct horse battery staple".into())

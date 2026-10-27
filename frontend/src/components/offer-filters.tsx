@@ -6,7 +6,7 @@ import {
   EQUIPMENT_STATS,
   normalizeOfferFilters,
   filterOffers,
-} from "/web/js/lib/item-offer-filters.js?v=20261025-presence-1";
+} from "/web/js/lib/item-offer-filters.js?v=20261027-watch-groups-1";
 import "./offer-filters.css";
 export default function OfferFilterDialog({
   open,
@@ -70,9 +70,9 @@ export default function OfferFilterDialog({
           type="number"
           name={key}
           min={min}
-          step={key === "minStock" || key === "minStat" ? "1" : "any"}
+          step={key === "minStock" || key === "minStat" || key.endsWith("Upgrades") ? "1" : "any"}
           max={
-            key === "minStat"
+            key.endsWith("Upgrades") ? 15 : key === "minStat"
               ? 65535
               : reminder && key === "minPrice"
                 ? 1e15
@@ -212,6 +212,8 @@ export default function OfferFilterDialog({
               )}
               {equipment && (
                 <>
+                  {field("minUpgrades", words("可升级次数至少", "Min upgrades left"))}
+                  {field("maxUpgrades", words("可升级次数至多", "Max upgrades left"))}
                   {field(
                     "equipment",
                     words("装备实际属性", "Captured equipment stats"),

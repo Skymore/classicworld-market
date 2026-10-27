@@ -11,6 +11,7 @@ type State = {
   capture: string; upload: string; last_shop_at: number | null; updates: string;
   selected: number | null; windows: { id: number; title: string; pid: number }[];
   theme: 'light' | 'dark' | 'system'; activities: { at: number; text: string; kind: string }[];
+  sweep?: {enabled:boolean;units:number;spent:number;message:string};
 };
 declare global { interface Window { pywebview?: { api: { ready(): Promise<State>; command(name: string, value?: unknown): Promise<State> } } } }
 const initial: State = { version: '', phase: 'idle', mode: 'scan', message: '正在连接采集器…', room: null, channel: null, visited: 0, uploaded: 0, started_at: null, stopped_at: null, run_shops: 0, run_items: 0, run_started_at: null, capture: 'connecting', upload: 'ready', last_shop_at: null, updates: 'checking', selected: null, windows: [], theme: 'system', activities: [] };
@@ -49,7 +50,8 @@ function App() {
       </div>
     </div></header>
     <main className="desktop-main">
-      <div className="page-heading"><div><div className="eyebrow">FREE MARKET</div><h1>让逛摊，更轻松。</h1><p>自动扫店，发现好价。每一份报价，都与大家共享。</p></div><button className="text-link" onClick={() => action('website')} disabled={!connected}>打开市集 <ArrowUpRight size={16}/></button></div>
+      <div className="page-heading"><div><div className="eyebrow">FREE MARKET</div><h1>让逛摊，更轻松。</h1><p>自动扫店，发现好价。每一份报价，都与大家共享。</p></div><div className="desktop-watch-actions"><button className="text-link" onClick={() => action('watch')} disabled={!connected}>关注与扫货 <ArrowUpRight size={16}/></button><button className="text-link" onClick={() => action('website')} disabled={!connected}>打开市集 <ArrowUpRight size={16}/></button></div></div>
+      {state.sweep&&<div className="desktop-sweep-status"><span>扫货内测 · {state.sweep.enabled?'模拟中':'模拟已停止'} · {state.sweep.units} 件 · {Number(state.sweep.spent).toLocaleString()} 金币</span><button className="text-link" onClick={()=>action('watch')}>查看记录</button></div>}
       {error && <div role="alert" className="error-banner"><AlertCircle size={18}/><span>{error}</span></div>}
       <section className="stall scan-panel" aria-label="扫描控制"><div className="stall-bar"><ScanLine size={18}/><h2>开始采集</h2><span className={`connection ${live?'live':''}`}><i/>{health[state.capture] || '等待游戏连接'}</span></div>
         <div className="scan-body"><div className="mode-tabs" role="group" aria-label="采集方式"><button aria-pressed={state.mode==='scan'} disabled={!connected || active || busy} onClick={() => action('mode','scan')}><ScanLine size={17}/>自动扫描</button><button aria-pressed={state.mode==='manual'} disabled={!connected || active || busy} onClick={() => action('mode','manual')}><MousePointer2 size={17}/>手动逛摊</button></div>

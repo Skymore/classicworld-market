@@ -61,6 +61,7 @@ pub fn router() -> Router<AppState> {
             get(collector_profile).post(save_collector),
         )
         .route("/api/v1/collector/account-link", post(create_link))
+        .route("/api/v1/collector/watch-revision", get(watch_revision))
         .route("/auth/google/start", get(google_start))
         .route("/auth/google/callback", get(google_callback))
 }
@@ -234,6 +235,25 @@ async fn collector_profile(State(state): State<AppState>, headers: HeaderMap) ->
         Err(e) => return internal(e),
     };
     match result {Ok((name,listed,linked,temporary))=>Json(json!({"nickname":name,"temporary":temporary,"listed":listed,"linked":linked,"stats":stats,"google_enabled":state.google.is_some()})).into_response(),Err(e)=>internal(e)}
+}
+async fn watch_revision(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let c = match collector(&state, &headers).await {
+        Ok(c) => c,
+        Err(e) => return e,
+    };
+    let account: Option<i64> = match sqlx::query_scalar("SELECT account_id FROM collectors WHERE id=$1")
+        .bind(c.id).fetch_one(&state.db).await {
+        Ok(v) => v,
+        Err(e) => return internal(e),
+    };
+    let rows: Vec<(String, String, i64)> = match sqlx::query_as("SELECT kind,key,version FROM account_data WHERE account_id=$1 AND (kind='watch' OR (kind='pref' AND key='watch.sweepSettings')) ORDER BY kind,key")
+        .bind(account).fetch_all(&state.db).await {
+        Ok(v) => v,
+        Err(e) => return internal(e),
+    };
+    let bytes = serde_json::to_vec(&(account, rows)).unwrap_or_default();
+    let revision = format!("{:x}", Sha256::digest(bytes));
+    Json(json!({"linked":account.is_some(),"revision":revision})).into_response()
 }
 pub(crate) async fn personal_stats(
     db: &PgPool,

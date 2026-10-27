@@ -46,8 +46,9 @@ const origin=`http://127.0.0.1:${server.address().port}`;
 const frames=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
 async function refresh(page){revision++;const responses=Promise.all(['/api/v1/watchlist/listings','/api/v1/collector/watch-listings'].map(endpoint=>page.waitForResponse(r=>new URL(r.url()).pathname===endpoint).then(r=>r.finished())));for(const stream of streams)stream.write('event: market\ndata: {}\n\n');await responses;await frames(page);}
 async function dismiss(page){while(await page.locator('[data-toast-close]').count())await page.locator('[data-toast-close]').first().click();}
-async function preset(page,id,value){await dismiss(page);await page.locator(`[data-watch-reminder="${id}"]`).click();await page.locator(`[data-card="${id}"] [data-reminder-preset="${value}"]`).click();await frames(page);}
-async function advanced(page,id,values){await dismiss(page);const card=page.locator(`[data-card="${id}"]`);await card.locator('[data-reminder-advanced]').click();const dialog=page.locator('#offer-filter-dialog:visible');assert.equal(await dialog.locator('[name=hours],[name=percentile],[name=maxPrice]').count(),0);for(const [key,value] of Object.entries(values)){const field=dialog.locator(`[name="${key}"]`);if(['stock','equipment'].includes(key))await field.selectOption(value);else await field.fill(String(value));}return dialog;}
+async function editor(page,id){const card=page.locator(`[data-card="${id}"]`);if(!await card.locator('.watch-group-editor').count())await card.getByRole('button',{name:'编辑',exact:true}).first().click();}
+async function preset(page,id,value){await dismiss(page);await editor(page,id);await page.locator(`[data-watch-reminder="${id}"]`).click();await page.locator(`[data-card="${id}"] [data-reminder-preset="${value}"]`).click();await frames(page);}
+async function advanced(page,id,values){await dismiss(page);await editor(page,id);const card=page.locator(`[data-card="${id}"]`);await card.locator('[data-reminder-advanced]').click();const dialog=page.locator('#offer-filter-dialog:visible');assert.equal(await dialog.locator('[name=hours],[name=percentile],[name=maxPrice]').count(),0);for(const [key,value] of Object.entries(values)){const field=dialog.locator(`[name="${key}"]`);if(['stock','equipment'].includes(key))await field.selectOption(value);else await field.fill(String(value));}return dialog;}
 async function notificationsEqual(page,tags){await frames(page);const state=await page.evaluate(()=>({tags:window.desktopNotifications,toasts:window.toastCount}));assert.deepEqual(state.tags,tags);assert.equal(state.toasts,tags.length);}
 let browser;
 try{
@@ -65,20 +66,16 @@ try{
   assert.equal(await page.locator('[data-preset]').count(),0,'the bow/crossbow shortcut is removed');
   assert.equal(await page.locator('[data-watch-collapse]').innerText(),'','collapse uses only an icon');
   assert.equal(await page.locator('[data-watch-collapse]').getAttribute('aria-label'),'收起关注列表');
-  const compact=async()=>{
-   const metrics=await card.evaluate(el=>({height:el.getBoundingClientRect().height,stats:[...el.querySelectorAll('.wc-nums > span')].map(n=>n.getBoundingClientRect().top),controls:[...el.querySelectorAll('[data-notify],[data-watch-reminder],[data-reminder-advanced]')].map(n=>n.getBoundingClientRect().top)}));
-   assert.equal(new Set(metrics.stats).size,1,'all three stats share one row');assert.equal(new Set(metrics.controls).size,1,'alerts, price and advanced share one row');assert(metrics.height<190,`compact card height: ${metrics.height}`);
-   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal overflow');
-  };
+  const compact=async()=>{assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal overflow');const checks=await card.locator('.wg-rule label').evaluateAll(els=>els.map(el=>el.getBoundingClientRect().top));assert.equal(new Set(checks).size,1,'group alert/sweep controls align');};
   await compact();
   if(mobile){await page.setViewportSize({width:320,height:900});await compact();await page.locator('[data-lang-toggle]:visible').click();await compact();await page.locator('[data-lang-toggle]:visible').click();await page.setViewportSize({width:375,height:900});}
   if(process.env.WATCH_SCREENSHOT_DIR){await mkdir(process.env.WATCH_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.WATCH_SCREENSHOT_DIR,`compact-${mobile?'phone':'desktop'}.png`)});}
-  await card.locator('[data-notify]').click();assert.equal(await card.locator('[data-notify]').getAttribute('aria-pressed'),'false');await card.locator('[data-notify]').click();
+  await card.locator('.wg-rule input[type=checkbox]').first().uncheck();assert.equal(await card.locator('.wg-rule input[type=checkbox]').first().isChecked(),false);await card.locator('.wg-rule input[type=checkbox]').first().check();
   await page.locator('[data-watch-collapse]').click();assert.equal(await page.locator('#watch-list').isVisible(),false);assert(await page.locator('[data-matches-panel]').isVisible());await refresh(page);assert.equal(await page.locator('[data-watch-collapse]').getAttribute('aria-expanded'),'false','SSE preserves collapse');
   await page.reload();await page.locator('[data-watch-collapse]').waitFor();assert.equal(await page.locator('#watch-list').isVisible(),false,'reload remembers collapse');await page.locator('[data-watch-collapse]').click();await card.waitFor();await page.waitForFunction(()=>document.documentElement.dataset.liveConnection==='connected');await frames(page);
-  assert.match(await card.locator('[data-watch-reminder]').textContent(),/手动输入.*1,200/s);
+  await editor(page,2000000);assert.match(await card.locator('[data-watch-reminder]').textContent(),/手动输入.*1,200/s);
   for(const [percentile,cap] of [['10','100'],['25','300'],['50','500']]){await preset(page,2000000,percentile);assert.equal(await card.locator('.watch-reminder-percent').innerText(),`${percentile}%`);assert(await card.locator('.watch-reminder-percent').isVisible());assert.match(await card.locator('.watch-reminder-price').innerText(),new RegExp(cap));await compact();}
-  assert.match(await other.locator('[data-watch-reminder]').textContent(),/手动输入.*1,200/s);
+  await editor(page,2000001);assert.match(await other.locator('[data-watch-reminder]').textContent(),/手动输入.*1,200/s);
   await preset(page,2000000,'10');assert.equal(await card.locator('[data-under]').textContent(),'1');
   assert.equal(await card.locator('.wc-details').textContent(),'↗');await card.locator('.wc-details').click();assert.equal(new URL(page.url()).searchParams.get('item'),'2000000');assert.equal(await page.locator('[data-matches] [data-item-row]').count(),1,'detail bypasses unrelated global browsing filters');assert.equal(await page.locator('[data-matches] [data-item-row][data-id="old-2000000-0"]').count(),1);
   await page.getByRole('link',{name:'全部关注',exact:true}).click();
@@ -93,7 +90,16 @@ try{
   const equipment=(attack,str,def=20)=>({status:'candidate',unknown_fields:[],stats:[{key:'weapon_attack',value:attack},{key:'str',value:str},{key:'weapon_defense',value:def}]});
   shared.unshift(offer('defence-only',100,{item_id:1452003,equipment:equipment(42,0,30)}),offer('wrong-str',100,{item_id:1452003,equipment:equipment(45,0)}),offer('right-stats',100,{item_id:1452003,equipment:equipment(45,2)}));await refresh(page);
   const bow=page.locator('[data-card="1452003"]');assert.equal(await bow.locator('[data-under]').textContent(),'1');await dismiss(page);await bow.locator('.wc-details').click();assert.equal(await page.locator('[data-matches] [data-item-row]').count(),1);assert.equal(await page.locator('[data-matches] [data-id="right-stats"]').count(),1);
-  await page.reload();await page.locator('[data-matches] [data-id="right-stats"]').waitFor();assert.match(await card.locator('[data-watch-reminder]').textContent(),/手动输入.*125/s);assert.equal(await bow.locator('[data-under]').textContent(),'1');await notificationsEqual(page,[]);
+  await page.reload();await page.locator('[data-matches] [data-id="right-stats"]').waitFor();await editor(page,2000000);assert.match(await card.locator('[data-watch-reminder]').textContent(),/手动输入.*125/s);assert.equal(await bow.locator('[data-under]').textContent(),'1');await notificationsEqual(page,[]);
+  await dismiss(page);await card.getByRole('button',{name:'＋ 另一组条件',exact:true}).click();
+  assert.equal(await card.locator('[data-watch-group]').count(),2);
+  const added=card.locator('[data-watch-group]').last();await added.getByRole('button',{name:/删除条件组/}).click();
+  assert.equal(await card.locator('[data-watch-group]').count(),1);await card.getByRole('button',{name:'撤销',exact:true}).click();assert.equal(await card.locator('[data-watch-group]').count(),2);
+  await card.locator('[data-watch-group]').last().getByRole('button',{name:/删除条件组/}).click();
+  await card.locator('[data-watch-group]').first().getByRole('button',{name:/删除条件组/}).click();
+  assert.equal(await card.locator('[data-under]').innerText(),'0');assert.equal(await card.locator('[data-watch-group]').count(),0);
+  await page.reload();await card.waitFor();assert.equal(await card.locator('[data-watch-group]').count(),0,'deleted last group remains empty after reload');
+  assert.equal(await card.locator('[data-under]').innerText(),'0');
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);
   if(process.env.WATCH_SCREENSHOT_DIR){await mkdir(process.env.WATCH_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.WATCH_SCREENSHOT_DIR,`watch-${mobile?'phone':'desktop'}.png`),fullPage:true});}
   await page.close();console.log(`PASS ${mobile?'phone':'desktop'}: old module caches, presets, manual/SSE draft, per-item advanced AND filters, full grouped-stock popup, personal/shared dedup, icon link and reload`);

@@ -12,6 +12,15 @@ const rows = [
   { key: 'unknown-time', price: 100, observed: null, stock: NaN },
 ];
 const ids = result => result.rows.map(row => row.key);
+test('remaining upgrades preserves zero, excludes unknowns and clears bounds together',()=>{
+  const data=[0,1,5,null].map(n=>({key:n,isEquipment:true,variant:{status:'candidate',remaining_upgrades:n}}));
+  data.push({key:'unsupported',isEquipment:true,variant:{status:'unsupported',remaining_upgrades:0}});
+  assert.deepEqual(ids(filterOffers(data,'price',{minUpgrades:0,maxUpgrades:0})),[0]);
+  assert.deepEqual(ids(filterOffers(data,'price',{minUpgrades:1,maxUpgrades:5})),[1,5]);
+  assert.deepEqual(ids(filterOffers(data,'price',{maxUpgrades:1})),[0,1]);
+  assert.deepEqual(clearOfferFilter({minUpgrades:0,maxUpgrades:5},'upgrades'),normalizeOfferFilters());
+  assert.equal(normalizeOfferFilters({minUpgrades:1.5,maxUpgrades:16}).maxUpgrades,null);
+});
 
 test('time uses wall clock and includes cutoff; filters combine independently of sorting', () => {
   assert.deepEqual(ids(filterOffers(rows, 'price', { hours: '24' }, now)), ['boundary', 'fresh-tie', 'new-expensive']);

@@ -95,6 +95,11 @@ try{
  assert.equal(await getPref(pageB,filterKey),null,'clearing one product syncs its deletion');
  assert.equal(await getPref(pageB,otherFilterKey),'{"percentile":"50"}');
  const reminder={percentile:'25',minPrice:10,stock:'known',minStock:5,equipment:'all',stats:[]};
+  const group={id:'test-rule',name:'升级次数',cap:200,notify:true,buy:false,reminder:{minUpgrades:0,maxUpgrades:5}};
+  await pageA.evaluate(async group=>{const m=await import('/web/js/lib/user-data.js');m.userStorage.setItem('watchlist_settings',JSON.stringify({4010001:{cap:null,notify:true,buyLimit:3,groups:[group]}}));await m.flush();},group);
+  await refresh(pageB);assert.deepEqual((await state(pageB)).settings[4010001].groups,[group]);assert.equal((await state(pageB)).settings[4010001].buyLimit,3);
+  await pageA.evaluate(async()=>{const m=await import('/web/js/lib/user-data.js');m.userStorage.setItem('watchlist_settings',JSON.stringify({4010001:{cap:null,notify:true,groups:[]}}));await m.flush();});
+  await refresh(pageB);assert.deepEqual((await state(pageB)).settings[4010001].groups,[],'deleting last condition group syncs as empty, never unrestricted');
  await pageA.evaluate(async reminder=>{const m=await import('/web/js/lib/user-data.js');m.userStorage.setItem('watchlist_settings',JSON.stringify({4010001:{cap:100,notify:true,reminder}}));await m.flush();},reminder);
  await refresh(pageB);assert.deepEqual((await state(pageB)).settings[4010001].reminder,reminder);
  await pageB.reload();await pageB.locator('[data-logout]').waitFor();assert.deepEqual((await state(pageB)).settings[4010001].reminder,reminder);

@@ -4,13 +4,27 @@ import { readFile } from 'node:fs/promises';
 const source = async name => 'data:text/javascript,' + encodeURIComponent(await readFile(new URL(`../js/lib/${name}.js`, import.meta.url), 'utf8'));
 const filters = await source('item-offer-filters'), groups = await source('quote-groups');
 const code = (await readFile(new URL('../js/lib/watch-reminders.js', import.meta.url), 'utf8'))
-  .replace("'./item-offer-filters.js?v=20261025-presence-1'", JSON.stringify(filters))
+  .replace("'./item-offer-filters.js?v=20261027-watch-groups-1'", JSON.stringify(filters))
   .replace(/'\.\/quote-groups\.js\?v=[^']+'/, JSON.stringify(groups));
-const { normalizeReminder, reminderSelection, matchingReminders, notificationEligibility } = await import('data:text/javascript,' + encodeURIComponent(code));
+const { normalizeReminder, reminderSelection, matchingReminders, notificationEligibility, watchGroups } = await import('data:text/javascript,' + encodeURIComponent(code));
 const { combinedNotifications, readSettings } = await import(await source('watchlist-core'));
 const item = 2000000, gear = 1452003;
 const row = (id, price, patch = {}) => ({ id, item_id: item, unit_price: price, stock: 5, observed: 110, ...patch });
 const rows = Array.from({ length: 10 }, (_, index) => row(String(index), (index + 1) * 100));
+test('groups use OR, notifications use their own toggles, deleting last group matches nothing',()=>{
+  const settings={[item]:{groups:[{id:'a',name:'A',cap:200,notify:false},{id:'b',name:'B',cap:300,notify:true}]}};
+  assert.equal(matchingReminders(rows,[item],settings).length,3);
+  assert.equal(notificationEligibility({listings:rows},[item],settings,{}).size,3);
+  settings[item].groups.pop();
+  assert.equal(matchingReminders(rows,[item],settings).length,2);
+  assert.equal(notificationEligibility({listings:rows},[item],settings,{}).size,0);
+  settings[item].groups=[];
+  assert.equal(matchingReminders(rows,[item],settings).length,0);
+  assert.deepEqual(watchGroups(settings[item]),[]);
+  const restored=readSettings({getItem:()=>JSON.stringify(settings)},[item]);
+  assert.deepEqual(restored[item].groups,[]);
+  assert.equal(watchGroups({cap:100,notify:false})[0].cap,100);
+});
 
 test('dynamic presets use the entire item baseline, keep ties and ignore a saved manual cap', () => {
   const tied = [...rows, row('tie',100)];

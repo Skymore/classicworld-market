@@ -1,10 +1,28 @@
-import { normalizeOfferFilters, filterOffers, offerFilterTokens } from './item-offer-filters.js?v=20261025-presence-1';
+import { normalizeOfferFilters, filterOffers, offerFilterTokens } from './item-offer-filters.js?v=20261027-watch-groups-1';
 import { mergeShopOffers, shopOfferIdentity } from './quote-groups.js?v=20261026-reminders-2';
 
 export function normalizeReminder(value = {}) {
   const f = normalizeOfferFilters({ ...value, hours: 'all', maxPrice: null, percentile: 'all' });
   return { percentile: ['10', '25', '50'].includes(String(value?.percentile)) ? String(value.percentile) : 'all',
-    minPrice: f.minPrice, stock: f.stock, minStock: f.minStock, equipment: f.equipment, stats: f.stats };
+    minPrice: f.minPrice, stock: f.stock, minStock: f.minStock, equipment: f.equipment, stats: f.stats,
+    minUpgrades: f.minUpgrades, maxUpgrades: f.maxUpgrades };
+}
+// Missing groups are legacy settings. An explicit empty list means no matches.
+export function watchGroups(setting = {}) {
+  const source = Array.isArray(setting.groups) ? setting.groups : [{ id: 'default', name: '', cap: setting.cap, notify: setting.notify, reminder: setting.reminder }];
+  return source.slice(0, 12).map((g, i) => ({ id: typeof g?.id === 'string' ? g.id : 'group-' + i,
+    name: typeof g?.name === 'string' ? g.name.slice(0, 40) : '',
+    cap: Number.isFinite(g?.cap) && g.cap >= 0 ? g.cap : null,
+    notify: g?.notify !== false, buy: g?.buy === true, reminder: normalizeReminder(g?.reminder) }));
+}
+export function watchSelection(rows, itemId, setting = {}, reference = {}, purpose = 'watch') {
+  const groups = watchGroups(setting).filter(g => purpose === 'watch' || (purpose === 'notify' ? g.notify : g.buy));
+  const found = new Map();
+  for (const group of groups) for (const row of reminderSelection(rows, itemId, group, reference).rows) {
+    const previous = found.get(row.id);
+    found.set(row.id, { ...row, matched_groups: [...(previous?.matched_groups || []), group.name || group.id] });
+  }
+  return { rows: [...found.values()] };
 }
 export function reminderTokens(value, en = false) {
   return offerFilterTokens({ ...normalizeReminder(value), percentile: 'all' }, en);
@@ -44,17 +62,16 @@ export function reminderSelection(rows, itemId, setting = {}, reference = {}) {
   return { cap, rows: filtered, ready: true };
 }
 export function matchingReminders(rows, ids, settings, reference = {}) {
-  return ids.flatMap(id => reminderSelection(rows, id, settings[id], reference).rows);
+  return ids.flatMap(id => watchSelection(rows, id, settings[id], reference).rows);
 }
 // Eligibility comes from full server groups. Use those same groups in the popup,
 // even when the raw notification window only contains part of their inventory.
 export function notificationEligibility(packet, ids, settings, reference) {
   const rawGroups = mergeShopOffers(packet.listings || []);
   const members = new Map(rawGroups.map(row => [row.id, row.merged_ids ?? [row.id]]));
-  const selected = matchingReminders(packet.grouped_listings ?? rawGroups, ids, settings, reference);
+  const selected = ids.flatMap(id => watchSelection(packet.grouped_listings ?? rawGroups, id, settings[id], reference, 'notify').rows);
   const groups = new Map();
   for (const row of selected) {
-    if (settings[row.item_id]?.notify === false) continue;
     const group = { ...row, reminder_delivery_key: shopOfferIdentity(row) ?? row.id };
     for (const id of row.merged_ids ?? members.get(row.id) ?? [row.id]) groups.set(id, group);
   }

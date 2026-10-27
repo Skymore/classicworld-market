@@ -2,14 +2,15 @@ import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261026-reminder
 import { useQueries } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { SiteLink } from "../components/shell";
-import WatchReminder from "../components/watch-reminder";
+import WatchGroups from "../components/watch-groups";
+import WatchSweep from "../components/watch-sweep";
 import {
   activeOffers,
   normalizeReminder,
   matchingReminders,
   notificationEligibility,
   reminderSelection,
-} from "/web/js/lib/watch-reminders.js?v=20261026-reminders-2";
+} from "/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api, getJson, qs } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
 import { t, itemName } from "/web/js/lib/i18n.js";
@@ -17,7 +18,7 @@ import Core, {
   LIST_KEY,
   SETTINGS_KEY,
   MAX_WATCHES,
-} from "/web/js/lib/watchlist-core.js?v=20261026-reminders-1";
+} from "/web/js/lib/watchlist-core.js?v=20261027-watch-groups-1";
 import { userStorage } from "/web/js/lib/user-data.js";
 import { sortWatchQuotes } from "/web/js/lib/quote-order.js?v=20261023-watch-cap-1";
 import { useLiveData, useUserValue } from "../lib/live";
@@ -37,7 +38,7 @@ import {
   filterOffers,
   offerFilterTokens,
   clearOfferFilter,
-} from "/web/js/lib/item-offer-filters.js?v=20261025-presence-1";
+} from "/web/js/lib/item-offer-filters.js?v=20261027-watch-groups-1";
 import { OfferRow, Location } from "../components/list-rows";
 import { announce, OfferReminder } from "../components/toasts";
 import "../lib/list-copy";
@@ -564,6 +565,7 @@ export default function Watch() {
               ? t(notice ? "watch.full" : "watch.failed")
               : ""}
           </p>
+          <WatchSweep ids={ids} settings={settings} items={items} reference={reference} personal={personal}/>
           <div className="wcards" data-cards>
             {ids.length ? (
               ids.map((id) => {
@@ -632,7 +634,7 @@ export default function Watch() {
                       </span>
                     </div>
                     <div className="wc-set" id={"wc-set-" + id}>
-                      <WatchReminder
+                      <WatchGroups
                         id={id}
                         name={itemName(item)}
                         setting={current}

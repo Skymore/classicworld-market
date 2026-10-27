@@ -10,7 +10,7 @@ import {
   offerFilterTokens,
   clearOfferFilter,
   EQUIPMENT_STATS,
-} from "/web/js/lib/item-offer-filters.js?v=20261025-presence-1";
+} from "/web/js/lib/item-offer-filters.js?v=20261027-watch-groups-1";
 import { useUserValue } from "../lib/live";
 import {
   hasBonus,

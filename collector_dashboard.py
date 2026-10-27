@@ -15,7 +15,7 @@ import web_assets
 ROOT = Path(__file__).resolve().parent
 ASSETS = ('market_ui.js', 'market_ui.css', 'market_i18n.js', 'market_watchlist.js')
 BRIDGE_ORIGINS={'https://mxd.ruit.me','http://127.0.0.1:8766','http://localhost:8766'}
-BRIDGE_PATHS={'/api/v1/collector/status','/api/v1/collector/watch-listings'}
+BRIDGE_PATHS={'/api/v1/collector/status','/api/v1/collector/watch-listings','/api/v1/collector/sweep'}
 
 
 def safe_endpoint(value):
@@ -41,7 +41,7 @@ class Gateway:
         self.lock = threading.RLock()
         self.last_error = False
 
-    def fetch(self, path, ttl):
+    def fetch(self, path, ttl, timeout=30):
         import urllib.request
         with self.lock:
             previous = self.cache.get(path)
@@ -50,7 +50,7 @@ class Gateway:
             try:
                 request = urllib.request.Request(self.endpoint+path,
                     headers={'Authorization': 'Bearer '+self.token})
-                with self.opener.open(request, timeout=30) as response:
+                with self.opener.open(request, timeout=timeout) as response:
                     raw = response.read(64*1024*1024+1)
                 if len(raw) > 64*1024*1024:
                     raise ValueError('Shared response too large')
@@ -170,6 +170,9 @@ class Gateway:
 
 
 def create_server(config, folder, port=8780):
+    from collector_sweep import SweepSimulator
+    sweep = SweepSimulator(folder)
+    sweep_revision = {'value':None,'checked':0}
     gateway = Gateway(config, folder)
     ui_nonce = secrets.token_urlsafe(32)
 
@@ -198,13 +201,15 @@ def create_server(config, folder, port=8780):
 
         def do_OPTIONS(self):
             if not self.allow_origin():return
-            if not getattr(self,'bridge_origin',None) or self.headers.get('Access-Control-Request-Method')!='GET':
+            is_sweep = urlsplit(self.path).path == '/api/v1/collector/sweep'
+            method = self.headers.get('Access-Control-Request-Method')
+            if not getattr(self,'bridge_origin',None) or method not in (('GET','POST') if is_sweep else ('GET',)):
                 self.send_error(403);return
             requested={v.strip().lower() for v in self.headers.get('Access-Control-Request-Headers','').split(',') if v.strip()}
-            if requested-{'accept'}:self.send_error(403);return
+            if requested-({'accept','content-type','x-csrf-token'} if is_sweep else {'accept'}):self.send_error(403);return
             self.send_response(204)
-            self.send_header('Access-Control-Allow-Methods','GET')
-            self.send_header('Access-Control-Allow-Headers','Accept')
+            self.send_header('Access-Control-Allow-Methods','GET, POST' if is_sweep else 'GET')
+            self.send_header('Access-Control-Allow-Headers','Accept, Content-Type, X-CSRF-Token' if is_sweep else 'Accept')
             self.send_header('Access-Control-Allow-Private-Network','true')
             self.send_header('Access-Control-Max-Age','600')
             self.end_headers()
@@ -255,6 +260,8 @@ def create_server(config, folder, port=8780):
                         result=gateway.fetch('/api/v1/contributors?'+urlencode({'period':period}),0)
                     elif parsed.path == '/api/v1/collector/status':
                         result=gateway.status()
+                    elif parsed.path == '/api/v1/collector/sweep':
+                        result={**sweep.snapshot(), 'csrf':ui_nonce}
                     elif parsed.path == '/api/v1/collector/watch-listings':
                         ids=query.get('ids',[''])[0]
                         if len(ids)>1100 or len(ids.split(','))>100 or any(not v.isdigit() or not 1000000<=int(v)<=5999999 for v in ids.split(',') if v):raise ValueError('Invalid item IDs')
@@ -311,22 +318,35 @@ def create_server(config, folder, port=8780):
             if not self.allow_origin():return
             origin=f'http://127.0.0.1:{self.server.server_port}'
             other=f'http://localhost:{self.server.server_port}'
-            if (self.headers.get('Origin') not in (origin,other)
+            path=urlsplit(self.path).path
+            is_sweep = path == '/api/v1/collector/sweep'
+            allowed = {origin,other} | (BRIDGE_ORIGINS if is_sweep else set())
+            if (self.headers.get('Origin') not in allowed
                 or not secrets.compare_digest(self.headers.get('X-CSRF-Token',''),ui_nonce)
                 or self.headers.get('Content-Type','').split(';')[0]!='application/json'):
                 self.send_error(403);return
             routes={'/api/v1/account':'/api/v1/collector/profile','/api/v1/account/link':'/api/v1/collector/account-link'}
-            path=urlsplit(self.path).path
-            if path not in routes:self.send_error(404);return
+            if path not in routes and not is_sweep:self.send_error(404);return
             try:
                 length=int(self.headers.get('Content-Length','0'))
-                if not 0<length<=2048:raise ValueError('Invalid request length')
+                if not 0<length<=(512*1024 if is_sweep else 2048):raise ValueError('Invalid request length')
                 data=json.loads(self.rfile.read(length))
                 if not isinstance(data,dict):raise ValueError('Invalid request')
-                result=gateway.update(routes[path],data)
+                if is_sweep:
+                    if data.get('action') == 'start':
+                        from collector_sweep import configuration
+                        configuration(data)
+                        revision = gateway.fetch('/api/v1/collector/watch-revision', 0, timeout=5)
+                        if gateway.last_error or not isinstance(revision.get('revision'),str):
+                            raise ValueError('关注同步暂不可用，请稍后再试')
+                        sweep_revision.update(value=revision['revision'],checked=time.monotonic())
+                    result={**sweep.command(data),'csrf':ui_nonce}
+                else:
+                    result=gateway.update(routes[path],data)
                 code=200
-            except (ValueError,TypeError):
-                self.send_error(400);return
+            except (ValueError,TypeError,AttributeError) as error:
+                code=400
+                result={'error':str(error) if is_sweep else 'Invalid request'}
             except Exception as error:
                 import urllib.error
                 code=error.code if isinstance(error,urllib.error.HTTPError) and error.code in (400,401,403,409,429) else 503
@@ -356,6 +376,28 @@ def create_server(config, folder, port=8780):
             raise
         server = LoopbackServer(('127.0.0.1', 0), Handler)
     server.daemon_threads = True
+    server.sweep = sweep
+    def guard_revision():
+        while not sweep.closed.wait(10):
+            if not sweep.enabled:continue
+            session_id = sweep.session_id
+            try:
+                revision = gateway.fetch('/api/v1/collector/watch-revision', 0, timeout=5)
+                if gateway.last_error:raise OSError('Offline')
+                sweep_revision['checked'] = time.monotonic()
+                changed = revision.get('revision') != sweep_revision['value']
+                message = '关注条件已更新，请重新开始模拟'
+            except Exception:
+                changed = time.monotonic()-sweep_revision['checked'] > 30
+                message = '关注同步中断，模拟已停止'
+            if changed:
+                with sweep.lock:
+                    if sweep.session_id != session_id:continue
+                    sweep.enabled = False
+                    sweep.message = message
+                    try:sweep.persist({'event':'rules_changed'})
+                    except OSError:pass
+    server.start_sweep_guard = lambda: threading.Thread(target=guard_revision,name='sweep-rule-guard',daemon=True).start()
     return server
 
 
@@ -394,6 +436,9 @@ def run(home, config, folder, port=8780, instance='', parent_pid=0, parent_creat
             server.shutdown()
         threading.Thread(target=stop_with_parent,daemon=True).start()
     try:
+        server.sweep.start_observer()
+        server.start_sweep_guard()
         server.serve_forever()
     finally:
+        server.sweep.close()
         server.server_close()

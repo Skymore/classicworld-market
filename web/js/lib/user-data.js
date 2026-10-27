@@ -1,6 +1,6 @@
 // A storage facade: guest keys stay untouched; account caches and pending writes
 // are namespaced by a server-confirmed public account ID. Credentials stay in cookies.
-const PREFS=['lang','theme','market.offerSort','watch.offerSort','market.hours'];
+const PREFS=['lang','theme','market.offerSort','watch.offerSort','market.hours','watch.sweepSettings'];
 const KEYS=['watchlist','watchlist_settings',...PREFS];
 const itemPref=key=>/^item\.(offerFilters|showExpired)\.[1-5]\d{6}$/.test(key);
 const preference=key=>PREFS.includes(key)||itemPref(key);
@@ -25,13 +25,13 @@ function persist(){if(context&&owner)try{write(PREFIX+owner,JSON.stringify(conte
 function valuesFrom(records){
  const values={},watches=[];const settings={};
  for(const r of records){if(r.value==null)continue;if(r.kind==='pref'&&preference(r.key))values[r.key]=String(r.value);
-  if(r.kind==='watch'){const id=Number(r.key);if(!Number.isSafeInteger(id))continue;watches.push({id,position:r.value.position});settings[id]={cap:r.value.cap??null,notify:r.value.notify!==false,...(r.value.reminder?{reminder:r.value.reminder}:{})};}}
+  if(r.kind==='watch'){const id=Number(r.key);if(!Number.isSafeInteger(id))continue;watches.push({id,position:r.value.position});settings[id]={cap:r.value.cap??null,notify:r.value.notify!==false,...(r.value.reminder?{reminder:r.value.reminder}:{}),...(Array.isArray(r.value.groups)?{groups:r.value.groups}:{}),...(r.value.buyLimit?{buyLimit:r.value.buyLimit}:{})};}}
  watches.sort((a,b)=>a.position-b.position||a.id-b.id);values.watchlist=JSON.stringify(watches.map(w=>w.id));values.watchlist_settings=JSON.stringify(settings);return values;
 }
 function recordsFrom(values){
  const raw=parse(values.watchlist,[]),ids=[...new Set((Array.isArray(raw)?raw:[]).map(Number).filter(id=>Number.isSafeInteger(id)&&id>=1000000&&id<=5999999))];
  const settings=parse(values.watchlist_settings,{})||{};
- const records=ids.map((id,position)=>({kind:'watch',key:String(id),value:{cap:Number.isFinite(settings[id]?.cap)?settings[id].cap:null,notify:settings[id]?.notify!==false,position,...(settings[id]?.reminder?{reminder:settings[id].reminder}:{})}}));
+ const records=ids.map((id,position)=>({kind:'watch',key:String(id),value:{cap:Number.isFinite(settings[id]?.cap)?settings[id].cap:null,notify:settings[id]?.notify!==false,position,...(settings[id]?.reminder?{reminder:settings[id].reminder}:{}),...(Array.isArray(settings[id]?.groups)?{groups:settings[id].groups}:{}),...(settings[id]?.buyLimit?{buyLimit:settings[id].buyLimit}:{})}}));
  for(const key of Object.keys(values))if(preference(key)&&values[key]!=null)records.push({kind:'pref',key,value:values[key]});return records;
 }
 function queue(){

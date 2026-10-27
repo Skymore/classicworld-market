@@ -18,6 +18,9 @@ export function normalizeOfferFilters(filters = {}) {
   let minPrice = nonnegative(f.minPrice), maxPrice = nonnegative(f.maxPrice);
   if (minPrice !== null && maxPrice !== null && minPrice > maxPrice) [minPrice, maxPrice] = [maxPrice, minPrice];
   const minStock = nonnegative(f.minStock);
+  const upgrades = value => { const n = nonnegative(value); return Number.isInteger(n) && n <= 15 ? n : null; };
+  let minUpgrades = upgrades(f.minUpgrades), maxUpgrades = upgrades(f.maxUpgrades);
+  if (minUpgrades !== null && maxUpgrades !== null && minUpgrades > maxUpgrades) [minUpgrades, maxUpgrades] = [maxUpgrades, minUpgrades];
   const stats = [];
   const source = Array.isArray(f.stats) ? f.stats : [{ stat: f.stat, min: f.minStat }];
   for (const condition of source.slice(0, 28)) {
@@ -31,7 +34,7 @@ export function normalizeOfferFilters(filters = {}) {
   return {
     hours: OFFER_HOURS.includes(String(f.hours)) ? String(f.hours) : 'all',
     percentile: OFFER_PERCENTILES.includes(String(f.percentile)) ? String(f.percentile) : 'all',
-    minPrice, maxPrice,
+    minPrice, maxPrice, minUpgrades, maxUpgrades,
     stock: ['known', 'unknown'].includes(f.stock) ? f.stock : 'all',
     minStock: minStock !== null && minStock >= 1 ? Math.floor(minStock) : null,
     equipment: ['captured', 'missing', 'bonus'].includes(f.equipment) ? f.equipment : 'all',
@@ -71,6 +74,11 @@ export function filterOffers(rows, mode, filters, now = Date.now() / 1000) {
     if (f.equipment === 'missing' && (!row.isEquipment || row.hasStats)) return false;
     if (f.equipment === 'bonus' && !row.bonus) return false;
     if (f.stats.length && (!row.isEquipment || !matchesEquipmentStats(row.variant, f.stats))) return false;
+    if (f.minUpgrades !== null || f.maxUpgrades !== null) {
+      const n = row.variant?.remaining_upgrades;
+      if (!row.isEquipment || (row.variant?.status && row.variant.status !== 'candidate') || !Number.isInteger(n) || n < 0 || n > 15) return false;
+      if (f.minUpgrades !== null && n < f.minUpgrades || f.maxUpgrades !== null && n > f.maxUpgrades) return false;
+    }
     return true;
   }) };
 }
@@ -89,6 +97,7 @@ export function offerFilterTokens(filters, en = false) {
   }
   if (f.equipment !== 'all') add('equipment', (en ? { captured: 'Captured stats', missing: 'Stats unknown', bonus: 'Bonus stats' } : { captured: '已采集属性', missing: '属性未知', bonus: '有加成属性' })[f.equipment]);
   for (const row of f.stats) add('stat:' + row.stat, `${EQUIPMENT_STATS.find(([key]) => key === row.stat)[en ? 2 : 1]} ≥ ${row.min ?? 1}`);
+  if (f.minUpgrades !== null || f.maxUpgrades !== null) add('upgrades', `${en ? 'Upgrades left' : '可升级次数'} ${f.minUpgrades === f.maxUpgrades ? '= ' + f.minUpgrades : f.maxUpgrades === null ? '≥ ' + f.minUpgrades : f.minUpgrades === null ? '≤ ' + f.maxUpgrades : f.minUpgrades + '–' + f.maxUpgrades}`);
   return tokens;
 }
 
@@ -96,7 +105,7 @@ export function clearOfferFilter(filters, key) {
   const f = normalizeOfferFilters(filters), empty = normalizeOfferFilters();
   if (key === 'all') return empty;
   if (key.startsWith('stat:')) return { ...f, stats: f.stats.filter(row => row.stat !== key.slice(5)) };
-  for (const field of key === 'price' ? ['minPrice', 'maxPrice'] : key === 'stock' ? ['stock', 'minStock'] : key === 'stat' ? ['stats'] : [key]) {
+  for (const field of key === 'price' ? ['minPrice', 'maxPrice'] : key === 'stock' ? ['stock', 'minStock'] : key === 'upgrades' ? ['minUpgrades', 'maxUpgrades'] : key === 'stat' ? ['stats'] : [key]) {
     if (field in empty) f[field] = empty[field];
   }
   return f;
