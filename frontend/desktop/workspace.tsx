@@ -1,56 +1,36 @@
 import {useEffect,useRef,useState} from 'react';
 
 const defaults={budget:1000000,maxOrder:400000,wallet:1500000,reserve:200000,slots:24,reserveSlots:4};
-const stats=[['weapon_attack','物理攻击'],['magic_attack','魔法攻击'],['str','力量'],['dex','敏捷'],['int','智力'],['luk','运气'],['hp','HP'],['mp','MP'],['accuracy','命中'],['avoid','回避'],['speed','速度'],['jump','跳跃'],['weapon_defense','物防'],['magic_defense','魔防']];
 const groups=(v:any)=>Array.isArray(v?.groups)?v.groups:[{id:'default',name:'',cap:v?.cap??null,notify:v?.notify!==false,buy:false,reminder:v?.reminder||{}}];
 const invoke=(name:string,value?:any)=>window.pywebview!.api.workspace(name,value);
-export default function Workspace({tab}:{tab:'watch'|'account'}){
- const [data,setData]=useState<any>(null),[catalog,setCatalog]=useState<any[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[search,setSearch]=useState('');
- const [selected,setSelected]=useState(''),[draft,setDraft]=useState<any>(null),[dirty,setDirty]=useState(false),[limits,setLimits]=useState(defaults),[limitsDirty,setLimitsDirty]=useState(false),[undo,setUndo]=useState<any>(null);
- const account=useRef<string|undefined>(undefined),edited=useRef(false);edited.current=dirty||limitsDirty;
+export default function Workspace({tab}:{tab:'sweep'|'account'}){
+ const [data,setData]=useState<any>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
+ const [limits,setLimits]=useState(defaults),[limitsDirty,setLimitsDirty]=useState(false);
+ const account=useRef<string|undefined>(undefined);
  const records=data?.records||[],simulation=data?.simulation;
  function accept(next:any){
-  if(account.current!==next.public_id){setDraft(null);setSelected('');setDirty(false);setLimitsDirty(false);setUndo(null);account.current=next.public_id;}
+  if(account.current!==next.public_id){setLimitsDirty(false);account.current=next.public_id;}
   setData(next);
  }
  useEffect(()=>{let alive=true;let running=false;async function poll(){if(running)return;running=true;try{const next=await invoke('status');if(alive){accept(next);setError('');}}catch(e){if(alive)setError(String((e as Error).message||e));}finally{running=false;}}
-  poll();invoke('catalog').then((d:any)=>{if(alive)setCatalog(d.items||[]);}).catch(()=>{});const timer=setInterval(poll,5000);return()=>{alive=false;clearInterval(timer);};},[]);
+  poll();const timer=setInterval(poll,5000);return()=>{alive=false;clearInterval(timer);};},[]);
  const savedLimits=records.find((r:any)=>r.kind==='pref'&&r.key==='watch.sweepSettings');
  useEffect(()=>{if(!limitsDirty){try{setLimits({...defaults,...JSON.parse(savedLimits?.value||'{}')});}catch{}}},[JSON.stringify(savedLimits),limitsDirty]);
  const watches=records.filter((r:any)=>r.kind==='watch'&&r.value).sort((a:any,b:any)=>(a.value.position||0)-(b.value.position||0));
- const product=(id:string)=>catalog.find(i=>String(i.item_id)===id);
- const name=(id:string)=>product(id)?.name_zh||product(id)?.name_en||id;
- const record=records.find((r:any)=>r.kind==='watch'&&r.key===selected);
- useEffect(()=>{if(!dirty&&selected){if(record?.value)setDraft({...record,value:{...record.value,groups:groups(record.value)}});else{setDraft(null);setSelected('');}}},[JSON.stringify(record),selected,dirty]);
  const run=async(action:string,value?:any)=>{if(busy)return;setBusy(true);setError('');setNotice('');try{const next=await invoke(action,value);if(next.records)accept(next);return next;}catch(e){setError(String((e as Error).message||e));return null;}finally{setBusy(false);}};
  const save=async(operations:any[])=>run('save',{account:data.public_id,operations});
- function patchGroup(id:string,patch:any){setDraft((d:any)=>({...d,value:{...d.value,groups:d.value.groups.map((g:any)=>g.id===id?{...g,...patch}:g)}}));setDirty(true);}
- function filter(g:any,key:string,value:any){const reminder={...g.reminder,[key]:value};patchGroup(g.id,{reminder,...((key==='percentile'&&value!=='all'||key==='equipment'&&value==='missing')?{buy:false}:{})});}
  const number=(title:string,value:any,update:(v:any)=>void,max=1e12,min=0)=><label>{title}<input type="number" min={min} max={max} step={1} value={value??''} onChange={e=>{const n=e.target.value===''?null:Number(e.target.value);if(n===null||Number.isSafeInteger(n)&&n>=min&&n<=max)update(n);}}/></label>;
  const count=watches.reduce((n:number,r:any)=>n+groups(r.value).filter((g:any)=>g.buy).length,0);
- return <section className="native-workspace stall"><div className="stall-bar"><h2>{tab==='account'?'我的账号':'关注与扫货'}</h2><span className="bar-meta">{data?.linked?`${data.nickname} · 已同步`:'未登录'}</span></div>
- <div className="workspace-scroll">
+ return <section className="native-workspace stall"><div className="stall-bar"><h2>{tab==='account'?'我的账号':'扫货模拟'}</h2><span className="bar-meta">{data?.linked?`${data.nickname} · 已同步`:'未登录'}</span></div>
+ <div className={"workspace-scroll"+(tab==='sweep'&&data?.linked?' sweep-workspace':'')}>
  {error&&<p className="error-banner" role="alert">{error}</p>}{notice&&<p role="status" className="workspace-notice">{notice}</p>}
  {tab==='account'?<div className="native-account"><h2>{data?.linked?data.nickname:'登录枫叶市集'}</h2><p>登录网站同一账号，关注条件会在电脑与网页间同步。</p>{data?.linked?<><span>当前扫描器已登录</span><button className="ui-btn" disabled={busy} onClick={()=>run('logout',{account:data.public_id})}>退出本机账号</button></>:<button className="ui-btn primary" disabled={busy} onClick={async()=>{if(await run('login'))setNotice('请在浏览器完成登录并关联此扫描器，完成后这里会自动更新。');}}>登录 / 注册</button>}</div>:
  !data?.linked?<div className="native-account"><h2>登录后同步关注</h2><p>使用网站的账号，已有关注会自动出现在这里。</p><button className="ui-btn primary" disabled={busy} onClick={async()=>{if(await run('login'))setNotice('请在浏览器完成登录并关联此扫描器。');}}>登录 / 注册</button></div>:<>
- <div className="native-sweep-bar"><div><b>扫货内测 · 仅模拟</b><p>{count} 组已选 · {simulation?.enabled?'模拟运行中':'模拟已停止'} · {simulation?.units||0} 件 · {(simulation?.spent||0).toLocaleString()} 金币</p></div><button className="ui-btn primary" disabled={busy||!simulation||(!simulation.enabled&&(dirty||limitsDirty||!count))} onClick={async()=>{
+ <div className="native-sweep-bar"><div><b>扫货内测 · 仅模拟</b><p>{count} 组已选 · {simulation?.enabled?'模拟运行中':'模拟已停止'} · {simulation?.units||0} 件 · {(simulation?.spent||0).toLocaleString()} 金币</p></div><button className="ui-btn primary" disabled={busy||!simulation||(!simulation.enabled&&(limitsDirty||!count))} onClick={async()=>{
   if(simulation.enabled){await run('stop');return;}if(!savedLimits){const next=await save([{kind:'pref',key:'watch.sweepSettings',value:JSON.stringify(limits),version:0}]);if(!next)return;}await run('start',{account:data.public_id});
- }}>{simulation?.enabled?'停止模拟':'开始新一轮模拟'}</button></div>
+ }}>{simulation?.enabled?'停止模拟':'开始模拟'}</button></div>
  {simulation?.message&&<p className="workspace-note">{simulation.message}</p>}
  <details className="native-budget"><summary>预算与背包</summary><div className="native-fields">{([['budget','本轮预算'],['maxOrder','单笔上限'],['wallet','模拟钱包余额'],['reserve','保留金币'],['slots','每类背包模拟空格'],['reserveSlots','每类背包保留格']] as const).map(([k,label])=><div key={k}>{number(label,limits[k],v=>{setLimits({...limits,[k]:v??0});setLimitsDirty(true);},k.toLowerCase().includes('slots')?96:1e12)}</div>)}</div><button className="ui-btn" disabled={busy||(!limitsDirty&&!!savedLimits)} onClick={async()=>{if(await save([{kind:'pref',key:'watch.sweepSettings',version:savedLimits?.version||0,value:JSON.stringify(limits)}])){setLimitsDirty(false);setNotice('预算已保存');}}}>保存预算</button></details>
- <div className="native-watch-add"><input aria-label="搜索商品" placeholder="搜索商品名或 ID 添加关注" value={search} onChange={e=>setSearch(e.target.value)}/>{search&&<div className="native-search-results">{catalog.filter(i=>`${i.item_id} ${i.name_zh} ${i.name_en}`.toLowerCase().includes(search.toLowerCase())&&!watches.some((w:any)=>w.key===String(i.item_id))).slice(0,6).map(i=><button key={i.item_id} disabled={busy||dirty} onClick={async()=>{const old=records.find((r:any)=>r.kind==='watch'&&r.key===String(i.item_id));if(await save([{kind:'watch',key:String(i.item_id),version:old?.version||0,value:{cap:null,notify:true,position:watches.length,groups:[{id:crypto.randomUUID(),name:'',cap:null,notify:true,buy:false,reminder:{}}],buyLimit:1}}])){setSearch('');setSelected(String(i.item_id));}}}>{i.name_zh||i.name_en} <small>{i.item_id}</small></button>)}</div>}</div>
- <div className="native-watch-layout"><nav aria-label="关注商品">{watches.map((r:any)=><button key={r.key} aria-pressed={selected===r.key} disabled={dirty&&selected!==r.key} onClick={()=>{setSelected(r.key);setUndo(null);}}>{name(r.key)}<small>{groups(r.value).length} 组条件</small></button>)}{!watches.length&&<p className="workspace-note">还没有关注商品</p>}</nav>
- <div className="native-rule-editor">{draft?<><div className="native-rule-title"><h3>{name(selected)}</h3><button className="text-link" disabled={busy} onClick={async()=>{if(await save([{...draft,value:null}])){setDirty(false);setDraft(null);setSelected('');}}}>取消关注</button></div>
- {draft.value.groups.map((g:any,index:number)=><div className="native-condition" key={g.id}>{index>0&&<span className="native-or">或者</span>}<div className="native-group-header"><input aria-label="条件组名称" maxLength={40} placeholder={`条件 ${index+1}`} value={g.name} onChange={e=>patchGroup(g.id,{name:e.target.value})}/><button className="text-link" onClick={()=>{setUndo({group:g,index});setDraft({...draft,value:{...draft.value,groups:draft.value.groups.filter((r:any)=>r.id!==g.id)}});setDirty(true);}}>删除</button></div>
- <div className="native-fields">{number('最高单价',g.cap,v=>patchGroup(g.id,{cap:v,...(!v?{buy:false}:{})}),1e15)}<label>价格范围<select value={g.reminder?.percentile||'all'} onChange={e=>filter(g,'percentile',e.target.value)}><option value="all">固定最高价</option><option value="10">最低 10%</option><option value="25">最低 25%</option><option value="50">最低 50%</option></select></label></div>
- <div className="native-group-toggles"><label><input type="checkbox" checked={g.notify} onChange={e=>patchGroup(g.id,{notify:e.target.checked})}/>提醒</label><label><input type="checkbox" checked={g.buy} disabled={!g.cap||(g.reminder?.percentile||'all')!=='all'||g.reminder?.equipment==='missing'} onChange={e=>patchGroup(g.id,{buy:e.target.checked})}/>加入扫货</label></div>
- <details><summary>更多条件</summary><div className="native-fields">{number('最低单价',g.reminder?.minPrice,v=>filter(g,'minPrice',v),1e15)}{number('最低库存',g.reminder?.minStock,v=>filter(g,'minStock',v),1e9,1)}<label>库存<select value={g.reminder?.stock||'all'} onChange={e=>filter(g,'stock',e.target.value)}>{[['all','不限'],['known','已知库存'],['unknown','未知库存']].map(([k,l])=><option key={k} value={k}>{l}</option>)}</select></label></div>
- {Number(selected)<2000000&&<><div className="native-fields">{number('可升级次数至少',g.reminder?.minUpgrades,v=>filter(g,'minUpgrades',v),15)}{number('可升级次数至多',g.reminder?.maxUpgrades,v=>filter(g,'maxUpgrades',v),15)}<label>装备属性<select value={g.reminder?.equipment||'all'} onChange={e=>filter(g,'equipment',e.target.value)}>{[['all','不限'],['captured','属性已知'],['bonus','有加成'],['missing','属性未知']].map(([k,l])=><option key={k} value={k}>{l}</option>)}</select></label></div><div className="native-fields">{stats.map(([k,l])=><div key={k}>{number(`${l}至少`,g.reminder?.stats?.find((s:any)=>s.stat===k)?.min,v=>filter(g,'stats',[...(g.reminder?.stats||[]).filter((s:any)=>s.stat!==k),...(v===null?[]:[{stat:k,min:v}])]),65535)}</div>)}</div></>}
- </details></div>)}
- {undo&&<p className="workspace-note">条件组已删除 <button className="text-link" onClick={()=>{const next=[...draft.value.groups];next.splice(undo.index,0,undo.group);setDraft({...draft,value:{...draft.value,groups:next}});setDirty(true);setUndo(null);}}>撤销</button></p>}
- <button className="text-link" disabled={draft.value.groups.length>=12} onClick={()=>{setDraft({...draft,value:{...draft.value,groups:[...draft.value.groups,{id:crypto.randomUUID(),name:'',cap:null,notify:true,buy:false,reminder:{}}]}});setDirty(true);}}>＋ 添加条件组</button>
- <div className="native-save-row">{number('本轮最多买（件）',draft.value.buyLimit??1,v=>{setDraft({...draft,value:{...draft.value,buyLimit:v??1}});setDirty(true);},9999,1)}<button className="ui-btn" disabled={!dirty||busy} onClick={()=>{setDirty(false);setUndo(null);}}>放弃修改</button><button className="ui-btn primary" disabled={!dirty||busy} onClick={async()=>{if(await save([draft])){setDirty(false);setUndo(null);setNotice('条件已保存并同步');}}}>保存条件</button></div>
- </>:<p className="workspace-note">选择商品，编辑关注条件与扫货规则。</p>}</div></div>
  <details className="native-history"><summary>本轮模拟记录 · {simulation?.checked||0} 家已检查</summary>{(simulation?.recent||[]).map((r:any)=><div key={r.key} className="native-history-row"><span>{r.name} × {r.units||0}<small>FM {r.room} · CH {r.channel}</small></span><span>{r.reason||'模拟买入'} · {(r.cost||0).toLocaleString()}</span></div>)}</details>
  </>}
  </div></section>;

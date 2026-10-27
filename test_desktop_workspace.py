@@ -41,6 +41,13 @@ class DesktopWorkspaceTests(unittest.TestCase):
         self.workspace.local.assert_any_call({'action':'stop'})
         self.workspace.gateway.update.assert_called_once_with('/api/v1/collector/watch-data',change)
 
+    def test_page_uses_only_trusted_local_routes(self):
+        (self.workspace.runtime.home/'dashboard.json').write_text('{"url":"http://127.0.0.1:8780/alerts"}')
+        self.assertEqual(self.workspace.run('page',{'page':'watch'})['url'],'http://127.0.0.1:8780/watch?lang=zh&theme=light')
+        with self.assertRaises(ValueError):self.workspace.run('page',{'page':'https://example.com'})
+        (self.workspace.runtime.home/'dashboard.json').write_text('{"url":"https://example.com/alerts"}')
+        with self.assertRaises(ValueError):self.workspace.run('page',{'page':'prices'})
+
     def test_no_arbitrary_command(self):
         with self.assertRaises(ValueError):self.workspace.run('shell','anything')
 

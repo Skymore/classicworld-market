@@ -142,7 +142,7 @@ class Gateway:
 
     def market(self, query):
         window = query.get('hours', ['72'])[0]
-        if window not in ('72', 'all'):
+        if window not in ('1','6','24','48','72','168','all'):
             raise ValueError('Invalid quote window')
         args = {'hours': window}
         item = query.get('item_id', [''])[0]
@@ -253,7 +253,19 @@ def create_server(config, folder, port=8780):
                     kind = 'application/json; charset=utf-8'
                 else:
                     if parsed.path == '/api/v1/account':
-                        result={**gateway.fetch('/api/v1/collector/profile',0),'mode':'collector','signed_in':True,'csrf':ui_nonce}
+                        profile=gateway.fetch('/api/v1/collector/profile',0)
+                        linked=gateway.fetch('/api/v1/collector/watch-data',0)
+                        if gateway.last_error:raise OSError('Account sync unavailable')
+                        result={**profile,'mode':'collector','signed_in':True,'csrf':ui_nonce,
+                                'linked':linked.get('linked',False),'public_id':linked.get('public_id'),
+                                'sync_scope':'watch'}
+                    elif parsed.path == '/api/v1/account/data':
+                        result=gateway.fetch('/api/v1/collector/watch-data',0)
+                        if gateway.last_error:raise OSError('Account sync unavailable')
+                        if not result.get('linked') or query.get('account',[''])[0]!=result.get('public_id'):
+                            body=b'{"error":"login_required"}'
+                            self.send_response(403);self.send_header('Content-Type','application/json');self.send_header('Cache-Control','no-store')
+                            self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body);return
                     elif parsed.path == '/api/v1/contributors':
                         period=query.get('period',['week'])[0]
                         if period not in ('week','month','all'):raise ValueError('Invalid period')
@@ -270,10 +282,25 @@ def create_server(config, folder, port=8780):
                         hours=query.get('hours',['72'])[0]
                         if hours not in ('72','all'):raise ValueError('Invalid quote window')
                         result=gateway.fetch('/api/v1/collector/alerts?'+urlencode({'hours':hours}),0)
-                    elif parsed.path in ('/api/v1/market/period-default','/api/v1/dex/counts','/api/v1/dex/dropped-items'):
+                    elif parsed.path in ('/api/v1/market/period-default','/api/v1/dex/counts','/api/v1/dex/dropped-items','/api/v1/crafting/prices'):
                         result=gateway.fetch(parsed.path,0)
                     elif parsed.path.startswith('/api/v1/item/') and parsed.path.rsplit('/',1)[-1].isdigit():
                         result=gateway.fetch(parsed.path,0)
+                    elif parsed.path == '/api/v1/catalog/page':
+                        target=query.get('url',[''])[0]
+                        route=urlsplit(target)
+                        if len(target)>2048 or route.scheme or route.netloc or not (
+                            route.path=='/search' or any(route.path.startswith(p) and route.path[len(p):].isdigit() for p in ('/item/','/mob/','/map/'))):
+                            raise ValueError('Invalid catalogue page')
+                        args={'url':target}
+                        if query.get('preview')==['true']:args['preview']='true'
+                        result=gateway.fetch(parsed.path+'?'+urlencode(args),0)
+                    elif parsed.path == '/api/v1/market/records':
+                        kind=query.get('kind',['quotes'])[0]
+                        hours=query.get('hours',['72'])[0]
+                        if kind not in ('quotes','sales') or hours not in ('1','6','24','48','72','168','all'):
+                            raise ValueError('Invalid records query')
+                        result=gateway.fetch(parsed.path+'?'+urlencode({'kind':kind,'hours':hours}),0)
                     elif parsed.path == '/api/v1/market':
                         result = gateway.market(query)
                     elif parsed.path == '/api/v1/sales/recent':
@@ -308,9 +335,8 @@ def create_server(config, folder, port=8780):
             self.send_header('Content-Length', str(len(body)))
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
-            self.send_header('X-Frame-Options', 'DENY')
             self.send_header('Referrer-Policy', 'no-referrer')
-            self.send_header('Content-Security-Policy', "default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'")
+            self.send_header('Content-Security-Policy', "default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; frame-ancestors http://127.0.0.1:*; base-uri 'none'")
             self.end_headers()
             self.wfile.write(body)
 
@@ -326,13 +352,21 @@ def create_server(config, folder, port=8780):
                 or self.headers.get('Content-Type','').split(';')[0]!='application/json'):
                 self.send_error(403);return
             routes={'/api/v1/account':'/api/v1/collector/profile','/api/v1/account/link':'/api/v1/collector/account-link'}
-            if path not in routes and not is_sweep:self.send_error(404);return
+            is_watch = path == '/api/v1/account/data'
+            if path not in routes and not is_sweep and not is_watch:self.send_error(404);return
             try:
                 length=int(self.headers.get('Content-Length','0'))
-                if not 0<length<=(512*1024 if is_sweep else 2048):raise ValueError('Invalid request length')
+                if not 0<length<=(512*1024 if is_sweep or is_watch else 2048):raise ValueError('Invalid request length')
                 data=json.loads(self.rfile.read(length))
                 if not isinstance(data,dict):raise ValueError('Invalid request')
-                if is_sweep:
+                if is_watch:
+                    # The device may only edit watches and sweep settings. The cloud
+                    # validates the account binding and every record version again.
+                    if not isinstance(data.get('account'),str) or not isinstance(data.get('operations'),list):
+                        raise ValueError('Invalid watch changes')
+                    sweep.command({'action':'stop'})
+                    result=gateway.update('/api/v1/collector/watch-data',data)
+                elif is_sweep:
                     if data.get('action') == 'start':
                         from collector_sweep import configuration
                         configuration(data)

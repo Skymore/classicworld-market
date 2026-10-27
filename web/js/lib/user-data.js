@@ -3,8 +3,9 @@
 const PREFS=['lang','theme','market.offerSort','watch.offerSort','market.hours','watch.sweepSettings'];
 const KEYS=['watchlist','watchlist_settings',...PREFS];
 const itemPref=key=>/^item\.(offerFilters|showExpired)\.[1-5]\d{6}$/.test(key);
-const preference=key=>PREFS.includes(key)||itemPref(key);
-const managed=key=>KEYS.includes(key)||itemPref(key);
+const scoped=key=>profile?.sync_scope!=='watch'||key==='watch.sweepSettings';
+const preference=key=>(PREFS.includes(key)||itemPref(key))&&scoped(key);
+const managed=key=>key==='watchlist'||key==='watchlist_settings'||preference(key);
 const PREFIX='cwm.user-data.v1.';
 const SIGNAL='cwm.account-signal.v1';
 const ACTIVE_PREFERENCES='cwm.preferences.account.v1';
@@ -72,7 +73,8 @@ function changed(){
 async function request(path,body,csrf=profile?.csrf){
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);
  try{
-  const response=await fetch(path,{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:undefined,body:body?JSON.stringify(body):undefined,signal:controller.signal});
+  const target=profile?.sync_scope==='watch'&&path==='/api/v1/account/data'&&!body?path+'?account='+encodeURIComponent(owner):path;
+  const response=await fetch(target,{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:undefined,body:body?JSON.stringify(profile?.sync_scope==='watch'&&path==='/api/v1/account/data'?{...body,account:owner}:body):undefined,signal:controller.signal});
   const data=await response.json();if(!response.ok){const e=new Error(data.error||'unavailable');e.status=response.status;throw e;}return data;
  }finally{clearTimeout(timeout);}
 }
@@ -112,7 +114,7 @@ export async function flush(){
  }finally{if(mine===epoch){busy=false;if(owner&&Object.keys(context?.pending||{}).length&&status!=='watch_limit'&&status!=='login_required')schedule(status==='offline'?15000:600);}}
 }
 export async function adoptAccount(next,{broadcast=false}={}){
- const account=next?.signed_in&&next.mode!=='collector'&&typeof next.public_id==='string'?next.public_id:null;
+ const account=next?.signed_in&&(next.mode!=='collector'||next.sync_scope==='watch'&&next.linked)&&typeof next.public_id==='string'?next.public_id:null;
  profile=next;
  // Let the blocking bootstrap read the active account's cached theme before
  // modules or the network load. This is a public ID, never a credential.

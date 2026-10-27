@@ -63,6 +63,15 @@ class DesktopWorkspace:
     def _run(self, action, value):
         if action == 'status':
             return self.status()
+        if action == 'page':
+            if not isinstance(value, dict) or value.get('page') not in ('watch', 'prices'):
+                raise ValueError('无效页面')
+            state = json.loads((self.runtime.home/'dashboard.json').read_text(encoding='utf-8'))
+            address = urlsplit(state['url'])
+            if address.scheme != 'http' or address.hostname != '127.0.0.1' or not address.port:
+                raise ValueError('本机服务地址无效')
+            theme = value.get('theme') if value.get('theme') in ('light','dark') else 'light'
+            return {'url': f'http://127.0.0.1:{address.port}/'+value['page']+'?lang=zh&theme='+theme}
         if action == 'catalog':
             return self.fetch('/api/v1/watchlist/catalog', 300)
         if action == 'login':
