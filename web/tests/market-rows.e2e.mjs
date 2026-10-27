@@ -13,7 +13,7 @@ const streams = new Set();
 const now = Date.now() / 1000;
 const product = { item_id: 2048001, name_zh: '宠物装备移动速度卷轴：高级', name_en: 'Pet Equip Speed Scroll: Greater', category: '消耗品', low: 10, listings: 999, typical: 1000, last_seen: now };
 const quotes = [
-  { ...product, id: 'recent-expensive', observed: now, unit_price: 900, stock: 4, bundle: 1, shop: 'First shop', location: { channel: 23, room: 9 } },
+  { ...product, id: 'recent-expensive', observed: now, unit_price: 900, stock: 4, bundle: 1, shop: 'First shop', owner_name: 'Maple trader', location: { channel: 23, room: 9 } },
   { ...product, id: 'unknown-stock', observed: now - 60, unit_price: 19.9, stock: null, bundle: 1, shop: 'Other shop', location: null },
   { item_id: 1072128, id: 'real-gear', name_zh: '蓝宝石鞋', name_en: 'Blue Jewelry Boots', observed: now-120, unit_price: 3000, stock: 1, shop: 'Boots shop', location: {channel:24,room:10}, equipment:{status:'candidate',stats:[{key:'luk',value:2},{key:'weapon_defense',value:7},{key:'magic_defense',value:7},{key:'avoid',value:3}],remaining_upgrades:5} },
 ];
@@ -114,12 +114,22 @@ try {
       assert.match(await offers.first().locator('.loc-shop').getAttribute('title'), lang === 'zh' ? /^23频道 · 9洞 · / : /^CH 23 · FM9 · /);
       assert(await offers.locator('.loc-shop').evaluateAll(nodes=>nodes.every(node=>[...node.children].slice(0,2).every(cell=>cell.scrollWidth<=cell.clientWidth))),'translated channel and room labels fit their columns');
       const longShop=offers.first().locator('.record-shop');
-      const naturalShop=await longShop.evaluate(node=>{node.textContent='hi';node.title='hi';const frame=node.parentElement.getBoundingClientRect();return {width:frame.width,available:node.closest('.record-meta').getBoundingClientRect().width,shopWidth:node.getBoundingClientRect().width};});
-      assert(naturalShop.width<naturalShop.available-10&&naturalShop.shopWidth<30,'short shop names keep the frame fitted to their content');
-      await longShop.evaluate(node=>{node.textContent='A very long shop title that must not expand the row';node.title=node.textContent;});
-      assert(await longShop.evaluate(node=>{const s=getComputedStyle(node);return s.textOverflow==='ellipsis'&&s.whiteSpace==='nowrap'&&node.scrollWidth>node.clientWidth;}),'long shop titles clip with ellipsis inside the third cell');
+      assert.equal(await longShop.locator('svg.lucide-store').count(),1);
+      const beforeToggle=page.url();
+      await longShop.click();
+      assert.equal(await longShop.locator('.record-shop-text').textContent(),'Maple trader');
+      assert.equal(await longShop.locator('svg.lucide-user-round').count(),1);
+      assert.equal(await longShop.getAttribute('title'),lang==='zh'?'人物名':'Player name');
+      assert.equal(page.url(),beforeToggle,'switching identity does not open the item');
+      await longShop.press('Enter');
+      assert.equal(await longShop.locator('.record-shop-text').textContent(),'First shop');
+      assert.equal(await longShop.locator('svg.lucide-store').count(),1);
+      const naturalShop=await longShop.evaluate(node=>{node.querySelector('.record-shop-text').textContent='hi';const frame=node.parentElement.getBoundingClientRect();return {width:frame.width,available:node.closest('.record-meta').getBoundingClientRect().width,shopWidth:node.getBoundingClientRect().width};});
+      assert(naturalShop.width<naturalShop.available-10&&naturalShop.shopWidth<48,'short shop names and their icon keep the frame fitted to their content');
+      await longShop.locator('.record-shop-text').evaluate(node=>{node.textContent='A very long shop title that must not expand the row';});
+      assert(await longShop.locator('.record-shop-text').evaluate(node=>{const s=getComputedStyle(node);return s.textOverflow==='ellipsis'&&s.whiteSpace==='nowrap'&&node.scrollWidth>node.clientWidth;}),'long shop titles clip with ellipsis inside the third cell');
       assert(await longShop.evaluate((node,shortWidth)=>node.parentElement.getBoundingClientRect().width>shortWidth,naturalShop.width),'the shop cell grows for longer titles');
-      await longShop.evaluate(node=>{node.textContent='First shop';node.title='First shop';});
+      await longShop.locator('.record-shop-text').evaluate(node=>{node.textContent='First shop';});
       assert.match(await offers.nth(2).locator('.offer-equipment').textContent(), /可升 5|Upgrades left 5/);
       assert.equal(await offers.nth(2).locator('.offer-equipment').evaluate(node=>getComputedStyle(node).fontSize), '11px');
       const attributes=await offers.nth(2).locator('.offer-equipment').evaluate(node=>{
@@ -136,7 +146,7 @@ try {
       assert.equal(sizes['.ware-price'],'18px');
       assert.equal(sizes['.name-secondary'],'11px','translations are smaller than other secondary text');
       for(const [selector,size] of Object.entries(sizes)) if(!['.ware-price','.name-secondary'].includes(selector)) assert.equal(size,'12px',selector);
-      const metaText=await offers.first().evaluate(node=>['.loc b','.loc-room','.record-shop'].map(selector=>{
+      const metaText=await offers.first().evaluate(node=>['.loc b','.loc-room','.record-shop-text'].map(selector=>{
         const range=document.createRange();range.selectNodeContents(node.querySelector(selector));
         const bounds=range.getBoundingClientRect();return (bounds.top+bounds.bottom)/2;
       }));

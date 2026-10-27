@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Store, UserRound } from "lucide-react";
 import { useWords } from "../providers";
 import { Slot, ItemNames, Price, RelativeTime } from "./shared";
 import { SiteLink } from "./shell";
@@ -51,11 +52,12 @@ export function Location({
           <button type="button" className="record-shop shop-name-toggle"
             aria-pressed={showOwner}
             aria-label={showOwner ? words("显示店铺名", "Show shop name") : words("显示玩家名", "Show player name")}
-            title={showOwner ? words("点击切换店铺名", "Click for shop name") : words("点击切换玩家名", "Click for player name")}
+            title={showOwner ? words("人物名", "Player name") : words("店铺名", "Shop name")}
             onClick={(event) => { event.preventDefault(); event.stopPropagation(); setShowOwner(!showOwner); }}>
-            {showOwner ? owner : shop || "—"}
+            {showOwner ? <UserRound aria-hidden="true" /> : <Store aria-hidden="true" />}
+            <span className="record-shop-text">{showOwner ? owner : shop || "—"}</span>
           </button>
-        ) : <span className="record-shop" title={shop || undefined}>{shop || "—"}</span>}
+        ) : <span className="record-shop" title={shop || undefined}><Store aria-hidden="true" /><span className="record-shop-text">{shop || "—"}</span></span>}
 
       </span>
     );

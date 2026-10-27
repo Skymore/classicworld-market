@@ -80,9 +80,9 @@ try {
     assert(await quotes.locator('.loc-shop').evaluateAll(nodes=>nodes.every(node=>{const widths=[...node.children].map(child=>child.getBoundingClientRect().width);return widths.length===3&&widths[0]===50&&widths[1]===44&&Math.abs(widths.reduce((a,b)=>a+b,0)-node.clientWidth)<1;})),'compact variants align CH/FM columns across rows and let the shop column fill the remaining frame');
     assert.deepEqual(await quote.locator('.record-value').evaluate(node=>[...node.children].map(child=>child.className)),['ware-price','record-stock'],'variant price and stock occupy only two lines');
     const compactShop=quote.locator('.record-shop'),originalShop=await compactShop.textContent();
-    await compactShop.evaluate(node=>node.textContent='hi');
-    assert(await compactShop.evaluate(node=>node.getBoundingClientRect().width<30&&node.parentElement.getBoundingClientRect().width<node.closest('.record-meta').getBoundingClientRect().width-10),'compact shop cells also fit short names');
-    await compactShop.evaluate((node,title)=>node.textContent=title,originalShop);
+    await compactShop.locator('.record-shop-text').evaluate(node=>node.textContent='hi');
+    assert(await compactShop.evaluate(node=>node.getBoundingClientRect().width<48&&node.parentElement.getBoundingClientRect().width<node.closest('.record-meta').getBoundingClientRect().width-10),'compact shop cells also fit short names with their icon');
+    await compactShop.locator('.record-shop-text').evaluate((node,title)=>node.textContent=title,originalShop);
     for(const width of mobile?[320,390,430]:[1280]){
       await page.setViewportSize({width,height:844});
       assert(await quotes.evaluateAll(nodes=>nodes.every(node=>{
