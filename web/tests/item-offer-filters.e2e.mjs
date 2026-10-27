@@ -110,9 +110,7 @@ try {
     await page.screenshot({path:path.join(output, `advanced-panel-${mobile?'mobile':'desktop'}.png`),fullPage:false});
     await submit();
     assert.equal(await page.locator('.where-well .well-h > small').textContent(), mobile ? '4 条挂单 · 4 摊' : '4 listings · 4 shops');
-    assert.equal(await page.locator('.cgroup[data-ch-key="4"]').isVisible(), false);
-    assert.equal(await page.locator('.cgroup[data-ch-key="35"] .cg-min b').textContent(), '22.2K');
-    assert.equal(await page.locator('.cgroup[data-ch-key="35"] .hole.lit').count(), 2);
+    assert.deepEqual(await visibleRows(), ['unknown', 'newer', 'fresh', 'expensive'], 'cheapest first across channels, newer first on ties');
     await open(); await page.selectOption('[data-offer-percentile]', '50'); await submit();
     await page.selectOption('[data-offer-sort]', 'recent');
     assert.deepEqual(await visibleRows(), ['newer', 'fresh', 'unknown']);
@@ -185,9 +183,9 @@ try {
     await page.locator('[data-offer-clear=all]').click();
     assert.equal(await page.locator('[data-offer-empty]').isVisible(), false);
     offers = Array.from({length:10},(_,i)=>({id:`channel-${i}`,ch:String(i+1),room:1,price:i+1,age:i<3?60:7200})); revision++; broadcast(); await waitRevision();
-    assert.equal(await page.locator('.cgroup:visible').count(), mobile ? 6 : 8);
+    assert.equal(await page.locator('.where-well [data-quote]:visible').count(), 10);
     await open(); await page.selectOption('[data-offer-hours]','1'); await submit();
-    assert.equal(await page.locator('.cgroup:visible').count(), 3);
+    assert.equal(await page.locator('.where-well [data-quote]:visible').count(), 3);
     assert.equal(await page.locator('[data-more]:visible').count(), 0);
 
     // Useful-stat grouping ignores defence rolls and successful enhancement counts.

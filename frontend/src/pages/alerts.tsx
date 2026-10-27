@@ -285,23 +285,29 @@ export default function Alerts() {
                 "Collect evaluates non-equipment margins from your collector. For personal price caps on any item, use Watch; keep its page open for new-offer notifications. Watch settings stay in your browser.",
               )}
             </p>
-            <div className="well astep">
-              <h3>{t("alerts.setup_browser")}</h3>
-              <p>{t("alerts.setup_browser_text")}</p>
-              <a className="btn primary" href="/collect/">
-                {t("alerts.setup_open")}
-              </a>
-            </div>
-            <div className="well astep">
-              <h3>{t("alerts.setup_divert")}</h3>
-              <p>{t("alerts.setup_divert_text")}</p>
-              <a className="btn primary" href="/web/download.html">
-                {words("下载采集器与使用说明", "Download & instructions")}
-              </a>
-              <a className="btn" href="http://127.0.0.1:8780/alerts">
-                {t("alerts.setup_local")}
-              </a>
-              <p className="fnote">{t("alerts.setup_local_hint")}</p>
+            <div className="asteps">
+              <div className="well astep">
+                <h3>{t("alerts.setup_browser")}</h3>
+                <p>{t("alerts.setup_browser_text")}</p>
+                <div className="astep-actions">
+                  <a className="btn primary" href="/collect/">
+                    {t("alerts.setup_open")}
+                  </a>
+                </div>
+              </div>
+              <div className="well astep">
+                <h3>{t("alerts.setup_divert")}</h3>
+                <p>{t("alerts.setup_divert_text")}</p>
+                <div className="astep-actions">
+                  <a className="btn primary" href="/web/download.html">
+                    {words("下载采集器与使用说明", "Download & instructions")}
+                  </a>
+                  <a className="btn" href="http://127.0.0.1:8780/alerts">
+                    {t("alerts.setup_local")}
+                  </a>
+                </div>
+                <p className="fnote">{t("alerts.setup_local_hint")}</p>
+              </div>
             </div>
             <details className="well amanual">
               <summary>{t("alerts.manual")}</summary>

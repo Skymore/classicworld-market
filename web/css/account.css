@@ -62,3 +62,10 @@
   .account-body .account-footer{padding:8px 18px}
 }
 @media(prefers-reduced-motion:reduce){.account-chevron{transition:none}}
+
+/* 登录 / 注册 / 找回密码：沿用站内标签（.tab）的红色下划线表示当前项 */
+.account-body .account-tabs{gap:0;border-bottom:1px solid var(--rule)}
+.account-body .account-tabs button{min-height:44px;padding:0 16px;border:0;border-bottom:3px solid transparent;font-weight:700;color:var(--ink-3)}
+.account-body .account-tabs [aria-pressed=true]{color:var(--ink);border-bottom-color:var(--maple)}
+.account-body .google-signin{width:100%;max-width:520px;margin-top:8px}
+.account-body .account-status:empty{min-height:0}

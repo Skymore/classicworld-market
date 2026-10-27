@@ -27,20 +27,25 @@
   color: var(--ink-3);
 }
 .tool-entry:hover {
-  background: var(--sheet-hi);
+  background: var(--lamp);
+  border-color: var(--bar);
 }
-.tool-breadcrumb {
-  max-width: 900px;
-  margin: 0 auto 12px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  font-size: 13px;
+.tool-entry > .contents:first-child > svg {
+  box-sizing: content-box;
+  padding: 10px;
+  color: var(--bar-text);
+  background: var(--bar-soft);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+}
+.tool-entry > .contents:last-child > svg {
   color: var(--ink-3);
 }
-.tool-breadcrumb a {
-  color: var(--bar-text);
-  padding: 8px 0;
+@media (min-width: 641px) {
+  .tool-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
 }
 .enhance-grid {
   display: grid;

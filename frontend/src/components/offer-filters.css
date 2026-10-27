@@ -225,3 +225,78 @@
     padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
 }
+
+/* Same window chrome as the price-table filter: blue title bar with a bar close
+   button, ruled sections with small headings, full-width apply button. */
+.offer-filter-dialog .offer-filter-head {
+  min-height: 44px;
+  padding: 0 0 0 12px;
+  background: var(--bar);
+  color: var(--bar-ink);
+  border-bottom: 2px solid var(--edge);
+  box-shadow: inset 0 1px 0 var(--bar-hi), inset 0 -1px 0 var(--bar-lo);
+}
+.offer-filter-dialog .offer-filter-head h3 {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.offer-filter-dialog .offer-filter-head button {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  color: var(--bar-ink);
+  font-size: 24px;
+  line-height: 1;
+}
+.offer-filter-dialog .offer-filter-head button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.offer-filter-dialog .offer-filter-head :focus-visible {
+  outline-color: var(--bar-ink);
+  outline-offset: -4px;
+}
+.offer-filter-dialog .offer-filter-body {
+  padding: 0;
+}
+.offer-filter-dialog .offer-filter-body fieldset {
+  margin: 0;
+  padding: 10px 12px 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.offer-filter-dialog .offer-filter-body fieldset:last-child {
+  border-bottom: 0;
+}
+.offer-filter-dialog .offer-filter-body legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.offer-filter-dialog .offer-field-grid {
+  clear: both;
+  gap: 10px 12px;
+}
+.offer-filter-dialog .offer-field {
+  gap: 4px;
+  font-size: 12px;
+}
+.offer-filter-dialog .offer-field input,
+.offer-filter-dialog .offer-field select {
+  height: 40px;
+}
+.offer-filter-dialog .offer-filter-foot {
+  padding: 10px 12px;
+  background: var(--sheet);
+}
+.offer-filter-dialog .offer-filter-foot .primary {
+  max-width: none;
+}
+@media (max-width: 640px) {
+  .offer-filter-dialog .offer-filter-foot {
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+}

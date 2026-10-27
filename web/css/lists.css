@@ -126,7 +126,10 @@
 .asetup{display:grid;gap:12px;padding:16px 12px}
 .asetup h2{font-size:17px;font-weight:800}
 .asetup>p{font-size:14px;color:var(--ink-2)}
-.astep{display:grid;gap:8px;justify-items:start;padding:10px 12px}
+.astep{display:grid;gap:8px;justify-items:start;align-content:start;padding:12px 14px}
+.asteps{display:grid;gap:12px}
+@media (min-width:900px){.asteps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.astep-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
 .astep h3{font-size:15px;font-weight:800}
 .astep p{font-size:14px;color:var(--ink-2)}
 .awarn{padding:8px 10px;font-size:14px;border-left:4px solid var(--maple);background:var(--maple-tint)}
@@ -190,3 +193,5 @@ html:has(.fpanel[aria-modal=true]){overflow:hidden}
 .deal-switches{display:flex;align-items:center;gap:6px 20px;flex-wrap:wrap}.deal-switches label{display:inline-flex;align-items:center;gap:8px;min-height:44px;cursor:pointer}.deal-switches input{width:18px;height:18px;accent-color:var(--maple)}
 .deal-help{font-size:12px;line-height:1.6;color:var(--ink-2)}.collector-status{display:flex;gap:6px 18px;flex-wrap:wrap;padding:12px;background:var(--sheet-hi);border-bottom:1px solid var(--rule);font-size:13px}.collector-status small{width:100%;color:var(--ink-2)}.deal-history-note{padding:8px 12px;color:var(--ink-2);font-size:12px;border-top:1px dashed var(--rule)}
 @media(max-width:640px){.deal-switches{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.deal-switches label:first-child{grid-column:1/-1}.deal-toolbar .chips{flex-wrap:nowrap}.deal-toolbar .chip{flex:1;white-space:nowrap}.collector-status{gap:6px 12px}}
+.watch-empty{display:flex;flex-direction:column;align-items:center;gap:4px;padding:16px 12px 24px;text-align:center}
+.watch-empty .react-status{padding:12px 0 8px}

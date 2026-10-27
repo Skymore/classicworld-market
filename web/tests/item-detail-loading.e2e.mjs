@@ -52,16 +52,16 @@ try {
   await page.goto(origin+'/item/4010001?hours=all&lang=zh');
   await page.locator('[data-react-catalogue="item"]').waitFor();
   assert.equal(reads,0,'fresh SSR data must avoid a second full-detail request');
-  assert.equal(await page.locator('.cgroup').count(),40,'every channel remains discoverable');
-  assert.equal(await page.locator('.cgroup:not(.open) [data-quote]').count(),0,'collapsed offers must not inflate the DOM');
-  assert.equal(await page.locator('.cgroup.open [data-quote]').count(),50);
-  const second=page.locator('.cgroup').nth(1);
-  await second.locator('[data-ch]').click();
-  assert.equal(await second.locator('[data-quote]').count(),50,'opening a channel exposes all its offers');
+  const quotes=page.locator('.where-well [data-quote]');
+  assert.equal(await page.locator('.cgroup').count(),0,'lowest-price order is one list, not channel groups');
+  assert.equal(await quotes.count(),50,'the list starts with the cheapest 50 offers');
+  assert.equal(await quotes.first().getAttribute('data-unit-price'),'100','cheapest offer first');
+  await page.locator('[data-more=where]').click();
+  assert.equal(await quotes.count(),2000,'show all exposes every offer');
   revision++;
   for(const stream of streams)stream.write('event: market\ndata: {}\n\n');
   await page.waitForFunction(at=>Number(document.querySelector('.item-stall')?.dataset.asOf)===at,(now+revision*1000)/1000);
-  assert.equal(await second.locator('[data-ch]').getAttribute('aria-expanded'),'true','live refresh preserves opened channels');
+  assert.equal(await quotes.count(),2000,'live refresh keeps the full list open');
   assert.equal(reads,1);
   const beforeBurst=reads;delay=350;revision++;
   const started=page.waitForRequest(r=>r.url().includes('/api/v1/catalog/page'));
@@ -73,8 +73,6 @@ try {
   await page.waitForFunction(at=>Number(document.querySelector('.item-stall')?.dataset.asOf)===at,(now+revision*1000)/1000);
   assert.equal(reads,beforeBurst+2,'an in-flight refresh finishes and a burst causes only one trailing request');
   delay=0;
-  await second.locator('[data-ch]').click();
-  assert.equal(await second.locator('[data-quote]').count(),0);
   await page.selectOption('[data-offer-sort]','recent');
   assert.equal(await page.locator('.recent-offers [data-quote]').count(),50,'recent order starts with the latest 50 offers');
   await page.locator('[data-more=recent]').click();
@@ -87,5 +85,5 @@ try {
   assert.equal(reads,before+1,'an old cached HTML snapshot must refresh');
   assert.equal(craftReads,0,'items without recipes must not fetch crafting prices');
   assert.deepEqual(errors,[]);
-  console.log('PASS item detail: no duplicate fresh request; 2000 offers defer collapsed DOM; expand/collapse + SSE; stale HTML refresh');
+  console.log('PASS item detail: no duplicate fresh request; cheapest 50 first; show all survives SSE; stale HTML refresh');
 }finally{await browser.close();for(const stream of streams)stream.end();await new Promise(resolve=>server.close(resolve));}

@@ -150,3 +150,16 @@ html[data-device=desktop] .route-form{grid-template-columns:minmax(0,1fr) minmax
   [data-search-results]>.kinds+.kinds{padding-left:4px}
   [data-search-results]>.kinds>.chip{padding-left:9px;padding-right:9px;white-space:nowrap}
 }
+
+/* 搜索页：页码是文字，不做成按钮 */
+.kinds>span.chip{border-color:transparent;background:none;box-shadow:none;color:var(--ink-3);cursor:default}
+@media(max-width:640px){
+  .place-scope{flex-basis:100%}
+  .place-tools label{flex:1 1 0}
+  .catalogue-tools>.catalogue-cats{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}
+  /* 手机上结果用单列紧凑行，名字不再折成两行 */
+  .catalogue-grid{grid-template-columns:minmax(0,1fr);gap:0;padding:0}
+  .catalogue-grid>.drow{min-height:56px;padding:8px 12px;border:0;border-top:1px solid var(--rule);background:transparent}
+  .catalogue-grid>.drow:first-child{border-top:0}
+  .catalogue-grid .s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}

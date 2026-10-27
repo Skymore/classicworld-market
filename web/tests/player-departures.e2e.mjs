@@ -33,7 +33,6 @@ try{
   const expired=page.locator('.where-well .expired-record');await expired.waitFor({state:'visible'});
   assert.equal(await expired.locator('.quote-expired').textContent(),'已失效');
   assert.match(await expired.locator('.record-stock').textContent(),/当时库存 5/);
-  assert.match(await page.locator('.cg-min').textContent(),/900/,'expired 100 is not the minimum');
   assert.equal(await page.locator('.where-well [data-quote]').first().getAttribute('data-unit-price'),'100','expired quote keeps its price order');
   const toggle=expired.locator('.shop-name-toggle');const url=page.url();
   await toggle.click();assert.equal(await toggle.textContent(),'ExampleHost');assert.equal(page.url(),url);

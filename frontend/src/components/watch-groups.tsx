@@ -41,6 +41,6 @@ export default function WatchGroups({id,name,setting,rows,reference,onChange}: {
     })}
     {undo&&<div className="wg-undo" role="status">{words('条件组已删除','Group deleted')} <button onClick={()=>{const next=[...groups];next.splice(Math.min(undo.at,next.length),0,undo.group);write(next);setUndo(null);}}>{words('撤销','Undo')}</button></div>}
     <div className="wg-footer"><button className="wg-link" disabled={groups.length>=12} onClick={()=>{const key=crypto.randomUUID();write([...groups,{id:key,name:'',cap:null,notify:true,buy:false,reminder:{}}]);setEditing(key);}}>{groups.length?words('＋ 另一组条件','＋ Another group'):words('＋ 添加条件组','＋ Add conditions')}</button>
-      <label>{words('本轮最多买','Session limit')}<input aria-label={words(`${name}本轮购买上限`,`${name} session quantity limit`)} type="number" min={1} max={9999} step={1} value={setting.buyLimit??1} onChange={e=>{const n=Number(e.target.value);if(Number.isInteger(n)&&n>=1&&n<=9999)onChange({buyLimit:n});}}/>{words('件','units')}</label></div>
+      {groups.some((g:any)=>g.buy)&&<label>{words('本轮最多买','Session limit')}<input aria-label={words(`${name}本轮购买上限`,`${name} session quantity limit`)} type="number" min={1} max={9999} step={1} value={setting.buyLimit??1} onChange={e=>{const n=Number(e.target.value);if(Number.isInteger(n)&&n>=1&&n<=9999)onChange({buyLimit:n});}}/>{words('件','units')}</label>}</div>
   </div>;
 }

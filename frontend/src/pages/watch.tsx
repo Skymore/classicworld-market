@@ -36,6 +36,7 @@ import { OfferRow } from "../components/list-rows";
 import { useWatchAlerts } from "../components/watch-alerts";
 import { NotificationSettings } from "../components/notification-settings";
 import "../lib/list-copy";
+import "./watch.css";
 export default function Watch() {
   usePageReady();
   const words = useWords();
@@ -385,6 +386,39 @@ export default function Watch() {
                             .join(" · ")}
                         </small>
                       </a>
+                      <div className="wc-nums">
+                        <span>
+                          <small>{t("watch.lowest")}</small>
+                          <b data-lowest>
+                            <Price value={summary[id]?.lowest} />
+                          </b>
+                        </span>
+                        <span>
+                          <small>{t("watch.typical")}</small>
+                          <b>
+                            <Price value={item.typical} />
+                          </b>
+                        </span>
+                        <span
+                          className={summary[id]?.under ? "hit" : ""}
+                          data-under-box
+                        >
+                          <small>{t("watch.under")}</small>
+                          <span className="wc-count-link">
+                            <b data-under>{summary[id]?.under || 0}</b>
+                            <SiteLink
+                              className="wc-details"
+                              href={`/watch?item=${id}#watch-matches`}
+                              aria-label={words(
+                                `查看${itemName(item)}符合提醒的报价`,
+                                `View matching offers for ${itemName(item)}`,
+                              )}
+                            >
+                              ↗
+                            </SiteLink>
+                          </span>
+                        </span>
+                      </div>
                       <button
                         className="bar-btn wc-x"
                         data-remove={id}
@@ -393,39 +427,6 @@ export default function Watch() {
                       >
                         <Icon name="close" />
                       </button>
-                    </div>
-                    <div className="wc-nums">
-                      <span>
-                        <small>{t("watch.lowest")}</small>
-                        <b data-lowest>
-                          <Price value={summary[id]?.lowest} />
-                        </b>
-                      </span>
-                      <span>
-                        <small>{t("watch.typical")}</small>
-                        <b>
-                          <Price value={item.typical} />
-                        </b>
-                      </span>
-                      <span
-                        className={summary[id]?.under ? "hit" : ""}
-                        data-under-box
-                      >
-                        <small>{t("watch.under")}</small>
-                        <span className="wc-count-link">
-                          <b data-under>{summary[id]?.under || 0}</b>
-                          <SiteLink
-                            className="wc-details"
-                            href={`/watch?item=${id}#watch-matches`}
-                            aria-label={words(
-                              `查看${itemName(item)}符合提醒的报价`,
-                              `View matching offers for ${itemName(item)}`,
-                            )}
-                          >
-                            ↗
-                          </SiteLink>
-                        </span>
-                      </span>
                     </div>
                     <div className="wc-set" id={"wc-set-" + id}>
                       <WatchGroups
@@ -441,7 +442,12 @@ export default function Watch() {
                 );
               })
             ) : (
-              <Empty text={t("watch.empty")} />
+              <div className="watch-empty">
+                <Empty text={t("watch.empty")} />
+                <SiteLink className="btn" href="/prices">
+                  {words("去价格表挑选", "Browse prices")}
+                </SiteLink>
+              </div>
             )}
           </div>
         </div>
