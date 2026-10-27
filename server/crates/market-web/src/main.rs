@@ -21,7 +21,11 @@ async fn main() -> Result<()> {
         .await
         .context("connecting to Postgres")?;
     MIGRATOR.run(&db).await.context("running migrations")?;
-    tokio::spawn(refresh_stats(db.clone(), config.stats_refresh));
+    // The refresh coordinator and its batch transaction use two connections.
+    // Neither should queue for, or occupy, the public read pool.
+    let maintenance_db = PgPoolOptions::new().max_connections(2)
+        .connect_lazy_with(db.connect_options().as_ref().clone());
+    tokio::spawn(refresh_stats(maintenance_db, config.stats_refresh));
     tokio::spawn(market_web::traffic::prune(db.clone()));
 
     let mut state = AppState::new(db, config.settings.clone());

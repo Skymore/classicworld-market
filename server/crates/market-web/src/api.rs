@@ -22,7 +22,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use crate::auth::{self, Collector};
-use crate::ingest::{ingest, IngestError, IngestOutcome, Received};
+use crate::ingest::{IngestError, IngestOutcome, Received};
 use crate::views::{self, Hours, SalesQuery};
 use crate::{unix_now, AppState};
 
@@ -340,14 +340,15 @@ async fn upload(
         }
         None => return error(StatusCode::BAD_REQUEST, "Invalid observation schema"),
     };
-    let received = Received {
-        collector: &collector,
-        upload: &upload,
-        raw: &body,
-        received_at: now,
-        now,
+    let outcome = match state.uploads.submit(collector, upload, body, now).await {
+        Ok(outcome) => Ok(outcome),
+        Err(crate::upload_queue::QueueError::Ingest(error)) => Err(error),
+        Err(crate::upload_queue::QueueError::Full) => {
+            let mut response = error(StatusCode::SERVICE_UNAVAILABLE, "Upload queue busy; retry later");
+            response.headers_mut().insert(header::RETRY_AFTER, HeaderValue::from_static("1"));
+            return response;
+        }
     };
-    let outcome = ingest(&state.db, received).await;
     let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
     match outcome {
         Ok(IngestOutcome::Created(done)) => {
@@ -430,7 +431,7 @@ async fn repair_location(
         None => return error(StatusCode::BAD_REQUEST, "Invalid observation schema"),
     };
     match crate::ingest::repair_location(
-        &state.db,
+        &state.write_db,
         Received {
             collector: &collector,
             upload: &upload,
@@ -476,7 +477,7 @@ async fn repair_owner(State(state): State<AppState>, headers: HeaderMap, body: B
         return error(StatusCode::BAD_REQUEST, "Invalid observation schema");
     };
     match crate::ingest::repair_owner(
-        &state.db,
+        &state.write_db,
         Received {
             collector: &collector,
             upload: &upload,
@@ -743,9 +744,13 @@ async fn crafting_prices(
     if let Err(response) = reader(&state, &headers, &addr, "crafting").await {
         return response;
     }
-    let now = unix_now();
-    match crate::crafting::prices(&state.db, now).await {
-        Ok(prices) => Json(json!({"as_of": now, "prices": prices})).into_response(),
+    match state.public_reads.get(&state.db, "crafting", async {
+        let now = unix_now();
+        let prices = crate::crafting::prices(&state.db, now).await?;
+        Ok(Some(json!({"as_of": now, "prices": prices})))
+    }).await {
+        Ok(Some(value)) => Json(value).into_response(),
+        Ok(None) => unreachable!("crafting snapshot always exists"),
         Err(err) => internal(err),
     }
 }
@@ -814,8 +819,14 @@ async fn watch_listings(
     let Some(ids) = views::parse_item_ids(&query_param(&query, "ids").unwrap_or_default()) else {
         return error(StatusCode::BAD_REQUEST, "Invalid item IDs");
     };
-    match views::watch_listings(&state.db, &ids, unix_now()).await {
-        Ok(value) => Json(value).into_response(),
+    let mut ids = ids;
+    ids.sort_unstable();
+    let key = format!("watch:{ids:?}");
+    match state.public_reads.get(&state.db, &key, async {
+        views::watch_listings(&state.db, &ids, unix_now()).await.map(Some)
+    }).await {
+        Ok(Some(value)) => Json(value).into_response(),
+        Ok(None) => unreachable!("watch snapshot always exists"),
         Err(err) => internal(err),
     }
 }

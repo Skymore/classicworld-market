@@ -8,7 +8,7 @@ import path from 'node:path';
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const streams = new Set();
-let reads = 0, revision = 0, stale = false;
+let reads = 0, revision = 0, stale = false, delay = 0, craftReads = 0;
 const now = Date.now();
 const snapshot = () => ({kind:'item', page:{
   item:{id:4010001,name_zh:'青铜母矿',name_en:'Bronze Ore',category:'其他'},
@@ -24,7 +24,12 @@ const server = createServer(async(req,res)=>{
     res.writeHead(200,{'Content-Type':'text/event-stream'});res.write(': ready\n\n');
     streams.add(res);req.on('close',()=>streams.delete(res));return;
   }
-  if(url.pathname==='/api/v1/catalog/page'){reads++;return json(res,snapshot());}
+  if(url.pathname==='/api/v1/catalog/page'){
+    reads++;const value=snapshot();
+    if(delay)return setTimeout(()=>json(res,value),delay);
+    return json(res,value);
+  }
+  if(url.pathname==='/api/v1/crafting/prices'){craftReads++;return json(res,{prices:[]});}
   if(url.pathname==='/api/v1/account')return json(res,{signed_in:false});
   if(url.pathname.startsWith('/api/'))return json(res,{});
   if(url.pathname.startsWith('/web/')){
@@ -58,6 +63,16 @@ try {
   await page.waitForFunction(at=>Number(document.querySelector('.item-stall')?.dataset.asOf)===at,(now+revision*1000)/1000);
   assert.equal(await second.locator('[data-ch]').getAttribute('aria-expanded'),'true','live refresh preserves opened channels');
   assert.equal(reads,1);
+  const beforeBurst=reads;delay=350;revision++;
+  const started=page.waitForRequest(r=>r.url().includes('/api/v1/catalog/page'));
+  for(const stream of streams)stream.write('event: market\ndata: {}\n\n');
+  await started;
+  await new Promise(resolve=>setTimeout(resolve,40));
+  revision++;
+  for(let i=0;i<20;i++)for(const stream of streams)stream.write('event: market\ndata: {}\n\n');
+  await page.waitForFunction(at=>Number(document.querySelector('.item-stall')?.dataset.asOf)===at,(now+revision*1000)/1000);
+  assert.equal(reads,beforeBurst+2,'an in-flight refresh finishes and a burst causes only one trailing request');
+  delay=0;
   await second.locator('[data-ch]').click();
   assert.equal(await second.locator('[data-quote]').count(),0);
   await page.selectOption('[data-offer-sort]','recent');
@@ -70,6 +85,7 @@ try {
   await page.locator('[data-react-catalogue="item"]').waitFor();
   await page.waitForFunction(()=>document.querySelector('[data-react-catalogue="item"]')?.getAttribute('aria-busy')==='false');
   assert.equal(reads,before+1,'an old cached HTML snapshot must refresh');
+  assert.equal(craftReads,0,'items without recipes must not fetch crafting prices');
   assert.deepEqual(errors,[]);
   console.log('PASS item detail: no duplicate fresh request; 2000 offers defer collapsed DOM; expand/collapse + SSE; stale HTML refresh');
 }finally{await browser.close();for(const stream of streams)stream.end();await new Promise(resolve=>server.close(resolve));}

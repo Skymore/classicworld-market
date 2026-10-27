@@ -41,6 +41,7 @@ pub mod scan_assignments;
 pub(crate) mod search;
 pub mod stats;
 pub mod traffic;
+pub mod upload_queue;
 pub mod views;
 pub mod web;
 
@@ -66,9 +67,13 @@ impl Default for Settings {
 #[derive(Clone)]
 pub struct AppState {
     pub db: PgPool,
+    /// Waiting for the serial market writer must never consume read connections.
+    pub write_db: PgPool,
+    pub uploads: Arc<upload_queue::UploadQueue>,
     /// Short task leases must not queue behind market aggregation or uploads.
     pub scan_db: PgPool,
     pub market_lists: Arc<market_cache::MarketListCache>,
+    pub public_reads: Arc<market_cache::PublicReadCache>,
     pub alert_calculations: Arc<tokio::sync::Semaphore>,
     pub started: Instant,
     pub settings: Arc<Settings>,
@@ -81,14 +86,20 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(db: PgPool, settings: Settings) -> Self {
+        let write_db = PgPoolOptions::new()
+            .max_connections(1)
+            .connect_lazy_with(db.connect_options().as_ref().clone());
         let scan_db = PgPoolOptions::new()
             .max_connections(2)
             .acquire_timeout(Duration::from_secs(2))
             .connect_lazy_with(db.connect_options().as_ref().clone());
         Self {
             db,
+            uploads: Arc::new(upload_queue::UploadQueue::new(write_db.clone())),
+            write_db,
             scan_db,
             market_lists: Arc::default(),
+            public_reads: Arc::default(),
             alert_calculations: Arc::new(tokio::sync::Semaphore::new(2)),
             started: Instant::now(),
             settings: Arc::new(settings),

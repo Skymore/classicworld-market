@@ -55,7 +55,7 @@ async fn load(conn: &mut PgConnection, items: Option<&[i32]>) -> sqlx::Result<It
     let sales = sqlx::query(&format!(
         "SELECT item_id, extract(epoch FROM detected_at)::float8 AS detected, kind, grouping_shop_id,
                 COALESCE(slot,0), variant_id, unit_price
-         FROM market_sales WHERE true {item_filter} ORDER BY detected_at, observation_id NULLS LAST, position NULLS LAST,id"
+         FROM market_sales WHERE true {item_filter} ORDER BY item_id, detected_at, observation_id NULLS LAST, position NULLS LAST,id"
     ))
     .bind(&ids)
     .fetch_all(&mut *conn)

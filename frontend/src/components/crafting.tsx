@@ -19,7 +19,7 @@ export default function Crafting({ itemId }: { itemId: number }) {
   );
   const quotes = useMarketQuery<{ prices: CraftPrice[] }>(
     "/api/v1/crafting/prices",
-    Boolean(catalog.data),
+    Boolean(catalog.data && recipesFor(catalog.data, itemId).length),
   );
   const prices = useMemo(
     () => new Map((quotes.data?.prices || []).map((row) => [row.item_id, row])),

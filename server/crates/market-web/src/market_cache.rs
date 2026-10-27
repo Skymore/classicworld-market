@@ -7,6 +7,51 @@ use crate::{
 use sqlx::PgPool;
 use tokio::sync::{Mutex, Semaphore};
 
+struct PublicEntry {
+    key: String,
+    version: i64,
+    built: std::time::Instant,
+    value: Option<serde_json::Value>,
+}
+
+/// Shared public snapshots only. Full keys prevent shard collisions from mixing
+/// filters/items; the database version invalidates committed changes immediately.
+pub struct PublicReadCache {
+    slots: [Mutex<Option<PublicEntry>>; 32],
+    rebuilds: Semaphore,
+}
+
+impl Default for PublicReadCache {
+    fn default() -> Self {
+        Self {
+            slots: std::array::from_fn(|_| Mutex::new(None)),
+            rebuilds: Semaphore::new(2),
+        }
+    }
+}
+
+impl PublicReadCache {
+    pub async fn get<F>(&self, db: &PgPool, key: &str, build: F) -> sqlx::Result<Option<serde_json::Value>>
+    where F: std::future::Future<Output = sqlx::Result<Option<serde_json::Value>>> {
+        use std::hash::{Hash, Hasher};
+        let mut hash = std::collections::hash_map::DefaultHasher::new();
+        key.hash(&mut hash);
+        let mut slot = self.slots[hash.finish() as usize % self.slots.len()].lock().await;
+        // Read after the lock, so a backlog of old requests cannot rebuild old
+        // versions one by one. Waiters hold no database connection.
+        let version = views::version(db).await?;
+        if let Some(hit) = slot.as_ref() {
+            if hit.key == key && hit.version == version && hit.built.elapsed().as_secs_f64() < 2.0 {
+                return Ok(hit.value.clone());
+            }
+        }
+        let _permit = self.rebuilds.acquire().await.expect("public cache gate open");
+        let value = build.await?;
+        *slot = Some(PublicEntry { key: key.to_owned(), version, built: std::time::Instant::now(), value: value.clone() });
+        Ok(value)
+    }
+}
+
 type Entry = Option<(i64, Vec<u8>)>;
 
 type ReportEntry = Option<(i64, String, Vec<u8>)>;

@@ -1,15 +1,15 @@
-//! Write path (REDESIGN_PLAN_V2 §3.1). One transaction per upload:
+//! Write path (REDESIGN_PLAN_V2 §3.1). One transaction per bounded batch:
 //!
 //! 1. idempotency on (collector, observation_id): same fingerprint is a
 //!    no-op, different content is a conflict;
 //! 2. store the observation, its rows and the gzip body;
 //! 3. replay that shop's observations: rewrite its listings, diff its sales;
-//! 4. recompute the items whose listings, sales or last sighting changed;
+//! 4. recompute the batch's distinct changed items once;
 //! 5. bump the market version (the list ETag).
 //!
 //! Writers hold one transaction-scoped advisory lock, so uploads, refreshes
-//! and replays never interleave. Uploads take milliseconds and arrive a few
-//! per second at most.
+//! and replays never interleave. Concurrent HTTP uploads share a bounded
+//! batch; each observation keeps its own savepoint and idempotency result.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::io::{Read as _, Write as _};
@@ -20,7 +20,7 @@ use market_core::protocol::{Equipment, Upload, WORLD};
 use market_core::sales::{replay, ShopRow, ShopVisit};
 use market_core::{visit_key, Location, ShopIdentity};
 use serde_json::{json, Value};
-use sqlx::{PgConnection, PgPool, Row};
+use sqlx::{Acquire, PgConnection, PgPool, Row};
 
 use crate::auth::Collector;
 use crate::stats::{lock_writes, recompute_items};
@@ -58,10 +58,72 @@ pub struct Received<'a> {
 }
 
 pub async fn ingest(db: &PgPool, input: Received<'_>) -> Result<IngestOutcome, IngestError> {
-    let upload = input.upload;
-    let fingerprint = upload.fingerprint();
+    ingest_batch(db, &[input]).await?.pop().expect("one upload")
+}
+
+struct PendingStats {
+    items: Vec<i32>,
+    seen_at: HashMap<i32, f64>,
+    as_of: f64,
+    now: f64,
+}
+
+/// A committed batch has exactly the same raw observations, listing replay and
+/// sales as sequential uploads. Statistics are published with them atomically.
+/// A bad observation rolls back to its own savepoint, not its neighbours.
+pub async fn ingest_batch(
+    db: &PgPool,
+    inputs: &[Received<'_>],
+) -> sqlx::Result<Vec<Result<IngestOutcome, IngestError>>> {
+    if inputs.is_empty() { return Ok(Vec::new()); }
+    // CPU-only preparation does not extend the global writer lock.
+    let prepared: Vec<_> = inputs.iter().map(|input|
+        (input.upload.fingerprint(), gzip(input.raw))).collect();
     let mut tx = db.begin().await?;
     lock_writes(&mut tx).await?;
+    let mut results = Vec::with_capacity(inputs.len());
+    let mut items = BTreeSet::new();
+    let mut seen_at: HashMap<i32, f64> = HashMap::new();
+    let mut latest: Option<(f64, f64)> = None;
+    for (input, (fingerprint, compressed)) in inputs.iter().zip(&prepared) {
+        let mut savepoint = tx.begin().await?;
+        match ingest_one(&mut savepoint, input, fingerprint, compressed).await {
+            Ok((outcome, pending)) => {
+                savepoint.commit().await?;
+                if let Some(pending) = pending {
+                    items.extend(pending.items);
+                    for (id, seen) in pending.seen_at {
+                        seen_at.entry(id).and_modify(|old| *old = old.max(seen)).or_insert(seen);
+                    }
+                    latest = Some(match latest {
+                        Some((as_of, now)) => (as_of.max(pending.as_of), now.max(pending.now)),
+                        None => (pending.as_of, pending.now),
+                    });
+                }
+                results.push(Ok(outcome));
+            }
+            Err(error) => {
+                savepoint.rollback().await?;
+                results.push(Err(error));
+            }
+        }
+    }
+    if let Some((as_of, now)) = latest {
+        recompute_items(&mut tx, &items.into_iter().collect::<Vec<_>>(), as_of, now, &seen_at).await?;
+        // One notification after all raw data and statistics commit together.
+        sqlx::query("SELECT pg_notify('market_changed', '')").execute(&mut *tx).await?;
+    }
+    tx.commit().await?;
+    Ok(results)
+}
+
+async fn ingest_one(
+    tx: &mut PgConnection,
+    input: &Received<'_>,
+    fingerprint: &str,
+    compressed: &[u8],
+) -> Result<(IngestOutcome, Option<PendingStats>), IngestError> {
+    let upload = input.upload;
 
     let existing: Option<String> = sqlx::query_scalar(
         "SELECT fingerprint FROM observations WHERE collector_id = $1 AND observation_id = $2",
@@ -72,16 +134,16 @@ pub async fn ingest(db: &PgPool, input: Received<'_>) -> Result<IngestOutcome, I
     .await?;
     if let Some(stored) = existing {
         return if stored == fingerprint {
-            Ok(IngestOutcome::Duplicate)
+            Ok((IngestOutcome::Duplicate, None))
         } else {
             Err(IngestError::Conflict)
         };
     }
 
     let observed = upload.observed_seconds();
-    let (shop, new_shop) = upsert_shop(&mut tx, input.collector, upload, observed).await?;
-    ensure_items(&mut tx, upload).await?;
-    let variants = upsert_variants(&mut tx, upload).await?;
+    let (shop, new_shop) = upsert_shop(tx, input.collector, upload, observed).await?;
+    ensure_items(tx, upload).await?;
+    let variants = upsert_variants(tx, upload).await?;
     let observation: i64 = sqlx::query_scalar(
         "INSERT INTO observations (observation_id, collector_id, shop_id, source, reader_version, observed_at,
              received_at, fingerprint, visit_key)
@@ -94,7 +156,7 @@ pub async fn ingest(db: &PgPool, input: Received<'_>) -> Result<IngestOutcome, I
     .bind(&upload.reader_version)
     .bind(observed)
     .bind(input.received_at)
-    .bind(&fingerprint)
+    .bind(fingerprint)
     .bind(visit_key(&input.collector.public_id, &upload.observation_id))
     .fetch_one(&mut *tx)
     .await?;
@@ -107,13 +169,13 @@ pub async fn ingest(db: &PgPool, input: Received<'_>) -> Result<IngestOutcome, I
             .execute(&mut *tx)
             .await?;
     }
-    insert_rows(&mut tx, observation, upload, &variants).await?;
-    bind_owner(&mut tx, shop, observation, upload.owner.as_ref()).await?;
+    insert_rows(tx, observation, upload, &variants).await?;
+    bind_owner(tx, shop, observation, upload.owner.as_ref()).await?;
     sqlx::query("INSERT INTO uploads_raw (collector_id, observation_id, received_at, body) VALUES ($1, $2, to_timestamp($3), $4)")
         .bind(input.collector.id)
         .bind(&upload.observation_id)
         .bind(input.received_at)
-        .bind(gzip(input.raw))
+        .bind(compressed)
         .execute(&mut *tx)
         .await?;
     sqlx::query("UPDATE collectors SET last_seen_at = GREATEST(last_seen_at, to_timestamp($2)) WHERE id = $1")
@@ -132,10 +194,10 @@ pub async fn ingest(db: &PgPool, input: Received<'_>) -> Result<IngestOutcome, I
     .fetch_one(&mut *tx)
     .await?;
 
-    let mut changes = replay_shop(&mut tx, shop).await?;
+    let mut changes = replay_shop(tx, shop).await?;
     changes
         .items
-        .extend(reconcile_owner_listings(&mut tx, shop).await?);
+        .extend(reconcile_owner_listings(tx, shop).await?);
     // Read the stored time back so last_seen_at has the database precision.
     let seen: f64 = sqlx::query_scalar(
         "SELECT extract(epoch FROM observed_at)::float8 FROM observations WHERE id = $1",
@@ -148,18 +210,12 @@ pub async fn ingest(db: &PgPool, input: Received<'_>) -> Result<IngestOutcome, I
     touched.extend(&in_upload);
     let touched: Vec<i32> = touched.into_iter().collect();
     let seen_at: HashMap<i32, f64> = in_upload.iter().map(|&id| (id, seen)).collect();
-    recompute_items(&mut tx, &touched, as_of, input.now, &seen_at).await?;
-    // NOTIFY is delivered only after commit, so readers never race partial data.
-    sqlx::query("SELECT pg_notify('market_changed', '')")
-        .execute(&mut *tx)
-        .await?;
-    tx.commit().await?;
-    Ok(IngestOutcome::Created(Ingested {
+    Ok((IngestOutcome::Created(Ingested {
         observation,
         touched_items: touched.len(),
         sales_added: changes.sales_added,
         sales_removed: changes.sales_removed,
-    }))
+    }), Some(PendingStats { items: touched, seen_at, as_of, now: input.now })))
 }
 
 /// Fill a missing location for this collector's own immutable observation.

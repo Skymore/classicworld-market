@@ -1,0 +1,87 @@
+#[path = "common/mod.rs"] mod common;
+use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+use std::time::Duration;
+use axum::{body::Body, http::{Request, StatusCode}};
+use http_body_util::BodyExt;
+use market_web::{app, AppState, Settings, market_cache::PublicReadCache};
+use serde_json::json;
+use tower::ServiceExt;
+
+#[tokio::test]
+async fn waiting_uploads_do_not_exhaust_public_read_connections() {
+    let Some(db) = common::TestDb::new().await else { return };
+    let collector = db.collector("writer-queue").await;
+    let state = AppState::new(db.pool.clone(), Settings::default());
+    let application = app(state.clone());
+    let mut blocker = db.pool.begin().await.unwrap();
+    market_web::stats::lock_writes(&mut blocker).await.unwrap();
+    let mut uploads = Vec::new();
+    for i in 0..8 {
+        let application = application.clone();
+        let token = format!("Bearer token-of-{}-padding-to-thirty-chars", collector.public_id);
+        uploads.push(tokio::spawn(async move {
+            let body = json!({"version":1,"world":"ClassicWorld","complete":true,"title":"Shop","shop_id":7,
+                "location":{"channel":1,"room":1},"observation_id":format!("queue-{i}"),"observed_at":market_web::unix_now(),
+                "items":[{"item_id":4010001,"category":4,"slot":1,"price":500,"bundle":1,"stock":1}]});
+            application.oneshot(Request::post("/api/v1/observations").header("authorization",token)
+                .header("content-type","application/json").body(Body::from(body.to_string())).unwrap()).await.unwrap().status()
+        }));
+    }
+    tokio::time::timeout(Duration::from_secs(3), async {
+        while state.write_db.size() == 0 || state.write_db.num_idle() > 0 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }).await.unwrap();
+    // More uploads than the four read slots are now waiting for one writer.
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let response = tokio::time::timeout(Duration::from_secs(1), application.oneshot(
+        Request::get("/readyz").body(Body::empty()).unwrap())).await.expect("read blocked behind writer queue").unwrap();
+    assert_eq!(response.status(),StatusCode::OK);
+    assert!(uploads.iter().all(|task| !task.is_finished()));
+    blocker.rollback().await.unwrap();
+    for upload in uploads { assert_eq!(upload.await.unwrap(),StatusCode::CREATED); }
+    db.close().await;
+}
+
+#[tokio::test]
+async fn public_snapshots_coalesce_and_commits_invalidate_without_losing_filters() {
+    let Some(db) = common::TestDb::new().await else { return };
+    let cache = Arc::new(PublicReadCache::default());
+    let builds = Arc::new(AtomicUsize::new(0));
+    let mut requests = Vec::new();
+    for _ in 0..16 {
+        let (cache, builds, pool) = (cache.clone(), builds.clone(), db.pool.clone());
+        requests.push(tokio::spawn(async move {
+            cache.get(&pool, "item:1:variant:2", async {
+                builds.fetch_add(1, Ordering::SeqCst);
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                Ok(Some(json!({"variant":2})))
+            }).await.unwrap()
+        }));
+    }
+    for request in requests { assert_eq!(request.await.unwrap(),Some(json!({"variant":2}))); }
+    assert_eq!(builds.load(Ordering::SeqCst),1);
+    assert_eq!(cache.get(&db.pool,"item:1:variant:3",async {Ok(Some(json!({"variant":3})))}).await.unwrap(),Some(json!({"variant":3})));
+    sqlx::query("UPDATE market_state SET version=version+1").execute(&db.pool).await.unwrap();
+    assert_eq!(cache.get(&db.pool,"item:1:variant:2",async {Ok(Some(json!({"changed":true})))}).await.unwrap(),Some(json!({"changed":true})));
+    db.close().await;
+}
+
+#[tokio::test]
+async fn event_bursts_keep_initial_snapshot_and_one_trailing_invalidation() {
+    let Some(db) = common::TestDb::new().await else { return };
+    let state = AppState::new(db.pool.clone(), Settings::default());
+    let response=app(state.clone()).oneshot(Request::get("/api/v1/events").body(Body::empty()).unwrap()).await.unwrap();
+    assert_eq!(response.status(),StatusCode::OK);
+    let mut body=response.into_body();
+    assert!(std::str::from_utf8(body.frame().await.unwrap().unwrap().data_ref().unwrap()).unwrap().contains("event: market"));
+    for _ in 0..20 { state.events.send(()).unwrap(); }
+    assert!(tokio::time::timeout(Duration::from_millis(100),body.frame()).await.is_err());
+    let frame=tokio::time::timeout(Duration::from_secs(2),body.frame()).await.unwrap().unwrap().unwrap();
+    assert!(std::str::from_utf8(frame.data_ref().unwrap()).unwrap().contains("event: market"));
+    assert!(tokio::time::timeout(Duration::from_millis(100),body.frame()).await.is_err(),"burst was replayed per upload");
+    state.events.send(()).unwrap();
+    assert!(tokio::time::timeout(Duration::from_secs(2),body.frame()).await.unwrap().is_some());
+    drop(body);
+    db.close().await;
+}

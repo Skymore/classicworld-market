@@ -154,7 +154,7 @@ pub async fn upload(State(state): State<AppState>, headers: HeaderMap, body: Byt
         Ok(e) if e.valid(now) => e,
         _ => return error(StatusCode::BAD_REQUEST, "Invalid player departure"),
     };
-    match ingest(&state.db, collector.id, &event, now).await {
+    match ingest(&state.write_db, collector.id, &event, now).await {
         Ok(created) => Json(json!({"ok":true,"created":created})).into_response(),
         Err(e) => internal(e),
     }

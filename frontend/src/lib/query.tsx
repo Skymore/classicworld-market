@@ -21,11 +21,24 @@ export const queryClient = new QueryClient({
 });
 export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
-    const stop = subscribeMarket(() =>
-      queryClient.invalidateQueries({
+    let busy = false, pending = false, disposed = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = () => {
+      if (disposed) return;
+      if (busy) { pending = true; return; }
+      clearTimeout(timer);
+      busy = true;
+      void queryClient.invalidateQueries({
         predicate: (query) => query.meta?.market === true,
-      }),
-    );
+      }, { cancelRefetch: false }).finally(() => {
+        busy = false;
+        if (pending && !disposed) {
+          pending = false;
+          timer = setTimeout(refresh, 250);
+        }
+      });
+    };
+    const stop = subscribeMarket(refresh);
     const account = (event: Event) =>
       queryClient.setQueryData(
         ["account"],
@@ -33,6 +46,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       );
     window.addEventListener("account-changed", account);
     return () => {
+      disposed = true;
+      clearTimeout(timer);
       stop();
       window.removeEventListener("account-changed", account);
     };

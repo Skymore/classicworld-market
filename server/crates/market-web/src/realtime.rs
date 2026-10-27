@@ -21,6 +21,9 @@ pub async fn listen(
     events: broadcast::Sender<()>,
     updates: tokio::sync::watch::Sender<Option<String>>,
 ) {
+    // LISTEN holds its connection for the process lifetime, not a read slot.
+    let db = sqlx::postgres::PgPoolOptions::new().max_connections(1)
+        .connect_lazy_with(db.connect_options().as_ref().clone());
     loop {
         let result = async {
             let mut listener = PgListener::connect_with(&db).await?;
@@ -65,17 +68,26 @@ pub async fn events(
         return response;
     }
     let receiver = state.events.subscribe();
-    let updates = stream::unfold((receiver, true), |(mut receiver, first)| async move {
+    let updates = stream::unfold((receiver, true, tokio::time::Instant::now()), |(mut receiver, first, last)| async move {
         if !first {
             match receiver.recv().await {
                 Ok(()) | Err(broadcast::error::RecvError::Lagged(_)) => {}
                 Err(broadcast::error::RecvError::Closed) => return None,
             }
+            // A burst is one invalidation, including its last committed change.
+            // Bound refresh fan-out for existing clients as well as new ones.
+            tokio::time::sleep_until(last + Duration::from_secs(1)).await;
+            loop {
+                match receiver.try_recv() {
+                    Ok(()) | Err(broadcast::error::TryRecvError::Lagged(_)) => continue,
+                    _ => break,
+                }
+            }
         }
         // Public invalidation only. Personal alerts stay behind their bearer API.
         Some((
             Ok::<_, Infallible>(Event::default().event("market").data("{}")),
-            (receiver, false),
+            (receiver, false, tokio::time::Instant::now()),
         ))
     });
     let mut response = Sse::new(updates)

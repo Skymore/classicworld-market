@@ -567,6 +567,9 @@ async fn catalog_page(
                         }
                         return loaded(queries::item_preview(&state.db, id, params.hours == "all").await, "item_preview");
                     }
+                    let key = format!("item:{id}:{}:{:?}:{:?}:{}", params.hours == "all",
+                        selection.variant, selection.attributes, selection.equipment);
+                    state.public_reads.get(&state.db, &key, async {
                     queries::item_page_selected(
                         &state.db,
                         id,
@@ -584,6 +587,7 @@ async fn catalog_page(
                             value
                         })
                     })
+                    }).await
                 },
                 "item",
             )
