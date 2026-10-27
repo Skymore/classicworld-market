@@ -278,13 +278,6 @@ export default function Alerts() {
                 {t("alerts.token_invalid")}
               </p>
             )}
-            <p>{t("alerts.setup_intro")}</p>
-            <p>
-              {words(
-                "采集按你的采集器规则筛选非装备价差。想为装备或其他物品设置个人价格上限，请使用「关注」；保持关注页打开才会检查新报价并提醒。关注设置仅保存在当前浏览器。",
-                "Collect evaluates non-equipment margins from your collector. For personal price caps on any item, use Watch; keep its page open for new-offer notifications. Watch settings stay in your browser.",
-              )}
-            </p>
             <div className="asteps">
               <div className="well astep">
                 <h3>{t("alerts.setup_browser")}</h3>
@@ -306,12 +299,10 @@ export default function Alerts() {
                     {t("alerts.setup_local")}
                   </a>
                 </div>
-                <p className="fnote">{t("alerts.setup_local_hint")}</p>
               </div>
             </div>
             <details className="well amanual">
               <summary>{t("alerts.manual")}</summary>
-              <p>{t("alerts.manual_intro")}</p>
               <form className="astep atoken" data-token-form onSubmit={connect}>
                 <label htmlFor="alerts-token">
                   <b>{t("alerts.token_label")}</b>
@@ -353,7 +344,6 @@ export default function Alerts() {
                 )}
               </form>
             </details>
-            <p className="fnote">{t("alerts.rules")}</p>
           </div>
         ) : (
           <>
@@ -506,7 +496,6 @@ export default function Alerts() {
                   {state.historyLimit}/{state.profile.archive.length})
                 </button>
               )}
-            <p className="sale-note">{t("alerts.rules")}</p>
           </>
         )}
       </section>

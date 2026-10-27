@@ -174,17 +174,17 @@ function Ladder({ page }: { page: any }) {
     maxStock = Math.max(...ladder.tiers.map((tier) => tier.listings)),
     maxCount = Math.max(...ladder.grid.flat());
   const dates: { date: string }[] = page.market.days || [];
+  const round = (value: number) =>
+    value >= 1000 && value % 1000 === 0 ? meso(value) : String(value);
   const label = (tier: any) =>
     tier.hi == null
-      ? `${tier.lo >= 10000 ? meso(tier.lo) : tier.lo}+`
+      ? `${round(tier.lo)}+`
       : tier.lo === 0
-        ? `< ${tier.hi + 1}`
+        ? `< ${round(tier.hi + 1)}`
         : tier.lo === tier.hi
           ? String(tier.hi)
-          : tier.lo >= 10000 &&
-              tier.lo % 1000 === 0 &&
-              (tier.hi + 1) % 1000 === 0
-            ? `${meso(tier.lo)}–${meso(tier.hi + 1)}`
+          : tier.lo % 1000 === 0 && (tier.hi + 1) % 1000 === 0
+            ? `${round(tier.lo)}–${round(tier.hi + 1)}`
             : `${tier.lo}–${tier.hi}`;
   return (
     <>
@@ -334,8 +334,8 @@ function Verdict({ page }: { page: any }) {
     reason =
       market != null
         ? words(
-            `市场 ${meso(market)}/组；不与 NPC 单个报价直接比较`,
-            `market ${meso(market)} per set; NPC each-price is not directly comparable`,
+            `市场 ${meso(market)}/组`,
+            `market ${meso(market)} per set`,
           )
         : words("暂无每组成交价", "No per-set sale price yet");
   } else if (
@@ -470,6 +470,7 @@ export default function Item({ page }: { page: any }) {
             row.seen_at,
           ]),
           price: row.unit_price,
+          unit_basis: page.unit === "set" ? "set" : row.unit_basis,
           observed: timestamp(row.seen_at),
           isEquipment: equipment,
           hasStats: !!row.variant,
@@ -477,7 +478,7 @@ export default function Item({ page }: { page: any }) {
           index: i,
         })),
       ),
-    [market, equipment, item.id],
+    [market, equipment, item.id, page.unit],
   );
   const filtered = filterOffers(
     showExpired === "false" ? rows.filter((row: any) => !row.invalidated_at) : rows,
@@ -535,8 +536,40 @@ export default function Item({ page }: { page: any }) {
       a.unit_price - b.unit_price ||
       a.key.localeCompare(b.key),
   );
-  const list = sort === "recent" ? flat : cheapest,
-    moreKey = sort === "recent" ? "recent" : "where";
+  // Slots of one shop visit with the same price and the same parsed stats look
+  // identical in the list, so show them as one row with the combined stock.
+  const sameGear = (sorted: any[]) => {
+    if (!equipment) return sorted;
+    const out: any[] = [],
+      at = new Map<string, number>();
+    for (const row of sorted) {
+      const key =
+        row.variant?.id == null || !row.shop_key || !row.visit_id
+          ? null
+          : JSON.stringify([row.shop_key, row.visit_id, row.unit_price, row.invalidated_at ?? null, row.variant.id]);
+      const index = key == null ? undefined : at.get(key);
+      if (index == null) {
+        if (key != null) at.set(key, out.length);
+        out.push(row);
+        continue;
+      }
+      const first = out[index];
+      out[index] = {
+        ...first,
+        merged_count: (first.merged_count || 1) + (row.merged_count || 1),
+        stock:
+          Number.isFinite(first.stock) && Number.isFinite(row.stock)
+            ? first.stock + row.stock
+            : null,
+      };
+    }
+    return out;
+  };
+  const list = sameGear(sort === "recent" ? flat : cheapest),
+    moreKey = sort === "recent" ? "recent" : "where",
+    firstPage = matchMedia("(min-width:641px)").matches ? 50 : 20,
+    active = filtered.rows.filter((row: any) => !row.invalidated_at),
+    activeShops = new Set(active.map((row: any) => JSON.stringify([row.shop, row.channel, row.room]))).size;
   const ids = useMemo<any[]>(() => {
     try {
       const value = JSON.parse(watch);
@@ -910,7 +943,7 @@ export default function Item({ page }: { page: any }) {
                   ? words("成交中位", "typical sale")
                   : words("还没有成交价", "no sales yet")}
                 {page.unit === "set" && words(" · 每组", " · per set")}
-                <Change value={stats?.change_24h} />
+                {stats?.change_24h != null && <Change value={stats.change_24h} />}
                 {stats?.typical != null && stats.sales_24h < 5 && (
                   <span className="few">{words("样本少", "few sales")}</span>
                 )}
@@ -937,7 +970,7 @@ export default function Item({ page }: { page: any }) {
                 : words("还没有成交价", "no sales yet")}
               {page.unit === "set" && words(" · 每组", " · per set")}
             </span>
-            <Change value={stats?.change_24h} />
+            {stats?.change_24h != null && <Change value={stats.change_24h} />}
             {stats?.typical != null && stats.sales_24h < 5 && (
               <span className="few">{words("样本少", "few sales")}</span>
             )}
@@ -1015,8 +1048,8 @@ export default function Item({ page }: { page: any }) {
               }
               title={words("在哪买", "Where to buy")}
               note={words(
-                `${filtered.rows.length} 条挂单 · ${new Set(filtered.rows.map((row: any) => JSON.stringify([row.shop, row.channel, row.room]))).size} 摊`,
-                `${filtered.rows.length} listings · ${new Set(filtered.rows.map((row: any) => JSON.stringify([row.shop, row.channel, row.room]))).size} shops`,
+                `${active.length} 条挂单 · ${activeShops} 摊`,
+                `${active.length} listings · ${activeShops} shops`,
               )}
             >
               {!!rows.length && (
@@ -1120,9 +1153,9 @@ export default function Item({ page }: { page: any }) {
               ) : (
                 <div className="recent-offers" data-offer-list>
                   {list
-                    .slice(0, more.has(moreKey) ? undefined : 50)
+                    .slice(0, more.has(moreKey) ? undefined : firstPage)
                     .map((row) => quote(row, sort === "recent"))}
-                  {list.length > 50 && (
+                  {list.length > firstPage && (
                     <button
                       className="more"
                       data-more={moreKey}

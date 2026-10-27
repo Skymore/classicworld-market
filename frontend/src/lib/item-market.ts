@@ -87,6 +87,23 @@ export function tierBounds(
   if (!sorted.length) return [];
   const lo = sorted[Math.round((sorted.length - 1) * 0.05)],
     hi = sorted[Math.round((sorted.length - 1) * 0.95)];
+  // Skewed prices (cheap white gear next to 200K rolls): equal-width tiers would
+  // put most listings in the first tier, so step by 1-2-5 multiples instead.
+  if (lo > 0 && hi >= lo * 10) {
+    const marks: number[] = [];
+    for (let base = 10 ** Math.floor(Math.log10(lo)); base <= hi * 10; base *= 10)
+      for (const mark of [base, base * 2, base * 5])
+        if (mark > lo && mark <= hi) marks.push(mark);
+    if (marks.length >= 2) {
+      const bounds: { lo: number; hi: number | null }[] = [
+        { lo: 0, hi: marks[0] - 1 },
+      ];
+      for (let i = 1; i < marks.length; i++)
+        bounds.push({ lo: marks[i - 1], hi: marks[i] - 1 });
+      bounds.push({ lo: marks[marks.length - 1], hi: null });
+      return bounds;
+    }
+  }
   let step = 1,
     start = 0,
     inner = 0;

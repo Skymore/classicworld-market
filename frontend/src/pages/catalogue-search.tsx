@@ -108,14 +108,6 @@ export default function Search({ page }: { page: any }) {
       >
         {words("重置", "Reset")}
       </button>
-      {kind !== "map" && (
-        <small className="place-hint">
-          {words(
-            "怪物按刷新地图筛选；没有地图记录的怪物仅在全部地区显示。",
-            "Monsters match their recorded spawn maps. Monsters without map records appear only under all regions.",
-          )}
-        </small>
-      )}
     </div>
   );
   const catControls = (
@@ -127,11 +119,11 @@ export default function Search({ page }: { page: any }) {
       >
         {[
           ["", "全部", "All"],
-          ["equip", "装备 EQUIP", "EQUIP"],
-          ["use", "消耗 USE", "USE"],
-          ["setup", "装饰 SETUP", "SETUP"],
-          ["etc", "其他 ETC", "ETC"],
-          ["cash", "商城 CASH", "CASH"],
+          ["equip", "装备", "EQUIP"],
+          ["use", "消耗", "USE"],
+          ["setup", "装饰", "SETUP"],
+          ["etc", "其他", "ETC"],
+          ["cash", "商城", "CASH"],
         ].map(([value, zh, en]) => (
           <label key={value}>
             <input
@@ -282,12 +274,6 @@ export default function Search({ page }: { page: any }) {
               {words("重置筛选", "Reset filters")}
             </button>
           </div>
-          <p className="fnote">
-            {words(
-              "职业和等级筛选仅适用于装备，包含该职业可用的通用装备。",
-              "Job and level filters apply to equipment, including gear usable by all jobs.",
-            )}
-          </p>
         </div>
       </details>
     </div>
@@ -395,7 +381,12 @@ export default function Search({ page }: { page: any }) {
         </nav>
         {pagination}
         <div className="dbody">
-          {!page.kind && searching && place}
+          {!page.kind &&
+            searching &&
+            (page.mobs.rows.length > 0 ||
+              page.maps.rows.length > 0 ||
+              !!params.get("region")) &&
+            place}
           {[
             ["item", "物品", "Items", "items"],
             ["mob", "怪物", "Monsters", "mobs"],

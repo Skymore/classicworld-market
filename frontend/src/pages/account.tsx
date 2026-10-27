@@ -220,12 +220,6 @@ export default function AccountPage() {
           <Loading />
         ) : !profile.signed_in ? (
           <>
-            <p>
-              {words(
-                "登录后，关注商品、目标价、提醒开关和常用偏好会跟随账号同步。也可以绑定采集器，合并你的采集贡献。",
-                "Sign in to sync watches, target prices, alerts and preferences. Link collectors to combine your contributions.",
-              )}
-            </p>
             <AuthForm {...access} />
             {profile.google_enabled ? (
               <a
@@ -253,8 +247,8 @@ export default function AccountPage() {
               <h3>{words("只想用昵称？也可以", "Prefer just a nickname?")}</h3>
               <p>
                 {words(
-                  "打开 Windows 采集器，点网页右上角的头像图标进入「我的」，输入昵称即可。已有采集记录会自动计入。",
-                  "Open the Windows collector, select the profile icon at the top right, and enter a nickname. Your earlier contributions will count too.",
+                  "在 Windows 采集器的「我的」里填昵称，已有采集记录会自动计入。",
+                  "Set a nickname under Profile in the Windows collector; earlier contributions count too.",
                 )}
               </p>
               <a href="/web/download.html">

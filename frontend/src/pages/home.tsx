@@ -141,10 +141,6 @@ export default function Home() {
             {words("今天想买点什么？", "What are you shopping for today?")}
           </h1>
           <p>
-            {words(
-              "查成交价、看哪个洞有货、找哪只怪会掉。",
-              "Check sale prices, find which room has stock, see which monster drops it.",
-            )}{" "}
             <a href="/web/download.html">
               {words("下载采集器", "Download collector")} ↗
             </a>

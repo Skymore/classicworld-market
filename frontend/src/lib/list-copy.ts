@@ -154,8 +154,6 @@ addMessages({
     "alerts.window": "参考报价",
     "alerts.window_72": "近 72 小时",
     "alerts.window_all": "全部记录",
-    "alerts.rules":
-      "只看你自己的采集器最近 2 分钟逛到的摊位。非装备；至少 8 个其他摊位有报价；买价低于这些摊位中位价的下四分位；按快卖参考价扣 3% 手续费后至少赚 15%。别人的报价参与比较，别人的低价发现不会提醒你。",
     "alerts.buy": "买价 / 件",
     "alerts.bundle": "{n} 件一组 {cost}",
     "alerts.stock": "库存 {n}",
@@ -170,24 +168,18 @@ addMessages({
     "alerts.toast_title": "采集提醒",
     "alerts.toast_line": "{buy} / 件 · 快卖 {sell} · 扣费后 {pct}",
     "alerts.setup_title": "开始采集，查看自己的低价提醒",
-    "alerts.setup_intro":
-      "选择一种采集方式即可，无需手动填写连接信息。提醒只针对你逛到的摊位；其他玩家的报价仅用于比价。",
     "alerts.setup_browser": "浏览器采集",
     "alerts.setup_browser_text":
-      "打开采集页，共享游戏窗口，然后照常逛摊。这个浏览器会记住采集身份，回到本页就能看到提醒。",
+      "共享游戏窗口后照常逛摊。",
     "alerts.setup_open": "打开采集页",
     "alerts.setup_divert": "Windows 采集器",
     "alerts.setup_divert_text":
-      "启动 Windows 采集器后，使用它自动打开的个人提醒页面，连接信息会自动带好。如果已经启动，也可以从下面打开本机默认入口。",
+      "启动后用它打开的提醒页即可。",
     "alerts.setup_local": "打开本机个人提醒",
-    "alerts.setup_local_hint":
-      "仅在这台电脑已启动 Windows 采集器时可用；打不开时，请先启动采集器。",
     "alerts.manual": "手动连接已有采集器（高级）",
-    "alerts.manual_intro":
-      "通常不需要使用此选项。只有想在当前浏览器查看另一台采集器的个人提醒时，才需要从自己的采集器配置中复制连接凭据（令牌）。",
     "alerts.token_label": "私人连接凭据",
     "alerts.token_hint":
-      "这相当于查看个人提醒的密码，请勿分享。保存后只在当前浏览器记住，并用于连接本站的个人提醒服务。",
+      "相当于密码，请勿分享。",
     "alerts.token_save": "连接采集器",
     "alerts.token_bad":
       "连接凭据应为 30–128 个字符，请从自己的采集器配置中完整复制。",
@@ -203,8 +195,6 @@ addMessages({
     "alerts.window": "Reference offers",
     "alerts.window_72": "Last 72 h",
     "alerts.window_all": "All records",
-    "alerts.rules":
-      "Only shops your own collector visited in the last 2 minutes. Not equipment; at least 8 other shops with offers; a buy price under the first quartile of their median prices; at least 15% profit at the quick-sell price after the 3% fee. Other players' offers are compared, but their finds never alert you.",
     "alerts.buy": "Buy each",
     "alerts.bundle": "{n} per bundle at {cost}",
     "alerts.stock": "stock {n}",
@@ -220,24 +210,18 @@ addMessages({
     "alerts.toast_title": "Deal found",
     "alerts.toast_line": "{buy} each · quick sell {sell} · {pct} after fee",
     "alerts.setup_title": "Start collecting to see your own deal alerts",
-    "alerts.setup_intro":
-      "Choose a collection method; there is no connection information to fill in. Alerts are for shops you visit. Other players’ offers are only used for price comparison.",
     "alerts.setup_browser": "Browser collector",
     "alerts.setup_browser_text":
-      "Open the collector page, share the game window and visit shops as usual. This browser keeps the collector identity; come back here to see your alerts.",
+      "Share the game window and visit shops as usual.",
     "alerts.setup_open": "Open the collector",
     "alerts.setup_divert": "Windows collector",
     "alerts.setup_divert_text":
-      "Start the Windows collector and use the personal alerts page it opens automatically. Connection details are handled for you. If it is already running, you can also open its default local address below.",
+      "Start it and use the alerts page it opens.",
     "alerts.setup_local": "Open local personal alerts",
-    "alerts.setup_local_hint":
-      "Requires the Windows collector to be running on this computer. If the page does not open, start the collector first.",
     "alerts.manual": "Connect an existing collector manually (advanced)",
-    "alerts.manual_intro":
-      "Usually unnecessary. Use this only to view another collector’s personal alerts in this browser. Copy the connection credential (token) from your own collector configuration.",
     "alerts.token_label": "Private connection credential",
     "alerts.token_hint":
-      "Treat this like a password for your personal alerts. Do not share it. It is remembered only in this browser and used to connect to this site’s personal alerts service.",
+      "Treat it like a password. Do not share it.",
     "alerts.token_save": "Connect collector",
     "alerts.token_bad":
       "The connection credential must contain 30–128 characters. Copy it in full from your own collector configuration.",

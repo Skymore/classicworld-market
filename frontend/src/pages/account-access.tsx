@@ -128,7 +128,7 @@ export function AuthForm({ post, refresh, message, recover }: AccessProps) {
           </button>
         ))}
       </div>
-      <h2>{title}</h2>
+      <h2 className="sr">{title}</h2>
       <form data-auth onSubmit={submit} key={mode}>
         <label>
           {words("用户名", "Username")}
@@ -194,7 +194,11 @@ export function AuthForm({ post, refresh, message, recover }: AccessProps) {
           </>
         )}
         <Button type="submit" variant="primary" disabled={busy}>
-          {title}
+          {register
+            ? words("注册", "Create account")
+            : reset
+              ? words("恢复账号", "Recover account")
+              : words("登录", "Sign in")}
         </Button>
         <p role="status" className="account-status">
           {status}
