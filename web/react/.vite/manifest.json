@@ -48,8 +48,8 @@
       "_shared-dgXAszFs.js"
     ]
   },
-  "_main-CXBVVOl5.js": {
-    "file": "chunks/main-CXBVVOl5.js",
+  "_main-BH9sisqJ.js": {
+    "file": "chunks/main-BH9sisqJ.js",
     "name": "main",
     "imports": [
       "_shared-dgXAszFs.js",
@@ -145,7 +145,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CXBVVOl5.js"
+      "_main-BH9sisqJ.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -329,7 +329,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CXBVVOl5.js"
+      "_main-BH9sisqJ.js"
     ]
   },
   "style.css": {

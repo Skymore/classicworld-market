@@ -74,6 +74,15 @@ try{
   await page.locator('[data-watch-collapse]').click();assert.equal(await page.locator('#watch-list').isVisible(),false);assert(await page.locator('[data-matches-panel]').isVisible());await refresh(page);assert.equal(await page.locator('[data-watch-collapse]').getAttribute('aria-expanded'),'false','SSE preserves collapse');
   await page.reload();await page.locator('[data-watch-collapse]').waitFor();assert.equal(await page.locator('#watch-list').isVisible(),false,'reload remembers collapse');await page.locator('[data-watch-collapse]').click();await card.waitFor();await page.waitForFunction(()=>document.documentElement.dataset.liveConnection==='connected');await frames(page);
   await editor(page,2000000);assert.match(await card.locator('[data-watch-reminder]').textContent(),/手动输入.*1,200/s);
+  const editorLayout=await card.locator('.watch-group-editor').evaluate(el=>{
+   const rect=selector=>{const r=el.querySelector(selector).getBoundingClientRect();return {top:r.top,width:r.width}};
+   return {name:rect('.wg-name'),price:rect('.watch-reminder-trigger'),advanced:rect('.watch-reminder-advanced'),done:rect(':scope > .wg-link')};
+  });
+  assert.equal(editorLayout.price.top,editorLayout.advanced.top,'price and advanced share a row');
+  assert.equal(editorLayout.price.top,editorLayout.done.top,'done stays on the controls row');
+  if(!mobile)assert.equal(editorLayout.name.top,editorLayout.price.top,'desktop group name and conditions share one row');
+  await compact();
+  if(process.env.WATCH_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.WATCH_SCREENSHOT_DIR,`editor-${mobile?'phone':'desktop'}.png`)});
   for(const [percentile,cap] of [['10','100'],['25','300'],['50','500']]){await preset(page,2000000,percentile);assert.equal(await card.locator('.watch-reminder-percent').innerText(),`${percentile}%`);assert(await card.locator('.watch-reminder-percent').isVisible());assert.match(await card.locator('.watch-reminder-price').innerText(),new RegExp(cap));await compact();}
   await editor(page,2000001);assert.match(await other.locator('[data-watch-reminder]').textContent(),/手动输入.*1,200/s);
   await preset(page,2000000,'10');assert.equal(await card.locator('[data-under]').textContent(),'1');
