@@ -1,24 +1,75 @@
-//! Bounded public response caches. Upload versions invalidate prices immediately;
+//! Bounded public response caches. Related commits invalidate prices immediately;
 //! callers waiting for a rebuild do not hold database connections.
 use crate::{
     unix_now,
     views::{self, Hours},
 };
 use sqlx::PgPool;
+use std::{sync::atomic::{AtomicU64, Ordering}, time::Instant};
 use tokio::sync::{Mutex, Semaphore};
+
+#[derive(PartialEq)]
+enum Revision {
+    Market(i64),
+    Items(Vec<(i32, i64)>),
+}
+
+impl Revision {
+    fn covers(&self, requested: &Self) -> bool {
+        match (self, requested) {
+            (Self::Market(current), Self::Market(requested)) => current >= requested,
+            (Self::Items(current), Self::Items(requested)) => current.len() == requested.len()
+                && current.iter().zip(requested).all(|((id, version), (wanted, minimum))|
+                    id == wanted && version >= minimum),
+            _ => false,
+        }
+    }
+}
+
+async fn revision(db: &PgPool, items: Option<&[i32]>) -> sqlx::Result<Revision> {
+    match items {
+        None => views::version(db).await.map(Revision::Market),
+        Some(ids) => sqlx::query_as(
+            "SELECT item_id,read_revision FROM item_stats WHERE item_id=ANY($1) ORDER BY item_id")
+            .bind(ids).fetch_all(db).await.map(Revision::Items),
+    }
+}
+
+#[derive(Default)]
+struct Counters {
+    requests: AtomicU64,
+    hits: AtomicU64,
+    rebuilds: AtomicU64,
+    collisions: AtomicU64,
+    lookup_us: AtomicU64,
+    wait_us: AtomicU64,
+    build_us: AtomicU64,
+}
+
+#[derive(Debug)]
+pub struct CacheMetrics {
+    pub requests: u64,
+    pub hits: u64,
+    pub rebuilds: u64,
+    pub collisions: u64,
+    pub lookup_ms: f64,
+    pub wait_ms: f64,
+    pub build_ms: f64,
+}
 
 struct PublicEntry {
     key: String,
-    version: i64,
-    built: std::time::Instant,
+    revision: Revision,
+    built: Instant,
     value: Option<serde_json::Value>,
 }
 
 /// Shared public snapshots only. Full keys prevent shard collisions from mixing
-/// filters/items; the database version invalidates committed changes immediately.
+/// filters/items; transactional item revisions invalidate related commits.
 pub struct PublicReadCache {
     slots: [[Mutex<Option<PublicEntry>>; 32]; 3],
     rebuilds: [Semaphore; 3],
+    counters: [Counters; 3],
 }
 
 impl Default for PublicReadCache {
@@ -26,6 +77,7 @@ impl Default for PublicReadCache {
         Self {
             slots: std::array::from_fn(|_| std::array::from_fn(|_| Mutex::new(None))),
             rebuilds: [Semaphore::new(2), Semaphore::new(1), Semaphore::new(1)],
+            counters: std::array::from_fn(|_| Counters::default()),
         }
     }
 }
@@ -33,30 +85,69 @@ impl Default for PublicReadCache {
 impl PublicReadCache {
     pub async fn get<F>(&self, db: &PgPool, key: &str, build: F) -> sqlx::Result<Option<serde_json::Value>>
     where F: std::future::Future<Output = sqlx::Result<Option<serde_json::Value>>> {
+        self.get_scoped(db, key, None, build).await
+    }
+
+    pub async fn get_items<F>(&self, db: &PgPool, key: &str, items: &[i32], build: F)
+        -> sqlx::Result<Option<serde_json::Value>>
+    where F: std::future::Future<Output = sqlx::Result<Option<serde_json::Value>>> {
+        self.get_scoped(db, key, Some(items), build).await
+    }
+
+    async fn get_scoped<F>(&self, db: &PgPool, key: &str, items: Option<&[i32]>, build: F)
+        -> sqlx::Result<Option<serde_json::Value>>
+    where F: std::future::Future<Output = sqlx::Result<Option<serde_json::Value>>> {
         use std::hash::{Hash, Hasher};
-        // Waiters need a snapshot at least as new as when their request began.
-        // Requiring the version at the end of the wait would serialize another
-        // rebuild per waiter whenever uploads commit during a slow history read.
-        let requested_version = views::version(db).await?;
-        let mut hash = std::collections::hash_map::DefaultHasher::new();
-        key.hash(&mut hash);
+        let requested = Instant::now();
         // Slow full histories cannot occupy crafting/watch rebuild permits or
         // collide with their cache shards. Each class remains independently bounded.
         let lane = if key == "crafting" { 1 } else if key.starts_with("watch:") { 2 } else { 0 };
+        let counters = &self.counters[lane];
+        counters.requests.fetch_add(1, Ordering::Relaxed);
+        let requested_revision = revision(db, items).await?;
+        counters.lookup_us.fetch_add(requested.elapsed().as_micros() as u64, Ordering::Relaxed);
+        let mut hash = std::collections::hash_map::DefaultHasher::new();
+        key.hash(&mut hash);
         let slots = &self.slots[lane];
+        let waiting = Instant::now();
         let mut slot = slots[hash.finish() as usize % slots.len()].lock().await;
         if let Some(hit) = slot.as_ref() {
-            if hit.key == key && hit.version >= requested_version && hit.built.elapsed().as_secs_f64() < 2.0 {
+            // Every watched item's revision must be at least the one this
+            // request observed. Compare membership too: deletion must never
+            // hit a larger stale revision; recreated rows have new revisions.
+            if hit.key == key && hit.revision.covers(&requested_revision)
+                && hit.built.elapsed().as_secs_f64() < 2.0 {
+                counters.hits.fetch_add(1, Ordering::Relaxed);
+                counters.wait_us.fetch_add(waiting.elapsed().as_micros() as u64, Ordering::Relaxed);
                 return Ok(hit.value.clone());
             }
+            if hit.key != key { counters.collisions.fetch_add(1, Ordering::Relaxed); }
         }
         let _permit = self.rebuilds[lane].acquire().await.expect("public cache gate open");
-        // A queued rebuild uses the current version, never the old request's
-        // version. All waits above hold no database connection.
-        let version = views::version(db).await?;
-        let value = build.await?;
-        *slot = Some(PublicEntry { key: key.to_owned(), version, built: std::time::Instant::now(), value: value.clone() });
+        counters.wait_us.fetch_add(waiting.elapsed().as_micros() as u64, Ordering::Relaxed);
+        // Capture current revisions after waiting, without holding a database
+        // connection in the queue. No listener or invalidation message can be lost.
+        let started = Instant::now();
+        let revision = revision(db, items).await?;
+        counters.rebuilds.fetch_add(1, Ordering::Relaxed);
+        let result = build.await;
+        counters.build_us.fetch_add(started.elapsed().as_micros() as u64, Ordering::Relaxed);
+        let value = result?;
+        *slot = Some(PublicEntry { key: key.to_owned(), revision, built: Instant::now(), value: value.clone() });
         Ok(value)
+    }
+
+    /// Aggregate operational metrics only: no keys, item IDs or user identities.
+    pub fn take_metrics(&self) -> [(&'static str, CacheMetrics); 3] {
+        std::array::from_fn(|lane| {
+            let c = &self.counters[lane];
+            let take = |v: &AtomicU64| v.swap(0, Ordering::Relaxed);
+            (["item", "crafting", "watch"][lane], CacheMetrics {
+                requests: take(&c.requests), hits: take(&c.hits), rebuilds: take(&c.rebuilds),
+                collisions: take(&c.collisions), lookup_ms: take(&c.lookup_us) as f64 / 1000.,
+                wait_ms: take(&c.wait_us) as f64 / 1000., build_ms: take(&c.build_us) as f64 / 1000.,
+            })
+        })
     }
 }
 

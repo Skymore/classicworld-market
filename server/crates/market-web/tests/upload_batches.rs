@@ -22,7 +22,7 @@ async fn batch(db: &TestDb, collectors: &[Collector], data: &[(usize, Value)], n
 
 async fn figures(db: &TestDb) -> Value {
     sqlx::query_scalar("SELECT jsonb_build_object(
-        'stats',(SELECT jsonb_agg(to_jsonb(s) ORDER BY item_id) FROM item_stats s),
+        'stats',(SELECT jsonb_agg(to_jsonb(s)-'read_revision' ORDER BY item_id) FROM item_stats s),
         'all',(SELECT jsonb_agg(to_jsonb(s) ORDER BY item_id) FROM item_stats_all s),
         'daily',(SELECT jsonb_agg(to_jsonb(s) ORDER BY item_id,day) FROM item_daily s),
         'sales',(SELECT jsonb_agg(jsonb_build_array(item_id,kind,quantity,unit_price,detected_at) ORDER BY detected_at,kind) FROM market_sales),

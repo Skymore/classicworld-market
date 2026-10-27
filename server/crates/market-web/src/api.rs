@@ -822,7 +822,7 @@ async fn watch_listings(
     let mut ids = ids;
     ids.sort_unstable();
     let key = format!("watch:{ids:?}");
-    match state.public_reads.get(&state.db, &key, async {
+    match state.public_reads.get_items(&state.db, &key, &ids, async {
         views::watch_listings(&state.db, &ids, unix_now()).await.map(Some)
     }).await {
         Ok(Some(value)) => Json(value).into_response(),

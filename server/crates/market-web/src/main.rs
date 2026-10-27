@@ -29,6 +29,22 @@ async fn main() -> Result<()> {
     tokio::spawn(market_web::traffic::prune(db.clone()));
 
     let mut state = AppState::new(db, config.settings.clone());
+    let read_cache = state.public_reads.clone();
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(Duration::from_secs(60));
+        tick.tick().await;
+        loop {
+            tick.tick().await;
+            for (lane, sample) in read_cache.take_metrics() {
+                if sample.requests > 0 {
+                    tracing::info!(lane, requests=sample.requests, hits=sample.hits,
+                        rebuilds=sample.rebuilds, collisions=sample.collisions,
+                        lookup_ms=sample.lookup_ms, wait_ms=sample.wait_ms, build_ms=sample.build_ms,
+                        "public cache interval");
+                }
+            }
+        }
+    });
     state.agent = market_web::agent::OpenRouter::from_env()?.map(std::sync::Arc::new);
     state.google = market_web::contributors::GoogleOAuth::load(
         config.web_dir.as_deref(),

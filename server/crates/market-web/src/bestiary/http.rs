@@ -480,8 +480,13 @@ async fn catalog_page(
         (status, [(header::CACHE_CONTROL, NO_STORE)], Json(value)).into_response()
     }
     fn loaded<T: serde::Serialize>(result: sqlx::Result<Option<T>>, kind: &str) -> Response {
+        #[derive(serde::Serialize)]
+        struct Snapshot<'a, T> { kind: &'a str, page: T }
         match result {
-            Ok(Some(page)) => response(StatusCode::OK, json!({"kind":kind,"page":page})),
+            // Serialize the envelope directly. json! would first copy the full
+            // cached history into another Value tree on every cache hit.
+            Ok(Some(page)) => (StatusCode::OK, [(header::CACHE_CONTROL, NO_STORE)],
+                Json(Snapshot { kind, page })).into_response(),
             Ok(None) => response(StatusCode::NOT_FOUND, json!({"error":"not_found"})),
             Err(error) => {
                 tracing::error!(%error,"catalog snapshot failed");
@@ -569,7 +574,7 @@ async fn catalog_page(
                     }
                     let key = format!("item:{id}:{}:{:?}:{:?}:{}", params.hours == "all",
                         selection.variant, selection.attributes, selection.equipment);
-                    state.public_reads.get(&state.db, &key, async {
+                    state.public_reads.get_items(&state.db, &key, &[id], async {
                     queries::item_page_selected(
                         &state.db,
                         id,
