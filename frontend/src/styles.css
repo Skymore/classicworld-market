@@ -632,7 +632,7 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
 .variant-record .record-value .ware-price{line-height:1.2}
 .variant-record .record-value .record-stock{line-height:1.4}
 
-.market-record .record-meta .loc-shop{display:grid;grid-template-columns:50px 44px minmax(0,max-content);flex:0 1 auto;width:max-content;max-width:min(240px,100%);min-width:0}
+.market-record .record-meta .loc-shop{display:grid;grid-template-columns:50px 44px minmax(0,max-content);flex:0 1 auto;width:max-content;max-width:min(312px,100%);min-width:0}
 .market-record .loc-shop>*{display:block;min-width:0;max-width:100%;height:100%;padding:0 5px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;justify-content:center;border-right:1px solid var(--rule)}
 .market-record .loc-shop>:last-child{border-right:0;text-align:left}
 

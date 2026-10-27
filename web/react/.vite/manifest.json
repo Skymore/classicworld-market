@@ -47,8 +47,8 @@
       "_shared-dgXAszFs.js"
     ]
   },
-  "_main-j16EpMyp.js": {
-    "file": "chunks/main-j16EpMyp.js",
+  "_main-CoGTcbYC.js": {
+    "file": "chunks/main-CoGTcbYC.js",
     "name": "main",
     "imports": [
       "_shared-dgXAszFs.js",
@@ -144,7 +144,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-j16EpMyp.js"
+      "_main-CoGTcbYC.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -328,7 +328,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-j16EpMyp.js"
+      "_main-CoGTcbYC.js"
     ]
   },
   "style.css": {
