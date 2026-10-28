@@ -119,7 +119,7 @@ try{
   await context.close();
  }
  // Unsupported browsers keep a visible status instead of hiding everything.
- const page=await browser.newPage();await page.addInitScript(()=>{delete window.Notification;});
+ const page=await browser.newPage();await page.addInitScript(()=>{delete window.Notification;localStorage.setItem('watchlist','[2000000]');});
  await page.goto(origin+'/watch?lang=zh');await page.locator('[data-notification-state="unsupported"]').waitFor();
  assert.match(await page.locator('.watch-notification-bar').innerText(),/不可用/);await page.close();
  console.log('PASS site-wide watch notifications: route changes, shared/personal deduplication, background delivery, permission states, collapsed list, test notification and watch removal');

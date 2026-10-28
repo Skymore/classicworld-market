@@ -214,9 +214,11 @@ fn add_period_fields(row: &mut Value, sales: &[SaleEvent], window: Window, now: 
     let change = percentile(&previous, 0.5)
         .filter(|v| *v > 0.0)
         .and_then(|p| median.map(|m| (m / p - 1.0) * 100.0));
+    // The baseline count lets pages mark a change measured against only a few sales.
+    let previous_count = window.hours.map(|_| previous.len());
     let fields = json!({"sales_window":current.len(), "typical_window":median,
         "typical_window_low":percentile(&current,0.25), "typical_window_high":percentile(&current,0.75),
-        "change_window":change}).to_string();
+        "change_window":change, "sales_prev_window":previous_count}).to_string();
     row["list_fields"] = json!(format!(
         "{},{}",
         row["list_fields"].as_str().unwrap(),
@@ -569,10 +571,15 @@ mod period_tests {
         assert_eq!(recent["typical_window_low"], 17.5);
         assert_eq!(recent["typical_window_high"], 32.5);
         assert_eq!(recent["change_window"], 150.0);
+        assert_eq!(
+            recent["sales_prev_window"], 2,
+            "the change compares with two earlier sales"
+        );
         let all = read(Window::ALL, now);
         assert_eq!(all["sales_window"], 7);
         assert_eq!(all["typical_window"], 15.0);
         assert_eq!(all["change_window"], Value::Null);
+        assert_eq!(all["sales_prev_window"], Value::Null);
         let later = now + 7.0 * 86400.0;
         let empty = read(Window::recent(later), later);
         assert_eq!(empty["sales_window"], 0);

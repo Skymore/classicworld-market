@@ -21,6 +21,8 @@ const fixture = [
 ].map(([item_id,name_zh,subcategory,level,job]) => ({item_id,name_zh,subcategory,level,
   category:'装备',jobs:[job],typical:100,low:90,sales_window:10,listings:2}));
 fixture.push({item_id:2000000,name_zh:'药水',category:'消耗品',level:null,typical:10,sales_window:10});
+// Equipment every job can wear has an empty job list in the catalogue.
+fixture.push({item_id:1002009,name_zh:'四十八级全职业帽',subcategory:'帽子',level:48,category:'装备',jobs:[],typical:100,low:90,sales_window:20,listings:2});
 const ids = page => page.locator('[data-item-row]:visible').evaluateAll(rows => rows.map(row => Number((row.querySelector('a[href^="/item/"]') || row).getAttribute('href').match(/\/item\/(\d+)/)[1])).sort());
 try {
   for (const mobile of [false,true]) for (const theme of ['light','dark']) {
@@ -40,16 +42,32 @@ try {
     await page.route('**/api/v1/market?**',route=>route.fulfill({json:{as_of:Date.now()/1000,products:fixture}}));
     await page.reload();
     await page.waitForFunction(()=>document.querySelector('[data-item-row]')?.textContent?.includes('四十'));
-    assert.deepEqual(await ids(page),[1002003,1002004,1072000]);
+    assert.deepEqual(await ids(page),[1002003,1002004,1002009,1072000],'every-job equipment stays with the bowman filter');
+    const order=await page.locator('[data-item-row]:visible,[data-shared-head]:visible').evaluateAll(nodes=>nodes.map(node=>node.matches('[data-shared-head]')?'head':(node.querySelector('a[href^="/item/"]')||node).getAttribute('href').match(/\/item\/(\d+)/)[1]));
+    const head=order.indexOf('head');
+    assert.equal(head,order.length-3,'bowman equipment first, then a heading and the two for every job');
+    assert.deepEqual(order.slice(head+1).sort(),['1002004','1002009']);
+    assert.match(await page.locator('[data-shared-head]:visible').textContent(),/全职业通用\s*2 件/);
+    // The heading folds the shared rows away, stays as the last row, and remembers it.
+    const sharedToggle=page.locator('[data-shared-head]:visible [data-shared-toggle]');
+    await sharedToggle.click();
+    assert.equal(await sharedToggle.getAttribute('aria-expanded'),'false');
+    assert.deepEqual(await ids(page),[1002003,1072000],'collapsed hides the equipment for every job');
+    assert.notEqual(await page.locator('[data-item-row]:visible,[data-shared-head]:visible').last().getAttribute('data-shared-head'),null,'the heading closes the list');
+    await page.reload();await page.locator('[data-shared-head]:visible').waitFor();
+    assert.deepEqual(await ids(page),[1002003,1072000],'collapsed stays after a reload');
+    await sharedToggle.click();
+    assert.equal(await sharedToggle.getAttribute('aria-expanded'),'true');
+    assert.deepEqual(await ids(page),[1002003,1002004,1002009,1072000]);
     await page.locator('[data-filter-btn]').click();
     await page.locator('[data-equipment-type=hat]').click();
     assert.equal(await page.locator('[data-equipment-type=hat]').getAttribute('aria-pressed'),'true');
     assert.equal(new URL(page.url()).searchParams.get('type'),'hat');
     assert.equal(new URL(page.url()).searchParams.get('cat'),'equip');
     await page.locator('[data-apply]').click();
-    assert.deepEqual(await ids(page),[1002003,1002004]);
+    assert.deepEqual(await ids(page),[1002003,1002004,1002009]);
     await page.reload();await page.locator('[data-item-row]:visible').first().waitFor();
-    assert.deepEqual(await ids(page),[1002003,1002004]);
+    assert.deepEqual(await ids(page),[1002003,1002004,1002009]);
     await page.locator('[data-filter-btn]').click();
     assert.equal(await page.locator('[data-job=bowman]').getAttribute('aria-pressed'),'true');
     assert.equal(await page.locator('[data-equipment-type=hat]').getAttribute('aria-pressed'),'true');

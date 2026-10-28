@@ -424,8 +424,9 @@ export default function Search({ page }: { page: any }) {
                               )}
                             <span className="s">
                               <Secondary names={hit.names} />
-                              {hit.subcategory &&
-                                words(" · " + hit.subcategory, "")}
+                              {hit.subcategory && words(hit.subcategory, "") && (
+                                <span className="sub">{hit.subcategory}</span>
+                              )}
                             </span>
                           </span>
                         </a>

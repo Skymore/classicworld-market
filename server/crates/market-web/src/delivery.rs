@@ -80,10 +80,24 @@ pub(crate) fn overview(market: &Value) -> Value {
         .iter()
         .filter(|r| number(r, "change_window").abs() >= 0.5)
         .collect();
+    // Changes measured on a few sales stay listed, after the reliable ones (as on the price page).
+    let thin = |row: &Value| {
+        let few = |field: &str| {
+            row[field]
+                .as_f64()
+                .is_some_and(|n| n < market_core::stats::TYPICAL_MIN as f64)
+        };
+        few("sales_prev_window")
+            || number(row, "sales_window") < market_core::stats::TYPICAL_MIN as f64
+    };
     changes.sort_by(|a, b| {
-        number(b, "change_window")
-            .abs()
-            .total_cmp(&number(a, "change_window").abs())
+        thin(a)
+            .cmp(&thin(b))
+            .then_with(|| {
+                number(b, "change_window")
+                    .abs()
+                    .total_cmp(&number(a, "change_window").abs())
+            })
             .then_with(|| number(b, "sales_window").total_cmp(&number(a, "sales_window")))
     });
     let mut busy: Vec<_> = products
@@ -125,6 +139,23 @@ mod tests {
                 (13..=20).rev().collect::<Vec<_>>()
             );
         }
+    }
+    #[test]
+    fn changes_on_a_few_sales_rank_after_reliable_ones() {
+        let products = json!([
+            {"item_id":1,"sales_window":40,"sales_prev_window":2,"change_window":-90.0},
+            {"item_id":2,"sales_window":40,"sales_prev_window":30,"change_window":10.0},
+            {"item_id":3,"sales_window":3,"sales_prev_window":30,"change_window":50.0},
+            {"item_id":4,"sales_window":40,"sales_prev_window":30,"change_window":-20.0},
+        ]);
+        let value = overview(&json!({"products":products,"as_of":1,"hours":72}));
+        let order: Vec<_> = value["changes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["item_id"].as_i64().unwrap())
+            .collect();
+        assert_eq!(order, vec![4, 2, 1, 3]);
     }
     #[test]
     fn semantic_validator_ignores_only_clocks_and_restores_payload() {

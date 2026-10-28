@@ -2,13 +2,16 @@ import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ago, fullTime } from "/web/js/lib/format.js";
 import { useAccount } from "../lib/query";
+import { setAssistantOpen, useAssistantOpen } from "../lib/assistant";
 import { usePreferences, useWords } from "../providers";
+import { AssistantDock } from "./assistant-dock";
+import { AssistantIcon } from "./assistant-icon";
 import { Icon, Search } from "./shared";
 
 const navigation = [
   ["home", "/", "首页", "Home", "home"],
   ["prices", "/prices", "价格表", "Prices", "tag"],
-  ["agent", "/agent", "助手", "Assistant", "search"],
+  ["agent", "/agent", "AI 助手", "Ask AI", "search"],
   ["dex", "/search?kind=item", "图鉴", "Catalogue", "book"],
   ["watch", "/watch", "关注", "Watch", "star"],
   ["tools", "/tools", "工具", "Tools", "coin"],
@@ -149,6 +152,22 @@ function Brand({ size }: { size: number }) {
 export function Navigation({ dock = false }: { dock?: boolean }) {
   const { language } = usePreferences();
   const path = useLocation().pathname;
+  const assistantOpen = useAssistantOpen();
+  // Outside /agent the assistant opens in place (a drawer, or full screen on
+  // phones); a modified click still follows the link to the full page.
+  const openAssistant = (event: React.MouseEvent) => {
+    if (
+      path.startsWith("/agent") ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    setAssistantOpen(!assistantOpen);
+  };
   const active = path.startsWith("/agent")
     ? "agent"
     : path.startsWith("/prices") || path.startsWith("/sales")
@@ -200,10 +219,16 @@ export function Navigation({ dock = false }: { dock?: boolean }) {
           className={active === key ? "on" : ""}
           data-nav-key={key}
           aria-current={active === key ? "page" : undefined}
+          onClick={key === "agent" ? openAssistant : undefined}
+          aria-expanded={
+            key === "agent" && !path.startsWith("/agent")
+              ? assistantOpen
+              : undefined
+          }
         >
           {dock && (
             <span className="dock-icon" aria-hidden="true">
-              <Icon name={icon} />
+              {key === "agent" ? <AssistantIcon /> : <Icon name={icon} />}
             </span>
           )}
           <span>{language === "en" ? en : zh}</span>
@@ -303,6 +328,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <nav className="dock" aria-label={words("主导航", "Main navigation")}>
         <Navigation dock />
       </nav>
+      <AssistantDock />
     </>
   );
 }

@@ -11,6 +11,8 @@ use crate::bestiary::route::{EdgeKind, HENESYS};
 
 /// Mob shown when a search finds nothing (蘑菇仔 / Shroom).
 const EMPTY_MOB: i32 = 120100;
+/// Drops listed before "show all"; the browser page uses the same count.
+const DROPS_SHOWN: usize = 10;
 
 fn dex_page(ctx: &Ctx, title: &str, query: &str, body: Markup) -> Markup {
     layout(
@@ -111,11 +113,9 @@ fn edge_label(kind: EdgeKind, lang: Lang) -> &'static str {
     }
 }
 
-fn edge_text(kind: EdgeKind, portal: Option<&str>, lang: Lang) -> String {
-    match portal {
-        Some(p) => format!("{} · {p}", edge_label(kind, lang)),
-        None => edge_label(kind, lang).to_string(),
-    }
+/// Portal names (east00, dun00) are internal map data, so only the way of travel is shown.
+fn edge_text(kind: EdgeKind, _portal: Option<&str>, lang: Lang) -> String {
+    edge_label(kind, lang).to_string()
 }
 
 // ---------- mob ----------
@@ -163,7 +163,15 @@ pub fn mob_page(page: &MobPage, ctx: &Ctx) -> Markup {
             div.dgrid {
                 section.well {
                     (well_head(ctx.t("掉落", "Drops"), Some(n_of(ctx, page.drops.len(), "种", "kinds"))))
-                    @for d in &page.drops { (drop_row(ctx, d)) }
+                    // The first ten (mesos and priced drops lead); the browser page expands the rest.
+                    @for (i, d) in page.drops.iter().enumerate() {
+                        @if i < DROPS_SHOWN { (drop_row(ctx, d)) } @else { div.extra { (drop_row(ctx, d)) } }
+                    }
+                    @if page.drops.len() > DROPS_SHOWN {
+                        button.more type="button" data-more="drops" {
+                            (match lang { Lang::Zh => format!("显示全部 {} 种", page.drops.len()), Lang::En => format!("Show all {}", page.drops.len()) })
+                        }
+                    }
                     @if page.drops.is_empty() { (empty(ctx.t("图鉴里没有这只怪物的掉落记录。", "The dex has no drops for this monster."))) }
                 }
                 section.well {
@@ -281,8 +289,6 @@ pub fn map_page(page: &MapPage, ctx: &Ctx) -> Markup {
             }
             @if let Some(url) = &map.minimap_url {
                 img.minimap src=(url) alt={(ctx.t("小地图：", "Minimap: ")) (name)} loading="lazy";
-            } @else {
-                p.note.map-preview-missing { (ctx.t("暂无地图预览。下方仍可查看已收录的怪物和传送连接；暂未收录精确刷新坐标。", "Map preview unavailable. Recorded monsters and portal connections are listed below; exact spawn coordinates are not available.")) }
             }
             @if let Some(text) = &map.description {
                 div.desc { @for line in text.lines().filter(|l| !l.trim().is_empty()) { p { (line) } } }
@@ -373,12 +379,6 @@ pub fn route_page(page: &RoutePage, ctx: &Ctx) -> Markup {
                 button.btn.primary type="submit" { (ctx.t("查路线", "Find route")) }
             }
             div.dbody { (route_outcome(page, ctx)) }
-            p.note {
-                @match ctx.lang {
-                    Lang::Zh => { "路线只用已导入的连接（现有 " (page.known_edges) " 条），按步数最少找。" },
-                    Lang::En => { "Routes use the imported links only (" (page.known_edges) " so far), fewest steps first." },
-                }
-            }
         }
     };
     dex_page(ctx, ctx.t("怎么走", "Route"), "", body)
@@ -799,7 +799,8 @@ mod tests {
     fn edge_labels() {
         assert_eq!(
             edge_text(EdgeKind::Portal, Some("east00"), Lang::Zh),
-            "走传送口 · east00"
+            "走传送口",
+            "internal portal names stay hidden"
         );
         assert!(edge_label(EdgeKind::Return, Lang::Zh).starts_with("用回城卷轴"));
     }

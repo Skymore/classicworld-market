@@ -23,10 +23,10 @@
 .account-profile-actions a{text-decoration:none}
 .account-body #account-profile-editor{max-width:none;margin-top:16px;padding-top:20px;border-top:1px solid var(--rule);gap:10px}
 .account-body #account-profile-editor>label:first-child{font-size:13px;font-weight:600}
-.account-body input:not([type=checkbox]){background:var(--sheet-hi);font-size:16px;border-radius:2px}
+.account-body input:not([type=checkbox]){background:var(--sheet-hi);font-size:16px;border:2px solid var(--edge);border-radius:2px;box-shadow:inset 2px 2px 0 var(--bevel-lo)}
 .account-opt{margin:8px 0;font-size:14px}
 .account-opt small{display:block;font-size:12px;line-height:1.6;color:var(--ink-3);margin-top:4px;font-weight:400}
-.account-dashboard .note{border:0;background:none;padding:0;margin:0;font-size:12px;line-height:1.6;color:var(--ink-3)}
+.account-dashboard .note,.account-body>.note{border:0;background:none;padding:0;margin:0;font-size:12px;line-height:1.6;color:var(--ink-3)}
 .account-dashboard [role=status]:empty,.account-dashboard [role=alert]:empty{display:none}
 .account-settings{padding-inline:28px}
 .account-body .account-setting{margin:0;border-bottom:1px solid var(--rule)}
@@ -69,3 +69,4 @@
 .account-body .account-tabs [aria-pressed=true]{color:var(--ink);border-bottom-color:var(--maple)}
 .account-body .google-signin{width:100%;max-width:520px;margin-top:8px}
 .account-body .account-status:empty{min-height:0}
+.account-body>.note{margin-top:12px}

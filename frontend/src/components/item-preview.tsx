@@ -54,6 +54,8 @@ export function previewPosition(
     top: Math.max(12, Math.min(anchor.top, viewport.height - box.height - 12)),
   };
 }
+export const previewEntry = () =>
+  !!(history.state as { preview?: boolean } | null)?.preview;
 export default function ItemPreview() {
   const words = useWords(),
     { language } = usePreferences(),
@@ -74,7 +76,8 @@ export default function ItemPreview() {
   }, []);
   const active = useRef(hit),
     popup = useRef<HTMLElement>(null),
-    restoring = useRef(false);
+    restoring = useRef(false),
+    backing = useRef(false);
   active.current = hit;
   const url = hit ? `/item/${hit.id}?hours=${readPeriod()}` : "";
   const query = useQuery<any>({
@@ -84,8 +87,14 @@ export default function ItemPreview() {
     meta: { market: true },
     staleTime: 30000,
   });
-  function close(restore = false) {
+  // The touch sheet has its own history entry, so the back button closes it first.
+  // Dismissing it takes the entry back out; following its link replaces the entry.
+  function close(restore = false, leaving = false) {
     const previous = active.current;
+    if (previous?.touch && previewEntry() && !leaving && !backing.current) {
+      backing.current = true;
+      history.back();
+    }
     if (previous) {
       previous.anchor.removeAttribute("aria-controls");
       previous.anchor.removeAttribute("aria-expanded");
@@ -136,6 +145,8 @@ export default function ItemPreview() {
       next.anchor.setAttribute("aria-controls", "item-quick-preview");
       next.anchor.setAttribute("aria-expanded", "true");
       next.rect = next.anchor.getBoundingClientRect();
+      if (next.touch && !previewEntry())
+        history.pushState({ ...history.state, preview: true }, "");
       setHit(next);
       if (next.touch || next.pinned)
         requestAnimationFrame(() =>
@@ -225,6 +236,10 @@ export default function ItemPreview() {
       if (!active.current.pinned) close();
       else place();
     };
+    const pop = () => {
+      backing.current = false;
+      if (active.current?.touch && !previewEntry()) close();
+    };
     document.addEventListener("pointerover", over);
     document.addEventListener("pointerout", out);
     document.addEventListener("focusin", focus);
@@ -232,6 +247,7 @@ export default function ItemPreview() {
     document.addEventListener("keydown", key, true);
     document.addEventListener("scroll", scroll, true);
     window.addEventListener("resize", place);
+    window.addEventListener("popstate", pop);
     return () => {
       clearTimeout(timer);
       clearTimeout(leave);
@@ -242,6 +258,7 @@ export default function ItemPreview() {
       document.removeEventListener("keydown", key, true);
       document.removeEventListener("scroll", scroll, true);
       window.removeEventListener("resize", place);
+      window.removeEventListener("popstate", pop);
     };
   }, []);
   useEffect(() => close(), [route.pathname, route.search]);
@@ -314,7 +331,9 @@ export default function ItemPreview() {
                 : words("正在读取物品…", "Loading item…")}
             </h2>
             {query.isError && (
-              <a href={url}>{words("打开完整详情 →", "Open full details →")}</a>
+              <a href={url} onClick={() => close(false, true)}>
+                {words("打开完整详情 →", "Open full details →")}
+              </a>
             )}
           </div>
         ) : (
@@ -471,7 +490,7 @@ export default function ItemPreview() {
               </section>
             )}
             <footer className="peek-footer">
-              <a href={url} onClick={() => close()}>
+              <a href={url} onClick={() => close(false, true)}>
                 {words("查看完整详情 →", "Open full details →")}
               </a>
             </footer>

@@ -257,7 +257,11 @@ impl OpenRouter {
                 .into_iter()
                 .map(|t| json!({"role":t.role,"content":t.content})),
         );
-        messages.push(json!({"role":"user","content":request.message}));
+        let content = match &request.page {
+            Some(page) => format!("{}\n\n{}", page.note(), request.message),
+            None => request.message,
+        };
+        messages.push(json!({"role":"user","content":content}));
         let mut trace = vec![];
         let mut sources = std::collections::BTreeSet::new();
         let mut links = std::collections::BTreeSet::new();
@@ -603,6 +607,7 @@ mod tests {
             message: "我要卖钢铁".into(),
             history: vec![],
             language: "zh".into(),
+            page: None,
         }
     }
     fn reply(message: Value) -> (StatusCode, Value) {
@@ -883,5 +888,49 @@ mod tests {
             );
             job.abort();
         }
+    }
+
+    #[tokio::test]
+    async fn page_context_is_prefixed_for_the_model() {
+        let (url, seen, job) = mock(vec![
+            reply(tool("execute_sql", r#"{"sql":"select 1"}"#)),
+            reply(json!({"role":"assistant","content":"请补充你想卖的价格。"})),
+        ])
+        .await;
+        let provider = OpenRouter::new("secret".into(), "openrouter/free".into(), url).unwrap();
+        let request = ChatRequest {
+            page: Some(super::super::PageContext {
+                kind: "item".into(),
+                id: 1302010,
+                label: "弯刀 · 物攻 71 (+16)".into(),
+            }),
+            ..request()
+        };
+        provider.chat(&pool(), request).await.unwrap();
+        let requests = &seen.lock().unwrap().1;
+        let user = requests[0]["messages"][1]["content"].as_str().unwrap();
+        assert!(user.starts_with("[Page the player has open on this site"));
+        assert!(user.contains(r#"item id 1302010 named "弯刀 · 物攻 71 (+16)""#));
+        assert!(user.ends_with("]\n\n我要卖钢铁"));
+        job.abort();
+    }
+
+    #[test]
+    fn page_context_is_validated() {
+        let with = |kind: &str, id: i64, label: &str| ChatRequest {
+            page: Some(super::super::PageContext {
+                kind: kind.into(),
+                id,
+                label: label.into(),
+            }),
+            ..request()
+        };
+        assert!(with("mob", 100100, "蜗牛").valid());
+        assert!(with("map", 100000000, "射手村").valid());
+        assert!(!with("npc", 1, "x").valid());
+        assert!(!with("item", 0, "x").valid());
+        assert!(!with("item", 1, " ").valid());
+        assert!(!with("item", 1, "a\nb").valid());
+        assert!(!with("item", 1, &"长".repeat(121)).valid());
     }
 }

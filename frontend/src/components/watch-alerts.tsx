@@ -228,6 +228,7 @@ function useWatchState() {
       }
     }
   }, [shared.data, own.data, list, setting, personal?.id, session]);
+  // New watches start with no price and no alert; setting a condition turns the alert on.
   function saveIds(next: number[]) {
     for (const id of next)
       if (!ids.includes(id)) addedAt[id] = Date.now() / 1000;
@@ -235,7 +236,7 @@ function useWatchState() {
     writeSettings(
       JSON.stringify(
         Object.fromEntries(
-          next.map((id) => [id, settings[id] || { cap: null, notify: true }]),
+          next.map((id) => [id, settings[id] || { cap: null, notify: false }]),
         ),
       ),
     );

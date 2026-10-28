@@ -77,6 +77,11 @@ export function groupEquipmentVariants(rows: any[]) {
   }
   return [...groups.values()];
 }
+// Price bands over the middle 80% of prices, so a few far-off listings do not
+// stretch the range: 1-2-5 steps when the dear end is ten times the cheap end,
+// else equal round steps within 1.5 interquartile ranges of the middle half.
+// Mirrors tier_bounds in server/.../bestiary/pages/market.rs: keep the two in
+// step (the server draws the first paint, this redraws it).
 export function tierBounds(
   prices: number[],
 ): { lo: number; hi: number | null }[] {
@@ -85,13 +90,15 @@ export function tierBounds(
     .map(Math.floor)
     .sort((a, b) => a - b);
   if (!sorted.length) return [];
-  const lo = sorted[Math.round((sorted.length - 1) * 0.05)],
-    hi = sorted[Math.round((sorted.length - 1) * 0.95)];
+  const lo = sorted[Math.round((sorted.length - 1) * 0.1)],
+    hi = sorted[Math.round((sorted.length - 1) * 0.9)];
   // Skewed prices (cheap white gear next to 200K rolls): equal-width tiers would
   // put most listings in the first tier, so step by 1-2-5 multiples instead.
   if (lo > 0 && hi >= lo * 10) {
     const marks: number[] = [];
-    for (let base = 10 ** Math.floor(Math.log10(lo)); base <= hi * 10; base *= 10)
+    let first = 1;
+    while (first * 10 <= lo) first *= 10;
+    for (let base = first; base <= hi * 10; base *= 10)
       for (const mark of [base, base * 2, base * 5])
         if (mark > lo && mark <= hi) marks.push(mark);
     if (marks.length >= 2) {
@@ -104,6 +111,13 @@ export function tierBounds(
       return bounds;
     }
   }
+  // Without skew a long tail of far-off listings would still stretch equal bands:
+  // keep the range within 1.5 interquartile ranges of the middle half (Tukey's fences).
+  const q1 = sorted[Math.round((sorted.length - 1) * 0.25)],
+    q3 = sorted[Math.round((sorted.length - 1) * 0.75)],
+    fence = Math.floor(((q3 - q1) * 3) / 2),
+    low = Math.max(lo, q1 - fence),
+    high = Math.min(hi, q3 + fence);
   let step = 1,
     start = 0,
     inner = 0;
@@ -116,8 +130,8 @@ export function tierBounds(
       base * 5,
     ]) {
       step = next;
-      start = Math.floor(lo / step) * step;
-      inner = Math.floor((hi - start) / step) + 1;
+      start = Math.floor(low / step) * step;
+      inner = Math.floor((high - start) / step) + 1;
       if (inner <= 8) break outer;
     }
   }
@@ -199,4 +213,18 @@ export function offerGroups(
           (a.price ?? Infinity) - (b.price ?? Infinity) ||
           b.observed - a.observed,
     );
+}
+
+// The stat players filter an equipment item by first. Weapons: weapon attack
+// (wands and staves: magic attack). Hats, tops, overalls, bottoms and shoes for a
+// single job: that job's stat. Gloves, capes, shields, accessories and items for
+// several or all jobs have no single main stat.
+const JOB_STAT: Record<number, string> = { 1: "str", 2: "int", 4: "dex", 8: "luk" };
+export function mainStat(itemId: number, jobMask?: number | null): string | null {
+  const type = Math.floor(itemId / 10000);
+  if (Math.floor(itemId / 1000000) !== 1) return null;
+  if (type === 137 || type === 138) return "magic_attack";
+  if (type >= 130 && type <= 149) return "weapon_attack";
+  if ([100, 104, 105, 106, 107].includes(type) && jobMask != null) return JOB_STAT[jobMask] ?? null;
+  return null;
 }

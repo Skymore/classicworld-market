@@ -255,7 +255,7 @@ async fn map_page() {
     assert!(body.contains("<h1>射手训练场Ⅰ</h1>"));
     assert!(body.contains(r#"href="/mob/8""#));
     assert!(body.contains("回城点：射手村"));
-    assert!(body.contains("走传送口 · east00"), "entrance from Henesys");
+    assert!(body.contains("走传送口"), "entrance from Henesys");
 
     let town = get(&router, "/map/10001000").await.body;
     assert!(town.contains("NPC #200"));
@@ -279,7 +279,7 @@ async fn route_page() {
 
     let out = get(&router, "/route?from=Henesys&to=10001010").await.body;
     assert!(out.contains("1 步"), "{out}");
-    assert!(out.contains("走传送口 · east00"));
+    assert!(out.contains("走传送口"));
 
     let none = get(&router, "/route?from=10001000&to=10002000").await.body;
     assert!(none.contains("暂时查不到路线"));

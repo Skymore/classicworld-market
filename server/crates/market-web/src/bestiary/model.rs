@@ -111,6 +111,8 @@ pub struct ItemSummary {
     pub category: String,
     pub subcategory: Option<String>,
     pub req_level: Option<i16>,
+    /// Job bits (1 warrior, 2 magician, 4 bowman, 8 thief, 16 pirate); 0 for every job.
+    pub req_job_mask: Option<i16>,
     pub icon_url: Option<String>,
     pub is_cash: bool,
 }
@@ -206,6 +208,8 @@ pub struct Sale {
     pub room: Option<i16>,
     pub detected_at: DateTime<Utc>,
     pub variant: Option<Variant>,
+    /// Shop slots read as this one sale (see `merge_shop_sales`); 1 for a single slot.
+    pub merged_count: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]

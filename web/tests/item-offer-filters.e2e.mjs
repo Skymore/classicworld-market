@@ -131,7 +131,7 @@ try {
     await page.selectOption('[data-offer-hours]', '1');
     await page.locator('dialog [name=minPrice]').fill('20000');
     await page.locator('dialog [name=maxPrice]').fill('30000');
-    await page.locator('dialog [name=minStock]').fill('5');
+    assert.equal(await page.locator('dialog [name=minStock]').count(),0,'equipment has no stock minimum');
     await page.selectOption('dialog [name=equipment]', 'captured');
     await submit(); assert.deepEqual(await visibleRows(), ['fresh']);
     await page.selectOption('[data-offer-sort]', 'price');
@@ -201,13 +201,14 @@ try {
     ].map((r,i)=>({...r,variantId:100+i,ch:'1',room:1,price:10000+i*1000,age:60,stock:1,equipment:true,captured:true,enhancements:r.enhancements??0}));
     revision++;broadcast();await waitRevision();
     const groups=()=>page.locator('[data-equipment-group]:visible');
+    // Stat sets are a filter inside where-to-buy; the open state is remembered.
+    if(await page.locator('[data-attributes-open]').getAttribute('aria-expanded')!=='true')await page.locator('[data-attributes-open]').click();
     assert.equal(await page.locator('[data-equipment-group]').count(),3,'hidden equipment cards are deferred');
     assert.equal(await page.locator('[data-more=equip]').count(),0,'enhancement counts no longer add another group');
-    const plain=page.locator('[data-equipment-group]').filter({hasText:'+10–30'});
-    assert.equal(await plain.count(),1);assert.match(await plain.textContent(),mobile?/3 件/:/3 listed/);
+    const plain=page.locator('[data-equipment-group]').filter({hasText:'10–30'});
+    assert.equal(await plain.count(),1);assert.equal(await plain.locator('.attr-count').textContent(),mobile?'3 件':'3');
     assert.match(await plain.textContent(),/10K/,'group minimum includes all defence and enhancement counts');
-    assert.equal(await plain.locator('.tip-up').textContent(),'+0–1');
-    assert.equal(await page.locator('[data-equipment-group][href*="variant=102"] .tip-up').textContent(),'+0–2');
+    assert.doesNotMatch(await page.locator('.attr-table').textContent(),/\+\d/,'stat values have no plus sign and enhancement counts are not shown');
 
     assert.equal(await page.locator('[data-equipment-stat]').count(),0,'one filter dialog serves the entire page');
     const bonusSwitch=page.locator('[data-bonus-only]');

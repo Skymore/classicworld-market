@@ -77,17 +77,17 @@ try{
   await editor(page,2000000);assert.match(await card.locator('[data-watch-reminder]').textContent(),/手动输入.*1,200/s);
   const editorLayout=await card.locator('.watch-group-editor').evaluate(el=>{
    const rect=selector=>{const r=el.querySelector(selector).getBoundingClientRect();return {top:r.top,width:r.width}};
-   return {name:rect('.wg-name'),price:rect('.watch-reminder-trigger'),advanced:rect('.watch-reminder-advanced'),done:rect(':scope > .wg-link')};
+   return {name:el.querySelector('.wg-name')&&rect('.wg-name'),price:rect('.watch-reminder-trigger'),advanced:rect('.watch-reminder-advanced'),done:rect(':scope > .wg-link')};
   });
   assert.equal(editorLayout.price.top,editorLayout.advanced.top,'price and advanced share a row');
   assert.equal(editorLayout.price.top,editorLayout.done.top,'done stays on the controls row');
-  if(!mobile)assert.equal(editorLayout.name.top,editorLayout.price.top,'desktop group name and conditions share one row');
+  assert.equal(editorLayout.name,null,'a single group has no name field');
   await compact();
   if(process.env.WATCH_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.WATCH_SCREENSHOT_DIR,`editor-${mobile?'phone':'desktop'}.png`)});
   for(const [percentile,cap] of [['10','100'],['25','300'],['50','500']]){await preset(page,2000000,percentile);assert.equal(await card.locator('.watch-reminder-percent').innerText(),`${percentile}%`);assert(await card.locator('.watch-reminder-percent').isVisible());assert.match(await card.locator('.watch-reminder-price').innerText(),new RegExp(cap));await compact();}
   await editor(page,2000001);assert.match(await other.locator('[data-watch-reminder]').textContent(),/手动输入.*1,200/s);
   await preset(page,2000000,'10');assert.equal(await card.locator('[data-under]').textContent(),'1');
-  assert.equal(await card.locator('.wc-details').textContent(),'↗');await card.locator('.wc-details').click();assert.equal(new URL(page.url()).searchParams.get('item'),'2000000');assert.equal(await page.locator('[data-matches] [data-item-row]').count(),1,'detail bypasses unrelated global browsing filters');assert.equal(await page.locator('[data-matches] [data-item-row][data-id="old-2000000-0"]').count(),1);
+  assert.equal(await card.locator('.wc-details').textContent(),'↗');await card.locator('.wc-details').click();await page.locator('.watch-focus').waitFor();assert.equal(new URL(page.url()).searchParams.get('item'),'2000000');assert.equal(await page.locator('[data-matches] [data-item-row]').count(),1,'detail bypasses unrelated global browsing filters');assert.equal(await page.locator('[data-matches] [data-item-row][data-id="old-2000000-0"]').count(),1);
   await page.getByRole('link',{name:'全部关注',exact:true}).click();
   shared.unshift(offer('high',1000),offer('low',100),offer('tie',100));await refresh(page);const expected=['low','tie'];await notificationsEqual(page,expected);
   let dialog=await advanced(page,2000000,{minStock:'5'});assert.equal(await dialog.locator('[name=equipment]').count(),0);await dialog.locator('[data-offer-apply]').click();await notificationsEqual(page,expected);
@@ -99,10 +99,11 @@ try{
   await preset(page,1452003,'50');dialog=await advanced(page,1452003,{equipment:'bonus'});await dialog.locator('[data-stat-add]').click();await dialog.locator('[data-stat-key]').first().selectOption('weapon_attack');await dialog.locator('[data-stat-min]').first().fill('45');await dialog.locator('[data-stat-add]').click();await dialog.locator('[data-stat-key]').nth(1).selectOption('str');await dialog.locator('[data-stat-min]').nth(1).fill('2');await dialog.locator('[data-offer-apply]').click();
   const equipment=(attack,str,def=20)=>({status:'candidate',unknown_fields:[],stats:[{key:'weapon_attack',value:attack},{key:'str',value:str},{key:'weapon_defense',value:def}]});
   shared.unshift(offer('defence-only',100,{item_id:1452003,equipment:equipment(42,0,30)}),offer('wrong-str',100,{item_id:1452003,equipment:equipment(45,0)}),offer('right-stats',100,{item_id:1452003,equipment:equipment(45,2)}));await refresh(page);
-  const bow=page.locator('[data-card="1452003"]');assert.equal(await bow.locator('[data-under]').textContent(),'1');await dismiss(page);await bow.locator('.wc-details').click();assert.equal(await page.locator('[data-matches] [data-item-row]').count(),1);assert.equal(await page.locator('[data-matches] [data-id="right-stats"]').count(),1);
+  const bow=page.locator('[data-card="1452003"]');assert.equal(await bow.locator('[data-under]').textContent(),'1');await dismiss(page);await bow.locator('.wc-details').click();await page.waitForFunction(()=>document.querySelector('.watch-focus')?.textContent.includes('战斗弓'));assert.equal(await page.locator('[data-matches] [data-item-row]').count(),1);assert.equal(await page.locator('[data-matches] [data-id="right-stats"]').count(),1);
   await page.reload();await page.locator('[data-matches] [data-id="right-stats"]').waitFor();await editor(page,2000000);assert.match(await card.locator('[data-watch-reminder]').textContent(),/手动输入.*125/s);assert.equal(await bow.locator('[data-under]').textContent(),'1');await notificationsEqual(page,[]);
   await dismiss(page);await card.getByRole('button',{name:'＋ 另一组条件',exact:true}).click();
   assert.equal(await card.locator('[data-watch-group]').count(),2);
+  if(!mobile){const named=await card.locator('.watch-group-editor').evaluate(el=>[el.querySelector('.wg-name'),el.querySelector('.watch-reminder-trigger')].map(n=>n.getBoundingClientRect().top));assert.equal(named[0],named[1],'desktop group name and conditions share one row');}
   const added=card.locator('[data-watch-group]').last();await added.getByRole('button',{name:/删除条件组/}).click();
   assert.equal(await card.locator('[data-watch-group]').count(),1);await card.getByRole('button',{name:'撤销',exact:true}).click();assert.equal(await card.locator('[data-watch-group]').count(),2);
   await card.locator('[data-watch-group]').last().getByRole('button',{name:/删除条件组/}).click();

@@ -107,6 +107,9 @@
 }
 
 /* Condition editor: name, alert price, advanced and done on one row (desktop). */
+.watch-page .watch-group-editor.single {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
 .watch-page .watch-group-editor {
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto auto;
   align-items: center;
@@ -180,13 +183,70 @@
     padding: 6px 10px;
   }
   .watch-page .wg-rule > .wg-description {
-    flex: 1 0 100%;
+    flex: 1 1 auto;
+    min-width: 0;
     padding: 4px 0;
   }
-  .watch-page .wg-rule > .wg-link:first-of-type {
+  .watch-page .wg-rule > .wg-actions {
     margin-left: auto;
+    gap: 16px;
   }
-  .watch-page .watch-group-editor {
+  .watch-page .watch-group-editor,
+  .watch-page .watch-group-editor.single {
     grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+}
+
+/* Matching offers, cheapest first, grouped under each watched item. */
+.watch-match-group + .watch-match-group {
+  border-top: 2px solid var(--edge);
+}
+.watch-match-group .wmg-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 40px;
+  padding: 4px 12px;
+  background: var(--sheet-lo);
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+}
+.watch-match-group .wmg-head b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.watch-match-group .wmg-count {
+  margin-left: auto;
+  flex: none;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.watch-match-group .wmg-head:hover b {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.watch-match-group .market-record + .market-record {
+  border-top: 1px solid var(--rule);
+}
+.watch-match-group > .more {
+  width: 100%;
+  border-top: 1px solid var(--rule);
+}
+
+.watch-list-tools [data-watch-group-by-item] {
+  justify-self: end;
+  min-height: 36px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .watch-list-tools [data-watch-group-by-item] {
+    grid-column: 1 / -1;
+    justify-self: start;
+    min-height: 32px;
   }
 }

@@ -303,17 +303,17 @@
   min-height: 32px;
   padding: 5px 10px;
   font-size: 12px;
-  border-radius: 16px;
+  border-radius: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: left;
   background: var(--sheet-hi);
-  border: 1px solid var(--rule);
+  border: 2px solid var(--edge);
   line-height: 1.4;
 }
 .chat-examples button:hover {
-  border-color: var(--mark);
+  background: var(--lamp);
 }
 .chat-error {
   font-size: 13px;

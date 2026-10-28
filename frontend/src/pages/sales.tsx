@@ -8,6 +8,7 @@ import {
   savePeriod,
 } from "/web/js/lib/period.js?v=20261022-regressions-1";
 import { readList } from "/web/js/lib/watchlist-core.js";
+import { mergeShopSales } from "/web/js/lib/sale-groups.js?v=20261028-sales-1";
 import { useUserValue } from "../lib/live";
 import { Icon, Empty, Loading, usePageReady } from "../components/shared";
 import { OfferRow } from "../components/list-rows";
@@ -80,7 +81,7 @@ export default function Sales({ embedded = false }: { embedded?: boolean }) {
     (!watchOnly || watched.has(row.item_id)) &&
     (!category || row.category === category) &&
     (cutoff === null || row.time >= cutoff);
-  const shown = rows.filter(visible),
+  const shown = mergeShopSales(rows.filter(visible)),
     past =
       cutoff !== null && rows.length > 0 && rows[rows.length - 1].time < cutoff;
   const emptyPages =
@@ -276,7 +277,7 @@ export default function Sales({ embedded = false }: { embedded?: boolean }) {
         </div>
         <div className="llist" data-list>
           {shown.length ? (
-            shown.map((row) => <OfferRow key={row.id} row={row} sale />)
+            shown.map((row: any) => <OfferRow key={row.id} row={row} sale />)
           ) : query.isPending ? (
             <Loading />
           ) : query.isError ? (

@@ -111,10 +111,24 @@ export function OfferRow({
                 sale ? (
                   <span
                     className={"evi " + (row.kind || "")}
-                    title={row.kind ? t("evidence." + row.kind) : undefined}
+                    title={
+                      row.kind
+                        ? t("evidence." + row.kind) +
+                          (row.merged_count > 1
+                            ? words(
+                                ` · 同店 ${row.merged_count} 格合计`,
+                                ` · ${row.merged_count} slots in one shop`,
+                              )
+                            : "")
+                        : undefined
+                    }
+                    data-merged-sales={row.merged_count > 1 ? row.merged_count : undefined}
                   >
                     {status}
-                    {row.quantity != null && ` ×${row.quantity}`}
+                    {row.quantity != null
+                      ? ` ×${row.quantity}`
+                      : row.merged_count > 1 &&
+                        words(` ${row.merged_count} 格`, ` ${row.merged_count} slots`)}
                   </span>
                 ) : undefined
               }

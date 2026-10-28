@@ -1,10 +1,11 @@
 import { useQueries } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { SiteLink } from "../components/shell";
-import WatchGroups from "../components/watch-groups";
+import WatchGroups, { trackOnly } from "../components/watch-groups";
 import {
   activeOffers,
   matchingReminders,
+  watchGroups,
 } from "/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api, getJson, qs } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
@@ -37,6 +38,19 @@ import { useWatchAlerts } from "../components/watch-alerts";
 import { NotificationSettings } from "../components/notification-settings";
 import "../lib/list-copy";
 import "./watch.css";
+// Cheapest offers shown per item before "show more".
+const PER_ITEM = 5;
+// The scanner client embeds this page in a loopback-only frame; sweeping only runs there.
+const inScanner = (() => {
+  try {
+    return (
+      window.top !== window.self &&
+      ["localhost", "127.0.0.1"].includes(location.hostname)
+    );
+  } catch {
+    return false;
+  }
+})();
 export default function Watch() {
   usePageReady();
   const words = useWords();
@@ -55,7 +69,8 @@ export default function Watch() {
   } = useWatchAlerts();
   const [sort, writeSort] = useUserValue("watch.offerSort", "price"),
     [collapsed, writeCollapsed] = useUserValue("watch.listCollapsed", "false"),
-    [rawFilters, writeFilters] = useUserValue("watch.offerFilters", "{}");
+    [rawFilters, writeFilters] = useUserValue("watch.offerFilters", "{}"),
+    [groupPref, writeGroupPref] = useUserValue("watch.groupByItem", "true");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filterButton = useRef<HTMLButtonElement>(null);
   const filters = useMemo(() => {
@@ -78,7 +93,9 @@ export default function Watch() {
     [focused, setFocused] = useState(false),
     [limit, setLimit] = useState(40),
     [all, setAll] = useState(false),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState(""),
+    [added, setAdded] = useState<number | null>(null),
+    [expanded, setExpanded] = useState<number[]>([]);
   const composing = useRef(false);
   const market = useMarketQuery<any>(
     "/api/v1/market/selected" + qs({ hours: "72", ids: [...ids].sort((a, b) => a - b).join(",") }),
@@ -113,9 +130,24 @@ export default function Watch() {
       ...(catalog.data?.items || []),
     ].map((row: any) => [row.item_id, row]),
   );
+  // Prices-only groups (no condition, no alert) never count as matching offers.
+  const conditions = useMemo(
+    () =>
+      Object.fromEntries(
+        ids.map((id) => [
+          id,
+          {
+            ...settings[id],
+            groups: watchGroups(settings[id]).filter((g: any) => !trackOnly(g)),
+          },
+        ]),
+      ),
+    [ids, settings],
+  );
+  const tracking = (id: number) => !conditions[id]?.groups.length && watchGroups(settings[id]).length > 0;
   const baseMatches = useMemo<any[]>(
-    () => matchingReminders(grouped, ids, settings, reference),
-    [grouped, ids, settings, reference],
+    () => matchingReminders(grouped, ids, conditions, reference),
+    [grouped, ids, conditions, reference],
   );
   const summary = Object.fromEntries(
     ids.map((id) => {
@@ -220,7 +252,30 @@ export default function Watch() {
       return;
     }
     saveIds(Core.add(ids, item.item_id));
+    // Close the results and open the new card's conditions, so the price is set right away.
+    setAdded(item.item_id);
+    setQuery("");
+    setFocused(false);
   }
+  useEffect(() => {
+    if (added !== null)
+      document
+        .querySelector(`[data-card="${added}"]`)
+        ?.scrollIntoView({ block: "center" });
+  }, [added, ids.length]);
+  const alerting = ids.some((id) =>
+    watchGroups(settings[id]).some((group: any) => group.notify),
+  );
+  // Grouping by item is its own switch; either sort order applies inside each group.
+  const byItem =
+    groupPref !== "true" && focusId === null
+      ? null
+      : (focusId === null ? ids : [focusId])
+          .map((id) => ({
+            id,
+            rows: matches.filter((row: any) => row.item_id === id),
+          }))
+          .filter((group) => group.rows.length);
   const found = catalog.data?.items || [];
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -231,11 +286,7 @@ export default function Watch() {
     );
     const pick =
       exact.length === 1 ? exact[0] : found.length === 1 ? found[0] : null;
-    if (pick) {
-      add(pick);
-      setQuery("");
-      setFocused(false);
-    }
+    if (pick) add(pick);
   }
   return (
     <div
@@ -267,7 +318,7 @@ export default function Watch() {
             <Icon name="caret" />
           </button>
         </div>
-        <NotificationSettings />
+        {alerting && <NotificationSettings />}
         <div id="watch-list" hidden={collapsed === "true"}>
           <div className="wadd">
             <form
@@ -408,17 +459,17 @@ export default function Watch() {
                         >
                           <small>{t("watch.under")}</small>
                           <span className="wc-count-link">
-                            <b data-under>{summary[id]?.under || 0}</b>
-                            <SiteLink
+                            <b data-under>{tracking(id) ? "—" : summary[id]?.under || 0}</b>
+                            {!tracking(id) && <SiteLink
                               className="wc-details"
                               href={`/watch?item=${id}#watch-matches`}
                               aria-label={words(
-                                `查看${itemName(item)}符合提醒的报价`,
+                                `查看${itemName(item)}符合条件的报价`,
                                 `View matching offers for ${itemName(item)}`,
                               )}
                             >
                               ↗
-                            </SiteLink>
+                            </SiteLink>}
                           </span>
                         </span>
                       </div>
@@ -434,6 +485,8 @@ export default function Watch() {
                     <div className="wc-set" id={"wc-set-" + id}>
                       <WatchGroups
                         id={id}
+                        sweep={inScanner}
+                        autoEdit={added === id}
                         name={itemName(item)}
                         setting={current}
                         rows={grouped}
@@ -475,11 +528,6 @@ export default function Watch() {
             </SiteLink>
           </div>
         )}
-        {shared.data?.truncated && (
-          <p className="sale-note">
-            {words("显示最近 200 条报价", "Showing the latest 200 offers")}
-          </p>
-        )}
         <div className="watch-list-tools">
           <select
             data-watch-sort
@@ -503,6 +551,18 @@ export default function Watch() {
             {words("筛选", "Filters")}
             {tokens.length > 0 && <b>{tokens.length}</b>}
           </button>
+          {focusId === null && (
+            <button
+              type="button"
+              className={"toggle right " + (groupPref === "true" ? "on" : "")}
+              data-watch-group-by-item
+              aria-pressed={groupPref === "true"}
+              onClick={() => writeGroupPref(groupPref === "true" ? "false" : "true")}
+            >
+              <i aria-hidden="true" />
+              {words("按物品分组", "Group by item")}
+            </button>
+          )}
         </div>
         {focusId === null && tokens.length > 0 && (
           <div className="offer-filter-summary">
@@ -541,7 +601,52 @@ export default function Watch() {
           filterRows={filterWatchRows}
         />
         <div className="llist" data-matches>
-          {matches.length ? (
+          {byItem && byItem.length ? (
+            byItem.map(({ id, rows }) => {
+              const item = items.get(id) || { item_id: id };
+              const open = focusId !== null || expanded.includes(id);
+              return (
+                <div
+                  className="watch-match-group"
+                  data-match-group={id}
+                  key={id}
+                >
+                  <SiteLink className="wmg-head" href={"/item/" + id}>
+                    <Slot url={item.icon_url} size={24} />
+                    <b>{itemName(item)}</b>
+                    <span className="wmg-count">
+                      {rows.length}{" "}
+                      {words("条", rows.length === 1 ? "offer" : "offers")}
+                    </span>
+                  </SiteLink>
+                  {rows
+                    .slice(0, open ? undefined : PER_ITEM)
+                    .map((row: any) => (
+                      <OfferRow
+                        key={row.id}
+                        row={row}
+                        item={item}
+                        hideIdentity
+                      />
+                    ))}
+                  {!open && rows.length > PER_ITEM && (
+                    <button
+                      type="button"
+                      className="more"
+                      data-group-more={id}
+                      onClick={() => setExpanded([...expanded, id])}
+                    >
+                      {words(
+                        `再显示 ${rows.length - PER_ITEM} 条`,
+                        `Show ${rows.length - PER_ITEM} more`,
+                      )}
+                      <Icon name="chev" />
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          ) : !byItem && matches.length ? (
             matches
               .slice(0, all ? undefined : 50)
               .map((row: any) => (
@@ -556,7 +661,7 @@ export default function Watch() {
           )}
         </div>
         <div className="lfoot" data-mfoot>
-          {!all && matches.length > 50 && (
+          {!byItem && !all && matches.length > 50 && (
             <button className="more" data-show-all onClick={() => setAll(true)}>
               {t("watch.show_all", { n: matches.length })}
               <Icon name="chev" />
