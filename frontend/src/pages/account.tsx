@@ -1,15 +1,20 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Monitor, Pencil, ArrowUpRight } from "lucide-react";
-import { useAccount, queryClient } from "../lib/query";
-import { adoptAccount, beforeSignOut } from "/web/js/lib/user-data.js";
+import { useAccount } from "../lib/query";
+import { beforeSignOut } from "/web/js/lib/user-data.js";
 import {
   AuthForm,
   RecoveryNotice,
   SyncPanel,
   SecurityPanel,
   AccountSetting,
+  accountMessage,
+  postAccount,
+  refreshAccount,
 } from "./account-access";
+import { DevicesPanel } from "./account-devices";
+import { takeReturn } from "../lib/return-to";
 import { useWords } from "../providers";
 import { SiteLink } from "../components/shell";
 import {
@@ -42,118 +47,17 @@ export default function AccountPage() {
     setListed(Boolean(profile?.listed));
   }, [profile?.nickname, profile?.listed]);
   const local = profile?.mode === "collector";
+  const message = (code: string) => accountMessage(words, code);
+  const post = (path: string, data: unknown) =>
+    postAccount(profile?.csrf, path, data);
+  const refresh = refreshAccount;
   const access = { profile, post, refresh, message, recover: setRecoveryCode };
-  function message(code: string) {
-    const messages: Record<string, [string, string]> = {
-      invalid_nickname: [
-        "昵称需要 2–24 个字，可用中文、字母、数字、空格和 _-.。",
-        "Use 2–24 letters, numbers, spaces or _-. for your nickname.",
-      ],
-      expired_link: [
-        "绑定链接已过期，请在采集器中重新点击绑定。",
-        "This link expired. Start linking again in the collector.",
-      ],
-      already_linked: [
-        "这个采集器已经绑定了其他账号。",
-        "This collector belongs to another account.",
-      ],
-      manage_on_website: [
-        "请在官网的「我的」中修改昵称。",
-        "Edit your nickname on the website under My profile.",
-      ],
-      login_failed: [
-        "登录未完成，请重试。",
-        "Sign-in did not finish. Please try again.",
-      ],
-      google_unavailable: [
-        "Google 登录暂未开放，可使用用户名和密码登录。",
-        "Google sign-in is unavailable. You can sign in with a username and password.",
-      ],
-      invalid_username: [
-        "用户名需为 3–32 个英文字母、数字、下划线、点或短横线，并以字母或数字开头。",
-        "Use 3–32 letters, numbers, underscores, dots or hyphens, starting with a letter or number.",
-      ],
-      invalid_password: [
-        "密码需为 15–128 个字符，可使用长句作为密码。",
-        "Use a password of 15–128 characters. A long passphrase works well.",
-      ],
-      password_mismatch: [
-        "两次输入的密码不一致。",
-        "The passwords do not match.",
-      ],
-      invalid_credentials: [
-        "用户名或密码不正确。",
-        "Incorrect username or password.",
-      ],
-      username_unavailable: [
-        "这个用户名暂时不可用，请换一个。",
-        "That username is unavailable. Please choose another.",
-      ],
-      invalid_current_password: [
-        "当前密码不正确。",
-        "The current password is incorrect.",
-      ],
-      invalid_recovery: [
-        "用户名或恢复码不正确，已使用的恢复码无法再次使用。",
-        "Incorrect username or recovery code. Used recovery codes cannot be reused.",
-      ],
-      google_already_linked: [
-        "这个 Google 账号已有关联，未更改任何绑定。请登录原账号查看。",
-        "This Google identity is already linked. No links were changed.",
-      ],
-      last_login_method: [
-        "请先设置账号密码，再解绑 Google。",
-        "Set an account password before unlinking Google.",
-      ],
-      reauth_required: [
-        "请重新登录后再修改登录方式。",
-        "Sign in again before changing login methods.",
-      ],
-      rate_limited: [
-        "请求较多，请稍后重试。",
-        "Too many attempts. Please try again later.",
-      ],
-      watch_limit: [
-        "合并后超过 100 个关注商品，请先调整清单再合并。原数据已保留。",
-        "The merged list would exceed 100 watches. Adjust the lists before merging.",
-      ],
-      login_required: [
-        "登录已过期，请重新登录。",
-        "Your session expired. Please sign in again.",
-      ],
-    };
-    return words(
-      ...(messages[code] || [
-        "暂时没有连接成功，请稍后重试。",
-        "Could not connect. Please try again.",
-      ]),
-    );
-  }
-  async function post(path: string, data: unknown) {
-    const response = await fetch(path, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-        ...(profile?.csrf ? { "X-CSRF-Token": profile.csrf } : {}),
-      },
-      body: JSON.stringify(data),
-    });
-    const body = await response.json();
-    if (!response.ok) throw Error(body.error || "unavailable");
-    return body;
-  }
-  async function refresh(broadcast = false) {
-    const response = await fetch("/api/v1/account", {
-      credentials: "same-origin",
-      cache: "no-store",
-    });
-    if (!response.ok) throw Error("unavailable");
-    const next = await response.json();
-    await adoptAccount(next, { broadcast });
-    queryClient.setQueryData(["account"], next);
-    window.dispatchEvent(new CustomEvent("account-changed", { detail: next }));
-  }
+  // Google sign-in always lands here; go back to the page that started it.
+  useEffect(() => {
+    if (!profile?.signed_in || link) return;
+    const back = takeReturn();
+    if (back) navigate(back, { replace: true });
+  }, [profile?.signed_in]);
   async function save(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -180,7 +84,7 @@ export default function AccountPage() {
       if (kind === "connect") {
         const result = await post("/api/v1/account/link", {});
         const url = new URL(result.url);
-        if (url.origin !== "https://mxd.ruit.me" || url.pathname !== "/account")
+        if (url.origin !== "https://mxd.ruit.me" || url.pathname !== "/device")
           throw Error("unavailable");
         location.assign(url);
       } else {
@@ -401,7 +305,9 @@ export default function AccountPage() {
             </section>
             <div className="account-settings">
               {!local && <SyncPanel message={message} />}
-              <AccountSetting
+              {!local && <DevicesPanel profile={profile} message={message} />}
+              {/* Collectors on old versions still link through ?link=. */}
+              {(local || link || linkStatus) && <AccountSetting
                 name="collectors"
                 icon={<Monitor size={20} />}
                 title={words("我的采集器", "My collectors")}
@@ -480,7 +386,7 @@ export default function AccountPage() {
                 <p role="status" data-link-status>
                   {linkStatus}
                 </p>
-              </AccountSetting>
+              </AccountSetting>}
               {!local && <SecurityPanel {...access} profile={profile} />}
             </div>
             <div className="account-footer">

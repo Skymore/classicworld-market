@@ -118,6 +118,25 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(self.controller.snapshot()['run_shops'],12)
         self.assertEqual(self.controller.snapshot()['run_items'],90)
 
+    def test_sweep_hooks_reach_the_scan_and_status_line(self):
+        sweep = Mock()
+        sweep.summary.return_value = {'enabled': True, 'units': 2, 'spent': 300, 'message': '扫货中'}
+        controller = DesktopController(self.runtime, modules=self.modules, windows=lambda: [{'id': 12, 'title': 'MapleStory', 'pid': 42}], sweep=sweep)
+        hooks = {}
+        def run(folder, hwnd, begin, stop, callback, assignments, **kwargs):
+            hooks.update(kwargs)
+            return {'reason': 'cancelled'}
+        self.modules.update({'channel_capture': lambda path, stop: None, 'position_capture': lambda path, stop: None,
+                             'DEFAULT_STATE': None, 'POSITION_STATE': None, 'CloudScan': Mock(), 'run': run})
+        with patch('scanner_desktop.focus_game'), patch('scanner_desktop.release_keys'), patch('scanner_desktop.RUNS', Path(self.temp.name)/'runs'):
+            controller.start(12)
+            controller._worker.join(3)
+        self.assertIs(hooks['shop_callback'], sweep.on_shop_open)
+        self.assertIs(hooks['capture_receipt'], sweep.receipt)
+        controller.read_local_status()
+        self.assertEqual(controller.snapshot()['sweep'], sweep.summary.return_value)
+        self.assertIs(DesktopAPI(controller)._workspace.sweep, sweep)
+
     def test_internal_event_names_do_not_leak_into_ui(self):
         self.assertEqual(status_text('full_scanning_room_8_channel_12'), '正在扫描 8 洞 · 12频道')
         self.assertIsNone(status_text('unknown_internal_event'))

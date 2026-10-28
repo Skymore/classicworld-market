@@ -96,6 +96,7 @@ class CollectorRuntime:
         self._listeners.append(callback)
 
     def _notify(self, event):
+        events = (event,)
         if event.get('type') == 'captured':
             filename, items = event.get('file'), event.get('items')
             if not isinstance(filename, str) or not filename or type(items) is not int or items < 0:
@@ -106,12 +107,14 @@ class CollectorRuntime:
                 self._captured_files.add(filename)
                 self._stats['run_shops'] += 1
                 self._stats['run_items'] += items
-                event = dict(type='run_stats', **self._stats)
+                # The sweep engine pairs a shop visit with this capture file.
+                events = (event, dict(type='run_stats', **self._stats))
         for listener in tuple(self._listeners):
-            try:
-                listener(event)
-            except Exception:
-                pass
+            for item in events:
+                try:
+                    listener(item)
+                except Exception:
+                    pass
 
     def statistics(self):
         with self._stats_lock:

@@ -1,0 +1,209 @@
+/* Sweep panel on the watch page: one bar like the notification row, then the
+   run's numbers, devices and purchases as ruled rows. */
+.sweep-panel {
+  border-bottom: 1px solid var(--rule);
+  font-size: 13px;
+}
+.sweep-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-height: 56px;
+  padding: 6px 12px 6px 16px;
+}
+.sweep-bar > b {
+  font-size: 14px;
+}
+.sweep-state {
+  min-width: 0;
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+.sweep-bar > .btn {
+  margin-left: auto;
+  min-height: 40px;
+}
+.sweep-error {
+  padding: 0 16px 8px;
+  color: var(--maple-ink);
+}
+.sweep-stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border-top: 1px solid var(--rule);
+}
+.sweep-stats.ended {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.sweep-stats > div {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  padding: 5px 10px;
+  background: var(--sheet-hi);
+}
+.sweep-stats small {
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.sweep-stats b {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sweep-stale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 12px 6px 16px;
+  border-top: 1px solid var(--rule);
+  background: var(--maple-tint);
+  color: var(--maple-ink);
+  font-weight: 600;
+}
+.sweep-stale .btn {
+  min-height: 36px;
+}
+.sweep-list {
+  border-top: 1px solid var(--rule);
+}
+.sweep-head {
+  padding: 6px 16px 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.sweep-head small {
+  font-weight: 400;
+}
+.sweep-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 12px 5px 16px;
+}
+.sweep-row + .sweep-row {
+  border-top: 1px solid var(--rule);
+}
+.sweep-row-main,
+.sweep-row-side {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.sweep-row-main b {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.sweep-row small {
+  font-size: 12px;
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+.sweep-row-side {
+  justify-items: end;
+  text-align: right;
+}
+.sweep-row-side b {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sweep-row .sweep-online,
+.sweep-row .sweep-status.bought {
+  color: var(--ink-2);
+}
+.sweep-row .sweep-status.unknown,
+.sweep-row .sweep-status.expired {
+  color: var(--maple-ink);
+  font-weight: 600;
+}
+.sweep-list > .more {
+  border-top: 1px solid var(--rule);
+}
+
+/* Start and apply dialogs reuse the filter window: blue bar, ruled sections. */
+.sweep-dialog .ui-dialog-close {
+  top: 0;
+  right: 0;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--bar-ink);
+}
+.sweep-dialog .ui-dialog-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.sweep-dialog fieldset {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+}
+.sweep-dialog .sweep-device {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.sweep-dialog .sweep-device small {
+  font-size: 12px;
+  color: var(--ink-3);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.sweep-dialog .sweep-device:has(input:disabled) {
+  cursor: default;
+  color: var(--ink-3);
+}
+.sweep-dialog .offer-field-grid {
+  display: grid;
+}
+.sweep-dialog .offer-field small {
+  color: var(--ink-3);
+}
+.sweep-empty {
+  color: var(--ink-3);
+}
+.sweep-dialog-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  color: var(--maple-ink);
+}
+.sweep-dialog .ffoot .btn:last-child {
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .sweep-bar {
+    padding-left: 12px;
+  }
+  .sweep-stats > div {
+    padding: 4px 6px;
+  }
+  .sweep-stats b {
+    font-size: 14px;
+    /* An end time on another day ("10/29 00:14") wraps instead of widening the page. */
+    white-space: normal;
+  }
+  .sweep-row,
+  .sweep-head,
+  .sweep-stale {
+    padding-left: 12px;
+  }
+  .sweep-dialog .sweep-device {
+    min-height: 44px;
+  }
+}

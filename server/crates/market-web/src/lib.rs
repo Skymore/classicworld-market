@@ -30,6 +30,7 @@ pub mod collector_updates;
 pub mod config;
 pub mod contributors;
 mod delivery;
+pub mod devices;
 pub mod crafting;
 pub mod external;
 pub mod ingest;
@@ -41,6 +42,7 @@ pub mod realtime;
 pub mod scan_assignments;
 pub(crate) mod search;
 pub mod stats;
+pub mod sweep;
 pub mod traffic;
 pub mod upload_queue;
 pub mod views;
@@ -81,6 +83,8 @@ pub struct AppState {
     pub settings: Arc<Settings>,
     pub limiter: Arc<auth::RateLimiter>,
     pub events: tokio::sync::broadcast::Sender<()>,
+    /// Committed `account_changed` notices: (account id, topic).
+    pub account_events: tokio::sync::broadcast::Sender<(i64, &'static str)>,
     pub collector_updates: tokio::sync::watch::Sender<Option<String>>,
     pub google: Option<Arc<contributors::GoogleOAuth>>,
     pub agent: Option<Arc<agent::OpenRouter>>,
@@ -107,6 +111,7 @@ impl AppState {
             settings: Arc::new(settings),
             limiter: Arc::default(),
             events: tokio::sync::broadcast::channel(64).0,
+            account_events: tokio::sync::broadcast::channel(256).0,
             collector_updates: tokio::sync::watch::channel(None).0,
             google: None,
             agent: None,
@@ -151,6 +156,8 @@ pub fn app_with_web(state: AppState, web_dir: Option<&std::path::Path>) -> Route
         .merge(api_headers(scan_assignments::router()))
         .merge(api_headers(traffic::router()))
         .merge(api_headers(accounts::router()))
+        .merge(api_headers(devices::router()))
+        .merge(api_headers(sweep::router()))
         .merge(bestiary::routes())
         .layer(SetResponseHeaderLayer::if_not_present(
             header::X_CONTENT_TYPE_OPTIONS,

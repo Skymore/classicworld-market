@@ -18,6 +18,46 @@ const same=(a,b)=>JSON.stringify(a??null)===JSON.stringify(b??null);
 const recordKey=r=>`${r.kind}:${r.key}`;
 let owner=null,profile=null,context=null,epoch=0,identityBusy=null,busy=false,timer=null,poll=null,status='guest',persistent=true;
 let listeners=new Set();
+// One account event stream per page (SWEEP.md §2). `data` refreshes the synced
+// records here; other topics go to subscribers, which refetch their own API.
+const topicListeners=new Map();
+let events=null,eventsOwner=null,eventsLive=false,eventsConnects=0,eventsDelay=1000,eventsTimer=null;
+const emitTopic=topic=>{for(const fn of topicListeners.get(topic)||[])try{fn(topic);}catch(e){setTimeout(()=>{throw e;});}};
+const emitAllTopics=()=>{for(const topic of topicListeners.keys())emitTopic(topic);};
+function closeEvents(){clearTimeout(eventsTimer);eventsTimer=null;events?.close();events=null;eventsOwner=null;eventsLive=false;eventsConnects=0;eventsDelay=1000;}
+function syncEvents(){
+ if(!owner||!browser||typeof EventSource==='undefined'){closeEvents();return;}
+ if(eventsOwner===owner)return;
+ closeEvents();eventsOwner=owner;connectEvents();
+}
+function connectEvents(){
+ const source=new EventSource('/api/v1/account/events',{withCredentials:true}),mine=eventsOwner;
+ events=source;
+ const current=()=>events===source&&owner===mine;
+ const pull=()=>{if(busy)schedule(600);else flush().catch(()=>{});};
+ source.addEventListener('hello',()=>{
+  if(!current())return;
+  eventsLive=true;eventsDelay=1000;
+  // Events missed while reconnecting are replayed as one refresh of everything.
+  if(eventsConnects++>0)emitAllTopics();
+  pull();
+ });
+ source.addEventListener('data',()=>{if(current())pull();});
+ for(const topic of ['sweep','devices'])source.addEventListener(topic,()=>{if(current())emitTopic(topic);});
+ source.onerror=()=>{
+  if(!current())return;
+  // Own back-off (1, 2, 4 … 30 s) instead of the browser's fixed retry.
+  source.close();events=null;eventsLive=false;
+  eventsTimer=setTimeout(()=>{eventsTimer=null;if(eventsOwner===mine&&owner===mine)connectEvents();},eventsDelay);
+  eventsDelay=Math.min(eventsDelay*2,30000);
+ };
+}
+/** Calls `fn` when the signed-in account's `topic` ('sweep', 'devices') changes. */
+export function subscribeAccountEvents(topic,fn){
+ if(!topicListeners.has(topic))topicListeners.set(topic,new Set());
+ topicListeners.get(topic).add(fn);
+ return()=>{const set=topicListeners.get(topic);set?.delete(fn);if(set&&!set.size)topicListeners.delete(topic);};
+}
 const notify=()=>{for(const fn of listeners)fn(getSyncState());if(browser)window.dispatchEvent(new CustomEvent('user-sync',{detail:getSyncState()}));};
 const guestIds=()=>{const value=parse(read('watchlist'),[]);return Array.isArray(value)?value:[];};
 export function getSyncState(){return{status,signed_in:!!owner,pending:Object.keys(context?.pending||{}).length,conflicts:Object.keys(context?.conflicts||{}).length,guestWatches:guestIds().length};}
@@ -120,7 +160,7 @@ export async function adoptAccount(next,{broadcast=false}={}){
  // modules or the network load. This is a public ID, never a credential.
  try{if(account)write(ACTIVE_PREFERENCES,account);else native().removeItem(ACTIVE_PREFERENCES);}catch{}
  if(account===owner){if(account)await flush();return;}
- epoch++;busy=false;clearTimeout(timer);owner=account;context=null;
+ epoch++;busy=false;clearTimeout(timer);owner=account;context=null;syncEvents();
  if(owner){
   const stored=parse(read(PREFIX+owner),{});
   context={records:Array.isArray(stored.records)?stored.records:[],values:stored.values||{},pending:stored.pending||{},conflicts:stored.conflicts||{}};
@@ -160,11 +200,12 @@ export function retryConflicts(){
 export async function beforeSignOut(){if(owner)await flush();}
 export const ready=browser?refreshIdentity():Promise.resolve(null);
 if(browser){
- poll=setInterval(()=>{if(document.visibilityState==='visible')refreshIdentity();},30000);poll.unref?.();
+ // 30 s poll: identity always; account topics too while the event stream is down.
+ poll=setInterval(()=>{if(document.visibilityState!=='visible')return;refreshIdentity();if(owner&&!eventsLive)emitAllTopics();},30000);poll.unref?.();
  window.addEventListener('online',()=>refreshIdentity());
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshIdentity();});
  window.addEventListener('storage',e=>{
-  if(e.key===SIGNAL){epoch++;owner=null;context=null;clearTimeout(timer);changed();if(identityBusy)identityBusy.finally(()=>refreshIdentity());else refreshIdentity();}
+  if(e.key===SIGNAL){epoch++;owner=null;context=null;clearTimeout(timer);closeEvents();changed();if(identityBusy)identityBusy.finally(()=>refreshIdentity());else refreshIdentity();}
   else if(owner&&e.key===PREFIX+owner&&e.newValue){
    // Merge unsent operations from both tabs before rebuilding the view. Reading
    // the current value avoids replaying an older queued storage event.

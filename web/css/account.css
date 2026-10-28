@@ -70,3 +70,16 @@
 .account-body .google-signin{width:100%;max-width:520px;margin-top:8px}
 .account-body .account-status:empty{min-height:0}
 .account-body>.note{margin-top:12px}
+
+/* 我的设备：名称和状态在左，退出按钮在右 */
+.device-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.device-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--rule)}
+.device-main{display:grid;gap:2px;min-width:0}
+.device-main b{font-size:14px;overflow-wrap:anywhere}
+.device-main small{font-size:12px;line-height:1.5;color:var(--ink-3);overflow-wrap:anywhere}
+.account-setting-content .device-row button{flex:none;justify-self:auto}
+/* 设备登录页 */
+.device-stall .device-question{font-size:18px;line-height:1.6;margin:0 0 16px;overflow-wrap:anywhere}
+.device-stall .device-actions{justify-content:flex-start}
+.device-stall .device-actions .btn{min-width:96px}
+@media(max-width:640px){.device-row{flex-wrap:wrap}.device-stall .device-actions .btn{flex:1}}

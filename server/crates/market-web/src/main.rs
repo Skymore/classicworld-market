@@ -58,6 +58,7 @@ async fn main() -> Result<()> {
         state.db.clone(),
         state.events.clone(),
         state.collector_updates.clone(),
+        state.account_events.clone(),
     ));
     let listener = tokio::net::TcpListener::bind(config.bind)
         .await

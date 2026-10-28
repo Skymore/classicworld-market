@@ -55,6 +55,7 @@ const Collect = lazy(async () => {
 const Home = lazy(() => import("./pages/home"));
 const Prices = lazy(() => import("./pages/prices"));
 const Account = lazy(() => import("./pages/account"));
+const Device = lazy(() => import("./pages/device"));
 const Contributors = lazy(() => import("./pages/contributors"));
 const Traffic = lazy(async () => {
   await ensureStyle("traffic");
@@ -67,6 +68,7 @@ const pageRoutes = [
   "/alerts",
   "/tools",
   "/account",
+  "/device",
   "/privacy",
   "/contributors",
   "/traffic",
@@ -135,6 +137,7 @@ function Application() {
       ? words("强化计算器", "Enhancement calculator")
       : words("工具", "Tools"),
     account: words("我的", "My profile"),
+    device: words("设备登录", "Device sign-in"),
     privacy: words("账号隐私说明", "Account privacy"),
     contributors: words("采集贡献榜", "Contributors"),
     traffic: words("网站流量", "Website traffic"),
@@ -229,6 +232,7 @@ function Application() {
             <Route path="/" element={<Home />} />
             <Route path="/prices/*" element={<Prices />} />
             <Route path="/account" element={<Account />} />
+            <Route path="/device" element={<Device />} />
             <Route path="/contributors" element={<Contributors />} />
             <Route path="/traffic" element={<Traffic />} />
             <Route path="/watch/*" element={<Watch />} />

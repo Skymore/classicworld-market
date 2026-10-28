@@ -6,6 +6,8 @@ import './watch-groups.css';
 
 // No price, no other condition and no alert: the item is only watched for its prices.
 export const trackOnly=(g:any)=>!g.notify&&!g.buy&&g.cap===null&&g.reminder.percentile==='all'&&!reminderTokens(g.reminder).length;
+// SWEEP.md §3: only a fixed price cap, any percentile and known equipment stats can sweep.
+export const sweepable=(g:any)=>g.cap!==null&&g.cap>0&&g.reminder.percentile==='all'&&g.reminder.equipment!=='missing';
 
 export default function WatchGroups({id,name,setting,rows,reference,onChange,sweep=false,autoEdit=false}: {
   id:number; name:string; setting:any; rows:any[]; reference:any; onChange(patch:any):void; sweep?:boolean; autoEdit?:boolean;
@@ -25,12 +27,12 @@ export default function WatchGroups({id,name,setting,rows,reference,onChange,swe
   function addGroup() {
     const key=crypto.randomUUID();write([...groups,{id:key,name:'',cap:null,notify:true,buy:false,reminder:{}}]);setEditing(key);
   }
-  // Sweeping runs only in the scanner client; elsewhere the box shows only for groups that already sweep.
+  // Sweeping needs an account; for guests the box shows only on groups that already sweep.
   const buying=groups.some((g:any)=>g.buy), several=groups.length>1;
   return <div className="watch-groups">
     {groups.map((g:any,index:number)=>{
       const selected=reminderSelection(rows,id,g,reference), tokens=reminderTokens(g.reminder,document.documentElement.lang==='en');
-      const canBuy=g.cap!==null&&g.cap>0&&g.reminder.percentile==='all'&&g.reminder.equipment!=='missing';
+      const canBuy=sweepable(g);
       const label=g.name||(several?words(`条件 ${index+1}`,`Group ${index+1}`):''), tracking=trackOnly(g);
       return <Fragment key={g.id}>
         <div className="wg-rule" data-watch-group={g.id}>

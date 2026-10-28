@@ -94,8 +94,9 @@ def status_text(value):
 
 
 class DesktopController:
-    def __init__(self, collector, *, modules=None, windows=game_windows):
+    def __init__(self, collector, *, modules=None, windows=game_windows, sweep=None):
         self.collector = collector
+        self.sweep = sweep
         self._modules = modules or scanner_modules()
         self._windows = windows
         self._lock = threading.RLock()
@@ -291,8 +292,10 @@ class DesktopController:
                 self._on_scan, paused=self._modules['is_paused'])
             started = threading.Event()
             started.set()
+            # The sweep engine buys in shops the scanner opens; it decides per visit.
+            hooks = dict(shop_callback=self.sweep.on_shop_open, capture_receipt=self.sweep.receipt) if self.sweep else {}
             outcome = self._modules['run'](self._folder, self._hwnd, started, self._stop,
-                                          self._on_scan, assignments=assignments)
+                                          self._on_scan, assignments=assignments, **hooks)
             if outcome and outcome.get('reason') == 'room_scan_incomplete':
                 raise RuntimeError('当前洞扫描未完成，请重新开始。')
         except Exception as error:
@@ -324,11 +327,8 @@ class DesktopController:
 
     def read_local_status(self):
         folder = self.collector.folder
-        try:
-            sweep = json.loads((folder/'sweep-beta/status.json').read_text(encoding='utf-8'))
-            self._change(sweep={key:sweep.get(key) for key in ('enabled','units','spent','message')})
-        except (OSError, ValueError, TypeError):
-            pass
+        if self.sweep:
+            self._change(sweep=self.sweep.summary())
         try:
             capture = json.loads((folder/'passive_status.json').read_text(encoding='utf-8'))
             fresh = 0 <= time.time() - capture.get('time', 0) < 10
@@ -390,6 +390,8 @@ class DesktopController:
                 if self._worker:
                     self._worker.join(timeout=40)
                 release_keys()
+                if self.sweep:
+                    self.sweep.close()
                 self.collector.close()
                 self.collector.thread.join(timeout=40)
                 self._closed.set()
@@ -404,7 +406,7 @@ class DesktopAPI:
     def __init__(self, controller):
         self._controller = controller
         from desktop_workspace import DesktopWorkspace
-        self._workspace = DesktopWorkspace(controller.collector)
+        self._workspace = DesktopWorkspace(controller.collector, controller.sweep)
 
     def ready(self):
         self._controller._ready = True
@@ -428,7 +430,10 @@ def main(collector, argv=None):
     args = parser.parse_args(argv)
     if args.trace_channels:
         os.environ['CW_SCANNER_CHANNEL_TRACE'] = str(RUNS / ('channel_diagnostics_' + datetime.now().strftime('%Y%m%d_%H%M%S')))
-    controller = DesktopController(collector)
+    from collector_sweep import create_engine
+    sweep = create_engine(collector)
+    sweep.start()
+    controller = DesktopController(collector, sweep=sweep)
     controller._bound = max(0, args.stop_after_visits)
     assets = Path(__file__).resolve().parent/'desktop_ui/index.html'
     if not assets.is_file():

@@ -70,6 +70,7 @@ async fn web_shell_and_assets() {
         "/alerts",
         "/tools",
         "/tools/enhancement",
+        "/device",
         "/v2",
     ] {
         let res = get(path).await.unwrap();

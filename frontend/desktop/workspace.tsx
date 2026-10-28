@@ -1,37 +1,163 @@
-import {useEffect,useRef,useState} from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { clockTime, mesos, participantLabel, purchaseLabel, purchasePlace } from '../src/lib/sweep-labels';
 
-const defaults={budget:1000000,maxOrder:400000,wallet:1500000,reserve:200000,slots:24,reserveSlots:4};
-const groups=(v:any)=>Array.isArray(v?.groups)?v.groups:[{id:'default',name:'',cap:v?.cap??null,notify:v?.notify!==false,buy:false,reminder:v?.reminder||{}}];
-const invoke=(name:string,value?:any)=>window.pywebview!.api.workspace(name,value);
-export default function Workspace({tab}:{tab:'sweep'|'account'}){
- const [data,setData]=useState<any>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
- const [limits,setLimits]=useState(defaults),[limitsDirty,setLimitsDirty]=useState(false);
- const account=useRef<string|undefined>(undefined);
- const records=data?.records||[],simulation=data?.simulation;
- function accept(next:any){
-  if(account.current!==next.public_id){setLimitsDirty(false);account.current=next.public_id;}
-  setData(next);
- }
- useEffect(()=>{let alive=true;let running=false;async function poll(){if(running)return;running=true;try{const next=await invoke('status');if(alive){accept(next);setError('');}}catch(e){if(alive)setError(String((e as Error).message||e));}finally{running=false;}}
-  poll();const timer=setInterval(poll,5000);return()=>{alive=false;clearInterval(timer);};},[]);
- const savedLimits=records.find((r:any)=>r.kind==='pref'&&r.key==='watch.sweepSettings');
- useEffect(()=>{if(!limitsDirty){try{setLimits({...defaults,...JSON.parse(savedLimits?.value||'{}')});}catch{}}},[JSON.stringify(savedLimits),limitsDirty]);
- const watches=records.filter((r:any)=>r.kind==='watch'&&r.value).sort((a:any,b:any)=>(a.value.position||0)-(b.value.position||0));
- const run=async(action:string,value?:any)=>{if(busy)return;setBusy(true);setError('');setNotice('');try{const next=await invoke(action,value);if(next.records)accept(next);return next;}catch(e){setError(String((e as Error).message||e));return null;}finally{setBusy(false);}};
- const save=async(operations:any[])=>run('save',{account:data.public_id,operations});
- const number=(title:string,value:any,update:(v:any)=>void,max=1e12,min=0)=><label>{title}<input type="number" min={min} max={max} step={1} value={value??''} onChange={e=>{const n=e.target.value===''?null:Number(e.target.value);if(n===null||Number.isSafeInteger(n)&&n>=min&&n<=max)update(n);}}/></label>;
- const count=watches.reduce((n:number,r:any)=>n+groups(r.value).filter((g:any)=>g.buy).length,0);
- return <section className="native-workspace stall"><div className="stall-bar"><h2>{tab==='account'?'我的账号':'扫货模拟'}</h2><span className="bar-meta">{data?.linked?`${data.nickname} · 已同步`:'未登录'}</span></div>
- <div className={"workspace-scroll"+(tab==='sweep'&&data?.linked?' sweep-workspace':'')}>
- {error&&<p className="error-banner" role="alert">{error}</p>}{notice&&<p role="status" className="workspace-notice">{notice}</p>}
- {tab==='account'?<div className="native-account"><h2>{data?.linked?data.nickname:'登录枫叶市集'}</h2><p>登录网站同一账号，关注条件会在电脑与网页间同步。</p>{data?.linked?<><span>当前扫描器已登录</span><button className="ui-btn" disabled={busy} onClick={()=>run('logout',{account:data.public_id})}>退出本机账号</button></>:<button className="ui-btn primary" disabled={busy} onClick={async()=>{if(await run('login'))setNotice('请在浏览器完成登录并关联此扫描器，完成后这里会自动更新。');}}>登录 / 注册</button>}</div>:
- !data?.linked?<div className="native-account"><h2>登录后同步关注</h2><p>使用网站的账号，已有关注会自动出现在这里。</p><button className="ui-btn primary" disabled={busy} onClick={async()=>{if(await run('login'))setNotice('请在浏览器完成登录并关联此扫描器。');}}>登录 / 注册</button></div>:<>
- <div className="native-sweep-bar"><div><b>扫货内测 · 仅模拟</b><p>{count} 组已选 · {simulation?.enabled?'模拟运行中':'模拟已停止'} · {simulation?.units||0} 件 · {(simulation?.spent||0).toLocaleString()} 金币</p></div><button className="ui-btn primary" disabled={busy||!simulation||(!simulation.enabled&&(limitsDirty||!count))} onClick={async()=>{
-  if(simulation.enabled){await run('stop');return;}if(!savedLimits){const next=await save([{kind:'pref',key:'watch.sweepSettings',value:JSON.stringify(limits),version:0}]);if(!next)return;}await run('start',{account:data.public_id});
- }}>{simulation?.enabled?'停止模拟':'开始模拟'}</button></div>
- {simulation?.message&&<p className="workspace-note">{simulation.message}</p>}
- <details className="native-budget"><summary>预算与背包</summary><div className="native-fields">{([['budget','本轮预算'],['maxOrder','单笔上限'],['wallet','模拟钱包余额'],['reserve','保留金币'],['slots','每类背包模拟空格'],['reserveSlots','每类背包保留格']] as const).map(([k,label])=><div key={k}>{number(label,limits[k],v=>{setLimits({...limits,[k]:v??0});setLimitsDirty(true);},k.toLowerCase().includes('slots')?96:1e12)}</div>)}</div><button className="ui-btn" disabled={busy||(!limitsDirty&&!!savedLimits)} onClick={async()=>{if(await save([{kind:'pref',key:'watch.sweepSettings',version:savedLimits?.version||0,value:JSON.stringify(limits)}])){setLimitsDirty(false);setNotice('预算已保存');}}}>保存预算</button></details>
- <details className="native-history"><summary>本轮模拟记录 · {simulation?.checked||0} 家已检查</summary>{(simulation?.recent||[]).map((r:any)=><div key={r.key} className="native-history-row"><span>{r.name} × {r.units||0}<small>FM {r.room} · CH {r.channel}</small></span><span>{r.reason||'模拟买入'} · {(r.cost||0).toLocaleString()}</span></div>)}</details>
- </>}
- </div></section>;
+// window.pywebview.api.workspace(action, value), implemented by desktop_workspace.py.
+export interface SweepSettings { allow_web_start: boolean; max_spend: number; max_order: number; reserve_mesos: number }
+export interface DeviceRun {
+  id: string; status: string; budget: number; remaining: number; ends_at: string | number;
+  started_by: string; state: string; message?: string | null; spent_here: number; plan_version: number;
+}
+export interface RecentPurchase {
+  name: string; item_id: number; status: string; quantity: number; units: number; spent: number;
+  reason?: string | null; room?: number | null; channel?: number | null; owner?: string | null; at?: string | number;
+}
+export interface WorkspaceStatus {
+  linked: boolean;
+  account: { id: string; nickname: string } | null;
+  device: { id: string; name: string } | null;
+  sweep: {
+    settings: SweepSettings; executor: { ready: boolean; reason?: string };
+    run: DeviceRun | null; recent: RecentPurchase[]; message?: string;
+  } | null;
+}
+const POLL_MS = 5000;
+const MAX_MESOS = 1e12;
+const DEFAULT_MINUTES = 120;
+const zh = (s: string) => s;
+const invoke = (action: string, value?: unknown) => window.pywebview!.api.workspace(action, value);
+const errorText = (e: unknown) => {
+  const raw = String((e as Error)?.message || e);
+  const codes: Record<string, string> = {
+    login_required: '请先登录', sweep_running: '已有一轮扫货在进行', no_sweep_groups: '没有可扫货的条件组',
+    invalid_request: '数值不正确', sweep_stopped: '本轮已结束', unavailable: '暂时连不上服务器',
+  };
+  return codes[raw] || raw;
+};
+
+/** Status shared by the sweep tab, the account tab and the scan page's status line. */
+export function useWorkspaceStatus() {
+  const [status, setStatus] = useState<WorkspaceStatus | null>(null), [error, setError] = useState('');
+  useEffect(() => {
+    let alive = true, running = false;
+    async function poll() {
+      if (running || typeof window.pywebview?.api?.workspace !== 'function') return;
+      running = true;
+      try { const next = await invoke('status'); if (alive) { setStatus(next); setError(''); } }
+      catch (e) { if (alive) setError(errorText(e)); }
+      finally { running = false; }
+    }
+    poll();
+    const timer = setInterval(poll, POLL_MS);
+    window.addEventListener('pywebviewready', poll);
+    return () => { alive = false; clearInterval(timer); window.removeEventListener('pywebviewready', poll); };
+  }, []);
+  return { status, setStatus, error };
+}
+export type Workspace = ReturnType<typeof useWorkspaceStatus>;
+
+/** A non-negative whole number of mesos, or null. */
+const amount = (text: string, min = 0) => {
+  const n = Number(text);
+  return text.trim() !== '' && Number.isSafeInteger(n) && n >= min && n <= MAX_MESOS ? n : null;
+};
+function NumberField({ label, value, onChange, hint, name, min = 0, max = MAX_MESOS }: {
+  label: string; value: string; onChange(v: string): void; hint?: ReactNode; name: string; min?: number; max?: number;
+}) {
+  return <label><span>{label}{hint && <small>{hint}</small>}</span>
+    <input name={name} type="number" inputMode="numeric" min={min} max={max} step={1} value={value} onChange={e => onChange(e.target.value)} /></label>;
+}
+
+export default function WorkspaceTab({ tab, workspace }: { tab: 'sweep' | 'account'; workspace: Workspace }) {
+  const { status, setStatus, error: pollError } = workspace;
+  const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
+  async function run(action: string, value?: unknown) {
+    if (busy) return null;
+    setBusy(true); setError(''); setNotice('');
+    try { const next = await invoke(action, value); if (next && 'linked' in next) setStatus(next); return next; }
+    catch (e) { setError(errorText(e)); return null; }
+    finally { setBusy(false); }
+  }
+  async function login() { if (await run('login')) setNotice('请在浏览器中完成登录'); }
+  const linked = Boolean(status?.linked);
+  const title = tab === 'account' ? '我的账号' : '扫货';
+  return <section className="native-workspace stall"><div className="stall-bar"><h2>{title}</h2>
+    <span className="bar-meta" data-workspace-meta>{!status ? '正在连接…' : linked ? [status.account?.nickname, status.device?.name].filter(Boolean).join(' · ') : '未登录'}</span></div>
+    <div className="workspace-scroll">
+      {(error || pollError) && <p className="error-banner" role="alert">{error || pollError}</p>}
+      {notice && <p role="status" className="workspace-notice">{notice}</p>}
+      {!status ? <p className="workspace-note">正在连接采集器…</p>
+        : tab === 'account' ? <AccountPane status={status} busy={busy} login={login} logout={() => run('logout')} />
+        : !linked ? <div className="native-account"><h2>登录后扫货</h2><button className="ui-btn primary" disabled={busy} onClick={login}>登录</button></div>
+        : status.sweep ? <SweepPane sweep={status.sweep} deviceId={status.device?.id} busy={busy} run={run} />
+        : <p className="workspace-note">扫货暂不可用</p>}
+    </div></section>;
+}
+
+function AccountPane({ status, busy, login, logout }: { status: WorkspaceStatus; busy: boolean; login(): void; logout(): void }) {
+  return status.linked
+    ? <div className="native-account" data-account-pane="signed-in"><h2>{status.account?.nickname || '已登录'}</h2>
+        {status.device?.name && <span>本机：{status.device.name}</span>}
+        <button className="ui-btn" disabled={busy} onClick={logout}>退出登录</button></div>
+    : <div className="native-account" data-account-pane="signed-out"><h2>登录枫叶市集</h2><p>关注和扫货在电脑与网页间同步</p>
+        <button className="ui-btn primary" disabled={busy} onClick={login}>登录</button></div>;
+}
+
+function SweepPane({ sweep, deviceId, busy, run }: {
+  sweep: NonNullable<WorkspaceStatus['sweep']>; deviceId?: string; busy: boolean; run(action: string, value?: unknown): Promise<any>;
+}) {
+  const saved = sweep.settings;
+  const [draft, setDraft] = useState<Record<keyof SweepSettings, string | boolean> | null>(null);
+  const shown = draft || { allow_web_start: saved.allow_web_start, max_spend: String(saved.max_spend), max_order: String(saved.max_order), reserve_mesos: String(saved.reserve_mesos) };
+  const parsed = { allow_web_start: Boolean(shown.allow_web_start), max_spend: amount(String(shown.max_spend)), max_order: amount(String(shown.max_order)), reserve_mesos: amount(String(shown.reserve_mesos)) };
+  const settingsValid = parsed.max_spend !== null && parsed.max_order !== null && parsed.reserve_mesos !== null;
+  const edit = (key: keyof SweepSettings, value: string | boolean) => setDraft({ ...shown, [key]: value });
+  const [budget, setBudget] = useState(''), [minutes, setMinutes] = useState(String(DEFAULT_MINUTES));
+  const budgetValue = amount(budget, 1), minutesValue = Number(minutes);
+  const minutesValid = Number.isInteger(minutesValue) && minutesValue >= 5 && minutesValue <= 720;
+  const current = sweep.run, executor = sweep.executor;
+  const blocked = !executor.ready ? (executor.reason || '不能扫货') : saved.max_spend === 0 ? '先设置本机每轮最多花' : '';
+  return <div className="native-sweep" data-native-sweep>
+    <p className={'native-executor' + (executor.ready ? ' ready' : '')} data-executor><i aria-hidden="true" />{executor.ready ? '可以扫货' : executor.reason || '不能扫货'}</p>
+    {sweep.message && <p className="workspace-note" data-sweep-message>{sweep.message}</p>}
+    <div className="native-block" data-sweep-run>
+      {current ? <>
+        <div className="native-block-head"><b>{current.status === 'running' ? '运行中' : '已结束'}</b>
+          <span>{[current.state !== 'active' && participantLabel(current.state, zh), current.started_by === 'web' ? '网页发起' : current.started_by === deviceId ? '本机发起' : '其他设备发起'].filter(Boolean).join(' · ')}</span>
+          <button className="ui-btn" data-native-stop disabled={busy} onClick={() => run('stop')}>停止</button></div>
+        <div className="native-stats">
+          <div><small>预算</small><b>{mesos(current.budget)}</b></div>
+          <div><small>剩余</small><b>{mesos(current.remaining)}</b></div>
+          <div><small>本机已花</small><b>{mesos(current.spent_here)}</b></div>
+          <div><small>结束</small><b>{clockTime(current.ends_at)}</b></div>
+        </div>
+        {current.message && <p className="workspace-note" data-run-message>{current.message}</p>}
+      </> : <>
+        <div className="native-block-head"><b>本机开始</b>{blocked && <span>{blocked}</span>}</div>
+        <div className="native-fields">
+          <NumberField name="budget" label="预算" value={budget} onChange={setBudget} min={1} hint={budgetValue ? ` · ${mesos(budgetValue)}` : undefined} />
+          <NumberField name="minutes" label="时长（分钟）" value={minutes} onChange={setMinutes} min={5} max={720} />
+          <div className="native-field-action"><button className="ui-btn primary" data-native-start disabled={busy || Boolean(blocked) || !budgetValue || !minutesValid}
+            onClick={() => run('start', { budget: budgetValue, minutes: minutesValue })}>本机开始</button></div>
+        </div>
+      </>}
+    </div>
+    <div className="native-block" data-sweep-settings>
+      <div className="native-block-head"><b>本机设置</b></div>
+      <button type="button" className={'toggle' + (shown.allow_web_start ? ' on' : '')} aria-pressed={Boolean(shown.allow_web_start)} data-allow-web onClick={() => edit('allow_web_start', !shown.allow_web_start)}><i />允许网页启动扫货</button>
+      <div className="native-fields">
+        <NumberField name="max_spend" label="本机每轮最多花" value={String(shown.max_spend)} onChange={v => edit('max_spend', v)} hint={parsed.max_spend ? ` · ${mesos(parsed.max_spend)}` : undefined} />
+        <NumberField name="max_order" label="单笔上限" value={String(shown.max_order)} onChange={v => edit('max_order', v)} hint={parsed.max_order === 0 ? ' · 不限' : parsed.max_order ? ` · ${mesos(parsed.max_order)}` : undefined} />
+        <NumberField name="reserve_mesos" label="保留金币" value={String(shown.reserve_mesos)} onChange={v => edit('reserve_mesos', v)} hint={parsed.reserve_mesos ? ` · ${mesos(parsed.reserve_mesos)}` : undefined} />
+      </div>
+      <div className="native-save-row"><button className="ui-btn" data-save-settings disabled={busy || !draft || !settingsValid}
+        onClick={async () => { if (await run('settings', parsed)) setDraft(null); }}>保存</button></div>
+    </div>
+    <div className="native-block" data-sweep-recent>
+      <div className="native-block-head"><b>最近购买</b><span>{sweep.recent.length || ''}</span></div>
+      {sweep.recent.length ? sweep.recent.map((row, i) => <div className="native-history-row" key={`${row.at}-${row.item_id}-${i}`} data-recent-status={row.status}>
+        <span>{row.name || row.item_id}{(row.units || row.quantity) > 0 && ` × ${row.units || row.quantity}`}<small>{[purchasePlace(row), clockTime(row.at)].filter(s => s && s !== '—').join(' · ')}</small></span>
+        <span className="native-history-side"><b>{row.status === 'bought' ? mesos(row.spent) : '—'}</b><small className={'native-status ' + row.status}>{purchaseLabel(row, zh)}</small></span>
+      </div>) : <p className="workspace-note">还没有购买</p>}
+    </div>
+  </div>;
 }

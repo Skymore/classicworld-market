@@ -33,6 +33,7 @@ async fn committed_release_notice_reaches_existing_and_reconnecting_collectors()
         state.db.clone(),
         state.events.clone(),
         state.collector_updates.clone(),
+        state.account_events.clone(),
     ));
     tokio::time::timeout(Duration::from_secs(5), market.recv())
         .await

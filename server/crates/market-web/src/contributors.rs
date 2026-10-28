@@ -357,18 +357,30 @@ async fn accept_link(
     let Some(c) = c else {
         return error(StatusCode::CONFLICT, "expired_link");
     };
-    let result=sqlx::query("UPDATE collectors SET account_id=$2 WHERE id=$1 AND active AND (account_id IS NULL OR account_id=$2)").bind(c).bind(s.id).execute(&mut *tx).await;
-    match result {
-        Ok(r) if r.rows_affected() == 1 => {}
-        Ok(_) => return error(StatusCode::CONFLICT, "already_linked"),
+    match link_collector(&mut tx, c, s.id).await {
+        Ok(true) => {}
+        Ok(false) => return error(StatusCode::CONFLICT, "already_linked"),
         Err(e) => return internal(e),
     }
-    if let Err(e)=sqlx::query("UPDATE accounts a SET nickname=c.nickname,listed=c.listed,nickname_temporary=c.nickname_temporary FROM collectors c WHERE a.id=$1 AND c.id=$2 AND a.nickname_temporary AND c.nickname<>'' AND (SELECT count(*) FROM collectors WHERE account_id=a.id)=1")
-        .bind(s.id).bind(c).execute(&mut *tx).await{return internal(e)}
     if let Err(e) = tx.commit().await {
         return internal(e);
     }
     Json(json!({"ok":true})).into_response()
+}
+/// Binds an active collector unless another account owns it. A temporary
+/// account nickname takes over the profile of its first collector.
+pub(crate) async fn link_collector(
+    tx: &mut sqlx::PgConnection,
+    collector: i64,
+    account: i64,
+) -> sqlx::Result<bool> {
+    let linked = sqlx::query("UPDATE collectors SET account_id=$2 WHERE id=$1 AND active AND (account_id IS NULL OR account_id=$2)")
+        .bind(collector).bind(account).execute(&mut *tx).await?.rows_affected() == 1;
+    if linked {
+        sqlx::query("UPDATE accounts a SET nickname=c.nickname,listed=c.listed,nickname_temporary=c.nickname_temporary FROM collectors c WHERE a.id=$1 AND c.id=$2 AND a.nickname_temporary AND c.nickname<>'' AND (SELECT count(*) FROM collectors WHERE account_id=a.id)=1")
+            .bind(account).bind(collector).execute(&mut *tx).await?;
+    }
+    Ok(linked)
 }
 
 #[derive(Deserialize)]

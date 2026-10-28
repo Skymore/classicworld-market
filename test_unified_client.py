@@ -44,6 +44,18 @@ class UnifiedTests(unittest.TestCase):
                 next_runtime=CollectorRuntime(options,[])
             self.assertEqual(next_runtime.statistics()['run_shops'],0,'fresh launch does not count historical files')
 
+    def test_sweep_engine_receives_each_new_capture_file_once(self):
+        with tempfile.TemporaryDirectory() as folder:
+            options=argparse.Namespace(home=Path(folder),config=None,folder=None,backend='windows',no_update=True)
+            with patch('threading.Thread.start'):
+                runtime=CollectorRuntime(options,[])
+            seen=[]
+            runtime.add_listener(seen.append)
+            runtime._notify({'type':'captured','file':'shop_a.json','items':2})
+            runtime._notify({'type':'captured','file':'shop_a.json','items':2})
+            self.assertEqual([e['type'] for e in seen],['captured','run_stats'])
+            self.assertEqual(seen[0]['file'],'shop_a.json')
+
     def test_capture_failure_keeps_traceback_in_runtime_log(self):
         with tempfile.TemporaryDirectory() as folder:
             options=argparse.Namespace(home=Path(folder),config=None,folder=None,

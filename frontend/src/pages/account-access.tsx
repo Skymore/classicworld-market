@@ -14,10 +14,129 @@ import {
   retryConflicts,
   flush,
   beforeSignOut,
+  adoptAccount,
 } from "/web/js/lib/user-data.js";
 import { useWords } from "../providers";
 import type { Account } from "../lib/types";
 import { Button } from "../components/ui/button";
+import { queryClient } from "../lib/query";
+
+type Words = (zh: string, en: string) => string;
+const ACCOUNT_MESSAGES: Record<string, [string, string]> = {
+  invalid_nickname: [
+    "昵称需要 2–24 个字，可用中文、字母、数字、空格和 _-.。",
+    "Use 2–24 letters, numbers, spaces or _-. for your nickname.",
+  ],
+  expired_link: [
+    "绑定链接已过期，请在采集器中重新点击绑定。",
+    "This link expired. Start linking again in the collector.",
+  ],
+  already_linked: [
+    "这个采集器已经绑定了其他账号。",
+    "This collector belongs to another account.",
+  ],
+  manage_on_website: [
+    "请在官网的「我的」中修改昵称。",
+    "Edit your nickname on the website under My profile.",
+  ],
+  login_failed: [
+    "登录未完成，请重试。",
+    "Sign-in did not finish. Please try again.",
+  ],
+  google_unavailable: [
+    "Google 登录暂未开放，可使用用户名和密码登录。",
+    "Google sign-in is unavailable. You can sign in with a username and password.",
+  ],
+  invalid_username: [
+    "用户名需为 3–32 个英文字母、数字、下划线、点或短横线，并以字母或数字开头。",
+    "Use 3–32 letters, numbers, underscores, dots or hyphens, starting with a letter or number.",
+  ],
+  invalid_password: [
+    "密码需为 15–128 个字符，可使用长句作为密码。",
+    "Use a password of 15–128 characters. A long passphrase works well.",
+  ],
+  password_mismatch: ["两次输入的密码不一致。", "The passwords do not match."],
+  invalid_credentials: [
+    "用户名或密码不正确。",
+    "Incorrect username or password.",
+  ],
+  username_unavailable: [
+    "这个用户名暂时不可用，请换一个。",
+    "That username is unavailable. Please choose another.",
+  ],
+  invalid_current_password: [
+    "当前密码不正确。",
+    "The current password is incorrect.",
+  ],
+  invalid_recovery: [
+    "用户名或恢复码不正确，已使用的恢复码无法再次使用。",
+    "Incorrect username or recovery code. Used recovery codes cannot be reused.",
+  ],
+  google_already_linked: [
+    "这个 Google 账号已有关联，未更改任何绑定。请登录原账号查看。",
+    "This Google identity is already linked. No links were changed.",
+  ],
+  last_login_method: [
+    "请先设置账号密码，再解绑 Google。",
+    "Set an account password before unlinking Google.",
+  ],
+  reauth_required: [
+    "请重新登录后再修改登录方式。",
+    "Sign in again before changing login methods.",
+  ],
+  rate_limited: [
+    "请求较多，请稍后重试。",
+    "Too many attempts. Please try again later.",
+  ],
+  watch_limit: [
+    "合并后超过 100 个关注商品，请先调整清单再合并。原数据已保留。",
+    "The merged list would exceed 100 watches. Adjust the lists before merging.",
+  ],
+  login_required: [
+    "登录已过期，请重新登录。",
+    "Your session expired. Please sign in again.",
+  ],
+};
+/** The short message for an account API error code. */
+export function accountMessage(words: Words, code: string) {
+  return words(
+    ...(ACCOUNT_MESSAGES[code] || [
+      "暂时没有连接成功，请稍后重试。",
+      "Could not connect. Please try again.",
+    ]),
+  );
+}
+/** A same-origin account write with the session's CSRF token. */
+export async function postAccount(
+  csrf: string | undefined,
+  path: string,
+  data: unknown,
+) {
+  const response = await fetch(path, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "X-CSRF-Token": csrf } : {}),
+    },
+    body: JSON.stringify(data),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw Error(body.error || "unavailable");
+  return body;
+}
+/** Reloads the profile and hands it to the account data store. */
+export async function refreshAccount(broadcast = false) {
+  const response = await fetch("/api/v1/account", {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (!response.ok) throw Error("unavailable");
+  const next = await response.json();
+  await adoptAccount(next, { broadcast });
+  queryClient.setQueryData(["account"], next);
+  window.dispatchEvent(new CustomEvent("account-changed", { detail: next }));
+}
 
 interface Result {
   recovery_code?: string;

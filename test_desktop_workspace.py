@@ -2,44 +2,56 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
+from account_device import DeviceError
 from desktop_workspace import DesktopWorkspace
+
+STATUS = {'linked': True, 'account': {'id': 'acct', 'nickname': 'N'}, 'device': {'id': 'dev', 'name': 'PC'},
+          'sweep': {'settings': {}, 'executor': {'ready': False, 'reason': '此电脑尚未安装购买执行器'},
+                    'run': None, 'recent': [], 'message': ''}}
 
 
 class DesktopWorkspaceTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
-        self.workspace=DesktopWorkspace(Mock(home=Path(self.temp.name),folder=Path(self.temp.name)))
+        runtime=Mock(home=Path(self.temp.name),folder=Path(self.temp.name))
+        runtime.configuration.return_value={'endpoint':'https://mxd.ruit.me','token':'collector-secret'}
+        self.sweep=Mock()
+        self.sweep.status.return_value=STATUS
+        self.workspace=DesktopWorkspace(runtime,self.sweep)
         self.workspace.gateway=Mock(last_error=False)
-        self.workspace.local=Mock(return_value={'mode':'simulate','enabled':False})
 
-    def test_rules_are_loaded_from_current_account_not_frontend_payload(self):
-        group=dict(id='one',buy=True,cap=123,notify=False,reminder={})
-        records=[dict(kind='watch',key='1002000',value=dict(groups=[group],buyLimit=2)),dict(kind='pref',key='watch.sweepSettings',value='{"budget":500}')]
-        self.workspace.gateway.fetch.side_effect=[{'revision':'v1'},{'linked':True,'public_id':'owner','records':records},{'items':[{'item_id':1002000,'name_zh':'Hat'}]},{'base_stats':{'1002000':[['str',1]]}},{'linked':True,'public_id':'owner','records':records}]
-        self.workspace.run('start',{'account':'owner','watches':[{'cap':99999}],'mode':'real'})
-        sent=self.workspace.local.call_args_list[0].args[0]
-        self.assertEqual(sent['mode'],'simulate');self.assertEqual(sent['watches'][0]['groups'][0]['cap'],123)
-        self.assertEqual(sent['expected_revision'],'v1');self.assertEqual(sent['watches'][0]['base_stats'],[['str',1]])
+    def test_status_and_sweep_commands_go_to_the_engine(self):
+        self.assertEqual(self.workspace.run('status'),STATUS)
+        settings={'allow_web_start':True,'max_spend':1000,'max_order':0,'reserve_mesos':0}
+        self.assertEqual(self.workspace.run('settings',settings),STATUS)
+        self.sweep.save_settings.assert_called_once_with(settings)
+        self.workspace.run('start',{'budget':1000,'minutes':60})
+        self.sweep.start_run.assert_called_once_with({'budget':1000,'minutes':60})
+        self.workspace.run('stop')
+        self.sweep.stop_run.assert_called_once_with()
+        self.assertEqual(self.workspace.run('logout'),STATUS)
+        self.sweep.logout.assert_called_once_with()
 
-    def test_account_switch_prevents_start(self):
-        self.workspace.gateway.fetch.side_effect=[{'revision':'v2'},{'linked':True,'public_id':'other','records':[]}]
-        with self.assertRaises(ValueError):self.workspace.run('start',{'account':'old'})
-        self.workspace.local.assert_not_called()
+    def test_errors_are_short_chinese_messages(self):
+        self.sweep.start_run.side_effect=DeviceError(409,{'error':'sweep_running'})
+        with self.assertRaisesRegex(ValueError,'已有进行中的扫货'):self.workspace.run('start',{'budget':1,'minutes':5})
+        self.sweep.stop_run.side_effect=OSError('offline')
+        with self.assertRaisesRegex(ValueError,'同步暂不可用'):self.workspace.run('stop')
+        self.sweep.save_settings.side_effect=ValueError('本机设置无效')
+        with self.assertRaisesRegex(ValueError,'本机设置无效'):self.workspace.run('settings',{})
+        self.sweep.status.side_effect=DeviceError(500,{})
+        with self.assertRaisesRegex(ValueError,'操作失败'):self.workspace.run('status')
 
-    def test_login_never_opens_untrusted_url_or_returns_token(self):
-        self.workspace.gateway.update.return_value={'url':'https://evil.example/account?link=x'}
-        with patch('webbrowser.open') as browser:
-            with self.assertRaises(ValueError):self.workspace.run('login')
+    def test_login_opens_only_the_official_device_page_and_returns_no_secret(self):
+        with patch('webbrowser.open') as browser, patch.object(self.workspace,'local') as local:
+            for bad in ['https://evil.example/device?x','https://mxd.ruit.me/account?link=x','https://mxd.ruit.me.evil/device?x',None]:
+                local.return_value={'url':bad}
+                with self.assertRaises(ValueError):self.workspace.run('login')
             browser.assert_not_called()
-            self.workspace.gateway.update.return_value={'url':'https://mxd.ruit.me/account?link=synthetic'}
+            local.return_value={'url':'https://mxd.ruit.me/device?redirect_uri=x&state=s&challenge=c&name=PC'}
             self.assertEqual(self.workspace.run('login'),{'opened':True})
-
-    def test_save_stops_simulation_and_preserves_version(self):
-        self.workspace.gateway.fetch.return_value={'linked':True,'public_id':'owner','records':[]}
-        change={'account':'owner','operations':[{'kind':'watch','key':'1002000','version':3,'value':None}]}
-        self.workspace.run('save',change)
-        self.workspace.local.assert_any_call({'action':'stop'})
-        self.workspace.gateway.update.assert_called_once_with('/api/v1/collector/watch-data',change)
+            local.assert_called_with('/api/v1/device/login',{})
+            browser.assert_called_once_with(local.return_value['url'])
 
     def test_page_uses_only_trusted_local_routes(self):
         (self.workspace.runtime.home/'dashboard.json').write_text('{"url":"http://127.0.0.1:8780/alerts"}')
@@ -48,7 +60,11 @@ class DesktopWorkspaceTests(unittest.TestCase):
         (self.workspace.runtime.home/'dashboard.json').write_text('{"url":"https://example.com/alerts"}')
         with self.assertRaises(ValueError):self.workspace.run('page',{'page':'prices'})
 
-    def test_no_arbitrary_command(self):
-        with self.assertRaises(ValueError):self.workspace.run('shell','anything')
+    def test_catalog_and_no_arbitrary_command(self):
+        self.workspace.gateway.fetch.return_value={'items':[]}
+        self.assertEqual(self.workspace.run('catalog'),{'items':[]})
+        self.workspace.gateway.fetch.assert_called_with('/api/v1/watchlist/catalog',300,timeout=8)
+        for action in ('shell','save','simulate'):
+            with self.assertRaises(ValueError):self.workspace.run(action,'anything')
 
 if __name__=='__main__':unittest.main()

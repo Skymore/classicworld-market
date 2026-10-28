@@ -1,15 +1,20 @@
-"""Native desktop account/watch commands. Credentials never enter the WebView."""
-import hashlib
+"""Native desktop account, watch and sweep commands. Credentials never enter the WebView."""
 import json
-import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
-from collector_dashboard import Gateway
+from account_device import DeviceError
+from collector_dashboard import Gateway, safe_endpoint
+
+ERRORS = {'login_required': '请重新登录账号', 'sweep_running': '已有进行中的扫货',
+          'rate_limited': '操作太频繁，请稍后再试', 'no_sweep_groups': '请先在关注中勾选可扫货的条件组',
+          'device_unavailable': '此电脑暂不能参加扫货', 'invalid_request': '请求无效，请检查后重试',
+          'sweep_stopped': '扫货已结束'}
 
 
 class DesktopWorkspace:
-    def __init__(self, runtime):
+    def __init__(self, runtime, sweep=None):
         self.runtime = runtime
+        self.sweep = sweep
         self.gateway = None
 
     def cloud(self):
@@ -24,100 +29,65 @@ class DesktopWorkspace:
             raise ValueError('同步暂不可用，请稍后重试')
         return value
 
-    def local(self, command=None):
+    def dashboard(self):
         state = json.loads((self.runtime.home/'dashboard.json').read_text(encoding='utf-8'))
         address = urlsplit(state['url'])
         if address.scheme != 'http' or address.hostname != '127.0.0.1' or not address.port:
             raise ValueError('本机服务地址无效')
-        base = f'http://127.0.0.1:{address.port}'
-        url = base+'/api/v1/collector/sweep'
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        with opener.open(url, timeout=8) as response:
-            current = json.load(response)
-        if command:
-            request = urllib.request.Request(url, data=json.dumps(command).encode(), headers={
-                'Content-Type':'application/json', 'Origin':base, 'X-CSRF-Token':current['csrf']})
-            with opener.open(request, timeout=10) as response:
-                current = json.load(response)
-        current.pop('csrf', None)
-        return current
+        return address.port
 
-    def status(self):
-        data = self.fetch('/api/v1/collector/watch-data')
-        try:
-            data['simulation'] = self.local()
-        except (OSError, ValueError):
-            data['simulation'] = None
-        return data
+    def local(self, path, body):
+        # The login callback lives in the loopback dashboard process, so it starts the login.
+        base = f'http://127.0.0.1:{self.dashboard()}'
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(base+path, timeout=8) as response:
+            csrf = json.load(response)['csrf']
+        request = urllib.request.Request(base+path, data=json.dumps(body).encode(), headers={
+            'Content-Type': 'application/json', 'Origin': base, 'X-CSRF-Token': csrf})
+        with opener.open(request, timeout=10) as response:
+            return json.load(response)
+
+    def engine(self):
+        if self.sweep is None:
+            raise ValueError('扫货服务未启动，请重新打开程序')
+        return self.sweep
 
     def run(self, action, value=None):
         try:
             return self._run(action, value)
-        except urllib.error.HTTPError as e:
-            if e.code == 409:
-                raise ValueError('条件已在其他设备修改，请刷新后再编辑') from None
-            if e.code in (401,403):
-                raise ValueError('请重新登录账号') from None
-            raise ValueError('同步失败，请检查条件并重试') from None
+        except DeviceError as e:
+            raise ValueError(ERRORS.get(e.code, '操作失败，请稍后重试')) from None
+        except (OSError, RuntimeError):
+            raise ValueError('同步暂不可用，请稍后重试') from None
 
     def _run(self, action, value):
         if action == 'status':
-            return self.status()
+            return self.engine().status()
         if action == 'page':
             if not isinstance(value, dict) or value.get('page') not in ('watch', 'prices'):
                 raise ValueError('无效页面')
-            state = json.loads((self.runtime.home/'dashboard.json').read_text(encoding='utf-8'))
-            address = urlsplit(state['url'])
-            if address.scheme != 'http' or address.hostname != '127.0.0.1' or not address.port:
-                raise ValueError('本机服务地址无效')
             theme = value.get('theme') if value.get('theme') in ('light','dark') else 'light'
-            return {'url': f'http://127.0.0.1:{address.port}/'+value['page']+'?lang=zh&theme='+theme}
+            return {'url': f'http://127.0.0.1:{self.dashboard()}/'+value['page']+'?lang=zh&theme='+theme}
         if action == 'catalog':
             return self.fetch('/api/v1/watchlist/catalog', 300)
         if action == 'login':
             import webbrowser
-            result = self.cloud().update('/api/v1/collector/account-link', {})
-            url = urlsplit(result.get('url',''))
-            if url.scheme != 'https' or url.netloc != 'mxd.ruit.me' or url.path != '/account':
+            url = self.local('/api/v1/device/login', {}).get('url', '')
+            expected = safe_endpoint(self.runtime.configuration()['endpoint'])+'/device?'
+            if not isinstance(url, str) or not url.startswith(expected) or len(url) > 2048:
                 raise ValueError('登录地址无效')
-            webbrowser.open(result['url'])
-            return {'opened':True}
-        if action in ('save','logout'):
-            if not isinstance(value,dict):raise ValueError('无效设置')
-            self.local({'action':'stop'})
-            path = '/api/v1/collector/watch-data' if action == 'save' else '/api/v1/collector/account-disconnect'
-            self.cloud().update(path, value)
-            return self.status()
-        if action == 'stop':
-            self.local({'action':'stop'})
-            return self.status()
+            webbrowser.open(url)
+            return {'opened': True}
+        if action == 'logout':
+            self.engine().logout()
+            return self.engine().status()
+        if action == 'settings':
+            self.engine().save_settings(value)
+            return self.engine().status()
         if action == 'start':
-            revision = self.fetch('/api/v1/collector/watch-revision')['revision']
-            data = self.fetch('/api/v1/collector/watch-data')
-            if not data.get('linked') or not isinstance(value,dict) or value.get('account')!=data.get('public_id'):
-                raise ValueError('请先登录同一账号')
-            records = data['records']
-            watches = []
-            limits = None
-            for r in records:
-                setting = r.get('value')
-                if r['kind']=='pref' and r['key']=='watch.sweepSettings' and setting:
-                    limits = json.loads(setting)
-                elif r['kind']=='watch' and setting:
-                    groups = [g for g in setting.get('groups',[]) if g.get('buy')]
-                    if groups:
-                        watches.append(dict(item_id=int(r['key']),limit=setting.get('buyLimit',1),groups=groups))
-            if not watches:raise ValueError('请勾选至少一组扫货条件并保存')
-            if not limits:raise ValueError('请先保存本轮预算设置')
-            catalog = {int(i['item_id']):i for i in self.fetch('/api/v1/watchlist/catalog',300).get('items',[])}
-            reference = self.fetch('/api/v1/watchlist/listings?ids='+','.join(str(w['item_id']) for w in watches))
-            for w in watches:
-                item = catalog.get(w['item_id'],{})
-                w['name'] = item.get('name_zh') or item.get('name_en') or str(w['item_id'])
-                w['base_stats'] = reference.get('base_stats',{}).get(str(w['item_id']),[])
-            # Only the latest synchronized server rules are executable.
-            config = dict(mode='simulate',limits=limits,watches=watches)
-            config['source_key'] = hashlib.sha256(json.dumps(config,sort_keys=True).encode()).hexdigest()
-            self.local(dict(action='start',expected_revision=revision,**config))
-            return self.status()
+            self.engine().start_run(value)
+            return self.engine().status()
+        if action == 'stop':
+            self.engine().stop_run()
+            return self.engine().status()
         raise ValueError('未知操作')

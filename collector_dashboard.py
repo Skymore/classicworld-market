@@ -3,6 +3,7 @@ from collections import OrderedDict
 import json
 import hashlib
 from pathlib import Path
+import queue
 import threading
 import time
 import secrets
@@ -15,7 +16,59 @@ import web_assets
 ROOT = Path(__file__).resolve().parent
 ASSETS = ('market_ui.js', 'market_ui.css', 'market_i18n.js', 'market_watchlist.js')
 BRIDGE_ORIGINS={'https://mxd.ruit.me','http://127.0.0.1:8766','http://localhost:8766'}
-BRIDGE_PATHS={'/api/v1/collector/status','/api/v1/collector/watch-listings','/api/v1/collector/sweep'}
+BRIDGE_PATHS={'/api/v1/collector/status','/api/v1/collector/watch-listings'}
+
+
+class Relay:
+    """Fan the device's one upstream account stream out to local pages and the sweep engine."""
+    def __init__(self, limit=32):
+        self.lock = threading.Lock()
+        self.queues = set()
+        self.limit = limit
+
+    def broadcast(self, name):
+        from account_device import TOPICS
+        if name not in TOPICS and name is not None:
+            return
+        with self.lock:
+            for subscriber in self.queues:
+                try:
+                    subscriber.put_nowait(name)
+                except queue.Full:
+                    pass
+
+    def close(self):
+        self.broadcast(None)
+
+    def serve(self, handler):
+        subscriber = queue.Queue(64)
+        with self.lock:
+            if len(self.queues) >= self.limit:
+                raise OverflowError('Too many local event streams')
+            self.queues.add(subscriber)
+        try:
+            handler.send_response(200)
+            handler.send_header('Content-Type', 'text/event-stream')
+            handler.send_header('Cache-Control', 'no-store')
+            handler.send_header('X-Content-Type-Options', 'nosniff')
+            handler.end_headers()
+            frame = b'event: hello\ndata: {}\n\n'
+            while True:
+                handler.wfile.write(frame)
+                handler.wfile.flush()
+                try:
+                    name = subscriber.get(timeout=15)
+                except queue.Empty:
+                    frame = b': keepalive\n\n'
+                    continue
+                if name is None:
+                    return
+                frame = f'event: {name}\ndata: {{}}\n\n'.encode()
+        except OSError:
+            pass  # The page went away.
+        finally:
+            with self.lock:
+                self.queues.discard(subscriber)
 
 
 def safe_endpoint(value):
@@ -169,11 +222,13 @@ class Gateway:
         return result
 
 
-def create_server(config, folder, port=8780):
-    from collector_sweep import SweepSimulator
-    sweep = SweepSimulator(folder)
-    sweep_revision = {'value':None,'checked':0}
+def create_server(config, folder, port=8780, home=None):
+    from account_device import DeviceClient, DeviceError, DeviceLogin, EventStream, callback_page
     gateway = Gateway(config, folder)
+    device = DeviceClient(config, home or folder)
+    login = DeviceLogin(device)
+    relay = Relay()
+    upstream = EventStream(device.open_events, relay.broadcast)
     ui_nonce = secrets.token_urlsafe(32)
 
     class Handler(BaseHTTPRequestHandler):
@@ -199,17 +254,47 @@ def create_server(config, folder, port=8780):
                 self.send_header('Vary','Origin')
             super().end_headers()
 
+        def reply(self, code, result):
+            body=json.dumps(result,ensure_ascii=False).encode()
+            self.send_response(code);self.send_header('Content-Type','application/json; charset=utf-8');self.send_header('Cache-Control','no-store')
+            self.send_header('Content-Length',str(len(body)));self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self.wfile.write(body)
+
+        def callback(self, query):
+            outcome = login.finish(query)
+            if outcome is None:
+                self.send_error(404);return
+            if outcome[0]:
+                for topic in ('data','sweep','devices'):relay.broadcast(topic)
+            body = callback_page(*outcome)
+            self.send_response(200 if outcome[0] else 400)
+            self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(body)))
+            self.send_header('Cache-Control','no-store');self.send_header('Referrer-Policy','no-referrer');self.send_header('X-Content-Type-Options','nosniff')
+            self.send_header('Content-Security-Policy',"default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'")
+            self.end_headers();self.wfile.write(body)
+
+        def account_data(self, account, operations=None):
+            # Embedded pages name the account they edit; it must be this device's account.
+            record = device.record()
+            if not record or not isinstance(account,str) or not secrets.compare_digest(account.encode(),record['account']['id'].encode()):
+                raise DeviceError(403,{'error':'login_required'})
+            if operations is None:
+                result = device.call('GET','/api/v1/device/data')
+            else:
+                result = device.call('POST','/api/v1/device/data',{'operations':operations},timeout=20)
+            if (result.get('account') or {}).get('id') != account:
+                raise DeviceError(403,{'error':'login_required'})
+            return result
+
         def do_OPTIONS(self):
             if not self.allow_origin():return
-            is_sweep = urlsplit(self.path).path == '/api/v1/collector/sweep'
             method = self.headers.get('Access-Control-Request-Method')
-            if not getattr(self,'bridge_origin',None) or method not in (('GET','POST') if is_sweep else ('GET',)):
+            if not getattr(self,'bridge_origin',None) or method != 'GET':
                 self.send_error(403);return
             requested={v.strip().lower() for v in self.headers.get('Access-Control-Request-Headers','').split(',') if v.strip()}
-            if requested-({'accept','content-type','x-csrf-token'} if is_sweep else {'accept'}):self.send_error(403);return
+            if requested-{'accept'}:self.send_error(403);return
             self.send_response(204)
-            self.send_header('Access-Control-Allow-Methods','GET, POST' if is_sweep else 'GET')
-            self.send_header('Access-Control-Allow-Headers','Accept, Content-Type, X-CSRF-Token' if is_sweep else 'Accept')
+            self.send_header('Access-Control-Allow-Methods','GET')
+            self.send_header('Access-Control-Allow-Headers','Accept')
             self.send_header('Access-Control-Allow-Private-Network','true')
             self.send_header('Access-Control-Max-Age','600')
             self.end_headers()
@@ -221,6 +306,12 @@ def create_server(config, folder, port=8780):
             if parsed.path=='/api/v1/events':
                 try:gateway.stream_events(self)
                 except (OSError,ValueError):pass
+                return
+            if parsed.path=='/callback':
+                self.callback(query);return
+            if parsed.path=='/api/v1/account/events':
+                try:relay.serve(self)
+                except OverflowError:self.send_error(503)
                 return
             if parsed.path in ('/collect','/collect/','/web/download.html'):
                 self.send_response(302);self.send_header('Location',gateway.endpoint+parsed.path);self.end_headers();return
@@ -254,26 +345,21 @@ def create_server(config, folder, port=8780):
                 else:
                     if parsed.path == '/api/v1/account':
                         profile=gateway.fetch('/api/v1/collector/profile',0)
-                        linked=gateway.fetch('/api/v1/collector/watch-data',0)
                         if gateway.last_error:raise OSError('Account sync unavailable')
+                        record=device.record()
                         result={**profile,'mode':'collector','signed_in':True,'csrf':ui_nonce,
-                                'linked':linked.get('linked',False),'public_id':linked.get('public_id'),
+                                'linked':record is not None,'public_id':record['account']['id'] if record else None,
                                 'sync_scope':'watch'}
                     elif parsed.path == '/api/v1/account/data':
-                        result=gateway.fetch('/api/v1/collector/watch-data',0)
-                        if gateway.last_error:raise OSError('Account sync unavailable')
-                        if not result.get('linked') or query.get('account',[''])[0]!=result.get('public_id'):
-                            body=b'{"error":"login_required"}'
-                            self.send_response(403);self.send_header('Content-Type','application/json');self.send_header('Cache-Control','no-store')
-                            self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body);return
+                        result=self.account_data(query.get('account',[''])[0])
+                    elif parsed.path == '/api/v1/device/login':
+                        result={'pending':login.active(),'csrf':ui_nonce}
                     elif parsed.path == '/api/v1/contributors':
                         period=query.get('period',['week'])[0]
                         if period not in ('week','month','all'):raise ValueError('Invalid period')
                         result=gateway.fetch('/api/v1/contributors?'+urlencode({'period':period}),0)
                     elif parsed.path == '/api/v1/collector/status':
                         result=gateway.status()
-                    elif parsed.path == '/api/v1/collector/sweep':
-                        result={**sweep.snapshot(), 'csrf':ui_nonce}
                     elif parsed.path == '/api/v1/collector/watch-listings':
                         ids=query.get('ids',[''])[0]
                         if len(ids)>1100 or len(ids.split(','))>100 or any(not v.isdigit() or not 1000000<=int(v)<=5999999 for v in ids.split(',') if v):raise ValueError('Invalid item IDs')
@@ -327,6 +413,9 @@ def create_server(config, folder, port=8780):
             except ValueError:
                 self.send_error(400, 'Invalid request')
                 return
+            except DeviceError as error:
+                self.reply(error.status if error.status in (400,401,403,409,429) else 503,error.body or {'error':error.code})
+                return
             except Exception:
                 self.send_error(503, 'Shared service unavailable; retry shortly')
                 return
@@ -345,44 +434,35 @@ def create_server(config, folder, port=8780):
             origin=f'http://127.0.0.1:{self.server.server_port}'
             other=f'http://localhost:{self.server.server_port}'
             path=urlsplit(self.path).path
-            is_sweep = path == '/api/v1/collector/sweep'
-            allowed = {origin,other} | (BRIDGE_ORIGINS if is_sweep else set())
-            if (self.headers.get('Origin') not in allowed
+            if (self.headers.get('Origin') not in (origin,other)
                 or not secrets.compare_digest(self.headers.get('X-CSRF-Token',''),ui_nonce)
                 or self.headers.get('Content-Type','').split(';')[0]!='application/json'):
                 self.send_error(403);return
-            routes={'/api/v1/account':'/api/v1/collector/profile','/api/v1/account/link':'/api/v1/collector/account-link'}
             is_watch = path == '/api/v1/account/data'
-            if path not in routes and not is_sweep and not is_watch:self.send_error(404);return
+            is_login = path in ('/api/v1/device/login','/api/v1/account/link')
+            if path != '/api/v1/account' and not is_watch and not is_login:self.send_error(404);return
             try:
                 length=int(self.headers.get('Content-Length','0'))
-                if not 0<length<=(512*1024 if is_sweep or is_watch else 2048):raise ValueError('Invalid request length')
+                if not 0<length<=(512*1024 if is_watch else 2048):raise ValueError('Invalid request length')
                 data=json.loads(self.rfile.read(length))
                 if not isinstance(data,dict):raise ValueError('Invalid request')
                 if is_watch:
-                    # The device may only edit watches and sweep settings. The cloud
+                    # The device may only edit watches and watch preferences. The cloud
                     # validates the account binding and every record version again.
                     if not isinstance(data.get('account'),str) or not isinstance(data.get('operations'),list):
                         raise ValueError('Invalid watch changes')
-                    sweep.command({'action':'stop'})
-                    result=gateway.update('/api/v1/collector/watch-data',data)
-                elif is_sweep:
-                    if data.get('action') == 'start':
-                        from collector_sweep import configuration
-                        configuration(data)
-                        revision = gateway.fetch('/api/v1/collector/watch-revision', 0, timeout=5)
-                        if gateway.last_error or not isinstance(revision.get('revision'),str):
-                            raise ValueError('关注同步暂不可用，请稍后再试')
-                        if data.get('expected_revision',revision['revision']) != revision['revision']:
-                            raise ValueError('条件刚刚变化，请重新开始')
-                        sweep_revision.update(value=revision['revision'],checked=time.monotonic())
-                    result={**sweep.command(data),'csrf':ui_nonce}
+                    result=self.account_data(data['account'],data['operations'])
+                elif is_login:
+                    result={'url':login.begin()}
                 else:
-                    result=gateway.update(routes[path],data)
+                    result=gateway.update('/api/v1/collector/profile',data)
                 code=200
-            except (ValueError,TypeError,AttributeError) as error:
+            except (ValueError,TypeError,AttributeError):
                 code=400
-                result={'error':str(error) if is_sweep else 'Invalid request'}
+                result={'error':'Invalid request'}
+            except DeviceError as error:
+                code=error.status if error.status in (400,401,403,409,429) else 503
+                result=error.body or {'error':error.code}
             except Exception as error:
                 import urllib.error
                 code=error.code if isinstance(error,urllib.error.HTTPError) and error.code in (400,401,403,409,429) else 503
@@ -390,9 +470,7 @@ def create_server(config, folder, port=8780):
                 if isinstance(error,urllib.error.HTTPError):
                     try:result=json.loads(error.read(2048))
                     except (ValueError,OSError):pass
-            body=json.dumps(result).encode()
-            self.send_response(code);self.send_header('Content-Type','application/json');self.send_header('Cache-Control','no-store')
-            self.send_header('Content-Length',str(len(body)));self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self.wfile.write(body)
+            self.reply(code,result)
 
         def log_message(self, *args):
             pass
@@ -412,28 +490,15 @@ def create_server(config, folder, port=8780):
             raise
         server = LoopbackServer(('127.0.0.1', 0), Handler)
     server.daemon_threads = True
-    server.sweep = sweep
-    def guard_revision():
-        while not sweep.closed.wait(10):
-            if not sweep.enabled:continue
-            session_id = sweep.session_id
-            try:
-                revision = gateway.fetch('/api/v1/collector/watch-revision', 0, timeout=5)
-                if gateway.last_error:raise OSError('Offline')
-                sweep_revision['checked'] = time.monotonic()
-                changed = revision.get('revision') != sweep_revision['value']
-                message = '关注条件已更新，请重新开始模拟'
-            except Exception:
-                changed = time.monotonic()-sweep_revision['checked'] > 30
-                message = '关注同步中断，模拟已停止'
-            if changed:
-                with sweep.lock:
-                    if sweep.session_id != session_id:continue
-                    sweep.enabled = False
-                    sweep.message = message
-                    try:sweep.persist({'event':'rules_changed'})
-                    except OSError:pass
-    server.start_sweep_guard = lambda: threading.Thread(target=guard_revision,name='sweep-rule-guard',daemon=True).start()
+    login.redirect_uri = f'http://127.0.0.1:{server.server_port}/callback'
+    server.device, server.login, server.relay, server.upstream = device, login, relay, upstream
+    def start_device():
+        upstream.start()
+        # Old linked collectors move to a device token once, without a browser login.
+        threading.Thread(target=device.migrate,name='device-migrate',daemon=True).start()
+    def stop_device():
+        upstream.close();relay.close()
+    server.start_device, server.stop_device = start_device, stop_device
     return server
 
 
@@ -446,7 +511,7 @@ def run(home, config, folder, port=8780, instance='', parent_pid=0, parent_creat
             parent=psutil.Process(parent_pid)
             if abs(parent.create_time()-parent_created)>0.001:return
         except psutil.NoSuchProcess:return
-    server = create_server(config, folder, port)
+    server = create_server(config, folder, port, home)
     home = Path(home)
     home.mkdir(parents=True, exist_ok=True)
     ready = dict(url=f'http://127.0.0.1:{server.server_port}/alerts', pid=os.getpid(),
@@ -472,9 +537,8 @@ def run(home, config, folder, port=8780, instance='', parent_pid=0, parent_creat
             server.shutdown()
         threading.Thread(target=stop_with_parent,daemon=True).start()
     try:
-        server.sweep.start_observer()
-        server.start_sweep_guard()
+        server.start_device()
         server.serve_forever()
     finally:
-        server.sweep.close()
+        server.stop_device()
         server.server_close()

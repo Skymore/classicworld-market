@@ -1,7 +1,7 @@
 import { useQueries } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { SiteLink } from "../components/shell";
-import WatchGroups, { trackOnly } from "../components/watch-groups";
+import WatchGroups, { sweepable, trackOnly } from "../components/watch-groups";
 import {
   activeOffers,
   matchingReminders,
@@ -16,7 +16,7 @@ import Core, {
 import { userStorage } from "/web/js/lib/user-data.js";
 import { sortWatchQuotes } from "/web/js/lib/quote-order.js?v=20261023-watch-cap-1";
 import { useUserValue } from "../lib/live";
-import { useMarketQuery } from "../lib/query";
+import { useAccount, useMarketQuery } from "../lib/query";
 import { useWords } from "../providers";
 import {
   Empty,
@@ -36,11 +36,12 @@ import {
 import { OfferRow } from "../components/list-rows";
 import { useWatchAlerts } from "../components/watch-alerts";
 import { NotificationSettings } from "../components/notification-settings";
+import SweepPanel from "../components/sweep-panel";
 import "../lib/list-copy";
 import "./watch.css";
 // Cheapest offers shown per item before "show more".
 const PER_ITEM = 5;
-// The scanner client embeds this page in a loopback-only frame; sweeping only runs there.
+// The scanner client embeds this page in a loopback-only frame.
 const inScanner = (() => {
   try {
     return (
@@ -71,6 +72,9 @@ export default function Watch() {
     [collapsed, writeCollapsed] = useUserValue("watch.listCollapsed", "false"),
     [rawFilters, writeFilters] = useUserValue("watch.offerFilters", "{}"),
     [groupPref, writeGroupPref] = useUserValue("watch.groupByItem", "true");
+  const profile = useAccount().data;
+  // Signed-in web pages start sweeps; the collector's embedded page only edits rules.
+  const sweepWeb = Boolean(profile?.signed_in) && profile?.mode !== "collector";
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filterButton = useRef<HTMLButtonElement>(null);
   const filters = useMemo(() => {
@@ -319,6 +323,20 @@ export default function Watch() {
           </button>
         </div>
         {alerting && <NotificationSettings />}
+        {sweepWeb && (
+          <SweepPanel
+            profile={profile!}
+            groups={ids.reduce(
+              (count, id) =>
+                count +
+                watchGroups(settings[id]).filter(
+                  (group: any) => group.buy && sweepable(group),
+                ).length,
+              0,
+            )}
+            items={items}
+          />
+        )}
         <div id="watch-list" hidden={collapsed === "true"}>
           <div className="wadd">
             <form
@@ -485,7 +503,7 @@ export default function Watch() {
                     <div className="wc-set" id={"wc-set-" + id}>
                       <WatchGroups
                         id={id}
-                        sweep={inScanner}
+                        sweep={inScanner || Boolean(profile?.signed_in)}
                         autoEdit={added === id}
                         name={itemName(item)}
                         setting={current}

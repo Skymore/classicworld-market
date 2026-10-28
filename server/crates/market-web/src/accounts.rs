@@ -384,6 +384,9 @@ async fn password(
     {
         return internal(e);
     }
+    if let Err(e) = crate::devices::revoke(&mut tx, s.id, None, "revoked").await {
+        return internal(e);
+    }
     if let Err(e) = tx.commit().await {
         return internal(e);
     }
@@ -456,6 +459,9 @@ async fn recover(
         .execute(&mut *tx)
         .await
     {
+        return internal(e);
+    }
+    if let Err(e) = crate::devices::revoke(&mut tx, account, None, "revoked").await {
         return internal(e);
     }
     if let Err(e) = tx.commit().await {
@@ -538,11 +544,28 @@ async fn logout_all(
         Ok(s) => s,
         Err(e) => return e,
     };
-    if let Err(e) = sqlx::query("DELETE FROM account_sessions WHERE account_id=$1")
+    let mut tx = match state.db.begin().await {
+        Ok(t) => t,
+        Err(e) => return internal(e),
+    };
+    if let Err(e) = sqlx::query("SELECT id FROM accounts WHERE id=$1 FOR UPDATE")
         .bind(s.id)
-        .execute(&state.db)
+        .execute(&mut *tx)
         .await
     {
+        return internal(e);
+    }
+    if let Err(e) = sqlx::query("DELETE FROM account_sessions WHERE account_id=$1")
+        .bind(s.id)
+        .execute(&mut *tx)
+        .await
+    {
+        return internal(e);
+    }
+    if let Err(e) = crate::devices::revoke(&mut tx, s.id, None, "revoked").await {
+        return internal(e);
+    }
+    if let Err(e) = tx.commit().await {
         return internal(e);
     }
     let mut response = Json(json!({"ok":true})).into_response();
@@ -551,9 +574,9 @@ async fn logout_all(
 }
 
 #[derive(Deserialize, Serialize, FromRow, Clone)]
-struct Record {
-    kind: String,
-    key: String,
+pub(crate) struct Record {
+    pub(crate) kind: String,
+    pub(crate) key: String,
     value: Option<Value>,
     version: i64,
 }
@@ -666,7 +689,7 @@ fn valid_item_filters(raw: &str) -> bool {
     }
     valid_reminder(&Value::Object(filters))
 }
-fn valid_record(r: &Record) -> bool {
+pub(crate) fn valid_record(r: &Record) -> bool {
     if r.version < 0 || r.version == i64::MAX {
         return false;
     }
@@ -804,34 +827,8 @@ async fn write_data(state: AppState, headers: HeaderMap, input: Changes, import:
     if let Err(e) = lock_session(&mut tx, s.id, &headers).await {
         return e;
     }
-    for r in input.operations {
-        let version: Option<i64> = match sqlx::query_scalar(
-            "SELECT version FROM account_data WHERE account_id=$1 AND kind=$2 AND key=$3",
-        )
-        .bind(s.id)
-        .bind(&r.kind)
-        .bind(&r.key)
-        .fetch_optional(&mut *tx)
-        .await
-        {
-            Ok(v) => v,
-            Err(e) => return internal(e),
-        };
-        if import && version.is_some() {
-            continue;
-        }
-        if !import && version.unwrap_or(0) != r.version {
-            return error(StatusCode::CONFLICT, "sync_conflict");
-        }
-        if import && r.value.is_none() {
-            continue;
-        }
-        if let Err(e)=sqlx::query("INSERT INTO account_data(account_id,kind,key,value) VALUES($1,$2,$3,$4) ON CONFLICT(account_id,kind,key) DO UPDATE SET value=$4,version=account_data.version+1,updated_at=now()")
-            .bind(s.id).bind(r.kind).bind(r.key).bind(r.value).execute(&mut *tx).await { return internal(e); }
-    }
-    let count:i64=match sqlx::query_scalar("SELECT count(*) FROM account_data WHERE account_id=$1 AND kind='watch' AND value IS NOT NULL").bind(s.id).fetch_one(&mut *tx).await { Ok(n)=>n,Err(e)=>return internal(e) };
-    if count > 100 {
-        return error(StatusCode::CONFLICT, "watch_limit");
+    if let Err(e) = apply(&mut tx, s.id, input.operations, import).await {
+        return e;
     }
     if let Err(e) = tx.commit().await {
         return internal(e);
@@ -840,6 +837,42 @@ async fn write_data(state: AppState, headers: HeaderMap, input: Changes, import:
         Ok(v) => Json(v).into_response(),
         Err(e) => e,
     }
+}
+/// Versioned writes for an account whose row the caller has locked.
+pub(crate) async fn apply(
+    tx: &mut sqlx::PgConnection,
+    account: i64,
+    operations: Vec<Record>,
+    import: bool,
+) -> Result<(), Response> {
+    for r in operations {
+        let version: Option<i64> = sqlx::query_scalar(
+            "SELECT version FROM account_data WHERE account_id=$1 AND kind=$2 AND key=$3",
+        )
+        .bind(account)
+        .bind(&r.kind)
+        .bind(&r.key)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(internal)?;
+        if import && version.is_some() {
+            continue;
+        }
+        if !import && version.unwrap_or(0) != r.version {
+            return Err(error(StatusCode::CONFLICT, "sync_conflict"));
+        }
+        if import && r.value.is_none() {
+            continue;
+        }
+        sqlx::query("INSERT INTO account_data(account_id,kind,key,value) VALUES($1,$2,$3,$4) ON CONFLICT(account_id,kind,key) DO UPDATE SET value=$4,version=account_data.version+1,updated_at=now()")
+            .bind(account).bind(r.kind).bind(r.key).bind(r.value).execute(&mut *tx).await.map_err(internal)?;
+    }
+    let count:i64=sqlx::query_scalar("SELECT count(*) FROM account_data WHERE account_id=$1 AND kind='watch' AND value IS NOT NULL")
+        .bind(account).fetch_one(&mut *tx).await.map_err(internal)?;
+    if count > 100 {
+        return Err(error(StatusCode::CONFLICT, "watch_limit"));
+    }
+    crate::realtime::notify(tx, account, "data").await.map_err(internal)
 }
 
 // A linked collector can synchronize watch rules only, never account credentials.
@@ -874,16 +907,7 @@ async fn collector_save_watch(State(state): State<AppState>, headers: HeaderMap,
     let linked: Option<i64>=match sqlx::query_scalar("SELECT account_id FROM collectors WHERE id=$1 AND active FOR UPDATE")
         .bind(c.id).fetch_optional(&mut *tx).await {Ok(v)=>v.flatten(),Err(e)=>return internal(e)};
     if linked!=Some(id) {return error(StatusCode::UNAUTHORIZED,"login_required")}
-    for r in input.operations {
-        let version: Option<i64>=match sqlx::query_scalar("SELECT version FROM account_data WHERE account_id=$1 AND kind=$2 AND key=$3")
-            .bind(id).bind(&r.kind).bind(&r.key).fetch_optional(&mut *tx).await {Ok(v)=>v,Err(e)=>return internal(e)};
-        if version.unwrap_or(0)!=r.version {return error(StatusCode::CONFLICT,"sync_conflict")}
-        if let Err(e)=sqlx::query("INSERT INTO account_data(account_id,kind,key,value) VALUES($1,$2,$3,$4) ON CONFLICT(account_id,kind,key) DO UPDATE SET value=$4,version=account_data.version+1,updated_at=now()")
-            .bind(id).bind(r.kind).bind(r.key).bind(r.value).execute(&mut *tx).await {return internal(e)}
-    }
-    let count:i64=match sqlx::query_scalar("SELECT count(*) FROM account_data WHERE account_id=$1 AND kind='watch' AND value IS NOT NULL")
-        .bind(id).fetch_one(&mut *tx).await {Ok(n)=>n,Err(e)=>return internal(e)};
-    if count>100 {return error(StatusCode::CONFLICT,"watch_limit")}
+    if let Err(e)=apply(&mut tx,id,input.operations,false).await {return e}
     if let Err(e)=tx.commit().await {return internal(e)}
     collector_watch_snapshot(&state.db,c.id).await
 }

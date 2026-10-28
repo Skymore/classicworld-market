@@ -3,7 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { Play, Pause, Square, Sun, Moon, Monitor, RefreshCw, UserRound, Minus, X, ArrowUpRight, Package, Clock3, ScanLine, MousePointer2, AlertCircle } from 'lucide-react';
 import '../../web/css/base.css';
 import './style.css';
-import Workspace from './workspace';
+import WorkspaceTab, { useWorkspaceStatus } from './workspace';
+import { mesos } from '../src/lib/sweep-labels';
 import SitePage from './site-page';
 
 type State = {
@@ -13,7 +14,6 @@ type State = {
   capture: string; upload: string; last_shop_at: number | null; updates: string;
   selected: number | null; windows: { id: number; title: string; pid: number }[];
   theme: 'light' | 'dark' | 'system'; activities: { at: number; text: string; kind: string }[];
-  sweep?: {enabled:boolean;units:number;spent:number;message:string};
 };
 declare global { interface Window { pywebview?: { api: { ready(): Promise<State>; command(name: string, value?: unknown): Promise<State>; workspace(name:string,value?:unknown):Promise<any> } } } }
 const initial: State = { version: '', phase: 'idle', mode: 'scan', message: '正在连接采集器…', room: null, channel: null, visited: 0, uploaded: 0, started_at: null, stopped_at: null, run_shops: 0, run_items: 0, run_started_at: null, capture: 'connecting', upload: 'ready', last_shop_at: null, updates: 'checking', selected: null, windows: [], theme: 'system', activities: [] };
@@ -25,6 +25,7 @@ function App() {
   const [tab,setTab]=useState<'scan'|'watch'|'prices'|'sweep'|'account'>('scan');
   const [state, setState] = useState<State>(initial), [connected, setConnected] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(''), [now, setNow] = useState(Date.now());
   const [selected, setSelected] = useState<number | null>(null);
+  const workspace = useWorkspaceStatus(), sweepRun = workspace.status?.linked ? workspace.status.sweep?.run : null;
   useEffect(() => {
     let alive = true;
     const accept = (next: State) => { if (alive) { setState(next); setConnected(true); setSelected(v => next.windows.some(w => w.id === v) ? v : next.selected); } };
@@ -52,11 +53,11 @@ function App() {
         <button className="window-close" title="关闭" aria-label="关闭" onClick={() => action('window','close')} disabled={!connected}><X size={19}/></button>
       </div>
     </div></header>
-    <nav className="desktop-tabs" aria-label="功能"><button aria-pressed={tab==='scan'} onClick={()=>setTab('scan')}>扫描采集</button><button aria-pressed={tab==='watch'} onClick={()=>setTab('watch')}>关注</button><button aria-pressed={tab==='prices'} onClick={()=>setTab('prices')}>价格表</button><button aria-pressed={tab==='sweep'} onClick={()=>setTab('sweep')}>扫货模拟</button><button aria-pressed={tab==='account'} onClick={()=>setTab('account')}>账号</button></nav>
+    <nav className="desktop-tabs" aria-label="功能"><button aria-pressed={tab==='scan'} onClick={()=>setTab('scan')}>扫描采集</button><button aria-pressed={tab==='watch'} onClick={()=>setTab('watch')}>关注</button><button aria-pressed={tab==='prices'} onClick={()=>setTab('prices')}>价格表</button><button aria-pressed={tab==='sweep'} onClick={()=>setTab('sweep')}>扫货</button><button aria-pressed={tab==='account'} onClick={()=>setTab('account')}>账号</button></nav>
     <main className={'desktop-main'+(tab!=='scan'?' workspace-main':'')}>
       {tab==='scan'?<>
       <div className="page-heading"><div><div className="eyebrow">FREE MARKET</div><h1>让逛摊，更轻松。</h1><p>自动扫店，发现好价。每一份报价，都与大家共享。</p></div><div className="desktop-watch-actions"><button className="text-link" onClick={() => setTab('watch')} disabled={!connected}>关注 <ArrowUpRight size={16}/></button><button className="text-link" onClick={() => action('website')} disabled={!connected}>打开市集 <ArrowUpRight size={16}/></button></div></div>
-      {state.sweep&&<div className="desktop-sweep-status"><span>扫货内测 · {state.sweep.enabled?'模拟中':'模拟已停止'} · {state.sweep.units} 件 · {Number(state.sweep.spent).toLocaleString()} 金币</span><button className="text-link" onClick={()=>setTab('sweep')}>查看记录</button></div>}
+      {sweepRun&&<div className="desktop-sweep-status" data-sweep-status-line><span>扫货{sweepRun.status==='running'?'中':'已结束'} · 剩余 {mesos(sweepRun.remaining)} · 本机已花 {mesos(sweepRun.spent_here)}{sweepRun.message?` · ${sweepRun.message}`:''}</span><button className="text-link" onClick={()=>setTab('sweep')}>查看</button></div>}
       {error && <div role="alert" className="error-banner"><AlertCircle size={18}/><span>{error}</span></div>}
       <section className="stall scan-panel" aria-label="扫描控制"><div className="stall-bar"><ScanLine size={18}/><h2>开始采集</h2><span className={`connection ${live?'live':''}`}><i/>{health[state.capture] || '等待游戏连接'}</span></div>
         <div className="scan-body"><div className="mode-tabs" role="group" aria-label="采集方式"><button aria-pressed={state.mode==='scan'} disabled={!connected || active || busy} onClick={() => action('mode','scan')}><ScanLine size={17}/>自动扫描</button><button aria-pressed={state.mode==='manual'} disabled={!connected || active || busy} onClick={() => action('mode','manual')}><MousePointer2 size={17}/>手动逛摊</button></div>
@@ -71,7 +72,7 @@ function App() {
       </div></section>
       <div className="bottom-grid"><section className="stall activity-panel" aria-label="最近动态"><div className="stall-bar"><h2>最近动态</h2><span className="bar-meta">实时更新</span></div><div className="activity-list">{state.activities.length ? state.activities.slice(0,4).map((item,i) => <div className={`activity ${item.kind}`} key={`${item.at}-${i}`}><i/><span>{item.text}</span><time>{new Date(item.at*1000).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</time></div>) : <div className="activity-empty">开始扫描后，进度会显示在这里。</div>}</div></section>
       </div>
-      </>:tab==='prices'||tab==='watch'?<SitePage page={tab}/>:<Workspace tab={tab}/> }
+      </>:tab==='prices'||tab==='watch'?<SitePage page={tab}/>:<WorkspaceTab tab={tab} workspace={workspace}/> }
     </main>
     <footer className="app-footer"><span><kbd>F9</kbd> 停止扫描 <b>·</b> 扫描时保持游戏在前台</span><span>{state.version?`v${state.version}`:'正在连接'} <b>·</b> {state.updates==='waiting_for_game_exit'?'新版本已就绪，退出游戏后更新':state.updates==='retry_later'?'稍后重试更新':'自动更新已开启'}</span></footer>
   </div>;
