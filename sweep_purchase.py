@@ -13,11 +13,11 @@ A purchaser implementation must:
 
 The Windows executor is a separate module `sweep_purchaser_windows` exposing `create()`.
 """
-from dataclasses import dataclass
-from typing import Any, Literal, Optional, Protocol
+from dataclasses import dataclass, field
+from typing import Any, Callable, Literal, Optional, Protocol
 
 REASONS = ('sold_out', 'price_changed', 'not_enough_mesos', 'inventory_full',
-           'shop_closed', 'window_lost', 'timeout', 'error')
+           'shop_closed', 'window_lost', 'timeout', 'error', 'stopped', 'trade_locked')
 NOT_INSTALLED = '此电脑尚未安装购买执行器'
 
 
@@ -44,6 +44,9 @@ class PurchaseOrder:
     room: int
     channel: int
     deadline: float  # time.monotonic()
+    # Recheck immediately before every purchase input, including the final confirmation.
+    # No guard means no permission to buy (older/custom callers fail closed).
+    can_buy: Callable[[], bool] = field(default=lambda: False, repr=False, compare=False)
 
 
 @dataclass(frozen=True)
@@ -52,6 +55,17 @@ class PurchaseResult:
     quantity: int = 0
     spent: int = 0
     reason: str = ''
+
+
+class PurchaseHalt(Exception):
+    """Stop scanner input even when a purchase outcome is known.
+
+    The executor could not restore/verify the open shop. Preserve its confirmed
+    result for settlement, then let the scanner's ShopCallbackError stop input.
+    """
+    def __init__(self, result):
+        self.result = result
+        super().__init__('购买窗口未恢复，已停止扫描：'+result.reason)
 
 
 class ShopWindow(Protocol):

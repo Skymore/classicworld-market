@@ -197,7 +197,7 @@
 ```python
 PurchaserStatus(ready: bool, reason: str, mesos: int | None)
 PurchaseOrder(reservation, item_id, name, category, slot, price, bundle, quantity,
-              equipment, shop_id, owner, room, channel, deadline)
+              equipment, shop_id, owner, room, channel, deadline, can_buy)
 PurchaseResult(status: 'bought'|'not_bought'|'unknown', quantity=0, spent=0, reason='')
 
 class Purchaser(Protocol):
@@ -209,9 +209,11 @@ class Purchaser(Protocol):
 1. 在扫描器输入线程上、该商店窗口打开时被调用。不打开、不关闭商店，返回时窗口保持打开。
 2. 点击前确认 `(category, slot)` 这一行仍是同一物品、价格、包装和属性，否则返回 `not_bought/price_changed`。
 3. 不买超过 `quantity` 份，不花超过 `quantity * price`。
-4. 在 `deadline`（`time.monotonic()`）前返回。点了购买但无法确认结果时返回 `unknown`。
+4. 在 `deadline`（`time.monotonic()`）前返回；时限取服务器预留到期减 5 秒与当前本地租约时限的较早值。每次购买输入（尤其是最终确认）前调用 `order.can_buy()`，它同时检查当前任务、租约、规则版本和停止状态；未提供此回调时默认拒绝。最终确认已可能发出而无法确认结果时返回 `unknown`。
 5. 只有确认买成（例如收到商店行更新或背包变化封包）才返回 `bought`。
-6. `reason` 取值：`sold_out`、`price_changed`、`not_enough_mesos`、`inventory_full`、`shop_closed`、`window_lost`、`timeout`、`error`。
+6. `reason` 取值：`sold_out`、`price_changed`、`not_enough_mesos`、`inventory_full`、`shop_closed`、`window_lost`、`timeout`、`error`、`stopped`、`trade_locked`。
+7. 取消或确认拒绝后仍需确认商店已恢复；无法恢复时抛 `PurchaseHalt(result)`。引擎先结算或持久化待回报，再退出本轮并把异常交给扫描器停止输入。`unknown` 即使作为普通返回值交回，也会在结算后转为停机异常，不再继续关店或扫描下一家。
+8. 明确的 `trade_locked` 回报 `not_bought`、数量和花费均为 0，并退出本轮；本轮不重试其他商品。
 
 `ShopWindow` 由扫描器提供：`bounds`、`capture()`、`click(x, y)`、`press(key)`、`pause(seconds)`、`vision`、`capture_file`（本次商店抓包文件路径）。
 
@@ -234,7 +236,7 @@ class Purchaser(Protocol):
    - 本机限额：本轮本机已花不超过 `max_spend`，单笔不超过 `max_order`（0 表示不限），已知金币时保留 `reserve_mesos`。
    - 申请预留（2 秒超时，失败不买）。
    - 调用 `buy`，按结果回报。回报失败存入本机待回报队列，后台重试。
-   - 结果为 `unknown` 时本机离开本轮任务。
+   - 结果为 `unknown` 时本机离开本轮任务，并停止扫描输入。
 5. 任何一步连不上服务器超过 30 秒、租约丢失、任务结束、退出账号：立即停止购买。
 6. 拿到预留后、调用 `buy` 前再确认一次仍在扫货且租约未变；停止或退出恰好发生在预留途中时，不买，回报 `not_bought/stopped`。
 7. 退出账号的顺序：停止购买 → 等正在进行的购买结束（最多 40 秒）→ 把待回报的结果报完 → 注销令牌。回报遇到 401 不丢弃，留在待回报队列里，24 小时后清除。
@@ -272,6 +274,24 @@ class Purchaser(Protocol):
 - 扫描器接着游戏跑时，钩子在真实商店窗口里的调用时机。
 
 ## 7. 后续
+
+### 2026-10-28 Windows 实机进展
+
+已经在运行中的游戏完成选中一行、打开数量框、确认数量、读取总价并提交最终确认。测试商品为每份 1 个、价格 40 金币的红色药水；数量 1，最终确认总价 40，测试花费上限按总计 150 执行。游戏随后明确拒绝交易：账号内需有角色达到 15 级，且在此后经过 24 小时。当前角色 11 级，余额前后均为 412，库存前后均为 85。**未成交，花费 0；没有成功购买或背包变化样本。** 已停止购买重试，并关闭拒绝提示。
+
+控制方面，游戏和采集器均以管理员权限运行，普通权限的输入脚本无法控制；通过标准管理员启动、前台线程关联与 `SendInput` 已实际操作成功。脚本每次输入前检查游戏进程、前台窗口和客户区边界，按键在 `finally` 释放。管理员权限不能解除游戏的交易条件。全屏取图在本机用 `ImageGrab` 成功，DXcam 当时未取得帧；这些结果不能外推为所有分辨率/客户端都兼容。
+
+实机观察已落实为 `sweep_purchase_flow.py` 的购买状态机：
+- 选择前及选择后核对完整挂单身份、价格、包装、装备属性、库存和可读余额；数量输入回读一致才继续，总价必须等于份数乘每份价格。
+- 每个动作只发一次；旧画面、延迟确认不能重复点击。最终确认可能发出后，停止或超时也不能把结果改成“未买”。
+- 识别到明确拒绝才回报未买；仅库存减少、弹窗消失或点击成功都不当成自己的成交。成功路径需要适配器提供与当前尝试及挂单对应的可靠成交证据。
+- 取消/拒绝后必须看到同一商店恢复；超时、丢焦点或窗口无法确认就停止扫描。已经确认的成交/拒绝结果仍保留并结算。
+
+`test_sweep_purchase_flow.py` 使用合成观察回归上述决策；这些测试不等于 Windows 画面识别或成功成交验证。引擎的 `test_collector_sweep.py` 覆盖未知结果停机、交易锁退出、不丢失已知结算，以及购买中停止/租约到期/规则改变的检查。
+
+**仍未接通 Windows 图像/封包适配器，`load_purchaser()` 继续返回未就绪，不能开始自动扫货。** 不把本次手动驱动脚本或未经验证的固定坐标当作已发布执行器。后续需完成挂单/弹窗识别、数量输入及现场回读、自己的成交证据，并在已解锁交易的账号上完成一次小额真实成交；接通前也要补齐网页/桌面端的 `trade_locked` 简短中文状态。原始画面、抓包及控制日志只保留本机，不提交仓库。
+
+### 待完成
 
 1. **Windows 购买执行器** `sweep_purchaser_windows.py`，提供 `create()`，按第 4 节实现 `Purchaser`。要在游戏里确认：
    - 商店窗口里选中某一行、点购买、数量对话框、确认的完整操作，以及每一步的画面识别。

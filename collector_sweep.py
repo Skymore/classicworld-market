@@ -16,7 +16,7 @@ from pathlib import Path
 from urllib.parse import urlencode, urlsplit
 from account_device import DeviceError, EventStream
 from shared_protocol import from_snapshot
-from sweep_purchase import REASONS, PurchaseOrder, PurchaseResult, load_purchaser
+from sweep_purchase import REASONS, PurchaseHalt, PurchaseOrder, PurchaseResult, load_purchaser
 
 STATS = {'weapon_attack', 'magic_attack', 'str', 'dex', 'int', 'luk', 'hp', 'mp',
          'accuracy', 'avoid', 'speed', 'jump', 'weapon_defense', 'magic_defense'}
@@ -316,6 +316,11 @@ class SweepEngine:
             return bool(self.token and self.run and self.plan and self.lease and not self.closed.is_set()
                         and time.monotonic() < self.lease_deadline)
 
+    def _purchase_allowed(self, run, lease, plan_version):
+        with self.lock:
+            return bool(self.buying() and self.run['id'] == run and self.lease == lease
+                        and self.plan_version == plan_version)
+
     def on_shop_open(self, collected, window):
         """Called on the scanner input thread while the shop is open and its prices are captured."""
         if not self.buying() or not isinstance(collected, dict):
@@ -416,7 +421,8 @@ class SweepEngine:
             category=row['category'], slot=row['slot'], price=price, bundle=row['bundle'],
             quantity=min(granted, quantity), equipment=row.get('equipment'), shop_id=packet['shop_id'],
             owner=owner.get('name'), room=location['room'], channel=location['channel'],
-            deadline=started+(ttl if type(ttl) is int else 0)-5)
+            deadline=min(started+(ttl if type(ttl) is int else 0)-5, self.lease_deadline),
+            can_buy=lambda: self._purchase_allowed(run, lease, plan_version))
         # Stop or logout may have landed while the reservation was in flight.
         with self.lock:
             stopped = self.lease != lease or not self.buying()
@@ -425,11 +431,21 @@ class SweepEngine:
             return
         try:
             result = checked_result(self.purchaser.buy(order, window), order)
+        except PurchaseHalt as error:
+            result = checked_result(error.result, order)
+            self._finish(order, result, note, per, run, lease, key)
+            if result.status != 'unknown' and result.reason != 'trade_locked':
+                self._leave(run, lease, 'window_lost', '购买窗口未恢复，已停止扫描')
+            raise
         except BaseException:
             # The window state is uncertain: report unknown, leave, and stop the scanner.
             self._finish(order, PurchaseResult('unknown', reason='error'), note, per, run, lease, key)
             raise
         self._finish(order, result, note, per, run, lease, key)
+        if result.status == 'unknown':
+            # Returning normally lets the scanner close this shop and click another.
+            # An unconfirmed purchase/dialog must never receive those extra inputs.
+            raise PurchaseHalt(result)
 
     def _finish(self, order, result, note, per, run, lease, key):
         unknown = result.status == 'unknown'
@@ -447,6 +463,8 @@ class SweepEngine:
                          spent=result.spent, reason=result.reason))
         if unknown:
             self._leave(run, lease, 'unknown', '购买结果不确定，本机已退出本轮扫货')
+        elif result.reason == 'trade_locked':
+            self._leave(run, lease, 'trade_locked', '游戏账号尚未解锁交易，本机已退出本轮扫货')
 
     # Server conversation.
     def _contact(self):

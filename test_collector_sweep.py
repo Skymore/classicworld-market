@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 from account_device import DeviceError
 from collector_sweep import SweepEngine, configuration, listing_key
-from sweep_purchase import PurchaseResult, PurchaserStatus, UnavailablePurchaser, load_purchaser
+from sweep_purchase import PurchaseHalt, PurchaseResult, PurchaserStatus, UnavailablePurchaser, load_purchaser
 
 TOKEN = 'cwd_'+'A'*43
 RECORD = dict(token=TOKEN, account=dict(id='acct-1', nickname='Tester'), device=dict(id='dev-1', name='PC'))
@@ -247,7 +247,8 @@ class EngineTests(unittest.TestCase):
         self.assertRegex(reserve['listing'], r'^[0-9a-f]{64}$')
         order, window = self.purchaser.orders[0]
         self.assertEqual((order.quantity, order.reservation, window, order.room, order.channel), (3, 'res-1', 'window', 3, 8))
-        self.assertTrue(order.deadline-time.monotonic() > 20)
+        self.assertGreater(order.deadline-time.monotonic(), 10)
+        self.assertLessEqual(order.deadline, self.engine.lease_deadline)
         self.assertEqual(self.server.named('settle'), [dict(reservation='res-1', status='bought', quantity=3, spent=300, reason='')])
         recent = self.engine.status()['sweep']['recent'][0]
         self.assertEqual({k: recent[k] for k in ('name', 'status', 'quantity', 'units', 'spent', 'room', 'channel', 'owner')},
@@ -301,7 +302,8 @@ class EngineTests(unittest.TestCase):
     def test_unknown_result_settles_and_leaves(self):
         self.purchaser.result = lambda order: PurchaseResult('unknown', reason='timeout')
         self.joined()
-        self.engine.on_shop_open(self.capture(), 'w')
+        with self.assertRaises(PurchaseHalt):
+            self.engine.on_shop_open(self.capture(), 'w')
         self.assertEqual(self.server.named('settle')[-1]['status'], 'unknown')
         self.assertEqual(self.server.named('leave')[-1], dict(run='run-1', lease='lease-2', reason='unknown'))
         self.assertFalse(self.engine.buying())
@@ -312,7 +314,8 @@ class EngineTests(unittest.TestCase):
     def test_contract_breaking_result_and_purchaser_crash_are_unknown(self):
         self.purchaser.result = lambda order: PurchaseResult('bought', order.quantity+1, 0)
         self.joined()
-        self.engine.on_shop_open(self.capture(), 'w')
+        with self.assertRaises(PurchaseHalt):
+            self.engine.on_shop_open(self.capture(), 'w')
         self.assertEqual(self.server.named('settle')[-1]['status'], 'unknown')
         self.server.run['participant']['state'] = 'active'
         self.engine.left.clear()
@@ -324,6 +327,53 @@ class EngineTests(unittest.TestCase):
             self.engine.on_shop_open(self.capture('shop_b.json', owner=9), 'w')
         self.assertEqual(self.server.named('settle')[-1]['status'], 'unknown')
         self.assertFalse(self.engine.buying())
+
+    def test_trade_lock_settles_zero_and_stops_other_rows(self):
+        self.purchaser.result = lambda order: PurchaseResult('not_bought', reason='trade_locked')
+        self.joined()
+        rows = [dict(item_id=ITEM, slot=slot, price_mesos_candidate=100,
+                     bundle_quantity_candidate=1, available_quantity_candidate=3) for slot in (1, 2)]
+        self.engine.on_shop_open(self.capture(items=rows), 'w')
+        self.assertEqual(len(self.purchaser.orders), 1)
+        self.assertEqual(self.server.named('settle')[-1], dict(
+            reservation='res-1', status='not_bought', quantity=0, spent=0, reason='trade_locked'))
+        self.assertEqual(self.engine.spent, 0)
+        self.assertFalse(self.engine.buying())
+        self.engine.poll()
+        self.assertEqual(len(self.server.named('join')), 1)
+
+    def test_known_result_with_unrestored_window_is_settled_before_halt(self):
+        self.joined()
+        self.server.down.add('settle')
+        def halt(order):
+            raise PurchaseHalt(PurchaseResult('not_bought', reason='stopped'))
+        self.purchaser.result = halt
+        with self.assertRaises(PurchaseHalt):
+            self.engine.on_shop_open(self.capture(), 'w')
+        self.assertEqual(self.engine.pending[0]['body']['status'], 'not_bought')
+        self.assertEqual(self.engine.pending[0]['body']['reason'], 'stopped')
+        self.assertFalse(self.engine.buying())
+        self.assertEqual(self.engine.spent, 0)
+
+    def test_inflight_purchase_guard_stops_on_run_lease_plan_and_local_stop(self):
+        self.joined()
+        def verify(order):
+            self.assertTrue(order.can_buy())
+            self.assertLessEqual(order.deadline, self.engine.lease_deadline)
+            for field, replacement in [('plan_version', 99), ('lease', 'new-lease'), ('plan', None)]:
+                saved = getattr(self.engine, field)
+                setattr(self.engine, field, replacement)
+                self.assertFalse(order.can_buy(), field)
+                setattr(self.engine, field, saved)
+            self.engine.lease_deadline = time.monotonic()-1
+            self.assertFalse(order.can_buy(), 'expired lease')
+            self.engine.lease_deadline = time.monotonic()+15
+            self.engine._stop_buying('stopped')
+            self.assertFalse(order.can_buy(), 'stopped on web or device')
+            return PurchaseResult('not_bought', reason='stopped')
+        self.purchaser.result = verify
+        self.engine.on_shop_open(self.capture(), 'w')
+        self.assertEqual(self.server.named('settle')[-1]['reason'], 'stopped')
 
     def test_failed_settle_is_queued_and_retried(self):
         self.joined()
