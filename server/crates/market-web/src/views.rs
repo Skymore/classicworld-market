@@ -18,6 +18,9 @@ const CATEGORY_NAMES: [&str; 5] = ["装备", "消耗品", "装饰", "其他", "�
 const ARCHER_PRESET: [i32; 4] = [1_452_003, 1_452_004, 1_462_003, 1_462_004];
 const CATALOG_LIMIT: i64 = 40;
 const WATCH_LIMIT: usize = 200;
+/// Cheapest offer groups kept per watched item, shared across the watchlist
+/// (5 to 40 each) so a 100-item list does not grow the payload tenfold.
+const WATCH_CHEAPEST_TOTAL: usize = 400;
 
 /// `?hours=72|all`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -923,7 +926,7 @@ struct WatchRows {
 
 /// All rows participate in grouping/percentiles. Only possible display rows
 /// need Python-compatible SHA identities and full presentation objects.
-fn select_watch_rows(quotes: Vec<Map<String, Value>>, limit: usize) -> WatchRows {
+fn select_watch_rows(quotes: Vec<Map<String, Value>>, limit: usize, cheapest: usize) -> WatchRows {
     use std::collections::{HashMap, HashSet};
     let mut rows: Vec<Value> = quotes
         .into_iter()
@@ -966,10 +969,42 @@ fn select_watch_rows(quotes: Vec<Map<String, Value>>, limit: usize) -> WatchRows
     };
     let raw_end = prefix(rows.len(), &|i| observed(&rows[i]));
     let group_end = prefix(groups.len(), &|i| observed(&rows[groups[i].1[0]]));
+    // With several busy items the newest groups span only minutes, so each
+    // item's cheapest groups are added: the lowest price and offers under a
+    // watch's cap must not depend on how recently they were observed.
+    let mut by_item: HashMap<i64, Vec<usize>> = HashMap::new();
+    if cheapest > 0 {
+        for (index, (_, members)) in groups.iter().enumerate() {
+            if let Some(item) = rows[members[0]]["item_id"].as_i64() {
+                by_item.entry(item).or_default().push(index);
+            }
+        }
+    }
+    let head = |group: usize| &rows[groups[group].1[0]];
+    let mut cheap: Vec<usize> = Vec::new();
+    for list in by_item.values_mut() {
+        list.sort_by(|a, b| {
+            let (a, b) = (head(*a), head(*b));
+            let price = |row: &Value| row["unit_price"].as_f64().unwrap_or(f64::INFINITY);
+            price(a)
+                .total_cmp(&price(b))
+                .then_with(|| observed(b).total_cmp(&observed(a)))
+                .then_with(|| a["shop_key"].as_str().cmp(&b["shop_key"].as_str()))
+                .then_with(|| a["slot"].as_i64().cmp(&b["slot"].as_i64()))
+                .then_with(|| a["visit_id"].as_str().cmp(&b["visit_id"].as_str()))
+        });
+        cheap.extend(
+            list.iter()
+                .take(cheapest)
+                .copied()
+                .filter(|&g| g >= group_end),
+        );
+    }
     let mut ids: Vec<Option<(String, String)>> = vec![None; total];
     for i in (0..raw_end).chain(
         groups[..group_end]
             .iter()
+            .chain(cheap.iter().map(|&g| &groups[g]))
             .flat_map(|(_, members)| members.iter().copied()),
     ) {
         if ids[i].is_none() {
@@ -999,11 +1034,23 @@ fn select_watch_rows(quotes: Vec<Map<String, Value>>, limit: usize) -> WatchRows
     for (_, members) in &mut groups[..group_end] {
         members.sort_by(order);
     }
+    for &group in &cheap {
+        groups[group].1.sort_by(order);
+    }
     let mut selected: Vec<usize> = (0..group_end).collect();
+    selected.sort_by(|a, b| order(&groups[*a].1[0], &groups[*b].1[0]));
+    selected.truncate(limit);
+    let newest: HashSet<usize> = selected.iter().copied().collect();
+    // Ties at the newest limit can also drop a cheap group inside the window.
+    selected.extend(
+        by_item
+            .values()
+            .flat_map(|list| list.iter().take(cheapest).copied())
+            .filter(|group| !newest.contains(group)),
+    );
     selected.sort_by(|a, b| order(&groups[*a].1[0], &groups[*b].1[0]));
     let grouped = selected
         .into_iter()
-        .take(limit)
         .map(|index| {
             let (merge, members) = &groups[index];
             let mut first = present(members[0]);
@@ -1046,7 +1093,11 @@ pub async fn watch_listings(db: &PgPool, items: &[i32], now: f64) -> sqlx::Resul
         percentiles,
         total,
         identities,
-    } = select_watch_rows(quotes, WATCH_LIMIT);
+    } = select_watch_rows(
+        quotes,
+        WATCH_LIMIT,
+        (WATCH_CHEAPEST_TOTAL / items.len().max(1)).clamp(5, 40),
+    );
     let grouped_at = std::time::Instant::now();
     let mut base_stats = serde_json::Map::new();
     for row in sqlx::query(
@@ -1679,7 +1730,7 @@ mod tests {
         });
         let all_groups = grouped_quotes(&full, usize::MAX);
         for limit in [0, 1, 7, 200] {
-            let selected = select_watch_rows(quotes.clone(), limit);
+            let selected = select_watch_rows(quotes.clone(), limit, 0);
             assert_eq!(selected.total, full.len());
             assert_eq!(
                 selected.found,
@@ -1695,7 +1746,55 @@ mod tests {
                 "dropped rows still computed display identities"
             );
         }
-        let empty = select_watch_rows(Vec::new(), 200);
+        let empty = select_watch_rows(Vec::new(), 200, 40);
         assert!(empty.found.is_empty() && empty.grouped.is_empty() && empty.percentiles.is_empty());
+    }
+
+    #[test]
+    fn watch_rows_keep_each_items_cheapest_offers_beyond_the_newest_window() {
+        // 300 newer offers of a busy item push an older cheap one out of the newest 200.
+        let quote = |item: i64, shop: usize, time: f64, price: i64| {
+            json!({"time":time,"world":WORLD,"shop_key":format!("shop-{shop}"),"visit_id":format!("visit-{shop}"),
+                "item_id":item,"slot":1,"variant":"standard","source":"packet","price":price,"bundle":1,
+                "unit_price":price as f64,"unit_basis":"item","stock":1})
+            .as_object()
+            .unwrap()
+            .clone()
+        };
+        let mut quotes: Vec<_> = (0..300)
+            .map(|i| quote(4010001, i, 5000. + i as f64, 300))
+            .collect();
+        quotes.push(quote(4010001, 900, 10., 200));
+        quotes.push(quote(2000000, 901, 20., 40));
+        quotes.push(quote(2000000, 902, 30., 45));
+        let newest = select_watch_rows(quotes.clone(), 200, 0);
+        assert_eq!(newest.grouped.len(), 200);
+        assert!(newest.grouped.iter().all(|row| row["unit_price"] == 300.));
+        let selected = select_watch_rows(quotes, 200, 1);
+        let prices = |item: i64| {
+            selected
+                .grouped
+                .iter()
+                .filter(|row| row["item_id"] == item)
+                .map(|row| row["unit_price"].as_f64().unwrap())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(selected.grouped.len(), 202);
+        assert!(prices(4010001).contains(&200.));
+        assert_eq!(prices(2000000), vec![40.]);
+        assert_eq!(
+            selected.found.len(),
+            200,
+            "notifications still read the newest raw offers"
+        );
+        let observed: Vec<f64> = selected
+            .grouped
+            .iter()
+            .map(|row| row["observed"].as_f64().unwrap())
+            .collect();
+        assert!(
+            observed.windows(2).all(|pair| pair[0] >= pair[1]),
+            "newest first"
+        );
     }
 }

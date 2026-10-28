@@ -131,6 +131,39 @@ pub struct Turn {
     pub content: String,
 }
 
+/// The catalogue page the player has open when asking, sent by the browser.
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PageContext {
+    pub kind: String,
+    pub id: i64,
+    pub label: String,
+}
+
+impl PageContext {
+    fn valid(&self) -> bool {
+        matches!(self.kind.as_str(), "item" | "mob" | "map")
+            && (1..=999_999_999).contains(&self.id)
+            && !self.label.trim().is_empty()
+            && self.label.chars().count() <= 120
+            && !self.label.chars().any(char::is_control)
+    }
+
+    /// Prefixed to the player's message for the model only; history keeps what they typed.
+    pub(crate) fn note(&self) -> String {
+        let (kind, tool) = match self.kind.as_str() {
+            "item" => ("item", "get_item"),
+            "mob" => ("monster", "get_game_entity kind=monster"),
+            _ => ("map", "get_game_entity kind=map"),
+        };
+        format!(
+            "[Page the player has open on this site, added by the browser: {kind} id {} named {}. \"This item/monster/map\" (这件/这把/这只/这里) means this page; read it with {tool} using this id.]",
+            self.id,
+            serde_json::to_string(&self.label).unwrap_or_default(),
+        )
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ChatRequest {
@@ -139,6 +172,8 @@ pub struct ChatRequest {
     pub history: Vec<Turn>,
     #[serde(default)]
     pub language: String,
+    #[serde(default)]
+    pub page: Option<PageContext>,
 }
 
 impl ChatRequest {
@@ -152,6 +187,7 @@ impl ChatRequest {
                     && t.content.chars().count() <= 4000
             })
             && matches!(self.language.as_str(), "" | "zh" | "en")
+            && self.page.as_ref().is_none_or(PageContext::valid)
     }
 }
 

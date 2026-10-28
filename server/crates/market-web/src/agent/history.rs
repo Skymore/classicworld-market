@@ -1,6 +1,6 @@
 //! Account-owned conversations. Client-provided account IDs/history are never authoritative.
 #![allow(clippy::result_large_err)]
-use super::{error, stream::Sink, ChatRequest, Turn};
+use super::{error, stream::Sink, ChatRequest, PageContext, Turn};
 use crate::{
     api::{reader, ClientAddr},
     auth, contributors, AppState,
@@ -258,6 +258,8 @@ struct Input {
     history: Vec<Turn>,
     #[serde(default)]
     retry: bool,
+    #[serde(default)]
+    page: Option<PageContext>,
 }
 struct Saved {
     thread: String,
@@ -377,6 +379,7 @@ async fn generate(
         message: input.message.clone(),
         history: input.history.clone(),
         language: input.language.clone(),
+        page: input.page.clone(),
     };
     if !request.valid()
         || input.request_id.len() > 80
@@ -446,6 +449,7 @@ async fn generate(
             message: input.message,
             history,
             language: input.language,
+            page: input.page,
         };
         let task = agent.chat_with_events(&state.db, request, Some(sink.clone()));
         tokio::pin!(task);

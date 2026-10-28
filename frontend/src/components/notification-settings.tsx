@@ -115,10 +115,7 @@ export function NotificationSettings() {
                   "此浏览器不支持通知",
                   "This browser has no notifications",
                 )
-              : words(
-                  "本站任意页面打开即可提醒",
-                  "Alerts stay active on any page of this site",
-                ))}
+              : "")}
       </span>
     </div>
   );

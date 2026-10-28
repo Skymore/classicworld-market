@@ -1,5 +1,5 @@
 import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261025-presence-1";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "/web/js/lib/i18n.js";
 import { meso, fullTime } from "/web/js/lib/format.js";
@@ -12,9 +12,11 @@ import {
   EQUIPMENT_STATS,
 } from "/web/js/lib/item-offer-filters.js?v=20261027-watch-groups-1";
 import { useUserValue } from "../lib/live";
+import { useProvidePageContext } from "../lib/assistant";
 import {
   hasBonus,
   groupEquipmentVariants,
+  mainStat,
   makeLadder,
   timestamp,
 } from "../lib/item-market";
@@ -62,6 +64,34 @@ function CollapsibleWell({
       </summary>
       {children}
     </details>
+  );
+}
+// Short stat names, as in the offer rows (物攻 / 魔防 / 力 ...).
+const STAT_SHORT: Record<string, [string, string]> = {
+  weapon_attack: ["物攻", "ATK"], pad: ["物攻", "ATK"], magic_attack: ["魔攻", "M.ATK"], mad: ["魔攻", "M.ATK"],
+  weapon_defense: ["物防", "DEF"], pdd: ["物防", "DEF"], magic_defense: ["魔防", "M.DEF"], mdd: ["魔防", "M.DEF"],
+  str: ["力", "STR"], dex: ["敏", "DEX"], int: ["智", "INT"], luk: ["运", "LUK"], hp: ["HP", "HP"], mp: ["MP", "MP"],
+  accuracy: ["命中", "ACC"], acc: ["命中", "ACC"], avoid: ["回避", "AVOID"], eva: ["回避", "AVOID"],
+  speed: ["移速", "Speed"], jump: ["跳跃", "Jump"],
+};
+const DEFENCE = ["weapon_defense", "magic_defense", "pdd", "mdd"];
+const STAT_ORDER = [
+  "weapon_attack", "magic_attack", "str", "dex", "int", "luk", "hp", "mp",
+  "accuracy", "avoid", "speed", "jump", "weapon_defense", "magic_defense",
+];
+// "62 (+7)": the value without a plus sign, and how far it is from the item's base value.
+function StatValue({ stat, base }: { stat: any; base: number | undefined }) {
+  if (!stat) return <span className="attr-none">—</span>;
+  const range = stat.maxValue > stat.value;
+  const diff = !range && base ? stat.value - base : 0;
+  return (
+    <>
+      <span className={stat.value > (base ?? 0) ? "up" : ""}>
+        {stat.value}
+        {range && `–${stat.maxValue}`}
+      </span>
+      {diff !== 0 && <small>({diff > 0 ? "+" : "−"}{Math.abs(diff)})</small>}
+    </>
   );
 }
 function Variant({ variant, page }: { variant: any; page: any }) {
@@ -139,7 +169,7 @@ function Variant({ variant, page }: { variant: any; page: any }) {
     </>
   );
 }
-function Ladder({ page }: { page: any }) {
+function Ladder({ page, onPrice }: { page: any; onPrice?: (max: number) => void }) {
   const words = useWords();
   const ladder = useMemo(() => makeLadder(page.market), [page.market]);
   const initial = ladder.index(page.stats?.typical_low);
@@ -156,8 +186,8 @@ function Ladder({ page }: { page: any }) {
     return (
       <p className="note">
         {words(
-          "还没有挂单和成交，画不出价格梯。",
-          "No listings or sales yet, so no price ladder.",
+          "还没有挂单和成交，画不出价格分布。",
+          "No listings or sales yet, so no price bands.",
         )}
       </p>
     );
@@ -174,8 +204,9 @@ function Ladder({ page }: { page: any }) {
     maxStock = Math.max(...ladder.tiers.map((tier) => tier.listings)),
     maxCount = Math.max(...ladder.grid.flat());
   const dates: { date: string }[] = page.market.days || [];
-  const round = (value: number) =>
-    value >= 1000 && value % 1000 === 0 ? meso(value) : String(value);
+  // Round bounds read 2.5K–5K (up to, not including, 5K); other bounds stay exact.
+  const isRound = (value: number) => (value >= 1e6 ? value % 1e5 === 0 : value >= 1000 && value % 100 === 0);
+  const round = (value: number) => (isRound(value) ? meso(value) : String(value));
   const label = (tier: any) =>
     tier.hi == null
       ? `${round(tier.lo)}+`
@@ -183,7 +214,7 @@ function Ladder({ page }: { page: any }) {
         ? `< ${round(tier.hi + 1)}`
         : tier.lo === tier.hi
           ? String(tier.hi)
-          : tier.lo % 1000 === 0 && (tier.hi + 1) % 1000 === 0
+          : isRound(tier.lo) && isRound(tier.hi + 1)
             ? `${round(tier.lo)}–${round(tier.hi + 1)}`
             : `${tier.lo}–${tier.hi}`;
   return (
@@ -191,24 +222,24 @@ function Ladder({ page }: { page: any }) {
       <p className="ladder-read" data-read={index}>
         {tier.hi == null ? (
           <>
-            {words("不限价：观察到 ", "Any price: ")}
+            {words("不限价：在售 ", "Any price: ")}
             <b>{stock}</b>
-            {words(" 条挂单", " observed listings")}
+            {words(" 条", " listed")}
           </>
         ) : (
           <>
-            {words("出价 ≤ ", "Bid ≤ ")}
+            {"≤ "}
             <b>{tier.hi.toLocaleString()}</b>
-            {words("：观察到 ", ": ")}
+            {words("：在售 ", ": ")}
             <b>{stock}</b>
-            {words(" 条挂单；", " observed listings; ")}
+            {words(" 条 · ", " listed · ")}
             {!points.length ? (
-              words("近 7 天没有成交记录", "no sales in the last 7 days")
+              words("近 7 天没有成交", "no sales in 7 days")
             ) : (
               <>
                 {words("近 7 天 ", "")}
                 <b>{pct}%</b>
-                {words(" 的成交比这个价贵", " of 7-day sales paid more")}
+                {words(" 的成交更贵", " of 7-day sales paid more")}
                 <span
                   className={
                     "v " + (pct >= 65 ? "" : pct >= 35 ? "mid" : "high")
@@ -221,6 +252,11 @@ function Ladder({ page }: { page: any }) {
                       : words("偏贵，可以等", "pricey, can wait")}
                 </span>
               </>
+            )}
+            {onPrice && (
+              <button type="button" className="ladder-apply" data-ladder-price={tier.hi} onClick={() => onPrice(tier.hi as number)}>
+                {words("只看这些报价", "Show these offers")}
+              </button>
             )}
           </>
         )}
@@ -296,23 +332,14 @@ function Ladder({ page }: { page: any }) {
       <div className="ladder-foot">
         <span>
           <i />
-          {words(
-            "方块越大，当天这个价位成交越多",
-            "bigger square = more sales at that price that day",
-          )}
-          {page.market.days[0] &&
-            words(
-              `（${page.market.days[0].date.slice(5).replace("-", "/")} 起 7 天）`,
-              ` (7 days from ${page.market.days[0].date.slice(5).replace("-", "/")})`,
-            )}
+          {words("每日成交", "daily sales")}
         </span>
         {page.stats?.typical != null && (
           <span>
             <i className="tri" />
-            {words("成交中位所在档", "tier of the typical sale")}
+            {words("成交中位", "typical sale")}
           </span>
         )}
-        <span>{words("点一档看能不能买", "tap a tier to check a bid")}</span>
       </div>
     </>
   );
@@ -406,13 +433,16 @@ export default function Item({ page }: { page: any }) {
     stats = page.stats,
     equipment = Math.floor(item.id / 1000000) === 1;
   const [watch, saveWatch] = useUserValue("watchlist", "[]"),
+    [watchSettings, saveWatchSettings] = useUserValue("watchlist_settings", "{}"),
     [sort, saveSort] = useUserValue("market.offerSort", "price"),
     [showExpired, saveShowExpired] = useUserValue(`item.showExpired.${item.id}`, "true"),
+    [attributesOpen, saveAttributesOpen] = useUserValue("item.attributesOpen", "false"),
     [raw, saveFilters] = useUserValue(`item.offerFilters.${item.id}`, "{}");
   const [tab, setTab] = useState("ladder"),
     [more, setMore] = useState<Set<string>>(new Set()),
     [offersOpen, setOffersOpen] = useState<Set<string>>(new Set()),
     [filterOpen, setFilterOpen] = useState(false),
+    [maxDraft, setMaxDraft] = useState(""),
     [, tick] = useState(0);
   const opener = useRef<HTMLButtonElement>(null);
   const itemHead = useRef<HTMLDivElement>(null);
@@ -451,6 +481,7 @@ export default function Item({ page }: { page: any }) {
       return normalizeOfferFilters();
     }
   }, [raw, equipment]);
+  useEffect(() => setMaxDraft(filters.maxPrice == null ? "" : String(filters.maxPrice)), [filters.maxPrice]);
   const tokens = offerFilterTokens(filters, language === "en");
   const rows = useMemo(
     () =>
@@ -568,6 +599,7 @@ export default function Item({ page }: { page: any }) {
   const list = sameGear(sort === "recent" ? flat : cheapest),
     moreKey = sort === "recent" ? "recent" : "where",
     firstPage = matchMedia("(min-width:641px)").matches ? 50 : 20,
+    firstAttributes = 6,
     active = filtered.rows.filter((row: any) => !row.invalidated_at),
     activeShops = new Set(active.map((row: any) => JSON.stringify([row.shop, row.channel, row.room]))).size;
   const ids = useMemo<any[]>(() => {
@@ -617,9 +649,15 @@ export default function Item({ page }: { page: any }) {
           )}
           {period.hours === "all" ? words("全部 ", "All time ") : "72h "}
           <b>{stats.sales_24h}</b>
-          {words(" 笔 · 在售 ", " sales · listed ")}
-          <b>{stats.listings_count}</b>
-          {words(" 条挂单", " listings")}
+          {words(" 笔", " sales")}
+          {stats.lowest_ask != null && (
+            <>
+              {words(" · 在售最低 ", " · lowest ask ")}
+              <b>
+                <Price value={stats.lowest_ask} />
+              </b>
+            </>
+          )}
         </>
       ) : (
         words("市场数据暂无", "No market data yet")
@@ -724,7 +762,17 @@ export default function Item({ page }: { page: any }) {
                   data-sale-stats={equipment ? "" : undefined}
                   key={key}
                 >
-                  <span className={"evi " + row.kind}>
+                  <span
+                    className={"evi " + row.kind}
+                    title={
+                      row.merged_count > 1
+                        ? words(
+                            `同店 ${row.merged_count} 格合计`,
+                            `${row.merged_count} slots in one shop`,
+                          )
+                        : undefined
+                    }
+                  >
                     {t("evidence." + row.kind)}
                   </span>
                   <span className="sale-price">
@@ -734,7 +782,9 @@ export default function Item({ page }: { page: any }) {
                     <span className="sq">
                       {row.quantity != null
                         ? "×" + row.quantity
-                        : words("数量未知", "qty unknown")}
+                        : row.merged_count > 1
+                          ? words(`${row.merged_count} 格`, `${row.merged_count} slots`)
+                          : words("数量未知", "qty unknown")}
                     </span>
                   </span>
                   <Location
@@ -793,7 +843,97 @@ export default function Item({ page }: { page: any }) {
       )}
     </>
   );
-  const variants = groupEquipmentVariants(filtered.rows);
+  const main = mainStat(item.id, item.req_job_mask);
+  // Stat sets: highest main stat first (cheapest on ties); without a main stat, cheapest first.
+  const lowest = (offers: any[]) => Math.min(...offers.map((row: any) => row.unit_price));
+  const mainOf = (variant: any) => variant.stats.find((stat: any) => stat.key === main)?.value ?? -1;
+  const variants = groupEquipmentVariants(filtered.rows).sort(
+    (a: any, b: any) =>
+      (main ? mainOf(b.variant) - mainOf(a.variant) : 0) || lowest(a.offers) - lowest(b.offers),
+  );
+  // Attribute table: only stats that differ between sets get a column; shared ones go in the header.
+  const baseStat = (key: string) =>
+    (market.base_stats || []).find(([stat]: [string, number]) => stat === key)?.[1] as number | undefined;
+  const statText = (variant: any, key: string) => {
+    const stat = variant.stats.find((row: any) => row.key === key);
+    return stat ? `${stat.value}${stat.maxValue > stat.value ? `–${stat.maxValue}` : ""}` : null;
+  };
+  const presentKeys = [...new Set<string>(variants.flatMap(({ variant }: any) => variant.stats.map((stat: any) => stat.key)))].sort(
+    (a, b) => (a === main ? -1 : b === main ? 1 : 0) || STAT_ORDER.indexOf(a) - STAT_ORDER.indexOf(b),
+  );
+  const differs = (text: (variant: any) => unknown) => new Set(variants.map(({ variant }: any) => text(variant))).size > 1;
+  const single = variants.length <= 1;
+  const attrKeys = presentKeys.filter((key) => single || differs((variant) => statText(variant, key)));
+  const attrSlots = variants.some(({ variant }: any) => variant.remaining_upgrades != null) &&
+    (single || differs((variant) => variant.remaining_upgrades));
+  const attrShared = single
+    ? []
+    : [
+        ...presentKeys
+          .filter((key) => !attrKeys.includes(key))
+          .map((key) => `${words(...(STAT_SHORT[key] || [key, key]))} ${statText(variants[0].variant, key)}`),
+        ...(!attrSlots && variants[0]?.variant.remaining_upgrades != null
+          ? [words(`可升 ${variants[0].variant.remaining_upgrades}`, `${variants[0].variant.remaining_upgrades} slots`)]
+          : []),
+      ];
+  // Stat columns stay compact on the left; the price column takes the spare width.
+  const attrColumns = `repeat(${attrKeys.length + (attrSlots ? 1 : 0)}, minmax(52px, max-content)) minmax(64px, 1fr) minmax(44px, max-content)`;
+  // Quick filters: thresholds of the main stat seen on sale, and the usual prices.
+  const mainSeen = main
+    ? rows
+        .filter((row: any) => !row.invalidated_at)
+        .map((row: any) => row.variant?.stats?.find((stat: any) => stat.key === main)?.value)
+        .filter((value: any) => Number.isFinite(value) && value > 0)
+    : [];
+  // Thresholds above the item's base value (else the median), at most five spread evenly.
+  const mainBase =
+    (market.base_stats || []).find(([key]: [string, number]) => key === main)?.[1] ??
+    [...mainSeen].sort((a, b) => a - b)[Math.floor(mainSeen.length / 2)] ??
+    0;
+  const mainAbove = [...new Set<number>(mainSeen)].filter((value) => value > mainBase).sort((a, b) => a - b);
+  const mainValues = (
+    mainAbove.length <= 5
+      ? mainAbove
+      : [0, 1, 2, 3, 4].map((step) => mainAbove[Math.round((step * (mainAbove.length - 1)) / 4)])
+  ).map((value) => ({ value, count: mainSeen.filter((seen: number) => seen >= value).length }));
+  const mainMin = filters.stats.find((row: any) => row.stat === main)?.min ?? null;
+  const quickPrices = (
+    [
+      [stats?.typical_low, words("常见低价", "usual low")],
+      [stats?.typical, words("成交中位", "typical")],
+    ] as [number | null | undefined, string][]
+  ).filter(
+    ([value], index, all) => value != null && all.findIndex(([other]) => other === value) === index,
+  ) as [number, string][];
+  const selectedTags: string[] = selectedVariant
+    ? [
+        ...selectedVariant.stats
+          .filter(
+            (stat: any) => !["weapon_defense", "magic_defense", "pdd", "mdd"].includes(stat.key) && stat.value > 0,
+          )
+          .map(
+            (stat: any) => {
+              const base = (market.base_stats || []).find(([key]: [string, number]) => key === stat.key)?.[1];
+              const diff = base ? stat.value - base : 0;
+              return (
+                words(...(STAT_SHORT[stat.key] || [stat.label || stat.key, stat.key])) +
+                ` ${stat.value}` +
+                (diff ? ` (${diff > 0 ? "+" : "−"}${Math.abs(diff)})` : "")
+              );
+            },
+          ),
+        ...(selectedVariant.remaining_upgrades != null
+          ? [words("可升 ", "Slots ") + selectedVariant.remaining_upgrades]
+          : []),
+      ]
+    : [];
+  const itemName = words(item.name_zh || item.name_en, item.name_en || item.name_zh);
+  useProvidePageContext({
+    kind: "item",
+    id: item.id,
+    label: [itemName, ...selectedTags].join(" · ").slice(0, 120),
+    icon: item.icon_url || undefined,
+  });
   return (
     <>
       <div className="mobile-item-search">
@@ -872,6 +1012,15 @@ export default function Item({ page }: { page: any }) {
             aria-pressed={watched}
             onClick={() => {
               if (!watched && ids.length >= 100) return;
+              // A new watch starts with no price and no alert.
+              if (!watched)
+                try {
+                  const settings = JSON.parse(watchSettings) || {};
+                  if (!settings[item.id])
+                    saveWatchSettings(
+                      JSON.stringify({ ...settings, [item.id]: { cap: null, notify: false } }),
+                    );
+                } catch {}
               saveWatch(
                 JSON.stringify(
                   watched
@@ -919,14 +1068,15 @@ export default function Item({ page }: { page: any }) {
                     )[item.category] || item.category,
                   )}
                 </span>
-                {item.subcategory && language === "zh" && (
-                  <span className="tagx">{item.subcategory}</span>
+                {item.subcategory &&
+                  language === "zh" &&
+                  !item.subcategory.includes(item.category) &&
+                  !item.category.includes(item.subcategory) && (
+                    <span className="tagx">{item.subcategory}</span>
+                  )}
+                {item.req_level > 0 && (
+                  <span className="tagx">{words(`${item.req_level} 级`, `Lv. ${item.req_level}`)}</span>
                 )}
-                <span className="tagx">
-                  {item.req_level > 0
-                    ? words(`${item.req_level} 级`, `Lv. ${item.req_level}`)
-                    : words("无等级限制", "No level limit")}
-                </span>
                 {item.is_cash && (
                   <span className="tagx">{words("商城", "Cash")}</span>
                 )}
@@ -950,13 +1100,6 @@ export default function Item({ page }: { page: any }) {
               </div>
               <div className="row">
                 {range}
-                {stats && (
-                  <>
-                    {" "}
-                    / {stats.shops_count}
-                    {words(" 摊", " shops")}
-                  </>
-                )}
               </div>
             </div>
           </div>
@@ -1005,39 +1148,6 @@ export default function Item({ page }: { page: any }) {
             </div>
           )}
         </div>
-        {selectedVariant && (
-          <div className="selected-attributes" data-selected-attributes>
-            <div className="tags">
-              {selectedVariant.stats
-                .filter(
-                  (stat: any) =>
-                    !["weapon_defense", "magic_defense", "pdd", "mdd"].includes(
-                      stat.key,
-                    ) && stat.value > 0,
-                )
-                .map((stat: any) => (
-                  <span className="tagx" key={stat.key}>
-                    {words(
-                      stat.label || stat.key,
-                      EQUIPMENT_STATS.find(
-                        ([key]: string[]) => key === stat.key,
-                      )?.[2] || stat.key,
-                    )}{" "}
-                    +{stat.value}
-                  </span>
-                ))}
-              {selectedVariant.remaining_upgrades != null && (
-                <span className="tagx">
-                  {words("可升级", "Upgrades left")}{" "}
-                  {selectedVariant.remaining_upgrades}
-                </span>
-              )}
-            </div>
-            <SiteLink data-no-preview href={itemHref()} data-all-attributes>
-              {words("查看全部属性", "All equipment stats")}
-            </SiteLink>
-          </div>
-        )}
         <div className="ibox">
           <div data-market="where">
             <CollapsibleWell
@@ -1090,6 +1200,20 @@ export default function Item({ page }: { page: any }) {
                     <span>{words("筛选", "Filters")}</span>
                     {tokens.length > 0 && <b>{tokens.length}</b>}
                   </button>
+                  {equipment && (
+                    <button
+                      type="button"
+                      className={"offer-filter-trigger attr-trigger " + (selectedVariant ? "on" : "")}
+                      data-attributes-open
+                      aria-expanded={attributesOpen === "true"}
+                      aria-controls="item-attributes"
+                      onClick={() => saveAttributesOpen(attributesOpen === "true" ? "false" : "true")}
+                    >
+                      <span>{words("属性", "Stats")}</span>
+                      {!selectedVariant && <small>{variants.length}</small>}
+                      <Icon name="caret" />
+                    </button>
+                  )}
                   <label className="show-expired-toggle">
                     <input
                       type="checkbox"
@@ -1100,8 +1224,192 @@ export default function Item({ page }: { page: any }) {
                   </label>
                 </div>
               )}
-              {tokens.length > 0 && (
+              {!!rows.length && (
+                <div className="quick-filters">
+                  {main && mainValues.length > 0 && (
+                    <div className="qf-group" data-main-stat={main}>
+                      <span className="qf-label" id="qf-main">{words(...STAT_SHORT[main])}</span>
+                      {/* One threshold at a time: picking another replaces it, picking it again clears it. */}
+                      <span className="qf-options" role="radiogroup" aria-labelledby="qf-main">
+                      {mainValues.map(({ value, count }) => (
+                        <button
+                          type="button"
+                          key={value}
+                          className={"chip " + (mainMin === value ? "on" : "")}
+                          data-main-min={value}
+                          role="radio"
+                          aria-checked={mainMin === value}
+                          onClick={() =>
+                            saveFilters(
+                              JSON.stringify(
+                                normalizeOfferFilters({
+                                  ...filters,
+                                  stats: [
+                                    ...filters.stats.filter((row: any) => row.stat !== main),
+                                    ...(mainMin === value ? [] : [{ stat: main, min: value }]),
+                                  ],
+                                }),
+                              ),
+                            )
+                          }
+                        >
+                          <span>
+                            ≥{value} <small>{words(`${count} 件`, `${count}`)}</small>
+                          </span>
+                        </button>
+                      ))}
+                      </span>
+                    </div>
+                  )}
+                  <div className="qf-group" data-quick-prices>
+                    <span className="qf-label" id="qf-price">{words("价格", "Price")}</span>
+                    {quickPrices.length > 0 && <span className="qf-options" role="radiogroup" aria-labelledby="qf-price">
+                    {quickPrices.map(([value, label]) => (
+                      <button
+                        type="button"
+                        key={value}
+                        className={"chip " + (filters.maxPrice === value ? "on" : "")}
+                        data-quick-price={value}
+                        role="radio"
+                        aria-checked={filters.maxPrice === value}
+                        onClick={() =>
+                          saveFilters(
+                            JSON.stringify(
+                              normalizeOfferFilters({ ...filters, maxPrice: filters.maxPrice === value ? null : value }),
+                            ),
+                          )
+                        }
+                      >
+                        <span>
+                          ≤<Price value={value} /> <small>{label}</small>
+                        </span>
+                      </button>
+                    ))}
+                    </span>}
+                    <input
+                      type="number"
+                      min="0"
+                      inputMode="numeric"
+                      data-quick-max
+                      aria-label={words("最高单价", "Max unit price")}
+                      placeholder={words("最高价", "Max price")}
+                      value={maxDraft}
+                      onChange={(event) => setMaxDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") event.currentTarget.blur();
+                      }}
+                      onBlur={() => {
+                        const value = maxDraft.trim() === "" ? null : Number(maxDraft);
+                        if (value !== filters.maxPrice && (value === null || (Number.isFinite(value) && value >= 0)))
+                          saveFilters(JSON.stringify(normalizeOfferFilters({ ...filters, maxPrice: value })));
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              {equipment && !!rows.length && attributesOpen === "true" && (
+                <div className="attr-panel" id="item-attributes">
+                  <div className="attr-head">
+                    <span>
+                      {selectedVariant
+                        ? words("已选这组属性", "This stat set")
+                        : words(`${variants.length} 种属性在售`, `${variants.length} stat sets on sale`)}
+                      {attrShared.length > 0 && words(` · 都是 ${attrShared.join(" · ")}`, ` · all ${attrShared.join(" · ")}`)}
+                    </span>
+                    <button
+                      type="button"
+                      className={"toggle right " + (filters.equipment === "bonus" ? "on" : "")}
+                      data-bonus-only
+                      aria-pressed={filters.equipment === "bonus"}
+                      onClick={() =>
+                        saveFilters(
+                          JSON.stringify(
+                            normalizeOfferFilters({
+                              ...filters,
+                              equipment: filters.equipment === "bonus" ? "all" : "bonus",
+                            }),
+                          ),
+                        )
+                      }
+                    >
+                      <i aria-hidden="true" />
+                      {words("只看有加成", "Bonus only")}
+                    </button>
+                  </div>
+                  {variants.length > 0 && (
+                    <div className="attr-table" style={{ "--attr-cols": attrColumns } as CSSProperties}>
+                      <div className="attr-tr attr-th">
+                        {attrKeys.map((key) => (
+                          <span key={key}>{words(...(STAT_SHORT[key] || [key, key]))}</span>
+                        ))}
+                        {attrSlots && <span>{words("可升", "Slots")}</span>}
+                        <span>{words("最低", "From")}</span>
+                        <span>{words("件数", "Listed")}</span>
+                      </div>
+                      {variants.slice(0, more.has("equip") ? undefined : firstAttributes).map(({ key, variant, offers }) => (
+                        <SiteLink
+                          key={key}
+                          href={itemHref(selectedVariant || variant)}
+                          className="attr-tr"
+                          data-equipment-group={key}
+                          data-bonus={hasBonus(variant, market.base_stats || []) ? "1" : "0"}
+                          aria-current={selectedVariant ? "true" : undefined}
+                        >
+                          {attrKeys.map((stat) => (
+                            <span key={stat}>
+                              <StatValue
+                                stat={variant.stats.find((row: any) => row.key === stat)}
+                                base={baseStat(stat)}
+                              />
+                            </span>
+                          ))}
+                          {attrSlots && <span>{variant.remaining_upgrades ?? "—"}</span>}
+                          <span className="attr-price">
+                            <Price value={lowest(offers)} />
+                          </span>
+                          <span className="attr-count">
+                            {words(
+                              `${offers.reduce((n: number, row: any) => n + (row.merged_count || 1), 0)} 件`,
+                              `${offers.reduce((n: number, row: any) => n + (row.merged_count || 1), 0)}`,
+                            )}
+                          </span>
+                        </SiteLink>
+                      ))}
+                    </div>
+                  )}
+                  {!more.has("equip") && variants.length > firstAttributes && (
+                    <button className="more" data-more="equip" onClick={() => show("equip")}>
+                      {words(`显示全部 ${variants.length} 种 `, `Show all ${variants.length} `)}
+                      <Icon name="chev" />
+                    </button>
+                  )}
+                  {!variants.length && (
+                    <p className="note">
+                      {words(
+                        rows.some((row: any) => row.variant) ? "没有符合条件的装备。" : "最近 72 小时没有看到带属性的在售装备。",
+                        rows.some((row: any) => row.variant)
+                          ? "No equipment matches these filters."
+                          : "No listed instance with decoded stats in the last 72 hours.",
+                      )}
+                    </p>
+                  )}
+                </div>
+              )}
+              {(tokens.length > 0 || selectedVariant) && (
                 <div className="offer-filter-summary">
+                  {selectedVariant && (
+                    <SiteLink
+                      data-no-preview
+                      className="attr-chip"
+                      href={itemHref()}
+                      data-selected-attributes
+                      data-all-attributes
+                      aria-label={words("移除属性：", "Remove stat set: ") + selectedTags.join(" · ")}
+                    >
+                      {selectedTags.join(" · ") || words("已选属性", "Stat set")}{" "}
+                      <span aria-hidden="true">×</span>
+                    </SiteLink>
+                  )}
                   {tokens.map((token: any) => (
                     <button
                       type="button"
@@ -1117,7 +1425,7 @@ export default function Item({ page }: { page: any }) {
                       {token.label} <span aria-hidden="true">×</span>
                     </button>
                   ))}
-                  <button
+                  {tokens.length > 0 && <button
                     className="offer-clear-all"
                     data-offer-clear="all"
                     onClick={() =>
@@ -1125,7 +1433,7 @@ export default function Item({ page }: { page: any }) {
                     }
                   >
                     {words("清空筛选", "Clear all")}
-                  </button>
+                  </button>}
                   {filtered.cap != null && (
                     <small data-offer-filter-note>
                       {words(
@@ -1178,7 +1486,7 @@ export default function Item({ page }: { page: any }) {
             >
               <div className="tabs" role="tablist">
                 {[
-                  ["ladder", "价格梯", "Ladder"],
+                  ["ladder", "价格分布", "Price bands"],
                   ["trend", "走势", "Trend"],
                   ["sales", "最近成交", "Sales"],
                 ].map(([key, zh, en]) => (
@@ -1205,7 +1513,15 @@ export default function Item({ page }: { page: any }) {
                 data-pane="ladder"
                 hidden={tab !== "ladder"}
               >
-                <Ladder page={page} />
+                <Ladder
+                  page={page}
+                  onPrice={(max) => {
+                    saveFilters(JSON.stringify(normalizeOfferFilters({ ...filters, maxPrice: max })));
+                    // Phones show the list above the tabs: bring it back into view.
+                    if (matchMedia("(max-width:640px)").matches)
+                      document.querySelector('[data-market="where"]')?.scrollIntoView({ block: "start" });
+                  }}
+                />
               </div>
               <div className="pane" data-pane="trend" hidden={tab !== "trend"}>
                 <ItemTrend days={market.days} listingDays={market.listing_days} />
@@ -1215,123 +1531,6 @@ export default function Item({ page }: { page: any }) {
               </div>
             </section>
           </div>
-          {equipment && (
-            <div data-market="equip">
-              <Well
-                className={"equip-well " + (more.has("equip") ? "all" : "")}
-                title={words("装备属性", "Equipment stats")}
-                note={
-                  <>
-                    <span>
-                      {words(
-                        `${variants.length} 种在售`,
-                        `${variants.length} on sale`,
-                      )}
-                    </span>
-                    <button
-                      type="button"
-                      className={
-                        "toggle right " +
-                        (filters.equipment === "bonus" ? "on" : "")
-                      }
-                      data-bonus-only
-                      aria-pressed={filters.equipment === "bonus"}
-                      onClick={() =>
-                        saveFilters(
-                          JSON.stringify(
-                            normalizeOfferFilters({
-                              ...filters,
-                              equipment:
-                                filters.equipment === "bonus" ? "all" : "bonus",
-                            }),
-                          ),
-                        )
-                      }
-                    >
-                      <i aria-hidden="true" />
-                      {words("只看有加成", "Bonus only")}
-                    </button>
-                  </>
-                }
-              >
-                {variants.length ? (
-                  <>
-                    <div className="tips">
-                      {variants.slice(0, more.has("equip") ? undefined : 3).map(({ key, variant, offers }, i: number) => {
-                        const cheapest = offers.reduce(
-                          (pick: any, row: any) =>
-                            row.unit_price < pick.unit_price ? row : pick,
-                          offers[0],
-                        );
-                        return (
-                          <SiteLink
-                            href={itemHref(selectedVariant || variant)}
-                            className={
-                              "tip equipment-group-link " +
-                              (i >= 3 ? "extra" : "")
-                            }
-                            key={key}
-                            data-equipment-group={key}
-                            data-bonus={
-                              hasBonus(variant, market.base_stats || [])
-                                ? "1"
-                                : "0"
-                            }
-                          >
-                            <Variant variant={variant} page={page} />
-                            <div className="tip-f">
-                              <span className="tip-market">
-                                <span className="tip-price">
-                                  {words("最低 ", "from ")}
-                                  <b><Price value={cheapest.unit_price} /></b>
-                                </span>
-                                <span className="tip-count">
-                                  · {words(
-                                    `${offers.reduce((n: number, row: any) => n + (row.merged_count || 1), 0)} 件`,
-                                    `${offers.reduce((n: number, row: any) => n + (row.merged_count || 1), 0)} listed`,
-                                  )}
-                                </span>
-                                <Location value={cheapest} />
-                              </span>
-                              {!selectedVariant && (
-                                <span className="tip-link">
-                                  {words("查看报价 ›", "View offers ›")}
-                                </span>
-                              )}
-                            </div>
-                          </SiteLink>
-                        );
-                      })}
-                    </div>
-                    {variants.length > 3 && (
-                      <button
-                        className="more"
-                        data-more="equip"
-                        onClick={() => show("equip")}
-                      >
-                        {words(
-                          `显示全部 ${variants.length} 件 `,
-                          `Show all ${variants.length} `,
-                        )}
-                        <Icon name="chev" />
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <p className="note">
-                    {words(
-                      rows.some((row: any) => row.variant)
-                        ? "没有符合条件的装备。"
-                        : "最近 72 小时没有看到带属性的在售装备。",
-                      rows.some((row: any) => row.variant)
-                        ? "No equipment matches these filters."
-                        : "No listed instance with decoded stats in the last 72 hours.",
-                    )}
-                  </p>
-                )}
-              </Well>
-            </div>
-          )}
           <div className="src-box">
             <CollapsibleWell
               className={"src-well " + (more.has("mobs") ? "all" : "")}

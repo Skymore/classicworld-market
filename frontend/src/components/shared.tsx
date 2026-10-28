@@ -174,6 +174,30 @@ export function SampleBadge({ row }: { row: Product }) {
     </small>
   );
 }
+// Fewer sales than the server needs for a typical price (TYPICAL_MIN in market-core).
+const FEW_SALES = 5;
+/** True when either window behind a change has only a few sales. */
+export const thinChange = (row: Product) =>
+  row.change_window != null &&
+  ((row.sales_prev_window != null && row.sales_prev_window < FEW_SALES) ||
+    (row.sales_window ?? 0) < FEW_SALES);
+/** The period change, marked when it rests on only a few sales. */
+export function WindowChange({ row }: { row: Product }) {
+  const words = useWords();
+  if (!thinChange(row)) return <Change value={row.change_window} />;
+  return (
+    <span
+      className="change-thin"
+      title={words(
+        `比较的两个时段分别只有 ${row.sales_prev_window ?? 0} 笔和 ${row.sales_window ?? 0} 笔成交`,
+        `Compares ${row.sales_prev_window ?? 0} with ${row.sales_window ?? 0} sales`,
+      )}
+    >
+      <Change value={row.change_window} />
+      <small className="sample-badge">{words("样本少", "Few sales")}</small>
+    </span>
+  );
+}
 export function usePeriod() {
   const [hours, setHours] = useState<string>(() => readPeriod());
   const [ready, setReady] = useState(false);

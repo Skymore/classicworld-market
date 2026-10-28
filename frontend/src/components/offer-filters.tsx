@@ -181,19 +181,23 @@ export default function OfferFilterDialog({
             </div>
           </fieldset>
           <fieldset>
-            <legend>{words("库存与属性", "Stock and stats")}</legend>
+            <legend>
+              {equipment ? words("库存与属性", "Stock and stats") : words("库存", "Stock")}
+            </legend>
             <div className="offer-field-grid">
               {field("stock", words("库存信息", "Stock information"), [
                 ["all", words("全部库存", "Any stock")],
                 ["known", words("仅库存已知", "Known stock only")],
                 ["unknown", words("仅库存未知", "Unknown stock only")],
               ])}
-              {field(
-                "minStock",
-                words("最低库存数量", "Minimum stock"),
-                undefined,
-                1,
-              )}
+              {/* Equipment is listed one piece per slot: a stock minimum only fits stackable items. */}
+              {!equipment &&
+                field(
+                  "minStock",
+                  words("最低库存数量", "Minimum stock"),
+                  undefined,
+                  1,
+                )}
               {equipment && (
                 <>
                   {field("minUpgrades", words("可升级次数至少", "Min upgrades left"))}

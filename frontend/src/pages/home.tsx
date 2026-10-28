@@ -1,4 +1,5 @@
 import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261025-presence-1";
+import { mergeShopSales } from "/web/js/lib/sale-groups.js?v=20261028-sales-1";
 import { useState } from "react";
 import {
   byChange,
@@ -43,8 +44,9 @@ export default function Home() {
     `/api/v1/market/overview?hours=${period.hours}`,
     period.ready,
   );
+  // Extra rows so eight remain after slots of one shop merge into one sale.
   const sales = useMarketQuery<{ sales: Sale[]; generated_at: number }>(
-    "/api/v1/sales/recent?limit=8",
+    "/api/v1/sales/recent?limit=32",
   );
   const quotes = useMarketQuery<{ listings: any[]; grouped_listings?: any[] }>(
     `/api/v1/quotes/recent?limit=8&hours=${period.hours}`,
@@ -67,9 +69,9 @@ export default function Home() {
       if (sales.isError)
         return <ErrorState retry={() => void sales.refetch()} />;
       if (!sales.data) return <Loading />;
-      const rows = sales.data.sales
-        .filter((row) => inPeriod(row.time, period.hours))
-        .slice(0, 8);
+      const rows = mergeShopSales(
+        sales.data.sales.filter((row) => inPeriod(row.time, period.hours)),
+      ).slice(0, 8);
       return rows.length ? (
         rows.map((row: any) => (
           <OfferRow

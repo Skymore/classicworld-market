@@ -87,12 +87,17 @@ pub fn head(v: &View) -> Markup {
     let names = item.names();
     let lang = v.ctx.lang;
     let level = match item.req_level {
-        Some(lv) if lv > 0 => match lang {
+        Some(lv) if lv > 0 => Some(match lang {
             Lang::Zh => format!("{lv} 级"),
             Lang::En => format!("Lv. {lv}"),
-        },
-        _ => v.t("无等级限制", "No level limit").to_string(),
+        }),
+        _ => None,
     };
+    // "消耗 / 消耗品" says the same thing twice.
+    let sub = item
+        .subcategory
+        .as_deref()
+        .filter(|sub| !sub.contains(item.category.as_str()) && !item.category.contains(sub));
     let stats = v.stats();
     let typical = stats.and_then(|s| s.typical);
     let few = stats.is_some_and(|s| s.typical.is_some() && s.sales_24h < FEW_SALES);
@@ -115,8 +120,8 @@ pub fn head(v: &View) -> Markup {
                     @if let Some(other) = names.secondary(lang) { div.en { (other) } }
                     div.tags {
                         span.tagx { (category_label(&item.category, lang)) }
-                        @if lang == Lang::Zh { @if let Some(sub) = &item.subcategory { span.tagx { (sub) } } }
-                        span.tagx { (level) }
+                        @if lang == Lang::Zh { @if let Some(sub) = sub { span.tagx { (sub) } } }
+                        @if let Some(level) = &level { span.tagx { (level) } }
                         @if item.is_cash { span.tagx { (v.t("商城", "Cash")) } }
                     }
                 }
@@ -127,7 +132,7 @@ pub fn head(v: &View) -> Markup {
                         @if crate::external::unit(item.id)=="set" { (v.t(" · 每组", " · per set")) }
                         (change)
                     }
-                    div.row { (range_line(v, true)) }
+                    div.row { (range_line(v)) }
                 }
             }
             div.iprice {
@@ -138,13 +143,13 @@ pub fn head(v: &View) -> Markup {
                     @if crate::external::unit(item.id)=="set" { (v.t(" · 每组", " · per set")) }
                 }
                 (change)
-                span.range { (range_line(v, false)) }
+                span.range { (range_line(v)) }
             }
         }
     }
 }
 
-fn range_line(v: &View, with_shops: bool) -> Markup {
+fn range_line(v: &View) -> Markup {
     let Some(s) = v.stats() else {
         return html! { (v.t("市场数据暂无", "No market data yet")) };
     };
@@ -152,9 +157,9 @@ fn range_line(v: &View, with_shops: bool) -> Markup {
         @if let (Some(lo), Some(hi)) = (s.typical_low, s.typical_high) {
             (v.t("常见 ", "usual ")) b { (meso(lo)) "–" (meso(hi)) } " · "
         }
-        (if v.ctx.here.contains("hours=all") { v.t("全部 ", "All time ") } else { "72h " }) b { (s.sales_24h) } (v.t(" 笔 · 在售 ", " sales · listed "))
-        b { (s.listings_count) } (v.t(" 条挂单", " listings"))
-        @if with_shops { " / " (s.shops_count) (v.t(" 摊", " shops")) }
+        (if v.ctx.here.contains("hours=all") { v.t("全部 ", "All time ") } else { "72h " }) b { (s.sales_24h) } (v.t(" 笔", " sales"))
+        // Where to buy counts merged offers; the head shows the lowest ask instead of a second count.
+        @if let Some(ask) = s.lowest_ask { (v.t(" · 在售最低 ", " · lowest ask ")) b { (meso(ask)) } }
     }
 }
 
@@ -427,10 +432,16 @@ impl Tier {
         p >= self.lo && self.hi.is_none_or(|hi| p <= hi)
     }
 
-    /// "400–449" as in the mockup; round bounds from 10K up read "10K–20K"
-    /// (the band up to, not including, 20K).
+    /// "400–449" as in the mockup; round bounds from 1K up read "2.5K–5K"
+    /// (the band up to, not including, 5K).
     fn label(&self) -> String {
-        let round = |v: i64| v >= 10_000 && v % 1_000 == 0;
+        let round = |v: i64| {
+            if v >= 1_000_000 {
+                v % 100_000 == 0
+            } else {
+                v >= 1_000 && v % 100 == 0
+            }
+        };
         let short = |v: i64| if round(v) { meso(v) } else { v.to_string() };
         match self.hi {
             None => format!("{}+", short(self.lo)),
@@ -472,9 +483,12 @@ fn nice_steps() -> impl Iterator<Item = i64> {
     })
 }
 
-/// Tier bounds over the middle 90% of `prices`: the smallest round step that
-/// fits in eight tiers, plus open tiers below and above (6–10 tiers for a
-/// typical item; the mockup's 50-meso tiers for iron ore).
+/// Tier bounds over the middle 80% of `prices`, so a few far-off listings do
+/// not stretch the range. Skewed prices (the dear end at least ten times the
+/// cheap end, like white gear next to rolled gear) step by 1-2-5 multiples;
+/// otherwise the smallest round step that fits in eight tiers, within 1.5
+/// interquartile ranges of the middle half. Open tiers below and above. Mirrors `tierBounds` in frontend/src/lib/item-market.ts,
+/// which redraws this first paint: keep the two in step.
 pub fn tier_bounds(prices: &[f64]) -> Vec<(i64, Option<i64>)> {
     let mut sorted: Vec<i64> = prices
         .iter()
@@ -486,7 +500,30 @@ pub fn tier_bounds(prices: &[f64]) -> Vec<(i64, Option<i64>)> {
     }
     sorted.sort_unstable();
     let rank = |q: f64| sorted[((sorted.len() - 1) as f64 * q).round() as usize];
-    let (lo, hi) = (rank(0.05), rank(0.95));
+    let (lo, hi) = (rank(0.1), rank(0.9));
+    if lo > 0 && hi >= lo.saturating_mul(10) {
+        let mut marks = Vec::new();
+        let mut base = 10_i64.pow(lo.ilog10());
+        while base <= hi.saturating_mul(10) {
+            for mark in [base, base * 2, base * 5] {
+                if mark > lo && mark <= hi {
+                    marks.push(mark);
+                }
+            }
+            base = base.saturating_mul(10);
+        }
+        if marks.len() >= 2 {
+            let mut bounds = vec![(0, Some(marks[0] - 1))];
+            bounds.extend(marks.windows(2).map(|pair| (pair[0], Some(pair[1] - 1))));
+            bounds.push((marks[marks.len() - 1], None));
+            return bounds;
+        }
+    }
+    // Without skew a long tail of far-off listings would still stretch equal
+    // tiers: keep the range within 1.5 interquartile ranges of the middle half.
+    let (q1, q3) = (rank(0.25), rank(0.75));
+    let fence = (q3 - q1) * 3 / 2;
+    let (lo, hi) = (lo.max(q1 - fence), hi.min(q3 + fence));
     let (step, start, inner) = nice_steps()
         .map(|step| {
             let start = lo / step * step;
@@ -547,15 +584,15 @@ fn ladder_read(v: &View, ladder: &Ladder, ti: usize) -> Markup {
     let stock: usize = ladder.tiers[..=ti].iter().map(|t| t.listings).sum();
     let Some(cap) = tier.hi else {
         return html! {
-            (v.t("不限价：观察到 ", "Any price: ")) b { (stock) } (v.t(" 条挂单", " observed listings"))
+            (v.t("不限价：在售 ", "Any price: ")) b { (stock) } (v.t(" 条", " listed"))
         };
     };
     let points = &v.page.market.sale_points;
     let head = html! {
-        (v.t("出价 ≤ ", "Bid ≤ ")) b { (grouped(cap)) } (v.t("：观察到 ", ": ")) b { (stock) } (v.t(" 条挂单；", " observed listings; "))
+        "≤ " b { (grouped(cap)) } (v.t("：在售 ", ": ")) b { (stock) } (v.t(" 条 · ", " listed · "))
     };
     if points.is_empty() {
-        return html! { (head) (v.t("近 7 天没有成交记录", "no sales in the last 7 days")) };
+        return html! { (head) (v.t("近 7 天没有成交", "no sales in 7 days")) };
     }
     let above = points
         .iter()
@@ -571,7 +608,7 @@ fn ladder_read(v: &View, ladder: &Ladder, ti: usize) -> Markup {
     };
     html! {
         (head)
-        (v.t("近 7 天 ", "")) b { (pct) "%" } (v.t(" 的成交比这个价贵", " of 7-day sales paid more"))
+        (v.t("近 7 天 ", "")) b { (pct) "%" } (v.t(" 的成交更贵", " of 7-day sales paid more"))
         span class={"v " (class)} { (verdict) }
     }
 }
@@ -605,7 +642,7 @@ fn bar_class(n: usize, max: usize) -> String {
 
 fn ladder_pane(v: &View) -> Markup {
     let Some(ladder) = ladder(&v.page.market) else {
-        return html! { p.note { (v.t("还没有挂单和成交，画不出价格梯。", "No listings or sales yet, so no price ladder.")) } };
+        return html! { p.note { (v.t("还没有挂单和成交，画不出价格分布。", "No listings or sales yet, so no price bands.")) } };
     };
     let stats = v.stats();
     let pick = |price: Option<i64>| price.and_then(|p| ladder.index(p as f64));
@@ -616,7 +653,6 @@ fn ladder_pane(v: &View) -> Markup {
     let median = pick(stats.and_then(|s| s.typical));
     let max_stock = ladder.tiers.iter().map(|t| t.listings).max().unwrap_or(0);
     let max_count = ladder.grid.iter().flatten().copied().max().unwrap_or(0);
-    let first = v.page.market.days.first().map(|d| d.date);
     html! {
         @for i in 0..ladder.tiers.len() {
             p.ladder-read data-read=(i) hidden[i != selected] { (ladder_read(v, &ladder, i)) }
@@ -647,16 +683,9 @@ fn ladder_pane(v: &View) -> Markup {
         div.ladder-foot {
             span {
                 i {}
-                (v.t("方块越大，当天这个价位成交越多", "bigger square = more sales at that price that day"))
-                @if let Some(first) = first {
-                    @match v.ctx.lang {
-                        Lang::Zh => { "（" (first.format("%-m/%-d")) " 起 7 天）" },
-                        Lang::En => { " (7 days from " (first.format("%-m/%-d")) ")" },
-                    }
-                }
+                (v.t("每日成交", "daily sales"))
             }
-            @if median.is_some() { span { i.tri {} (v.t("成交中位所在档", "tier of the typical sale")) } }
-            span { (v.t("点一档看能不能买", "tap a tier to check a bid")) }
+            @if median.is_some() { span { i.tri {} (v.t("成交中位", "typical sale")) } }
         }
     }
 }
@@ -776,15 +805,29 @@ pub fn evidence(kind: SaleKind, lang: Lang) -> &'static str {
     }
 }
 
+/// "6 slots in one shop" on a sale that stands for several shop slots.
+fn merged_title(v: &View, s: &Sale) -> Option<String> {
+    (s.merged_count > 1).then(|| match v.ctx.lang {
+        Lang::Zh => format!("同店 {} 格合计", s.merged_count),
+        Lang::En => format!("{} slots in one shop", s.merged_count),
+    })
+}
+
 fn sale_row(v: &View, s: &Sale, with_shop: bool, extra: bool) -> Markup {
     html! {
         div.sale.extra[extra] data-bonus=[bonus_attr(v, s.variant.as_ref())] {
-            span class={"evi " (s.kind.as_str())} { (evidence(s.kind, v.ctx.lang)) }
+            span class={"evi " (s.kind.as_str())} title=[merged_title(v, s)] { (evidence(s.kind, v.ctx.lang)) }
             span {
                 span.sp { (meso_f(s.unit_price)) }
                 span.sq {
                     @match s.quantity {
                         Some(q) => { "×" (q) },
+                        None if s.merged_count > 1 => {
+                            @match v.ctx.lang {
+                                Lang::Zh => { (s.merged_count) " 格" },
+                                Lang::En => { (s.merged_count) " slots" },
+                            }
+                        },
                         None => (v.t("数量未知", "qty unknown")),
                     }
                 }
@@ -832,7 +875,7 @@ pub fn tabs_well(v: &View) -> Markup {
         div data-market="tabs" {
             section.well.tabs-well {
                 div.tabs role="tablist" {
-                    button.tab.on type="button" role="tab" aria-selected="true" data-tab="ladder" { (v.t("价格梯", "Ladder")) }
+                    button.tab.on type="button" role="tab" aria-selected="true" data-tab="ladder" { (v.t("价格分布", "Price bands")) }
                     button.tab type="button" role="tab" aria-selected="false" data-tab="trend" { (v.t("走势", "Trend")) }
                     button.tab.on-phone type="button" role="tab" aria-selected="false" data-tab="sales" {
                         (v.t("最近成交", "Sales")) " " (n)
@@ -1062,6 +1105,51 @@ mod tests {
         assert_eq!(bounds.len(), 9);
     }
 
+    /// The same fixtures as web/tests/react-item-market.test.mjs: both sides draw the same bands.
+    #[test]
+    fn tier_bounds_match_the_browser() {
+        // Most stars at 1.7K-2.4K, some to 4.9K, five listed from 17.5K up.
+        let mut stars: Vec<f64> = (0..70).map(|i| 1700.0 + f64::from(i) * 10.0).collect();
+        stars.extend((0..25).map(|i| 2500.0 + f64::from(i) * 100.0));
+        stars.extend((0..5).map(|i| 17_500.0 + f64::from(i) * 1000.0));
+        assert_eq!(
+            tier_bounds(&stars),
+            vec![
+                (0, Some(1499)),
+                (1500, Some(1999)),
+                (2000, Some(2499)),
+                (2500, Some(2999)),
+                (3000, Some(3499)),
+                (3500, Some(3999)),
+                (4000, Some(4499)),
+                (4500, None),
+            ]
+        );
+        // White gear around 1K next to rolled gear up to 200K: 1-2-5 steps.
+        let mut gear: Vec<f64> = (0..60).map(|i| 900.0 + f64::from(i) * 10.0).collect();
+        gear.extend((0..40).map(|i| 5000.0 + f64::from(i) * 5000.0));
+        assert_eq!(
+            tier_bounds(&gear),
+            vec![
+                (0, Some(1999)),
+                (2000, Some(4999)),
+                (5000, Some(9999)),
+                (10_000, Some(19_999)),
+                (20_000, Some(49_999)),
+                (50_000, Some(99_999)),
+                (100_000, None),
+            ]
+        );
+        // 60 at 2K-2.6K, 30 at 3K-5.9K, 15 from 8K up: the tail stays in the open top tier.
+        let mut tail: Vec<f64> = (0..60).map(|i| 2000.0 + f64::from(i) * 10.0).collect();
+        tail.extend((0..30).map(|i| 3000.0 + f64::from(i) * 100.0));
+        tail.extend((0..15).map(|i| 8000.0 + f64::from(i) * 1000.0));
+        let mut expected = vec![(0, Some(1999))];
+        expected.extend((2..9).map(|k| (k * 1000, Some(k * 1000 + 999))));
+        expected.push((9000, None));
+        assert_eq!(tier_bounds(&tail), expected);
+    }
+
     #[test]
     fn tier_counts_stay_between_six_and_ten() {
         for (lo, hi) in [(10.0, 30.0), (900.0, 5_000.0), (1.0e5, 9.0e6), (45.0, 46.0)] {
@@ -1089,6 +1177,10 @@ mod tests {
         assert_eq!(t(600, None).label(), "600+");
         assert_eq!(t(45, Some(45)).label(), "45");
         assert_eq!(t(10_000, Some(19_999)).label(), "10K–20K");
+        assert_eq!(t(2_500, Some(4_999)).label(), "2.5K–5K");
+        assert_eq!(t(0, Some(2_499)).label(), "< 2.5K");
+        assert_eq!(t(17_500, None).label(), "17.5K+");
+        assert_eq!(t(1_250, Some(1_299)).label(), "1250–1299");
         assert_eq!(t(0, Some(9_999)).label(), "< 10K");
         assert_eq!(t(60_000, None).label(), "60K+");
         assert!(t(400, Some(449)).holds(449.6));

@@ -3,6 +3,7 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -13,6 +14,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   Copy,
   History,
+  Maximize2,
   Plus,
   Send,
   Square,
@@ -20,6 +22,7 @@ import {
   Pencil,
   RotateCcw,
   Check,
+  X,
 } from "lucide-react";
 import { useAccount } from "../lib/query";
 import { usePreferences, useWords } from "../providers";
@@ -32,7 +35,13 @@ import {
 } from "../components/ui/dialog";
 import type { Account } from "../lib/types";
 import { AgentGuides } from "../components/agent-guides";
+import { AssistantIcon } from "../components/assistant-icon";
 import { evidenceUrl, sourceLabel } from "../lib/agent-sources";
+import {
+  setAssistantOpen,
+  usePageContext,
+  type PageContext,
+} from "../lib/assistant";
 import "./agent.css";
 
 type Meta = {
@@ -203,8 +212,33 @@ function RichText({
     </>
   );
 }
+type Variant = "page" | "drawer";
 export default function Agent() {
   usePageReady();
+  return <WithAccount variant="page" />;
+}
+// The same assistant in a drawer next to any page (full screen on phones).
+export function AssistantPanel({ open }: { open: boolean }) {
+  const words = useWords(),
+    panel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    // Phones open full screen; focusing there would pop up the keyboard at once.
+    if (open && matchMedia("(min-width: 641px)").matches)
+      panel.current?.querySelector("textarea")?.focus();
+  }, [open]);
+  return (
+    <aside
+      ref={panel}
+      className="assistant-drawer"
+      hidden={!open}
+      aria-label={words("AI 助手", "AI assistant")}
+      data-assistant-drawer
+    >
+      <WithAccount variant="drawer" />
+    </aside>
+  );
+}
+function WithAccount({ variant }: { variant: Variant }) {
   const account = useAccount();
   const cache = useQueryClient();
   useEffect(() => {
@@ -217,16 +251,28 @@ export default function Agent() {
   if (account.isPending) return <Loading />;
   if (account.isError) return <ErrorState retry={() => account.refetch()} />;
   return (
-    <Assistant key={account.data.public_id || "guest"} account={account.data} />
+    <Assistant
+      key={account.data.public_id || "guest"}
+      account={account.data}
+      variant={variant}
+    />
   );
 }
-function Assistant({ account }: { account: Account }) {
+function Assistant({
+  account,
+  variant,
+}: {
+  account: Account;
+  variant: Variant;
+}) {
   const words = useWords(),
     en = usePreferences().language === "en",
-    cache = useQueryClient();
+    cache = useQueryClient(),
+    page = variant === "page";
   const [params, setParams] = useSearchParams();
+  // Only the full page keeps the open conversation in its address.
   const [active, setActive] = useState<string | null>(
-    account.signed_in ? params.get("chat") : null,
+    account.signed_in && page ? params.get("chat") : null,
   );
   const [draft, setDraft] = useState(0);
   const [menu, setMenu] = useState(false);
@@ -261,16 +307,18 @@ function Assistant({ account }: { account: Account }) {
   function select(id: string | null) {
     setActive(id);
     setMenu(false);
-    setParams(
-      (p) => {
-        if (id) p.set("chat", id);
-        else p.delete("chat");
-        return p;
-      },
-      { replace: true },
-    );
+    if (page)
+      setParams(
+        (p) => {
+          if (id) p.set("chat", id);
+          else p.delete("chat");
+          return p;
+        },
+        { replace: true },
+      );
   }
   useEffect(() => {
+    if (!page) return;
     const id = params.get("chat");
     if (id !== active) setActive(account.signed_in ? id : null);
   }, [params, account.signed_in]);
@@ -299,30 +347,74 @@ function Assistant({ account }: { account: Account }) {
     }
   }
   return (
-    <section className="chat-shell" data-agent-chat>
-      <header className="stall-bar chat-top">
-        <h1>{words("冒险助手", "Adventure assistant")}</h1>
-        <span className="chat-model">GPT-6 Luna</span>
-        <div className="chat-actions">
-          <AgentGuides en={en} />
-          <button
-            className="chat-history-toggle"
-            onClick={() => setMenu(!menu)}
-            aria-expanded={menu}
-          >
-            <History size={16} />
-            <span className="chat-action-label">
-              {words("历史", "History")}
-            </span>
-          </button>
-          <button onClick={newChat}>
-            <Plus size={16} />
-            <span className="chat-action-label">
-              {words("新对话", "New chat")}
-            </span>
-          </button>
-        </div>
-      </header>
+    <section className="chat-shell" data-agent-chat={page ? "" : undefined}>
+      {page ? (
+        <header className="stall-bar chat-top">
+          <h1>{words("AI 助手", "AI assistant")}</h1>
+          <span className="chat-model">GPT-6 Luna</span>
+          <div className="chat-actions">
+            <AgentGuides en={en} />
+            <button
+              className="chat-history-toggle"
+              onClick={() => setMenu(!menu)}
+              aria-expanded={menu}
+            >
+              <History size={16} />
+              <span className="chat-action-label">
+                {words("历史", "History")}
+              </span>
+            </button>
+            <button onClick={newChat}>
+              <Plus size={16} />
+              <span className="chat-action-label">
+                {words("新对话", "New chat")}
+              </span>
+            </button>
+          </div>
+        </header>
+      ) : (
+        <header className="stall-bar chat-top">
+          <span className="assistant-title">
+            <AssistantIcon size={26} />
+            <h2>{words("AI 助手", "AI assistant")}</h2>
+          </span>
+          <div className="chat-actions">
+            <button
+              className="chat-history-toggle"
+              onClick={() => setMenu(!menu)}
+              aria-expanded={menu}
+              aria-label={words("对话历史", "Conversations")}
+              title={words("对话历史", "Conversations")}
+            >
+              <History size={18} />
+            </button>
+            <button
+              onClick={newChat}
+              aria-label={words("新对话", "New chat")}
+              title={words("新对话", "New chat")}
+            >
+              <Plus size={18} />
+            </button>
+            {/* Guest conversations are not saved, so they cannot move to the page. */}
+            {account.signed_in && (
+              <Link
+                to={"/agent" + (active ? "?chat=" + active : "")}
+                aria-label={words("在整页打开", "Open full page")}
+                title={words("在整页打开", "Open full page")}
+              >
+                <Maximize2 size={18} />
+              </Link>
+            )}
+            <button
+              onClick={() => setAssistantOpen(false)}
+              aria-label={words("关闭", "Close")}
+              title={words("关闭", "Close")}
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </header>
+      )}
       <div className="chat-layout">
         <aside
           className={"chat-sidebar" + (menu ? " is-open" : "")}
@@ -410,6 +502,7 @@ function Assistant({ account }: { account: Account }) {
           key={(active || "new-" + draft) + ":" + account.public_id}
           threadId={active}
           account={account}
+          withPage={!page}
           onSaved={(id) => {
             refresh();
             if (id && !active) select(id);
@@ -487,11 +580,13 @@ function Assistant({ account }: { account: Account }) {
 function Conversation({
   threadId,
   account,
+  withPage,
   onSaved,
   onChanged,
 }: {
   threadId: string | null;
   account: Account;
+  withPage: boolean;
   onSaved(id?: string): void;
   onChanged(): void;
 }) {
@@ -539,29 +634,39 @@ function Conversation({
       threadId={threadId}
       account={account}
       initial={loaded}
+      withPage={withPage}
       onSaved={onSaved}
       onChanged={onChanged}
     />
   );
 }
+const pageKey = (page: PageContext) => `${page.kind}:${page.id}:${page.label}`;
 function ChatPane({
   threadId,
   account,
   initial,
+  withPage,
   onSaved,
   onChanged,
 }: {
   threadId: string | null;
   account: Account;
   initial: Detail | null;
+  withPage: boolean;
   onSaved(id?: string): void;
   onChanged(): void;
 }) {
   const words = useWords(),
     { language } = usePreferences(),
-    en = language === "en";
-  const current = useRef({ account, language, onSaved, onChanged });
-  current.current = { account, language, onSaved, onChanged };
+    en = language === "en",
+    inputId = useId();
+  // The page being viewed goes with each question until the visitor removes it.
+  const viewing = usePageContext(),
+    [removed, setRemoved] = useState(""),
+    context =
+      withPage && viewing && pageKey(viewing) !== removed ? viewing : null;
+  const current = useRef({ account, language, onSaved, onChanged, context });
+  current.current = { account, language, onSaved, onChanged, context };
   const threadRef = useRef(threadId),
     inputRef = useRef<HTMLTextAreaElement>(null),
     scrollRef = useRef<HTMLDivElement>(null),
@@ -607,6 +712,13 @@ function ChatPane({
               history: current.current.account.signed_in
                 ? []
                 : temporaryHistory(messages.slice(0, userIndex)),
+              page: current.current.context
+                ? {
+                    kind: current.current.context.kind,
+                    id: current.current.context.id,
+                    label: current.current.context.label,
+                  }
+                : undefined,
             },
           };
         },
@@ -802,8 +914,8 @@ function ChatPane({
             </h2>
             <p>
               {words(
-                "面向冒险岛经典世界国际服，查职业技能、练级、任务和交易；常见问题先查指南，最新攻略可联网搜索。",
-                "For Global Classic World: skills, training, quests and trading. Built-in guides for common questions; web search for current information.",
+                "职业技能、练级、任务和交易都可以问。",
+                "Ask about skills, training, quests and trading.",
               )}
             </p>
             <div className="chat-examples">
@@ -863,7 +975,7 @@ function ChatPane({
               <div className="chat-message-label">
                 {message.role === "user"
                   ? words("你", "You")
-                  : words("冒险助手", "Adventure assistant")}
+                  : words("AI 助手", "AI assistant")}
               </div>
               <div className="chat-answer">
                 <RichText value={value} sources={meta?.sources} />
@@ -969,12 +1081,31 @@ function ChatPane({
           {words("重试回复", "Retry response")}
         </button>
       ) : null}
+      {context ? (
+        <div className="chat-context" data-page-context={context.kind}>
+          <span>
+            {context.icon ? <img src={context.icon} alt="" /> : null}
+            <b>
+              {words("关于本页：", "About this page: ")}
+              {context.label}
+            </b>
+            <button
+              type="button"
+              onClick={() => setRemoved(pageKey(context))}
+              aria-label={words("提问不带上本页", "Ask without this page")}
+              title={words("提问不带上本页", "Ask without this page")}
+            >
+              <X size={14} />
+            </button>
+          </span>
+        </div>
+      ) : null}
       <form className="chat-composer" onSubmit={send}>
-        <label htmlFor="chat-input" className="sr">
+        <label htmlFor={inputId} className="sr">
           {words("你的冒险问题", "Your adventure question")}
         </label>
         <textarea
-          id="chat-input"
+          id={inputId}
           ref={inputRef}
           value={input}
           maxLength={2000}

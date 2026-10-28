@@ -164,6 +164,7 @@ fn market() -> ItemMarket {
             room: Some(8),
             detected_at: at(19, 21),
             variant: None,
+            merged_count: 1,
         }],
         days,
         listing_days: vec![],
@@ -191,6 +192,7 @@ fn item_page(stats: Option<MarketStats>, market: ItemMarket) -> ItemPage {
             category: "其他".into(),
             subcategory: Some("其他道具".into()),
             req_level: None,
+            req_job_mask: None,
             icon_url: Some("https://mxdgcw.dvg.cn/dbsource/icon/item/4000019.png".into()),
             is_cash: false,
         },
@@ -246,7 +248,7 @@ fn item_page_head_sources_and_shell() {
         html.contains("可以自己打"),
         "60% drop: about 2 kills, worth farming"
     );
-    assert!(html.contains("无等级限制"));
+    assert!(!html.contains("无等级限制"), "no level tag without a level requirement");
     assert!(html.contains("https://maplestory.io/api/GMS/83/mob/100100/render/stand"));
     assert!(
         html.contains(r#"href="/item/4000019?lang=en""#),
@@ -278,10 +280,10 @@ fn where_to_buy_groups_by_channel() {
 fn ladder_trend_and_sales() {
     let html = pages::item_page(&item_page(Some(stats()), market()), &zh()).into_string();
     assert!(html.contains(r#"data-tab="ladder""#) && html.contains(r#"data-tab="trend""#));
-    assert!(html.contains("出价 ≤ <b>"), "ladder sentence");
-    assert!(html.contains("的成交比这个价贵"));
+    assert!(html.contains("≤ <b>"), "ladder sentence");
+    assert!(html.contains("的成交更贵"));
     assert!(html.contains(r#"class="rung sel"#), "a tier is selected");
-    assert!(html.contains("（10/13 起 7 天）"));
+    assert!(html.contains("每日成交"), "short legend");
     assert!(html.contains(r#"role="img" aria-label="7 日成交走势""#));
     assert_eq!(html.matches("data-trend-day=").count(), 7);
     assert!(html.contains("data-median=\"1200\""));
@@ -323,7 +325,7 @@ fn item_without_market_data_says_so() {
     assert!(html.contains("NPC #212 出售 <b>50</b> / 个"));
     assert!(html.contains("去 NPC 买"));
     assert!(html.contains("最近 72 小时没有看到在售挂单"));
-    assert!(html.contains("画不出价格梯"));
+    assert!(html.contains("画不出价格分布"));
     assert!(
         !html.contains("样本少"),
         "no typical price: nothing to call thin"
@@ -595,14 +597,15 @@ fn route_page_outcomes() {
     });
     assert!(found.contains("甲 → 丙"));
     assert!(found.contains("2 步"));
-    assert!(found.contains("走传送口 · east00"));
+    assert!(found.contains("走传送口"));
+    assert!(!found.contains("east00"), "internal portal names stay hidden");
     assert!(found.contains(r#"<span class="no">2</span>"#));
     assert!(
         found.contains(r#"<li class="step scroll">"#),
         "return scroll steps look different"
     );
     assert!(found.contains(r#"value="射手训练场""#));
-    assert!(found.contains("现有 393 条"));
+    assert!(!found.contains("现有 393 条"), "no explanatory note under the route");
 
     let no_path = route(RouteOutcome::NoPath {
         from: map(1, "甲"),

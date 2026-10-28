@@ -13,6 +13,7 @@ import {
 import Item from "./item";
 import { catalogKey, loadCatalog } from "../lib/catalog";
 import { useUserValue } from "../lib/live";
+import { useProvidePageContext } from "../lib/assistant";
 import { normalizeOfferFilters } from "/web/js/lib/item-offer-filters.js?v=20261027-watch-groups-1";
 export function useNames() {
   const { language } = usePreferences();
@@ -143,6 +144,9 @@ function Mob({ page }: { page: any }) {
     name = useNames(),
     mob = page.mob,
     title = name(mob.names);
+  useProvidePageContext({ kind: "mob", id: mob.id, label: title.slice(0, 120) });
+  // The server lists mesos and priced drops first; show ten before "show all".
+  const [allDrops, setAllDrops] = useState(false);
   const stats = [
     ["hp", "HP", "HP"],
     ["mp", "MP", "MP"],
@@ -203,7 +207,7 @@ function Mob({ page }: { page: any }) {
               `${page.drops.length} kinds`,
             )}
           >
-            {page.drops.map((drop: any, i: number) => {
+            {page.drops.slice(0, allDrops ? undefined : 10).map((drop: any, i: number) => {
               const item = drop.what.Item,
                 meso = drop.what.Meso,
                 unlisted = drop.what.Unlisted;
@@ -279,6 +283,20 @@ function Mob({ page }: { page: any }) {
                 </div>
               );
             })}
+            {!allDrops && page.drops.length > 10 && (
+              <button
+                type="button"
+                className="more"
+                data-more="drops"
+                onClick={() => setAllDrops(true)}
+              >
+                {words(
+                  `显示全部 ${page.drops.length} 种 `,
+                  `Show all ${page.drops.length} `,
+                )}
+                <Icon name="chev" />
+              </button>
+            )}
             {!page.drops.length && (
               <p className="note">
                 {words(
@@ -320,7 +338,8 @@ function Mob({ page }: { page: any }) {
     </>
   );
 }
-function Edge({ kind, portal }: { kind: string; portal?: string }) {
+// Portal names (east00, dun00) are internal map data, so only the way of travel is shown.
+function Edge({ kind }: { kind: string; portal?: string }) {
   const words = useWords();
   const labels: Record<string, [string, string]> = {
     portal: ["走传送口", "Walk through portal"],
@@ -331,18 +350,14 @@ function Edge({ kind, portal }: { kind: string; portal?: string }) {
       "Use a return scroll (also returns here after death)",
     ],
   };
-  return (
-    <>
-      {words(...(labels[kind] || [kind, kind]))}
-      {portal && ` · ${portal}`}
-    </>
-  );
+  return <>{words(...(labels[kind] || [kind, kind]))}</>;
 }
 function MapPage({ page }: { page: any }) {
   const words = useWords(),
     name = useNames(),
     map = page.map,
     title = name(map.names);
+  useProvidePageContext({ kind: "map", id: map.id, label: title.slice(0, 120) });
   const scrolls = page.entrances.filter((link: any) => link.kind === "return"),
     walks = page.entrances.filter((link: any) => link.kind !== "return");
   return (
@@ -404,14 +419,7 @@ function MapPage({ page }: { page: any }) {
             alt={words("小地图：", "Minimap: ") + title}
             loading="lazy"
           />
-        ) : (
-          <p className="note map-preview-missing">
-            {words(
-              "暂无地图预览。下方仍可查看已收录的怪物和传送连接；暂未收录精确刷新坐标。",
-              "Map preview unavailable. Recorded monsters and portal connections are listed below; exact spawn coordinates are not available.",
-            )}
-          </p>
-        )}
+        ) : null}
         <Description text={map.description} />
         <div className="dgrid">
           <div className="dcol">
@@ -532,13 +540,18 @@ function RoutePage({ page }: { page: any }) {
   const words = useWords(),
     name = useNames(),
     navigate = useNavigate();
-  const [from, setFrom] = useState(page.from_input),
-    [to, setTo] = useState(page.to_input);
-  useEffect(() => {
-    setFrom(page.from_input);
-    setTo(page.to_input);
-  }, [page.from_input, page.to_input]);
   const result = page.outcome;
+  // Show the found maps by name, not by the ids in the address; an unchanged
+  // field still submits the original input so the same maps are used.
+  const shown = (input: string, map: any) => (map ? name(map.names) : input);
+  const fromShown = shown(page.from_input, result.Found?.from),
+    toShown = shown(page.to_input, result.Found?.to);
+  const [from, setFrom] = useState(fromShown),
+    [to, setTo] = useState(toShown);
+  useEffect(() => {
+    setFrom(fromShown);
+    setTo(toShown);
+  }, [fromShown, toShown]);
   let body: ReactNode;
   const found = result.Found,
     unresolved = result.Unresolved,
@@ -656,7 +669,12 @@ function RoutePage({ page }: { page: any }) {
         method="get"
         onSubmit={(event) => {
           event.preventDefault();
-          navigate(route(from, to));
+          navigate(
+            route(
+              from === fromShown ? page.from_input : from,
+              to === toShown ? page.to_input : to,
+            ),
+          );
         }}
       >
         <label className="field">
@@ -686,12 +704,6 @@ function RoutePage({ page }: { page: any }) {
         </button>
       </form>
       <div className="dbody">{body}</div>
-      <p className="note">
-        {words(
-          `路线只用已导入的连接（现有 ${page.known_edges} 条），按步数最少找。`,
-          `Routes use the imported links only (${page.known_edges} so far), fewest steps first.`,
-        )}
-      </p>
     </section>
   );
 }

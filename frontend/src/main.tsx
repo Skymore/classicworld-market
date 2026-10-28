@@ -14,7 +14,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import ItemPreview from "./components/item-preview";
+import ItemPreview, { previewEntry } from "./components/item-preview";
 import { Providers, useWords, initializePreferences } from "./providers";
 import { AppShell } from "./components/shell";
 import { ensureStyle } from "./lib/styles";
@@ -138,7 +138,7 @@ function Application() {
     privacy: words("账号隐私说明", "Account privacy"),
     contributors: words("采集贡献榜", "Contributors"),
     traffic: words("网站流量", "Website traffic"),
-    agent: words("冒险助手", "Adventure assistant"),
+    agent: words("AI 助手", "AI assistant"),
     collect: words("屏幕采集", "Screen collector"),
     web: words("下载采集器与使用说明", "Download collector"),
     search: words("搜索", "Search"),
@@ -209,7 +209,8 @@ function Application() {
           url.searchParams.set("lang", "en");
       }
       event.preventDefault();
-      navigate(url.pathname + url.search + url.hash);
+      // A link in the phone item preview replaces the preview's history entry.
+      navigate(url.pathname + url.search + url.hash, { replace: previewEntry() });
     };
     document.addEventListener("click", click);
     return () => {

@@ -241,6 +241,9 @@ html[lang=en] .salegrid .sale-with-stats{grid-template-columns:96px max-content 
 .where-well .where-tools{margin-left:0}
 /* Phones: wider price column on the ladder so "160K–180K" fits. */
 @media (max-width:640px){
-  .ladder .rung,.ladder .rung-h{grid-template-columns:minmax(0,1fr) 86px calc(var(--cell) * var(--days))}
+  /* Narrow screens: a shorter bar keeps four-digit listing counts visible. */
+  .ladder{--barmax:22px}
+  .rung-l{gap:4px;padding-right:4px}
+  .ladder .rung,.ladder .rung-h{grid-template-columns:minmax(0,1fr) 80px calc(var(--cell) * var(--days))}
   .ladder .rung-p{font-size:12px}
 }

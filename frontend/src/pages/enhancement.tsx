@@ -350,7 +350,7 @@ export default function Enhancement() {
               id="enhance-equipment-price"
               data-price={equipmentAsk ?? ""}
             >
-              {equipmentAsk == null ? "—" : number(equipmentAsk)}
+              {equipmentAsk == null ? "—" : number(equipmentAsk, 0)}
             </output>
             <span className="enhance-quote">
               {equipmentAsk == null
@@ -381,7 +381,7 @@ export default function Enhancement() {
                     id={"enhance-scroll-" + row.id}
                     data-price={row.price ?? ""}
                   >
-                    {row.price == null ? "—" : number(row.price)}
+                    {row.price == null ? "—" : number(row.price, 0)}
                   </output>
                   {row.price == null && (
                     <span className="enhance-quote">
@@ -424,7 +424,7 @@ export default function Enhancement() {
                   {words("最低期望总成本", "Minimum expected total cost")}
                 </span>
                 <strong data-enhance-total={plan.expectedCost}>
-                  {number(plan.expectedCost)}{" "}
+                  {number(plan.expectedCost, 0)}{" "}
                   <small>{words("金币", "mesos")}</small>
                 </strong>
               </div>
@@ -432,14 +432,14 @@ export default function Enhancement() {
                 <span>
                   {words("平均装备", "Average equipment")}
                   <b data-enhance-equipment>
-                    {number(plan.equipmentCount, 4)} {words("件", "items")}
+                    {number(plan.equipmentCount, 1)} {words("件", "items")}
                   </b>
                 </span>
                 {plan.scrolls.map((row: any) => (
                   <span key={row.id}>
                     {scrollLabel(row.id)}
                     <b data-enhance-scrolls={row.id}>
-                      {number(row.count, 4)} {words("张", "scrolls")}
+                      {number(row.count, 1)} {words("张", "scrolls")}
                     </b>
                   </span>
                 ))}

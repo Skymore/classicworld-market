@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { compileSearch, searchText } from "/web/js/lib/search.js";
 import { watchIds, toggleWatch } from "/web/js/lib/watch-ids.js";
@@ -12,6 +12,7 @@ import {
 import { spark } from "/web/js/lib/spark.js?v=20261022-regressions-1";
 import { usePreferences, useWords } from "../providers";
 import { useMarketQuery } from "../lib/query";
+import { useUserValue } from "../lib/live";
 import { craftableIds, estimateCraft } from "/web/js/lib/crafting.js";
 import type { Market, Product, CraftCatalog, CraftPrice } from "../lib/types";
 import {
@@ -33,9 +34,10 @@ import {
   ItemNames,
   Slot,
   Price,
-  Change,
   RelativeTime,
   SampleBadge,
+  WindowChange,
+  thinChange,
   PeriodControl,
   usePeriod,
   usePageReady,
@@ -69,6 +71,13 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "../components/ui/dropdown-menu";
+
+// Equipment any job can wear: the catalogue leaves its job list empty.
+const sharedEquipment = (row: Product) =>
+  row.category === "装备" &&
+  (!(row.jobs || []).length || (row.jobs || []).includes("通用"));
+// Columns of the desktop table, for full-width heading rows.
+const DESKTOP_COLUMNS = 8;
 
 export default function Prices() {
   usePageReady();
@@ -198,10 +207,13 @@ export default function Prices() {
         (state.drop && dropped && !dropped.has(row.item_id))
       )
         return false;
+      // A job keeps its own equipment and equipment for every job (empty job list);
+      // the shared ones are listed after the job's own under their own heading.
       if (
         job &&
         row.category === "装备" &&
-        !(row.jobs || []).some((value) => value === job || value === "通用")
+        !sharedEquipment(row) &&
+        !(row.jobs || []).includes(job)
       )
         return false;
       if (!matchesEquipmentType(row, state.type)) return false;
@@ -249,6 +261,8 @@ export default function Prices() {
         )
         .sort(
           (a, b) =>
+            // Changes measured on a few sales stay listed, after the reliable ones.
+            Number(thinChange(a)) - Number(thinChange(b)) ||
             Math.abs(b.change_window || 0) - Math.abs(a.change_window || 0) ||
             (b.sales_window || 0) - (a.sales_window || 0),
         );
@@ -261,6 +275,13 @@ export default function Prices() {
       selected = selected
         .slice()
         .sort((a, b) => compareProducts(a, b, state.sort, state.dir, en));
+    // With a job chosen, its own items come first and equipment for every job after.
+    // Feeds of recent quotes or sales keep their time order.
+    if (state.job !== "all" && !recordMode)
+      selected = [
+        ...selected.filter((row) => !sharedEquipment(row)),
+        ...selected.filter(sharedEquipment),
+      ];
     return selected;
   }, [
     base,
@@ -268,10 +289,45 @@ export default function Prices() {
     state.tab,
     state.sort,
     state.dir,
+    state.job,
     en,
     recordMode,
     recordMap,
   ]);
+  // Where the "for every job" heading goes, and how many rows it covers.
+  const sharedFrom =
+    state.job === "all" || recordMode ? -1 : rows.findIndex(sharedEquipment);
+  const sharedCount = sharedFrom < 0 ? 0 : rows.length - sharedFrom;
+  const [sharedPref, writeSharedPref] = useUserValue("prices.sharedOpen", "true");
+  const sharedOpen = sharedPref !== "false";
+  // Collapsed, the list stops before the shared rows and the heading closes it.
+  const collapsed = sharedFrom >= 0 && !sharedOpen;
+  const shown = collapsed ? Math.min(limit, sharedFrom) : limit;
+  const hasMore = shown < (collapsed ? sharedFrom : rows.length);
+  const sharedHead = (desktop: boolean) => {
+    const label = (
+      <button
+        type="button"
+        className="price-group-label"
+        data-shared-toggle
+        aria-expanded={sharedOpen}
+        onClick={() => writeSharedPref(sharedOpen ? "false" : "true")}
+      >
+        <b>{words("全职业通用", "For every job")}</b>
+        <small>{words(`${num(sharedCount)} 件`, `${num(sharedCount)} items`)}</small>
+        <Icon name="caret" />
+      </button>
+    );
+    return desktop ? (
+      <tr className="price-group-head" data-shared-head key="shared-head">
+        <td colSpan={DESKTOP_COLUMNS}>{label}</td>
+      </tr>
+    ) : (
+      <div className="price-group-head" data-shared-head key="shared-head">
+        {label}
+      </div>
+    );
+  };
   useEffect(
     () => setLimit(100),
     [
@@ -831,7 +887,9 @@ export default function Prices() {
                 ) : (
                   <>
                     <div className="react-price-mobile" data-list={tab}>
-                      {rows.slice(0, limit).map((row) => (
+                      {rows.slice(0, shown).map((row, index) => (
+                        <Fragment key={row.item_id}>
+                        {index === sharedFrom && sharedHead(false)}
                         <SiteLink
                           className="prow"
                           href={itemHref(row)}
@@ -842,24 +900,40 @@ export default function Prices() {
                           <span className="nm">
                             <ItemNames row={row} />
                             {craftBadge(row)}
-                            {state.sort === "recent" && row.last_seen && (
-                              <small>
-                                <RelativeTime at={row.last_seen} />
-                              </small>
-                            )}
-                            {showLastSale && row.last_sale_at != null && (
-                              <small className="mobile-sort-value">
-                                <RelativeTime at={row.last_sale_at} />
-                              </small>
-                            )}
-                            {state.tab === "all" && state.sort === "sales" && (
-                              <small className="mobile-sort-value">
-                                {words(
-                                  `成交 ${num(row.sales_window ?? 0)} 笔`,
-                                  `${num(row.sales_window ?? 0)} sales`,
-                                )}
-                              </small>
-                            )}
+                            {/* Phones have one price column: the other price (usually the lowest ask) goes here. */}
+                            <small className="mobile-sort-value">
+                              {[
+                                showLowestAsk
+                                  ? row.typical != null && (
+                                      <span key="price">
+                                        {words("成交价 ", "Sale ")}
+                                        <Price value={row.typical} />
+                                      </span>
+                                    )
+                                  : row.low != null && (
+                                      <span key="price">
+                                        {words("在售最低 ", "Lowest ")}
+                                        <Price value={row.low} />
+                                      </span>
+                                    ),
+                                state.tab === "all" && state.sort === "sales" && (
+                                  <span key="sales">
+                                    {words(
+                                      `成交 ${num(row.sales_window ?? 0)} 笔`,
+                                      `${num(row.sales_window ?? 0)} sales`,
+                                    )}
+                                  </span>
+                                ),
+                                state.sort === "recent" && row.last_seen && (
+                                  <RelativeTime key="seen" at={row.last_seen} />
+                                ),
+                                showLastSale && row.last_sale_at != null && (
+                                  <RelativeTime key="sold" at={row.last_sale_at} />
+                                ),
+                              ]
+                                .filter(Boolean)
+                                .flatMap((part, index) => (index ? [" · ", part] : [part]))}
+                            </small>
                           </span>
                           <span className="pr quote-value">
                             <span className="quote-main">
@@ -878,9 +952,11 @@ export default function Prices() {
                               <SampleBadge row={row} />
                             )}
                           </span>
-                          <Change value={row.change_window} />
+                          <WindowChange row={row} />
                         </SiteLink>
+                        </Fragment>
                       ))}
+                      {collapsed && !hasMore && sharedHead(false)}
                     </div>
                     <div className="react-price-desktop">
                       <table className="ptable">
@@ -920,7 +996,9 @@ export default function Prices() {
                           </tr>
                         </thead>
                         <tbody data-list={tab}>
-                          {rows.slice(0, limit).map((row) => (
+                          {rows.slice(0, shown).map((row, index) => (
+                            <Fragment key={row.item_id}>
+                            {index === sharedFrom && sharedHead(true)}
                             <tr
                               key={row.item_id}
                               data-open={row.item_id}
@@ -966,7 +1044,7 @@ export default function Prices() {
                                   )}
                               </td>
                               <td>
-                                <Change value={row.change_window} />
+                                <WindowChange row={row} />
                               </td>
                               <td>
                                 <Price value={row.low} />
@@ -990,13 +1068,15 @@ export default function Prices() {
                                 />
                               </td>
                             </tr>
+                            </Fragment>
                           ))}
+                          {collapsed && !hasMore && sharedHead(true)}
                         </tbody>
                       </table>
                     </div>
                   </>
                 )}
-                {limit < rows.length && (
+                {(recordMode ? limit < rows.length : hasMore) && (
                   <div ref={sentinel}>
                     <button
                       type="button"

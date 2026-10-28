@@ -515,6 +515,7 @@ h1,h2,h3,p{margin:0}
   .dnav a{flex-shrink:0;justify-content:center;box-sizing:border-box}
   .dnav a{width:64px;padding-inline:6px}
   html[lang=en] .dnav a{width:84px}
+  html:not([lang=en]) .dnav a[data-nav-key=agent]{width:76px}
 }
 @media(min-width:1101px){.dhead .brand{flex:0 0 140px}.dnav{flex:0 0 auto}}
 

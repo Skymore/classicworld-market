@@ -162,8 +162,15 @@ try {
       await page.locator('[data-nav-key=watch]:visible').click();
       await page.locator('[data-search]').fill(String(product.item_id));
       await page.locator(`[data-add="${product.item_id}"]`).click();
+      // A new watch only tracks prices; turning its alert on makes every offer match.
       const matches = page.locator('[data-matches] .market-record');
+      assert.equal(await matches.count(), 0, 'a new watch has no matching offers yet');
+      await page.locator(`[data-card="${product.item_id}"] .wg-rule input[type=checkbox]`).first().check();
       await matches.first().waitFor();
+      // Grouping by item is a separate switch; the flat list keeps item names on every row.
+      assert.equal(await page.locator('[data-watch-group-by-item]').getAttribute('aria-pressed'), 'true');
+      await page.locator('[data-watch-group-by-item]').click();
+      assert.equal(await page.locator('[data-match-group]').count(), 0);
       await page.locator('[data-watch-sort]').selectOption('recent');
       assert.equal(await matches.first().getAttribute('data-id'), 'recent-expensive');
       await checkLayout(matches.first());

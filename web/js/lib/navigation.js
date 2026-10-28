@@ -3,7 +3,7 @@ import { I } from './icons.js';
 export const NAVIGATION = [
   ['home','/','首页','Home',I.home],
   ['prices','/prices','价格表','Prices',I.tag],
-  ['agent','/agent','助手','Assistant',I.search],
+  ['agent','/agent','AI 助手','Ask AI',I.search],
   ['dex','/search?kind=item','图鉴','Catalogue',I.book],
   ['watch','/watch','关注','Watch',I.star],
   ['tools','/tools','工具','Tools',I.coin],

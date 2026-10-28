@@ -17,6 +17,8 @@ export interface Product {
   low_data?: boolean;
   change_window?: number | null;
   sales_window?: number;
+  /** Sales in the window the change compares with; null for all-time views. */
+  sales_prev_window?: number | null;
   sales_10d?: number;
   listings?: number;
   last_seen?: number | null;

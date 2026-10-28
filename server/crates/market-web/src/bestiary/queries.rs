@@ -87,7 +87,7 @@ fn optional_names(zh: Option<String>, en: Option<String>) -> Option<Names> {
 /// summary. Do not load listings, charts, sales history or drop locations here.
 pub async fn item_preview(db: &PgPool, id: i32, all: bool) -> sqlx::Result<Option<Value>> {
     let item = sqlx::query_as::<_, ItemSummary>(
-        "SELECT id,name_zh,name_en,category,subcategory,req_level,icon_url,is_cash FROM items WHERE id=$1",
+        "SELECT id,name_zh,name_en,category,subcategory,req_level,req_job_mask,icon_url,is_cash FROM items WHERE id=$1",
     ).bind(id).fetch_optional(db).await?;
     let Some(item) = item else { return Ok(None) };
     let summary = sqlx::query_as::<_, (Value, Option<i64>, i32, i32, DateTime<Utc>)>(
@@ -278,7 +278,7 @@ async fn item_page_scoped(
     variant_ids: Option<&[i64]>,
 ) -> sqlx::Result<Option<ItemPage>> {
     let item = sqlx::query_as::<_, ItemSummary>(
-        "SELECT id, name_zh, name_en, category, subcategory, req_level, icon_url, is_cash
+        "SELECT id, name_zh, name_en, category, subcategory, req_level, req_job_mask, icon_url, is_cash
          FROM items WHERE id = $1",
     )
     .bind(id)
@@ -567,6 +567,10 @@ async fn item_market(
         channel: Option<i16>,
         room: Option<i16>,
         observed_at: DateTime<Utc>,
+        observation_id: Option<i64>,
+        shop_id: Option<i64>,
+        bundle: Option<i32>,
+        window_start: Option<DateTime<Utc>>,
         #[sqlx(flatten)]
         variant: VariantColumns,
     }
@@ -607,7 +611,8 @@ async fn item_market(
                 CASE WHEN s.source='mesowatch' THEN s.source_location->>'text'
                 WHEN sh.room IS NULL AND o.map_id IS NOT NULL THEN
                   COALESCE((SELECT COALESCE(name_zh,name_en) FROM maps WHERE id=o.map_id),o.map_id::text)
-                END AS observed_location, s.detected_at AS observed_at, s.variant_id, v.stats
+                END AS observed_location, s.detected_at AS observed_at,
+                s.observation_id, s.shop_id, s.bundle, s.window_start, s.variant_id, v.stats
          FROM (SELECT * FROM market_sales
            WHERE item_id = $1 AND detected_at <= to_timestamp($3)
              AND ($4::bigint[] IS NULL OR coalesce(variant_id,0)=ANY($4))
@@ -682,22 +687,45 @@ async fn item_market(
         }
     }
     listings.sort_by(|a, b| a.unit_price.total_cmp(&b.unit_price));
-    let sales = sales
-        .into_iter()
-        .filter_map(|r| {
-            Some(Sale {
-                observed_location: r.observed_location,
-                kind: SaleKind::parse(&r.kind)?,
-                unit_price: r.unit_price,
-                quantity: r.quantity,
-                shop: r.title,
-                channel: r.channel,
-                room: r.room,
-                detected_at: r.observed_at,
-                variant: r.variant.variant(),
+    let gear = id / 1_000_000 == 1;
+    let sales = merge_shop_sales(
+        sales
+            .into_iter()
+            .filter_map(|r| {
+                let kind = SaleKind::parse(&r.kind)?;
+                let variant = r.variant.variant();
+                // Gear merges only when its attributes are known and identical.
+                let known = !gear || variant.as_ref().is_some_and(|v| v.unknown_fields == 0);
+                let key = r
+                    .observation_id
+                    .filter(|_| known)
+                    .map(|observation| SaleGroup {
+                        observation,
+                        shop: r.shop_id,
+                        kind,
+                        price: r.unit_price.to_bits(),
+                        bundle: r.bundle,
+                        variant: variant.as_ref().map(|v| v.id),
+                        previous: r.window_start,
+                    });
+                Some((
+                    key,
+                    Sale {
+                        observed_location: r.observed_location,
+                        kind,
+                        unit_price: r.unit_price,
+                        quantity: r.quantity,
+                        shop: r.title,
+                        channel: r.channel,
+                        room: r.room,
+                        detected_at: r.observed_at,
+                        variant,
+                        merged_count: 1,
+                    },
+                ))
             })
-        })
-        .collect();
+            .collect(),
+    );
     Ok(ItemMarket {
         expired_listings,
         as_of,
@@ -708,6 +736,43 @@ async fn item_market(
         sale_points,
         base_stats: Vec::new(),
     })
+}
+
+/// One shop's sale of an item seen at one visit: same price, evidence, bundle,
+/// attributes and previous visit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct SaleGroup {
+    observation: i64,
+    shop: Option<i64>,
+    kind: SaleKind,
+    price: u64,
+    bundle: Option<i32>,
+    variant: Option<i64>,
+    previous: Option<DateTime<Utc>>,
+}
+
+/// A sale is one shop slot. Slots in the same group read as one sale: six sold-out
+/// slots of 100 become one sale of 600. A quantity stays unknown if any slot's is;
+/// rows without a group (other sources, unknown gear) are kept as they are.
+fn merge_shop_sales(rows: Vec<(Option<SaleGroup>, Sale)>) -> Vec<Sale> {
+    let mut out: Vec<Sale> = Vec::with_capacity(rows.len());
+    let mut groups: HashMap<SaleGroup, usize> = HashMap::new();
+    for (key, sale) in rows {
+        if let Some(&at) = key.as_ref().and_then(|k| groups.get(k)) {
+            let group = &mut out[at];
+            group.quantity = group
+                .quantity
+                .zip(sale.quantity)
+                .and_then(|(a, b)| a.checked_add(b));
+            group.merged_count += 1;
+            continue;
+        }
+        if let Some(k) = key {
+            groups.insert(k, out.len());
+        }
+        out.push(sale);
+    }
+    out
 }
 
 /// Historical observed quotes remain history when a shop later disappears.
@@ -945,7 +1010,25 @@ async fn mob_drops(db: &PgPool, mob_id: i32) -> sqlx::Result<Vec<MobDrop>> {
         })
         .collect();
     drops.dedup();
+    // Mesos, then drops with a market price, then the rest; rate order inside each.
+    drops.sort_by_key(|drop| drop_rank(&drop.what));
     Ok(drops)
+}
+
+/// Where a drop sits in the list: what a player can price comes first.
+fn drop_rank(what: &DropTarget) -> u8 {
+    match what {
+        DropTarget::Meso { .. } => 0,
+        DropTarget::Item {
+            typical: Some(_), ..
+        } => 1,
+        DropTarget::Item {
+            lowest_ask: Some(_),
+            ..
+        } => 2,
+        DropTarget::Item { .. } => 3,
+        DropTarget::Unlisted { .. } => 4,
+    }
 }
 
 // ---------- map ----------
@@ -1361,13 +1444,19 @@ async fn search_items(
         "cash" => 5,
         _ => 0,
     };
+    // A blank search browses the catalogue: traded items first (most sales, then
+    // most listings), so the first page is not skins and faces in id order.
+    // A job filter keeps equipment without a job requirement (NULL mask): every job can wear it.
     let sql = format!(
         "SELECT i.id, COALESCE(NULLIF(i.name_zh, ''), i.name_en) AS name, i.name_en, i.icon_url, i.subcategory, i.req_level AS level
-         FROM items i WHERE {filter}
+         FROM items i LEFT JOIN item_stats st ON st.item_id = i.id WHERE {filter}
          AND ($6=0 OR ($6=5 AND (i.is_cash OR i.id/1000000=5)) OR ($6 BETWEEN 1 AND 4 AND i.id/1000000=$6 AND NOT i.is_cash))
-         AND ($7::smallint=0 OR i.req_job_mask=0 OR (i.req_job_mask & $7::smallint)>0)
+         AND ($7::smallint=0 OR i.req_job_mask=0 OR (i.req_job_mask IS NULL AND i.id/1000000=1) OR (i.req_job_mask & $7::smallint)>0)
          AND ($8::smallint IS NULL OR i.req_level >= $8) AND ($9::smallint IS NULL OR i.req_level <= $9)
-         ORDER BY CASE WHEN $1='' THEN 0 ELSE {rank} END, CASE WHEN $1='' THEN i.id ELSE 0 END, length(COALESCE(i.name_zh, i.name_en)), i.id LIMIT $4 OFFSET $5"
+         ORDER BY CASE WHEN $1='' THEN 0 ELSE {rank} END,
+           CASE WHEN $1='' THEN -COALESCE(st.sales_24h, 0) ELSE 0 END,
+           CASE WHEN $1='' THEN -COALESCE(st.listings_count, 0) ELSE 0 END,
+           CASE WHEN $1='' THEN i.id ELSE 0 END, length(COALESCE(i.name_zh, i.name_en)), i.id LIMIT $4 OFFSET $5"
     );
     let escaped = like_escape(query);
     let mut rows: Vec<ItemHit> = sqlx::query_as(&sql)
@@ -1497,6 +1586,102 @@ mod tests {
     fn escapes_like_metacharacters() {
         assert_eq!(like_escape(r"50%_a\b"), r"50\%\_a\\b");
         assert_eq!(like_escape("射手村"), "射手村");
+    }
+
+    #[test]
+    fn slots_one_shop_sold_at_one_visit_read_as_one_sale() {
+        let at = DateTime::from_timestamp(1_793_152_700, 0).unwrap();
+        let sale = |quantity| Sale {
+            observed_location: None,
+            kind: SaleKind::SoldOut,
+            unit_price: 190.0,
+            quantity,
+            shop: "1111".into(),
+            channel: Some(22),
+            room: Some(10),
+            detected_at: at,
+            variant: None,
+            merged_count: 1,
+        };
+        let key = |observation, price: f64| {
+            Some(SaleGroup {
+                observation,
+                shop: Some(7),
+                kind: SaleKind::SoldOut,
+                price: price.to_bits(),
+                bundle: Some(1),
+                variant: None,
+                previous: None,
+            })
+        };
+        let mut rows: Vec<_> = (0..6).map(|_| (key(1, 190.0), sale(Some(100)))).collect();
+        rows.push((key(1, 195.0), sale(Some(50)))); // another price
+        rows.push((key(2, 190.0), sale(Some(100)))); // another visit
+        rows.push((None, sale(Some(1)))); // no group: kept apart
+        rows.push((None, sale(Some(1))));
+        let out = merge_shop_sales(rows);
+        let summary: Vec<_> = out.iter().map(|s| (s.quantity, s.merged_count)).collect();
+        assert_eq!(
+            summary,
+            [
+                (Some(600), 6),
+                (Some(50), 1),
+                (Some(100), 1),
+                (Some(1), 1),
+                (Some(1), 1)
+            ]
+        );
+        let unknown = merge_shop_sales(vec![
+            (key(3, 190.0), sale(Some(100))),
+            (key(3, 190.0), sale(None)),
+        ]);
+        assert_eq!((unknown[0].quantity, unknown[0].merged_count), (None, 2));
+    }
+
+    #[test]
+    fn drops_with_market_prices_come_first() {
+        let item = |id, typical, lowest_ask| MobDrop {
+            what: DropTarget::Item {
+                id,
+                names: Names::new(String::new(), String::new()),
+                icon_url: None,
+                typical,
+                lowest_ask,
+            },
+            rate_pct: 1.0,
+            quest_id: None,
+        };
+        let unlisted = MobDrop {
+            what: DropTarget::Unlisted {
+                id: Some(9),
+                names: None,
+            },
+            rate_pct: 50.0,
+            quest_id: None,
+        };
+        let meso = MobDrop {
+            what: DropTarget::Meso { min: 1, max: 2 },
+            rate_pct: 40.0,
+            quest_id: None,
+        };
+        let mut drops = [
+            unlisted,
+            item(1, None, None),
+            item(2, Some(10), None),
+            item(3, None, Some(5)),
+            meso,
+            item(4, Some(20), Some(15)),
+        ];
+        drops.sort_by_key(|drop| drop_rank(&drop.what));
+        let order: Vec<_> = drops
+            .iter()
+            .map(|drop| match &drop.what {
+                DropTarget::Item { id, .. } => *id,
+                DropTarget::Meso { .. } => 0,
+                DropTarget::Unlisted { .. } => -1,
+            })
+            .collect();
+        assert_eq!(order, vec![0, 2, 4, 3, 1, -1], "stable inside each group");
     }
 
     #[test]
