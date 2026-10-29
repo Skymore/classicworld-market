@@ -22,3 +22,5 @@ html{scrollbar-gutter:auto}
 .native-fields label small{color:var(--ink-3);font-weight:400}.native-field-action{display:flex;align-items:end}.native-field-action .ui-btn{width:100%}
 .native-sweep .toggle{min-height:36px;padding:0;font-size:12px}.native-save-row .ui-btn{min-width:80px}
 .native-history-side{display:grid;justify-items:end;text-align:right}.native-history-side b{font-variant-numeric:tabular-nums}.native-status.unknown,.native-status.expired{color:var(--maple-ink)!important;font-weight:600}
+
+.recovery-status { margin: 0; padding: 0 18px 10px; font-size: 12px; color: var(--muted); }

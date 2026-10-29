@@ -175,6 +175,25 @@ def main():
         if result <= 32:
             raise PermissionError('Administrator permission was declined')
         return
+    if '--supervised' not in sys.argv:
+        import argparse
+        from collector_watchdog import run as supervise
+        options = argparse.ArgumentParser(add_help=False)
+        options.add_argument('--home', type=Path, default=HOME)
+        home = options.parse_known_args()[0].home
+        home.mkdir(parents=True, exist_ok=True)
+        kernel = ctypes.windll.kernel32
+        kernel.CreateMutexW.restype = ctypes.c_void_p
+        supervisor_mutex = kernel.CreateMutexW(None, False, 'Local\\ClassicWorldMarketSupervisor')
+        if not supervisor_mutex or kernel.GetLastError() == 183:
+            return
+        try:
+            supervise(home, sys.argv[1:])
+        finally:
+            kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+            kernel.CloseHandle(supervisor_mutex)
+        return
+    sys.argv.remove('--supervised')
     kernel = ctypes.windll.kernel32
     kernel.CreateMutexW.restype = ctypes.c_void_p
     mutex = kernel.CreateMutexW(None, False, 'Local\\ClassicWorldMarketUnified')
@@ -194,7 +213,8 @@ def main():
     options,scanner_argv=parser.parse_known_args()
     sys.argv=[sys.argv[0],*scanner_argv]
     options.home.mkdir(parents=True, exist_ok=True)
-    log = (options.home / 'unified-client.log').open('a', encoding='utf-8', buffering=1)
+    from collector_recovery import RotatingOutput
+    log = RotatingOutput(options.home / 'unified-client.log')
     old_stdout, old_stderr = sys.stdout, sys.stderr
     sys.stdout = sys.stderr = log
     runtime = CollectorRuntime(options,launch_argv)
@@ -211,6 +231,8 @@ def main():
 
 
 if __name__ == '__main__':
+    import multiprocessing
+    multiprocessing.freeze_support()
     try:
         main()
     except Exception as error:

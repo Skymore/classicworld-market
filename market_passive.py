@@ -146,6 +146,10 @@ class Collector:
                 session.roster.reset()
                 return
             try:session.observe(plain)
+            except OSError:
+                if self.on_event:
+                    self.on_event(dict(type='storage_error'))
+                raise
             except Exception as error:
                 session.roster.reset()
                 session.pending_open=None;session.pending_raw_path=None

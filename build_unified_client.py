@@ -2,6 +2,7 @@
 import argparse
 import ast
 import json
+import hashlib
 import shutil
 import subprocess
 import sys
@@ -55,6 +56,16 @@ def main():
     parser.add_argument('--windivert-source',type=Path,required=True)
     args=parser.parse_args()
     root=Path(__file__).resolve().parent
+    commit=subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'],text=True).strip()
+    for ref in ('main','gitlab/main'):
+        if subprocess.check_output(['git','-C',str(root),'rev-parse',ref],text=True).strip()!=commit:
+            raise ValueError('Release must be built from the pushed main commit')
+    if subprocess.check_output(['git','-C',str(root),'status','--porcelain','--untracked-files=no'],text=True).strip():
+        raise ValueError('Release sources must be clean')
+    scanner_commit=subprocess.check_output(['git','-C',str(args.scanner),'rev-parse','HEAD'],text=True).strip()
+    pinned=subprocess.check_output(['git','-C',str(root),'rev-parse',commit+':scanner'],text=True).strip()
+    if scanner_commit!=pinned or subprocess.check_output(['git','-C',str(args.scanner),'status','--porcelain'],text=True).strip():
+        raise ValueError('Scanner must match the clean pinned submodule')
     # Fail here rather than ship a successful freeze with missing optional
     # imports that only fail when an updater starts the scanner self-test.
     import cv2, numpy, mss, pyautogui, webview, clr
@@ -103,8 +114,10 @@ def main():
     shutil.copy2(root/'msnet_reference/LICENSE',bundle/'COPYING.msnet')
     shutil.copy2(driver.parent/'LICENSE',bundle/'COPYING.WinDivert')
     shutil.copy2(args.windivert_source,bundle/'WinDivert-2.2.2-source.zip')
-    scanner_commit=subprocess.check_output(['git','-C',str(args.scanner),'rev-parse','HEAD'],text=True).strip()
     (bundle/'install-manifest.json').write_text(json.dumps(dict(version=VERSION,scanner_commit=scanner_commit,
+        source_commit=commit,source_branch='main',
+        sha256={str(p.relative_to(bundle)).replace('\\','/'):hashlib.sha256(p.read_bytes()).hexdigest()
+                for p in bundle.rglob('*') if p.is_file()},
         files=[str(p.relative_to(bundle)).replace('\\','/') for p in bundle.rglob('*') if p.is_file()]+['install-manifest.json']),indent=2),encoding='utf-8')
     archive=root/'dist'/f'ClassicWorldCollector-windows-x64-v{VERSION}.zip'
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:

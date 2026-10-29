@@ -313,7 +313,13 @@ class Session:
                 result['request_id'] = test['request_id']
                 self.pending_test = None
             path = self.app.folder / f'shop_{uuid.uuid4().hex}.json'
-            path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
+            # Durable queue first, then advertise a captured shop. Never expose
+            # a half-written JSON record to the asynchronous uploader.
+            from collector_recovery import atomic_json
+            import shutil
+            if shutil.disk_usage(self.app.folder).free < 512 * 1024 * 1024:
+                raise OSError('Capture storage reserve exhausted')
+            atomic_json(path, result)
             self.event('shop_list', title=title, shop_id=shop_id, item_count=len(items),
                        triggered_by_python=from_python, file=path.name, recent=list(self.recent))
 

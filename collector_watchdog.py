@@ -1,0 +1,110 @@
+"""Independent launcher supervision. Normal close and Stop never auto-restart."""
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+from collector_recovery import ScanIntent, RecoveryLog, atomic_json, read_json
+
+
+def should_restart(code, requested, intent):
+    return bool(intent.get('enabled') and (requested or code != 0))
+
+
+def terminate_tree(pid):
+    import psutil
+    try:
+        parent = psutil.Process(pid)
+        children = parent.children(recursive=True)
+    except psutil.NoSuchProcess:
+        return
+    # This tree is exclusively our launched collector, never the game.
+    processes = []
+    for process in [parent, *children]:
+        try:
+            if process.name().lower() != 'maplestory.exe':
+                processes.append(process)
+        except psutil.NoSuchProcess:
+            pass
+    for process in processes:
+        try:
+            process.terminate()
+        except psutil.NoSuchProcess:
+            pass
+    _, alive = psutil.wait_procs(processes, timeout=2)
+    for process in alive:
+        try:
+            process.kill()
+        except psutil.NoSuchProcess:
+            pass
+    psutil.wait_procs(alive, timeout=2)
+
+
+def run(home, argv, *, command=None, emergency=None, release=None, startup_grace=45):
+    if emergency is None or release is None:
+        from scanner_desktop import emergency_stop, release_keys
+        emergency = emergency or emergency_stop
+        release = release or release_keys
+    import psutil
+    intent = ScanIntent(home)
+    journal = RecoveryLog(home, 'scan-watchdog')
+    restarts = 0
+    base = command or ([sys.executable] if getattr(sys, 'frozen', False) else [sys.executable, str(Path(__file__).with_name('unified_client.py'))])
+    try:
+        while True:
+            args = argv if restarts == 0 else [a for a in argv if a != '--auto-start']
+            process = subprocess.Popen([*base, *args, '--supervised'],
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+            launched = time.time()
+            requested = False
+            emergency_restart = False
+            last_sample = 0
+            journal.event('process_start', pid=process.pid, restart_count=restarts)
+            while process.poll() is None:
+                desired = intent.load()
+                if desired.get('enabled') and emergency():
+                    intent.stop()
+                    release()
+                    journal.event('emergency_stop')
+                    # Also cover a wedged child/GIL. Kill our input process,
+                    # then reopen the collector in stopped/manual mode only.
+                    emergency_restart = True
+                    terminate_tree(process.pid)
+                    break
+                health = read_json(Path(home)/'scan-health.json')
+                now = time.time()
+                if desired.get('enabled') and now - launched > startup_grace:
+                    stale = health.get('pid') != process.pid or now - health.get('at', 0) > 20
+                    if stale or health.get('restart'):
+                        requested = True
+                        journal.event('process_recovery_begin', reason='stale' if stale else 'blocked_step')
+                        terminate_tree(process.pid)
+                        release()
+                        break
+                if now - last_sample >= 30:
+                    last_sample = now
+                    try:
+                        current = psutil.Process(process.pid)
+                        sample = dict(at=now, pid=process.pid, memory_bytes=current.memory_info().rss,
+                                      threads=current.num_threads(), handles=current.num_handles() if os.name == 'nt' else None,
+                                      free_disk_bytes=psutil.disk_usage(str(home)).free, restarts=restarts,
+                                      phase=health.get('phase'), pending_uploads=health.get('pending_uploads'),
+                                      last_progress_at=health.get('last_progress_at'))
+                        atomic_json(Path(home)/'scan-resources.json', sample)
+                        journal.event('resources', **sample)
+                    except (OSError, psutil.Error):
+                        pass
+                time.sleep(.1)
+            code = process.wait(timeout=5)
+            if not emergency_restart and not should_restart(code, requested, intent.load()):
+                return code
+            restarts += 1
+            journal.event('process_recovery_end', exit_code=code, restart_count=restarts)
+            # The next child gets only persisted intent. A command-line auto
+            # start must never override an emergency stop during this delay.
+            time.sleep(min(5, restarts))
+            if not emergency_restart and not intent.load().get('enabled'):
+                return code
+    finally:
+        journal.close()

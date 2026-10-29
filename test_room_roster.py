@@ -78,11 +78,11 @@ class RoomRosterTest(unittest.TestCase):
             self.assertNotIn('raw_body',roster_payload(data))
             self.assertEqual(data['character_ids'],[123,999])
             opener=MagicMock();opener.open.return_value.__enter__.return_value.read.return_value=b'{"ok":true}'
-            with patch('shared_client.upload_opener',return_value=opener):
+            with patch('shared_client.request_json',return_value={'ok':True}) as send:
                 self.assertEqual(upload_once(root,dict(endpoint='http://127.0.0.1:9999',token='fixture'),root/'sent.sqlite'),0)
-                self.assertTrue(opener.open.call_args.args[0].full_url.endswith('/collector/room-roster'))
+                self.assertTrue(send.call_args.args[0].endswith('/collector/room-roster'))
                 upload_once(root,dict(endpoint='http://127.0.0.1:9999',token='fixture'),root/'sent.sqlite')
-                self.assertEqual(opener.open.call_count,1)
+                self.assertEqual(send.call_count,1)
 
     def test_partial_roster_reset_on_unknown_frame(self):
         p=self.begin();p.observe(enter(),10.02)

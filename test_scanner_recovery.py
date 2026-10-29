@@ -1,0 +1,234 @@
+"""Fault injection without game input, real credentials or production writes."""
+import json
+import multiprocessing
+import tempfile
+import threading
+import time
+import unittest
+import sys
+from pathlib import Path
+from unittest.mock import Mock, patch
+from urllib.error import HTTPError, URLError
+
+from collector_recovery import ScanIntent, failure_state, retry_after, retry_delay
+from collector_http import request_json
+from collector_watchdog import should_restart
+from scanner_desktop import DesktopController
+
+
+def stalled_request(pipe):
+    pipe.recv()
+    time.sleep(60)
+
+
+def crashing_request(pipe):
+    import os
+    os._exit(7)
+
+
+def response_429(pipe):
+    pipe.recv()
+    pipe.send(('http', 429, '120'))
+
+
+class PolicyTests(unittest.TestCase):
+    def test_independent_watchdog_recovers_real_crashed_and_stuck_processes(self):
+        from collector_watchdog import run
+        for fault in ('crash', 'stuck'):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory() as folder:
+                ScanIntent(folder).start(12)
+                code = '''
+import json,os,sys,time
+from pathlib import Path
+home=Path(sys.argv[1]); counter=home/'counter'
+n=int(counter.read_text())+1 if counter.exists() else 1
+counter.write_text(str(n))
+if n==1:
+    if sys.argv[2]=='crash': os._exit(7)
+    (home/'scan-health.json').write_text(json.dumps(dict(at=time.time(),pid=os.getpid(),restart=True)))
+    time.sleep(60)
+(home/'scan-stopped').write_text('normal exit')
+'''
+                result=run(Path(folder),[],command=[sys.executable,'-c',code,folder,fault],
+                           emergency=lambda:False,release=lambda:None,startup_grace=.2)
+                self.assertEqual(result,0)
+                self.assertEqual((Path(folder)/'counter').read_text(),'2')
+                self.assertFalse(ScanIntent(folder).load()['enabled'])
+
+    def test_stop_is_durable_even_when_intent_replace_fails(self):
+        with tempfile.TemporaryDirectory() as folder:
+            intent = ScanIntent(folder)
+            intent.start(12)
+            with patch('collector_recovery.atomic_json', side_effect=OSError('full')):
+                with self.assertRaises(OSError):
+                    intent.stop()
+            self.assertFalse(ScanIntent(folder).load()['enabled'])
+            self.assertTrue(intent.start(12)['enabled'])
+
+    def test_transient_errors_and_auth_are_distinct(self):
+        for code in (408, 429, 500, 502, 503, 504):
+            self.assertEqual(failure_state(HTTPError('', code, '', {}, None))[0], 'recovering_network')
+        for code in (400, 401, 403, 404):
+            self.assertEqual(failure_state(HTTPError('', code, '', {}, None))[0], 'needs_attention')
+        self.assertEqual(failure_state(HTTPError('', 409, '', {}, None))[0], 'rebuilding')
+        for error in (TimeoutError(), ConnectionResetError(), URLError('DNS unavailable')):
+            self.assertEqual(failure_state(error)[0], 'recovering_network')
+
+    def test_retry_after_takes_precedence_over_capped_jitter(self):
+        with patch('collector_recovery.random.uniform', return_value=1):
+            self.assertEqual([retry_delay(n) for n in range(1, 8)], [1, 2, 4, 8, 16, 30, 30])
+        self.assertEqual(retry_delay(100, HTTPError('',429,'',{'Retry-After':'120'},None)),120)
+        self.assertEqual(retry_after(HTTPError('',429,'',{'Retry-After':'Thu, 01 Jan 1970 00:02:00 GMT'},None),now=0),120)
+
+    def test_real_request_process_is_killed_on_total_timeout(self):
+        before = {p.pid for p in multiprocessing.active_children()}
+        started = time.monotonic()
+        with self.assertRaises(TimeoutError):
+            request_json('unused', {}, {}, timeout=.3, worker=stalled_request)
+        self.assertLess(time.monotonic()-started, 2)
+        self.assertEqual(before, {p.pid for p in multiprocessing.active_children()})
+
+    def test_request_crash_and_429_are_visible(self):
+        with self.assertRaises(ConnectionError):
+            request_json('unused', {}, {}, worker=crashing_request)
+        with self.assertRaises(HTTPError) as error:
+            request_json('unused', {}, {}, worker=response_429)
+        self.assertEqual(retry_after(error.exception),120)
+
+    def test_stop_cancels_blocked_network_request(self):
+        stop = threading.Event()
+        timer = threading.Timer(.2, stop.set)
+        timer.start()
+        started = time.monotonic()
+        try:
+            with self.assertRaises(InterruptedError):
+                request_json('unused', {}, {}, stop=stop, worker=stalled_request)
+        finally:
+            timer.join()
+        self.assertLess(time.monotonic()-started, 2)
+
+    def test_process_crash_restarts_only_with_persisted_intent(self):
+        self.assertTrue(should_restart(7, False, {'enabled':True}))
+        self.assertTrue(should_restart(0, True, {'enabled':True}))
+        self.assertFalse(should_restart(0, False, {'enabled':True}))
+        self.assertFalse(should_restart(7, True, {'enabled':False}))
+
+
+class RecoveryTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.home = Path(self.temp.name)
+        self.runtime = Mock(home=self.home, folder=self.home/'captures', error=None)
+        self.runtime.stopped.return_value = False
+        self.runtime.configuration.return_value = dict(endpoint='https://mxd.ruit.me', token='fixture')
+        self.sessions = []
+        def cloud(config, stop, status, **kwargs):
+            self.sessions.append(kwargs['session'])
+            return Mock()
+        self.modules = dict(LeaseStopEvent=threading.Event, clear_pause=Mock(), request_pause=Mock(),
+                            is_paused=lambda:False, CloudScan=cloud, DEFAULT_STATE=None, POSITION_STATE=None,
+                            channel_capture=lambda path,stop:stop.wait(), position_capture=lambda path,stop:stop.wait())
+        self.ready = True
+        self.emergency = False
+        self.controller = DesktopController(self.runtime, modules=self.modules,
+            windows=lambda:[dict(id=12,pid=42,title='MapleStory')], ready=lambda _:self.ready,
+            emergency=lambda:self.emergency)
+        for target, value in [('scanner_desktop.focus_game',Mock()), ('scanner_desktop.release_keys',Mock()),
+                              ('scanner_desktop.RUNS',self.home/'runs'), ('scanner_desktop.retry_delay',lambda *a:.01)]:
+            patcher=patch(target,value);patcher.start();self.addCleanup(patcher.stop)
+        self.addCleanup(self.stop)
+
+    def stop(self):
+        self.controller.command('stop')
+        for thread in (self.controller._worker,self.controller._guard_thread):
+            if thread:thread.join(3)
+        self.controller._journal.close()
+
+    def until(self, predicate, timeout=3):
+        deadline=time.monotonic()+timeout
+        while time.monotonic()<deadline:
+            if predicate():return
+            time.sleep(.01)
+        self.fail('Timed out waiting for recovery condition')
+
+    def test_repeated_faults_recover_with_one_scanner_and_same_session(self):
+        failures=[TimeoutError(),URLError('DNS'),HTTPError('',502,'',{},None),HTTPError('',503,'',{},None)]
+        calls=0
+        live=0
+        maximum=0
+        def run(folder,hwnd,start,stop,callback,**kwargs):
+            nonlocal calls,live,maximum
+            calls+=1;live+=1;maximum=max(maximum,live)
+            try:
+                if failures:raise failures.pop(0)
+                callback(('confirmed',dict(step='claim',room=17)))
+                stop.wait()
+            finally:live-=1
+        self.modules['run']=run
+        self.controller.start(12)
+        self.until(lambda:self.controller.snapshot()['phase']=='scanning')
+        self.assertEqual(calls,5)
+        self.assertEqual(maximum,1)
+        self.assertEqual(len(set(self.sessions)),1)
+        self.assertTrue(ScanIntent(self.home).load()['enabled'])
+
+    def test_auth_does_not_retry_until_user_intervenes(self):
+        self.modules['run']=Mock(side_effect=HTTPError('',401,'',{},None))
+        self.controller.start(12)
+        self.until(lambda:self.controller.snapshot()['phase']=='needs_attention')
+        time.sleep(.1)
+        self.assertEqual(self.modules['run'].call_count,1)
+
+    def test_f9_during_backoff_cancels_persisted_restart_intent(self):
+        self.modules['run']=Mock(side_effect=TimeoutError())
+        with patch('scanner_desktop.retry_delay',return_value=1800):
+            self.controller.start(12)
+            self.until(lambda:self.controller.snapshot()['phase']=='recovering_network')
+            self.emergency=True
+            self.until(lambda:not self.controller._worker.is_alive(),timeout=2)
+        self.assertFalse(ScanIntent(self.home).load()['enabled'])
+        self.assertEqual(self.modules['run'].call_count,1)
+
+    def test_game_wait_has_no_input_and_resumes_without_another_start(self):
+        self.ready=False
+        self.modules['run']=Mock(side_effect=lambda folder,hwnd,start,stop,callback,**kw:stop.wait())
+        self.controller.start(12)
+        self.until(lambda:self.controller.snapshot()['phase']=='waiting_game')
+        self.modules['run'].assert_not_called()
+        self.ready=True
+        self.until(lambda:self.modules['run'].call_count==1)
+
+    def test_dead_capture_worker_is_rebuilt(self):
+        count=0
+        def capture(path,stop):
+            nonlocal count
+            count+=1
+            if count==1:raise RuntimeError('injected capture exit')
+            stop.wait()
+        self.modules['channel_capture']=capture
+        self.modules['run']=lambda folder,hwnd,start,stop,callback,**kw:stop.wait()
+        self.controller.start(12)
+        self.until(lambda:count==2)
+        self.assertTrue(self.controller._worker.is_alive())
+
+    def test_stuck_step_requests_process_restart_without_duplicate_scanner(self):
+        unblock=threading.Event()
+        self.modules['run']=Mock(side_effect=lambda *args,**kw:unblock.wait(3))
+        try:
+            with patch('scanner_desktop.ABORT_GRACE',.1):
+                self.controller.start(12)
+                self.until(lambda:self.modules['run'].called)
+                self.controller._step_deadline=time.monotonic()-1
+                self.until(lambda:self.controller._restart_requested)
+                self.assertTrue(self.controller._stop.is_set())
+                self.assertEqual(self.modules['run'].call_count,1)
+        finally:unblock.set()
+
+    def test_late_callback_after_stop_cannot_report_scanning(self):
+        self.modules['run']=lambda folder,hwnd,start,stop,callback,**kw:stop.wait()
+        self.controller.start(12)
+        self.controller.command('stop')
+        self.controller._on_scan(('confirmed',dict(step='claim',room=1)))
+        self.assertFalse(self.controller.snapshot()['desired'])
+        self.assertNotEqual(self.controller.snapshot()['phase'],'scanning')

@@ -17,6 +17,8 @@ from shared_protocol import from_snapshot
 from market_location import LocationTimeline
 from collector_update import VERSION
 import truststore
+from collector_http import request_json
+from collector_recovery import retry_delay
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -53,7 +55,7 @@ def ensure_identity(config_path,endpoint='https://mxd.ruit.me'):
     return config
 
 
-def upload_once(folder, config, ledger, endpoint=None, stop=None):
+def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None):
     destination=(endpoint or config['endpoint']).rstrip('/')
     if destination!='https://mxd.ruit.me' and not destination.startswith('http://127.0.0.1:'):
         raise ValueError('Unsupported endpoint; collector only sends to mxd.ruit.me')
@@ -63,7 +65,11 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None):
         connection.execute('CREATE TABLE IF NOT EXISTS sent (path TEXT PRIMARY KEY, status TEXT, updated REAL)')
         timeline=LocationTimeline(folder/'map_observations.jsonl')
         total=0
-        for path in sorted([*folder.glob('shop_*.json'), *folder.glob('presence_*.json'), *folder.glob('roster_*.json')]):
+        paths = sorted([*folder.glob('shop_*.json'), *folder.glob('presence_*.json'), *folder.glob('roster_*.json')])
+        if on_event:
+            sent = {row[0] for row in connection.execute('SELECT path FROM sent')}
+            on_event(dict(type='upload_queue', pending=sum(p.name not in sent and not p.stem.endswith('_zh') for p in paths)))
+        for path in paths:
             if stop is not None and stop.is_set():break
             if path.stem.endswith('_zh'):continue
             if connection.execute('SELECT 1 FROM sent WHERE path=?',(path.name,)).fetchone():continue
@@ -94,15 +100,14 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None):
                 data=json.dumps(payload,ensure_ascii=False).encode(),
                 headers={'Authorization':'Bearer '+config['token'],'Content-Type':'application/json'},method='POST')
             try:
-                with upload_opener().open(request,timeout=15) as response:
-                    result=json.load(response)
-                    if not result.get('ok'):raise ValueError('Upload was not acknowledged')
+                result=request_json(request.full_url, payload, dict(request.header_items()), stop=stop)
+                if not result.get('ok'):raise ValueError('Upload was not acknowledged')
                 state='sent';total+=int(path.name.startswith('shop_'))
             except urllib.error.HTTPError as error:
                 if error.code in (400,409,413):
                     state='rejected_'+str(error.code)
                     print(f'Upload rejected ({error.code}); see local ledger for file.',flush=True)
-                else:raise RuntimeError(f'Upload HTTP {error.code}; retained locally') from None
+                else:raise
             connection.execute('INSERT OR IGNORE INTO sent VALUES (?,?,?)',(path.name,state,time.time()));connection.commit()
         return total
     finally:connection.close()
@@ -260,11 +265,12 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None):
                 print(f'Historical location recovery deferred ({type(error).__name__}).',flush=True)
                 if stopping.wait(60*(attempt+1)):return
     def worker():
+        attempts = 0
         while not stopping.is_set():
             capture_changed.clear()
             retry=False
             try:
-                count=upload_once(folder,config,ledger,stop=stopping)
+                count=upload_once(folder,config,ledger,stop=stopping,on_event=on_event)
                 for extra in config.get('extra_folders',[]):
                     import hashlib
                     source=Path(extra)
@@ -273,14 +279,23 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None):
                 if count:
                     print(f'Uploaded {count} observations.',flush=True)
                     if on_event:on_event({'type':'uploaded','count':count})
+                attempts=0
             except Exception as error:
                 if args.once:
                     raise
                 retry=True
+                attempts+=1
                 print(f'Upload unavailable ({type(error).__name__}); will retry.',flush=True)
                 if on_event:on_event({'type':'upload_error'})
+                if isinstance(error, (OSError, sqlite3.Error)) and not isinstance(error, (urllib.error.URLError, TimeoutError, ConnectionError, InterruptedError)):
+                    if on_event:on_event({'type':'storage_error'})
+                # Auth failures require intervention. Transient HTTP failures
+                # retain the queue and respect Retry-After, even if new captures
+                # arrive continuously and keep the filesystem event signalled.
+                delay = 300 if isinstance(error, urllib.error.HTTPError) and error.code in (401,403) else retry_delay(attempts,error)
             if args.once or stopping.is_set():break
-            capture_changed.wait(5 if retry else None)
+            if retry:stopping.wait(delay)
+            else:capture_changed.wait(5)
     def owner_history_worker():
         from collector_owner_migration import migrate_owners
         import hashlib
@@ -323,11 +338,21 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None):
     upload_thread=None
     history_thread=None
     owner_thread=None
+    monitor_thread=None
     try:
         history_thread=threading.Thread(target=history_worker,daemon=True);history_thread.start()
         owner_thread=threading.Thread(target=owner_history_worker,daemon=True);owner_thread.start()
         if args.upload_only:worker();return
         upload_thread=threading.Thread(target=worker,daemon=True);upload_thread.start()
+        def supervise_upload():
+            nonlocal upload_thread
+            while not stopping.wait(1):
+                if not upload_thread.is_alive():
+                    print('Upload worker exited; restarting retained queue.', flush=True)
+                    upload_thread=threading.Thread(target=worker,daemon=True)
+                    upload_thread.start()
+        monitor_thread=threading.Thread(target=supervise_upload,daemon=True,name='upload-supervisor')
+        monitor_thread.start()
         if not args.proxy:
             from market_passive import run
             print('Receive-only capture: ' + args.backend + ' backend. Reconnect once, then browse manually.',flush=True)
@@ -337,6 +362,7 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None):
         asyncio.run(Proxy(folder,allow_requests=False,market_only=True).run())
     finally:
         stopping.set();capture_changed.set()
+        if monitor_thread:monitor_thread.join(timeout=2)
         observer.stop();observer.join(timeout=5)
         stop_dashboard(dashboard)
         if upload_thread:upload_thread.join(timeout=40)

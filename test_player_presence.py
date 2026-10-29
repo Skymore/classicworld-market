@@ -29,13 +29,13 @@ class PresenceTest(unittest.TestCase):
             (root/'presence_example.json').write_text(json.dumps(event))
             opener = MagicMock()
             opener.open.return_value.__enter__.return_value.read.return_value = b'{"ok":true}'
-            with patch('shared_client.upload_opener', return_value=opener):
+            with patch('shared_client.request_json', return_value={'ok':True}) as send:
                 self.assertEqual(upload_once(root, dict(endpoint='http://127.0.0.1:9999', token='fixture'), root/'sent.sqlite'), 0)
-                sent = opener.open.call_args.args[0]
-                self.assertTrue(sent.full_url.endswith('/collector/player-departure'))
-                self.assertNotIn(b'PRIVATE', sent.data)
+                url, payload, headers = send.call_args.args
+                self.assertTrue(url.endswith('/collector/player-departure'))
+                self.assertNotIn('PRIVATE', json.dumps(payload))
                 upload_once(root, dict(endpoint='http://127.0.0.1:9999', token='fixture'), root/'sent.sqlite')
-                self.assertEqual(opener.open.call_count, 1)
+                self.assertEqual(send.call_count, 1)
 
     def test_character_id_not_entity_handle_and_duplicate_leave(self):
         p = PlayerPresence()

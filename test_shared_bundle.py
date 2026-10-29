@@ -15,6 +15,32 @@ from shared_client import upload_once, ensure_identity
 
 
 class UploadIntegration(unittest.TestCase):
+    def test_lost_upload_ack_retains_local_record_and_retransmits_idempotently(self):
+        from unittest.mock import patch
+        from collector_http import request_json
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);store=SharedStore(root/'server',root/'no_catalog')
+            _,token=store.invite('lost-ack-test')
+            server=make_server('127.0.0.1',0,create_app(store))
+            thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+            try:
+                captures=root/'captures';captures.mkdir()
+                data=dict(session='lost-ack',time=time.time(),shop_id=12,title='TEST ONLY',
+                          market_location=dict(channel=9,room=17),items=[])
+                path=captures/'shop_test.json';path.write_text(json.dumps(data),encoding='utf-8')
+                config=dict(endpoint=f'http://127.0.0.1:{server.server_port}',token=token)
+                def lose_ack(*args,**kwargs):
+                    request_json(*args,**kwargs)
+                    raise TimeoutError('injected lost acknowledgement after server commit')
+                with patch('shared_client.request_json',side_effect=lose_ack):
+                    with self.assertRaises(TimeoutError):upload_once(captures,config,root/'queue.sqlite')
+                self.assertTrue(path.exists())
+                self.assertEqual(upload_once(captures,config,root/'queue.sqlite'),1)
+                self.assertEqual(upload_once(captures,config,root/'queue.sqlite'),0)
+                with store.repo.connect() as db:
+                    self.assertEqual(db.execute('SELECT COUNT(*) FROM uploads').fetchone()[0],1)
+            finally:server.shutdown();server.server_close();thread.join(timeout=5)
+
     def test_identity_is_automatically_created_and_reused(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);store=SharedStore(root/'server',root/'no_catalog')

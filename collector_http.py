@@ -1,0 +1,87 @@
+"""HTTP in a disposable worker: DNS, TLS and trickle reads have a total deadline.
+
+Only network I/O is isolated here. A timeout kills and joins the worker before
+returning, so repeated outages cannot accumulate abandoned request threads.
+Credentials travel over a private pipe, never through command lines or logs.
+"""
+import json
+import multiprocessing
+import time
+import threading
+from urllib.error import HTTPError, URLError
+from urllib.request import Request
+
+
+def _request_worker(pipe):
+    try:
+        url, payload, headers = pipe.recv()
+        from shared_client import upload_opener
+        request = Request(url, data=json.dumps(payload, ensure_ascii=False).encode(), headers=headers)
+        with upload_opener().open(request, timeout=3) as response:
+            raw = response.read(2 * 1024 * 1024 + 1)
+            if len(raw) > 2 * 1024 * 1024:
+                raise ValueError('Oversized service response')
+            pipe.send(('ok', json.loads(raw)))
+    except HTTPError as error:
+        pipe.send(('http', error.code, (error.headers or {}).get('Retry-After', '')))
+    except Exception as error:
+        pipe.send(('error', type(error).__name__))
+    finally:
+        pipe.close()
+
+
+def request_json(url, payload, headers, *, stop=None, timeout=6, worker=_request_worker):
+    context = multiprocessing.get_context('spawn')
+    parent, child = context.Pipe()
+    process = context.Process(target=worker, args=(child,), daemon=True)
+    deadline = time.monotonic() + timeout
+    sender = None
+    send_error = []
+    try:
+        if stop is not None and stop.is_set():
+            raise InterruptedError('Request cancelled')
+        process.start()
+        child.close()
+        def send():
+            try:
+                parent.send((url, payload, headers))
+            except (OSError, EOFError) as error:
+                send_error.append(error)
+        # A worker that wedges before recv must not wedge a large body write
+        # on the parent pipe. Killing it below releases this one writer.
+        sender = threading.Thread(target=send, daemon=True, name='request-body')
+        sender.start()
+        while not parent.poll(.05):
+            if stop is not None and stop.is_set():
+                raise InterruptedError('Request cancelled')
+            if time.monotonic() >= deadline:
+                raise TimeoutError('Service request exceeded total deadline')
+            if not process.is_alive():
+                raise ConnectionError('Request worker exited')
+            if send_error:
+                raise ConnectionError('Request body could not be delivered')
+        result = parent.recv()
+        if stop is not None and stop.is_set():
+            raise InterruptedError('Request cancelled')
+        if result[0] == 'http':
+            raise HTTPError(url, result[1], 'Service request rejected', {'Retry-After': result[2]}, None)
+        if result[0] != 'ok':
+            raise URLError(result[1])
+        if not isinstance(result[1], dict):
+            raise ValueError('Invalid service response')
+        return result[1]
+    except EOFError as error:
+        raise ConnectionError('Request worker exited') from error
+    finally:
+        if process.pid is not None:
+            if process.is_alive():
+                process.terminate()
+            process.join(1)
+            if process.is_alive():
+                process.kill()
+                process.join(1)
+            process.close()
+        if sender is not None:
+            sender.join(1)
+        parent.close()
+        child.close()

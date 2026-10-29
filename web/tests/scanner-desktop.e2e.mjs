@@ -40,11 +40,18 @@ try {
     assert(await page.evaluate(()=>{const m=document.querySelector('main');return m.scrollHeight===m.clientHeight;}),'normal window has no vertical scrollbar');
     assert(await page.evaluate(()=>document.querySelector('footer').getBoundingClientRect().bottom<=innerHeight),'footer remains visible');
     if(out){await mkdir(out,{recursive:true});await page.screenshot({path:path.join(out,`scanner-${label}.png`),fullPage:true});}
+    for (const phase of ['recovering_network','waiting_task','waiting_game','rebuilding','needs_attention']) {
+      await page.evaluate(phase=>window.dispatchEvent(new CustomEvent('scanner-state',{detail:{...window.state,phase,desired:true,message:'等待恢复测试',pending_uploads:42,retries:3,next_retry_at:Date.now()/1000+30}})),phase);
+      await page.getByText('等待恢复测试',{exact:false}).waitFor();
+      assert(await page.getByRole('button',{name:'停止',exact:true}).isEnabled(),'Stop remains available during '+phase);
+      assert(await page.getByRole('button',{name:'暂停扫描',exact:true}).isDisabled(),'recovery cannot pause stale input');
+    }
     await page.getByRole('button',{name:'停止',exact:true}).click();
     assert.equal(await page.locator('.progress-panel .phase').innerText(),'已停止 · 手动采集中');
     assert.equal(await page.locator('.metrics>div').first().locator('strong').innerText(),'1,286家');
     await page.getByRole('button',{name:'账号与提醒',exact:true}).click();
-    assert((await page.evaluate(()=>window.calls)).includes('account'));
+    await page.getByRole('heading',{name:'我的账号',exact:true}).waitFor();
+    await page.getByRole('button',{name:'扫描采集',exact:true}).click();
     await page.getByRole('button',{name:'手动逛摊',exact:true}).click();
     await page.getByText('按你的节奏逛摊').waitFor();
     await page.getByRole('button',{name:'深色主题',exact:true}).click();

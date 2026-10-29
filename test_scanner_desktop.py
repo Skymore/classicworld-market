@@ -56,7 +56,7 @@ class DesktopTests(unittest.TestCase):
         self.runtime.stopped.return_value = False
         self.modules = {'LeaseStopEvent': threading.Event, 'clear_pause': Mock(), 'request_pause': Mock(), 'is_paused': Mock(return_value=False)}
         self.controller = DesktopController(self.runtime, modules=self.modules,
-            windows=lambda: [{'id': 12, 'title': 'MapleStory', 'pid': 42}])
+            windows=lambda: [{'id': 12, 'title': 'MapleStory', 'pid': 42}], ready=lambda _:True, emergency=lambda:False)
 
     def test_theme_persists_and_snapshot_has_no_credentials(self):
         self.controller.command('theme', 'dark')
@@ -107,7 +107,7 @@ class DesktopTests(unittest.TestCase):
             self.controller.command('pause')
             self.assertEqual(self.controller.snapshot()['phase'], 'paused')
             self.controller.command('resume')
-            self.assertEqual(self.controller.snapshot()['phase'], 'scanning')
+            self.assertEqual(self.controller.snapshot()['phase'], 'rebuilding')
             self.controller.command('stop')
             self.controller._worker.join(3)
         self.assertFalse(self.controller._worker.is_alive())
@@ -121,12 +121,13 @@ class DesktopTests(unittest.TestCase):
     def test_sweep_hooks_reach_the_scan_and_status_line(self):
         sweep = Mock()
         sweep.summary.return_value = {'enabled': True, 'units': 2, 'spent': 300, 'message': '扫货中'}
-        controller = DesktopController(self.runtime, modules=self.modules, windows=lambda: [{'id': 12, 'title': 'MapleStory', 'pid': 42}], sweep=sweep)
+        controller = DesktopController(self.runtime, modules=self.modules, windows=lambda: [{'id': 12, 'title': 'MapleStory', 'pid': 42}], sweep=sweep, ready=lambda _:True, emergency=lambda:False)
         hooks = {}
         def run(folder, hwnd, begin, stop, callback, assignments, **kwargs):
             hooks.update(kwargs)
+            controller.command('stop')
             return {'reason': 'cancelled'}
-        self.modules.update({'channel_capture': lambda path, stop: None, 'position_capture': lambda path, stop: None,
+        self.modules.update({'channel_capture': lambda path, stop: stop.wait(2), 'position_capture': lambda path, stop: stop.wait(2),
                              'DEFAULT_STATE': None, 'POSITION_STATE': None, 'CloudScan': Mock(), 'run': run})
         with patch('scanner_desktop.focus_game'), patch('scanner_desktop.release_keys'), patch('scanner_desktop.RUNS', Path(self.temp.name)/'runs'):
             controller.start(12)

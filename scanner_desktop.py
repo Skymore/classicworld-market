@@ -12,8 +12,10 @@ from datetime import datetime
 from pathlib import Path
 
 from collector_update import VERSION
+from collector_recovery import ScanIntent, RecoveryLog, atomic_json, failure_state, retry_delay, prune_diagnostics, read_json
 
 RUNS = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'ClassworldFMBot/screen_scanner'
+ABORT_GRACE = 8
 
 
 def scanner_modules():
@@ -70,6 +72,25 @@ def release_keys():
             pass
 
 
+def emergency_stop():
+    if not hasattr(ctypes, 'windll'):
+        return False
+    from ctypes import wintypes
+    point = wintypes.POINT()
+    user = ctypes.windll.user32
+    return bool(user.GetAsyncKeyState(0x78) & 0x8000 or
+                (user.GetCursorPos(ctypes.byref(point)) and point.x == 0 and point.y == 0))
+
+
+def game_ready(hwnd):
+    """Recovery never steals focus or restores a minimized game window."""
+    from cloud_scan import game_connected
+    user = ctypes.windll.user32
+    user.GetForegroundWindow.restype = ctypes.c_void_p
+    user.IsIconic.argtypes = [ctypes.c_void_p]
+    return user.GetForegroundWindow() == hwnd and not user.IsIconic(hwnd) and game_connected()
+
+
 def status_text(value):
     for pattern, template in [
         (r'full_scanning_room_(\d+)_channel_(\d+)', '正在扫描 {0} 洞 · {1}频道'),
@@ -94,11 +115,28 @@ def status_text(value):
 
 
 class DesktopController:
-    def __init__(self, collector, *, modules=None, windows=game_windows, sweep=None):
+    def __init__(self, collector, *, modules=None, windows=game_windows, sweep=None,
+                 ready=game_ready, emergency=emergency_stop):
         self.collector = collector
         self.sweep = sweep
         self._modules = modules or scanner_modules()
         self._windows = windows
+        self._game_ready, self._emergency = ready, emergency
+        self._intent = ScanIntent(collector.home)
+        self._journal = RecoveryLog(collector.home)
+        self._cancel = threading.Event()
+        self._cancel.set()
+        self._paused = threading.Event()
+        self._desired = False
+        self._session = None
+        self._step_deadline = None
+        self._guard_thread = None
+        self._last_confirmed = None
+        self._restart_requested = False
+        self._retry_at = 0
+        self._retry_deadline = 0
+        self._attempt_active = False
+        self._last_prune = 0
         self._lock = threading.RLock()
         self._events = queue.Queue()
         self._closed = threading.Event()
@@ -115,7 +153,9 @@ class DesktopController:
                            room=None, channel=None, visited=0, uploaded=0, started_at=None, stopped_at=None,
                            run_shops=0, run_items=0, run_started_at=time.time(),
                            capture='connecting', upload='ready', last_shop_at=None, windows=[],
-                           selected=None, theme='system', updates='checking', activities=[])
+                           selected=None, theme='system', updates='checking', activities=[],
+                           desired=False, last_progress_at=None, retries=0, next_retry_at=None,
+                           pending_uploads=0, failure=None)
         try:
             prefs = json.loads((collector.home/'desktop-settings.json').read_text(encoding='utf-8'))
             if prefs.get('theme') in ('light', 'dark', 'system'):
@@ -161,6 +201,12 @@ class DesktopController:
         elif event['type'] == 'upload_error':
             self._change(upload='retrying')
             self._activity('上传暂时中断，记录已保存在本机。', 'warning')
+        elif event['type'] == 'upload_queue':
+            self._change(pending_uploads=event['pending'])
+        elif event['type'] == 'storage_error':
+            self._stop.failure = OSError('Capture storage unavailable')
+            self._stop.set()
+            self._change(phase='needs_attention', message='采集无法保存，请检查磁盘空间及权限。')
 
     def refresh(self):
         choices = self._windows()
@@ -195,26 +241,24 @@ class DesktopController:
             self.start(value)
         elif name == 'pause':
             with self._lock:
-                if self._state['phase'] != 'scanning':
+                if not self._desired:
                     return self.snapshot()
+                self._paused.set()
                 self._modules['request_pause']()
+                self._stop.set()
                 release_keys()
                 self._change(phase='paused', message='已暂停，扫描进度已保留。')
         elif name == 'resume':
             with self._lock:
-                if self._state['phase'] != 'paused' or self._stop.is_set():
+                if self._state['phase'] != 'paused':
                     return self.snapshot()
                 if self._window:
                     self._window.minimize()
-                focus_game(self._hwnd)
+                self._paused.clear()
                 self._modules['clear_pause']()
-                self._change(phase='scanning', message='继续扫描当前任务。')
+                self._change(phase='rebuilding', message='正在重新确认游戏和任务。')
         elif name == 'stop':
-            if self._worker and self._worker.is_alive():
-                self._stop.set()
-                self._modules['clear_pause']()
-                release_keys()
-                self._change(phase='stopping', message='正在停止并保存进度…')
+            self._user_stop()
         elif name == 'mode':
             if value not in ('scan', 'manual'):
                 raise ValueError('无效采集方式')
@@ -233,32 +277,83 @@ class DesktopController:
             raise ValueError('未知操作')
         return self.snapshot()
 
-    def start(self, hwnd):
+    def _user_stop(self, *, persist=True):
+        # Close the input gate BEFORE disk I/O or teardown. Never clear a gate
+        # that an earlier scanner still holds.
+        with self._lock:
+            self._desired = False
+            self._cancel.set()
+            self._stop.set()
+            self._paused.clear()
+            self._modules['clear_pause']()
+            release_keys()
+            if persist:
+                self._intent.stop()
+            self._change(desired=False, phase='stopping' if self._worker and self._worker.is_alive() else 'stopped',
+                         message='已停止，自动恢复已取消。', next_retry_at=None)
+            self._journal.event('user_stop' if persist else 'update_handoff')
+
+    def start(self, hwnd, *, restore=False):
         with self._lock:
             if self._worker and self._worker.is_alive():
                 return
+            if self._guard_thread and self._guard_thread.is_alive():
+                # The old guard captured its own cancellation event below.
+                # Wait for its final health write before installing a new run.
+                self._guard_thread.join(timeout=1)
+                if self._guard_thread.is_alive():
+                    raise RuntimeError('正在结束上次扫描，请稍后再开始。')
             choices = self._windows()
-            if type(hwnd) is not int or hwnd not in [w['id'] for w in choices]:
+            saved = self._intent.load() if restore else {}
+            if restore:
+                if not saved.get('enabled'):
+                    return
+                previous = saved.get('window')
+                hwnd = previous if previous in [w['id'] for w in choices] else (choices[0]['id'] if len(choices)==1 else None)
+            elif type(hwnd) is not int or hwnd not in [w['id'] for w in choices]:
                 raise ValueError('请打开游戏并重新选择游戏窗口。')
             if self.collector.error or self.collector.stopped():
                 raise ValueError('采集服务未连接，请重新启动程序。')
-            self._stop.clear()
+            self._session = self._intent.start(hwnd, saved.get('session'))['session']
+            self._desired = True
+            self._cancel = threading.Event()
+            self._restart_requested = False
+            self._retry_at = 0
+            self._retry_deadline = 0
+            self._paused.clear()
+            self._stop = self._modules['LeaseStopEvent']()
             self._modules['clear_pause']()
             self._hwnd = hwnd
-            self._change(phase='scanning', mode='scan', selected=hwnd, visited=0, room=None,
+            self._change(phase='rebuilding', desired=True, mode='scan', selected=hwnd, visited=0, room=None,
                          channel=None, started_at=time.time(), stopped_at=None, message='正在连接游戏并领取任务…')
             if self._window:
                 self._window.minimize()
-            focus_game(hwnd)
+            if not restore:
+                focus_game(hwnd)
             self._worker = threading.Thread(target=self._run, name='shop-scanner', daemon=True)
             self._worker.start()
+            self._guard_thread = threading.Thread(target=self._guard, args=(self._cancel,), name='scan-guard', daemon=True)
+            self._guard_thread.start()
 
     def _on_scan(self, message):
+        if self._cancel.is_set():
+            return
+        if isinstance(message, tuple) and message[0] == 'state':
+            self._step_deadline = None
+            self._change(**message[1])
+            return
+        if isinstance(message, tuple) and message[0] == 'confirmed':
+            self._confirmed(message[1])
+            return
         if isinstance(message, tuple) and message[0] == 'progress':
             progress = message[1]
             self._change(channel=progress.get('channel'), visited=progress.get('visited', 0))
+            marker = (self.snapshot()['room'], progress.get('channel'), progress.get('visited', 0))
+            if marker != self._last_confirmed:
+                self._last_confirmed = marker
+                self._confirmed(dict(step='scan', room=marker[0], channel=marker[1], visited=marker[2]))
             if self._bound and progress.get('visited', 0) >= self._bound:
-                self._stop.set()
+                self._user_stop()
         elif isinstance(message, str):
             text = status_text(message)
             match = re.search(r'room_(\d+)(?:_channel_(\d+))?', message)
@@ -270,46 +365,162 @@ class DesktopController:
                 self._change(message=text)
                 self._activity(text)
 
+    def _confirmed(self, progress):
+        with self._lock:
+            if self._cancel.is_set() or self._stop.is_set():
+                return
+            self._step_deadline = time.monotonic() + 120
+            if self.snapshot()['phase'] != 'scanning':
+                self._journal.event('recovery_end', outcome='progress', **progress)
+            self._change(phase='scanning', last_progress_at=time.time(), next_retry_at=None, failure=None)
+            self._journal.event('progress', **progress)
+
+    def _guard(self, cancel):
+        blocked_gate = None
+        restart_at = None
+        last_health = 0
+        while not cancel.wait(.1):
+            if self._emergency() or self._intent.tombstone.exists():
+                self._user_stop()
+                return
+            if not self._paused.is_set() and self._step_deadline and time.monotonic() >= self._step_deadline:
+                self._stop.failure = TimeoutError('Scan step exceeded deadline')
+                self._stop.set()
+                release_keys()
+                self._step_deadline = None
+                self._change(phase='rebuilding', message='扫描步骤超时，正在重建任务。')
+                blocked_gate = self._stop
+                restart_at = time.monotonic() + ABORT_GRACE
+                # A blocked scanner may not unwind. Never launch a second
+                # input thread; ask the independent process watchdog to restart.
+            if restart_at and time.monotonic() >= restart_at:
+                if blocked_gate is self._stop and self._attempt_active:
+                    self._restart_requested = True
+                restart_at = None
+            if self._worker and not self._worker.is_alive() and self._desired:
+                self._restart_requested = True
+            if time.monotonic() - last_health >= 1:
+                last_health = time.monotonic()
+                state = self.snapshot()
+                atomic_json(self.collector.home/'scan-health.json', dict(at=time.time(), pid=os.getpid(),
+                            restart=self._restart_requested, desired=self._desired,
+                            **{key:state[key] for key in ('phase','room','channel','last_progress_at','retries','pending_uploads')}))
+
     def _run(self):
+        attempts = 0
+        try:
+            while not self._cancel.is_set():
+                if self._paused.is_set():
+                    self._cancel.wait(.2)
+                    continue
+                if time.monotonic() < self._retry_deadline:
+                    self._cancel.wait(min(.2, self._retry_deadline - time.monotonic()))
+                    continue
+                choices = self._windows()
+                if not any(w['id'] == self._hwnd for w in choices) and len(choices) == 1:
+                    self._hwnd = choices[0]['id']
+                    self._change(selected=self._hwnd, windows=choices)
+                if not any(w['id'] == self._hwnd for w in choices) or not self._game_ready(self._hwnd):
+                    self._step_deadline = None
+                    self._change(phase='waiting_game', message='等待游戏连接并切换到前台。')
+                    self._cancel.wait(1)
+                    continue
+                with self._lock:
+                    if self._cancel.is_set():
+                        break
+                    self._stop = self._modules['LeaseStopEvent']()
+                    stop = self._stop
+                    self._step_deadline = time.monotonic() + 120
+                self._change(phase='rebuilding', message='正在重建扫描任务…', next_retry_at=None)
+                self._journal.event('recovery_begin', attempt=attempts + 1)
+                self._attempt_active = True
+                error, clean = self._attempt(stop)
+                self._attempt_active = False
+                self._step_deadline = None
+                if not clean:
+                    self._restart_requested = True
+                    self._change(phase='rebuilding', message='正在重启无响应的扫描组件。')
+                    while not self._cancel.wait(.2):
+                        pass
+                    break
+                if self._cancel.is_set():
+                    break
+                if self._paused.is_set():
+                    self._change(phase='paused', message='已暂停，继续时重新领取任务。')
+                    continue
+                attempts += 1
+                phase, message = failure_state(error)
+                self._journal.event('recovery_wait', attempt=attempts, state=phase, error=type(error).__name__)
+                self._journal.event('recovery_end', outcome='waiting', state=phase)
+                self._change(phase=phase, message=message, retries=attempts, failure=message)
+                if phase == 'needs_attention':
+                    # Keep intent observable, but require an explicit Stop/Start
+                    # after repairing storage/credentials. No request storm.
+                    self._cancel.wait()
+                    break
+                delay = retry_delay(attempts, error)
+                self._retry_at = time.time() + delay
+                self._retry_deadline = time.monotonic() + delay
+                self._change(next_retry_at=self._retry_at)
+        finally:
+            self._stop.set()
+            release_keys()
+            if not self._desired:
+                self._change(phase='stopped', stopped_at=time.time(), desired=False, next_retry_at=None,
+                             message='扫描已停止，手动采集仍在运行。')
+
+    def _attempt(self, stop):
         threads = []
         assignments = None
-        failed = False
+        failure = RuntimeError('Scan worker returned without completing service')
         try:
-            self._folder = RUNS / datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+            self._folder = RUNS / 'supervised' / datetime.now().strftime('%Y%m%d_%H%M%S_%f')
             self._folder.mkdir(parents=True, exist_ok=False)
             for capture, path in [('channel_capture', 'DEFAULT_STATE'), ('position_capture', 'POSITION_STATE')]:
                 def listen(capture=capture, path=path):
                     try:
-                        self._modules[capture](self._modules[path], self._stop)
-                    except Exception:
+                        self._modules[capture](self._modules[path], stop)
+                        if not stop.is_set():
+                            stop.failure = RuntimeError('Capture worker exited')
+                            stop.set()
+                    except Exception as error:
                         traceback.print_exc()
-                        self._activity('游戏连接读取失败，请停止后重新开始。', 'warning')
-                        self._stop.set()
+                        stop.failure = error
+                        stop.set()
                 thread = threading.Thread(target=listen, daemon=True, name=capture)
                 thread.start()
                 threads.append(thread)
-            assignments = self._modules['CloudScan'](self.collector.configuration(), self._stop,
-                self._on_scan, paused=self._modules['is_paused'])
+            config = self.collector.configuration()
+            from collector_http import request_json
+            def transport(action, body):
+                began = time.monotonic()
+                result = 'ok'
+                try:
+                    return request_json(config['endpoint'].rstrip('/') + '/api/v1/scanner/' + action, body,
+                        {'Authorization': 'Bearer ' + config['token'], 'Content-Type': 'application/json'}, stop=stop)
+                except Exception as error:
+                    result = type(error).__name__
+                    raise
+                finally:
+                    self._journal.event('request', action=action, result=result,
+                                        duration_ms=round((time.monotonic()-began)*1000))
+            assignments = self._modules['CloudScan'](config, stop, self._on_scan,
+                paused=self._modules['is_paused'], session=self._session, transport=transport)
             started = threading.Event()
             started.set()
             # The sweep engine buys in shops the scanner opens; it decides per visit.
             hooks = dict(shop_callback=self.sweep.on_shop_open, capture_receipt=self.sweep.receipt) if self.sweep else {}
-            outcome = self._modules['run'](self._folder, self._hwnd, started, self._stop,
+            outcome = self._modules['run'](self._folder, self._hwnd, started, stop,
                                           self._on_scan, assignments=assignments, **hooks)
             if outcome and outcome.get('reason') == 'room_scan_incomplete':
-                raise RuntimeError('当前洞扫描未完成，请重新开始。')
+                raise RuntimeError('Room scan incomplete')
         except Exception as error:
-            cancelled = self._stop.is_set() or any(s in str(error).lower() for s in (
-                'stopped from scanner', 'stopped with f9', 'mouse failsafe', 'game lost foreground'))
-            failed = not cancelled
-            if failed:
-                if self._folder:
-                    (self._folder/'error.txt').write_text(traceback.format_exc(), encoding='utf-8')
-                self._activity('扫描中断，进度已保存。请确认游戏连接后重试。', 'warning')
-            elif 'game lost foreground' in str(error).lower():
-                self._activity('游戏离开前台，已停止自动扫描。', 'warning')
+            failure = error
+            if any(s in str(error).lower() for s in ('stopped with f9', 'mouse failsafe')):
+                self._user_stop()
         finally:
-            self._stop.set()
+            failure = getattr(stop, 'failure', None) or failure
+            stop.set()
             self._modules['clear_pause']()
             release_keys()
             if assignments:
@@ -319,14 +530,17 @@ class DesktopController:
                     traceback.print_exc()
             for thread in threads:
                 thread.join(timeout=2)
-            reason = getattr(self._stop, 'reason', None)
-            self._change(phase='error' if failed else 'stopped', stopped_at=time.time(),
-                         message=reason or ('扫描中断，确认游戏连接后可重新开始。' if failed else '扫描已停止，手动采集仍在运行。'))
-            if self._window and not self._closing:
-                self._window.restore()
+        monitor = getattr(assignments, 'thread', None)
+        clean = not any(thread.is_alive() for thread in threads)
+        if isinstance(monitor, threading.Thread):
+            clean = clean and not monitor.is_alive()
+        return failure, clean
 
     def read_local_status(self):
         folder = self.collector.folder
+        if time.monotonic() - self._last_prune > 60:
+            self._last_prune = time.monotonic()
+            prune_diagnostics(RUNS/'supervised')
         if self.sweep:
             self._change(sweep=self.sweep.summary())
         try:
@@ -349,9 +563,12 @@ class DesktopController:
     def pump(self, auto_start=False):
         self.refresh()
         self._activity('扫描器已就绪。')
-        if auto_start:
+        saved = self._intent.load()
+        if auto_start or saved.get('enabled'):
             try:
-                self.start(self.snapshot()['selected'])
+                # Only reuse the same existing window. If it disappeared, wait
+                # for an unambiguous game window rather than trust a reused HWND.
+                self.start(self.snapshot()['selected'], restore=not auto_start)
             except Exception as error:
                 self._change(phase='error', message=str(error))
         last = ''
@@ -365,12 +582,22 @@ class DesktopController:
             # Local health freshness only; no network polling and no repeated
             # directory/history scans. Scanner/upload events arrive directly.
             self.read_local_status()
+            if not self._worker and self._intent.load().get('enabled') and not self.collector.error:
+                choices = self._windows()
+                if len(choices) == 1:
+                    try:
+                        self.start(choices[0]['id'], restore=True)
+                    except (RuntimeError, ValueError):
+                        pass
             if self.collector.error:
                 self._stop.set()
                 self._change(capture='offline', message='采集服务已停止，请重新启动程序。')
                 self._activity('采集服务已停止，请重新启动程序。', 'warning')
+                if self._desired and self.snapshot()['phase'] != 'needs_attention':
+                    self._restart_requested = True
             if self.collector.stopped() and not self.collector.error:
-                self.close()
+                updating = read_json(self.collector.home/'update-status.json').get('state') == 'restarting'
+                self.close(preserve_intent=updating)
             value = json.dumps(self.snapshot(), ensure_ascii=False)
             if value != last and self._window and self._ready:
                 try:
@@ -380,10 +607,10 @@ class DesktopController:
                     pass
             self._closed.wait(.1)
 
-    def close(self):
+    def close(self, *, preserve_intent=False):
         if not self._closing:
             self._closing = True
-            self._stop.set()
+            self._user_stop(persist=not preserve_intent)
             self._modules['clear_pause']()
             self._change(phase='stopping', message='正在保存并退出…')
             def finish():

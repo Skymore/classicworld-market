@@ -56,6 +56,10 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.6.16：网络超时、502/503、租约失效后自动恢复；独立监督器恢复异常退出或卡住的扫描进程。\n'
+        '停止、F9、鼠标左上角紧急停止和正常退出优先，取消后不会自动恢复。认证或磁盘错误需人工处理。\n'
+        '恢复前重新确认游戏窗口与任务；上传队列保留，支持丢失响应后的幂等重传。\n'
+        '已通过故障注入测试；真实 24 小时连续扫描验收尚未完成，不宣称已通过该项验收。\n'
         '网站、扫描器与采集器的中文位置统一显示为频道和洞，包含状态、动态、提醒与使用说明。\n'
         '新增枫叶市集应用图标，统一程序、任务栏和桌面快捷方式。\n'
         '重新进洞或换频道时核对完整玩家名单，已离开的店主旧报价标记失效。\n'
