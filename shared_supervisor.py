@@ -2,7 +2,6 @@
 import argparse
 import json
 import os
-import sqlite3
 import subprocess
 import sys
 import time
@@ -44,7 +43,7 @@ def main():
         commands['web']=[str(binary)]
         if not native.get('legacy_dashboard_enabled',True):commands.pop('dashboard',None)
         web_env=web_environment(ROOT,native,web)
-    children={};logs={};retry={};last_backup=time.time() if args.adopt_running else 0
+    children={};logs={};retry={}
     if args.adopt_running:
         import psutil
         class Adopted:
@@ -94,23 +93,7 @@ def main():
             (data/'supervisor_status.json').write_text(json.dumps(dict(time=time.time(),pid=os.getpid(),
                 deployment_support=1,release=active_release,
                 children={k:dict(pid=p.pid,running=p.poll() is None) for k,p in children.items()})),encoding='utf-8')
-            if time.time()-last_backup>86400 and (data/'market.sqlite').exists():
-                folder=data/'backups';folder.mkdir(exist_ok=True)
-                source=sqlite3.connect(data/'market.sqlite');destination=sqlite3.connect(folder/(time.strftime('%Y%m%d')+'.sqlite'))
-                try:source.backup(destination)
-                finally:source.close();destination.close()
-                if native.get('enabled'):
-                    dump_env=dict(os.environ)
-                    from urllib.parse import urlsplit,unquote
-                    db_url=urlsplit(native['database_url'])
-                    dump_env['PGPASSWORD']=unquote(db_url.password)
-                    dump=subprocess.run([str(pg_bin/'pg_dump.exe'),'-h',db_url.hostname,
-                        '-p',str(db_url.port),'-U',unquote(db_url.username),'-d',db_url.path.lstrip('/'),
-                        '-Fc','-f',str(folder/(time.strftime('%Y%m%d')+'.pgdump'))],env=dump_env,
-                        stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,
-                        creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
-                    if dump.returncode:print('PostgreSQL backup failed',flush=True)
-                last_backup=time.time()
+            # Backups are explicit deployment operations; never block supervision.
             time.sleep(5)
     finally:
         for child in children.values():

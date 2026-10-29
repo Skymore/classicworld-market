@@ -112,7 +112,7 @@ python shared_server.py --backup shared_data/backups/manual.sqlite
 
 ## 启停
 
-`shared_supervisor.py` 维持 web、upload、tunnel 三个子进程，异常退出约 20 秒后重启，每天一份数据库备份。Windows 登录计划任务可调用它；仅在该 Windows 用户登录后运行。电脑休眠、关机或网络中断期间网站不可用。日志在 `shared_data/*.log`，进程状态在 `shared_data/supervisor_status.json`。
+`shared_supervisor.py` 维持 web、upload、tunnel 三个子进程，异常退出约 20 秒后重启。启动和日常守护循环不执行数据库备份，避免死机后的数据库恢复或备份阻塞网站重启；数据库迁移、批量修改或删除前使用显式备份。Windows 登录计划任务可调用它；仅在该 Windows 用户登录后运行。电脑休眠、关机或网络中断期间网站不可用。日志在 `shared_data/*.log`，进程状态在 `shared_data/supervisor_status.json`。
 
 Cloudflare 隧道凭据放在用户 `.cloudflared`，项目的 `shared_data/tunnel.yml` 指向该凭据。仅指定域名的 HTTP 流量进入 8766，其他 hostname 返回 404。
 
