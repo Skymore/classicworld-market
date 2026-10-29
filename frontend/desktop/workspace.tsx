@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { clockTime, mesos, participantLabel, purchaseLabel, purchasePlace } from '../src/lib/sweep-labels';
+import { type Holdings, clockTime, mesos, participantLabel, purchaseLabel, purchasePlace } from '../src/lib/sweep-labels';
 
 // window.pywebview.api.workspace(action, value), implemented by desktop_workspace.py.
 export interface SweepSettings { allow_web_start: boolean; max_spend: number; max_order: number; reserve_mesos: number }
@@ -16,13 +16,14 @@ export interface WorkspaceStatus {
   account: { id: string; nickname: string } | null;
   device: { id: string; name: string } | null;
   sweep: {
+    holdings?: Holdings | null;
     settings: SweepSettings; executor: { ready: boolean; reason?: string };
     run: DeviceRun | null; recent: RecentPurchase[]; message?: string;
   } | null;
 }
 const POLL_MS = 5000;
 const MAX_MESOS = 1e12;
-const DEFAULT_MINUTES = 120;
+const DEFAULT_MINUTES = 10080;
 const zh = (s: string) => s;
 const invoke = (action: string, value?: unknown) => window.pywebview!.api.workspace(action, value);
 const errorText = (e: unknown) => {
@@ -113,11 +114,12 @@ function SweepPane({ sweep, deviceId, busy, run }: {
   const edit = (key: keyof SweepSettings, value: string | boolean) => setDraft({ ...shown, [key]: value });
   const [budget, setBudget] = useState(''), [minutes, setMinutes] = useState(String(DEFAULT_MINUTES));
   const budgetValue = amount(budget, 1), minutesValue = Number(minutes);
-  const minutesValid = Number.isInteger(minutesValue) && minutesValue >= 5 && minutesValue <= 720;
+  const minutesValid = Number.isInteger(minutesValue) && minutesValue >= 5 && minutesValue <= 10080;
   const current = sweep.run, executor = sweep.executor;
   const blocked = !executor.ready ? (executor.reason || '不能扫货') : saved.max_spend === 0 ? '先设置本机每轮最多花' : '';
   return <div className="native-sweep" data-native-sweep>
     <p className={'native-executor' + (executor.ready ? ' ready' : '')} data-executor><i aria-hidden="true" />{executor.ready ? '可以扫货' : executor.reason || '不能扫货'}</p>
+    <p className="workspace-note" data-native-balance>金币余额 · {sweep.holdings?.mesos != null ? sweep.holdings.mesos.toLocaleString() : '等待游戏数据'}</p>
     {sweep.message && <p className="workspace-note" data-sweep-message>{sweep.message}</p>}
     <div className="native-block" data-sweep-run>
       {current ? <>
@@ -135,7 +137,7 @@ function SweepPane({ sweep, deviceId, busy, run }: {
         <div className="native-block-head"><b>本机开始</b>{blocked && <span>{blocked}</span>}</div>
         <div className="native-fields">
           <NumberField name="budget" label="预算" value={budget} onChange={setBudget} min={1} hint={budgetValue ? ` · ${mesos(budgetValue)}` : undefined} />
-          <NumberField name="minutes" label="时长（分钟）" value={minutes} onChange={setMinutes} min={5} max={720} />
+          <NumberField name="minutes" label="时长（分钟，最长 7 天）" value={minutes} onChange={setMinutes} min={5} max={10080} />
           <div className="native-field-action"><button className="ui-btn primary" data-native-start disabled={busy || Boolean(blocked) || !budgetValue || !minutesValid}
             onClick={() => run('start', { budget: budgetValue, minutes: minutesValue })}>本机开始</button></div>
         </div>

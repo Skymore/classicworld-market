@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 from classicworld_codec import advance, frame_header
 from market_proxy import Session
+from market_inventory import Inventory
 
 # Channel connections have also been observed on 8913. Keep a bounded game
 # service range; process ownership is still required before any decoding.
@@ -95,6 +96,7 @@ class Collector:
         self.last_status_attempt=0
         self._status_warnings={}
         self.on_event=on_event
+        self.inventory=Inventory()
     def write_status(self, path, state):
         """UI diagnostics are best effort; file readers must not stop capture."""
         temporary=path.with_suffix('.json.tmp')
@@ -130,11 +132,14 @@ class Collector:
             flow['check']=now+0.2
             if self.owner(key):
                 session=Session(self,None,None,None,None,key[0],key[1])
+                flow['session']=session.id
+                self.inventory.invalidate()
                 flow['decoder']=Decoder(self.observer(session))
                 self.event('game_flow_detected',session=session.id)
                 flow['decoder'].feed(flow['buffer']);flow['buffer'].clear()
     def observer(self,session):
         def observe(plain):
+            self.inventory.observe(plain, session.id)
             # Mapping tables are for active client requests, never needed here.
             opcode=int.from_bytes(plain[:2],'little')
             label=hex(opcode)
@@ -169,7 +174,9 @@ class Collector:
             self.flows[key]=flow
         if not flow:self.ignored+=1;return
         flow['last']=now
-        if flags&4:self.flows.pop(key,None);return
+        if flags&4:
+            self.inventory.invalidate(flow.get('session'))
+            self.flows.pop(key,None);return
         if flow['failed']:return
         try:
             ordered=flow['stream'].feed((seq+bool(flags&2))&0xffffffff,data,now)
@@ -181,9 +188,11 @@ class Collector:
         except Exception as error:
             self.fail(flow,str(error))
         if flags&1:
+            self.inventory.invalidate(flow.get('session'))
             if flow['stream'].pending or (flow['decoder'] and flow['decoder'].buf):self.fail(flow,'Incomplete stream on close')
             self.flows.pop(key,None)
     def fail(self,flow,reason):
+        self.inventory.invalidate(flow.get('session'))
         flow['failed']=True;flow['buffer'].clear();flow['stream'].pending.clear()
         if flow['decoder']:flow['decoder'].buf.clear()
         self.event('reconnect_required',reason=reason)
@@ -195,11 +204,14 @@ class Collector:
                 except Exception as error:self.fail(flow,str(error))
             if flow['decoder'] is None and now-flow['created']>3:
                 self.flows.pop(key,None);continue
-            if now-flow['last']>600:self.flows.pop(key,None);continue
+            if now-flow['last']>600:
+                self.inventory.invalidate(flow.get('session'))
+                self.flows.pop(key,None);continue
             gap=flow['stream'].gap_since
             if not flow['failed'] and gap is not None and now-gap>10:self.fail(flow,'TCP gap timeout')
         if now-self.last_status_attempt>2:
             self.last_status_attempt=now
+            self.write_status(self.folder/'inventory_state.json', dict(alive_at=int(time.time()), holdings=self.inventory.view()))
             state=dict(time=time.time(),mode=getattr(self,'mode','windivert-sniff-recv-only'),packets=self.captured,
                 waiting_for_handshake=self.ignored,connections=len(self.flows),
                 decoding=sum(bool(f['decoder'] and f['decoder'].iv and not f['failed']) for f in self.flows.values()),
@@ -366,7 +378,10 @@ def run(folder,seconds=0,backend="windivert",stop_event=None,on_event=None):
                     matched_datagrams=sniffer.matched_datagrams,tcp_datagrams=sniffer.tcp_datagrams,
                     game_outbound_datagrams=sniffer.game_outbound_datagrams))
     finally:
-        sniffer.close();thread.join(timeout=2);collector.event('capture_stopped')
+        sniffer.close();thread.join(timeout=2)
+        collector.inventory.invalidate()
+        collector.write_status(collector.folder/'inventory_state.json', dict(alive_at=int(time.time()), holdings=None))
+        collector.event('capture_stopped')
 
 
 if __name__=='__main__':

@@ -26,7 +26,7 @@ class PassiveTests(unittest.TestCase):
                 collector.tick(now=13)
                 collector.tick(now=13.1)
                 collector.tick(now=13.2)
-                self.assertEqual(replace.call_count,1)
+                self.assertEqual(replace.call_count,2)  # Inventory and capture status, one retry each.
                 self.assertEqual(collector.last_status,10)
                 self.assertEqual(path.read_bytes(),previous)
             collector.captured=42

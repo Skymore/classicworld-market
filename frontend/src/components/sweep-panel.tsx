@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { getJson, qs, api } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
+import { reminderTokens, watchGroups } from "/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1";
 import { itemName } from "/web/js/lib/i18n.js";
 import { meso } from "/web/js/lib/format.js";
 import { flush, getSyncState } from "/web/js/lib/user-data.js";
@@ -18,6 +19,7 @@ import {
   purchasePlace,
   stopReasonLabel,
   type Device,
+  type SweepWatch,
   type Purchase,
   type Run,
   type SweepState,
@@ -31,7 +33,7 @@ const SWEEP_KEY = ["account-sweep"] as const;
 const PURCHASES_SHOWN = 20;
 const PURCHASES_FOLDED = 5;
 const MAX_BUDGET = 1e12;
-const DEFAULT_MINUTES = 120;
+const DEFAULT_MINUTES = 10080;
 
 function sweepMessage(words: Words, code: string) {
   const messages: Record<string, [string, string]> = {
@@ -41,6 +43,7 @@ function sweepMessage(words: Words, code: string) {
     sweep_stopped: ["本轮已结束", "This sweep has ended"],
     reauth_required: ["请重新登录后再继续", "Sign in again to continue"],
     invalid_request: ["预算或时长不正确", "Check the budget and duration"],
+    restart_required: ["请停止后重新开始扫货", "Stop and restart the sweep"],
     sync_pending: ["关注还在同步，请稍后再试", "Watches are still syncing"],
   };
   return messages[code] ? words(...messages[code]) : accountMessage(words, code);
@@ -49,14 +52,15 @@ function sweepMessage(words: Words, code: string) {
 /** Watch-page control for sweeps run by the account's devices (SWEEP.md §3). */
 export default function SweepPanel({
   profile,
-  groups,
+  watches,
   items,
 }: {
   profile: Account;
-  groups: number;
+  watches: SweepWatch[];
   items: Map<number, any>;
 }) {
   const words = useWords();
+  const groups = watches.reduce((n, w) => n + w.groups.length, 0);
   const sweep = useQuery({
     queryKey: SWEEP_KEY,
     queryFn: ({ signal }) =>
@@ -65,12 +69,16 @@ export default function SweepPanel({
     refetchInterval: (query) =>
       query.state.data?.run?.status === "running" ? 60_000 : false,
   });
-  useAccountTopics(["sweep", "devices"], SWEEP_KEY);
-  const [dialog, setDialog] = useState<"start" | "apply" | null>(null);
+  useAccountTopics(["sweep", "devices", "data"], SWEEP_KEY);
+  const [dialog, setDialog] = useState<"start" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const run = sweep.data?.run || null;
   const running = run?.status === "running";
+  const signature = (list: SweepWatch[]) => JSON.stringify([...list].sort((a,b) => a.item_id-b.item_id).map((w) => ({
+    item_id:w.item_id, limit:w.limit, groups:watchGroups({groups:w.groups})
+  })));
+  const changed = Boolean(run?.plan_stale || run?.plan && signature(run.plan.watches) !== signature(watches));
   const post = (path: string, data: unknown) =>
     postAccount(profile.csrf, path, data);
   async function adopt(result: any) {
@@ -137,13 +145,14 @@ export default function SweepPanel({
         </p>
       )}
       {run && (
-        <RunDetails run={run} items={items} onApply={() => setDialog("apply")} />
+        <RunDetails run={run} changed={changed} items={items} devices={sweep.data?.devices || []} />
       )}
       {dialog === "start" && sweep.data && (
         <StartDialog
           profile={profile}
           devices={sweep.data.devices}
-          groups={groups}
+          watches={watches}
+          items={items}
           post={post}
           onDone={async (result) => {
             await adopt(result);
@@ -152,35 +161,21 @@ export default function SweepPanel({
           onClose={() => setDialog(null)}
         />
       )}
-      {dialog === "apply" && run && (
-        <SweepDialog
-          title={words("应用到本轮", "Apply to this sweep")}
-          submit={words("应用", "Apply")}
-          profile={profile}
-          onClose={() => setDialog(null)}
-          onSubmit={async (current_password) => {
-            await adopt(
-              await post("/api/v1/account/sweep/apply", {
-                run: run.id,
-                current_password,
-              }),
-            );
-            setDialog(null);
-          }}
-        />
-      )}
+
     </section>
   );
 }
 
 function RunDetails({
   run,
+  changed,
   items,
-  onApply,
+  devices,
 }: {
   run: Run;
+  changed: boolean;
   items: Map<number, any>;
-  onApply(): void;
+  devices: Device[];
 }) {
   const words = useWords();
   const running = run.status === "running";
@@ -192,7 +187,7 @@ function RunDetails({
         [words("已花", "Spent"), meso(run.spent), "spent"],
         [words("预留", "Held"), meso(run.reserved), "reserved"],
         [words("未知", "Unknown"), meso(run.unknown), "unknown"],
-        [words("剩余", "Left"), meso(run.remaining), "remaining"],
+        [words("预算剩余", "Budget left"), meso(run.remaining), "remaining"],
         [words("结束", "Ends"), clockTime(run.ends_at, isEnglish()), "ends"],
       ]
     : [
@@ -210,14 +205,15 @@ function RunDetails({
           </div>
         ))}
       </div>
-      {running && run.plan_stale && (
+      {running && changed && (
         <div className="sweep-stale" data-sweep-stale>
-          <span>{words("规则已修改", "Rules changed")}</span>
-          <button type="button" className="btn" data-sweep-apply onClick={onApply}>
-            {words("应用到本轮", "Apply to this sweep")}
-          </button>
+          <span role="status">{words("扫货条件已修改，停止后重新开始生效", "Rules changed. Stop and restart to use them.")}</span>
         </div>
       )}
+      {run.plan && <details className="sweep-plan-details"><summary>{words("本轮扫货条件", "Current sweep rules")}</summary>
+        <SweepRules watches={run.plan.watches} items={items} />
+      </details>}
+      <HoldingsRows devices={devices.filter((d) => run.devices.some((r) => r.id === d.id))} watches={run.plan?.watches || []} items={items} />
       {run.devices.length > 0 && (
         <div className="sweep-list" data-sweep-devices>
           {run.devices.map((device) => (
@@ -319,17 +315,54 @@ function useItemNames(ids: number[], items: Map<number, any>) {
   };
 }
 
+function SweepRules({ watches, items }: {watches: SweepWatch[]; items: Map<number, any>}) {
+  const words = useWords(), name = useItemNames(watches.map((w) => w.item_id), items);
+  return <section className="sweep-list" data-sweep-rules>
+    <h3 className="sweep-head">{words("扫货条件", "Sweep rules")}</h3>
+    {watches.map((watch) => <div className="sweep-row" key={watch.item_id}>
+      <div className="sweep-row-main"><b>{name(watch.item_id)}</b>
+        {watch.groups.map((group, i) => <small key={group.id || i}>
+          {i > 0 && words("或 · ", "or · ")}
+          {[group.name, `≤ ${Number(group.cap).toLocaleString()}`,
+            ...reminderTokens(group.reminder, isEnglish()).map((t: any) => t.label)].filter(Boolean).join(" · ")}
+        </small>)}
+      </div>
+      <span className="sweep-row-side">{watch.limit === 0 ? words("数量不限", "Unlimited") : words(`最多 ${watch.limit} 件`, `Up to ${watch.limit}`)}</span>
+    </div>)}
+    {!watches.length && <p className="sweep-empty">{words("没有可扫货的条件", "No sweep rules")}</p>}
+  </section>;
+}
+
+function HoldingsRows({devices, watches, items}: {devices: Device[]; watches: SweepWatch[]; items: Map<number, any>}) {
+  const words = useWords(), name = useItemNames(watches.map((w) => w.item_id), items);
+  return <div className="sweep-list" data-sweep-holdings>{devices.map((device) => {
+    const holdings = device.online ? device.state?.sweep?.holdings : null;
+    return <div className="sweep-row" key={device.id}>
+      <span className="sweep-row-main"><b>{words("背包", "Inventory")}{devices.length > 1 ? ` · ${device.name}` : ""}</b>
+        {watches.map((w) => <small key={w.item_id}>{name(w.item_id)} · {
+          holdings?.categories.includes(Math.floor(w.item_id / 1000000))
+            ? (holdings.items.find((i) => i.item_id === w.item_id)?.quantity || 0).toLocaleString() : "—"
+        }</small>)}
+        {!holdings && <small>{words("等待游戏数据", "Waiting for game data")}</small>}
+      </span>
+      <span className="sweep-row-side"><small>{words("金币余额", "Mesos balance")}</small><b>{holdings?.mesos != null ? holdings.mesos.toLocaleString() : "—"}</b></span>
+    </div>;
+  })}</div>;
+}
+
 function StartDialog({
   profile,
   devices,
-  groups,
+  watches,
+  items,
   post,
   onDone,
   onClose,
 }: {
   profile: Account;
   devices: Device[];
-  groups: number;
+  watches: SweepWatch[];
+  items: Map<number, any>;
   post(path: string, data: unknown): Promise<any>;
   onDone(result: any): Promise<void>;
   onClose(): void;
@@ -348,7 +381,7 @@ function StartDialog({
     available.map((device) => device.id),
   );
   const [budget, setBudget] = useState(last.budget ? String(last.budget) : "");
-  const [minutes, setMinutes] = useState(String(last.minutes || DEFAULT_MINUTES));
+  const [minutes, setMinutes] = useState(String(last.durationVersion === 1 && last.minutes || DEFAULT_MINUTES));
   // A device that goes offline while the dialog is open is unticked.
   useEffect(() => {
     setChosen((old) =>
@@ -365,13 +398,13 @@ function StartDialog({
     budgetValue <= MAX_BUDGET &&
     Number.isInteger(minutesValue) &&
     minutesValue >= 5 &&
-    minutesValue <= 720;
+    minutesValue <= 10080;
   return (
     <SweepDialog
       title={words("开始扫货", "Start sweep")}
       submit={words("开始", "Start")}
       profile={profile}
-      disabled={!valid || groups === 0}
+      disabled={!valid || watches.length === 0}
       onClose={onClose}
       onSubmit={async (current_password) => {
         await flush();
@@ -384,10 +417,12 @@ function StartDialog({
           minutes: minutesValue,
           current_password,
         });
-        save(JSON.stringify({ budget: budgetValue, minutes: minutesValue }));
+        save(JSON.stringify({ budget: budgetValue, minutes: minutesValue, durationVersion: 1 }));
         await onDone(result);
       }}
     >
+      <SweepRules watches={watches} items={items} />
+      <HoldingsRows devices={devices.filter((d) => chosen.includes(d.id))} watches={watches} items={items} />
       <fieldset className="fsec sweep-device-list" data-sweep-device-list>
         <h4>
           {words("设备", "Devices")}
@@ -442,13 +477,13 @@ function StartDialog({
           />
         </label>
         <label className="offer-field">
-          <span>{words("时长（分钟）", "Duration (min)")}</span>
+          <span>{words("时长（分钟，最长 7 天）", "Duration (min, up to 7 days)")}</span>
           <input
             name="minutes"
             type="number"
             inputMode="numeric"
             min={5}
-            max={720}
+            max={10080}
             step={1}
             required
             value={minutes}

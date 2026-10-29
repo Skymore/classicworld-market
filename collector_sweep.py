@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.parse import urlencode, urlsplit
 from account_device import DeviceError, EventStream
 from shared_protocol import from_snapshot
+from market_inventory import read_inventory
 from sweep_purchase import REASONS, PurchaseHalt, PurchaseOrder, PurchaseResult, load_purchaser
 
 STATS = {'weapon_attack', 'magic_attack', 'str', 'dex', 'int', 'luk', 'hp', 'mp',
@@ -288,7 +289,7 @@ class SweepEngine:
                     state=participant.get('state'), message=participant.get('message') or '',
                     spent_here=max(self.spent, self.run.get('spent_here') if type(self.run.get('spent_here')) is int else 0))
             return copy.deepcopy(dict(linked=self.token is not None, account=self.account, device=self.device,
-                sweep=dict(settings=self.settings, executor=dict(ready=bool(executor.ready), reason=str(executor.reason or '')),
+                sweep=dict(settings=self.settings, holdings=read_inventory(self.folder, self.game_state), executor=dict(ready=bool(executor.ready), reason=str(executor.reason or '')),
                            run=run, recent=self.recent, message=self.message)))
 
     def summary(self):
@@ -747,7 +748,7 @@ class SweepEngine:
         with self.lock:
             settings = dict(self.settings)
         return dict(client_version=VERSION, sweep=dict(settings, executor=dict(ready=bool(executor.ready),
-            reason=str(executor.reason or '')[:80]), game=dict(connected=self.game_state)))
+            reason=str(executor.reason or '')[:80]), game=dict(connected=self.game_state), holdings=read_inventory(self.folder, self.game_state)))
 
     def report(self, force=False):
         body, now = self.state_body(), time.monotonic()
@@ -773,7 +774,7 @@ class SweepEngine:
 
     def start_run(self, value):
         if not isinstance(value, dict) or type(value.get('budget')) is not int or type(value.get('minutes')) is not int \
-                or not 1 <= value['budget'] <= LIMIT or not 5 <= value['minutes'] <= 720:
+                or not 1 <= value['budget'] <= LIMIT or not 5 <= value['minutes'] <= 10080:
             raise ValueError('预算或时长无效')
         self._identity()
         if not self.token:

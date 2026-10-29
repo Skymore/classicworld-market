@@ -351,7 +351,7 @@ async fn web_start_checks_password_devices_and_the_single_running_run() {
     dev(&s, "POST", "/api/v1/device/state", &no_executor_token, local_state(true, false)).await;
     let (_, never_reported) = device(&s, &w, "未上报").await;
 
-    let start = |devices: Vec<&str>| json!({"devices":devices,"budget":1000000,"minutes":120});
+    let start = |devices: Vec<&str>| json!({"devices":devices,"budget":1000000,"minutes":10080});
     let mut wrong = start(vec![&ready]);
     wrong["current_password"] = json!("not the password at all");
     assert_eq!(sensitive(&s, "/api/v1/account/sweep/start", &w, wrong).await.1["error"], "invalid_current_password");
@@ -368,7 +368,7 @@ async fn web_start_checks_password_devices_and_the_single_running_run() {
     assert_eq!(run["plan_stale"], false);
     assert_eq!(sensitive(&s, "/api/v1/account/sweep/start", &w, start(vec![&ready])).await.1["error"], "sweep_running");
     assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/start", &empty_token, json!({"budget":1000,"minutes":60})).await.1["error"], "sweep_running");
-    for (budget, minutes) in [(0i64, 60), (1_000_000_000_001, 60), (1000, 4), (1000, 721)] {
+    for (budget, minutes) in [(0i64, 60), (1_000_000_000_001, 60), (1000, 4), (1000, 10081)] {
         let (status, body) = dev(&s, "POST", "/api/v1/device/sweep/start", &empty_token, json!({"budget":budget,"minutes":minutes})).await;
         assert_eq!((status, body["error"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_request")));
     }
@@ -506,7 +506,7 @@ async fn grants_stop_at_limits_and_unsettled_reservations_count() {
 }
 
 #[tokio::test]
-async fn plan_changes_block_reserve_until_the_device_rejoins() {
+async fn plan_changes_require_stop_and_restart() {
     let Some(db) = TestDb::new().await else { return };
     let s = AppState::new(db.pool.clone(), Settings::default());
     let w = signup(&s, "plan_versions").await;
@@ -518,30 +518,19 @@ async fn plan_changes_block_reserve_until_the_device_rejoins() {
     watch(&s, &w, GLOVE, 300000, 5, 1).await;
     assert_eq!(run_view(&s, &w).await["plan_stale"], true);
     let (status, applied) = sensitive(&s, "/api/v1/account/sweep/apply", &w, json!({"run":run})).await;
-    assert_eq!(status, StatusCode::OK, "{applied}");
-    assert_eq!((applied["run"]["plan_version"].as_i64(), applied["run"]["plan_stale"].as_bool()), (Some(2), Some(false)));
-    let beat = dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, json!({"run":run,"lease":lease,"status":{"message":"扫描中","checked":3}})).await;
-    assert_eq!((beat.0, beat.1["plan_version"].as_i64()), (StatusCode::OK, Some(2)));
-    assert_eq!(run_view(&s, &w).await["devices"][0]["message"], "扫描中");
-    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/reserve", &token, order(&run, &lease, 2, GLOVE, 100000)).await.1["error"], "plan_changed");
-    let mut current = order(&run, &lease, 2, GLOVE, 100000);
-    current["plan_version"] = json!(2);
-    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/reserve", &token, current.clone()).await.1["error"], "plan_changed", "not yet confirmed by join");
-    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/join", &token, json!({"run":run,"plan_version":1})).await.1["error"], "plan_changed");
-    let renewed = join(&s, &token, &run, 2).await;
-    let beat = dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, json!({"run":run,"lease":lease})).await;
-    assert_eq!(beat.1["error"], "lease_lost", "a new join fences the old lease");
-    current["lease"] = json!(renewed);
-    current["price"] = json!(400000);
-    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/reserve", &token, current.clone()).await.1["error"], "price_over_cap", "new cap applies");
-    current["price"] = json!(250000);
-    let (n, reservation) = grant(&s, &token, current).await;
-    assert_eq!(n, 1);
-    // An unknown result takes the device out of this run.
+    assert_eq!(status, StatusCode::CONFLICT, "{applied}");
+    assert_eq!(applied["error"], "restart_required");
+    let view = run_view(&s, &w).await;
+    assert_eq!(view["plan_version"], 1);
+    assert_eq!(view["plan"]["watches"][0]["groups"][0]["cap"], 500000);
+    assert_eq!(grant(&s, &token, order(&run, &lease, 2, GLOVE, 400000)).await.0, 1, "running plan remains unchanged");
+    assert_eq!(web(&s, "POST", "/api/v1/account/sweep/stop", &w, json!({"run":run})).await.0, StatusCode::OK);
+    let next = device_start(&s, &token, 10_000_000).await;
+    let next_lease = join(&s, &token, &next, 1).await;
+    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/reserve", &token, order(&next, &next_lease, 3, GLOVE, 400000)).await.1["error"], "price_over_cap");
+    let (_, reservation) = grant(&s, &token, order(&next, &next_lease, 4, GLOVE, 250000)).await;
     assert_eq!(settle(&s, &token, &reservation, "unknown", 0, 0, "timeout").await, StatusCode::OK);
-    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, json!({"run":run,"lease":renewed})).await.1["error"], "lease_lost");
-    assert_eq!(dev(&s, "GET", "/api/v1/device/sweep", &token, Value::Null).await.1, json!({"run":null}));
-    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/join", &token, json!({"run":run,"plan_version":2})).await.1["error"], "not_invited");
+    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, json!({"run":next,"lease":next_lease})).await.1["error"], "lease_lost");
     let view = run_view(&s, &w).await;
     assert_eq!((view["devices"][0]["state"].as_str(), view["unknown"].as_i64()), (Some("left"), Some(250000)));
     db.close().await;

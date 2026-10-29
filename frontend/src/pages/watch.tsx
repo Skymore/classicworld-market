@@ -326,14 +326,9 @@ export default function Watch() {
         {sweepWeb && (
           <SweepPanel
             profile={profile!}
-            groups={ids.reduce(
-              (count, id) =>
-                count +
-                watchGroups(settings[id]).filter(
-                  (group: any) => group.buy && sweepable(group),
-                ).length,
-              0,
-            )}
+            watches={ids.map((id) => ({item_id: id, limit: settings[id]?.buyLimit ?? 1,
+              groups: watchGroups(settings[id]).filter((group: any) => group.buy && sweepable(group))
+            })).filter((watch) => watch.groups.length)}
             items={items}
           />
         )}

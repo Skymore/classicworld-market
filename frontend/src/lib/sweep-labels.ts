@@ -2,9 +2,17 @@
 // No imports: the desktop build bundles this file on its own.
 export type Words = (zh: string, en: string) => string;
 
+export interface Holdings {
+  observed_at: number;
+  mesos: number | null;
+  categories: number[];
+  items: {item_id: number; quantity: number}[];
+}
+export interface SweepWatch { item_id: number; limit: number; groups: any[] }
 export interface DeviceState {
   client_version?: string;
   sweep?: {
+    holdings?: Holdings | null;
     allow_web_start?: boolean;
     max_spend?: number;
     max_order?: number;
@@ -58,6 +66,7 @@ export interface Run {
   started_by: string;
   plan_version: number;
   plan_stale: boolean;
+  plan?: {watches: SweepWatch[]};
   devices: RunDevice[];
   purchases: Purchase[];
 }

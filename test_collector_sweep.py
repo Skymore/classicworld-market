@@ -528,8 +528,10 @@ class EngineTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.engine.start_run({'budget': 0, 'minutes': 60})
         self.server.run = None
-        self.engine.start_run({'budget': 5000, 'minutes': 60})
-        self.assertEqual(self.server.named('start'), [{'budget': 5000, 'minutes': 60}])
+        self.engine.start_run({'budget': 5000, 'minutes': 10080})
+        self.assertEqual(self.server.named('start'), [{'budget': 5000, 'minutes': 10080}])
+        with self.assertRaises(ValueError):
+            self.engine.start_run({'budget': 5000, 'minutes': 10081})
         self.assertTrue(self.engine.buying())
         self.engine.logout()
         self.assertFalse(self.engine.buying())
@@ -551,7 +553,7 @@ class EngineTests(unittest.TestCase):
         self.joined()
         status = self.engine.status()
         self.assertEqual(set(status), {'linked', 'account', 'device', 'sweep'})
-        self.assertEqual(set(status['sweep']), {'settings', 'executor', 'run', 'recent', 'message'})
+        self.assertEqual(set(status['sweep']), {'settings', 'executor', 'run', 'recent', 'message', 'holdings'})
         self.assertEqual(set(status['sweep']['run']), {'id', 'status', 'budget', 'remaining', 'ends_at', 'started_by',
                                                        'state', 'message', 'spent_here', 'plan_version'})
         self.assertNotIn(TOKEN, json.dumps(status))

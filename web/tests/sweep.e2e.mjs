@@ -22,7 +22,7 @@ const records=[
  {kind:'watch',key:'1452003',version:1,value:{position:1,cap:null,notify:false,buyLimit:1,groups:[group('g2',80000)]}},
 ];
 const device=(id,name,{online=true,allow=true,ready=true,reason='',seen=-10}={})=>({id,name,created_at:iso(-86400),last_seen_at:iso(seen),online,client_version:'0.7.0',
- state:{client_version:'0.7.0',sweep:{allow_web_start:allow,max_spend:5000000,max_order:0,reserve_mesos:0,executor:{ready,reason}}}});
+ state:{client_version:'0.7.0',sweep:{allow_web_start:allow,max_spend:5000000,max_order:0,reserve_mesos:0,executor:{ready,reason},holdings:{observed_at:Math.floor(now()),mesos:434333,categories:[2,3,4],items:[{item_id:2000000,quantity:189}]}}}});
 const statuses=['bought','not_bought','held','unknown','expired'];
 const purchases=Array.from({length:24},(_,i)=>({id:'p'+i,device:'dev-a',item_id:[2000000,1452003,2070000][i%3],status:statuses[i%5],quantity:i%3===2?1:2,units:i%3===2?500:2,price:i%3===1?75000:50,
  spent:statuses[i%5]==='bought'?(i%3===1?75000:100):0,reason:statuses[i%5]==='not_bought'?'sold_out':null,room:3,channel:12,owner:'店主'+i,created_at:iso(-i*30),settled_at:iso(-i*30+5)}));
@@ -35,7 +35,7 @@ function reset({signedIn=true,mode=undefined,hasPassword=true}={}){
  calls=[];
 }
 const newRun=input=>({id:'run-1',status:'running',stop_reason:null,budget:input.budget,spent:1200000,reserved:300000,unknown:50000,remaining:input.budget-1550000,
- started_at:iso(-60),ends_at:iso(input.minutes*60),started_by:'web',plan_version:1,plan_stale:false,items:[{item_id:2000000,limit:20,units:4},{item_id:1452003,limit:1,units:0}],
+ started_at:iso(-60),ends_at:iso(input.minutes*60),started_by:'web',plan_version:1,plan_stale:false,plan:{watches:records.filter(r=>r.kind==='watch').map(r=>({item_id:Number(r.key),limit:r.value.buyLimit,groups:r.value.groups}))},items:[{item_id:2000000,limit:20,units:4},{item_id:1452003,limit:1,units:0}],
  devices:[{id:'dev-a',name:'书房电脑',state:'active',message:'正在扫 3 洞',online:true,spent:1200000}],purchases});
 const sweepBody=()=>({run:state.run,devices:state.devices});
 const json=(res,data,status=200)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
@@ -175,9 +175,14 @@ try{
   for(const [id,why] of [['dev-b','离线'],['dev-c','未允许网页启动'],['dev-d','此电脑尚未安装购买执行器']]){
    assert.equal(await choice(id).locator('input').isDisabled(),true);assert.equal(await choice(id).locator('[data-sweep-blocker]').innerText(),why);
   }
-  assert.equal(await dialog.locator('[name=minutes]').inputValue(),'120');
+  assert.equal(await dialog.locator('[name=minutes]').inputValue(),'10080');
   assert.equal(await dialog.locator('[data-sweep-submit]').isDisabled(),true,'no budget, no start');
   await dialog.locator('[name=budget]').fill('5000000');
+  assert.match(await dialog.locator('[data-sweep-rules]').innerText(),/红药水[\s\S]*≤ 60[\s\S]*最多 20/);
+  assert.match(await dialog.locator('[data-sweep-holdings]').innerText(),/红药水 · 189[\s\S]*金币余额[\s\S]*434,333/);
+  await dialog.locator('[name=minutes]').fill('10081');
+  assert(await dialog.locator('[data-sweep-submit]').isDisabled());
+  await dialog.locator('[name=minutes]').fill('10080');
   const fonts=await dialog.locator('input:not([type=checkbox])').evaluateAll(els=>els.map(e=>parseFloat(getComputedStyle(e).fontSize)));
   assert(fonts.every(size=>size>=16),'editable dialog controls are at least 16px');
   if(mobile){
@@ -193,7 +198,7 @@ try{
    await page.screenshot({path:path.join(shots,`sweep-start-${tag}.png`)});
   }
   await dialog.locator('[data-sweep-submit]').click();await dialog.waitFor({state:'detached'});
-  assert.deepEqual(lastCall('/sweep/start').body,{devices:['dev-a'],budget:5000000,minutes:120,current_password:mobile?'':PASSWORD});
+  assert.deepEqual(lastCall('/sweep/start').body,{devices:['dev-a'],budget:5000000,minutes:10080,current_password:mobile?'':PASSWORD});
   assert.equal(lastCall('/sweep/start').csrf,CSRF);
   // Running: totals, end time, devices and the latest 20 purchases with labels.
   await page.locator('[data-sweep-stat=spent]').waitFor();
@@ -208,18 +213,20 @@ try{
   assert.deepEqual([await label('p0'),await label('p1'),await label('p2'),await label('p3'),await label('p4')],['已买','未买 · 已售完','处理中','结果未知，请到游戏里核对','结果未知，请到游戏里核对']);
   assert.match(await page.locator('[data-purchase="p0"]').innerText(),/红药水[\s\S]*2 件 · @50 · FM 3 · CH 12 · 店主0[\s\S]*100/);
   assert.match(await page.locator('[data-purchase="p2"]').innerText(),/海星镖[\s\S]*1 组 · 500 件/,'items outside the watch list are named from the catalogue');
+  // Local edits warn immediately; they do not replace the running snapshot.
+  await page.getByLabel('红药水本轮购买上限',{exact:true}).fill('21');
+  await page.locator('[data-sweep-stale]').waitFor();
+  assert.equal(state.run.plan.watches[0].limit,20);
+  await page.getByLabel('红药水本轮购买上限',{exact:true}).fill('20');
+  await page.locator('[data-sweep-stale]').waitFor({state:'detached'});
   // A `sweep` event refetches: rules changed on another device.
   const fetches=calls.filter(c=>c.path==='/api/v1/account/sweep').length;
   state.run={...state.run,spent:2000000,plan_stale:true};emit('sweep');
   await page.locator('[data-sweep-stale]').waitFor();assert.equal(await stat('spent'),'2M');
   assert.equal(calls.filter(c=>c.path==='/api/v1/account/sweep').length,fetches+1,'one event, one refetch');
   assert(await noOverflow(page));await page.screenshot({path:path.join(shots,`sweep-running-${tag}.png`),fullPage:true});
-  await page.locator('[data-sweep-apply]').click();
-  const apply=page.locator('.sweep-dialog');await apply.waitFor();
-  if(!mobile)await apply.locator('[name=current_password]').fill(PASSWORD);
-  await apply.locator('[data-sweep-submit]').click();await apply.waitFor({state:'detached'});
-  assert.deepEqual(lastCall('/sweep/apply').body,{run:'run-1',current_password:mobile?'':PASSWORD});
-  await page.locator('[data-sweep-stale]').waitFor({state:'detached'});
+  assert.match(await page.locator('[data-sweep-stale]').innerText(),/停止后重新开始生效/);
+  assert.equal(await page.locator('[data-sweep-apply]').count(),0,'running rules cannot be applied in place');
   // Stop needs no password; the stopped run stays as a summary.
   await page.locator('[data-sweep-stop]').click();
   await page.locator('[data-sweep-summary]').filter({hasText:'已结束 · 已停止'}).waitFor();

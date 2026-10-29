@@ -207,3 +207,6 @@
     min-height: 44px;
   }
 }
+
+.sweep-plan-details > summary { padding: 8px 16px; cursor: pointer; font-weight: 600; border-top: 1px solid var(--rule); }
+.sweep-dialog [data-sweep-rules] { max-height: 32vh; overflow-y: auto; }

@@ -136,12 +136,12 @@
 `POST /api/v1/account/sweep/start`（`sensitive`：需当前密码，Google 账号需 15 分钟内登录过）
 - `{"devices":[id],"budget":1000000,"minutes":120,"current_password":""}`
 - 设备 1-8 台：属于本账号、未撤销、在线、`state.sweep.allow_web_start` 为真、`state.sweep.executor.ready` 为真，否则 `device_unavailable`。
-- `budget` 1 到 10^12 整数，`minutes` 5 到 720。已有运行中任务 `sweep_running`。
+- `budget` 1 到 10^12 整数，`minutes` 5 到 10080（7 天，默认 10080）。已有运行中任务 `sweep_running`。
 - 返回同 `GET /api/v1/account/sweep`。
 
 `POST /api/v1/account/sweep/stop`（`writable`，不需要密码）`{"run"}`，`stop_reason='stopped_on_web'`。
 
-`POST /api/v1/account/sweep/apply`（`sensitive`）`{"run","current_password"}`：按当前规则重新生成快照，不同则 `plan_version + 1`。
+`POST /api/v1/account/sweep/apply`（`sensitive`）`{"run","current_password"}`：保留旧客户端兼容入口，但返回 409 `restart_required`。运行中的规则不允许原地替换。
 
 ### 设备接口（设备令牌）
 
@@ -163,7 +163,7 @@
 
 `POST /api/v1/device/sweep/start` 本机发起：`{"budget","minutes"}`，参与设备只有本机，不需要密码（在电脑前操作即同意）。返回同上。
 
-`POST /api/v1/device/sweep/join` `{"run","plan_version"}` → `{"lease","expires_in":30}`。`plan_version` 必须等于当前版本（`plan_changed`）。规则更新后用新版本再调用一次 `join` 确认。
+`POST /api/v1/device/sweep/join` `{"run","plan_version"}` → `{"lease","expires_in":30}`。`plan_version` 必须等于当前版本（`plan_changed`）。关注规则修改后需停止并重新开始；新一轮从最新关注规则生成快照。
 
 `POST /api/v1/device/sweep/refuse` `{"run","reason"}`。
 
@@ -323,4 +323,15 @@ Windows 已另行核对一笔小额手动成交：Stirge Wing 单价 22，买一
 
 ### 不限数量（v0.6.20）
 
-关注卡片可选“数量不限”。`buyLimit: 0` 与计划 `limit: 0` 表示取消该物品的累计件数上限；缺省仍为 1，有限数量仍为 1–9999。同步、服务端预留和采集器统一保留显式的 0。预算、设备最高花费、保留金币、单笔额度、当前库存和价格校验仍生效，单个 Windows 数量框仍最多输入 9999。旧采集器不接受 limit=0 的计划，会停止购买；需使用 v0.6.20 或更新版本。变更关注条件后仍需应用到本轮或启动新轮次。
+关注卡片可选“数量不限”。`buyLimit: 0` 与计划 `limit: 0` 表示取消该物品的累计件数上限；缺省仍为 1，有限数量仍为 1–9999。同步、服务端预留和采集器统一保留显式的 0。预算、设备最高花费、保留金币、单笔额度、当前库存和价格校验仍生效，单个 Windows 数量框仍最多输入 9999。旧采集器不接受 limit=0 的计划，会停止购买；需使用 v0.6.20 或更新版本。变更关注条件后需停止并启动新轮次。
+
+
+### 扫货确认与背包（v0.6.21）
+
+网页确认页逐项列出本次关注扫货的最高单价、筛选条件和数量上限，默认运行 7 天；网站、采集器和 API 统一允许 5–10080 分钟。运行中可查看冻结的本轮条件，修改关注后显示“扫货条件已修改，停止后重新开始生效”。旧页面调用 apply 也不能改变本轮规则。原有预算和购买记录继续有效。
+
+设备状态可携带 `sweep.holdings: null | {observed_at,mesos,categories,items:[{item_id,quantity}]}`。金币余额与扫货预算分开显示；多设备分别显示，不把不同角色的背包相加。缺失、离线或未验证的库存显示未知，不伪造 0。此数据只在所属账号的设备接口中返回，不进入公开报价、原始上传或市场统计。
+
+`market_inventory.py` 使用现有只读 TCP 重组和解码结果，解析完整角色包 0x1a6/0x1a9 的金币及普通消耗、设置、其他背包连续记录（类别 2/3/4）。只接受唯一结构边界、顺序槽位、容量和完整终止符。装备、现金物品、空消耗背包及其他未验证布局暂不宣称已读到库存。0x72 的数量更新、移动、添加、删除按整包原子应用，0x7e 已验证的独立金币更新读绝对余额。未知库存或金币格式会清除相应当前数据，不由购买意图或预算估算余额。断线、重组缺口、关闭捕获会失效；读取端拒绝超过 15 秒没有心跳的本地文件。
+
+已实测角色完整快照、背包整理、同种药水合并以及一笔 69 金币购买：金币 434402→434333，铜矿 2→3，三种药水总数保持橙 489、蓝 108、白 262。真实原始包和角色数据仅留本机，不纳入仓库或发布包。仓库测试使用合成协议夹具。

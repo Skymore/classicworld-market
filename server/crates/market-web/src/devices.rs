@@ -78,6 +78,19 @@ fn valid_version(s: &str) -> bool {
 fn token_shape(t: &str) -> bool {
     t.len() == 47 && t.starts_with("cwd_") && base64url(&t[4..])
 }
+/// Private game holdings, reported by the account's own collector.
+fn valid_holdings(v: &Value) -> bool {
+    if v.is_null() { return true; }
+    let Some(o) = v.as_object() else { return false; };
+    o.len() == 4
+        && o.get("observed_at").and_then(Value::as_u64).is_some_and(|n| n > 0 && n <= (Utc::now().timestamp() + 60) as u64)
+        && o.get("mesos").is_some_and(|v| v.is_null() || v.as_u64().is_some_and(|n| n <= MAX_AMOUNT))
+        && o.get("categories").and_then(Value::as_array).is_some_and(|a| a.len() <= 5 && a.iter().all(|v| v.as_u64().is_some_and(|n| (1..=5).contains(&n))))
+        && o.get("items").and_then(Value::as_array).is_some_and(|a| a.len() <= 1000 && a.iter().all(|v| v.as_object().is_some_and(|i|
+            i.len() == 2 && i.get("item_id").and_then(Value::as_u64).is_some_and(|n| (1000000..=5999999).contains(&n))
+            && i.get("quantity").and_then(Value::as_u64).is_some_and(|n| n <= 1000000000))))
+}
+
 /// The `DeviceState` a collector reports; only the collector changes it.
 fn valid_state(v: &Value) -> bool {
     let amount = |v: Option<&Value>| v.and_then(Value::as_u64).is_some_and(|n| n <= MAX_AMOUNT);
@@ -86,7 +99,8 @@ fn valid_state(v: &Value) -> bool {
         o.len() == 2
             && o.get("client_version").and_then(Value::as_str).is_some_and(valid_version)
             && o.get("sweep").and_then(Value::as_object).is_some_and(|s| {
-                s.len() == 6
+                (s.len() == 6 || s.len() == 7 && s.contains_key("holdings"))
+                    && s.get("holdings").is_none_or(valid_holdings)
                     && flag(s.get("allow_web_start"))
                     && ["max_spend", "max_order", "reserve_mesos"].iter().all(|k| amount(s.get(*k)))
                     && s.get("executor").and_then(Value::as_object).is_some_and(|e| {
@@ -427,6 +441,16 @@ mod tests {
         let mut no_reason = state.clone();
         no_reason["sweep"]["executor"] = json!({"ready":true});
         assert!(valid_state(&no_reason));
+        let mut with_holdings = state.clone();
+        with_holdings["sweep"]["holdings"] = json!({"observed_at":Utc::now().timestamp(),"mesos":434333,"categories":[2,3,4],
+            "items":[{"item_id":2000001,"quantity":489}]});
+        assert!(valid_state(&with_holdings));
+        with_holdings["sweep"]["holdings"]["mesos"] = Value::Null;
+        assert!(valid_state(&with_holdings));
+        with_holdings["sweep"]["holdings"]["items"][0]["quantity"] = json!(-1);
+        assert!(!valid_state(&with_holdings));
+        with_holdings["sweep"]["holdings"] = Value::Null;
+        assert!(valid_state(&with_holdings));
         for (path, value) in [
             ("max_spend", json!(1_000_000_000_001u64)), ("max_order", json!(-1)), ("reserve_mesos", json!(1.5)),
             ("allow_web_start", json!("yes")), ("extra", json!(1)), ("executor", json!({"ready":true,"reason":"x".repeat(81)})),

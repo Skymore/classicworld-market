@@ -257,7 +257,7 @@ async fn web_view(tx: &mut PgConnection, run: &Run) -> Result<Value, Response> {
         "id":run.public_id,"status":run.status,"stop_reason":run.stop_reason,"budget":run.budget,
         "spent":t.spent,"reserved":t.reserved,"unknown":t.unknown,"remaining":(run.budget-t.used()).max(0),
         "started_at":run.started_at,"ends_at":run.ends_at,"started_by":run.started_by.as_deref().unwrap_or("web"),
-        "plan_version":run.plan_version,"plan_stale":stale,"items":items,"devices":devices,"purchases":purchases,
+        "plan":run.plan,"plan_version":run.plan_version,"plan_stale":stale,"items":items,"devices":devices,"purchases":purchases,
     }))
 }
 /// The running run, else the latest one that ended within 24 hours.
@@ -291,7 +291,7 @@ fn write_limit(state: &AppState, account: i64) -> Result<(), Response> {
     }
 }
 fn valid_limits(budget: i64, minutes: i64) -> Result<(), Response> {
-    if (1..=MAX_AMOUNT).contains(&budget) && (5..=720).contains(&minutes) {
+    if (1..=MAX_AMOUNT).contains(&budget) && (5..=10080).contains(&minutes) {
         Ok(())
     } else {
         Err(invalid())
@@ -381,17 +381,8 @@ async fn web_apply(State(state): State<AppState>, headers: HeaderMap, Json(input
     let mut tx = state.db.begin().await.map_err(internal)?;
     let run = lock(&mut tx, s.id, &input.run).await?;
     ensure_running(&run)?;
-    let plan = current_plan(&mut tx, s.id).await?;
-    if empty(&plan) {
-        return Err(conflict("no_sweep_groups"));
-    }
-    if plan != run.plan {
-        sqlx::query("UPDATE sweep_runs SET plan=$2,plan_version=plan_version+1 WHERE id=$1")
-            .bind(run.id).bind(&plan).execute(&mut *tx).await.map_err(internal)?;
-        notify(&mut tx, s.id, "sweep").await.map_err(internal)?;
-    }
-    tx.commit().await.map_err(internal)?;
-    web_reply(&state, s.id).await
+    // Running plans are immutable, including requests from cached older pages.
+    Err(conflict("restart_required"))
 }
 
 #[derive(FromRow)]

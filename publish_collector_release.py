@@ -60,7 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
-        + ('v0.6.20 内测：关注扫货支持不限数量，仍遵守预算、限价和库存；支持多份及滚动后购买。\n'
+        + ('v0.6.21 内测：抓包同步背包数量与金币，扫货最长 7 天；确认页展示条件，修改条件后需停止重新开始。\n'
            '支持 1366×768 标准商店、非装备；滚动后重新核对物品和价格，回读数量、含千位分隔符的总价和实际扣款。飞镖等充能品只用于页面定位，不购买。\n'
            '未知画面或结果会停止扫描；成交要求本人余额和对应库存同时变化。\n\n'
            if channel == 'beta' else '') +
