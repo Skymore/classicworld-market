@@ -209,7 +209,9 @@ def main():
     parser.add_argument('--backend',choices=('windows','windivert'),default='windows')
     parser.add_argument('--no-update',action='store_true')
     parser.add_argument('--no-browser',action='store_true')
-    launch_argv=sys.argv[1:]
+    # An updater must not replay a prior one-shot CLI Start after the user
+    # pressed Stop. Restart authorization comes exclusively from saved intent.
+    launch_argv=[arg for arg in sys.argv[1:] if arg != '--auto-start']
     options,scanner_argv=parser.parse_known_args()
     sys.argv=[sys.argv[0],*scanner_argv]
     options.home.mkdir(parents=True, exist_ok=True)

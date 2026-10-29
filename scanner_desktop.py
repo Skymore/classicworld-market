@@ -380,7 +380,7 @@ class DesktopController:
         restart_at = None
         last_health = 0
         while not cancel.wait(.1):
-            if self._emergency() or self._intent.tombstone.exists():
+            if self._emergency() or self._intent.tombstone.exists() or not self._intent.permit.exists():
                 self._user_stop()
                 return
             if not self._paused.is_set() and self._step_deadline and time.monotonic() >= self._step_deadline:

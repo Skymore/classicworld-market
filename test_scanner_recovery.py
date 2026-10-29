@@ -32,6 +32,14 @@ def response_429(pipe):
 
 
 class PolicyTests(unittest.TestCase):
+    def test_full_disk_stop_revokes_existing_permit_without_new_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            intent=ScanIntent(folder)
+            intent.start(12)
+            with patch.object(Path,'open',side_effect=OSError('disk full')):
+                with self.assertRaises(OSError):intent.stop()
+            self.assertFalse(ScanIntent(folder).load()['enabled'])
+
     def test_independent_watchdog_recovers_real_crashed_and_stuck_processes(self):
         from collector_watchdog import run
         for fault in ('crash', 'stuck'):

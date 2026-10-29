@@ -99,11 +99,12 @@ class ScanIntent:
         self.home = Path(home)
         self.path = self.home / 'scan-intent.json'
         self.tombstone = self.home / 'scan-stopped'
+        self.permit = self.home / 'scan-running'
         self.lock = threading.RLock()
 
     def load(self):
         value = read_json(self.path)
-        if self.tombstone.exists():
+        if self.tombstone.exists() or not self.permit.exists():
             value['enabled'] = False
         return value
 
@@ -112,11 +113,18 @@ class ScanIntent:
             value = dict(enabled=True, window=hwnd, session=session or uuid.uuid4().hex,
                          updated_at=time.time())
             atomic_json(self.path, value)
+            with self.permit.open('wb') as stream:
+                stream.write(b'1')
+                stream.flush()
+                os.fsync(stream.fileno())
             self.tombstone.unlink(missing_ok=True)
             return value
 
     def stop(self):
         with self.lock:
+            # Removing an existing permit needs no allocation, even when the
+            # volume cannot create a new tombstone or replace a JSON document.
+            self.permit.unlink(missing_ok=True)
             self.home.mkdir(parents=True, exist_ok=True)
             with self.tombstone.open('w', encoding='utf-8') as stream:
                 stream.write('user stopped\n')
