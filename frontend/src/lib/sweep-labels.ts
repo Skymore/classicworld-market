@@ -6,9 +6,13 @@ export interface Holdings {
   observed_at: number;
   mesos: number | null;
   categories: number[];
-  items: {item_id: number; quantity: number}[];
+  items: { item_id: number; quantity: number }[];
 }
-export interface SweepWatch { item_id: number; limit: number; groups: any[] }
+export interface SweepWatch {
+  item_id: number;
+  limit: number;
+  groups: any[];
+}
 export interface DeviceState {
   client_version?: string;
   sweep?: {
@@ -18,6 +22,7 @@ export interface DeviceState {
     max_order?: number;
     reserve_mesos?: number;
     executor?: { ready?: boolean; reason?: string };
+    game?: { connected?: boolean };
   };
 }
 export interface Device {
@@ -36,6 +41,9 @@ export interface RunDevice {
   message?: string | null;
   online: boolean;
   spent: number;
+  checked?: number | null;
+  progress_at?: string | null;
+  leased?: boolean;
 }
 export interface Purchase {
   id: string;
@@ -51,6 +59,7 @@ export interface Purchase {
   channel?: number | null;
   owner?: string | null;
   created_at?: string;
+  settled_at?: string | null;
 }
 export interface Run {
   id: string;
@@ -62,13 +71,16 @@ export interface Run {
   unknown: number;
   remaining: number;
   started_at?: string;
+  stopped_at?: string | null;
   ends_at: string;
   started_by: string;
   plan_version: number;
   plan_stale: boolean;
-  plan?: {watches: SweepWatch[]};
+  plan?: { watches: SweepWatch[] };
   devices: RunDevice[];
   purchases: Purchase[];
+  bought?: number;
+  items?: { item_id: number; limit: number; units: number; bought?: number }[];
 }
 export interface SweepState {
   run: Run | null;
@@ -134,12 +146,18 @@ export function purchaseLabel(
       return words("结果未知，请到游戏里核对", "Unknown, check in game");
   }
 }
-export function stopReasonLabel(reason: string | null | undefined, words: Words) {
+export function stopReasonLabel(
+  reason: string | null | undefined,
+  words: Words,
+) {
   if (reason === "time_up") return words("时间到", "Time up");
   if (reason === "budget_spent") return words("预算用完", "Budget spent");
   return words("已停止", "Stopped");
 }
-export function participantLabel(state: string | null | undefined, words: Words) {
+export function participantLabel(
+  state: string | null | undefined,
+  words: Words,
+) {
   const labels: Record<string, [string, string]> = {
     invited: ["等待加入", "Invited"],
     active: ["扫货中", "Sweeping"],
@@ -149,7 +167,9 @@ export function participantLabel(state: string | null | undefined, words: Words)
   return state && labels[state] ? words(...labels[state]) : state || "—";
 }
 /** FM room · CH channel · owner, skipping unknown parts. */
-export function purchasePlace(purchase: Pick<Purchase, "room" | "channel" | "owner">) {
+export function purchasePlace(
+  purchase: Pick<Purchase, "room" | "channel" | "owner">,
+) {
   return [
     purchase.room != null && `FM ${purchase.room}`,
     purchase.channel != null && `CH ${purchase.channel}`,
@@ -159,12 +179,21 @@ export function purchasePlace(purchase: Pick<Purchase, "room" | "channel" | "own
     .join(" · ");
 }
 /** Clock time; earlier or later days also show the date. Numbers are epoch seconds. */
-export function clockTime(at: string | number | null | undefined, english = false) {
+export function clockTime(
+  at: string | number | null | undefined,
+  english = false,
+) {
   if (at == null || at === "") return "—";
-  const date = new Date(typeof at === "number" ? (at > 1e12 ? at : at * 1000) : at);
+  const date = new Date(
+    typeof at === "number" ? (at > 1e12 ? at : at * 1000) : at,
+  );
   if (Number.isNaN(date.getTime())) return "—";
   const locale = english ? "en-US" : "zh-CN";
-  const time = date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", hour12: false });
+  const time = date.toLocaleTimeString(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
   return date.toDateString() === new Date().toDateString()
     ? time
     : `${date.getMonth() + 1}/${date.getDate()} ${time}`;
@@ -172,7 +201,8 @@ export function clockTime(at: string | number | null | undefined, english = fals
 /** Mesos in K / M, as web/js/lib/format.js `meso` (the desktop cannot load that module). */
 export function mesos(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) return "—";
-  const short = (x: number) => (Math.round(x * 10) / 10).toFixed(1).replace(/\.0$/, "");
+  const short = (x: number) =>
+    (Math.round(x * 10) / 10).toFixed(1).replace(/\.0$/, "");
   const size = Math.abs(value);
   if (size >= 1e6) return short(value / 1e6) + "M";
   if (size >= 1e3) return short(value / 1e3) + "K";

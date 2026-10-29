@@ -1,8 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
-import { getJson, qs, api } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
-import { reminderTokens, watchGroups } from "/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1";
-import { itemName } from "/web/js/lib/i18n.js";
+import { useQuery } from "@tanstack/react-query";
+import { watchGroups } from "/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1";
 import { meso } from "/web/js/lib/format.js";
 import { flush, getSyncState } from "/web/js/lib/user-data.js";
 import { accountMessage, postAccount } from "../pages/account-access";
@@ -12,26 +10,20 @@ import { rememberReturn } from "../lib/return-to";
 import { useUserValue } from "../lib/live";
 import { useWords } from "../providers";
 import {
-  clockTime,
   deviceBlocker,
-  participantLabel,
-  purchaseLabel,
-  purchasePlace,
   stopReasonLabel,
   type Device,
   type SweepWatch,
-  type Purchase,
-  type Run,
   type SweepState,
   type Words,
 } from "../lib/sweep-labels";
 import type { Account } from "../lib/types";
 import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
+import { SweepRules, HoldingsRows } from "./sweep-content";
+import { SweepDetails, RuleChangeNotice } from "./sweep-details";
 import "./sweep-panel.css";
 
 const SWEEP_KEY = ["account-sweep"] as const;
-const PURCHASES_SHOWN = 20;
-const PURCHASES_FOLDED = 5;
 const MAX_BUDGET = 1e12;
 const DEFAULT_MINUTES = 10080;
 
@@ -46,7 +38,9 @@ function sweepMessage(words: Words, code: string) {
     restart_required: ["请停止后重新开始扫货", "Stop and restart the sweep"],
     sync_pending: ["关注还在同步，请稍后再试", "Watches are still syncing"],
   };
-  return messages[code] ? words(...messages[code]) : accountMessage(words, code);
+  return messages[code]
+    ? words(...messages[code])
+    : accountMessage(words, code);
 }
 
 /** Watch-page control for sweeps run by the account's devices (SWEEP.md §3). */
@@ -70,15 +64,25 @@ export default function SweepPanel({
       query.state.data?.run?.status === "running" ? 60_000 : false,
   });
   useAccountTopics(["sweep", "devices", "data"], SWEEP_KEY);
-  const [dialog, setDialog] = useState<"start" | null>(null);
+  const [dialog, setDialog] = useState<"start" | "details" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const run = sweep.data?.run || null;
   const running = run?.status === "running";
-  const signature = (list: SweepWatch[]) => JSON.stringify([...list].sort((a,b) => a.item_id-b.item_id).map((w) => ({
-    item_id:w.item_id, limit:w.limit, groups:watchGroups({groups:w.groups})
-  })));
-  const changed = Boolean(run?.plan_stale || run?.plan && signature(run.plan.watches) !== signature(watches));
+  const signature = (list: SweepWatch[]) =>
+    JSON.stringify(
+      [...list]
+        .sort((a, b) => a.item_id - b.item_id)
+        .map((w) => ({
+          item_id: w.item_id,
+          limit: w.limit,
+          groups: watchGroups({ groups: w.groups }),
+        })),
+    );
+  const changed = Boolean(
+    run?.plan_stale ||
+    (run?.plan && signature(run.plan.watches) !== signature(watches)),
+  );
   const post = (path: string, data: unknown) =>
     postAccount(profile.csrf, path, data);
   async function adopt(result: any) {
@@ -117,27 +121,29 @@ export default function SweepPanel({
                   ? `${words("已结束", "Ended")} · ${stopReasonLabel(run.stop_reason, words)}`
                   : words(`${groups} 组已选`, `${groups} groups selected`)}
         </span>
-        {running ? (
-          <button
-            type="button"
-            className="btn"
-            data-sweep-stop
-            disabled={busy}
-            onClick={() => void stop()}
-          >
-            {words("停止", "Stop")}
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="btn primary"
-            data-sweep-start
-            disabled={!sweep.data || busy}
-            onClick={() => setDialog("start")}
-          >
-            {words("开始扫货", "Start sweep")}
-          </button>
-        )}
+        <div className="sweep-actions">
+          {run && (
+            <button
+              type="button"
+              className="btn primary"
+              data-sweep-details
+              onClick={() => setDialog("details")}
+            >
+              {words("查看详情", "View details")}
+            </button>
+          )}
+          {!running && (
+            <button
+              type="button"
+              className={"btn" + (run ? "" : " primary")}
+              data-sweep-start
+              disabled={!sweep.data || busy}
+              onClick={() => setDialog("start")}
+            >
+              {words("开始扫货", "Start sweep")}
+            </button>
+          )}
+        </div>
       </div>
       {error && (
         <p className="sweep-error" role="alert">
@@ -145,8 +151,35 @@ export default function SweepPanel({
         </p>
       )}
       {run && (
-        <RunDetails run={run} changed={changed} items={items} devices={sweep.data?.devices || []} />
+        <div className="sweep-compact-stats">
+          {run.bought != null && (
+            <span>
+              {words("本轮已购", "Bought")} {run.bought.toLocaleString()}
+            </span>
+          )}
+          <span>
+            {words("已花", "Spent")} {meso(run.spent)}
+          </span>
+          <span>
+            {words("预算剩余", "Budget left")} {meso(run.remaining)}
+          </span>
+        </div>
       )}
+      {running && changed && <RuleChangeNotice />}
+      {dialog === "details" && run && (
+        <SweepDetails
+          key={run.id}
+          run={run}
+          changed={changed}
+          items={items}
+          devices={sweep.data?.devices || []}
+          busy={busy}
+          error={error}
+          onStop={stop}
+          onClose={() => setDialog(null)}
+        />
+      )}
+
       {dialog === "start" && sweep.data && (
         <StartDialog
           profile={profile}
@@ -161,193 +194,8 @@ export default function SweepPanel({
           onClose={() => setDialog(null)}
         />
       )}
-
     </section>
   );
-}
-
-function RunDetails({
-  run,
-  changed,
-  items,
-  devices,
-}: {
-  run: Run;
-  changed: boolean;
-  items: Map<number, any>;
-  devices: Device[];
-}) {
-  const words = useWords();
-  const running = run.status === "running";
-  const [allPurchases, setAllPurchases] = useState(false);
-  const purchases = run.purchases.slice(0, PURCHASES_SHOWN);
-  const name = useItemNames(purchases.map((row) => row.item_id), items);
-  const stats: [string, ReactNode, string][] = running
-    ? [
-        [words("已花", "Spent"), meso(run.spent), "spent"],
-        [words("预留", "Held"), meso(run.reserved), "reserved"],
-        [words("未知", "Unknown"), meso(run.unknown), "unknown"],
-        [words("预算剩余", "Budget left"), meso(run.remaining), "remaining"],
-        [words("结束", "Ends"), clockTime(run.ends_at, isEnglish()), "ends"],
-      ]
-    : [
-        [words("已花", "Spent"), meso(run.spent), "spent"],
-        [words("未知", "Unknown"), meso(run.unknown), "unknown"],
-        [words("预算", "Budget"), meso(run.budget), "budget"],
-      ];
-  return (
-    <>
-      <div className={"sweep-stats" + (running ? "" : " ended")}>
-        {stats.map(([label, value, key]) => (
-          <div key={key} data-sweep-stat={key}>
-            <small>{label}</small>
-            <b>{value}</b>
-          </div>
-        ))}
-      </div>
-      {running && changed && (
-        <div className="sweep-stale" data-sweep-stale>
-          <span role="status">{words("扫货条件已修改，停止后重新开始生效", "Rules changed. Stop and restart to use them.")}</span>
-        </div>
-      )}
-      {run.plan && <details className="sweep-plan-details"><summary>{words("本轮扫货条件", "Current sweep rules")}</summary>
-        <SweepRules watches={run.plan.watches} items={items} />
-      </details>}
-      <HoldingsRows devices={devices.filter((d) => run.devices.some((r) => r.id === d.id))} watches={run.plan?.watches || []} items={items} />
-      {run.devices.length > 0 && (
-        <div className="sweep-list" data-sweep-devices>
-          {run.devices.map((device) => (
-            <div className="sweep-row" key={device.id} data-sweep-device={device.id}>
-              <span className="sweep-row-main">
-                <b>{device.name}</b>
-                <small>
-                  {[participantLabel(device.state, words), device.message]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </small>
-              </span>
-              <span className="sweep-row-side">
-                <b>{meso(device.spent)}</b>
-                <small className={device.online ? "sweep-online" : ""}>
-                  {device.online ? words("在线", "Online") : words("离线", "Offline")}
-                </small>
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-      {purchases.length > 0 && (
-        <div className="sweep-list" data-sweep-purchases>
-          <h3 className="sweep-head">
-            {words("购买记录", "Purchases")} <small>{purchases.length}</small>
-          </h3>
-          {purchases
-            .slice(0, allPurchases ? undefined : PURCHASES_FOLDED)
-            .map((row) => (
-              <PurchaseRow key={row.id} row={row} name={name(row.item_id)} />
-            ))}
-          {!allPurchases && purchases.length > PURCHASES_FOLDED && (
-            <button
-              type="button"
-              className="more"
-              data-sweep-more
-              onClick={() => setAllPurchases(true)}
-            >
-              {words(
-                `再显示 ${purchases.length - PURCHASES_FOLDED} 条`,
-                `Show ${purchases.length - PURCHASES_FOLDED} more`,
-              )}
-            </button>
-          )}
-        </div>
-      )}
-    </>
-  );
-}
-
-function PurchaseRow({ row, name }: { row: Purchase; name: string }) {
-  const words = useWords();
-  const amount =
-    row.units && row.units !== row.quantity
-      ? words(`${row.quantity} 组 · ${row.units} 件`, `${row.quantity} lots · ${row.units} pcs`)
-      : words(`${row.units || row.quantity || 0} 件`, `${row.units || row.quantity || 0} pcs`);
-  return (
-    <div className="sweep-row" data-purchase={row.id} data-purchase-status={row.status}>
-      <span className="sweep-row-main">
-        <b>{name}</b>
-        <small>
-          {[amount, row.price != null && `@${meso(row.price)}`, purchasePlace(row)]
-            .filter(Boolean)
-            .join(" · ")}
-        </small>
-      </span>
-      <span className="sweep-row-side">
-        <b>{row.status === "bought" ? meso(row.spent) : "—"}</b>
-        <small className={"sweep-status " + row.status} data-purchase-label>
-          {purchaseLabel(row, words)}
-        </small>
-      </span>
-    </div>
-  );
-}
-
-const isEnglish = () => document.documentElement.lang === "en";
-
-/** Names from the watch page's catalogue rows, looking up the rest. */
-function useItemNames(ids: number[], items: Map<number, any>) {
-  const missing = [...new Set(ids)].filter((id) => !items.has(id));
-  const resolved = useQueries({
-    queries: missing.map((id) => ({
-      queryKey: ["watch-item", id],
-      staleTime: 60_000,
-      queryFn: async ({ signal }: { signal: AbortSignal }) =>
-        (await getJson(api.watchCatalog() + qs({ q: id }), { signal })).data,
-    })),
-  });
-  const found = new Map<number, any>(
-    resolved.flatMap((result) =>
-      ((result.data as any)?.items || []).map((row: any) => [row.item_id, row]),
-    ),
-  );
-  return (id: number) => {
-    const row = items.get(id) || found.get(id);
-    return row ? itemName(row) : String(id);
-  };
-}
-
-function SweepRules({ watches, items }: {watches: SweepWatch[]; items: Map<number, any>}) {
-  const words = useWords(), name = useItemNames(watches.map((w) => w.item_id), items);
-  return <section className="sweep-list" data-sweep-rules>
-    <h3 className="sweep-head">{words("扫货条件", "Sweep rules")}</h3>
-    {watches.map((watch) => <div className="sweep-row" key={watch.item_id}>
-      <div className="sweep-row-main"><b>{name(watch.item_id)}</b>
-        {watch.groups.map((group, i) => <small key={group.id || i}>
-          {i > 0 && words("或 · ", "or · ")}
-          {[group.name, `≤ ${Number(group.cap).toLocaleString()}`,
-            ...reminderTokens(group.reminder, isEnglish()).map((t: any) => t.label)].filter(Boolean).join(" · ")}
-        </small>)}
-      </div>
-      <span className="sweep-row-side">{watch.limit === 0 ? words("数量不限", "Unlimited") : words(`最多 ${watch.limit} 件`, `Up to ${watch.limit}`)}</span>
-    </div>)}
-    {!watches.length && <p className="sweep-empty">{words("没有可扫货的条件", "No sweep rules")}</p>}
-  </section>;
-}
-
-function HoldingsRows({devices, watches, items}: {devices: Device[]; watches: SweepWatch[]; items: Map<number, any>}) {
-  const words = useWords(), name = useItemNames(watches.map((w) => w.item_id), items);
-  return <div className="sweep-list" data-sweep-holdings>{devices.map((device) => {
-    const holdings = device.online ? device.state?.sweep?.holdings : null;
-    return <div className="sweep-row" key={device.id}>
-      <span className="sweep-row-main"><b>{words("背包", "Inventory")}{devices.length > 1 ? ` · ${device.name}` : ""}</b>
-        {watches.map((w) => <small key={w.item_id}>{name(w.item_id)} · {
-          holdings?.categories.includes(Math.floor(w.item_id / 1000000))
-            ? (holdings.items.find((i) => i.item_id === w.item_id)?.quantity || 0).toLocaleString() : "—"
-        }</small>)}
-        {!holdings && <small>{words("等待游戏数据", "Waiting for game data")}</small>}
-      </span>
-      <span className="sweep-row-side"><small>{words("金币余额", "Mesos balance")}</small><b>{holdings?.mesos != null ? holdings.mesos.toLocaleString() : "—"}</b></span>
-    </div>;
-  })}</div>;
 }
 
 function StartDialog({
@@ -381,7 +229,9 @@ function StartDialog({
     available.map((device) => device.id),
   );
   const [budget, setBudget] = useState(last.budget ? String(last.budget) : "");
-  const [minutes, setMinutes] = useState(String(last.durationVersion === 1 && last.minutes || DEFAULT_MINUTES));
+  const [minutes, setMinutes] = useState(
+    String((last.durationVersion === 1 && last.minutes) || DEFAULT_MINUTES),
+  );
   // A device that goes offline while the dialog is open is unticked.
   useEffect(() => {
     setChosen((old) =>
@@ -417,16 +267,28 @@ function StartDialog({
           minutes: minutesValue,
           current_password,
         });
-        save(JSON.stringify({ budget: budgetValue, minutes: minutesValue, durationVersion: 1 }));
+        save(
+          JSON.stringify({
+            budget: budgetValue,
+            minutes: minutesValue,
+            durationVersion: 1,
+          }),
+        );
         await onDone(result);
       }}
     >
       <SweepRules watches={watches} items={items} />
-      <HoldingsRows devices={devices.filter((d) => chosen.includes(d.id))} watches={watches} items={items} />
+      <HoldingsRows
+        devices={devices.filter((d) => chosen.includes(d.id))}
+        watches={watches}
+        items={items}
+      />
       <fieldset className="fsec sweep-device-list" data-sweep-device-list>
         <h4>
           {words("设备", "Devices")}
-          <small>{words(`已选 ${chosen.length} 台`, `${chosen.length} selected`)}</small>
+          <small>
+            {words(`已选 ${chosen.length} 台`, `${chosen.length} selected`)}
+          </small>
         </h4>
         {devices.length ? (
           devices.map((device) => {
@@ -455,7 +317,9 @@ function StartDialog({
             );
           })
         ) : (
-          <p className="sweep-empty">{words("还没有设备登录", "No devices signed in")}</p>
+          <p className="sweep-empty">
+            {words("还没有设备登录", "No devices signed in")}
+          </p>
         )}
       </fieldset>
       <div className="fsec offer-field-grid">
@@ -477,7 +341,9 @@ function StartDialog({
           />
         </label>
         <label className="offer-field">
-          <span>{words("时长（分钟，最长 7 天）", "Duration (min, up to 7 days)")}</span>
+          <span>
+            {words("时长（分钟，最长 7 天）", "Duration (min, up to 7 days)")}
+          </span>
           <input
             name="minutes"
             type="number"
@@ -557,7 +423,11 @@ function SweepDialog({
             </div>
           )}
           {error && (
-            <div className="fsec sweep-dialog-error" role="alert" data-sweep-error>
+            <div
+              className="fsec sweep-dialog-error"
+              role="alert"
+              data-sweep-error
+            >
               <span>{sweepMessage(words, error)}</span>
               {error === "reauth_required" && profile.google_enabled && (
                 <a

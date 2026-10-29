@@ -142,6 +142,32 @@ fn units(run: &Value, item: i64) -> i64 {
 }
 
 #[tokio::test]
+async fn purchase_progress_counts_beyond_the_recent_records() {
+    let Some(db) = TestDb::new().await else { return };
+    let s = AppState::new(db.pool.clone(), Settings::default());
+    let w = signup(&s, "progress_totals").await;
+    watch(&s, &w, GLOVE, 100, 0, 0).await;
+    let (token, _) = ready_device(&s, &w, "本机").await;
+    let run = device_start(&s, &token, 10000).await;
+    let lease = join(&s, &token, &run, 1).await;
+    assert!(run_view(&s, &w).await["devices"][0]["checked"].is_null());
+    for listing in 1..=51 {
+        let (n, reservation) = grant(&s, &token, order(&run, &lease, listing, GLOVE, 10)).await;
+        assert_eq!(n, 1);
+        assert_eq!(settle(&s, &token, &reservation, "bought", 1, 10, "").await, StatusCode::OK);
+    }
+    let (_, pending) = grant(&s, &token, order(&run, &lease, 52, GLOVE, 10)).await;
+    let view = run_view(&s, &w).await;
+    assert_eq!(view["purchases"].as_array().unwrap().len(), 50);
+    assert_eq!(view["bought"], 51);
+    assert_eq!(view["items"][0]["bought"], 51);
+    assert_eq!(view["items"][0]["units"], 52);
+    assert_eq!(settle(&s, &token, &pending, "unknown", 0, 0, "timeout").await, StatusCode::OK);
+    assert_eq!(run_view(&s, &w).await["bought"], 51);
+    db.close().await;
+}
+
+#[tokio::test]
 async fn unlimited_watch_buys_past_9999_but_never_past_budget() {
     let Some(db) = TestDb::new().await else { return };
     let s = AppState::new(db.pool.clone(), Settings::default());
@@ -364,7 +390,7 @@ async fn web_start_checks_password_devices_and_the_single_running_run() {
     let run = &started["run"];
     assert_eq!((run["status"].as_str(), run["started_by"].as_str(), run["remaining"].as_i64()), (Some("running"), Some("web"), Some(1000000)));
     assert_eq!(run["devices"][0]["state"], "invited");
-    assert_eq!(run["items"], json!([{"item_id":GLOVE,"limit":2,"units":0}]));
+    assert_eq!(run["items"], json!([{"item_id":GLOVE,"limit":2,"units":0,"bought":0}]));
     assert_eq!(run["plan_stale"], false);
     assert_eq!(sensitive(&s, "/api/v1/account/sweep/start", &w, start(vec![&ready])).await.1["error"], "sweep_running");
     assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/start", &empty_token, json!({"budget":1000,"minutes":60})).await.1["error"], "sweep_running");
@@ -401,6 +427,7 @@ async fn two_devices_share_one_budget() {
     assert_eq!(n, 1);
     let view = run_view(&s, &w).await;
     assert_eq!((view["reserved"].as_i64(), view["remaining"].as_i64()), (Some(450000), Some(550000)));
+    assert_eq!(view["bought"], 0);
     let (n, b1) = grant(&s, &b, order(&run, &b_lease, 2, GLOVE, 480000)).await;
     assert_eq!(n, 1);
     let view = run_view(&s, &w).await;
@@ -411,6 +438,8 @@ async fn two_devices_share_one_budget() {
     assert_eq!(settle(&s, &a, &a1, "bought", 1, 450000, "").await, StatusCode::OK);
     let view = run_view(&s, &w).await;
     assert_eq!((view["spent"].as_i64(), view["reserved"].as_i64(), view["remaining"].as_i64()), (Some(450000), Some(480000), Some(70000)));
+    assert_eq!(view["bought"], 1);
+    assert_eq!(view["items"][0]["bought"], 1);
     assert_eq!(settle(&s, &b, &b1, "not_bought", 0, 0, "sold_out").await, StatusCode::OK);
     let view = run_view(&s, &w).await;
     assert_eq!((view["reserved"].as_i64(), view["remaining"].as_i64(), units(&view, GLOVE)), (Some(0), Some(550000), 1));
@@ -552,8 +581,18 @@ async fn runs_end_by_stop_time_and_budget() {
     assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, beat(&run, &lease)).await.1["error"], "lease_lost");
     let lease = join(&s, &token, &run, 1).await;
     assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, beat(&run, &lease)).await.0, StatusCode::OK);
+    let progress = json!({"run":run,"lease":lease,"status":{"message":"扫货中","checked":273}});
+    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, progress).await.0, StatusCode::OK);
+    let progress = run_view(&s, &w).await;
+    assert_eq!(progress["devices"][0]["checked"], 273);
+    assert_eq!(progress["devices"][0]["leased"], true);
+    assert!(progress["devices"][0]["progress_at"].is_string());
+    // Legacy heartbeats without a count must not erase the last observation.
+    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, json!({"run":run,"lease":lease})).await.0, StatusCode::OK);
+    assert_eq!(run_view(&s, &w).await["devices"][0]["checked"], 273);
     let (status, stopped) = web(&s, "POST", "/api/v1/account/sweep/stop", &w, json!({"run":run})).await;
     assert_eq!((status, stopped["run"]["stop_reason"].as_str()), (StatusCode::OK, Some("stopped_on_web")));
+    assert!(stopped["run"]["stopped_at"].is_string());
     let (status, body) = dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, beat(&run, &lease)).await;
     assert_eq!((status, body), (StatusCode::CONFLICT, json!({"error":"sweep_stopped","reason":"stopped_on_web"})));
     assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/reserve", &token, order(&run, &lease, 1, GLOVE, 1000)).await.1["error"], "sweep_stopped");

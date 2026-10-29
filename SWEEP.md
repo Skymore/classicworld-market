@@ -122,12 +122,18 @@
 
 ```json
 {"id","status","stop_reason","budget","spent","reserved","unknown","remaining",
- "started_at","ends_at","started_by":"web|<device id>","plan_version","plan_stale":false,
- "items":[{"item_id","limit","units"}],
- "devices":[{"id","name","state","message","online","spent"}],
+ "started_at","ends_at","stopped_at","started_by":"web|<device id>","plan_version","plan_stale":false,"bought",
+ "items":[{"item_id","limit","units","bought"}],
+ "devices":[{"id","name","state","message","online","spent","checked","progress_at","leased"}],
  "purchases":[Purchase]}
 ```
 `run` 是运行中的任务，没有时取 24 小时内最近结束的一个。`plan_stale` = 按当前规则重新生成的快照与任务快照不同。`purchases` 为最近 50 条预留，新的在前：
+
+关注页只显示本轮状态、简要金额和“查看详情”。详情用进度、背包、设置、记录四个分页；SSE 更新保留当前分页。设置读取启动时的 `plan`，修改关注只提示停止后重开，不覆盖本轮条件。停止需在详情内确认，结束后仍可查看记录。
+
+`bought` 与 `items[].bought` 是全轮实际成交数量，独立于最近 50 条记录及仍占用额度的 `units`。`checked` 保存采集器最近上报的检查店次，未上报为 null；这是当前采集进程的计数，重启会重新计数，不是去重商店数。`progress_at` 是最近有效扫货心跳时间；`leased` 表示当前有有效租约。任务处于运行中或设备已加入，不代表扫描器正在移动。界面单独显示设备消息，通用“扫货中”只显示“已加入任务”；离线和租约中断优先显示。
+
+背包显示每台设备的目标物品和可展开的其他已读物品、金币及读取时间。不同角色不合并；离线、断开游戏和未读取类别显示“—”，只有完整读取的类别中没有物品时才显示 0。
 
 ```json
 {"id","device","item_id","status":"held|bought|not_bought|unknown|expired","quantity","units","price","spent","reason","room","channel","owner","created_at","settled_at"}

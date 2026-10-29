@@ -124,8 +124,9 @@ struct Run {
     started_by: Option<String>,
     started_at: DateTime<Utc>,
     ends_at: DateTime<Utc>,
+    stopped_at: Option<DateTime<Utc>>,
 }
-const RUN: &str = "SELECT r.id,r.public_id,r.account_id,r.plan,r.plan_version,r.budget,r.status,r.stop_reason,d.public_id AS started_by,r.started_at,r.ends_at FROM sweep_runs r LEFT JOIN account_devices d ON d.id=r.started_by";
+const RUN: &str = "SELECT r.id,r.public_id,r.account_id,r.plan,r.plan_version,r.budget,r.status,r.stop_reason,d.public_id AS started_by,r.started_at,r.ends_at,r.stopped_at FROM sweep_runs r LEFT JOIN account_devices d ON d.id=r.started_by";
 
 /// Lazy expiry under the run lock: overdue reservations count as unknown and
 /// an overdue run finishes.
@@ -138,6 +139,7 @@ async fn refresh(tx: &mut PgConnection, run: &mut Run) -> sqlx::Result<()> {
     if ended {
         run.status = "finished".into();
         run.stop_reason = Some("time_up".into());
+        run.stopped_at = Some(run.ends_at);
     }
     if expired > 0 || ended {
         notify(tx, run.account_id, "sweep").await?;
@@ -217,6 +219,9 @@ struct Participant {
     message: String,
     online: bool,
     spent: i64,
+    checked: Option<i64>,
+    progress_at: Option<DateTime<Utc>>,
+    leased: bool,
 }
 #[derive(FromRow)]
 struct Purchase {
@@ -236,13 +241,18 @@ struct Purchase {
 async fn web_view(tx: &mut PgConnection, run: &Run) -> Result<Value, Response> {
     let t = totals(tx, run.id, None).await?;
     let units = item_units(tx, run.id).await?;
+    // Aggregate every settled purchase, independently of the recent-record limit
+    // and of held/unknown units that still consume a purchase allowance.
+    let bought: Vec<(i32, i64)> = sqlx::query_as("SELECT item_id,sum(bought_quantity*units_per)::bigint FROM sweep_reservations WHERE run_id=$1 AND status='bought' GROUP BY item_id")
+        .bind(run.id).fetch_all(&mut *tx).await.map_err(internal)?;
+    let bought: HashMap<i64, i64> = bought.into_iter().map(|(id, count)| (i64::from(id), count)).collect();
     let items: Vec<Value> = watches(&run.plan)
         .map(|w| {
             let item = w["item_id"].as_i64().unwrap_or_default();
-            json!({"item_id":item,"limit":w["limit"],"units":units.get(&item).copied().unwrap_or(0)})
+            json!({"item_id":item,"limit":w["limit"],"units":units.get(&item).copied().unwrap_or(0),"bought":bought.get(&item).copied().unwrap_or(0)})
         })
         .collect();
-    let devices: Vec<Participant> = sqlx::query_as("SELECT d.public_id AS id,d.name,p.state,p.message,(d.revoked_at IS NULL AND d.last_seen_at>now()-interval '75 seconds') AS online,(SELECT coalesce(sum(spent),0)::bigint FROM sweep_reservations s WHERE s.run_id=p.run_id AND s.device_id=p.device_id AND s.status='bought') AS spent FROM sweep_run_devices p JOIN account_devices d ON d.id=p.device_id WHERE p.run_id=$1 ORDER BY d.created_at,d.id")
+    let devices: Vec<Participant> = sqlx::query_as("SELECT d.public_id AS id,d.name,p.state,p.message,(d.revoked_at IS NULL AND d.last_seen_at>now()-interval '75 seconds') AS online,(SELECT coalesce(sum(spent),0)::bigint FROM sweep_reservations s WHERE s.run_id=p.run_id AND s.device_id=p.device_id AND s.status='bought') AS spent,p.checked,p.progress_at,coalesce(p.state='active' AND p.lease_expires_at>now(),false) AS leased FROM sweep_run_devices p JOIN account_devices d ON d.id=p.device_id WHERE p.run_id=$1 ORDER BY d.created_at,d.id")
         .bind(run.id).fetch_all(&mut *tx).await.map_err(internal)?;
     // quantity and spent are what the row counts against the run.
     let purchases: Vec<Purchase> = sqlx::query_as("SELECT s.public_id AS id,d.public_id AS device,s.item_id,s.status,CASE s.status WHEN 'bought' THEN s.bought_quantity WHEN 'not_bought' THEN 0 ELSE s.quantity END AS quantity,s.units_per,s.price,CASE s.status WHEN 'bought' THEN s.spent WHEN 'not_bought' THEN 0 ELSE s.cost END AS spent,s.reason,s.location,s.created_at,s.settled_at FROM sweep_reservations s JOIN account_devices d ON d.id=s.device_id WHERE s.run_id=$1 ORDER BY s.created_at DESC,s.id DESC LIMIT 50")
@@ -256,7 +266,8 @@ async fn web_view(tx: &mut PgConnection, run: &Run) -> Result<Value, Response> {
     Ok(json!({
         "id":run.public_id,"status":run.status,"stop_reason":run.stop_reason,"budget":run.budget,
         "spent":t.spent,"reserved":t.reserved,"unknown":t.unknown,"remaining":(run.budget-t.used()).max(0),
-        "started_at":run.started_at,"ends_at":run.ends_at,"started_by":run.started_by.as_deref().unwrap_or("web"),
+        "started_at":run.started_at,"ends_at":run.ends_at,"stopped_at":run.stopped_at,"started_by":run.started_by.as_deref().unwrap_or("web"),
+        "bought":bought.values().sum::<i64>(),
         "plan":run.plan,"plan_version":run.plan_version,"plan_stale":stale,"items":items,"devices":devices,"purchases":purchases,
     }))
 }
@@ -515,9 +526,12 @@ async fn heartbeat(State(state): State<AppState>, headers: HeaderMap, Json(input
     let run = lock(&mut tx, d.account, &input.run).await?;
     ensure_running(&run)?;
     let seat = leased(&mut tx, run.id, d.id, &input.lease).await?;
-    sqlx::query("UPDATE sweep_run_devices SET lease_expires_at=clock_timestamp()+make_interval(secs=>$3),message=$4 WHERE run_id=$1 AND device_id=$2")
-        .bind(run.id).bind(d.id).bind(LEASE_SECONDS as f64).bind(&input.status.message).execute(&mut *tx).await.map_err(internal)?;
-    if seat.message != input.status.message {
+    let previous_checked: Option<i64> = sqlx::query_scalar("SELECT checked FROM sweep_run_devices WHERE run_id=$1 AND device_id=$2")
+        .bind(run.id).bind(d.id).fetch_one(&mut *tx).await.map_err(internal)?;
+    let checked = input.status.checked.map(|n| n as i64);
+    sqlx::query("UPDATE sweep_run_devices SET lease_expires_at=clock_timestamp()+make_interval(secs=>$3),message=$4,checked=coalesce($5,checked),progress_at=now() WHERE run_id=$1 AND device_id=$2")
+        .bind(run.id).bind(d.id).bind(LEASE_SECONDS as f64).bind(&input.status.message).bind(checked).execute(&mut *tx).await.map_err(internal)?;
+    if seat.message != input.status.message || checked.is_some() && checked != previous_checked {
         notify(&mut tx, d.account, "sweep").await.map_err(internal)?;
     }
     let t = totals(&mut tx, run.id, None).await?;

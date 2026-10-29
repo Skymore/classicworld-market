@@ -66,8 +66,8 @@
       "_shared-beFk2qJL.js"
     ]
   },
-  "_main-Cet6Inzr.js": {
-    "file": "chunks/main-Cet6Inzr.js",
+  "_main-BJABXlI6.js": {
+    "file": "chunks/main-BJABXlI6.js",
     "name": "main",
     "imports": [
       "_shared-beFk2qJL.js",
@@ -225,7 +225,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Cet6Inzr.js"
+      "_main-BJABXlI6.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -413,7 +413,7 @@
     ]
   },
   "src/pages/watch.tsx": {
-    "file": "chunks/watch-CzJJhJeT.js",
+    "file": "chunks/watch-CKOa3RtP.js",
     "name": "watch",
     "src": "src/pages/watch.tsx",
     "isDynamicEntry": true,
@@ -425,12 +425,14 @@
       "_item-offer-filters-BMSywRjM.js",
       "_watch-alerts-DTDRrYJF.js",
       "_live-03Z6lmsy.js",
+      "_createLucideIcon-Dw9uWj8S.js",
       "_return-to-CZDFmjsD.js",
       "_list-rows-Cct9NLSS.js",
       "_dialog-hIhj7ql1.js",
       "_list-copy-D4RgVFDH.js",
       "_sweep-labels-Dqqq4uXK.js",
-      "_offer-filters-BmMI874x.js"
+      "_offer-filters-BmMI874x.js",
+      "_tabs-BpilXhiD.js"
     ]
   },
   "src/server.tsx": {
@@ -439,7 +441,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Cet6Inzr.js"
+      "_main-BJABXlI6.js"
     ]
   },
   "style.css": {
