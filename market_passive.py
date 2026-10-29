@@ -249,7 +249,7 @@ class Sniffer:
 class WindowsSniffer:
     """Receive IP copies through Winsock; never bind any send/injection API."""
     mode='windows-raw-receive-only'
-    def __init__(self):
+    def __init__(self, accept=packet):
         import socket,ipaddress
         import psutil
         if sys.platform!='win32':raise RuntimeError('Windows is required')
@@ -257,7 +257,7 @@ class WindowsSniffer:
         from native_firewall import ensure_capture_firewall
         firewall=ensure_capture_firewall()
         print(json.dumps(dict(event='firewall_ready',**firewall)),flush=True)
-        self.sockets=[];self.handle=True
+        self.sockets=[];self.handle=True;self.accept=accept
         self.received_datagrams=0;self.matched_datagrams=0
         self.tcp_datagrams=0;self.game_outbound_datagrams=0
         stats=psutil.net_if_stats()
@@ -289,7 +289,7 @@ class WindowsSniffer:
                     if ihl>=20 and len(raw)>=ihl+4 and GAME_PORT_MIN<=int.from_bytes(raw[ihl+2:ihl+4],'big')<=GAME_PORT_MAX:
                         self.game_outbound_datagrams+=1
                 # Only game service ports proceed to the owner gate/decoder.
-                if packet(raw):
+                if self.accept(raw):
                     self.matched_datagrams+=1
                     return raw
         raise OSError('Capture closed')

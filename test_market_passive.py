@@ -139,6 +139,26 @@ if __name__=='__main__':unittest.main()
 
 
 class WindowsNativeTests(unittest.TestCase):
+    def test_native_backend_can_receive_position_packets_without_broadening_default_capture(self):
+        import market_passive
+        from unittest.mock import Mock
+        outgoing = bytearray(raw(1))
+        struct.pack_into('!HH', outgoing, 20, 51000, 8501)
+        outgoing = bytes(outgoing)
+        self.assertIsNone(packet(outgoing), 'ordinary market capture remains inbound only')
+        sniffer = object.__new__(market_passive.WindowsSniffer)
+        stream = Mock()
+        stream.recv.side_effect = [b'not an IP packet', outgoing]
+        sniffer.sockets, sniffer.handle = [stream], True
+        sniffer.accept = lambda value: value == outgoing
+        for key in ('received_datagrams', 'matched_datagrams', 'tcp_datagrams', 'game_outbound_datagrams'):
+            setattr(sniffer, key, 0)
+        with patch('select.select', return_value=([stream], [], [])):
+            self.assertEqual(sniffer.recv(), outgoing)
+        self.assertEqual(sniffer.matched_datagrams, 1)
+        stream.send.assert_not_called()
+        stream.sendto.assert_not_called()
+
     def test_native_backend_uses_only_receive_operations_and_closes_interfaces(self):
         import socket
         from types import SimpleNamespace

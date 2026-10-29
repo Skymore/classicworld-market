@@ -388,12 +388,24 @@ class SweepEngine:
                     ('max_spend', (settings['max_spend']-spent)//price)]
             if type(self.run.get('remaining')) is int:
                 caps.append(('budget', self.run['remaining']//price))
+        prepare = getattr(self.purchaser, 'prepare', None)
+        if prepare is not None:
+            try:
+                if prepare(window) is False:
+                    self._note(dict(note, status='skipped', reason='error', at=time.time()))
+                    return
+            except Exception as error:
+                self._leave(run, lease, 'window_lost', '购买窗口无法确认，已停止扫描')
+                raise PurchaseHalt(PurchaseResult('not_bought', reason='window_lost')) from error
         executor = self.purchaser.status()
         if not executor.ready:
             self._stop_buying(executor.reason or '购买执行器未就绪')
             return
         if settings['max_order']:
             caps.append(('max_order', settings['max_order']//price))
+        executor_limit = getattr(self.purchaser, 'max_quantity', None)
+        if type(executor_limit) is int and executor_limit > 0:
+            caps.append(('max_order', executor_limit))
         if type(executor.mesos) is int:
             caps.append(('reserve_mesos', (executor.mesos-settings['reserve_mesos'])//price))
         quantity = min([row['stock'], *(cap for _, cap in caps)])
@@ -422,7 +434,8 @@ class SweepEngine:
             quantity=min(granted, quantity), equipment=row.get('equipment'), shop_id=packet['shop_id'],
             owner=owner.get('name'), room=location['room'], channel=location['channel'],
             deadline=min(started+(ttl if type(ttl) is int else 0)-5, self.lease_deadline),
-            can_buy=lambda: self._purchase_allowed(run, lease, plan_version))
+            can_buy=lambda: self._purchase_allowed(run, lease, plan_version),
+            reserve_mesos=settings['reserve_mesos'])
         # Stop or logout may have landed while the reservation was in flight.
         with self.lock:
             stopped = self.lease != lease or not self.buying()
@@ -437,10 +450,10 @@ class SweepEngine:
             if result.status != 'unknown' and result.reason != 'trade_locked':
                 self._leave(run, lease, 'window_lost', '购买窗口未恢复，已停止扫描')
             raise
-        except BaseException:
+        except BaseException as error:
             # The window state is uncertain: report unknown, leave, and stop the scanner.
             self._finish(order, PurchaseResult('unknown', reason='error'), note, per, run, lease, key)
-            raise
+            raise PurchaseHalt(PurchaseResult('unknown', reason='error')) from error
         self._finish(order, result, note, per, run, lease, key)
         if result.status == 'unknown':
             # Returning normally lets the scanner close this shop and click another.

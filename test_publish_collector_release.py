@@ -59,6 +59,15 @@ class ReleasePublisherTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'downgrade'):
             publish(self.archive(), self.root)
 
+    def test_beta_cannot_change_the_stable_updater(self):
+        stable = publish(self.archive('v0.6.16'), self.root)
+        beta = publish(self.archive('v0.6.17'), self.root, channel='beta')
+        self.assertEqual(json.loads((self.root/'web/releases/stable.json').read_text()), stable)
+        self.assertEqual(json.loads((self.root/'web/releases/beta.json').read_text()), beta)
+        self.assertIsNone(update.release_info(beta, current='0.6.16'))
+        with self.assertRaisesRegex(ValueError, 'Unknown release channel'):
+            publish(self.archive('v0.6.18'), self.root, channel='../stable')
+
 
 if __name__ == '__main__':
     unittest.main()

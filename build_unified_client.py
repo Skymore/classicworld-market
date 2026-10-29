@@ -45,6 +45,10 @@ def stage(root, scanner, destination):
                     ignore=shutil.ignore_patterns('images', 'releases', 'tests', '*.map'))
     shutil.copytree(scanner / 'tools/market_bot_templates', destination / 'tools/market_bot_templates')
     shutil.copytree(root / 'desktop_ui', destination / 'desktop_ui')
+    shutil.copytree(root / 'assets/sweep', destination / 'assets/sweep')
+    for name in ('font.json', 'catalog.json'):
+        shutil.copy2(root / 'server/crates/market-core/assets' / name,
+                     destination / 'assets/sweep' / ('shop-font.json' if name == 'font.json' else name))
     shutil.copy2(root / 'assets/app-icon.ico', destination / 'app-icon.ico')
     return core, scan
 
@@ -92,7 +96,7 @@ def main():
         command += ['--add-data',f'{policy};.']
     for name in ('maple_crypto_constants.cs','market_index.html','market_ui.js','market_ui.css','market_i18n.js','market_watchlist.js','app-icon.ico'):
         command += ['--add-data',f'{source/name};.']
-    for name in ('web','tools/market_bot_templates','desktop_ui'):
+    for name in ('web','tools/market_bot_templates','desktop_ui','assets/sweep'):
         command += ['--add-data',f'{source/name};{name}']
     command += ['--add-binary',f'{driver/"WinDivert.dll"};vendor/windivert/WinDivert-2.2.2-A/x64',
                 '--add-data',f'{driver/"WinDivert64.sys"};vendor/windivert/WinDivert-2.2.2-A/x64',str(source/'unified_client.py')]

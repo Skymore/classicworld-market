@@ -118,6 +118,28 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(self.controller.snapshot()['run_shops'],12)
         self.assertEqual(self.controller.snapshot()['run_items'],90)
 
+    def test_purchase_halt_revokes_auto_recovery_across_relaunch(self):
+        from sweep_purchase import PurchaseHalt, PurchaseResult
+        from collector_recovery import ScanIntent
+        calls=[]
+        def run(*args, **kwargs):
+            calls.append(1)
+            try:
+                raise PurchaseHalt(PurchaseResult('unknown', reason='timeout'))
+            except PurchaseHalt as error:
+                raise RuntimeError('shop callback stopped') from error
+        self.modules.update(channel_capture=lambda path,stop:stop.wait(2),
+            position_capture=lambda path,stop:stop.wait(2), DEFAULT_STATE=None, POSITION_STATE=None,
+            CloudScan=Mock(return_value=Mock()),run=run)
+        with patch('scanner_desktop.focus_game'), patch('scanner_desktop.release_keys'), \
+             patch('scanner_desktop.RUNS',Path(self.temp.name)/'runs'):
+            self.controller.start(12)
+            self.controller._worker.join(3)
+        self.assertEqual(calls,[1])
+        self.assertFalse(self.controller._worker.is_alive())
+        self.assertFalse(self.controller._desired)
+        self.assertFalse(ScanIntent(self.runtime.home).load()['enabled'])
+
     def test_sweep_hooks_reach_the_scan_and_status_line(self):
         sweep = Mock()
         sweep.summary.return_value = {'enabled': True, 'units': 2, 'spent': 300, 'message': '扫货中'}

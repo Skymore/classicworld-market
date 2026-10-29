@@ -47,6 +47,7 @@ class PurchaseOrder:
     # Recheck immediately before every purchase input, including the final confirmation.
     # No guard means no permission to buy (older/custom callers fail closed).
     can_buy: Callable[[], bool] = field(default=lambda: False, repr=False, compare=False)
+    reserve_mesos: int = 0
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,17 @@ class ShopWindow(Protocol):
     def click(self, x: int, y: int) -> None: ...
     def press(self, key: str) -> None: ...
     def pause(self, seconds: float) -> None: ...
+
+
+def purchase_halted(error):
+    """Scanner wrappers retain the original halt as their exception cause."""
+    seen = set()
+    while error is not None and id(error) not in seen:
+        if isinstance(error, PurchaseHalt):
+            return True
+        seen.add(id(error))
+        error = error.__cause__ or error.__context__
+    return False
 
 
 class Purchaser(Protocol):

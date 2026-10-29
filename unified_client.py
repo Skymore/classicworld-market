@@ -58,6 +58,7 @@ class CollectorRuntime:
         self.home = options.home
         self.config_path = options.config or self.home/'member.json'
         self.folder = options.folder or self.home/'captures'
+        self.backend = options.backend
         self._listeners = []
         self._stats_lock = threading.Lock()
         self._captured_files = set()

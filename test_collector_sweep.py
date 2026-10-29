@@ -273,6 +273,36 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(len(self.purchaser.orders), 1)
         self.assertEqual(self.engine.status()['sweep']['recent'][0]['reason'], 'item_limit')
 
+    def test_preparation_reads_balance_before_reservation_and_honors_native_batch(self):
+        self.joined(reserve_mesos=100)
+        self.purchaser.mesos = 10000
+        self.purchaser.max_quantity = 1
+        self.purchaser.prepare = lambda window: setattr(self.purchaser, 'mesos', 250)
+        self.engine.on_shop_open(self.capture(), 'window')
+        self.assertEqual(self.server.named('reserve')[0]['quantity'], 1)
+        self.assertEqual(self.purchaser.orders[0][0].reserve_mesos, 100)
+
+    def test_unverified_window_leaves_run_without_reserving_or_automatic_rejoin(self):
+        self.joined()
+        def invalid(window):
+            raise RuntimeError('Unreadable shop')
+        self.purchaser.prepare = invalid
+        with self.assertRaises(PurchaseHalt):
+            self.engine.on_shop_open(self.capture(), 'window')
+        self.assertEqual(self.server.named('reserve'), [])
+        self.assertEqual(self.server.named('leave')[-1]['reason'], 'window_lost')
+        self.engine.poll()
+        self.assertFalse(self.engine.buying())
+
+    def test_unsupported_untouched_shop_skips_without_reserving(self):
+        self.joined()
+        self.purchaser.prepare = lambda window: False
+        self.engine.on_shop_open(self.capture(), 'window')
+        self.assertEqual(self.server.named('reserve'), [])
+        self.assertEqual(self.purchaser.orders, [])
+        self.assertEqual(self.server.named('leave'), [])
+        self.assertTrue(self.engine.buying())
+
     def test_local_caps_bound_the_reservation(self):
         self.purchaser.mesos = 1000
         self.joined(max_spend=250)
@@ -323,8 +353,9 @@ class EngineTests(unittest.TestCase):
         def crash(order):
             raise RuntimeError('window lost')
         self.purchaser.result = crash
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(PurchaseHalt) as caught:
             self.engine.on_shop_open(self.capture('shop_b.json', owner=9), 'w')
+        self.assertIsInstance(caught.exception.__cause__, RuntimeError)
         self.assertEqual(self.server.named('settle')[-1]['status'], 'unknown')
         self.assertFalse(self.engine.buying())
 
@@ -516,7 +547,8 @@ class PlanTests(unittest.TestCase):
         self.assertNotEqual(key, listing_key(dict(room=1, channel=2), 7, dict(row, price=99)))
 
     def test_without_executor_module_purchases_are_unavailable(self):
-        purchaser = load_purchaser()
+        with patch.dict('sys.modules', {'sweep_purchaser_windows': None}):
+            purchaser = load_purchaser()
         self.assertIsInstance(purchaser, UnavailablePurchaser)
         self.assertEqual(purchaser.status(), PurchaserStatus(False, '此电脑尚未安装购买执行器', None))
 

@@ -39,6 +39,10 @@ v0.5.9 及以前仍读取原 GitHub 地址，需要手动升级一次。
 python publish_collector_release.py --archive dist/ClassicWorldCollector-windows-x64-v0.5.10.zip
 ```
 
+Windows 原生购买执行器的首版仅发内测：使用 `--channel beta` 写入独立的
+`web/releases/beta.json`，不改 `stable.json`，不发送稳定升级通知。稳定更新器
+会拒绝 beta 清单；内测需手动下载对应版本，安装包仍遵守不可变版本与哈希验证。
+
 R2 发布配置在本机 `shared_data/r2-publisher.json`，仅含 `account_id`、`access_key_id`、
 `secret_access_key`，令牌应只允许 `classicworld-releases` 桶的对象读写。安装
 `requirements-release.txt` 后用 `upload_collector_release.py --archive <ZIP> --source <源码ZIP>`

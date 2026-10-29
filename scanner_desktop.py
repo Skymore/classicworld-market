@@ -18,12 +18,22 @@ RUNS = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'ClassworldFMBot
 ABORT_GRACE = 8
 
 
-def scanner_modules():
+def scanner_modules(backend='windows'):
     from channel_state_collector import DEFAULT_STATE, run as channel_capture
     from position_state_collector import POSITION_STATE, run as position_capture
     from full_market_scan import run
     from cloud_scan import CloudScan, LeaseStopEvent
     from control_state import clear_pause, is_paused, request_pause
+    if backend == 'windows':
+        from functools import partial
+        from market_passive import WindowsSniffer
+        from channel_state_collector import packet as channel_packet
+        from position_state_collector import packet as position_packet
+        # The scanner must use the same capture backend as the collector.
+        # Position decoding needs both directions; both parsers gate ports and
+        # verify the owning game process before interpreting any data.
+        channel_capture = partial(channel_capture, sniffer_factory=lambda: WindowsSniffer(accept=channel_packet))
+        position_capture = partial(position_capture, sniffer_factory=lambda _: WindowsSniffer(accept=position_packet))
     return locals()
 
 
@@ -119,7 +129,7 @@ class DesktopController:
                  ready=game_ready, emergency=emergency_stop):
         self.collector = collector
         self.sweep = sweep
-        self._modules = modules or scanner_modules()
+        self._modules = modules or scanner_modules(getattr(collector, 'backend', 'windows'))
         self._windows = windows
         self._game_ready, self._emergency = ready, emergency
         self._intent = ScanIntent(collector.home)
@@ -516,7 +526,8 @@ class DesktopController:
                 raise RuntimeError('Room scan incomplete')
         except Exception as error:
             failure = error
-            if any(s in str(error).lower() for s in ('stopped with f9', 'mouse failsafe')):
+            from sweep_purchase import purchase_halted
+            if purchase_halted(error) or any(s in str(error).lower() for s in ('stopped with f9', 'mouse failsafe')):
                 self._user_stop()
         finally:
             failure = getattr(stop, 'failure', None) or failure

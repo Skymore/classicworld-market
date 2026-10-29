@@ -1,11 +1,11 @@
-"""Purchase decisions for a Windows screen/input adapter (not an installed executor).
+"""Purchase decisions shared by the Windows screen/input adapter and tests.
 
 The 2026-10-28 live flow is select -> buy -> quantity -> total -> result.
 The adapter must provide fresh, verified observations and execute each returned
 action once on the scanner thread. This module deliberately does not infer a
 successful purchase from an OK click, a vanished dialog, or another buyer's stock
-change. Native screen/receipt recognition still has to be validated before a
-`sweep_purchaser_windows.create()` can advertise readiness.
+change. The native adapter binds fresh screen observations to the current
+capture and requires the buyer's own balance debit as well as a stock change.
 """
 from dataclasses import dataclass
 import time
@@ -144,7 +144,7 @@ class PurchaseFlow:
                 return self._abort(view, 'sold_out')
             if type(view.mesos) is not int:
                 return self._abort(view, 'error')
-            if view.mesos < self.order.quantity*self.order.price:
+            if view.mesos < self.order.quantity*self.order.price+self.order.reserve_mesos:
                 return self._abort(view, 'not_enough_mesos')
             if self.phase == 'select':
                 self.phase = 'selected'

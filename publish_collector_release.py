@@ -12,7 +12,9 @@ import zipfile
 import collector_update as update
 
 
-def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True):
+def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True, channel='stable'):
+    if channel not in ('stable', 'beta'):
+        raise ValueError('Unknown release channel')
     archive, root = Path(archive), Path(root)
     match = re.fullmatch(r'ClassicWorldCollector-windows-x64-(v\d{1,6}\.\d{1,6}\.\d{1,6})\.zip', archive.name)
     if not match or download_base not in update.DOWNLOAD_BASES:
@@ -28,14 +30,16 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     with archive.open('rb') as source:
         digest = hashlib.file_digest(source, 'sha256').hexdigest()
     asset = dict(url=download_base+tag+'/'+archive.name, sha256=digest, size=archive.stat().st_size)
-    manifest = dict(schema=1, channel='stable', version=tag,
+    manifest = dict(schema=1, channel=channel, version=tag,
                     published_at=datetime.now(timezone.utc).isoformat(), windows_x64=asset)
-    update.release_info(manifest, current='0.0.0')
+    # Validate the exact asset contract without teaching installed stable
+    # clients to accept beta manifests.
+    update.release_info(dict(manifest, channel='stable'), current='0.0.0')
     releases = root/'web/releases'
     releases.mkdir(parents=True, exist_ok=True)
-    stable = releases/'stable.json'
+    stable = releases/(channel+'.json')
     if stable.exists() and update.version(json.loads(stable.read_text())['version']) > update.version(tag):
-        raise ValueError('Refusing to downgrade the stable release')
+        raise ValueError('Refusing to downgrade the '+channel+' release')
     # Never point installed clients at a missing or mismatching R2 object.
     if download_base != update.DOWNLOAD_BASES[0]:
         with tempfile.TemporaryDirectory(prefix='collector-release-verify-') as folder:
@@ -56,6 +60,10 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        + ('v0.6.17 内测：按关注条件自动扫货，使用共享预算和每种数量上限。\n'
+           '首版支持 1366×768 标准商店、非装备，每次购买一份；滚动后重新核对物品和价格。\n'
+           '未知画面或结果会停止扫描；成交要求本人余额和对应库存同时变化。\n\n'
+           if channel == 'beta' else '') +
         'v0.6.16：网络超时、502/503、租约失效后自动恢复；独立监督器恢复异常退出或卡住的扫描进程。\n'
         '停止、F9、鼠标左上角紧急停止和正常退出优先，取消后不会自动恢复。认证或磁盘错误需人工处理。\n'
         '恢复前重新确认游戏窗口与任务；上传队列保留，支持丢失响应后的幂等重传。\n'
@@ -85,5 +93,6 @@ if __name__ == '__main__':
     parser.add_argument('--archive', type=Path, required=True)
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parent)
     parser.add_argument('--download-base', choices=update.DOWNLOAD_BASES, default=update.DOWNLOAD_BASES[0])
+    parser.add_argument('--channel', choices=('stable', 'beta'), default='stable')
     args = parser.parse_args()
-    publish(args.archive, args.root, args.download_base)
+    publish(args.archive, args.root, args.download_base, channel=args.channel)
