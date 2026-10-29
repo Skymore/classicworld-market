@@ -51,6 +51,14 @@ class ScreenTests(unittest.TestCase):
         for text in ('463,89','463?895','46 3895','',None,'00100'):
             self.assertIsNone(money(text))
 
+    def test_exact_room_missing_rejection_and_changed_dialog(self):
+        image = np.zeros((768,1366,3),dtype=np.uint8)
+        template = self.reader.templates['room-missing']
+        image[345:345+template.shape[0],557:557+template.shape[1]] = template
+        self.assertEqual(self.reader.dialog(image), ('rejected', 'shop_closed'))
+        image[360,620] = 0
+        self.assertEqual(self.reader.dialog(image), (None, None))
+
     def test_long_touching_shop_title_is_read_in_full(self):
         font = self.reader.font
         glyph = dict(font.glyphs)['y']
@@ -122,6 +130,7 @@ class ScriptedReader:
     def frame(self,image):return self.frames[int(image[0,0,0])]
     def dialog(self,image):
         f=self.frame(image)
+        if f['kind']=='rejected':return 'rejected', f['reason']
         return (f['kind'],f.get('number',1)) if f['kind'] in ('quantity','confirm') else (None,None)
     def shop(self,image):return self.frame(image)['kind']=='shop'
     def title(self,image):return 'Potions'
@@ -180,6 +189,28 @@ class NativeFlowTests(unittest.TestCase):
         with self.assertRaises(PurchaseHalt) as caught:self.run_buy()
         self.assertEqual(caught.exception.result.status,'unknown')
         self.assertEqual(self.control.actions.count((735,421)),1)
+
+    def test_room_missing_is_dismissed_once_and_not_charged(self):
+        self.frames[-1] = Page(kind='rejected', reason='shop_closed')
+        self.frames.append(Page(kind='shop', selected=True, balance=1000))
+        self.assertEqual(self.run_buy(), PurchaseResult('not_bought', reason='shop_closed'))
+        self.assertEqual(self.control.actions.count((784,411)), 1)
+        self.assertEqual(self.control.actions.count((735,421)), 1)
+
+    def test_unknown_title_glyphs_keep_fresh_packet_and_row_checks(self):
+        with patch.object(ScriptedReader, 'title', return_value=None):
+            self.assertEqual(self.run_buy(), PurchaseResult('bought',1,135))
+
+    def test_title_pixels_change_after_selection_stops_input(self):
+        original = ScriptedInput.capture
+        def capture(control):
+            image = original(control)
+            if control.index >= 3:image[161,450] = 255
+            return image
+        with patch.object(ScriptedInput, 'capture', capture):
+            with self.assertRaises(PurchaseHalt) as caught:self.run_buy()
+        self.assertEqual(caught.exception.result, PurchaseResult('not_bought',reason='shop_closed'))
+        self.assertNotIn((604,252), self.control.actions)
 
     def test_price_change_cancels_without_final_purchase(self):
         self.frames[-2]['number']=1350

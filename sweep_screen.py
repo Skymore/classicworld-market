@@ -106,7 +106,7 @@ class Reader:
         self.dialog_font = Font(ASSETS/'dialog-font.json')
         self.input_font = Font(ASSETS/'input-font.json')
         self.templates = {name: np.asarray(Image.open(ASSETS/(name+'.png')).convert('RGB'))
-                          for name in ('buy', 'leave', 'quantity-prompt', 'confirm-prompt', 'cancel', 'quantity-cancel', 'ok')}
+                          for name in ('buy', 'leave', 'quantity-prompt', 'confirm-prompt', 'cancel', 'quantity-cancel', 'ok', 'room-missing')}
         catalog = ASSETS/'catalog.json'
         if not catalog.exists():
             catalog = ROOT/'server/crates/market-core/assets/catalog.json'
@@ -196,6 +196,8 @@ class Reader:
     def dialog(self, image):
         if image.shape[:2] != (768, 1366):
             return None, None
+        if self.matches(image, 'room-missing', 557, 345):
+            return 'rejected', 'shop_closed'
         if self.matches(image, 'quantity-prompt', 566, 347) and self.matches(image, 'quantity-cancel', 763, 416):
             band = image[373:385, 571:790, :3].max(axis=2) < 80
             value = self.input_font.read(band, spaces=False, caret=True)

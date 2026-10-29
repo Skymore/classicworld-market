@@ -650,6 +650,40 @@ async fn logout_all_and_password_change_revoke_devices() {
     db.close().await;
 }
 
+#[tokio::test]
+async fn recent_route_is_frozen_capability_gated_and_account_scoped() {
+    let Some(db) = TestDb::new().await else { return };
+    let s = AppState::new(db.pool.clone(), Settings::default());
+    let w = signup(&s, "recent_route").await;
+    watch(&s, &w, GLOVE, 500000, 0, 0).await;
+    let (token, id) = ready_device(&s, &w, "本机").await;
+    let body = json!({"devices":[id],"budget":100000,"minutes":10080,"scan":{"mode":"recent","recent_minutes":60}});
+    assert_eq!(sensitive(&s,"/api/v1/account/sweep/start",&w,body.clone()).await.1["error"],"collector_update_required");
+    let mut state = local_state(true,true);
+    state["sweep"]["recent_scan"] = json!(true);
+    assert_eq!(dev(&s,"POST","/api/v1/device/state",&token,state).await.0,StatusCode::OK);
+    let mut bad=body.clone();bad["scan"]["recent_minutes"]=json!(0);
+    assert_eq!(sensitive(&s,"/api/v1/account/sweep/start",&w,bad).await.0,StatusCode::BAD_REQUEST);
+    let (status,view)=sensitive(&s,"/api/v1/account/sweep/start",&w,body).await;
+    assert_eq!(status,StatusCode::OK,"{view}");
+    assert_eq!(view["run"]["plan"]["scan"],json!({"mode":"recent","recent_minutes":60}));
+    assert_eq!(view["run"]["plan_stale"],false);
+    let run=view["run"]["id"].as_str().unwrap();
+    assert_eq!(dev(&s,"GET","/api/v1/device/sweep/targets",&token,Value::Null).await.1["error"],"lease_lost");
+    join(&s,&token,run,1).await;
+    let (status,targets)=dev(&s,"GET","/api/v1/device/sweep/targets",&token,Value::Null).await;
+    assert_eq!(status,StatusCode::OK,"{targets}");
+    assert_eq!(targets["run"],run);
+    assert_eq!(targets["listings"],json!([]));
+    let other=signup(&s,"recent_other").await;
+    let (other_token,_)=ready_device(&s,&other,"其他").await;
+    assert_eq!(dev(&s,"GET","/api/v1/device/sweep/targets",&other_token,Value::Null).await.1["error"],"sweep_stopped");
+    watch(&s,&w,GLOVE,600000,0,1).await;
+    assert_eq!(run_view(&s,&w).await["plan"]["scan"]["recent_minutes"],60);
+    assert_eq!(run_view(&s,&w).await["plan_stale"],true);
+    db.close().await;
+}
+
 async fn next_event(body: &mut Body, millis: u64) -> Option<String> {
     let frame = tokio::time::timeout(Duration::from_millis(millis), body.frame()).await.ok()??.ok()?;
     frame.into_data().ok().map(|bytes| String::from_utf8_lossy(&bytes).into_owned())

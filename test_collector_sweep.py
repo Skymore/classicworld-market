@@ -529,7 +529,7 @@ class EngineTests(unittest.TestCase):
             self.engine.start_run({'budget': 0, 'minutes': 60})
         self.server.run = None
         self.engine.start_run({'budget': 5000, 'minutes': 10080})
-        self.assertEqual(self.server.named('start'), [{'budget': 5000, 'minutes': 10080}])
+        self.assertEqual(self.server.named('start'), [{'budget': 5000, 'minutes': 10080, 'scan': {'mode':'market'}}])
         with self.assertRaises(ValueError):
             self.engine.start_run({'budget': 5000, 'minutes': 10081})
         self.assertTrue(self.engine.buying())

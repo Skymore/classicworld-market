@@ -143,9 +143,9 @@ class WindowsPurchaser:
         self.mesos = self.reader.balance(image)
         if self.mesos is None:
             raise PurchaseHalt(PurchaseResult('not_bought', reason='error'))
-        # A known, untouched shop with unsupported title glyphs is safe to
-        # leave. Decline before reserving or sending any purchase input.
-        return self.reader.title(image) is not None
+        # The visit's fresh packet establishes shop identity. Unsupported
+        # title glyphs use an unchanged title bitmap, never guessed OCR.
+        return True
 
     def buy(self, order, window):
         flow = PurchaseFlow(order, self.clock)
@@ -160,19 +160,24 @@ class WindowsPurchaser:
         try:
             control = self.input_factory(window)
             control.move()
-            owner_stamp = None
+            owner_stamp = title_stamp = None
             before_balance = before_stock = selected_row = None
             last_offset, unchanged, scrolls = None, 0, 0
             while True:
                 image = control.capture()
+                title_pixels = image[157:177,440:931]
+                if title_stamp is not None and not np.array_equal(title_pixels, title_stamp):
+                    flow.halt('shop_closed')
                 kind, number = self.reader.dialog(image)
                 if kind:
                     if owner_stamp is None or not np.array_equal(image[287:301,435:521], owner_stamp):
                         flow.halt('shop_closed')
                     view = View(kind, quantity=number if kind == 'quantity' else None,
-                                total=number if kind == 'confirm' else None)
+                                total=number if kind == 'confirm' else None,
+                                reason=number if kind == 'rejected' else '')
                 elif self.reader.shop(image):
-                    if canonical(self.reader.title(image)) != canonical(title):
+                    visible_title = self.reader.title(image)
+                    if visible_title is not None and canonical(visible_title) != canonical(title):
                         flow.halt('shop_closed')
                     stamp = image[287:301,435:521]
                     if owner_stamp is not None and not np.array_equal(stamp, owner_stamp):
@@ -183,6 +188,7 @@ class WindowsPurchaser:
                         flow.halt('price_changed')
                     if owner_stamp is None:
                         owner_stamp = stamp.copy()
+                        title_stamp = title_pixels.copy()
                     if not offset <= target < offset+6:
                         if flow.phase != 'select' or flow.submitted:
                             flow.halt('error')
@@ -243,6 +249,8 @@ class WindowsPurchaser:
                         control.click(735, 423 if action.kind == 'accept_quantity' else 421)
                     elif action.kind == 'cancel':
                         control.click(783, 423 if view.kind == 'quantity' else 421)
+                    elif action.kind == 'dismiss' and view.reason == 'shop_closed':
+                        control.click(784, 411)
                     else:
                         flow.halt('error')
                 window.pause(.12)

@@ -374,6 +374,8 @@ class DesktopController:
             if text:
                 self._change(message=text)
                 self._activity(text)
+                if self.sweep:
+                    self.sweep.progress(text)
 
     def _confirmed(self, progress):
         with self._lock:
@@ -514,14 +516,20 @@ class DesktopController:
                 finally:
                     self._journal.event('request', action=action, result=result,
                                         duration_ms=round((time.monotonic()-began)*1000))
-            assignments = self._modules['CloudScan'](config, stop, self._on_scan,
-                paused=self._modules['is_paused'], session=self._session, transport=transport)
             started = threading.Event()
             started.set()
             # The sweep engine buys in shops the scanner opens; it decides per visit.
             hooks = dict(shop_callback=self.sweep.on_shop_open, capture_receipt=self.sweep.receipt) if self.sweep else {}
-            outcome = self._modules['run'](self._folder, self._hwnd, started, stop,
-                                          self._on_scan, assignments=assignments, **hooks)
+            if self.sweep and self.sweep.buying() and self.sweep.scan_mode() == 'recent':
+                from sweep_routes import run_recent
+                outcome = run_recent(self._folder, self._hwnd, started, stop, self._on_scan, self.sweep, self._modules['run'])
+                if not self.sweep.buying():
+                    self._user_stop()
+            else:
+                assignments = self._modules['CloudScan'](config, stop, self._on_scan,
+                    paused=self._modules['is_paused'], session=self._session, transport=transport)
+                outcome = self._modules['run'](self._folder, self._hwnd, started, stop,
+                                              self._on_scan, assignments=assignments, **hooks)
             if outcome and outcome.get('reason') == 'room_scan_incomplete':
                 raise RuntimeError('Room scan incomplete')
         except Exception as error:
@@ -554,6 +562,7 @@ class DesktopController:
             prune_diagnostics(RUNS/'supervised')
         if self.sweep:
             self._change(sweep=self.sweep.summary())
+            self.sync_sweep()
         try:
             capture = json.loads((folder/'passive_status.json').read_text(encoding='utf-8'))
             fresh = 0 <= time.time() - capture.get('time', 0) < 10
@@ -570,6 +579,28 @@ class DesktopController:
             self._change(updates=update.get('state', 'checking'))
         except (OSError, ValueError):
             pass
+
+    def sync_sweep(self):
+        """A newly accepted web run starts its route once, never after a manual stop."""
+        if not self.sweep:
+            return
+        with self.sweep.lock:
+            run = self.sweep.run['id'] if self.sweep.buying() else None
+            mode = self.sweep.scan_mode()
+        previous = getattr(self, '_observed_sweep', None)
+        if run != previous:
+            self._observed_sweep = run
+            self._pending_sweep = run
+            if run and self._desired and mode == 'market':
+                self._pending_sweep = None
+            elif self._desired and (run or getattr(self, '_sweep_started', None)):
+                self._user_stop(persist=False)
+        if run and getattr(self, '_pending_sweep', None) == run and (not self._worker or not self._worker.is_alive()):
+            choices = self._windows()
+            if len(choices) == 1:
+                self.start(choices[0]['id'])
+                self._pending_sweep = None
+                self._sweep_started = run
 
     def pump(self, auto_start=False):
         self.refresh()

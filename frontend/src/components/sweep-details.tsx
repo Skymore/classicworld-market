@@ -321,6 +321,10 @@ export function SweepDetails({
                   <dt>{words("本轮预算", "Run budget")}</dt>
                   <dd>{number(run.budget)}</dd>
                 </div>
+                <p className="sweep-route-mode">{run.plan?.scan?.mode === "recent"
+                  ? words(`近期命中扫货 · 过去 ${run.plan.scan.recent_minutes! >= 60 ? `${run.plan.scan.recent_minutes! / 60} 小时` : `${run.plan.scan.recent_minutes} 分钟`}`,
+                    `Recent matches · last ${run.plan.scan.recent_minutes} minutes`)
+                  : words("全市场扫货", "Full market sweep")}</p>
                 <div>
                   <dt>{words("扫货时长", "Duration")}</dt>
                   <dd>

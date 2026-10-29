@@ -1083,6 +1083,10 @@ fn select_watch_rows(quotes: Vec<Map<String, Value>>, limit: usize, cheapest: us
 }
 
 /// `report_listings` over the 72-hour window.
+pub(crate) async fn sweep_quotes(db: &PgPool, items: &[i32], cutoff: f64) -> sqlx::Result<Vec<Value>> {
+    Ok(quotes(db, items, cutoff).await?.into_iter().map(watch_listing).collect())
+}
+
 pub async fn watch_listings(db: &PgPool, items: &[i32], now: f64) -> sqlx::Result<Value> {
     let started = std::time::Instant::now();
     let quotes = quotes(db, items, Window::recent(now).cutoff).await?;

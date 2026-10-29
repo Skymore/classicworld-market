@@ -37,6 +37,7 @@ function sweepMessage(words: Words, code: string) {
     invalid_request: ["预算或时长不正确", "Check the budget and duration"],
     restart_required: ["请停止后重新开始扫货", "Stop and restart the sweep"],
     sync_pending: ["关注还在同步，请稍后再试", "Watches are still syncing"],
+    collector_update_required: ["请更新采集器后使用近期扫货", "Update the collector to scan recent matches"],
   };
   return messages[code]
     ? words(...messages[code])
@@ -65,6 +66,7 @@ export default function SweepPanel({
   });
   useAccountTopics(["sweep", "devices", "data"], SWEEP_KEY);
   const [dialog, setDialog] = useState<"start" | "details" | null>(null);
+  const [mode, setMode] = useState<"market" | "recent">("market");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const run = sweep.data?.run || null;
@@ -133,15 +135,22 @@ export default function SweepPanel({
             </button>
           )}
           {!running && (
+            <>
             <button
               type="button"
               className={"btn" + (run ? "" : " primary")}
               data-sweep-start
               disabled={!sweep.data || busy}
-              onClick={() => setDialog("start")}
+              onClick={() => { setMode("market"); setDialog("start"); }}
             >
-              {words("开始扫货", "Start sweep")}
+              {words("全市场扫货", "Full market sweep")}
             </button>
+            <button type="button" className="btn" data-sweep-recent
+              disabled={!sweep.data || busy}
+              onClick={() => { setMode("recent"); setDialog("start"); }}>
+              {words("近期命中扫货", "Sweep recent matches")}
+            </button>
+            </>
           )}
         </div>
       </div>
@@ -182,6 +191,7 @@ export default function SweepPanel({
 
       {dialog === "start" && sweep.data && (
         <StartDialog
+          mode={mode}
           profile={profile}
           devices={sweep.data.devices}
           watches={watches}
@@ -199,6 +209,7 @@ export default function SweepPanel({
 }
 
 function StartDialog({
+  mode,
   profile,
   devices,
   watches,
@@ -207,6 +218,7 @@ function StartDialog({
   onDone,
   onClose,
 }: {
+  mode: "market" | "recent";
   profile: Account;
   devices: Device[];
   watches: SweepWatch[];
@@ -224,7 +236,9 @@ function StartDialog({
       return {};
     }
   })();
-  const available = devices.filter((device) => !deviceBlocker(device, words));
+  const blockerFor = (device: Device) => deviceBlocker(device, words) ||
+    (mode === "recent" && !device.state?.sweep?.recent_scan ? words("请更新采集器", "Update collector") : null);
+  const available = devices.filter((device) => !blockerFor(device));
   const [chosen, setChosen] = useState<string[]>(() =>
     available.map((device) => device.id),
   );
@@ -232,6 +246,7 @@ function StartDialog({
   const [minutes, setMinutes] = useState(
     String((last.durationVersion === 1 && last.minutes) || DEFAULT_MINUTES),
   );
+  const [recentMinutes, setRecentMinutes] = useState("60");
   // A device that goes offline while the dialog is open is unticked.
   useEffect(() => {
     setChosen((old) =>
@@ -251,7 +266,7 @@ function StartDialog({
     minutesValue <= 10080;
   return (
     <SweepDialog
-      title={words("开始扫货", "Start sweep")}
+      title={mode === "recent" ? words("近期命中扫货", "Sweep recent matches") : words("全市场扫货", "Full market sweep")}
       submit={words("开始", "Start")}
       profile={profile}
       disabled={!valid || watches.length === 0}
@@ -265,6 +280,7 @@ function StartDialog({
           devices: chosen,
           budget: budgetValue,
           minutes: minutesValue,
+          scan: mode === "recent" ? { mode, recent_minutes: Number(recentMinutes) } : { mode },
           current_password,
         });
         save(
@@ -277,6 +293,15 @@ function StartDialog({
         await onDone(result);
       }}
     >
+      {mode === "recent" && <div className="fsec">
+        <label className="offer-field"><span>{words("命中时间范围", "Matched within")}</span>
+          <select value={recentMinutes} onChange={(event) => setRecentMinutes(event.target.value)}>
+            {[[10,"过去 10 分钟","Last 10 minutes"],[30,"过去 30 分钟","Last 30 minutes"],[60,"过去 1 小时","Last hour"],[360,"过去 6 小时","Last 6 hours"],[1440,"过去 24 小时","Last 24 hours"]].map(([value,zh,en]) =>
+              <option key={value} value={value}>{words(String(zh),String(en))}</option>)}
+          </select>
+        </label>
+        <small>{words("回访符合条件的店铺，到店后核价购买。", "Revisit matching shops and verify prices before buying.")}</small>
+      </div>}
       <SweepRules watches={watches} items={items} />
       <HoldingsRows
         devices={devices.filter((d) => chosen.includes(d.id))}
@@ -292,7 +317,7 @@ function StartDialog({
         </h4>
         {devices.length ? (
           devices.map((device) => {
-            const blocker = deviceBlocker(device, words);
+            const blocker = blockerFor(device);
             return (
               <label
                 className="filter-check sweep-device"

@@ -142,6 +142,8 @@ class DesktopTests(unittest.TestCase):
 
     def test_sweep_hooks_reach_the_scan_and_status_line(self):
         sweep = Mock()
+        sweep.lock = threading.RLock()
+        sweep.buying.return_value = False
         sweep.summary.return_value = {'enabled': True, 'units': 2, 'spent': 300, 'message': '扫货中'}
         controller = DesktopController(self.runtime, modules=self.modules, windows=lambda: [{'id': 12, 'title': 'MapleStory', 'pid': 42}], sweep=sweep, ready=lambda _:True, emergency=lambda:False)
         hooks = {}
@@ -159,6 +161,19 @@ class DesktopTests(unittest.TestCase):
         controller.read_local_status()
         self.assertEqual(controller.snapshot()['sweep'], sweep.summary.return_value)
         self.assertIs(DesktopAPI(controller)._workspace.sweep, sweep)
+
+    def test_new_web_sweep_starts_once_and_does_not_undo_manual_stop(self):
+        sweep = Mock(lock=threading.RLock(), run={'id':'new-run'})
+        sweep.buying.return_value = True
+        sweep.scan_mode.return_value = 'recent'
+        self.controller.sweep = sweep
+        with patch.object(self.controller, 'start') as start:
+            self.controller.sync_sweep()
+            self.controller.sync_sweep()
+            start.assert_called_once_with(12)
+            self.controller.command('stop')
+            self.controller.sync_sweep()
+            start.assert_called_once_with(12)
 
     def test_internal_event_names_do_not_leak_into_ui(self):
         self.assertEqual(status_text('full_scanning_room_8_channel_12'), '正在扫描 8 洞 · 12频道')

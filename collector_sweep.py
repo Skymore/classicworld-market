@@ -229,6 +229,7 @@ class SweepEngine:
         self.connected, self.connected_at = False, 0
         self.names = {}
         self.thread = None
+        self.recent_shops = set()
 
     # Local files.
     def _read_settings(self):
@@ -344,6 +345,10 @@ class SweepEngine:
             watches = {w['item_id']: w for w in self.plan['watches']}
             plan_version = self.plan_version
         owner = packet.get('owner') or {}
+        if self.scan_mode() == 'recent':
+            from sweep_routes import shop_key
+            if shop_key(location, owner.get('name')) not in self.recent_shops:
+                return
         stock = collections.Counter()
         for row in packet['items']:
             stock[stock_key(row)] += row['stock']
@@ -355,7 +360,9 @@ class SweepEngine:
                 continue
             if not self.buying():
                 return
-            self._buy(row, watch, packet, location, owner, plan_version, window)
+            result = self._buy(row, watch, packet, location, owner, plan_version, window)
+            if result is not None and result.reason == 'shop_closed':
+                break
 
     def _load(self, filename):
         try:
@@ -462,6 +469,7 @@ class SweepEngine:
             # Returning normally lets the scanner close this shop and click another.
             # An unconfirmed purchase/dialog must never receive those extra inputs.
             raise PurchaseHalt(result)
+        return result
 
     def _finish(self, order, result, note, per, run, lease, key):
         unknown = result.status == 'unknown'
@@ -701,7 +709,35 @@ class SweepEngine:
             enriched.append(dict(item_id=w['item_id'], limit=w.get('limit'), groups=w.get('groups'),
                 name=self.names.get(w['item_id'], str(w['item_id'])),
                 base_stats=(reference.get('base_stats') or {}).get(str(w['item_id']), [])))
-        return configuration(dict(watches=enriched))
+        result = configuration(dict(watches=enriched))
+        scan = (run.get('plan') or {}).get('scan') or {'mode':'market'}
+        if scan.get('mode') not in ('market','recent') or (scan['mode']=='recent' and scan.get('recent_minutes') not in (10,30,60,360,1440)):
+            raise ValueError('扫货范围无效')
+        result['scan'] = scan
+        return result
+
+    def scan_mode(self):
+        with self.lock:
+            return ((self.plan or {}).get('scan') or {}).get('mode', 'market')
+
+    def progress(self, message):
+        with self.lock:
+            if self.buying():
+                self.message = message[:80]
+
+    def recent_targets(self):
+        from sweep_routes import targets, shop_key
+        with self.lock:
+            if not self.buying() or self.scan_mode() != 'recent':
+                return []
+            run, version, plan = self.run['id'], self.plan_version, copy.deepcopy(self.plan)
+        response = self.client.call('GET', '/api/v1/device/sweep/targets', timeout=8)
+        with self.lock:
+            if not self.buying() or self.run['id'] != run or response.get('run') != run or response.get('plan_version') != version:
+                return []
+            result = targets(response.get('listings', []), plan, plan['scan']['recent_minutes'], time.time())
+            self.recent_shops = {shop_key(s, s['owner']) for s in result}
+            return result
 
     def heartbeat(self):
         with self.lock:
@@ -747,7 +783,7 @@ class SweepEngine:
             self.game_checked = now
         with self.lock:
             settings = dict(self.settings)
-        return dict(client_version=VERSION, sweep=dict(settings, executor=dict(ready=bool(executor.ready),
+        return dict(client_version=VERSION, sweep=dict(settings, recent_scan=True, executor=dict(ready=bool(executor.ready),
             reason=str(executor.reason or '')[:80]), game=dict(connected=self.game_state), holdings=read_inventory(self.folder, self.game_state)))
 
     def report(self, force=False):
@@ -785,7 +821,7 @@ class SweepEngine:
         if self.settings['max_spend'] <= 0:
             raise ValueError('请先设置本机最多花费')
         answer = self.client.call('POST', '/api/v1/device/sweep/start',
-                                  dict(budget=value['budget'], minutes=value['minutes']), timeout=10)
+                                  dict(budget=value['budget'], minutes=value['minutes'], scan=value.get('scan', {'mode':'market'})), timeout=10)
         with self.poll_lock:
             self._apply(answer.get('run'))
 

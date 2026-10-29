@@ -116,7 +116,7 @@ class PurchaseFlow:
             return None
         if self.submitted:
             if view.kind == 'rejected' and view.reason in (
-                    'sold_out', 'not_enough_mesos', 'inventory_full', 'trade_locked'):
+                    'sold_out', 'not_enough_mesos', 'inventory_full', 'trade_locked', 'shop_closed'):
                 self.outcome = PurchaseResult('not_bought', reason=view.reason)
                 self.phase = 'cleanup'
                 return Action('dismiss')

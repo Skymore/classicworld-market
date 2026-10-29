@@ -33,6 +33,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/account/sweep/stop", post(web_stop))
         .route("/api/v1/account/sweep/apply", post(web_apply))
         .route("/api/v1/device/sweep", get(device_get))
+        .route("/api/v1/device/sweep/targets", get(device_targets))
         .route("/api/v1/device/sweep/start", post(device_start))
         .route("/api/v1/device/sweep/join", post(join))
         .route("/api/v1/device/sweep/refuse", post(refuse))
@@ -262,7 +263,7 @@ async fn web_view(tx: &mut PgConnection, run: &Run) -> Result<Value, Response> {
         "price":p.price,"spent":p.spent,"reason":p.reason,"room":p.location["room"],"channel":p.location["channel"],
         "owner":p.location["owner"],"created_at":p.created_at,"settled_at":p.settled_at,
     })).collect();
-    let stale = current_plan(tx, run.account_id).await? != run.plan;
+    let stale = current_plan(tx, run.account_id).await?["watches"] != run.plan["watches"];
     Ok(json!({
         "id":run.public_id,"status":run.status,"stop_reason":run.stop_reason,"budget":run.budget,
         "spent":t.spent,"reserved":t.reserved,"unknown":t.unknown,"remaining":(run.budget-t.used()).max(0),
@@ -309,7 +310,7 @@ fn valid_limits(budget: i64, minutes: i64) -> Result<(), Response> {
     }
 }
 /// Starts a run of the account (whose row the caller locked) with the given invitees.
-async fn begin_run(tx: &mut PgConnection, account: i64, budget: i64, minutes: i64, started_by: Option<i64>, invitees: &[i64]) -> Result<(), Response> {
+async fn begin_run(tx: &mut PgConnection, account: i64, budget: i64, minutes: i64, started_by: Option<i64>, invitees: &[i64], scan: &ScanMode) -> Result<(), Response> {
     // An overdue run must not block a new one; the notice below covers it.
     sqlx::query("UPDATE sweep_runs SET status='finished',stop_reason='time_up',stopped_at=ends_at WHERE account_id=$1 AND status='running' AND ends_at<=now()")
         .bind(account).execute(&mut *tx).await.map_err(internal)?;
@@ -318,10 +319,11 @@ async fn begin_run(tx: &mut PgConnection, account: i64, budget: i64, minutes: i6
     if running {
         return Err(conflict("sweep_running"));
     }
-    let plan = current_plan(tx, account).await?;
+    let mut plan = current_plan(tx, account).await?;
     if empty(&plan) {
         return Err(conflict("no_sweep_groups"));
     }
+    plan["scan"] = json!(scan);
     let run: i64 = sqlx::query_scalar("INSERT INTO sweep_runs(public_id,account_id,plan,budget,started_by,ends_at) VALUES($1,$2,$3,$4,$5,now()+make_interval(mins=>$6)) RETURNING id")
         .bind(auth::new_credentials().public_id).bind(account).bind(&plan).bind(budget).bind(started_by).bind(minutes as i32)
         .fetch_one(&mut *tx).await.map_err(internal)?;
@@ -344,7 +346,27 @@ struct WebStart {
     budget: i64,
     minutes: i64,
     #[serde(default)]
+    scan: ScanMode,
+    #[serde(default)]
     current_password: String,
+}
+
+#[derive(Default, Deserialize, Serialize)]
+#[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
+enum ScanMode {
+    #[default]
+    Market,
+    Recent { recent_minutes: i64 },
+}
+impl ScanMode {
+    fn validate(&self) -> Result<(), Response> {
+        match self {
+            Self::Market => Ok(()),
+            Self::Recent { recent_minutes } if [10, 30, 60, 360, 1440].contains(recent_minutes) => Ok(()),
+            _ => Err(invalid()),
+        }
+    }
+    fn recent(&self) -> bool { matches!(self, Self::Recent { .. }) }
 }
 async fn web_start(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<WebStart>) -> Reply {
     let s = accounts::sensitive(&state, &headers, &input.current_password).await?;
@@ -356,6 +378,7 @@ async fn web_start(State(state): State<AppState>, headers: HeaderMap, Json(input
         return Err(invalid());
     }
     valid_limits(input.budget, input.minutes)?;
+    input.scan.validate()?;
     let mut tx = state.db.begin().await.map_err(internal)?;
     lock_account(&mut tx, s.id).await?;
     let ready: Vec<i64> = sqlx::query_scalar("SELECT id FROM account_devices WHERE account_id=$1 AND public_id=ANY($2) AND revoked_at IS NULL AND last_seen_at>now()-interval '75 seconds' AND state @> '{\"sweep\":{\"allow_web_start\":true,\"executor\":{\"ready\":true}}}'")
@@ -363,7 +386,12 @@ async fn web_start(State(state): State<AppState>, headers: HeaderMap, Json(input
     if ready.len() != ids.len() {
         return Err(conflict("device_unavailable"));
     }
-    begin_run(&mut tx, s.id, input.budget, input.minutes, None, &ready).await?;
+    if input.scan.recent() {
+        let capable: i64 = sqlx::query_scalar("SELECT count(*) FROM account_devices WHERE id=ANY($1) AND state @> '{\"sweep\":{\"recent_scan\":true}}'")
+            .bind(&ready).fetch_one(&mut *tx).await.map_err(internal)?;
+        if capable != ready.len() as i64 { return Err(conflict("collector_update_required")); }
+    }
+    begin_run(&mut tx, s.id, input.budget, input.minutes, None, &ready, &input.scan).await?;
     tx.commit().await.map_err(internal)?;
     web_reply(&state, s.id).await
 }
@@ -443,16 +471,44 @@ async fn device_get(State(state): State<AppState>, headers: HeaderMap) -> Reply 
 struct DeviceStart {
     budget: i64,
     minutes: i64,
+    #[serde(default)]
+    scan: ScanMode,
 }
 /// Started at the computer itself: no password, and only this device takes part.
 async fn device_start(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<DeviceStart>) -> Reply {
     let d = devices::device(&state, &headers).await?;
     valid_limits(input.budget, input.minutes)?;
+    input.scan.validate()?;
     let mut tx = state.db.begin().await.map_err(internal)?;
     lock_account(&mut tx, d.account).await?;
-    begin_run(&mut tx, d.account, input.budget, input.minutes, Some(d.id), &[d.id]).await?;
+    begin_run(&mut tx, d.account, input.budget, input.minutes, Some(d.id), &[d.id], &input.scan).await?;
     tx.commit().await.map_err(internal)?;
     device_reply(&state, &d).await
+}
+
+/// Current known quotes guide navigation only. The collector reapplies the
+/// complete conditions and verifies a fresh in-game listing before reserving.
+async fn device_targets(State(state): State<AppState>, headers: HeaderMap) -> Reply {
+    let d = devices::device(&state, &headers).await?;
+    let mut tx = state.db.begin().await.map_err(internal)?;
+    let run = lock_running(&mut tx, d.account).await?.ok_or_else(|| conflict("sweep_stopped"))?;
+    ensure_running(&run)?;
+    let member: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sweep_run_devices WHERE run_id=$1 AND device_id=$2 AND state='active' AND lease_expires_at>clock_timestamp())")
+        .bind(run.id).bind(d.id).fetch_one(&mut *tx).await.map_err(internal)?;
+    if !member { return Err(conflict("lease_lost")); }
+    let Some(minutes) = run.plan["scan"]["recent_minutes"].as_i64() else { return Err(invalid()) };
+    let ids: Vec<i32> = watches(&run.plan).filter_map(|w| w["item_id"].as_i64().map(|n| n as i32)).collect();
+    tx.commit().await.map_err(internal)?;
+    let now = Utc::now().timestamp() as f64;
+    let rows = crate::views::sweep_quotes(&state.db, &ids, now - (minutes * 60) as f64).await.map_err(internal)?;
+    let rows: Vec<Value> = rows.into_iter().filter(|r| {
+        let item = r["item_id"].as_i64().unwrap_or_default();
+        r["source"] == "packet" && r["location"]["room"].as_i64().is_some_and(|n| (1..=20).contains(&n))
+            && r["location"]["channel"].as_i64().is_some_and(|n| (1..=40).contains(&n))
+            && r["stock"].as_i64().is_some_and(|n| n > 0)
+            && plan_item(&run.plan, item).is_some_and(|(_, cap)| r["unit_price"].as_f64().is_some_and(|p| p > 0.0 && p <= cap))
+    }).collect();
+    Ok(Json(json!({"run":run.public_id,"plan_version":run.plan_version,"generated_at":now,"listings":rows})).into_response())
 }
 #[derive(Deserialize)]
 struct Join {

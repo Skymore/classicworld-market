@@ -18,6 +18,7 @@ export interface DeviceState {
   sweep?: {
     holdings?: Holdings | null;
     allow_web_start?: boolean;
+    recent_scan?: boolean;
     max_spend?: number;
     max_order?: number;
     reserve_mesos?: number;
@@ -76,7 +77,7 @@ export interface Run {
   started_by: string;
   plan_version: number;
   plan_stale: boolean;
-  plan?: { watches: SweepWatch[] };
+  plan?: { watches: SweepWatch[]; scan?: { mode: "market" | "recent"; recent_minutes?: number } };
   devices: RunDevice[];
   purchases: Purchase[];
   bought?: number;

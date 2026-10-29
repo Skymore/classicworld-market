@@ -22,7 +22,7 @@ const records=[
  {kind:'watch',key:'1452003',version:1,value:{position:1,cap:null,notify:false,buyLimit:1,groups:[group('g2',80000)]}},
 ];
 const device=(id,name,{online=true,allow=true,ready=true,reason='',seen=-10}={})=>({id,name,created_at:iso(-86400),last_seen_at:iso(seen),online,client_version:'0.7.0',
- state:{client_version:'0.7.0',sweep:{allow_web_start:allow,max_spend:5000000,max_order:0,reserve_mesos:0,executor:{ready,reason},holdings:{observed_at:Math.floor(now()),mesos:434333,categories:[2,3,4],items:[{item_id:2000000,quantity:189},{item_id:2070000,quantity:500}]}}}});
+ state:{client_version:'0.7.0',sweep:{allow_web_start:allow,recent_scan:true,max_spend:5000000,max_order:0,reserve_mesos:0,executor:{ready,reason},holdings:{observed_at:Math.floor(now()),mesos:434333,categories:[2,3,4],items:[{item_id:2000000,quantity:189},{item_id:2070000,quantity:500}]}}}});
 const statuses=['bought','not_bought','held','unknown','expired'];
 const purchases=Array.from({length:24},(_,i)=>({id:'p'+i,device:'dev-a',item_id:[2000000,1452003,2070000][i%3],status:statuses[i%5],quantity:i%3===2?1:2,units:i%3===2?500:2,price:i%3===1?75000:50,
  spent:statuses[i%5]==='bought'?(i%3===1?75000:100):0,reason:statuses[i%5]==='not_bought'?'sold_out':null,room:3,channel:12,owner:'店主'+i,created_at:iso(-i*30),settled_at:iso(-i*30+5)}));
@@ -198,7 +198,7 @@ try{
    await page.screenshot({path:path.join(shots,`sweep-start-${tag}.png`)});
   }
   await dialog.locator('[data-sweep-submit]').click();await dialog.waitFor({state:'detached'});
-  assert.deepEqual(lastCall('/sweep/start').body,{devices:['dev-a'],budget:5000000,minutes:10080,current_password:mobile?'':PASSWORD});
+  assert.deepEqual(lastCall('/sweep/start').body,{devices:['dev-a'],budget:5000000,minutes:10080,scan:{mode:'market'},current_password:mobile?'':PASSWORD});
   assert.equal(lastCall('/sweep/start').csrf,CSRF);
   // The running panel stays compact; all details live in the accessible dialog.
   assert.equal(await panel.getAttribute('data-sweep-state'),'running');
@@ -271,6 +271,21 @@ try{
   await close();
   await page.locator('[data-sweep-summary]').filter({hasText:'已结束 · 已停止'}).waitFor();
   assert.equal(await page.locator('[data-sweep-start]').isVisible(),true);
+  await page.locator('[data-sweep-recent]').click();
+  await dialog.waitFor();
+  assert.equal(await dialog.getByLabel('命中时间范围').inputValue(),'60');
+  assert.equal(await dialog.getByLabel('命中时间范围').locator('option').count(),5);
+  if(mobile)assert((await dialog.getByLabel('命中时间范围').evaluate(e=>parseFloat(getComputedStyle(e).fontSize)))>=16);
+  state.devices[0].state.sweep.recent_scan=false;emit('devices');
+  await choice('dev-a').getByText('请更新采集器').waitFor();
+  assert(await dialog.locator('[data-sweep-submit]').isDisabled());
+  state.devices[0].state.sweep.recent_scan=true;emit('devices');
+  await waitFor(async()=>!(await choice('dev-a').locator('input').isDisabled()),'new collector can run recent route');
+  await choice('dev-a').locator('input').check();
+  await dialog.locator('[name=budget]').fill('100000');
+  if(!mobile)await dialog.locator('[name=current_password]').fill(PASSWORD);
+  await dialog.locator('[data-sweep-submit]').click();await dialog.waitFor({state:'detached'});
+  assert.deepEqual(lastCall('/sweep/start').body.scan,{mode:'recent',recent_minutes:60});
   state.run={...state.run,status:'finished',stop_reason:'time_up'};emit('sweep');
   await page.locator('[data-sweep-summary]').filter({hasText:'已结束 · 时间到'}).waitFor();
   assert(await noOverflow(page));await page.screenshot({path:path.join(shots,`sweep-finished-${tag}.png`)});
