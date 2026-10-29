@@ -19,6 +19,7 @@ from collector_update import VERSION
 import truststore
 from collector_http import request_json
 from collector_recovery import retry_delay
+from collector_network import HTTPHandler, HTTPSHandler
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -27,8 +28,8 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def upload_opener():
     # Use the operating system's trusted roots, including managed Windows roots.
-    opener = urllib.request.build_opener(NoRedirect,
-        urllib.request.HTTPSHandler(context=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)))
+    opener = urllib.request.build_opener(NoRedirect, HTTPHandler,
+        HTTPSHandler(context=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)))
     opener.addheaders = [('User-Agent',
         'ClassicWorldCollector/0.2 (+https://github.com/Skymore/classicworld-market)')]
     return opener
