@@ -55,6 +55,7 @@ class PkceAndLoginTests(unittest.TestCase):
     def login(self):
         client = Mock()
         client.endpoint.return_value = 'https://mxd.ruit.me'
+        client.configuration.return_value = {'endpoint': 'https://mxd.ruit.me'}
         login = DeviceLogin(client, name='书房电脑')
         login.redirect_uri = 'http://127.0.0.1:8780/callback'
         url = login.begin()
@@ -81,6 +82,26 @@ class PkceAndLoginTests(unittest.TestCase):
         client.exchange.assert_called_once()
         self.assertEqual(client.exchange.call_args.args, (code, client.exchange.call_args.args[1], 'http://127.0.0.1:8780/callback'))
         self.assertIsNone(login.finish({'state': [state], 'code': [code]}), 'no replay after completion')
+
+    def test_local_api_can_use_public_browser_login_without_changing_exchange(self):
+        with tempfile.TemporaryDirectory() as home:
+            client = DeviceClient({'endpoint': 'http://127.0.0.1:8766',
+                                  'login_endpoint': 'https://mxd.ruit.me'}, home)
+            client.exchange = Mock()
+            login = DeviceLogin(client, name='PC')
+            login.redirect_uri = 'http://127.0.0.1:8780/callback'
+            self.assertTrue(login.begin().startswith('https://mxd.ruit.me/device?'))
+            self.assertEqual(client.endpoint(), 'http://127.0.0.1:8766')
+            verifier = login.pending['verifier']
+            self.assertTrue(login.finish({'state': [login.pending['state']], 'code': ['C'*43]})[0])
+            client.exchange.assert_called_once_with('C'*43, verifier, login.redirect_uri)
+
+    def test_browser_login_rejects_untrusted_origins(self):
+        for value in ('https://evil.example', 'https://mxd.ruit.me.evil',
+                      'http://mxd.ruit.me', 'https://mxd.ruit.me/path',
+                      'https://user:password@mxd.ruit.me'):
+            with self.subTest(origin=value), self.assertRaises(ValueError):
+                account_device.browser_endpoint({'endpoint': 'http://127.0.0.1:8766', 'login_endpoint': value})
 
     def test_cancel_bad_code_failed_exchange_and_expiry(self):
         client, login, _, _ = self.login()

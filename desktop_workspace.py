@@ -2,8 +2,8 @@
 import json
 import urllib.request
 from urllib.parse import urlsplit
-from account_device import DeviceError
-from collector_dashboard import Gateway, safe_endpoint
+from account_device import DeviceError, browser_endpoint
+from collector_dashboard import Gateway
 
 ERRORS = {'login_required': '请重新登录账号', 'sweep_running': '已有进行中的扫货',
           'rate_limited': '操作太频繁，请稍后再试', 'no_sweep_groups': '请先在关注中勾选可扫货的条件组',
@@ -73,7 +73,7 @@ class DesktopWorkspace:
         if action == 'login':
             import webbrowser
             url = self.local('/api/v1/device/login', {}).get('url', '')
-            expected = safe_endpoint(self.runtime.configuration()['endpoint'])+'/device?'
+            expected = browser_endpoint(self.runtime.configuration())+'/device?'
             if not isinstance(url, str) or not url.startswith(expected) or len(url) > 2048:
                 raise ValueError('登录地址无效')
             webbrowser.open(url)

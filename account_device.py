@@ -25,6 +25,12 @@ CODE = re.compile(r'[A-Za-z0-9_-]{43}')
 MAX_RESPONSE = 8*1024*1024
 
 
+def browser_endpoint(config):
+    """Keep browser cookies on the login origin while a host uses a local API."""
+    from collector_dashboard import safe_endpoint
+    return safe_endpoint(config.get('login_endpoint', config['endpoint']))
+
+
 def challenge_for(verifier):
     return base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
 
@@ -367,7 +373,7 @@ class DeviceLogin:
         state = secrets.token_urlsafe(32)
         with self.lock:
             self.pending = dict(state=state, verifier=verifier, expires=time.monotonic()+self.TTL)
-        return self.client.endpoint()+'/device?'+urlencode(dict(redirect_uri=self.redirect_uri,
+        return browser_endpoint(self.client.configuration())+'/device?'+urlencode(dict(redirect_uri=self.redirect_uri,
             state=state, challenge=challenge, name=self.name))
 
     def active(self):

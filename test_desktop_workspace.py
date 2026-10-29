@@ -67,4 +67,16 @@ class DesktopWorkspaceTests(unittest.TestCase):
         for action in ('shell','save','simulate'):
             with self.assertRaises(ValueError):self.workspace.run(action,'anything')
 
+    def test_local_api_opens_public_login_and_rejects_the_old_local_login(self):
+        self.workspace.runtime.configuration.return_value = {
+            'endpoint': 'http://127.0.0.1:8766', 'login_endpoint': 'https://mxd.ruit.me'}
+        with patch('webbrowser.open') as browser, patch.object(self.workspace, 'local') as local:
+            local.return_value = {'url': 'http://127.0.0.1:8766/device?state=test'}
+            with self.assertRaises(ValueError):
+                self.workspace.run('login')
+            browser.assert_not_called()
+            local.return_value = {'url': 'https://mxd.ruit.me/device?state=test'}
+            self.assertEqual(self.workspace.run('login'), {'opened': True})
+            browser.assert_called_once_with(local.return_value['url'])
+
 if __name__=='__main__':unittest.main()
