@@ -78,7 +78,7 @@ def configuration(raw):
         if not isinstance(base, list) or len(base) > 32:
             raise ValueError('基础属性无效')
         base = {str(k): number(v, 0, 65535) for k, v in base if k in STATS}
-        watches.append(dict(item_id=iid, name=str(w.get('name') or iid)[:120], limit=number(w.get('limit'), 1, 9999), groups=safe, base=base))
+        watches.append(dict(item_id=iid, name=str(w.get('name') or iid)[:120], limit=number(w.get('limit'), 0, 9999), groups=safe, base=base))
     if not any(w['groups'] for w in watches):
         raise ValueError('没有可扫货的条件组')
     return dict(watches=watches)
@@ -384,8 +384,10 @@ class SweepEngine:
             self.seen.add(key)
             run, lease, settings = self.run['id'], self.lease, dict(self.settings)
             spent = max(self.spent, self.run.get('spent_here') if type(self.run.get('spent_here')) is int else 0)
-            caps = [('item_limit', (watch['limit']-self.units.get(row['item_id'], 0))//per),
-                    ('max_spend', (settings['max_spend']-spent)//price)]
+            caps = [('max_spend', (settings['max_spend']-spent)//price)]
+            # Zero removes only the cumulative item cap; every money/stock guard remains.
+            if watch['limit'] > 0:
+                caps.insert(0, ('item_limit', (watch['limit']-self.units.get(row['item_id'], 0))//per))
             if type(self.run.get('remaining')) is int:
                 caps.append(('budget', self.run['remaining']//price))
         prepare = getattr(self.purchaser, 'prepare', None)

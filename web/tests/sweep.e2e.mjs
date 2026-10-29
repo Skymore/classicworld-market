@@ -158,6 +158,15 @@ try{
   assert.equal(await panel.getAttribute('data-sweep-state'),'idle');
   assert.equal(await page.locator('[data-sweep-summary]').innerText(),'2 组已选');
   assert.equal(await page.locator('[data-card="2000000"] .wg-rule input[type=checkbox]').count(),2,'signed-in web shows the per-group sweep box');
+  const unlimited=page.getByLabel('红药水数量不限',{exact:true});
+  await unlimited.check();
+  await waitFor(()=>records[0].value.buyLimit===0,'unlimited quantity syncs to account');
+  await page.reload();await unlimited.waitFor();
+  assert.equal(await unlimited.isChecked(),true,'unlimited survives account reload');
+  assert.equal(await page.getByLabel('红药水本轮购买上限',{exact:true}).count(),0);
+  await unlimited.uncheck();
+  await page.getByLabel('红药水本轮购买上限',{exact:true}).fill('20');
+  await waitFor(()=>records[0].value.buyLimit===20,'finite limit can be restored');
   assert(await noOverflow(page));await page.screenshot({path:path.join(shots,`sweep-idle-${tag}.png`)});
   await page.locator('[data-sweep-start]').click();
   const dialog=page.locator('.sweep-dialog');await dialog.waitFor();

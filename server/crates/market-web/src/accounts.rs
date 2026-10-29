@@ -706,7 +706,7 @@ pub(crate) fn valid_record(r: &Record) -> bool {
                 o.len() <= 6
                     && o.keys().all(|k| matches!(k.as_str(), "cap" | "notify" | "position" | "reminder" | "groups" | "buyLimit"))
                     && o.get("reminder").is_none_or(valid_reminder)
-                    && o.get("buyLimit").is_none_or(|v| v.as_u64().is_some_and(|n| (1..=9999).contains(&n)))
+                    && o.get("buyLimit").is_none_or(|v| v.as_u64().is_some_and(|n| (0..=9999).contains(&n)))
                     && o.get("groups").is_none_or(|v| v.as_array().is_some_and(|groups| {
                         let mut ids = std::collections::HashSet::new();
                         groups.len() <= 12 && groups.iter().all(|g| valid_watch_group(g) && ids.insert(g["id"].as_str().unwrap_or_default()))

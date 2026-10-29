@@ -101,8 +101,8 @@ fn within_cap(item: i64, price: i64, bundle: i64, cap: f64) -> bool {
     unit <= cap
 }
 /// Purchases granted, or the reason none can be.
-fn granted(quantity: i64, stock: i64, units_left: i64, per: i64, budget_left: i64, price: i64) -> Result<i64, &'static str> {
-    let by_units = units_left.max(0) / per;
+fn granted(quantity: i64, stock: i64, units_left: Option<i64>, per: i64, budget_left: i64, price: i64) -> Result<i64, &'static str> {
+    let by_units = units_left.map(|left| left.max(0) / per).unwrap_or(quantity);
     let by_budget = budget_left.max(0) / price;
     match quantity.min(stock).min(by_units).min(by_budget) {
         0 if by_units == 0 => Err("item_limit"),
@@ -630,7 +630,9 @@ async fn reserve(State(state): State<AppState>, headers: HeaderMap, Json(input):
     }
     let budget_left = run.budget - totals(&mut tx, run.id, None).await?.used();
     let per = units_per(input.item_id, input.bundle);
-    let units_left = limit - item_units(&mut tx, run.id).await?.get(&input.item_id).copied().unwrap_or(0);
+    let units_left = if limit == 0 { None } else {
+        Some(limit - item_units(&mut tx, run.id).await?.get(&input.item_id).copied().unwrap_or(0))
+    };
     let count = match granted(input.quantity, input.stock, units_left, per, budget_left, input.price) {
         Ok(n) => n,
         Err(reason) => return refused(reason),
@@ -760,14 +762,17 @@ mod tests {
     }
     #[test]
     fn grants_are_bounded_by_quantity_stock_units_and_budget() {
-        assert_eq!(granted(5, 3, 100, 1, 1_000, 10), Ok(3));
-        assert_eq!(granted(5, 9, 2, 1, 1_000, 10), Ok(2));
-        assert_eq!(granted(5, 9, 250, 100, 1_000, 10), Ok(2));
-        assert_eq!(granted(5, 9, 100, 1, 25, 10), Ok(2));
-        assert_eq!(granted(5, 9, 0, 1, 1_000, 10), Err("item_limit"));
-        assert_eq!(granted(5, 9, 99, 100, 1_000, 10), Err("item_limit"));
-        assert_eq!(granted(5, 9, 100, 1, 9, 10), Err("budget"));
-        assert_eq!(granted(5, 9, 100, 1, -5, 10), Err("budget"));
+        assert_eq!(granted(20_000, 15_000, None, 1, 1_000_000, 10), Ok(15_000));
+        assert_eq!(granted(20_000, 15_000, None, 1, 25, 10), Ok(2));
+        assert_eq!(granted(5, 9, None, 1, 9, 10), Err("budget"));
+        assert_eq!(granted(5, 3, Some(100), 1, 1_000, 10), Ok(3));
+        assert_eq!(granted(5, 9, Some(2), 1, 1_000, 10), Ok(2));
+        assert_eq!(granted(5, 9, Some(250), 100, 1_000, 10), Ok(2));
+        assert_eq!(granted(5, 9, Some(100), 1, 25, 10), Ok(2));
+        assert_eq!(granted(5, 9, Some(0), 1, 1_000, 10), Err("item_limit"));
+        assert_eq!(granted(5, 9, Some(99), 100, 1_000, 10), Err("item_limit"));
+        assert_eq!(granted(5, 9, Some(100), 1, 9, 10), Err("budget"));
+        assert_eq!(granted(5, 9, Some(100), 1, -5, 10), Err("budget"));
     }
     #[test]
     fn results_stay_within_the_reservation() {

@@ -85,7 +85,7 @@ export function readSettings(storage, ids) {
     found[id] = { cap: validCap(s?.cap), notify: s?.notify !== false };
     if (s?.reminder && typeof s.reminder === 'object' && !Array.isArray(s.reminder)) found[id].reminder = s.reminder;
     if (Array.isArray(s?.groups)) found[id].groups = s.groups.slice(0, 12);
-    if (Number.isInteger(s?.buyLimit) && s.buyLimit > 0 && s.buyLimit <= 9999) found[id].buyLimit = s.buyLimit;
+    if (Number.isInteger(s?.buyLimit) && s.buyLimit >= 0 && s.buyLimit <= 9999) found[id].buyLimit = s.buyLimit;
   }
   return found;
 }

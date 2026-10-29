@@ -11,6 +11,13 @@ const { combinedNotifications, readSettings } = await import(await source('watch
 const item = 2000000, gear = 1452003;
 const row = (id, price, patch = {}) => ({ id, item_id: item, unit_price: price, stock: 5, observed: 110, ...patch });
 const rows = Array.from({ length: 10 }, (_, index) => row(String(index), (index + 1) * 100));
+
+test('quantity settings preserve explicit unlimited and reject invalid limits',()=>{
+  for(const limit of [0,1,9999,-1,10000,true]){
+    const saved=readSettings({getItem:()=>JSON.stringify({[item]:{buyLimit:limit}})},[item]);
+    assert.equal(saved[item].buyLimit,[0,1,9999].includes(limit)?limit:undefined);
+  }
+});
 test('groups use OR, notifications use their own toggles, deleting last group matches nothing',()=>{
   const settings={[item]:{groups:[{id:'a',name:'A',cap:200,notify:false},{id:'b',name:'B',cap:300,notify:true}]}};
   assert.equal(matchingReminders(rows,[item],settings).length,3);

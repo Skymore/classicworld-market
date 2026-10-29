@@ -335,6 +335,20 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(self.engine.spent,19300)
         self.assertEqual(self.engine.status()['sweep']['recent'][0]['reason'],'item_limit')
 
+    def test_unlimited_quantity_keeps_budget_and_per_order_guards(self):
+        self.joined(max_spend=15000)
+        self.engine.plan = configuration(plan(limit=0))
+        self.engine.units[ITEM] = 20000
+        self.purchaser.max_quantity = 100
+        self.engine.run['remaining'] = 15000
+        rows = [dict(item_id=ITEM, slot=slot, price_mesos_candidate=100,
+                     bundle_quantity_candidate=1, available_quantity_candidate=500) for slot in (1, 2, 3)]
+        self.engine.on_shop_open(self.capture(items=rows), 'w')
+        self.assertEqual([o.quantity for o, _ in self.purchaser.orders], [100, 50])
+        self.assertEqual(self.engine.units[ITEM], 20150)
+        self.assertEqual(self.engine.spent, 15000)
+        self.assertEqual(self.engine.status()['sweep']['recent'][0]['reason'], 'max_spend')
+
     def test_ammunition_counts_sets_and_bundles_count_items(self):
         self.joined()
         rows = [dict(item_id=ITEM, slot=1, price_mesos_candidate=180, bundle_quantity_candidate=2, available_quantity_candidate=10)]
@@ -550,7 +564,7 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(clean['watches'][0]['groups'][0]['max_upgrades'], 0)
         for bad in [{'watches': []}, {'watches': [dict(item_id=ITEM, limit=2, groups=[dict(group(), buy=False)])]},
                     {'watches': [dict(item_id=ITEM, limit=2, groups=[dict(group(), cap=None)])]},
-                    {'watches': [dict(item_id=ITEM, limit=0, groups=[group()])]}, {'mode': 'simulate'}]:
+                    {'watches': [dict(item_id=ITEM, limit=-1, groups=[group()])]}, {'mode': 'simulate'}]:
             with self.assertRaises(ValueError):
                 configuration(bad)
 

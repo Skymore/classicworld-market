@@ -142,6 +142,34 @@ fn units(run: &Value, item: i64) -> i64 {
 }
 
 #[tokio::test]
+async fn unlimited_watch_buys_past_9999_but_never_past_budget() {
+    let Some(db) = TestDb::new().await else { return };
+    let s = AppState::new(db.pool.clone(), Settings::default());
+    let w = signup(&s, "unlimited_owner").await;
+    watch(&s, &w, 2000001, 130, 0, 0).await;
+    let (token, _) = ready_device(&s, &w, "PC").await;
+    let run = device_start(&s, &token, 1300520).await;
+    let lease = join(&s, &token, &run, 1).await;
+    let mut first = order(&run, &lease, 901, 2000001, 130);
+    first["quantity"] = json!(9999);
+    first["stock"] = json!(9999);
+    let (n, id) = grant(&s, &token, first).await;
+    assert_eq!(n, 9999);
+    assert_eq!(settle(&s, &token, &id, "bought", n, n*130, "").await, StatusCode::OK);
+    let mut next = order(&run, &lease, 902, 2000001, 130);
+    next["quantity"] = json!(100);
+    next["stock"] = json!(100);
+    let (n, id) = grant(&s, &token, next).await;
+    assert_eq!(n, 5, "remaining budget still caps the unlimited item");
+    assert_eq!(settle(&s, &token, &id, "bought", n, n*130, "").await, StatusCode::OK);
+    let summary = run_view(&s, &w).await;
+    assert_eq!(units(&summary, 2000001), 10004);
+    assert_eq!(summary["remaining"], 0);
+    assert_eq!(summary["items"][0]["limit"], 0);
+    db.close().await;
+}
+
+#[tokio::test]
 async fn device_login_uses_a_single_use_pkce_code() {
     let Some(db) = TestDb::new().await else { return };
     let s = AppState::new(db.pool.clone(), Settings::default());
