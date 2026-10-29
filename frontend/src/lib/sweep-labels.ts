@@ -89,6 +89,7 @@ const REASONS: Record<string, [string, string]> = {
   price_changed: ["价格变了", "Price changed"],
   not_enough_mesos: ["金币不足", "Not enough mesos"],
   inventory_full: ["背包满了", "Inventory full"],
+  trade_locked: ["游戏账号尚未解锁交易", "Game trading is locked"],
   shop_closed: ["商店已关", "Shop closed"],
   window_lost: ["窗口丢失", "Window lost"],
   timeout: ["超时", "Timed out"],

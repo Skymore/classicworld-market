@@ -90,6 +90,11 @@ try{
   const tag=mobile?'phone':'desktop';
   const context=await browser.newContext({viewport:{width:mobile?390:1280,height:mobile?844:900},isMobile:mobile,hasTouch:mobile});
   const page=await context.newPage();page.setDefaultTimeout(10000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  // A returning browser can retain the pre-device account module for four
+  // hours at the CDN. New account/watch chunks must work with that stale URL.
+  await page.route('**/web/js/lib/user-data.js', route=>route.fulfill({
+   contentType:'text/javascript',body:'export const userStorage=localStorage; export const ready=Promise.resolve();',
+  }));
   const callbacks=[];await page.route('http://127.0.0.1:43123/**',route=>{callbacks.push(route.request().url());route.fulfill({contentType:'text/html',body:'<p>callback</p>'});});
 
   // /device: invalid links show only an error.
