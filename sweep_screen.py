@@ -178,7 +178,15 @@ class Reader:
         for start in range(max(1, len(ordered)-5)):
             count = min(6, len(ordered)-start)
             readable = [i for i in range(count) if visible[i] is not None]
-            if len(readable) >= min(2,count) and all(self.row_matches(visible[i], ordered[start+i]) for i in readable):
+            # New cash equipment can be absent from the local catalog. Its
+            # readable price/bundle still must agree, but it is not a name
+            # anchor and can never become a purchase target. Other known
+            # rows must uniquely establish this page's raw packet offset.
+            anchors = [i for i in readable if self.names.get(ordered[start+i]['item_id'])]
+            agrees = all(self.row_matches(visible[i], ordered[start+i]) if i in anchors
+                         else (visible[i].price, visible[i].bundle) ==
+                              (ordered[start+i]['price'], ordered[start+i]['bundle']) for i in readable)
+            if len(anchors) >= min(2,count) and agrees:
                 if all(row is None for row in visible[count:]):
                     candidates.append(start)
         return candidates[0] if len(candidates) == 1 else None
@@ -192,6 +200,6 @@ class Reader:
             return 'quantity', int(value) if value and re.fullmatch(r'[1-9][0-9]{0,3}', value) else None
         if self.matches(image, 'confirm-prompt', 611, 369) and self.matches(image, 'cancel', 763, 414):
             text = self.dialog_font.read(image[353:367, 568:800, :3].min(axis=2) > 240, spaces=False)
-            match = re.fullmatch(r'Thetotalpriceis([0-9]+)mesos\.', text or '')
-            return 'confirm', int(match[1]) if match else None
+            match = re.fullmatch(r'Thetotalpriceis([0-9,]+)mesos\.', text or '')
+            return 'confirm', money(match[1]) if match else None
         return None, None

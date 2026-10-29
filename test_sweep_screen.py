@@ -32,13 +32,13 @@ class ScreenTests(unittest.TestCase):
 
     def test_dialog_exact_digits_and_corruption(self):
         r = self.reader
-        for amount in (22, 110, 198, 299):
+        for amount in (22, 110, 198, 299, 14000, 27907):
             image = np.zeros((768,1366,3),dtype=np.uint8)
             for name,x,y in [('confirm-prompt',611,369),('cancel',763,414)]:
                 t=r.templates[name];image[y:y+t.shape[0],x:x+t.shape[1]]=t
             x=590
             glyphs=dict(r.dialog_font.glyphs)
-            for ch in f'Thetotalpriceis{amount}mesos.':
+            for ch in f'Thetotalpriceis{amount:,}mesos.':
                 glyph=glyphs[ch];mask=np.array([[p=='#' for p in row] for row in glyph])
                 image[353:367,x:x+len(glyph[0])][mask]=255
                 x+=len(glyph[0])+1
@@ -64,6 +64,32 @@ class ScreenTests(unittest.TestCase):
         self.assertTrue(self.reader.row_matches(visible,packet))
         self.assertFalse(self.reader.row_matches(visible,packet,complete=True))
         self.assertFalse(self.reader.row_matches(replace(visible,price=12222),packet))
+
+    def test_scrolled_page_with_uncatalogued_cash_item(self):
+        ids = [1082063,1302010,1402005]+[2000001]*5+[2040707,2040706,2040302,1107052]
+        prices = [40000,9000,12000]+[140]*5+[20000,5000,12000,70000]
+        ordered = [dict(item_id=i,bundle=1,price=p) for i,p in zip(ids,prices)]
+        page = [Row(self.reader.names.get(r['item_id'],'Coffin of Gloom'),1,r['price'],True,False)
+                for r in ordered[6:]]
+        self.assertEqual(self.reader.offset(page,ordered),6)
+        self.assertFalse(self.reader.row_matches(page[-1],ordered[-1],complete=True))
+        page[-1] = replace(page[-1],price=7000)
+        self.assertIsNone(self.reader.offset(page,ordered))
+        unknown = [dict(item_id=1107052,bundle=1,price=70000)]*6
+        self.assertIsNone(self.reader.offset([Row('Coffin of Gloom',1,70000,True,False)]*6,unknown))
+
+    def test_quantity_readback_includes_zeroes_and_multiple_digits(self):
+        r=self.reader
+        for amount in (1,20,100,193,200,9999):
+            image=np.full((768,1366,3),255,dtype=np.uint8)
+            for name,x,y in [('quantity-prompt',566,347),('quantity-cancel',763,416)]:
+                t=r.templates[name];image[y:y+t.shape[0],x:x+t.shape[1]]=t
+            x=571;glyphs=dict(r.input_font.glyphs)
+            for ch in str(amount):
+                glyph=glyphs[ch];mask=np.array([[p=='#' for p in row] for row in glyph])
+                image[373:385,x:x+len(glyph[0])][mask]=0
+                x+=len(glyph[0])+1
+            self.assertEqual(r.dialog(image),('quantity',amount))
 
 
 class ScriptedReader:
@@ -118,7 +144,7 @@ class NativeFlowTests(unittest.TestCase):
         def pause(seconds):self.now+=seconds
         window=SimpleNamespace(capture_file='visit.json',pause=pause)
         buyer=WindowsPurchaser(ScriptedReader(frames),lambda window:self.control,lambda:self.now)
-        with patch('sweep_purchaser_windows.ordered_snapshot',return_value=('Potions',[{}]*8,7)):
+        with patch('sweep_purchaser_windows.ordered_snapshot',return_value=('Potions',[{'stock':200}]*8,7)):
             return buyer.buy(order or self.order,window)
 
     def test_scroll_twice_realign_select_and_buy_exactly_once(self):
@@ -149,9 +175,30 @@ class NativeFlowTests(unittest.TestCase):
         self.assertEqual(self.run_buy(order=order),PurchaseResult('not_bought',reason='stopped'))
         self.assertEqual(self.control.actions,[(638,537)])
 
-    def test_unsupported_batch_does_not_input(self):
-        self.assertEqual(self.run_buy(order=replace(self.order,quantity=2)),PurchaseResult('not_bought',reason='error'))
-        self.assertEqual(self.control.actions,[])
+    def test_scroll_then_buy_many_bundles_with_exact_debit(self):
+        for count in (20,100,193):
+            with self.subTest(count=count):
+                self.setUp()
+                for frame in self.frames:frame['balance']=50000
+                self.frames[5]['number']=count
+                self.frames[-2]['number']=135*count
+                self.frames[-1]['balance']=50000-135*count
+                self.assertEqual(self.run_buy(order=replace(self.order,quantity=count)),
+                                 PurchaseResult('bought',count,135*count))
+                self.assertIn(('quantity',count),self.control.actions)
+                self.assertEqual(self.control.actions.count((735,421)),1)
+
+    def test_partial_debit_cannot_settle_full_batch(self):
+        self.frames[5]['number']=3
+        self.frames[-2]['number']=405
+        with self.assertRaises(PurchaseHalt) as caught:self.run_buy(order=replace(self.order,quantity=3))
+        self.assertEqual(caught.exception.result.status,'unknown')
+        self.assertEqual(self.control.actions.count((735,421)),1)
+
+    def test_invalid_quantity_does_not_input(self):
+        for count in (0,-1,True,1.0,10000):
+            self.assertEqual(self.run_buy(order=replace(self.order,quantity=count)),PurchaseResult('not_bought',reason='error'))
+            self.assertEqual(self.control.actions,[])
 
     def test_rechargeable_ammo_is_not_a_native_beta_buy_target(self):
         self.assertEqual(self.run_buy(order=replace(self.order,item_id=2070009)),

@@ -1,7 +1,8 @@
 """Conservative Windows native purchaser, running on the scanner input thread.
 
-Initial beta: standard 1366x768 player stores, fully readable non-equipment
-listings, one bundle per reservation. Scroll position is recovered from the
+Standard 1366x768 player stores, fully readable non-equipment listings.
+Quantity is bounded by the reservation and read back before confirmation.
+Scroll position is recovered from the
 entire visible page against RAW packet order, never from category/slot sorting.
 """
 import ctypes
@@ -62,8 +63,8 @@ class WindowsInput:
         self.move()
 
     def quantity(self, value, allowed):
-        if value != 1:
-            raise ValueError('Initial native beta buys one bundle per reservation')
+        if type(value) is not int or not 1 <= value <= 9999:
+            raise ValueError('Native quantity must be between 1 and 9999')
         from market_keyboard import Input, KeyboardInput
         self.user.SendInput.argtypes = [ctypes.c_uint, ctypes.POINTER(Input), ctypes.c_int]
         self.user.SendInput.restype = ctypes.c_uint
@@ -86,11 +87,13 @@ class WindowsInput:
         finally:
             key(0x1e, False)
             key(0x1d, False)
-        try:
-            key(0x02, True)
-            self.window.pause(.03)
-        finally:
-            key(0x02, False)
+        for digit in str(value):
+            scan = 0x0b if digit == '0' else int(digit)+1
+            try:
+                key(scan, True)
+                self.window.pause(.03)
+            finally:
+                key(scan, False)
         self.move()
 
 
@@ -120,7 +123,7 @@ def ordered_snapshot(filename, order, now=time.time):
 
 
 class WindowsPurchaser:
-    max_quantity = 1
+    max_quantity = 9999
 
     def __init__(self, reader=None, input_factory=WindowsInput, clock=time.monotonic):
         self.reader = reader or Reader()
@@ -146,7 +149,8 @@ class WindowsPurchaser:
 
     def buy(self, order, window):
         flow = PurchaseFlow(order, self.clock)
-        if (order.quantity != 1 or order.category == 1 or order.equipment is not None
+        if (type(order.quantity) is not int or not 1 <= order.quantity <= self.max_quantity
+                or order.category == 1 or order.equipment is not None
                 or order.item_id//10000 in (207, 233)):
             return PurchaseResult('not_bought', reason='error')
         try:
@@ -198,15 +202,16 @@ class WindowsPurchaser:
                     if not self.reader.row_matches(visible, ordered[target], complete=True):
                         flow.halt('price_changed')
                     self.mesos = self.reader.balance(image)
-                    # Active (black) rows prove at least one bundle is available.
-                    # Do not invent an exact count from the old packet snapshot.
-                    stock = int(visible.available)
+                    # The fresh capture supplies the available bundle count;
+                    # grey text vetoes a listing sold out since that capture.
+                    # The game must then echo our quantity and exact total.
+                    stock = ordered[target]['stock'] if visible.available else 0
                     stock_pixels = image[330+40*screen_row:342+40*screen_row,428:461]
                     receipt = None
                     if flow.submitted and before_balance is not None and self.mesos is not None:
-                        if (before_balance-self.mesos == order.price and selected_row == screen_row
+                        if (before_balance-self.mesos == order.quantity*order.price and selected_row == screen_row
                                 and before_stock is not None and not np.array_equal(before_stock, stock_pixels)):
-                            receipt = Receipt(order.reservation, flow.listing, 1, order.price)
+                            receipt = Receipt(order.reservation, flow.listing, order.quantity, order.quantity*order.price)
                     view = View('shop', flow.listing, stock=stock, mesos=self.mesos,
                                 selected=visible.selected, receipt=receipt, shop_verified=True)
                 else:

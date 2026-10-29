@@ -321,6 +321,20 @@ class EngineTests(unittest.TestCase):
         self.engine.on_shop_open(self.capture('shop_e.json', owner=5), 'w')
         self.assertEqual(self.engine.status()['sweep']['recent'][0]['reason'], 'reserve_mesos')
 
+    def test_batch_orders_use_remaining_item_allowance_across_listings(self):
+        self.joined()
+        self.engine.plan = configuration(plan(limit=193))
+        self.purchaser.max_quantity = 9999
+        self.purchaser.mesos = 50000
+        self.engine.run['remaining'] = 97527
+        rows = [dict(item_id=ITEM, slot=slot, price_mesos_candidate=100,
+                     bundle_quantity_candidate=1, available_quantity_candidate=100) for slot in (1,2,3)]
+        self.engine.on_shop_open(self.capture(items=rows), 'w')
+        self.assertEqual([o.quantity for o,_ in self.purchaser.orders], [100,93])
+        self.assertEqual(self.engine.units[ITEM],193)
+        self.assertEqual(self.engine.spent,19300)
+        self.assertEqual(self.engine.status()['sweep']['recent'][0]['reason'],'item_limit')
+
     def test_ammunition_counts_sets_and_bundles_count_items(self):
         self.joined()
         rows = [dict(item_id=ITEM, slot=1, price_mesos_candidate=180, bundle_quantity_candidate=2, available_quantity_candidate=10)]
