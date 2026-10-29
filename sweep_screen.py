@@ -35,8 +35,10 @@ def bitmap(mask):
 
 
 class Font:
-    def __init__(self, path):
+    def __init__(self, path, extra=None):
         self.glyphs = [(ch, tuple(rows)) for ch, rows in json.loads(path.read_text())['glyphs']]
+        if extra is not None:
+            self.glyphs.extend((ch, tuple(rows)) for ch, rows in json.loads(extra.read_text())['glyphs'])
         self.lookup = {rows: ch for ch, rows in self.glyphs}
 
     def split(self, rows):
@@ -100,7 +102,7 @@ class Reader:
         font = ASSETS/'shop-font.json'
         if not font.exists():
             font = ROOT/'server/crates/market-core/assets/font.json'
-        self.font = Font(font)
+        self.font = Font(font, ASSETS/'shop-font-extra.json')
         self.dialog_font = Font(ASSETS/'dialog-font.json')
         self.input_font = Font(ASSETS/'input-font.json')
         self.templates = {name: np.asarray(Image.open(ASSETS/(name+'.png')).convert('RGB'))

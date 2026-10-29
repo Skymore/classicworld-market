@@ -58,6 +58,29 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(font.split(rows), 'y'*12)
         self.assertIsNone(font.split(tuple(row*110 for row in glyph)))
 
+    def test_equips_shop_title_capital_q_from_live_skip(self):
+        # Exact glyph observed in a skipped shop, with the title independently
+        # confirmed by its fresh packet. No account/shop screenshot is stored.
+        rows = ('.......', '..###..', '.#...#.', '#.....#', '#.....#',
+                '#.....#', '#.....#', '#..##.#', '.#...#.', '..###.#',
+                '.......', '.......', '.......')
+        self.assertEqual(self.reader.font.split(rows), 'Q')
+        image = np.full((768, 1366, 3), 255, dtype=np.uint8)
+        x = 442
+        glyphs = dict(self.reader.font.glyphs)
+        title = 'CHEAP CHEAP EQUIPS N POTS'
+        for ch in title:
+            if ch == ' ':
+                x += 4
+                continue
+            glyph = rows if ch == 'Q' else glyphs['l' if ch == 'I' else ch]
+            mask = np.array([[p == '#' for p in row] for row in glyph])
+            image[161:174, x:x+len(glyph[0])][mask] = 0
+            x += len(glyph[0])+1
+        self.assertEqual(self.reader.title(image).replace('l', 'I'), title)
+        image[161, 441] = 0
+        self.assertIsNone(self.reader.title(image))
+
     def test_rechargeable_ammo_anchors_use_set_price_not_charge_count(self):
         packet=dict(item_id=2070009,bundle=1,price=122222)
         visible=Row('Wooden Top',800,122222,True,False)
