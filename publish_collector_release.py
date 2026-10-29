@@ -60,8 +60,8 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
-        + ('v0.6.17 内测：按关注条件自动扫货，使用共享预算和每种数量上限。\n'
-           '首版支持 1366×768 标准商店、非装备，每次购买一份；滚动后重新核对物品和价格。\n'
+        + ('v0.6.18 内测：按关注条件自动扫货，使用共享预算和每种数量上限。\n'
+           '首版支持 1366×768 标准商店、非装备，每次购买一份；滚动后重新核对物品和价格。飞镖等充能品只用于页面定位，不购买。\n'
            '未知画面或结果会停止扫描；成交要求本人余额和对应库存同时变化。\n\n'
            if channel == 'beta' else '') +
         'v0.6.16：网络超时、502/503、租约失效后自动恢复；独立监督器恢复异常退出或卡住的扫描进程。\n'

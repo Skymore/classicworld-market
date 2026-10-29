@@ -146,7 +146,8 @@ class WindowsPurchaser:
 
     def buy(self, order, window):
         flow = PurchaseFlow(order, self.clock)
-        if order.quantity != 1 or order.category == 1 or order.equipment is not None:
+        if (order.quantity != 1 or order.category == 1 or order.equipment is not None
+                or order.item_id//10000 in (207, 233)):
             return PurchaseResult('not_bought', reason='error')
         try:
             title, ordered, target = ordered_snapshot(window.capture_file, order)

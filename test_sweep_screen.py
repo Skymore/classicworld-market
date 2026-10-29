@@ -58,6 +58,13 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(font.split(rows), 'y'*12)
         self.assertIsNone(font.split(tuple(row*110 for row in glyph)))
 
+    def test_rechargeable_ammo_anchors_use_set_price_not_charge_count(self):
+        packet=dict(item_id=2070009,bundle=1,price=122222)
+        visible=Row('Wooden Top',800,122222,True,False)
+        self.assertTrue(self.reader.row_matches(visible,packet))
+        self.assertFalse(self.reader.row_matches(visible,packet,complete=True))
+        self.assertFalse(self.reader.row_matches(replace(visible,price=12222),packet))
+
 
 class ScriptedReader:
     def __init__(self, frames):
@@ -144,6 +151,11 @@ class NativeFlowTests(unittest.TestCase):
 
     def test_unsupported_batch_does_not_input(self):
         self.assertEqual(self.run_buy(order=replace(self.order,quantity=2)),PurchaseResult('not_bought',reason='error'))
+        self.assertEqual(self.control.actions,[])
+
+    def test_rechargeable_ammo_is_not_a_native_beta_buy_target(self):
+        self.assertEqual(self.run_buy(order=replace(self.order,item_id=2070009)),
+                         PurchaseResult('not_bought',reason='error'))
         self.assertEqual(self.control.actions,[])
 
 

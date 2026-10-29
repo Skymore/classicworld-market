@@ -164,7 +164,12 @@ class Reader:
         if not wanted:
             return False
         same_name = name == wanted or not complete and name.endswith('...') and wanted.startswith(name[:-3])
-        return same_name and visible.bundle == packet['bundle'] and visible.price == packet['price']
+        # Rechargeable ammunition is normalized as one set in captures, while
+        # the shop prints the remaining charges (e.g. 800). It may anchor a
+        # page by exact name/price, but cannot be a fully verified buy target.
+        same_bundle = visible.bundle == packet['bundle'] or (not complete
+            and packet['item_id']//10000 in (207, 233) and packet['bundle'] == 1)
+        return same_name and same_bundle and visible.price == packet['price']
 
     def offset(self, visible, ordered):
         # Require ordered anchors, and a unique alignment. Identical pages or
