@@ -70,6 +70,7 @@
 ## 部署
 
 1. `deploy_market.py` 的 `web_environment` 默认传 `WEB_PUSH_CONFIG=shared_data/web_push.json`（文件不存在也传）；`shared_supervisor.py` 用同一函数，不需要单独配置。
+   已在运行的 supervisor 会保留启动时导入的旧函数。首次发布推送功能时，须同步这两行环境配置到本机部署脚本，并用 `--adopt-running` 接管现有子进程重新启动 supervisor；只切换网站版本不会重新导入 Python 模块。接管前后核对数据库、网站和隧道的进程号保持一致，再执行网站发布。
 2. 第一次发布时候选进程会生成 `shared_data/web_push.json`，之后正式进程读同一文件。该文件在 `shared_data/`，不进发布包（`test_market_deploy.py` 有断言）。
 3. 这次发布含迁移 0036（只新建三张表）。按 `AGENTS.md`，含数据库迁移的发布使用 `--backup-database`。
 4. 发布后检查：`curl https://mxd.ruit.me/api/v1/push/config` 返回 `enabled:true`；`/sw.js`、`/manifest.webmanifest` 返回 200 和正确类型；日志有 `web push enabled`。

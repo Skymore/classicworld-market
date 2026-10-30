@@ -43,6 +43,11 @@ Windows 原生购买执行器的首版仅发内测：使用 `--channel beta` 写
 `web/releases/beta.json`，不改 `stable.json`，不发送稳定升级通知。稳定更新器
 会拒绝 beta 清单；内测需手动下载对应版本，安装包仍遵守不可变版本与哈希验证。
 
+2026-10-29 用户已明确要求公开发布、自动更新并开放所有人使用。自 v0.6.25 起，
+完整采集器进入 `stable` 通道：从已推送的 main 构建，上传对应安装包与源码，
+核验公网下载哈希后更新 `stable.json` 并发送采集器升级事件。保留原有内测版本。
+升级本身不启动扫货，购买仍遵守账号的关注条件、预算和本机授权设置。
+
 R2 发布配置在本机 `shared_data/r2-publisher.json`，仅含 `account_id`、`access_key_id`、
 `secret_access_key`，令牌应只允许 `classicworld-releases` 桶的对象读写。安装
 `requirements-release.txt` 后用 `upload_collector_release.py --archive <ZIP> --source <源码ZIP>`
