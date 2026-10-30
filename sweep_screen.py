@@ -177,7 +177,9 @@ class Reader:
         # Require ordered anchors, and a unique alignment. Identical pages or
         # obscured rows must never assign a visual row to an arbitrary slot.
         candidates = []
-        for start in range(max(1, len(ordered)-5)):
+        # The game can scroll past the last full page, leaving blank rows at
+        # the bottom. Check every offset, retaining unique ordered anchors.
+        for start in range(len(ordered)):
             count = min(6, len(ordered)-start)
             readable = [i for i in range(count) if visible[i] is not None]
             # New cash equipment can be absent from the local catalog. Its

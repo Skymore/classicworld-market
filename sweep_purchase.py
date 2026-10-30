@@ -17,7 +17,7 @@ with the collector; if it cannot be imported or started, purchases report LOAD_F
 from dataclasses import dataclass, field
 from typing import Any, Callable, Literal, Optional, Protocol
 
-REASONS = ('sold_out', 'price_changed', 'not_enough_mesos', 'inventory_full',
+REASONS = ('sold_out', 'price_changed', 'listing_unverified', 'not_enough_mesos', 'inventory_full',
            'shop_closed', 'window_lost', 'timeout', 'error', 'stopped', 'trade_locked')
 LOAD_FAILED = '购买功能加载失败'
 

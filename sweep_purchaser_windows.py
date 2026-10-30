@@ -156,13 +156,14 @@ class WindowsPurchaser:
         try:
             title, ordered, target = ordered_snapshot(window.capture_file, order)
         except (OSError, ValueError, KeyError, TypeError):
-            flow.halt('price_changed')
+            flow.halt('listing_unverified')
         try:
             control = self.input_factory(window)
             control.move()
             owner_stamp = title_stamp = None
             before_balance = before_stock = selected_row = None
             last_offset, unchanged, scrolls = None, 0, 0
+            unreadable = 0
             while True:
                 image = control.capture()
                 title_pixels = image[157:177,440:931]
@@ -182,13 +183,22 @@ class WindowsPurchaser:
                     stamp = image[287:301,435:521]
                     if owner_stamp is not None and not np.array_equal(stamp, owner_stamp):
                         flow.halt('shop_closed')
-                    page = self.reader.page(image)
-                    offset = self.reader.offset(page, ordered)
-                    if offset is None:
-                        flow.halt('price_changed')
                     if owner_stamp is None:
                         owner_stamp = stamp.copy()
                         title_stamp = title_pixels.copy()
+                    page = self.reader.page(image)
+                    offset = self.reader.offset(page, ordered)
+                    if offset is None:
+                        unreadable += 1
+                        if unreadable < 3 and self.clock() < order.deadline and order.can_buy():
+                            window.pause(.12)
+                            continue
+                        # No purchase dialog/input has been dispatched in these
+                        # phases. A verified open shop can safely be skipped.
+                        if flow.phase in ('select', 'selected') and not flow.submitted:
+                            return PurchaseResult('not_bought', reason='listing_unverified')
+                        flow.halt('listing_unverified')
+                    unreadable = 0
                     if not offset <= target < offset+6:
                         if flow.phase != 'select' or flow.submitted:
                             flow.halt('error')
@@ -206,7 +216,12 @@ class WindowsPurchaser:
                     screen_row = target-offset
                     visible = page[screen_row]
                     if not self.reader.row_matches(visible, ordered[target], complete=True):
-                        flow.halt('price_changed')
+                        reason = ('price_changed' if visible is not None
+                                  and canonical(visible.name) == canonical(self.reader.names.get(order.item_id))
+                                  and visible.price != order.price else 'listing_unverified')
+                        if flow.phase in ('select', 'selected') and not flow.submitted:
+                            return PurchaseResult('not_bought', reason=reason)
+                        flow.halt(reason)
                     self.mesos = self.reader.balance(image)
                     # The fresh capture supplies the available bundle count;
                     # grey text vetoes a listing sold out since that capture.

@@ -133,6 +133,7 @@ export function executorLabel(state: DeviceState | null, words: Words) {
 const REASONS: Record<string, [string, string]> = {
   sold_out: ["已售完", "Sold out"],
   price_changed: ["价格变了", "Price changed"],
+  listing_unverified: ["商品未能核实", "Could not verify listing"],
   not_enough_mesos: ["金币不足", "Not enough mesos"],
   inventory_full: ["背包满了", "Inventory full"],
   trade_locked: ["游戏账号尚未解锁交易", "Game trading is locked"],

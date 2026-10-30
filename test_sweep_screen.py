@@ -46,6 +46,21 @@ class ScreenTests(unittest.TestCase):
             image[354,570]=255
             self.assertEqual(r.dialog(image), ('confirm', None))
 
+    def test_partial_last_page_including_sold_out_white_potion(self):
+        ids = [1002082,1002082,1061039,1032005,1072031,2022003,2000001,2040502,2000002,4003000]
+        prices = [1799,1599,1777,3799,1300,480,140,888,280,165]
+        ordered = [dict(item_id=i,bundle=1,price=p) for i,p in zip(ids,prices)]
+        for offset in range(5,10):
+            page = [Row(self.reader.names[r['item_id']],1,r['price'],r['item_id']!=2000002,False)
+                    for r in ordered[offset:]]
+            page += [None]*(6-len(page))
+            self.assertEqual(self.reader.offset(page,ordered),offset)
+            corrupted = list(page)
+            corrupted[0] = replace(corrupted[0],price=999999)
+            self.assertIsNone(self.reader.offset(corrupted,ordered))
+        repeated = [dict(item_id=2000001,bundle=1,price=140)]*10
+        self.assertIsNone(self.reader.offset([Row('Orange Potion',1,140,True,False)]*4+[None]*2,repeated))
+
     def test_money_never_drops_a_digit_or_malformed_separator(self):
         self.assertEqual(money('463,895'),463895)
         for text in ('463,89','463?895','46 3895','',None,'00100'):
@@ -183,6 +198,63 @@ class NativeFlowTests(unittest.TestCase):
         self.assertEqual(self.run_buy(),PurchaseResult('bought',1,135))
         self.assertEqual(self.control.actions,[(638,537),(638,537),(535,521),(604,252),
                                               ('quantity',1),(735,423),(735,421)])
+
+    def test_unreadable_shop_before_buy_is_skipped_without_input(self):
+        with patch.object(ScriptedReader,'offset',return_value=None):
+            self.assertEqual(self.run_buy(),PurchaseResult('not_bought',reason='listing_unverified'))
+        self.assertEqual(self.control.actions,[])
+
+    def test_real_alignment_buys_many_on_four_row_last_page(self):
+        reader = Reader()
+        ids = [1002082,1002082,1061039,1032005,1072031,2022003,2000001,2040502,2000002,4003000]
+        prices = [1799,1599,1777,3799,1300,480,140,888,280,165]
+        ordered = [dict(item_id=i,bundle=1,price=p,stock=15) for i,p in zip(ids,prices)]
+        frames = [Page(kind='shop',offset=0,balance=10000),Page(kind='shop',offset=6,balance=10000),
+                  Page(kind='shop',offset=6,selected=True,balance=10000),Page(kind='quantity'),
+                  Page(kind='quantity',number=15),Page(kind='confirm',number=4200),
+                  Page(kind='shop',offset=6,selected=True,balance=5800,stock_changed=True)]
+        class ActualAlignment(ScriptedReader):
+            names = reader.names
+            def page(self,image):
+                frame=self.frame(image); offset=frame.get('offset',6)
+                page=[Row(reader.names[r['item_id']],1,r['price'],True,
+                          bool(frame.get('selected')) and offset+i==8)
+                      for i,r in enumerate(ordered[offset:offset+6])]
+                return page+[None]*(6-len(page))
+            def offset(self,page,rows):return reader.offset(page,rows)
+            def row_matches(self,*args,**kwargs):return reader.row_matches(*args,**kwargs)
+        class Input(ScriptedInput):
+            def capture(self):
+                image=super().capture()
+                if self.frames[self.index].get('stock_changed'):image[410:422,428:461]=1
+                return image
+        control=Input(frames)
+        window=SimpleNamespace(capture_file='visit.json',pause=lambda seconds:None)
+        order=replace(self.order,item_id=2000002,name='White Potion',price=280,quantity=15)
+        buyer=WindowsPurchaser(ActualAlignment(frames),lambda window:control,lambda:0)
+        with patch('sweep_purchaser_windows.ordered_snapshot',return_value=('Potions',ordered,8)):
+            self.assertEqual(buyer.buy(order,window),PurchaseResult('bought',15,4200))
+        self.assertEqual(control.actions,[(638,537),(535,401),(604,252),('quantity',15),(735,423),(735,421)])
+
+    def test_transient_unreadable_scroll_frame_recovers(self):
+        original = ScriptedReader.offset
+        attempts = 0
+        def offset(reader,page,ordered):
+            nonlocal attempts
+            attempts += 1
+            return None if attempts <= 2 else original(reader,page,ordered)
+        with patch.object(ScriptedReader,'offset',offset):
+            self.assertEqual(self.run_buy(),PurchaseResult('bought',1,135))
+        self.assertEqual(self.control.actions.count((735,421)),1)
+
+    def test_unreadable_after_confirmation_stops_without_retrying_purchase(self):
+        original = ScriptedReader.offset
+        def offset(reader,page,ordered):
+            return None if page.get('stock_changed') else original(reader,page,ordered)
+        with patch.object(ScriptedReader,'offset',offset):
+            with self.assertRaises(PurchaseHalt) as caught:self.run_buy()
+        self.assertEqual(caught.exception.result,PurchaseResult('unknown',reason='listing_unverified'))
+        self.assertEqual(self.control.actions.count((735,421)),1)
 
     def test_other_buyers_stock_change_is_not_our_receipt(self):
         self.frames[-1]['balance']=1000
