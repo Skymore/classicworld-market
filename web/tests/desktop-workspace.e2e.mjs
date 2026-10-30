@@ -63,6 +63,11 @@ const server=createServer(async(req,res)=>{
  if(u.pathname==='/api/v1/watchlist/listings')return json(res,{listings,grouped_listings:listings,base_stats:{},percentile_caps:{},revision:'r1'});
  if(u.pathname==='/api/v1/collector/status')return json(res,{collector_id:'fixture',local_collector:true});
  if(u.pathname==='/api/v1/collector/watch-listings')return json(res,{listings:[],revision:'r1'});
+ if(u.pathname==='/api/v1/catalog/page'){
+  const target=new URL(u.searchParams.get('url'),origin),id=Number(target.pathname.split('/').at(-1));
+  if(target.pathname.startsWith('/item/'))return json(res,{kind:'item',page:{item:{...products.find(p=>p.item_id===id),id,category:'消耗品'},stats:null,droppers:[],npc_offers:[],npc_sell:25,market:{as_of:new Date().toISOString(),base_stats:[],days:[],sale_points:[],listings:[],sales:[]}}});
+  return json(res,{kind:'search',page:{query:target.searchParams.get('q')||'',kind:null,region:'',area:'',areas:[],filters:{},offset:0,items:{rows:products.map(p=>({id:p.item_id,names:{zh:p.name_zh,en:p.name_en}})),more:false},mobs:{rows:[],more:false},maps:{rows:[],more:false}}});
+ }
  if(u.pathname.startsWith('/api/'))return json(res,{});
  const file=u.pathname==='/'?path.join(root,'desktop_ui/index.html'):u.pathname.startsWith('/assets/')?path.join(root,'desktop_ui',u.pathname):u.pathname.startsWith('/web/')?path.join(root,u.pathname):path.join(root,'web/index.html');
  try{res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.json')?'application/json':file.endsWith('.svg')?'image/svg+xml':'text/html; charset=utf-8');res.setHeader('Content-Security-Policy',"frame-ancestors http://127.0.0.1:*");res.end(await readFile(file));}catch{res.writeHead(404);res.end();}
@@ -106,6 +111,33 @@ try{
  await prices.locator('[data-item-row]:visible').first().waitFor();
  assert(await prices.locator('[data-item-row]').count()>=3,'entire price page renders its data rows');
  await page.screenshot({path:path.join(out,'website-prices.png')});
+ const nav=prices.getByRole('navigation',{name:'页面导航'});
+ await nav.waitFor();assert.equal(await prices.locator('.dhead,.ptop,.dock').count(),0);
+ await prices.locator('[data-item-row]:visible').first().locator('a[href^="/item/"]').first().click();
+ await prices.locator('html[data-page="item"]').waitFor();
+ await nav.getByRole('button',{name:'返回',exact:true}).click();
+ await prices.locator('[data-item-row]:visible').first().waitFor();
+ await nav.getByRole('searchbox').fill('药水');
+ await nav.locator('.quick-row').first().waitFor();
+ for(const stream of streams)stream.write('event: market\ndata: {}\n\n');
+ await nav.locator('.quick-row').last().click();
+ await prices.locator('html[data-page="item"]').waitFor();
+ await prices.locator('html').evaluate(()=>location.reload());
+ await prices.locator('html[data-embed="1"][data-page="item"]').waitFor();await nav.waitFor();
+ await page.screenshot({path:path.join(out,'embedded-item-navigation.png')});
+ await nav.getByRole('link',{name:'价格表',exact:true}).click();
+ await prices.locator('[data-item-row]:visible').first().waitFor();
+ await nav.getByRole('searchbox').fill('药水');await nav.locator('.quick-more').click();
+ await prices.locator('html[data-page="search"]').waitFor();await nav.waitFor();
+ await nav.getByRole('link',{name:'价格表',exact:true}).click();
+ await prices.locator('[data-item-row]:visible').first().waitFor();
+ const priceFrame=page.frames().find(f=>f.url().includes('/prices?'));
+ await priceFrame.goto(origin+'/item/2000000?embed=1&lang=zh');
+ await nav.waitFor();
+ await nav.getByRole('button',{name:'返回',exact:true}).click();
+ await prices.locator('[data-item-row]:visible').first().waitFor();
+ console.log('PASS embedded prices: item back, search, SSE, reload and all results');
+
 
  const text=async locator=>(await locator.innerText()).replace(/\s+/g,' ').trim();
  // Sweep tab: status cells, local start with quick budgets and durations, read-only rules, folded settings.

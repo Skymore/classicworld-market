@@ -4,7 +4,7 @@ export const catalogKey = (url: string) => {
   const target = new URL(url, location.origin);
   // Presentation choices do not change the catalogue JSON. The SSR context
   // omits lang; normalize both keys so it can seed the same request.
-  for (const key of ["lang", "theme", "device"]) target.searchParams.delete(key);
+  for (const key of ["lang", "theme", "device", "embed"]) target.searchParams.delete(key);
   // Missing hours and explicit 72h select the same server snapshot.
   if (target.pathname.startsWith("/item/") && target.searchParams.get("hours") === "72")
     target.searchParams.delete("hours");

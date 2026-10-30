@@ -1045,8 +1045,7 @@ tr.price-group-head:hover td {
   }
 }
 
-/* Embedded in the collector (?embed=1): no site header or dock, so content
-   starts at the top and sticky headers stick to the top edge. */
+/* Embedded pages use a compact navigation bar instead of the site chrome. */
 html[data-embed] .dwrap {
   padding-top: 12px;
 }
@@ -1056,5 +1055,13 @@ html[data-embed] .app {
 html[data-embed] .ptable th,
 html[data-embed] .lhead,
 html[data-embed] .item-summary-sticky {
-  top: 0;
+  top: var(--embed-nav-height, 0px);
 }
+
+html[data-embed]:has(.embed-nav) { --embed-nav-height: 58px; }
+.embed-nav { position:sticky; top:0; z-index:30; display:flex; align-items:center; gap:8px; height:58px; padding:8px 12px; background:var(--sheet); border-bottom:2px solid var(--edge); }
+.embed-nav > .btn { flex:none; height:40px; padding:0 10px; display:inline-flex; align-items:center; justify-content:center; }
+.embed-nav .finder { flex:1; min-width:0; max-width:560px; margin:0; }
+.embed-nav input[type=search] { min-width:0; font-size:16px; }
+.embed-nav .quick-search { min-width:0; left:0; right:0; }
+@media(max-width:640px) { .embed-nav { gap:6px; padding-inline:8px; } .embed-nav > .btn { padding-inline:8px; } .embed-nav .finder kbd { display:none; } }

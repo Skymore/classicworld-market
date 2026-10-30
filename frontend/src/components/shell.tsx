@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ago, fullTime } from "/web/js/lib/format.js";
 import { useAccount } from "../lib/query";
 import { setAssistantOpen, useAssistantOpen } from "../lib/assistant";
@@ -266,9 +266,30 @@ export function DesktopHeader() {
     </div>
   );
 }
+function EmbeddedNavigation() {
+  const words = useWords(), navigate = useNavigate();
+  const route = useLocation();
+  return <nav className="embed-nav" aria-label={words("页面导航", "Page navigation")}>
+    <button className="btn" type="button" onClick={() => {
+      if (Number(window.history.state?.idx) > 0) navigate(-1);
+      else navigate("/prices?embed=1", {replace:true});
+    }} disabled={route.pathname === "/prices" && !(Number(window.history.state?.idx) > 0)}>{words("返回", "Back")}</button>
+    <SiteLink className="btn" href="/prices?embed=1">{words("价格表", "Prices")}</SiteLink>
+    <Search />
+  </nav>;
+}
 export function AppShell({ children }: { children: React.ReactNode }) {
   const words = useWords();
   const route = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!embedded) return;
+    const params = new URLSearchParams(route.search);
+    if (params.get("embed") === "1") return;
+    params.set("embed", "1");
+    // Keep the frame layout after refresh without adding a history entry.
+    navigate(route.pathname + "?" + params + route.hash, {replace:true, state:route.state});
+  }, [navigate, route.pathname, route.search, route.hash, route.state]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (
@@ -291,6 +312,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
   return (
     <>
+      {embedded && route.pathname !== "/watch" && <EmbeddedNavigation />}
       {!embedded && (
         <>
           <header className="ptop">
