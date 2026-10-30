@@ -237,6 +237,24 @@ class SweepEngine:
         self.thread = None
         self.recent_shops = set()
 
+    def _decision(self, reason, row=None, packet=None, **details):
+        """Local diagnostic journal, separate from spend/deduplication ledger."""
+        row, packet = row or {}, packet or {}
+        entry = dict(at=time.time(), reason=reason, run=(self.run or {}).get('id'),
+                     plan_version=self.plan_version, item_id=row.get('item_id'),
+                     price=row.get('price'), stock=row.get('stock'), slot=row.get('slot'),
+                     shop_id=packet.get('shop_id'), location=packet.get('location'), **details)
+        try:
+            with self.lock:
+                self.home.mkdir(parents=True, exist_ok=True)
+                path = self.home/'decisions.jsonl'
+                if path.exists() and path.stat().st_size > 2*1024*1024:
+                    path.replace(self.home/'decisions.previous.jsonl')
+                with path.open('a',encoding='utf-8') as out:
+                    out.write(json.dumps(entry,ensure_ascii=False)+'\n')
+        except OSError:
+            pass  # Diagnostics never alter payment or input decisions.
+
     # Local files.
     def _read_settings(self):
         try:
@@ -276,6 +294,8 @@ class SweepEngine:
         self.listeners.append(callback)
 
     def _note(self, entry, record=None):
+        self._decision(entry.get('reason') or entry.get('status'), entry,
+                       result=entry.get('status'), reservation=(record or {}).get('reservation'))
         with self.lock:
             self.recent.insert(0, self._entry(entry))
             del self.recent[20:]
@@ -337,6 +357,16 @@ class SweepEngine:
                 with self.lock:
                     self.captures_seen += 1
                     self.captures.append((self.captures_seen, name))
+                # Even when the purchase hook is disabled, explain captured
+                # watched items. Capturing/uploading alone never means buying.
+                packet = self._load(str(self.folder/name))
+                if packet:
+                    rules = self.run_plan or self.idle_rules or {}
+                    watched = {w['item_id'] for w in rules.get('watches', [])}
+                    for row in packet['items']:
+                        if row['item_id'] in watched:
+                            self._decision('capture_received' if self.buying() else 'buying_disabled', row, packet,
+                                detail=self.message, capture=name, allow_web_start=self.settings['allow_web_start'])
 
     def captured_since(self, mark):
         with self.lock:
@@ -357,7 +387,7 @@ class SweepEngine:
 
     def on_shop_open(self, collected, window):
         """Called on the scanner input thread while the shop is open and its prices are captured."""
-        if not self.buying() or not isinstance(collected, dict):
+        if not isinstance(collected, dict):
             return
         with self.shop_lock:
             self._shop(collected, window)
@@ -368,10 +398,12 @@ class SweepEngine:
             return
         location = packet.get('location') or {}
         with self.lock:
-            if not self.plan:
+            if not self.buying():
+                self._decision('buying_disabled', packet=packet, capture=collected.get('file'), detail=self.message)
                 return
             if not location.get('room') or not location.get('channel'):
                 self.message = '本次店铺缺少洞频道，已跳过'
+                self._decision('location_missing', packet=packet)
                 return
             self.checked += 1
             watches = {w['item_id']: w for w in self.plan['watches']}
@@ -380,18 +412,25 @@ class SweepEngine:
         if self.scan_mode() == 'recent':
             from sweep_routes import shop_key
             if shop_key(location, owner.get('name')) not in self.recent_shops:
+                self._decision('outside_recent_targets', packet=packet)
                 return
         stock = collections.Counter()
         for row in packet['items']:
             stock[stock_key(row)] += row['stock']
         for row in packet['items']:
             watch = watches.get(row['item_id'])
-            if not watch or row['stock'] <= 0:
+            if not watch:
+                continue
+            if row['stock'] <= 0:
+                self._decision('sold_out', row, packet)
                 continue
             if not any(matching({**row, 'stock': stock[stock_key(row)]}, rule, watch['base']) for rule in watch['groups']):
+                self._decision('rule_not_matched', row, packet)
                 continue
             if not self.buying():
+                self._decision('lease_lost', row, packet)
                 return
+            self._decision('rule_matched', row, packet, capture=Path(collected['file']).name)
             result = self._buy(row, watch, packet, location, owner, plan_version, window)
             if result is not None and result.reason == 'shop_closed':
                 break
@@ -420,8 +459,8 @@ class SweepEngine:
                     owner=owner.get('name'), price=price, quantity=0, units=0, spent=0)
         with self.lock:
             if key in self.seen or not self.run or not self.lease:
+                self._decision('already_attempted' if key in self.seen else 'lease_lost', row, packet, listing=key)
                 return
-            self.seen.add(key)
             run, lease, settings = self.run['id'], self.lease, dict(self.settings)
             if self.scan_mode() == 'priority':
                 settings = dict(allow_web_start=True, max_spend=LIMIT, max_order=0, reserve_mesos=0)
@@ -435,14 +474,20 @@ class SweepEngine:
         prepare = getattr(self.purchaser, 'prepare', None)
         if prepare is not None:
             try:
-                if prepare(window) is False:
+                prepare_inventory = getattr(self.purchaser, 'prepare_inventory', None)
+                prepared = (prepare_inventory(window, read_inventory(self.folder, self.game_state))
+                            if prepare_inventory else prepare(window))
+                if prepared is False:
+                    self._decision('balance_unavailable', row, packet)
                     self._note(dict(note, status='skipped', reason='error', at=time.time()))
                     return
             except Exception as error:
+                self._decision('prepare_failed', row, packet, detail=type(error).__name__)
                 self._leave(run, lease, 'window_lost', '购买窗口无法确认，已停止扫描')
                 raise PurchaseHalt(PurchaseResult('not_bought', reason='window_lost')) from error
         executor = self.purchaser.status()
         if not executor.ready:
+            self._decision('executor_unavailable', row, packet, detail=executor.reason)
             self._stop_buying(executor.reason or UNAVAILABLE)
             return
         if settings['max_order']:
@@ -461,18 +506,32 @@ class SweepEngine:
                     location=dict(room=location['room'], channel=location['channel'], shop_id=packet['shop_id'],
                                   owner=owner.get('name'), category=row['category'], slot=row['slot']))
         started = time.monotonic()
+        # Local preparation/limits have no side effect and may be reconsidered
+        # on a later visit. Once reserve is dispatched its response can be lost;
+        # retain deduplication from here, even on network failure.
+        with self.lock:
+            self.seen.add(key)
         try:
             answer = self.client.call('POST', '/api/v1/device/sweep/reserve', body, timeout=2)
         except DeviceError as error:
+            self._decision('reservation_rejected', row, packet, detail=error.code)
             self._rejected(error)
             return
         except OSError:
+            self._decision('reservation_unreachable', row, packet)
             return  # No reservation within 2 s: do not buy.
         self._contact()
         granted, reservation, ttl = answer.get('granted'), answer.get('reservation'), answer.get('expires_in')
         if type(granted) is not int or granted <= 0 or not isinstance(reservation, str):
             self._note(dict(note, status='skipped', reason=str(answer.get('reason') or 'budget')[:32]))
             return
+        with self.lock:
+            capture_mark = self.captures_seen
+            has_captures = bool(self.captures)
+            capture_matches = bool(self.captures and self.captures[-1][1] == Path(window.capture_file).name) if hasattr(window,'capture_file') else False
+        def visit_current():
+            with self.lock:
+                return capture_matches and self.captures_seen == capture_mark
         order = PurchaseOrder(reservation=reservation, item_id=row['item_id'], name=watch['name'],
             category=row['category'], slot=row['slot'], price=price, bundle=row['bundle'],
             quantity=min(granted, quantity), equipment=row.get('equipment'), shop_id=packet['shop_id'],
@@ -480,7 +539,9 @@ class SweepEngine:
             deadline=min(started+(ttl if type(ttl) is int else 0)-5, self.lease_deadline),
             can_buy=lambda: self._purchase_allowed(run, lease, plan_version),
             reserve_mesos=settings['reserve_mesos'],
-            inventory=lambda: read_inventory(self.folder, self.game_state))
+            inventory=lambda: read_inventory(self.folder, self.game_state),
+            visit_current=visit_current if has_captures else None,
+            diagnostic=lambda data: self._decision('purchase_trace', row, packet, trace=data))
         # Stop or logout may have landed while the reservation was in flight.
         with self.lock:
             stopped = self.lease != lease or not self.buying()

@@ -18,6 +18,7 @@ from shared_protocol import from_snapshot
 from sweep_purchase import PurchaseHalt, PurchaseResult, PurchaserStatus
 from sweep_purchase_flow import Listing, PurchaseFlow, Receipt, View, Action
 from sweep_screen import Canvas, Reader, canonical
+from sweep_evidence import packet_balance, PurchaseTrace
 
 
 class WindowsInput:
@@ -158,13 +159,18 @@ class WindowsPurchaser:
         ready = os.name == 'nt' and bool(ctypes.windll.shell32.IsUserAnAdmin())
         return PurchaserStatus(ready, '' if ready else '购买需要管理员权限', self.mesos)
 
-    def prepare(self, window):
+    def prepare_inventory(self, window, holdings):
+        return self.prepare(window, holdings)
+
+    def prepare(self, window, holdings=None):
         control = self.input_factory(window)
         control.move()
         image = control.capture()
         if self.reader.dialog(image)[0] is not None or not self.reader.shop(image):
             raise PurchaseHalt(PurchaseResult('not_bought', reason='shop_closed'))
-        self.mesos = self.reader.balance(image)
+        self.mesos = packet_balance(holdings)
+        if self.mesos is None:
+            self.mesos = self.reader.balance(image)
         if self.mesos is None:
             # A verified store with unreadable scaled digits has not received
             # any purchase input. Skip this visit; do not stop the whole scan.
@@ -204,6 +210,16 @@ class WindowsPurchaser:
         return True
 
     def buy(self, order, window):
+        trace = PurchaseTrace(order, window)
+        try:
+            result = self._buy(order, window, trace)
+        except PurchaseHalt as error:
+            trace.finish(error.result)
+            raise
+        trace.finish(result)
+        return result
+
+    def _buy(self, order, window, trace):
         flow = PurchaseFlow(order, self.clock)
         if (type(order.quantity) is not int or not 1 <= order.quantity <= self.max_quantity
                 or order.category == 1 or order.equipment is not None
@@ -224,9 +240,13 @@ class WindowsPurchaser:
             while True:
                 image = control.capture()
                 title_pixels = image[157:177,440:931]
-                if title_stamp is not None and not np.array_equal(title_pixels, title_stamp):
+                if order.visit_current is not None:
+                    if not order.visit_current():
+                        flow.halt('shop_closed')
+                elif title_stamp is not None and not np.array_equal(title_pixels, title_stamp):
                     flow.halt('shop_closed')
                 kind, number = self.reader.dialog(image)
+                trace.frame(image, flow.phase, kind)
                 if kind:
                     if title_stamp is None:
                         flow.halt('shop_closed')
@@ -234,7 +254,7 @@ class WindowsPurchaser:
                                 total=number if kind == 'confirm' else None,
                                 reason=number if kind == 'rejected' else '')
                 elif self.reader.shop(image):
-                    visible_title = self.reader.title(image)
+                    visible_title = self.reader.title(image) if title_stamp is None and order.visit_current is None else None
                     if visible_title is not None and canonical(visible_title) != canonical(title):
                         flow.halt('shop_closed')
                     # Animated equipment can overlap the owner's nameplate.
@@ -256,7 +276,9 @@ class WindowsPurchaser:
                     else:
                         page = self.reader.page(image)
                         offset = self.reader.offset(page, ordered)
-                        if offset is None:
+                        equivalent = (self.reader.equivalent_row(page, ordered, target, order.quantity)
+                                      if offset is None and hasattr(self.reader,'equivalent_row') else None)
+                        if offset is None and equivalent is None:
                             unreadable += 1
                             if unreadable < 3 and self.clock() < order.deadline and order.can_buy():
                                 window.pause(.12)
@@ -267,7 +289,7 @@ class WindowsPurchaser:
                                 return PurchaseResult('not_bought', reason='listing_unverified')
                             flow.halt('listing_unverified')
                         unreadable = 0
-                        if not offset <= target < offset+6:
+                        if equivalent is None and not offset <= target < offset+6:
                             if flow.phase != 'select' or flow.submitted:
                                 flow.halt('error')
                             if self.clock() >= order.deadline:
@@ -281,7 +303,7 @@ class WindowsPurchaser:
                             control.click(638, 537 if target >= offset+6 else 315)
                             window.pause(.12)
                             continue
-                        screen_row = target-offset
+                        screen_row = equivalent[0] if equivalent is not None else target-offset
                         visible = page[screen_row]
                         if not self.reader.row_matches(visible, ordered[target], complete=True):
                             reason = ('price_changed' if visible is not None
@@ -290,11 +312,12 @@ class WindowsPurchaser:
                             if flow.phase in ('select', 'selected') and not flow.submitted:
                                 return PurchaseResult('not_bought', reason=reason)
                             flow.halt(reason)
-                        self.mesos = self.reader.balance(image)
+                        position = inventory_position(order)
+                        self.mesos = position[2] if position is not None else self.reader.balance(image)
                         # The fresh capture supplies the available bundle count;
                         # grey text vetoes a listing sold out since that capture.
                         # The game must then echo our quantity and exact total.
-                        stock = ordered[target]['stock'] if visible.available else 0
+                        stock = (equivalent[1] if equivalent is not None else ordered[target]['stock']) if visible.available else 0
                         stock_pixels = image[330+40*screen_row:342+40*screen_row,428:461]
                         receipt = None
                         if flow.submitted and before_balance is not None and self.mesos is not None:
@@ -309,6 +332,10 @@ class WindowsPurchaser:
                 if isinstance(action, PurchaseResult):
                     return action
                 if isinstance(action, Action):
+                    if order.visit_current is not None and not order.visit_current():
+                        if action.kind == 'confirm':
+                            flow.submitted = False  # No input has been sent yet.
+                        flow.halt('shop_closed')
                     if self.clock() >= order.deadline and action.kind not in ('cancel', 'dismiss'):
                         if action.kind == 'confirm':
                             flow.submitted = False  # Confirmation has not been dispatched.
@@ -320,6 +347,7 @@ class WindowsPurchaser:
                         action = flow._abort(view, 'stopped')
                         if isinstance(action, PurchaseResult):
                             return action
+                    trace.action(action.kind)
                     if action.kind == 'select':
                         control.click(535, 321+40*screen_row)
                     elif action.kind == 'buy':

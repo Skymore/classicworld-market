@@ -55,6 +55,8 @@ class PurchaseOrder:
     can_buy: Callable[[], bool] = field(default=lambda: False, repr=False, compare=False)
     reserve_mesos: int = 0
     inventory: Optional[Callable[[], Optional[dict]]] = field(default=None, repr=False, compare=False)
+    visit_current: Optional[Callable[[], bool]] = field(default=None, repr=False, compare=False)
+    diagnostic: Optional[Callable[[dict], None]] = field(default=None, repr=False, compare=False)
 
 
 @dataclass(frozen=True)

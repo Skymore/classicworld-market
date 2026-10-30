@@ -82,6 +82,32 @@ class ScreenTests(unittest.TestCase):
         repeated = [dict(item_id=2000001,bundle=1,price=140)]*10
         self.assertIsNone(self.reader.offset([Row('Orange Potion',1,140,True,False)]*4+[None]*2,repeated))
 
+    def test_partial_name_retains_price_as_constraint_but_not_an_identity(self):
+        ordered=[dict(item_id=2000001,bundle=1,price=130),dict(item_id=2000002,bundle=1,price=280),
+                 dict(item_id=2000003,bundle=1,price=190)]
+        visible=[Row('Orange Potion',1,130,True,False),Row('',1,280,True,False),
+                 Row('Blue Potion',1,190,True,False),None,None,None]
+        self.assertEqual(self.reader.offset(visible,ordered),0)
+        self.assertFalse(self.reader.row_matches(visible[1],ordered[1],complete=True))
+        visible[1]=replace(visible[1],price=281)
+        self.assertIsNone(self.reader.offset(visible,ordered))
+
+    def test_fungible_rows_require_every_alignment_and_sufficient_stock(self):
+        row=dict(item_id=2000001,price=130,bundle=1,stock=100,equipment=None)
+        ordered=[dict(row) for _ in range(10)]
+        page=[Row('Orange Potion',1,130,True,False)]*6
+        self.assertIsNone(self.reader.offset(page,ordered))
+        self.assertEqual(self.reader.equivalent_row(page,ordered,8,100),(0,100))
+        self.assertIsNone(self.reader.equivalent_row(page,ordered,8,101))
+        self.assertIsNone(self.reader.equivalent_row([replace(r,available=False) for r in page],ordered,8,1))
+        ordered[4]['stock']=0
+        self.assertEqual(self.reader.equivalent_row(page,ordered,8,100),(5,100))
+        ordered[5]['stock']=0
+        # Every candidate on this page can cover the sold-out row.
+        self.assertIsNone(self.reader.equivalent_row(page,ordered,8,100))
+        other=[dict(row,item_id=1002000,equipment={'str':1})]*10
+        self.assertIsNone(self.reader.equivalent_row(page,other,8,1))
+
     def test_money_never_drops_a_digit_or_malformed_separator(self):
         self.assertEqual(money('463,895'),463895)
         for text in ('463,89','463?895','46 3895','',None,'00100'):
@@ -327,6 +353,25 @@ class NativeFlowTests(unittest.TestCase):
             self.assertEqual(self.run_buy(order=replace(self.order,inventory=self.packet_reader(after))),
                              PurchaseResult('bought',1,135))
         self.assertEqual(self.control.actions.count((735,421)),1)
+
+    def test_packet_balance_replaces_visual_currency_gate(self):
+        after=dict(session='stream',revision=6,mesos=865,categories=[2],items=[dict(item_id=2000001,quantity=11)])
+        with patch.object(ScriptedReader,'balance',side_effect=AssertionError('No currency OCR needed')):
+            self.assertEqual(self.run_buy(order=replace(self.order,inventory=self.packet_reader(after))),
+                             PurchaseResult('bought',1,135))
+
+    def test_live_capture_identity_replaces_title_pixels_but_changed_visit_stops(self):
+        original=ScriptedInput.capture
+        def animated(control):
+            image=original(control);image[160,450]=control.index
+            return image
+        with patch.object(ScriptedInput,'capture',animated), patch.object(ScriptedReader,'title',side_effect=AssertionError('No title OCR')):
+            self.assertEqual(self.run_buy(order=replace(self.order,visit_current=lambda:True)),PurchaseResult('bought',1,135))
+        self.setUp()
+        with self.assertRaises(PurchaseHalt) as caught:
+            self.run_buy(order=replace(self.order,visit_current=lambda:self.control.index<5))
+        self.assertEqual(caught.exception.result.status,'not_bought')
+        self.assertNotIn((735,421),self.control.actions)
 
     def test_packet_receipt_counts_units_in_multi_item_bundles(self):
         self.frames[5]['number']=3

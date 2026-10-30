@@ -239,11 +239,12 @@ class Reader:
     def row(self, image, index):
         base = 321+40*index
         name = self.line(image, 466, 625, base)
-        active = name is not None
-        name = name or self.line(image, 466, 625, base, grey=True)
-        offer = self.line(image, 466, 625, base+17, grey=not active)
+        offer = self.line(image, 466, 625, base+17)
+        active = offer is not None
+        name = name or self.line(image, 466, 625, base, grey=True) or ''
+        offer = offer or self.line(image, 466, 625, base+17, grey=True)
         match = re.fullmatch(r'([0-9,]+) for ([0-9,]+) mesos', offer or '')
-        if not name or not match:
+        if not match:
             return None
         bundle, price = map(money, match.groups())
         if bundle is None or bundle < 1 or price is None:
@@ -268,7 +269,7 @@ class Reader:
             and packet['item_id']//10000 in (207, 233) and packet['bundle'] == 1)
         return same_name and same_bundle and visible.price == packet['price']
 
-    def offset(self, visible, ordered):
+    def offsets(self, visible, ordered):
         # Require ordered anchors, and a unique alignment. Identical pages or
         # obscured rows must never assign a visual row to an arbitrary slot.
         candidates = []
@@ -281,14 +282,42 @@ class Reader:
             # readable price/bundle still must agree, but it is not a name
             # anchor and can never become a purchase target. Other known
             # rows must uniquely establish this page's raw packet offset.
-            anchors = [i for i in readable if self.names.get(ordered[start+i]['item_id'])]
+            anchors = [i for i in readable if visible[i].name and self.names.get(ordered[start+i]['item_id'])]
             agrees = all(self.row_matches(visible[i], ordered[start+i]) if i in anchors
                          else (visible[i].price, visible[i].bundle) ==
                               (ordered[start+i]['price'], ordered[start+i]['bundle']) for i in readable)
             if len(anchors) >= min(2,count) and agrees:
                 if all(row is None for row in visible[count:]):
                     candidates.append(start)
+        return candidates
+
+    def offset(self, visible, ordered):
+        candidates = self.offsets(visible, ordered)
         return candidates[0] if len(candidates) == 1 else None
+
+    def equivalent_row(self, visible, ordered, target, quantity):
+        """A fungible row is safe only under EVERY possible page alignment.
+
+        It need not be the requested physical slot, but must have the same item,
+        price, bundle, category, attributes and enough packet stock under each
+        alignment. The selected row, quantity and total still require readback.
+        """
+        candidates = self.offsets(visible, ordered)
+        if not candidates:
+            return None
+        wanted = ordered[target]
+        if wanted.get('category', wanted['item_id']//1000000) == 1 or wanted.get('equipment'):
+            return None
+        keys = ('item_id','price','bundle','equipment')
+        for index, row in enumerate(visible):
+            if row is None or not row.available or not self.row_matches(row,wanted,complete=True):
+                continue
+            mapped = [ordered[start+index] for start in candidates if start+index < len(ordered)]
+            if len(mapped) == len(candidates) and all(
+                    all(item.get(k) == wanted.get(k) for k in keys)
+                    and item['stock'] >= quantity for item in mapped):
+                return index, min(item['stock'] for item in mapped)
+        return None
 
     def dialog(self, image):
         if image.shape[:2] != (768, 1366):
