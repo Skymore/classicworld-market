@@ -65,14 +65,47 @@ class InventoryTests(unittest.TestCase):
         self.inventory.observe(update(struct.pack('<BBhH', 1, 2, 2, 20)), 'other')
         self.assertEqual(self.quantities()[2000001], 189)
         self.inventory.observe(update(struct.pack('<BBhH', 1, 2, 2, 20), b'\xff'), 'one')
-        self.assertIsNone(self.inventory.view())
+        self.assertEqual(self.inventory.view()['categories'], [])
+        self.assertEqual(self.inventory.view()['mesos'], 54321)
         self.inventory.observe(character(), 'two')
         self.inventory.invalidate('one')
         self.assertIsNotNone(self.inventory.view())
         self.inventory.invalidate('two')
         self.assertIsNone(self.inventory.view())
 
+    def test_rechargeable_records_keep_complete_bag_boundaries(self):
+        for item in (2070003,2330000):
+            data=character()
+            data[600:600]=record(1,item,800)+bytes.fromhex('ba814e1b00000000')
+            self.inventory.observe(data,'ammo')
+            self.assertEqual(self.quantities()[item],800)
+            self.assertEqual(self.quantities()[2000001],189)
+            self.assertEqual(self.inventory.view()['categories'],[2,3,4])
+            self.inventory.observe(update(bytes([0,2])+record(8,item,700)+bytes(8)),'ammo')
+            self.assertEqual(self.quantities()[item],1500)
+
+    def test_cash_pet_refresh_does_not_clear_tracked_bags(self):
+        pet=bytes([3])+struct.pack('<I',5000007)+bytes([1])+bytes(69)
+        refresh=update(struct.pack('<BBh',3,5,7),struct.pack('<BBh',0,5,7)+pet)
+        self.assertEqual(len(refresh),92)
+        self.inventory.observe(refresh,'one')
+        self.assertEqual(self.quantities()[2000001],189)
+        # A mixed-bag or malformed envelope must not be mistaken for a pet refresh.
+        broken=bytearray(refresh);broken[14]=2
+        self.inventory.observe(broken,'one')
+        self.assertEqual(self.inventory.view()['categories'],[])
+
+    def test_unknown_bag_layout_keeps_independently_decoded_currency(self):
+        data=character();data[602]=9
+        self.inventory.observe(data,'partial')
+        self.assertEqual(self.inventory.view()['categories'],[])
+        self.assertEqual(self.inventory.view()['mesos'],54321)
+        self.inventory.observe(bytes.fromhex('7e0000000100000400')+struct.pack('<Q',54000)+bytes(2),'partial')
+        self.assertEqual(self.inventory.view()['mesos'],54000)
+
     def test_unknown_stat_clears_balance(self):
+        self.inventory.observe(bytes.fromhex('7e0000000100040000')+struct.pack('<H', 1700)+bytes(2), 'one')
+        self.assertEqual(self.inventory.view()['mesos'], 54321, 'HP updates do not change currency')
         self.inventory.observe(bytes.fromhex('7e0000000100000000010100'), 'one')
         self.assertEqual(self.inventory.view()['mesos'], 54321)
         self.inventory.observe(bytes.fromhex('7e0000000100000400')+struct.pack('<Q', 54252)+bytes(2), 'one')

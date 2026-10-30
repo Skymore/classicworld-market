@@ -275,6 +275,30 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(len(self.server.named('reserve')), 1, 'a restart within the run keeps the listing and spend')
         self.assertEqual(restarted.spent, 300)
 
+    def test_purchase_inventory_check_runs_after_settlement_and_reports(self):
+        self.joined()
+        self.purchaser.verify_inventory = Mock(side_effect=lambda *args: self.assertEqual(len(self.server.named('settle')), 1))
+        self.engine.on_shop_open(self.capture(), 'window')
+        self.purchaser.verify_inventory.assert_called_once_with('window', self.folder, None)
+        self.assertEqual(self.server.named('settle')[0]['status'], 'bought')
+        self.assertTrue(self.server.named('state'))
+
+    def test_inventory_failure_does_not_change_or_duplicate_confirmed_purchase(self):
+        self.joined()
+        self.purchaser.verify_inventory = Mock(side_effect=RuntimeError('inventory unreadable'))
+        with self.assertRaises(PurchaseHalt):
+            self.engine.on_shop_open(self.capture(), 'window')
+        self.assertEqual(len(self.server.named('settle')), 1)
+        self.assertEqual(self.server.named('settle')[0]['status'], 'bought')
+        self.assertFalse(self.engine.buying())
+
+    def test_unsuccessful_purchase_does_not_open_inventory(self):
+        self.joined()
+        self.purchaser.result = lambda _: PurchaseResult('not_bought', reason='sold_out')
+        self.purchaser.verify_inventory = Mock()
+        self.engine.on_shop_open(self.capture(), 'window')
+        self.purchaser.verify_inventory.assert_not_called()
+
     def test_partial_and_zero_grants(self):
         self.joined()
         self.server.grant = 1

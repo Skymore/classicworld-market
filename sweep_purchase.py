@@ -11,6 +11,11 @@ A purchaser implementation must:
 5. Return bought only after confirmation (for example a shop row update or inventory packet).
 6. Use only the reasons in REASONS.
 
+An optional verify_inventory hook runs after the confirmed result is settled.
+It may close the verified shop, open/check/close the inventory, and return True
+to end this visit. The scanner independently verifies closure before moving on.
+Multiple bundles of the current item are still bought together in one order.
+
 The Windows executor is a separate module `sweep_purchaser_windows` exposing `create()`. It ships
 with the collector; if it cannot be imported or started, purchases report LOAD_FAILED.
 """

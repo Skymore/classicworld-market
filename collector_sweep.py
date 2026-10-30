@@ -487,6 +487,7 @@ class SweepEngine:
             self._finish(order, PurchaseResult('not_bought', reason='stopped' if stopped else 'timeout'), note, per, run, lease, key)
             return
         try:
+            before_inventory = read_inventory(self.folder, self.game_state)
             result = checked_result(self.purchaser.buy(order, window), order)
         except PurchaseHalt as error:
             result = checked_result(error.result, order)
@@ -503,6 +504,24 @@ class SweepEngine:
             # Returning normally lets the scanner close this shop and click another.
             # An unconfirmed purchase/dialog must never receive those extra inputs.
             raise PurchaseHalt(result)
+        verify = getattr(self.purchaser, 'verify_inventory', None)
+        if result.status == 'bought' and verify is not None:
+            expected = None
+            if before_inventory and row['category'] in before_inventory.get('categories', []):
+                count = next((i['quantity'] for i in before_inventory['items'] if i['item_id'] == row['item_id']), 0)
+                expected = dict(item_id=row['item_id'], quantity=count+result.quantity*per,
+                                mesos=self.purchaser.mesos)
+            try:
+                shop_closed = verify(window, self.folder, expected) is True
+            except Exception as error:
+                self._leave(run, lease, 'window_lost', '购买已完成，背包确认失败，已停止扫描')
+                raise PurchaseHalt(result) from error
+            try:
+                self.report(force=True)
+            except (OSError, DeviceError):
+                pass
+            if shop_closed:
+                return PurchaseResult(result.status, result.quantity, result.spent, 'shop_closed')
         return result
 
     def _finish(self, order, result, note, per, run, lease, key):

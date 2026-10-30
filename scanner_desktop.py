@@ -568,15 +568,19 @@ class DesktopController:
             started.set()
             # The sweep engine buys in shops the scanner opens; it decides per visit.
             hooks = dict(shop_callback=self.sweep.on_shop_open, capture_receipt=self.sweep.receipt) if self.sweep else {}
+            from inventory_check import check_at_start
+            def scan(*args, **kwargs):
+                return self._modules['run'](*args, **kwargs,
+                    ready_callback=lambda switcher: check_at_start(self.collector.folder, switcher))
             if self.sweep and self.sweep.buying() and self.sweep.scan_mode() == 'recent':
                 from sweep_routes import run_recent
-                outcome = run_recent(self._folder, self._hwnd, started, stop, self._on_scan, self.sweep, self._modules['run'])
+                outcome = run_recent(self._folder, self._hwnd, started, stop, self._on_scan, self.sweep, scan)
                 if not self.sweep.buying():
                     self._user_stop()
             else:
                 if self.sweep and self.sweep.buying() and self.sweep.scan_mode() == 'priority':
                     from sweep_routes import run_recent
-                    run_recent(self._folder, self._hwnd, started, stop, self._on_scan, self.sweep, self._modules['run'], once=True)
+                    run_recent(self._folder, self._hwnd, started, stop, self._on_scan, self.sweep, scan, once=True)
                     if not self.sweep.buying():
                         stop.set()
                     self.sweep.progress('全市场扫描')
@@ -584,14 +588,15 @@ class DesktopController:
                 progress_options = {'progress': progress_type(self.collector.home/'scan-progress.json')} if progress_type else {}
                 assignments = self._modules['CloudScan'](config, stop, self._on_scan,
                     paused=self._modules['is_paused'], session=self._session, transport=transport, **progress_options)
-                outcome = self._modules['run'](self._folder, self._hwnd, started, stop,
+                outcome = scan(self._folder, self._hwnd, started, stop,
                                               self._on_scan, assignments=assignments, **hooks)
             if outcome and outcome.get('reason') == 'room_scan_incomplete':
                 raise RuntimeError('Room scan incomplete')
         except Exception as error:
             failure = error
             from sweep_purchase import purchase_halted
-            if purchase_halted(error) or any(s in str(error).lower() for s in ('stopped with f9', 'mouse failsafe')):
+            from inventory_check import inventory_check_failed
+            if inventory_check_failed(error) or purchase_halted(error) or any(s in str(error).lower() for s in ('stopped with f9', 'mouse failsafe')):
                 self._user_stop()
         finally:
             failure = getattr(stop, 'failure', None) or failure
@@ -654,7 +659,10 @@ class DesktopController:
         if run and getattr(self, '_pending_sweep', None) == run and (not self._worker or not self._worker.is_alive()):
             choices = self._windows()
             if len(choices) == 1:
-                self.start(choices[0]['id'])
+                if self._intent.load().get('enabled'):
+                    self.start(choices[0]['id'], restore=True)
+                else:
+                    self.start(choices[0]['id'])
                 self._pending_sweep = None
                 self._sweep_started = run
 

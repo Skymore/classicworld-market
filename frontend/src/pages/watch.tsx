@@ -548,7 +548,6 @@ export default function Watch() {
                             document.documentElement.lang === "en"
                               ? item.name_zh
                               : item.name_en,
-                            id,
                           ]
                             .filter(Boolean)
                             .join(" · ")}
@@ -587,6 +586,10 @@ export default function Watch() {
                           </span>
                         </span>
                       </div>
+                      {lists.length>0&&<select className="wc-list" aria-label={words(`${itemName(item)}所属清单`,`${itemName(item)} list`)} value={listForItem(lists,id)} onChange={e=>saveLists(moveToList(lists,id,e.target.value))}>
+                        <option value="default">{words('默认','Default')}</option>
+                        {lists.map(list=><option key={list.id} value={list.id}>{list.name}</option>)}
+                      </select>}
                       <button
                         className="bar-btn wc-x"
                         data-remove={id}
@@ -596,12 +599,6 @@ export default function Watch() {
                         <Icon name="close" />
                       </button>
                     </div>
-                    {lists.length>0&&<label className="wc-list">{words('清单','List')}
-                      <select aria-label={words(`${itemName(item)}所属清单`,`${itemName(item)} list`)} value={listForItem(lists,id)} onChange={e=>saveLists(moveToList(lists,id,e.target.value))}>
-                        <option value="default">{words('默认清单','Default list')}</option>
-                        {lists.map(list=><option key={list.id} value={list.id}>{list.name}</option>)}
-                      </select>
-                    </label>}
                     <div className="wc-set" id={"wc-set-" + id}>
                       <WatchGroups
                         id={id}

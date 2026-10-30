@@ -126,7 +126,8 @@ class DesktopTests(unittest.TestCase):
     def test_scan_releases_task_without_stopping_manual_capture(self):
         lease = Mock()
         started = threading.Event()
-        def run(folder, hwnd, begin, stop, callback, assignments):
+        def run(folder, hwnd, begin, stop, callback, assignments, ready_callback):
+            self.assertTrue(callable(ready_callback))
             started.set()
             callback('full_scanning_room_8_channel_12')
             callback(('progress', {'channel': 12, 'visited': 3}))
@@ -209,6 +210,16 @@ class DesktopTests(unittest.TestCase):
             self.controller.command('stop')
             self.controller.sync_sweep()
             start.assert_called_once_with(12)
+
+    def test_accepted_sweep_preserves_saved_scan_session_on_startup(self):
+        sweep = Mock(lock=threading.RLock(), run={'id':'resumed-run'})
+        sweep.buying.return_value = True
+        sweep.scan_mode.return_value = 'market'
+        self.controller.sweep = sweep
+        self.controller._intent.start(12, 'saved-session')
+        with patch.object(self.controller, 'start') as start:
+            self.controller.sync_sweep()
+            start.assert_called_once_with(12, restore=True)
 
     def test_purchases_are_added_to_the_activity_list(self):
         sweep = Mock(lock=threading.RLock())

@@ -70,8 +70,8 @@
       "_shared-B-LUBaRi.js"
     ]
   },
-  "_main-BfQOTbyZ.js": {
-    "file": "chunks/main-BfQOTbyZ.js",
+  "_main-DoF9-lk_.js": {
+    "file": "chunks/main-DoF9-lk_.js",
     "name": "main",
     "imports": [
       "_shared-B-LUBaRi.js",
@@ -237,7 +237,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BfQOTbyZ.js"
+      "_main-DoF9-lk_.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -427,7 +427,7 @@
     ]
   },
   "src/pages/watch.tsx": {
-    "file": "chunks/watch-CWNBQLnE.js",
+    "file": "chunks/watch-DAmNFpBU.js",
     "name": "watch",
     "src": "src/pages/watch.tsx",
     "isDynamicEntry": true,
@@ -457,7 +457,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BfQOTbyZ.js"
+      "_main-DoF9-lk_.js"
     ]
   },
   "style.css": {

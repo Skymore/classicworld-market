@@ -147,6 +147,17 @@ class WindowsPurchaser:
         # title glyphs use an unchanged title bitmap, never guessed OCR.
         return True
 
+    def verify_inventory(self, window, folder, expected=None):
+        from inventory_check import InventoryChecker, InventoryCheckError
+        from shop_window_control import try_keyboard_close
+        # The game blocks inventory while a visitor store is open. Close the
+        # verified store first; the scanner then moves on after this order.
+        if not try_keyboard_close(window.capture, window.pause, window.vision,
+                                  lambda: window.press('esc'), window.bounds):
+            raise InventoryCheckError('购买已完成，但无法确认商店已关闭')
+        InventoryChecker(folder).run(window, 'purchase', expected)
+        return True
+
     def buy(self, order, window):
         flow = PurchaseFlow(order, self.clock)
         if (type(order.quantity) is not int or not 1 <= order.quantity <= self.max_quantity
