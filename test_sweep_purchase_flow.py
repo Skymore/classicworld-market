@@ -79,6 +79,34 @@ class FlowTests(unittest.TestCase):
         self.now += .2
         self.assertEqual(self.flow.step(self.shop), PurchaseResult('not_bought', reason='timeout'))
 
+    def test_pre_payment_notice_dismisses_once_and_cancels_returned_quantity(self):
+        self.to_confirm()
+        self.assertEqual(self.flow.step(View('notice')), Action('dismiss'))
+        self.assertIsNone(self.flow.step(View('notice')))
+        self.assertEqual(self.flow.step(View('quantity', quantity=100)), Action('cancel'))
+        self.assertIsNone(self.flow.step(View('quantity', quantity=100)))
+        self.assertEqual(self.flow.step(self.shop), PurchaseResult('not_bought', reason='error'))
+
+    def test_notice_never_proves_rejection_after_payment_or_before_verified_purchase(self):
+        with self.assertRaises(PurchaseHalt):
+            self.flow.step(View('notice'))
+        self.setUp()
+        self.submitted()
+        self.assertIsNone(self.flow.step(View('notice')))
+        self.now = self.order.deadline
+        with self.assertRaises(PurchaseHalt) as caught:
+            self.flow.step(View('notice'))
+        self.assertEqual(caught.exception.result.status, 'unknown')
+
+    def test_notice_cleanup_is_bounded_and_allowed_after_deadline(self):
+        self.to_confirm()
+        self.now = self.order.deadline
+        self.assertEqual(self.flow.step(View('notice')), Action('dismiss'))
+        self.now += 2
+        with self.assertRaises(PurchaseHalt) as caught:
+            self.flow.step(View('notice'))
+        self.assertEqual(caught.exception.result.status, 'not_bought')
+
     def test_pre_payment_timeout_cleanup_is_bounded_and_unknown_modal_untouched(self):
         self.to_confirm()
         self.now = self.order.deadline

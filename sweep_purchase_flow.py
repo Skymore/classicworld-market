@@ -83,6 +83,7 @@ class PurchaseFlow:
         self.typed = False
         self.halted = False
         self.cleanup_deadline = order.deadline
+        self.cancelled_after_notice = False
 
     def halt(self, reason='error'):
         self.halted = True
@@ -92,6 +93,10 @@ class PurchaseFlow:
 
     def _abort(self, view, reason):
         self.outcome = PurchaseResult('not_bought', reason=reason)
+        if view.kind == 'notice' and self.phase in ('quantity', 'confirm') and not self.submitted:
+            self.phase = 'notice_cleanup'
+            self.cleanup_deadline = self.clock()+2
+            return Action('dismiss')
         if view.kind == 'shop' and view.shop_verified:
             self.phase = 'done'
             return self.outcome
@@ -108,12 +113,15 @@ class PurchaseFlow:
             return self.outcome
         if not view.focused:
             self.halt('window_lost')
-        if self.phase == 'cleanup':
+        if self.phase in ('cleanup', 'notice_cleanup'):
             if view.kind == 'shop' and view.shop_verified:
                 self.phase = 'done'
                 return self.outcome
             if self.clock() >= self.cleanup_deadline:
                 self.halt('timeout')
+            if self.phase == 'notice_cleanup' and view.kind in ('quantity', 'confirm') and not self.cancelled_after_notice:
+                self.cancelled_after_notice = True
+                return Action('cancel')
             return None
         # An expired reservation forbids buying, not cancelling a recognized
         # pre-payment dialog. Observe cleanup for a separate bounded interval.
@@ -142,6 +150,8 @@ class PurchaseFlow:
             return None  # Never resubmit after the final confirmation.
         if not self.order.can_buy():
             return self._abort(view, 'stopped')
+        if view.kind == 'notice' and self.phase in ('quantity', 'confirm'):
+            return self._abort(view, 'error')
         if self.phase in ('select', 'selected'):
             if view.kind != 'shop' or not view.shop_verified:
                 self.halt('shop_closed')

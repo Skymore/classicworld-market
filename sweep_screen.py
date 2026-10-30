@@ -309,4 +309,10 @@ class Reader:
                     else self.dialog_font.read(band.min(axis=2) > 240, spaces=False))
             match = re.fullmatch(r'Thetotalpriceis([0-9,]+)mesos\.', text or '')
             return 'confirm', money(match[1]) if match else None
+        # A one-button notice is only a UI observation, not evidence of a
+        # rejected transaction. The flow may dismiss it BEFORE payment only.
+        panel = image[345:390, 565:800, :3].astype(int)
+        blue = (panel[:,:,2]-panel[:,:,0] > 65) & (panel[:,:,1] > 105) & (panel[:,:,0] < 110)
+        if blue.mean() > .75 and self.matches(image, 'ok', 763, 414):
+            return 'notice', None
         return None, None

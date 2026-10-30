@@ -95,6 +95,19 @@ class ScreenTests(unittest.TestCase):
         image[360,620] = 0
         self.assertEqual(self.reader.dialog(image), (None, None))
 
+    def test_notice_requires_blue_panel_and_single_ok_at_supported_resolutions(self):
+        from PIL import Image
+        from sweep_screen import Canvas
+        image = np.zeros((768,1366,3),dtype=np.uint8)
+        image[338:399,559:806] = [70,135,185]
+        t = self.reader.templates['ok']
+        image[414:414+t.shape[0],763:763+t.shape[1]] = t
+        for size in ((1366,768),(1920,1080),(1600,900),(1280,720)):
+            frame = Canvas(*size).frame(Image.fromarray(image).resize(size,Image.Resampling.BILINEAR))
+            self.assertEqual(self.reader.dialog(frame), ('notice',None), size)
+        image[338:399,559:806] = 0
+        self.assertEqual(self.reader.dialog(image), (None,None))
+
     def test_long_touching_shop_title_is_read_in_full(self):
         font = self.reader.font
         glyph = dict(font.glyphs)['y']
@@ -167,7 +180,7 @@ class ScriptedReader:
     def dialog(self,image):
         f=self.frame(image)
         if f['kind']=='rejected':return 'rejected', f['reason']
-        return (f['kind'],f.get('number',1)) if f['kind'] in ('quantity','confirm') else (None,None)
+        return (f['kind'],f.get('number',1)) if f['kind'] in ('quantity','confirm','notice') else (None,None)
     def shop(self,image):return self.frame(image)['kind']=='shop'
     def title(self,image):return 'Potions'
     def page(self,image):return self.frame(image)
@@ -235,6 +248,16 @@ class NativeFlowTests(unittest.TestCase):
             self.assertEqual(buyer.buy(replace(self.order,deadline=2.5),window),
                              PurchaseResult('not_bought',reason='timeout'))
         self.assertEqual(control.actions,[(535,521),(604,252),('quantity',1),(783,423)])
+
+    def test_quantity_limit_notice_skips_purchase_and_restores_shop(self):
+        for returned in ([], [Page(kind='quantity',number=1)]):
+            self.setUp()
+            frames = [Page(kind='shop'), Page(kind='shop',selected=True),
+                      Page(kind='quantity'), Page(kind='quantity'), Page(kind='notice'),
+                      *returned, Page(kind='shop')]
+            self.assertEqual(self.run_buy(frames=frames), PurchaseResult('not_bought',reason='error'))
+            self.assertEqual(self.control.actions,[(535,521),(604,252),('quantity',1),(735,423),
+                                                   (784,421)]+([(783,423)] if returned else []))
 
     def test_unreadable_shop_before_buy_is_skipped_without_input(self):
         with patch.object(ScriptedReader,'offset',return_value=None):

@@ -242,7 +242,9 @@ class WindowsPurchaser:
                     # target page; retain the unchanged static title throughout.
                     if title_stamp is None:
                         title_stamp = title_pixels.copy()
-                    if flow.submitted and before_packet is not None:
+                    if flow.phase in ('cleanup', 'notice_cleanup'):
+                        view = View('shop', shop_verified=True)
+                    elif flow.submitted and before_packet is not None:
                         after = inventory_position(order)
                         receipt = None
                         if (after is not None and after[0] == before_packet[0] and after[1] > before_packet[1]
@@ -336,6 +338,8 @@ class WindowsPurchaser:
                         control.click(783, 423 if view.kind == 'quantity' else 421)
                     elif action.kind == 'dismiss' and view.reason == 'shop_closed':
                         control.click(784, 411)
+                    elif action.kind == 'dismiss' and view.kind == 'notice' and not flow.submitted:
+                        control.click(784, 421)
                     else:
                         flow.halt('error')
                 window.pause(.12)
