@@ -60,6 +60,9 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.6.28：修复健康文件短暂读写失败导致的误重启；重启后校验租约并恢复洞号、频道、扫描方向和访问进度。\n'
+        '租约过期时优先重新领取仍空闲的原任务；已被占用或完成的任务不会继续使用旧进度。未完成频道重新核对店铺。\n'
+        'v0.6.27：修复升级后仍显示旧界面缓存，保留原有登录和设置。\n\n'
         'v0.6.26：同账号设备共用扫货条件与总预算，取消本机额度和网页启动开关；显示参与设备、进度、背包和金币。\n'
         '开始后默认优先扫描最近 3 小时命中的洞，包括洞内其他店铺，随后继续全市场扫描；不会因升级自动开始购买。\n'
         '修复 Windows 下载解压后的组件加载失败和换频道误点菜单；保留公网 IPv6/IPv4 竞速连接与超时恢复。\n'

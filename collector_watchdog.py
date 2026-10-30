@@ -4,12 +4,50 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import math
+import uuid
 
 from collector_recovery import ScanIntent, RecoveryLog, atomic_json, read_json
 
 
 def should_restart(code, requested, intent):
     return bool(intent.get('enabled') and (requested or code != 0))
+
+
+class HealthMonitor:
+    """A failed read is missing evidence, never proof of a dead process."""
+    def __init__(self, launch_id, startup_grace=45, timeout=20, confirm=2):
+        self.launch_id = launch_id
+        self.startup_grace, self.timeout, self.confirm = startup_grace, timeout, confirm
+        self.session = None
+        self.started = self.last_seen = self.last_beat = self.suspect = None
+
+    def check(self, health, intent, now):
+        if not intent.get('enabled'):
+            self.session = None
+            self.started = None
+            return None
+        session = intent.get('session')
+        if self.started is None or session != self.session:
+            self.session, self.started = session, now
+            self.last_seen = self.last_beat = self.suspect = None
+        beat = health.get('monotonic')
+        valid = (health.get('launch_id') == self.launch_id and health.get('session') == session
+                 and type(beat) in (int, float) and math.isfinite(beat) and 0 <= now-beat <= self.timeout)
+        if valid:
+            if self.last_beat is None or beat > self.last_beat:
+                self.last_beat, self.last_seen = beat, now
+            if health.get('restart') is True:
+                return 'blocked_step'
+        # Use local monotonic receipt time, not wall clocks or a single {} read.
+        reference = self.last_seen if self.last_seen is not None else self.started
+        limit = self.timeout if self.last_seen is not None else self.startup_grace
+        if now-reference <= limit:
+            self.suspect = None
+            return None
+        if self.suspect is None:
+            self.suspect = now
+        return 'stale' if now-self.suspect >= self.confirm else None
 
 
 def terminate_tree(pid):
@@ -54,9 +92,11 @@ def run(home, argv, *, command=None, emergency=None, release=None, startup_grace
     try:
         while True:
             args = argv if restarts == 0 else [a for a in argv if a != '--auto-start']
+            launch_id = uuid.uuid4().hex
             process = subprocess.Popen([*base, *args, '--supervised'],
+                env={**os.environ, 'CW_SCANNER_LAUNCH_ID': launch_id},
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
-            launched = time.time()
+            monitor = HealthMonitor(launch_id, startup_grace=startup_grace)
             requested = False
             emergency_restart = False
             last_sample = 0
@@ -74,14 +114,15 @@ def run(home, argv, *, command=None, emergency=None, release=None, startup_grace
                     break
                 health = read_json(Path(home)/'scan-health.json')
                 now = time.time()
-                if desired.get('enabled') and now - launched > startup_grace:
-                    stale = health.get('pid') != process.pid or now - health.get('at', 0) > 20
-                    if stale or health.get('restart'):
-                        requested = True
-                        journal.event('process_recovery_begin', reason='stale' if stale else 'blocked_step')
-                        terminate_tree(process.pid)
-                        release()
-                        break
+                reason = monitor.check(health, desired, time.monotonic())
+                if reason:
+                    requested = True
+                    journal.event('process_recovery_begin', reason=reason, pid=process.pid,
+                                  health_pid=health.get('pid'), health_at=health.get('at'),
+                                  last_good_age=None if monitor.last_seen is None else time.monotonic()-monitor.last_seen)
+                    terminate_tree(process.pid)
+                    release()
+                    break
                 if now - last_sample >= 30:
                     last_sample = now
                     try:

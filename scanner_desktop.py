@@ -27,6 +27,7 @@ def scanner_modules(backend='windows'):
     from full_market_scan import run
     from cloud_scan import CloudScan, LeaseStopEvent
     from control_state import clear_pause, is_paused, request_pause
+    from scan_progress import AssignedProgress
     if backend == 'windows':
         from functools import partial
         from market_passive import WindowsSniffer
@@ -426,6 +427,7 @@ class DesktopController:
         blocked_gate = None
         restart_at = None
         last_health = 0
+        health_error_at = None
         while not cancel.wait(.1):
             if self._emergency() or self._intent.tombstone.exists() or not self._intent.permit.exists():
                 self._user_stop()
@@ -449,9 +451,20 @@ class DesktopController:
             if time.monotonic() - last_health >= 1:
                 last_health = time.monotonic()
                 state = self.snapshot()
-                atomic_json(self.collector.home/'scan-health.json', dict(at=time.time(), pid=os.getpid(),
-                            restart=self._restart_requested, desired=self._desired,
-                            **{key:state[key] for key in ('phase','room','channel','last_progress_at','retries','pending_uploads')}))
+                try:
+                    atomic_json(self.collector.home/'scan-health.json', dict(at=time.time(), pid=os.getpid(),
+                                monotonic=time.monotonic(), launch_id=os.environ.get('CW_SCANNER_LAUNCH_ID'),
+                                session=self._session, restart=self._restart_requested, desired=self._desired,
+                                **{key:state[key] for key in ('phase','room','channel','last_progress_at','retries','pending_uploads')}))
+                    health_error_at = None
+                except OSError as error:
+                    # A single sharing violation must not kill the guard thread.
+                    if health_error_at is None or time.monotonic()-health_error_at > 30:
+                        health_error_at = time.monotonic()
+                        try:
+                            self._journal.event('health_write_retry', error=type(error).__name__)
+                        except OSError:
+                            pass  # Keep the input guard alive even on a full disk.
 
     def _run(self):
         attempts = 0
@@ -567,8 +580,10 @@ class DesktopController:
                     if not self.sweep.buying():
                         stop.set()
                     self.sweep.progress('全市场扫描')
+                progress_type = self._modules.get('AssignedProgress')
+                progress_options = {'progress': progress_type(self.collector.home/'scan-progress.json')} if progress_type else {}
                 assignments = self._modules['CloudScan'](config, stop, self._on_scan,
-                    paused=self._modules['is_paused'], session=self._session, transport=transport)
+                    paused=self._modules['is_paused'], session=self._session, transport=transport, **progress_options)
                 outcome = self._modules['run'](self._folder, self._hwnd, started, stop,
                                               self._on_scan, assignments=assignments, **hooks)
             if outcome and outcome.get('reason') == 'room_scan_incomplete':

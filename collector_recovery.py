@@ -23,7 +23,16 @@ def atomic_json(path, value):
             json.dump(value, stream, ensure_ascii=False)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        # Windows readers/AV can briefly deny replacement of an open file.
+        # Keep the complete old document until replacement succeeds.
+        for attempt in range(5):
+            try:
+                os.replace(temporary, path)
+                break
+            except PermissionError:
+                if attempt == 4:
+                    raise
+                time.sleep(.02 * (attempt + 1))
     finally:
         temporary.unlink(missing_ok=True)
 

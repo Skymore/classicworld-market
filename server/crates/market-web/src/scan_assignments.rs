@@ -25,6 +25,8 @@ pub struct Request {
     session_id: String,
     lease_id: Option<String>,
     channel: Option<i16>,
+    resume_room: Option<i16>,
+    resume_round: Option<String>,
 }
 async fn identity(state: &AppState, headers: &HeaderMap, request: &Request) -> Result<i64, Error> {
     if request.session_id.len() < 16
@@ -34,6 +36,12 @@ async fn identity(state: &AppState, headers: &HeaderMap, request: &Request) -> R
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'-')
         || request.channel.is_some_and(|n| !(1..=40).contains(&n))
+        || request.resume_room.is_some_and(|n| !(1..=20).contains(&n))
+        || request.resume_room.is_some() != request.resume_round.is_some()
+        || request
+            .resume_round
+            .as_ref()
+            .is_some_and(|s| s.is_empty() || s.len() > 32 || !s.bytes().all(|b| b.is_ascii_digit()))
     {
         return Err(error(StatusCode::BAD_REQUEST, "Invalid scanner session"));
     }
@@ -76,15 +84,15 @@ async fn claim(
         .map_err(db_error)?;
     sqlx::query("UPDATE scan_rooms SET collector_id=NULL,session_id=NULL,lease_id=NULL,expires_at=NULL,channel=NULL WHERE expires_at<=clock_timestamp() OR NOT enabled")
         .execute(&mut *tx).await.map_err(db_error)?;
-    let existing: Option<(i16, String, String)> =
-        sqlx::query_as("SELECT room,lease_id,session_id FROM scan_rooms WHERE collector_id=$1")
+    let existing: Option<(i16, String, String, String)> =
+        sqlx::query_as("SELECT room,lease_id,session_id,COALESCE((extract(epoch from last_completed)*1000000)::bigint::text,'0') FROM scan_rooms WHERE collector_id=$1")
             .bind(id)
             .fetch_optional(&mut *tx)
             .await
             .map_err(db_error)?;
     if existing
         .as_ref()
-        .is_some_and(|(_, _, session)| session != &r.session_id)
+        .is_some_and(|(_, _, session, _)| session != &r.session_id)
     {
         return Err(error(
             StatusCode::CONFLICT,
@@ -93,14 +101,17 @@ async fn claim(
     }
     sqlx::query("INSERT INTO scan_workers VALUES($1,$2,clock_timestamp()+interval '30 seconds') ON CONFLICT(collector_id) DO UPDATE SET session_id=EXCLUDED.session_id,expires_at=EXCLUDED.expires_at")
         .bind(id).bind(&r.session_id).execute(&mut *tx).await.map_err(db_error)?;
-    let assigned = if let Some((room, lease, _)) = existing {
-        Some((room, lease))
+    let assigned = if let Some((room, lease, _, round)) = existing {
+        Some((room, lease, round))
     } else {
-        let room: Option<(i16,)> = sqlx::query_as("SELECT room FROM scan_rooms WHERE enabled AND collector_id IS NULL ORDER BY last_completed NULLS FIRST, room LIMIT 1 FOR UPDATE")
+        // Prefer unfinished work only when free and still in the same round.
+        // Every acquisition has a new lease token; expired tokens stay fenced.
+        let room: Option<(i16, String)> = sqlx::query_as("SELECT room,COALESCE((extract(epoch from last_completed)*1000000)::bigint::text,'0') AS round_id FROM scan_rooms WHERE enabled AND collector_id IS NULL ORDER BY CASE WHEN room=$1 AND COALESCE((extract(epoch from last_completed)*1000000)::bigint::text,'0')=$2 THEN 0 ELSE 1 END, last_completed NULLS FIRST, room LIMIT 1 FOR UPDATE")
+            .bind(r.resume_room).bind(&r.resume_round)
             .fetch_optional(&mut *tx).await.map_err(db_error)?;
-        room.map(|(room,)| (room, auth::new_credentials().public_id))
+        room.map(|(room, round)| (room, auth::new_credentials().public_id, round))
     };
-    if let Some((room, ref lease)) = assigned {
+    if let Some((room, ref lease, _)) = assigned {
         sqlx::query("UPDATE scan_rooms SET collector_id=$1,session_id=$2,lease_id=$3,expires_at=clock_timestamp()+interval '30 seconds' WHERE room=$4")
             .bind(id).bind(&r.session_id).bind(lease).bind(room).execute(&mut *tx).await.map_err(db_error)?;
     }
@@ -111,7 +122,7 @@ async fn claim(
             .map_err(db_error)?;
     tx.commit().await.map_err(db_error)?;
     Ok(Json(
-        json!({"assignment":assigned.map(|(room,lease)|json!({"room":room,"lease_id":lease,"ttl_seconds":30})),
+        json!({"assignment":assigned.map(|(room,lease,round)|json!({"room":room,"lease_id":lease,"round_id":round,"ttl_seconds":30})),
         "online_scanners":online,"retry_after_seconds":5,"plan":{"first_channel":1,"last_channel":40,"empty_channels":3,"strategy":"both_ends"}}),
     ))
 }

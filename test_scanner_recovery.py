@@ -12,7 +12,57 @@ from urllib.error import HTTPError, URLError
 
 from collector_recovery import ScanIntent, failure_state, retry_after, retry_delay
 from collector_http import request_json
-from collector_watchdog import should_restart
+from collector_watchdog import HealthMonitor, should_restart
+
+
+class HealthTests(unittest.TestCase):
+    def test_transient_missing_reads_do_not_kill_active_scanner(self):
+        monitor = HealthMonitor('launch')
+        intent = dict(enabled=True, session='session')
+        for second in range(200):
+            health = dict(launch_id='launch', session='session', monotonic=second, pid=123)
+            self.assertIsNone(monitor.check(health, intent, second))
+            # Includes a temporary read failure right after real progress, as in #5.
+            self.assertIsNone(monitor.check({}, intent, second+.13))
+            self.assertIsNone(monitor.check(dict(health, launch_id='previous'), intent, second+.55))
+
+    def test_stuck_health_and_continuous_read_failure_still_restart(self):
+        for missing in (False, True):
+            monitor = HealthMonitor('launch', startup_grace=45)
+            intent = dict(enabled=True, session='session')
+            health = dict(launch_id='launch', session='session', monotonic=100)
+            self.assertIsNone(monitor.check(health, intent, 100))
+            if missing: health = {}
+            self.assertIsNone(monitor.check(health, intent, 121))
+            self.assertEqual(monitor.check(health, intent, 123), 'stale')
+            self.assertIsNone(monitor.check(dict(launch_id='launch',session='session',monotonic=124),intent,124))
+
+    def test_start_after_long_idle_has_grace_and_foreign_restart_is_ignored(self):
+        monitor = HealthMonitor('launch')
+        monitor.check({}, {}, 0)
+        intent = dict(enabled=True, session='session')
+        old = dict(launch_id='previous',session='session',monotonic=5000,restart=True)
+        self.assertIsNone(monitor.check(old,intent,5000))
+        self.assertIsNone(monitor.check({},intent,5044))
+        fresh = dict(old,launch_id='launch',monotonic=5045)
+        self.assertEqual(monitor.check(fresh,intent,5045),'blocked_step')
+        self.assertIsNone(monitor.check(fresh,dict(enabled=False),5046))
+
+    def test_atomic_health_write_retries_windows_sharing_violation(self):
+        import os
+        from collector_recovery import atomic_json, read_json
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'health.json'
+            replace=os.replace
+            attempts=[]
+            def flaky(source,target):
+                attempts.append(1)
+                if len(attempts)<3:raise PermissionError('reader holds file')
+                return replace(source,target)
+            with patch('collector_recovery.os.replace',side_effect=flaky):
+                atomic_json(path,dict(pid=123))
+            self.assertEqual(read_json(path),dict(pid=123))
+            self.assertEqual(len(attempts),3)
 from scanner_desktop import DesktopController
 
 
@@ -240,3 +290,17 @@ class RecoveryTests(unittest.TestCase):
         self.controller._on_scan(('confirmed',dict(step='claim',room=1)))
         self.assertFalse(self.controller.snapshot()['desired'])
         self.assertNotEqual(self.controller.snapshot()['phase'],'scanning')
+
+    def test_guard_survives_failed_health_writes_and_publishes_again(self):
+        from collector_recovery import atomic_json, read_json
+        attempts=[]
+        def flaky(path,value):
+            attempts.append(1)
+            if len(attempts)<=2:raise PermissionError('temporary sharing violation')
+            return atomic_json(path,value)
+        self.modules['run']=lambda *args,**kw:args[3].wait()
+        with patch('scanner_desktop.atomic_json',side_effect=flaky):
+            self.controller.start(12)
+            self.until(lambda:bool(read_json(self.home/'scan-health.json')),timeout=4)
+        self.assertTrue(self.controller._guard_thread.is_alive())
+        self.assertFalse(self.controller._restart_requested)

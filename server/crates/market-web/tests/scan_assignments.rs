@@ -157,3 +157,88 @@ async fn task_lease_survives_exhausted_market_pool() {
     s.scan_db.close().await;
     db.close().await;
 }
+
+#[tokio::test]
+async fn recovery_prefers_unfinished_room_but_never_steals_or_resumes_a_completed_round() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let s = AppState::new(db.pool.clone(), Settings::default());
+    let a = auth::register(&db.pool, "resume a").await.unwrap();
+    let b = auth::register(&db.pool, "resume b").await.unwrap();
+    let session = json!({"session_id":"resume-session-aa"});
+    // Let a take room 2 while room 1 is temporarily unavailable.
+    sqlx::query("UPDATE scan_rooms SET enabled=false WHERE room=1")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    let first = call(&s, &a.token, "claim", session.clone()).await.1["assignment"].clone();
+    assert_eq!(first["room"], 2);
+    let hint =
+        json!({"session_id":"resume-session-aa","resume_room":2,"resume_round":first["round_id"]});
+    sqlx::query(
+        "UPDATE scan_rooms SET expires_at=clock_timestamp()-interval '1 second' WHERE room=2",
+    )
+    .execute(&db.pool)
+    .await
+    .unwrap();
+    sqlx::query("UPDATE scan_rooms SET enabled=true WHERE room=1")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    let recovered = call(&s, &a.token, "claim", hint.clone()).await.1["assignment"].clone();
+    assert_eq!(
+        recovered["room"], 2,
+        "unfinished room wins over the normal room 1 order"
+    );
+    assert_eq!(recovered["round_id"], first["round_id"]);
+    assert_ne!(recovered["lease_id"], first["lease_id"]);
+    let old = json!({"session_id":"resume-session-aa","lease_id":first["lease_id"]});
+    assert_eq!(
+        call(&s, &a.token, "heartbeat", old).await.0,
+        StatusCode::CONFLICT
+    );
+    // Another live owner cannot be displaced by a recovery hint.
+    let other_hint =
+        json!({"session_id":"resume-session-bb","resume_room":2,"resume_round":first["round_id"]});
+    let other = call(&s, &b.token, "claim", other_hint).await.1["assignment"].clone();
+    assert_eq!(other["room"], 1);
+    let lease = json!({"session_id":"resume-session-aa","lease_id":recovered["lease_id"]});
+    assert_eq!(
+        call(&s, &a.token, "complete", lease).await.0,
+        StatusCode::OK
+    );
+    let next = call(&s, &a.token, "claim", hint.clone()).await.1["assignment"].clone();
+    assert_eq!(
+        next["room"], 3,
+        "completed round no longer gets recovery priority"
+    );
+    let release = json!({"session_id":"resume-session-aa","lease_id":next["lease_id"]});
+    assert_eq!(
+        call(&s, &a.token, "release", release).await.0,
+        StatusCode::OK
+    );
+    sqlx::query("UPDATE scan_rooms SET enabled=(room=2)")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    let fresh = call(&s, &a.token, "claim", hint).await.1["assignment"].clone();
+    assert_eq!(fresh["room"], 2);
+    assert_ne!(
+        fresh["round_id"], first["round_id"],
+        "new round invalidates old channel checkpoint"
+    );
+    assert_eq!(
+        call(
+            &s,
+            &a.token,
+            "claim",
+            json!({"session_id":"resume-session-aa","resume_room":99,"resume_round":"0"})
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    s.scan_db.close().await;
+    db.close().await;
+}
