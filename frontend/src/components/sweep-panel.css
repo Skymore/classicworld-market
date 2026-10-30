@@ -832,3 +832,10 @@
     gap: 4px;
   }
 }
+/* Direct editing shares the watch price controls and keeps touch targets readable. */
+.sweep-rule-dialog { max-width: 560px; }
+.sweep-rule-edit-body { padding: 20px; }
+.sweep-rule-quantity { display:flex; align-items:center; flex-wrap:wrap; gap:16px; margin-top:20px; }
+.sweep-rule-quantity label { display:flex; align-items:center; gap:8px; }
+.sweep-rule-quantity input[type=number] { width:100px; min-height:38px; font-size:16px; }
+.sweep-rules .sweep-link,.sweep-list .sweep-link { margin-left:8px; }

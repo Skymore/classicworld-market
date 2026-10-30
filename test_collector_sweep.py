@@ -76,6 +76,8 @@ class FakeServer:
         return {'plan_version': self.run['plan_version'], 'remaining': self.run['remaining']}
 
     def on_reserve(self, body):
+        if body['plan_version'] != self.run['plan_version']:
+            raise DeviceError(409, {'error': 'plan_changed'})
         granted = body['quantity'] if self.grant is None else self.grant
         if not granted:
             return {'granted': 0, 'reason': 'item_limit'}
@@ -230,14 +232,17 @@ class EngineTests(unittest.TestCase):
         self.assertIsNone(self.engine.status()['sweep']['run'])
         self.assertFalse(self.engine.buying())
 
-    def test_plan_version_change_pauses_reserving_until_rejoined(self):
+    def test_plan_version_change_keeps_route_and_rejoins_without_reset(self):
         self.joined()
         self.server.run['plan_version'] = 2
         self.server.run['plan'] = plan(limit=5)
+        self.engine.checked=42;self.engine.spent=100;self.engine.units[ITEM]=1
         self.engine.heartbeat()
-        self.assertFalse(self.engine.buying())
+        self.assertTrue(self.engine.buying())
         self.engine.on_shop_open(self.capture(), 'window')
-        self.assertEqual(self.server.named('reserve'), [])
+        self.assertEqual(len(self.server.named('reserve')), 1)
+        self.assertEqual(self.purchaser.orders, [])
+        self.assertEqual((self.engine.checked,self.engine.spent,self.engine.units[ITEM]),(43,100,1))
         self.engine.poll()
         self.assertEqual(self.server.named('join')[-1], {'run': 'run-1', 'plan_version': 2})
         self.assertEqual(self.engine.plan['watches'][0]['limit'], 5)
@@ -249,6 +254,28 @@ class EngineTests(unittest.TestCase):
         self.engine.poll()
         self.assertEqual(self.server.named('leave')[-1]['reason'][:6], '规则校验失败')
         self.assertFalse(self.engine.buying())
+
+    def test_plan_update_during_granted_purchase_waits_for_settlement(self):
+        self.joined()
+        old_lease=self.engine.lease
+        def buy(order):
+            self.server.run.update(plan_version=2,plan=plan(limit=1))
+            self.engine.heartbeat();self.engine.poll()
+            self.assertTrue(order.can_buy())
+            self.assertEqual(self.engine.lease,old_lease)
+            self.assertEqual(self.engine.plan_version,1)
+            return PurchaseResult('bought',order.quantity,order.quantity*order.price)
+        self.purchaser.result=buy
+        self.engine.on_shop_open(self.capture(),'window')
+        self.assertEqual(len(self.server.named('settle')),1)
+        spent,units,seen=self.engine.spent,dict(self.engine.units),set(self.engine.seen)
+        self.engine.poll()
+        self.assertEqual(self.engine.plan_version,2)
+        self.assertEqual((self.engine.spent,self.engine.units,self.engine.seen),(spent,units,seen))
+        self.server.run.update(plan_version=3,plan={'watches':[]})
+        self.engine.poll()
+        self.assertTrue(self.engine.buying())
+        self.assertEqual(self.engine.plan['watches'],[])
 
     def test_full_purchase_reserve_buy_settle_and_local_record(self):
         self.joined()

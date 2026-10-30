@@ -23,6 +23,7 @@ const records=[
  {kind:'watch',key:'2000000',version:1,value:{position:0,cap:null,notify:false,buyLimit:20,groups:[group('g1',60)]}},
  {kind:'watch',key:'1452003',version:1,value:{position:1,cap:null,notify:false,buyLimit:1,groups:[group('g2',80000,true)]}},
 ];
+const initialRecords=structuredClone(records);
 const device=(id,name,{online=true,allow=true,ready=true,reason='',seen=-10,version='0.7.0'}={})=>({id,name,created_at:iso(-86400),last_seen_at:iso(seen),online,client_version:version,
  state:{client_version:version,sweep:{allow_web_start:allow,recent_scan:true,shared_sweep:allow,max_spend:5000000,max_order:0,reserve_mesos:0,executor:{ready,reason},holdings:{observed_at:Math.floor(now()),mesos:434333,categories:[2,3,4],items:[{item_id:2000000,quantity:189},{item_id:2070000,quantity:500}]}}}});
 const statuses=['bought','not_bought','held','unknown','expired'];
@@ -30,6 +31,7 @@ const purchases=Array.from({length:24},(_,i)=>({id:'p'+i,device:'dev-a',item_id:
  spent:statuses[i%5]==='bought'?(i%3===1?75000:100):0,reason:statuses[i%5]==='not_bought'?'sold_out':null,room:3,channel:12,owner:'店主'+i,created_at:iso(-i*30),settled_at:iso(-i*30+5)}));
 let state,profile,calls,runs=0,accountStreams=new Set(),marketStreams=new Set();
 function reset({signedIn=true,mode=undefined,hasPassword=true}={}){
+ records.splice(0,records.length,...structuredClone(initialRecords));
  profile={signed_in:signedIn,google_enabled:true,...(signedIn?{public_id:'acct-1',username:hasPassword?'maple_one':null,has_password:hasPassword,google_linked:!hasPassword,nickname:'枫叶玩家',listed:false,csrf:CSRF,collectors:1,stats:{shops:3,quotes:9}}:{}),
   ...(mode?{mode,sync_scope:'watch',linked:true}:{})};
  state={run:null,devices:[device('dev-a','书房电脑'),device('dev-b','笔记本',{online:false,seen:-7200}),device('dev-c','网吧电脑',{allow:false}),device('dev-d','客厅电脑',{version:'0.6.18',ready:false,reason:'old executor text'}),device('dev-e','游戏本',{ready:false,reason:'购买功能加载失败'})],
@@ -56,7 +58,7 @@ const server=createServer(async(req,res)=>{
   if(!profile.signed_in)return json(res,{error:'login_required'},401);
   if(req.headers['x-csrf-token']!==CSRF)return json(res,{error:'invalid_request'},403);
   if(p==='/api/v1/account/logout'){reset({signedIn:false});return json(res,{ok:true});}
-  if(p==='/api/v1/account/data'){for(const op of input.operations||[]){const old=records.find(r=>r.kind===op.kind&&r.key===op.key);if(old){old.value=op.value;old.version++;}else records.push({...op,version:1});}return json(res,{records});}
+  if(p==='/api/v1/account/data'){for(const op of input.operations||[]){const old=records.find(r=>r.kind===op.kind&&r.key===op.key);if(old){old.value=op.value;old.version++;}else records.push({...op,version:1});}if(state.run?.status==='running'&&(input.operations||[]).some(op=>op.kind==='watch')){const watches=records.filter(r=>r.kind==='watch'&&r.value).map(r=>({item_id:Number(r.key),limit:r.value.buyLimit,groups:r.value.groups.filter(g=>g.buy)})).filter(w=>w.groups.length);state.run={...state.run,plan_stale:false,plan_version:state.run.plan_version+1,plan:{...state.run.plan,watches}};emit('sweep');}return json(res,{records});}
   if(p==='/api/v1/device/authorize'){if(state.authorize==='rate_limited')return json(res,{error:'rate_limited'},429);return json(res,{code:'C'.repeat(43)});}
   if(p==='/api/v1/account/devices/revoke'){state.devices=state.devices.filter(d=>d.id!==input.device);return json(res,{ok:true});}
   const sensitive=()=>{if(profile.has_password)return input.current_password===PASSWORD?null:'invalid_current_password';if(state.reauth){state.reauth=false;return 'reauth_required';}return null;};
@@ -239,7 +241,31 @@ try{
   assert.equal(await panel.locator('[data-sweep-run-device="dev-a"]').innerText(),'书房电脑 · 正在扫 3 洞 · 已查 273 店次');
   assert.equal(await panel.locator('[data-sweep-hits],[data-sweep-start]').count(),0);
   assert.match(await rule(2000000).innerText(),/红药水[\s\S]*4[\s\S]*20/);
-  assert.equal(await rule(2000000).locator('input').count(),0,'this run\'s limits are read-only');
+  assert.equal(await rule(2000000).locator('input').count(),0,'editing uses the corresponding condition dialog');
+  const originalRun=structuredClone(state.run);
+  await rule(2000000).locator('[data-edit-sweep-group]:visible').first().click();
+  let liveEditor=page.locator('.sweep-rule-dialog');
+  await liveEditor.getByLabel('本轮总上限',{exact:true}).fill('30');
+  await liveEditor.locator('[data-watch-reminder]').click();
+  await liveEditor.locator('[data-reminder-preset="25"]').click();
+  emit('sweep');
+  assert.equal(await liveEditor.getByLabel('本轮总上限',{exact:true}).inputValue(),'30','SSE preserves draft');
+  await liveEditor.getByRole('button',{name:'保存',exact:true}).click();
+  await waitFor(()=>state.run.plan.watches[0].limit===30,'quantity hot update');
+  assert.equal(records[0].value.groups[0].reminder.percentile,'25');
+  for(const key of ['id','spent','remaining','started_at','ends_at'])assert.deepEqual(state.run[key],originalRun[key],key+' preserved');
+  assert.deepEqual(state.run.purchases,originalRun.purchases);
+  await rule(2000000).locator('[data-edit-sweep-group]:visible').first().click();
+  liveEditor=page.locator('.sweep-rule-dialog');
+  await liveEditor.getByLabel('不限',{exact:true}).check();
+  await page.screenshot({path:path.join(shots,`live-rules-${mobile?'phone':'desktop'}.png`)});
+  await liveEditor.getByRole('button',{name:'取消',exact:true}).click();
+  assert.equal(records[0].value.buyLimit,30,'cancel preserves saved limit');
+  await rule(2000000).locator('[data-edit-sweep-group]:visible').first().click();
+  liveEditor=page.locator('.sweep-rule-dialog');
+  await liveEditor.getByLabel('本轮总上限',{exact:true}).fill('20');
+  await liveEditor.getByRole('button',{name:'保存',exact:true}).click();
+  await waitFor(()=>state.run.plan.watches[0].limit===20,'lower limit hot update');
   state.run.items[0].bought=20;emit('sweep');
   await rule(2000000).locator('.sweep-tag').filter({hasText:'已满'}).waitFor();
   assert.match(await rule(2000000).getAttribute('class'),/full/);
@@ -286,17 +312,31 @@ try{
   state.run.devices[0].leased=true;state.run.devices[0].message='正在扫 3 洞';
   await tab('设置');
   assert.match(await details.locator('[data-sweep-settings]').innerText(),/本轮预算.*5,000,000/s);
+  await details.locator('[data-sweep-rules]').getByRole('button',{name:'编辑',exact:true}).first().click();
+  liveEditor=page.locator('.sweep-rule-dialog');
+  if(mobile)await page.setViewportSize({width:320,height:700});
+  await liveEditor.locator('[data-watch-reminder]').click();
+  await liveEditor.locator('[data-reminder-manual]').click();
+  await liveEditor.locator('[data-cap]').fill('55');
+  assert((await liveEditor.locator('input:not([type=checkbox])').evaluateAll(es=>es.map(e=>parseFloat(getComputedStyle(e).fontSize)))).every(n=>n>=16));
+  assert(await noOverflow(page));
+  await liveEditor.locator('[data-save-cap]').click();
+  await liveEditor.getByRole('button',{name:'保存',exact:true}).click();
+  await waitFor(()=>state.run.plan.watches[0].groups[0].cap===55&&state.run.plan.watches[0].groups[0].reminder.percentile==='all','fixed price hot update from details');
+  assert.equal(state.run.id,originalRun.id);
+  assert.equal(await details.getByRole('tab',{name:'设置',exact:true}).getAttribute('aria-selected'),'true');
+  if(mobile)await page.setViewportSize({width:390,height:844});
+
   assert.match(await stat('ends'),/^\d{1,2}(\/\d{1,2} )?\d{2}:\d{2}$|^\d{2}:\d{2}$/);
   await close();
-  // Editing rules during a run shows a notice; this run keeps its snapshot.
+  // Editing watch rules also updates the same running plan.
   await page.locator('[data-watch-tab=items]').click();
   await page.locator('[data-card="1452003"] [data-watch-group]').getByRole('checkbox',{name:'扫货',exact:true}).uncheck();
   await page.locator('[data-watch-tab=sweep]').click();
-  await panel.locator('[data-sweep-stale]').filter({hasText:'关注里的扫货条件已修改，下一轮生效'}).waitFor();
-  assert.equal(await rule(1452003).count(),1,'this run keeps its own rules');
+  await waitFor(()=>rule(1452003).count().then(n=>n===0),'disabled rule removed from live plan');
   await panel.locator('[data-sweep-details]').click();await tab('设置');
   assert.match(await details.locator('[data-sweep-rules]').innerText(),/最多 20/);
-  await details.locator('[data-sweep-stale]').waitFor();
+  assert.equal(await details.locator('[data-sweep-stale]').count(),0);
   // SSE refreshes data without closing the dialog or resetting the selected tab.
   const fetches=calls.filter(c=>c.path==='/api/v1/account/sweep').length;
   state.run={...state.run,spent:2000000,remaining:2650000,plan_stale:true};emit('sweep');

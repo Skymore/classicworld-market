@@ -385,7 +385,7 @@ async fn save_data(State(state): State<AppState>, headers: HeaderMap, Json(input
     if !active {
         return Err(error(StatusCode::UNAUTHORIZED, "login_required"));
     }
-    accounts::apply(&mut tx, d.account, input.operations, false).await?;
+    accounts::apply(&state.db, &mut tx, d.account, input.operations, false).await?;
     tx.commit().await.map_err(internal)?;
     device_snapshot(&state.db, d.account).await
 }

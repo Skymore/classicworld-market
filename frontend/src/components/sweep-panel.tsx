@@ -115,6 +115,7 @@ export default function SweepPanel({
   rulesOnly = false,
   onLimit,
   onEditRules,
+  onEditGroup,
 }: {
   profile: Account;
   sweep: ReturnType<typeof useSweep>;
@@ -126,6 +127,7 @@ export default function SweepPanel({
   rulesOnly?: boolean;
   onLimit(itemId: number, limit: number): void;
   onEditRules(): void;
+  onEditGroup?(itemId:number,groupId:string):void;
 }) {
   const words = useWords();
   const [dialog, setDialog] = useState<Dialog | null>(null);
@@ -160,7 +162,7 @@ export default function SweepPanel({
   if (rulesOnly)
     return (
       <section className="sweep-panel" data-sweep-panel data-sweep-state="rules" aria-label={words("扫货", "Sweep")}>
-        <RulesTable watches={watches} items={items} onLimit={onLimit} onEdit={onEditRules} />
+        <RulesTable watches={watches} items={items} onLimit={onLimit} onEdit={onEditRules} onEditGroup={onEditGroup} />
       </section>
     );
 
@@ -232,7 +234,7 @@ export default function SweepPanel({
       )}
       {running && changed && <RuleChangeNotice />}
       {running ? (
-        <RulesTable watches={run!.plan?.watches || watches} items={items} run={run} />
+        <RulesTable watches={run!.plan?.watches || watches} items={items} run={run} onEditGroup={onEditGroup} />
       ) : (
         <RulesTable
           watches={watches}
@@ -240,6 +242,7 @@ export default function SweepPanel({
           devices={sweep.data ? devices : undefined}
           onLimit={onLimit}
           onEdit={onEditRules}
+          onEditGroup={onEditGroup}
         />
       )}
       {running && (
@@ -257,6 +260,7 @@ export default function SweepPanel({
           initialTab={dialog.tab}
           onStop={stop}
           onClose={() => setDialog(null)}
+          onEditGroup={onEditGroup}
         />
       )}
       {dialog?.kind === "start" && sweep.data && (

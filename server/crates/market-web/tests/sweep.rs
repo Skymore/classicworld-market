@@ -614,33 +614,41 @@ async fn grants_stop_at_limits_and_unsettled_reservations_count() {
 }
 
 #[tokio::test]
-async fn plan_changes_require_stop_and_restart() {
+async fn plan_changes_apply_without_resetting_run_or_reservations() {
     let Some(db) = TestDb::new().await else { return };
     let s = AppState::new(db.pool.clone(), Settings::default());
     let w = signup(&s, "plan_versions").await;
-    watch(&s, &w, GLOVE, 500000, 5, 0).await;
-    let (token, _) = ready_device(&s, &w, "本机").await;
-    let run = device_start(&s, &token, 10_000_000).await;
-    let lease = join(&s, &token, &run, 1).await;
-    assert_eq!(grant(&s, &token, order(&run, &lease, 1, GLOVE, 100000)).await.0, 1);
-    watch(&s, &w, GLOVE, 300000, 5, 1).await;
-    assert_eq!(run_view(&s, &w).await["plan_stale"], true);
-    let (status, applied) = sensitive(&s, "/api/v1/account/sweep/apply", &w, json!({"run":run})).await;
-    assert_eq!(status, StatusCode::CONFLICT, "{applied}");
-    assert_eq!(applied["error"], "restart_required");
-    let view = run_view(&s, &w).await;
-    assert_eq!(view["plan_version"], 1);
-    assert_eq!(view["plan"]["watches"][0]["groups"][0]["cap"], 500000);
-    assert_eq!(grant(&s, &token, order(&run, &lease, 2, GLOVE, 400000)).await.0, 1, "running plan remains unchanged");
-    assert_eq!(web(&s, "POST", "/api/v1/account/sweep/stop", &w, json!({"run":run})).await.0, StatusCode::OK);
-    let next = device_start(&s, &token, 10_000_000).await;
-    let next_lease = join(&s, &token, &next, 1).await;
-    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/reserve", &token, order(&next, &next_lease, 3, GLOVE, 400000)).await.1["error"], "price_over_cap");
-    let (_, reservation) = grant(&s, &token, order(&next, &next_lease, 4, GLOVE, 250000)).await;
-    assert_eq!(settle(&s, &token, &reservation, "unknown", 0, 0, "timeout").await, StatusCode::OK);
-    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, json!({"run":next,"lease":next_lease})).await.1["error"], "lease_lost");
-    let view = run_view(&s, &w).await;
-    assert_eq!((view["devices"][0]["state"].as_str(), view["unknown"].as_i64()), (Some("left"), Some(250000)));
+    watch(&s,&w,GLOVE,500000,5,0).await;
+    let (token,_) = ready_device(&s,&w,"本机").await;
+    let run=device_start(&s,&token,10_000_000).await;
+    let lease=join(&s,&token,&run,1).await;
+    let (_,old)=grant(&s,&token,order(&run,&lease,1,GLOVE,400000)).await;
+    let before=run_view(&s,&w).await;
+    watch(&s,&w,GLOVE,300000,2,1).await;
+    let view=run_view(&s,&w).await;
+    for key in ["id","budget","reserved","spent","ends_at","started_at"] {assert_eq!(view[key],before[key],"{key}");}
+    assert_eq!(view["plan_stale"],false);
+    assert_eq!(view["plan_version"],2);
+    assert_eq!(dev(&s,"POST","/api/v1/device/sweep/reserve",&token,order(&run,&lease,2,GLOVE,250000)).await.1["error"],"plan_changed");
+    let next_lease=join(&s,&token,&run,2).await;
+    let mut next=order(&run,&next_lease,3,GLOVE,400000);next["plan_version"]=json!(2);
+    assert_eq!(dev(&s,"POST","/api/v1/device/sweep/reserve",&token,next.clone()).await.1["error"],"price_over_cap");
+    next["price"]=json!(250000);
+    let (_,new)=grant(&s,&token,next.clone()).await;
+    next["listing"]=json!(format!("{:064x}",4));
+    assert_eq!(grant(&s,&token,next).await.1,"item_limit");
+    assert_eq!(settle(&s,&token,&old,"bought",1,400000,"").await,StatusCode::OK);
+    assert_eq!(settle(&s,&token,&new,"bought",1,250000,"").await,StatusCode::OK);
+    watch(&s,&w,GLOVE,500000,5,2).await;
+    let lease3=join(&s,&token,&run,3).await;
+    let mut next=order(&run,&lease3,5,GLOVE,400000);next["plan_version"]=json!(3);
+    assert_eq!(grant(&s,&token,next).await.0,1);
+    let view=run_view(&s,&w).await;
+    assert_eq!(view["spent"],650000);assert_eq!(view["bought"],2);
+    assert_eq!(view["items"][0]["limit"],5);
+    let (status,_) = sensitive(&s,"/api/v1/account/sweep/apply",&w,json!({"run":run})).await;
+    assert_eq!(status,StatusCode::OK);
+    assert_eq!(run_view(&s,&w).await["plan_version"],3);
     db.close().await;
 }
 
@@ -759,7 +767,7 @@ async fn recent_route_is_frozen_capability_gated_and_account_scoped() {
     assert_eq!(dev(&s,"GET","/api/v1/device/sweep/targets",&other_token,Value::Null).await.1["error"],"sweep_stopped");
     watch(&s,&w,GLOVE,600000,0,1).await;
     assert_eq!(run_view(&s,&w).await["plan"]["scan"]["recent_minutes"],60);
-    assert_eq!(run_view(&s,&w).await["plan_stale"],true);
+    assert_eq!(run_view(&s,&w).await["plan_stale"],false);
     db.close().await;
 }
 
@@ -888,10 +896,10 @@ async fn device_sweep_reports_run_totals_and_the_current_plan() {
     assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, beat).await.0, StatusCode::OK);
     assert_eq!(run_view(&s, &w).await["devices"][0]["pending"], Value::Null);
 
-    // The plan route follows the rules; the running run keeps its snapshot.
+    // Both routes follow the updated rules without replacing the running run.
     watch(&s, &w, GLOVE, 300000, 3, 1).await;
     assert_eq!(current(token.clone()).await.1["plan"]["watches"][0]["groups"][0]["cap"], 300000);
-    assert_eq!(dev(&s, "GET", "/api/v1/device/sweep", &token, Value::Null).await.1["run"]["plan"]["watches"][0]["groups"][0]["cap"], 500000);
+    assert_eq!(dev(&s, "GET", "/api/v1/device/sweep", &token, Value::Null).await.1["run"]["plan"]["watches"][0]["groups"][0]["cap"], 300000);
     db.close().await;
 }
 

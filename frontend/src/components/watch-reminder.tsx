@@ -22,6 +22,8 @@ export default function WatchReminder({
   rows,
   reference,
   onChange,
+  priceLabel,
+  showNotify = true,
 }: {
   id: number;
   name: string;
@@ -29,6 +31,8 @@ export default function WatchReminder({
   rows: any[];
   reference: any;
   onChange(patch: any): void;
+  priceLabel?: string;
+  showNotify?: boolean;
 }) {
   const words = useWords(),
     root = useRef<HTMLDivElement>(null),
@@ -87,7 +91,7 @@ export default function WatchReminder({
         }
       }}
     >
-      <button
+      {showNotify && <button
         type="button"
         className={"toggle watch-notify " + (enabled ? "on" : "")}
         aria-pressed={enabled}
@@ -96,7 +100,7 @@ export default function WatchReminder({
       >
         <i />
         {words("报价提醒", "Alerts")}
-      </button>
+      </button>}
       <button
         type="button"
         className="watch-reminder-trigger"
@@ -112,7 +116,7 @@ export default function WatchReminder({
         }}
       >
         <span className="watch-reminder-mode">
-          <small>{words("提醒价格", "Alert price")}</small>
+          <small>{priceLabel || words("提醒价格", "Alert price")}</small>
           {reminder.percentile === "all"
             ? words("手动输入", "Manual")
             : words("最低", "Lowest")}

@@ -39,6 +39,7 @@ import { OfferRow } from "../components/list-rows";
 import { useWatchAlerts } from "../components/watch-alerts";
 import { NotificationSettings } from "../components/notification-settings";
 import SweepPanel, { isRecentRun, useSweep } from "../components/sweep-panel";
+import { SweepRuleEditor } from "../components/sweep-rule-editor";
 import { embedded } from "../lib/embed";
 import "../lib/list-copy";
 import "./watch.css";
@@ -58,6 +59,7 @@ const inScanner = (() => {
 export default function Watch() {
   usePageReady();
   const words = useWords();
+  const [editSweep,setEditSweep]=useState<{id:number;group:any;limit:number;signature:string}|null>(null);
   const route = useLocation();
   const navigate = useNavigate();
   const {
@@ -421,6 +423,10 @@ export default function Watch() {
               rulesOnly={rulesOnly}
               onLimit={(id, limit) => update(id, { buyLimit: limit })}
               onEditRules={() => writePanelTab("items")}
+              onEditGroup={(id,groupId)=>{
+                const group=watchGroups(settings[id]).find((g:any)=>g.id===groupId);
+                if(group)setEditSweep({id,group,limit:settings[id]?.buyLimit??1,signature:JSON.stringify(settings[id])});
+              }}
             />
           </div>
         )}
@@ -786,6 +792,17 @@ export default function Watch() {
           )}
         </div>
       </section>
+      {editSweep&&<SweepRuleEditor key={`${editSweep.id}:${editSweep.group.id}`} id={editSweep.id}
+        name={items.get(editSweep.id)?itemName(items.get(editSweep.id)):words('扫货条件','Sweep rule')}
+        group={editSweep.group} limit={editSweep.limit}
+        bought={sweep.data?.run?.items?.find(i=>i.item_id===editSweep.id)?.bought??0}
+        rows={grouped} reference={reference} onClose={()=>setEditSweep(null)}
+        onSave={(group,limit)=>{
+          if(JSON.stringify(settings[editSweep.id])!==editSweep.signature)throw new Error(words("设置已更新，请重新打开编辑","Settings changed. Reopen the editor."));
+          const groups=watchGroups(settings[editSweep.id]);
+          if(!groups.some((g:any)=>g.id===group.id))throw new Error(words('条件已删除，请刷新','This rule was removed. Refresh to continue.'));
+          update(editSweep.id,{buyLimit:limit,groups:groups.map((g:any)=>g.id===group.id?group:g)});
+        }}/>}
     </div>
   );
 }

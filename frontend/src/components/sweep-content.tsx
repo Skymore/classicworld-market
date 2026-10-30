@@ -86,13 +86,15 @@ export function useItemNames(ids: number[], items: Map<number, any>) {
   };
 }
 
-/** The run's frozen rules, read-only (details dialog). */
+/** Active run rules, with optional editing from the details dialog. */
 export function SweepRules({
   watches,
   items,
+  onEditGroup,
 }: {
   watches: SweepWatch[];
   items: Map<number, any>;
+  onEditGroup?(itemId:number,groupId:string):void;
 }) {
   const words = useWords(),
     name = useItemNames(
@@ -110,6 +112,7 @@ export function SweepRules({
               <small key={group.id || i}>
                 {i > 0 && words("或 · ", "or · ")}
                 {groupText(group)}
+                {onEditGroup&&<button className="sweep-link" onClick={()=>onEditGroup(watch.item_id,group.id)}>{words('编辑','Edit')}</button>}
               </small>
             ))}
           </div>
@@ -201,6 +204,7 @@ export function RulesTable({
   devices,
   onLimit,
   onEdit,
+  onEditGroup,
 }: {
   watches: SweepWatch[];
   items: Map<number, any>;
@@ -208,6 +212,7 @@ export function RulesTable({
   devices?: Device[];
   onLimit?(itemId: number, limit: number): void;
   onEdit?(): void;
+  onEditGroup?(itemId:number,groupId:string):void;
 }) {
   const words = useWords();
   const row = useItemRows(
@@ -221,6 +226,7 @@ export function RulesTable({
       <span key={group.id || i}>
         {i > 0 && <i>{words("或 ", "or ")}</i>}
         {groupText(group)}
+        {onEditGroup&&<button className="sweep-link" data-edit-sweep-group={group.id} onClick={()=>onEditGroup(watch.item_id,group.id)}>{words('编辑','Edit')}</button>}
       </span>
     ));
   return (

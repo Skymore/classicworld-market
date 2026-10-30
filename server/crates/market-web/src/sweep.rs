@@ -479,10 +479,26 @@ async fn web_apply(State(state): State<AppState>, headers: HeaderMap, Json(input
     let s = accounts::sensitive(&state, &headers, &input.current_password).await?;
     write_limit(&state, s.id)?;
     let mut tx = state.db.begin().await.map_err(internal)?;
+    lock_account(&mut tx, s.id).await?;
     let run = lock(&mut tx, s.id, &input.run).await?;
     ensure_running(&run)?;
-    // Running plans are immutable, including requests from cached older pages.
-    Err(conflict("restart_required"))
+    sync_plan(&state.db, &mut tx, s.id).await?;
+    tx.commit().await.map_err(internal)?;
+    web_reply(&state, s.id).await
+}
+
+/// Account row is locked by all watch writers. Only future reservations use
+/// the new version; granted reservations retain their original price/quantity.
+pub(crate) async fn sync_plan(db: &sqlx::PgPool, tx: &mut PgConnection, account: i64) -> Result<(), Response> {
+    let Some(run) = lock_running(tx, account).await? else { return Ok(()) };
+    if run.status != "running" { return Ok(()) }
+    let source = current_plan(tx, account).await?;
+    if &source["watches"] == source_watches(&run.plan) { return Ok(()) }
+    let mut next = priced_plan(db, source).await?;
+    if let Some(scan) = run.plan.get("scan") { next["scan"] = scan.clone(); }
+    sqlx::query("UPDATE sweep_runs SET plan=$2,plan_version=plan_version+1 WHERE id=$1")
+        .bind(run.id).bind(next).execute(&mut *tx).await.map_err(internal)?;
+    notify(tx, account, "sweep").await.map_err(internal)
 }
 
 #[derive(FromRow)]

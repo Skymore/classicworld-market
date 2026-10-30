@@ -846,7 +846,7 @@ async fn write_data(state: AppState, headers: HeaderMap, input: Changes, import:
     if let Err(e) = lock_session(&mut tx, s.id, &headers).await {
         return e;
     }
-    if let Err(e) = apply(&mut tx, s.id, input.operations, import).await {
+    if let Err(e) = apply(&state.db, &mut tx, s.id, input.operations, import).await {
         return e;
     }
     if let Err(e) = tx.commit().await {
@@ -859,11 +859,13 @@ async fn write_data(state: AppState, headers: HeaderMap, input: Changes, import:
 }
 /// Versioned writes for an account whose row the caller has locked.
 pub(crate) async fn apply(
+    db: &PgPool,
     tx: &mut sqlx::PgConnection,
     account: i64,
     operations: Vec<Record>,
     import: bool,
 ) -> Result<(), Response> {
+    let watch_changed = operations.iter().any(|r| r.kind == "watch");
     for r in operations {
         let version: Option<i64> = sqlx::query_scalar(
             "SELECT version FROM account_data WHERE account_id=$1 AND kind=$2 AND key=$3",
@@ -891,6 +893,7 @@ pub(crate) async fn apply(
     if count > 100 {
         return Err(error(StatusCode::CONFLICT, "watch_limit"));
     }
+    if watch_changed { crate::sweep::sync_plan(db, tx, account).await?; }
     crate::realtime::notify(tx, account, "data").await.map_err(internal)
 }
 
@@ -926,7 +929,7 @@ async fn collector_save_watch(State(state): State<AppState>, headers: HeaderMap,
     let linked: Option<i64>=match sqlx::query_scalar("SELECT account_id FROM collectors WHERE id=$1 AND active FOR UPDATE")
         .bind(c.id).fetch_optional(&mut *tx).await {Ok(v)=>v.flatten(),Err(e)=>return internal(e)};
     if linked!=Some(id) {return error(StatusCode::UNAUTHORIZED,"login_required")}
-    if let Err(e)=apply(&mut tx,id,input.operations,false).await {return e}
+    if let Err(e)=apply(&state.db,&mut tx,id,input.operations,false).await {return e}
     if let Err(e)=tx.commit().await {return internal(e)}
     collector_watch_snapshot(&state.db,c.id).await
 }

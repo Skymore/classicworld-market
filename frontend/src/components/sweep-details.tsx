@@ -34,8 +34,8 @@ export function RuleChangeNotice() {
   return (
     <div className="sweep-stale" data-sweep-stale role="status">
       {words(
-        "关注里的扫货条件已修改，下一轮生效",
-        "Watchlist sweep rules changed; they apply to the next run.",
+        "条件同步中",
+        "Syncing rules",
       )}
     </div>
   );
@@ -51,6 +51,7 @@ export function SweepDetails({
   initialTab = "progress",
   onStop,
   onClose,
+  onEditGroup,
 }: {
   run: Run;
   changed: boolean;
@@ -61,6 +62,7 @@ export function SweepDetails({
   initialTab?: "progress" | "records";
   onStop(): Promise<void>;
   onClose(): void;
+  onEditGroup?(itemId:number,groupId:string):void;
 }) {
   const words = useWords();
   const running = run.status === "running";
@@ -276,10 +278,10 @@ export function SweepDetails({
             <TabsContent value="settings">
               <div className="sweep-section-title">
                 <b>{words("本轮生效条件", "Active rules for this run")}</b>
-                <small>{words("启动时保存", "Saved at start")}</small>
+                <small>{words("实时同步", "Live updates")}</small>
               </div>
               {run.plan ? (
-                <SweepRules watches={watches} items={items} />
+                <SweepRules watches={watches} items={items} onEditGroup={running?onEditGroup:undefined} />
               ) : (
                 <p className="sweep-empty">
                   {words("暂无规则快照", "Rule snapshot unavailable")}
@@ -339,8 +341,8 @@ export function SweepDetails({
             <b>{words("停止本轮扫货？", "Stop this sweep?")}</b>
             <small>
               {words(
-                "购买记录会保留，重新开始时使用最新关注条件。",
-                "Records stay available. Restart to use the latest rules.",
+                "购买记录会保留。",
+                "Purchase records stay available.",
               )}
             </small>
             <div>

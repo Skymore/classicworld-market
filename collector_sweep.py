@@ -515,6 +515,9 @@ class SweepEngine:
             answer = self.client.call('POST', '/api/v1/device/sweep/reserve', body, timeout=2)
         except DeviceError as error:
             self._decision('reservation_rejected', row, packet, detail=error.code)
+            if error.code == 'plan_changed':
+                with self.lock:
+                    self.seen.discard(key)  # Explicit refusal: no reservation was granted.
             self._rejected(error)
             return
         except OSError:
@@ -645,10 +648,12 @@ class SweepEngine:
     def _rejected(self, error):
         if error.code == 'sweep_stopped':
             self._clear_run('扫货已结束')
-        elif error.code in ('lease_lost', 'plan_changed'):
-            with self.lock:
-                self.plan = None if error.code == 'plan_changed' else self.plan
-            self._stop_buying('扫货规则已更新' if error.code == 'plan_changed' else '与服务器的扫货连接已中断')
+        elif error.code == 'plan_changed':
+            # Server fences new reservations. Keep the route and existing
+            # reservation alive until the shop callback returns.
+            self.wake.set()
+        elif error.code == 'lease_lost':
+            self._stop_buying('与服务器的扫货连接已中断')
         elif error.status == 401:
             self._identity()
 
@@ -741,7 +746,13 @@ class SweepEngine:
         if left:
             return
         if state == 'invited' or state == 'active' and not settled:
-            self._decide(run, state == 'invited')
+            if self.shop_lock.acquire(blocking=False):
+                try:
+                    self._decide(run, state == 'invited')
+                finally:
+                    self.shop_lock.release()
+            else:
+                self.wake.set()
 
     def _new_run(self, run):
         self.plan = self.plan_version = self.lease = None
@@ -820,18 +831,18 @@ class SweepEngine:
 
     def _plan(self, run):
         watches = (run.get('plan') or {}).get('watches')
-        if not isinstance(watches, list) or not 1 <= len(watches) <= 100:
+        if not isinstance(watches, list) or not 0 <= len(watches) <= 100:
             raise ValueError('没有可扫货的条件组')
         ids = [number(w.get('item_id'), 1000000, 5999999) for w in watches]
         self._load_names(ids)
         # Base stats decide "bonus" rules, so they must load.
-        reference = self.client.public('/api/v1/watchlist/listings?'+urlencode({'ids': ','.join(map(str, ids))}))
+        reference = self.client.public('/api/v1/watchlist/listings?'+urlencode({'ids': ','.join(map(str, ids))})) if ids else {}
         enriched = []
         for w in watches:
             enriched.append(dict(item_id=w['item_id'], limit=w.get('limit'), groups=w.get('groups'),
                 name=self.names.get(w['item_id'], str(w['item_id'])),
                 base_stats=(reference.get('base_stats') or {}).get(str(w['item_id']), [])))
-        result = configuration(dict(watches=enriched))
+        result = configuration(dict(watches=enriched)) if enriched else dict(watches=[])
         scan = (run.get('plan') or {}).get('scan') or {'mode':'market'}
         if scan.get('mode') not in ('market','recent','priority') or (scan['mode']=='recent' and scan.get('recent_minutes') not in (10,30,60,360,1440)):
             raise ValueError('扫货范围无效')
@@ -949,7 +960,8 @@ class SweepEngine:
             if type(answer.get('spent')) is int:
                 self.run['spent'] = answer['spent']
             if answer.get('plan_version') != self.plan_version:
-                self.plan = None  # Stop reserving until the new plan is checked and joined.
+                # Old-version reserves are rejected by the server. Do not
+                # cancel an already granted purchase or restart navigation.
                 self.message = '扫货规则已更新，正在重新确认'
                 self.wake.set()
 
