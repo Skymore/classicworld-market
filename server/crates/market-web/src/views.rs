@@ -3,7 +3,7 @@
 //! request reads precomputed rows; the list is one `item_stats` query.
 
 use market_core::item::{category_kinds, category_name, equipment_jobs, is_equipment};
-use market_core::protocol::{Equipment, MARKET_MAP_BASE, WORLD};
+use market_core::protocol::{equipment_for_display, Equipment, MARKET_MAP_BASE, WORLD};
 use market_core::pyjson::{self, floordiv, sha256_hex, Dumps};
 use market_core::report::{Window, RECENT_HOURS};
 use market_core::sales::{sale_id, SaleKind};
@@ -437,13 +437,13 @@ fn row_json(r: &PgRow) -> Map<String, Value> {
         None => "standard".into(),
     };
     let equipment: Option<Value> = r.get("equipment");
-    let equipment = equipment.unwrap_or_else(|| {
+    let equipment = equipment_for_display(equipment.unwrap_or_else(|| {
         if equipment_item {
             Equipment::Unsupported.to_json()
         } else {
             Value::Null
         }
-    });
+    }));
     let (price, bundle): (Option<i64>, Option<i32>) = (r.get("price"), r.get("bundle"));
     let mask: Option<i16> = r.get("req_job_mask");
     let mut location = location_json(r.get("channel"), r.get("room"));

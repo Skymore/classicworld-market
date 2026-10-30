@@ -24,7 +24,7 @@ const CLOCK_AHEAD_SECONDS: f64 = 120.0;
 const MAX_UNKNOWN_FIELDS: usize = 17;
 
 /// `market_equipment.FIELDS` values: stat key and label.
-pub const EQUIPMENT_FIELDS: [(&str, &str); 14] = [
+pub const EQUIPMENT_FIELDS: [(&str, &str); 16] = [
     ("str", "力量"),
     ("dex", "敏捷"),
     ("int", "智力"),
@@ -38,8 +38,50 @@ pub const EQUIPMENT_FIELDS: [(&str, &str); 14] = [
     ("magic_defense", "魔法防御"),
     ("accuracy", "命中"),
     ("avoid", "回避"),
+    ("critical_rate", "暴击率"),
+    ("critical_damage", "暴击伤害"),
     ("weapon_attack", "物理攻击"),
 ];
+
+/// Read-time interpretation of legacy captures. Never use this for upload
+/// fingerprints or stored variant identities: old uploads must remain retryable.
+/// Both fields were checked against same-offer game tooltips on 2026-10-29.
+pub fn equipment_for_display(mut value: Value) -> Value {
+    if value["status"] != "candidate" {
+        return value;
+    }
+    let Some(mut stats) = value["stats"].as_array().cloned() else {
+        return value;
+    };
+    let Some(unknown) = value["unknown_fields"].as_array() else {
+        return value;
+    };
+    let mut remaining = Vec::new();
+    for field in unknown {
+        let known = match field["bit"].as_u64() {
+            Some(14) => Some(("critical_rate", "暴击率")),
+            Some(15) => Some(("critical_damage", "暴击伤害")),
+            _ => None,
+        };
+        if let (Some((key, label)), Some(n)) = (known, field["value"].as_u64()) {
+            if n <= u16::MAX.into() {
+                if let Some(existing) = stats.iter().find(|s| s["key"] == key) {
+                    if existing["value"].as_u64() == Some(n) {
+                        continue;
+                    }
+                } else {
+                    stats.push(json!({"key": key, "label": label, "value": n}));
+                    continue;
+                }
+            }
+        }
+        remaining.push(field.clone());
+    }
+    stats.sort_by(|a, b| a["key"].as_str().cmp(&b["key"].as_str()));
+    value["stats"] = json!(stats);
+    value["unknown_fields"] = json!(remaining);
+    value
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ProtocolError {
@@ -808,6 +850,54 @@ mod tests {
         assert_eq!(upload.items[0].variant().label(), "unknown");
         let upload = equipment(json!(null)).unwrap();
         assert_eq!(upload.items[0].equipment, Some(Equipment::Unsupported));
+    }
+
+    #[test]
+    fn critical_fields_accept_new_uploads_and_display_legacy_without_rewriting_evidence() {
+        let legacy = json!({"status":"candidate", "stats":[
+            {"key":"weapon_defense","label":"物理防御","value":5}],
+            "remaining_upgrades":4,"unknown_fields":[{"bit":14,"value":2},{"bit":8,"value":1}]});
+        let upload = equipment(legacy).unwrap();
+        let original = upload.clean_json();
+        let fingerprint = upload.fingerprint();
+        let display = equipment_for_display(upload.items[0].equipment.as_ref().unwrap().to_json());
+        assert_eq!(
+            display["stats"][0],
+            json!({"key":"critical_rate","label":"暴击率","value":2})
+        );
+        assert_eq!(display["unknown_fields"], json!([{"bit":8,"value":1}]));
+        assert_eq!(upload.clean_json(), original);
+        assert_eq!(upload.fingerprint(), fingerprint);
+        assert_eq!(display, equipment_for_display(display.clone()));
+
+        let new = equipment(json!({"status":"candidate", "stats":[
+            {"key":"critical_rate","value":2},{"key":"critical_damage","value":3}]}))
+        .unwrap();
+        let new_json = new.items[0].equipment.as_ref().unwrap().to_json();
+        let stats = &new_json["stats"];
+        assert_eq!(stats[0]["key"], "critical_damage");
+        assert_eq!(stats[0]["label"], "暴击伤害");
+        assert_eq!(stats[1]["key"], "critical_rate");
+
+        let earring = equipment_for_display(json!({"status":"candidate", "stats":[
+            {"key":"int","label":"智力","value":6},
+            {"key":"magic_defense","label":"魔法防御","value":27}],
+            "unknown_fields":[{"bit":15,"value":2}],"remaining_upgrades":0}));
+        assert_eq!(
+            earring["stats"][0],
+            json!({"key":"critical_damage","label":"暴击伤害","value":2})
+        );
+        assert_eq!(earring["unknown_fields"], json!([]));
+    }
+
+    #[test]
+    fn critical_display_keeps_conflicting_or_invalid_fields_unknown() {
+        let value = json!({"status":"candidate", "stats":[{"key":"critical_rate","value":3}],
+            "unknown_fields":[{"bit":14,"value":2},{"bit":15,"value":65536},{"bit":15,"value":-1}]});
+        assert_eq!(equipment_for_display(value.clone()), value);
+        let unsupported =
+            json!({"status":"unsupported", "stats":[],"unknown_fields":[{"bit":14,"value":2}]});
+        assert_eq!(equipment_for_display(unsupported.clone()), unsupported);
     }
 
     #[test]

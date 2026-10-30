@@ -32,7 +32,7 @@ import {
   filterOffers,
   offerFilterTokens,
   clearOfferFilter,
-} from "/web/js/lib/item-offer-filters.js?v=20261027-watch-groups-1";
+} from "/web/js/lib/item-offer-filters.js?v=20261029-critical-1";
 import { OfferRow } from "../components/list-rows";
 import { useWatchAlerts } from "../components/watch-alerts";
 import { NotificationSettings } from "../components/notification-settings";

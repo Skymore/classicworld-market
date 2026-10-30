@@ -17,7 +17,7 @@
     {"id": "o5", "item_id": 4010001, "unit_price": 5, "price": 5, "bundle": 1, "stock": 5, "observed": 1800000000, "invalidated_at": 1800000100, "shop": "Expired ore", "shop_key": "s5", "variant": "standard", "equipment": null},
     {"id": "q1", "item_id": 2000001, "unit_price": 60, "price": 60, "bundle": 1, "stock": 5, "observed": 1800000000, "invalidated_at": 1800000100, "shop": "Expired only", "shop_key": "s1", "variant": "standard", "equipment": null},
     {"id": "g1", "item_id": 1452003, "unit_price": 1000, "price": 1000, "bundle": 1, "stock": 1, "observed": 1800000000, "shop": "Bow A", "shop_key": "s1", "variant": "a1",
-      "equipment": {"status": "candidate", "stats": [{"key": "str", "label": "STR", "value": 5}, {"key": "weapon_attack", "label": "ATK", "value": 40}, {"key": "weapon_defense", "label": "DEF", "value": 30}], "remaining_upgrades": 7, "unknown_fields": []}},
+      "equipment": {"status": "candidate", "stats": [{"key": "str", "label": "STR", "value": 5}, {"key": "critical_rate", "label": "Critical Rate", "value": 2}, {"key": "critical_damage", "label": "Critical Damage", "value": 3}, {"key": "weapon_attack", "label": "ATK", "value": 40}, {"key": "weapon_defense", "label": "DEF", "value": 30}], "remaining_upgrades": 7, "unknown_fields": []}},
     {"id": "g2", "item_id": 1452003, "unit_price": 1200, "price": 1200, "bundle": 1, "stock": 1, "observed": 1800000000, "shop": "Bow B", "shop_key": "s2", "variant": "a2",
       "equipment": {"status": "candidate", "stats": [{"key": "str", "label": "STR", "value": 3}, {"key": "weapon_attack", "label": "ATK", "value": 40}, {"key": "weapon_defense", "label": "DEF", "value": 35}], "remaining_upgrades": 0, "unknown_fields": []}},
     {"id": "g3", "item_id": 1452003, "unit_price": 900, "price": 900, "bundle": 1, "stock": 1, "observed": 1800000000, "shop": "Bow C", "shop_key": "s3", "variant": "unknown",
@@ -124,6 +124,10 @@
       "expected": ["g3", "g5"]},
     {"name": "an empty group list matches nothing", "item_id": 2000000, "notifies": false,
       "setting": {"cap": 500, "notify": true, "position": 0, "groups": []},
-      "expected": []}
+      "expected": []},
+    {"name": "critical rate floor", "item_id": 1452003, "notifies": true,
+      "setting": {"notify": true, "reminder": {"stats": [{"stat": "critical_rate", "min": 2}]}}, "expected": ["g1"]},
+    {"name": "critical damage floor", "item_id": 1452003, "notifies": true,
+      "setting": {"notify": true, "reminder": {"stats": [{"stat": "critical_damage", "min": 4}]}}, "expected": []}
   ]
 }

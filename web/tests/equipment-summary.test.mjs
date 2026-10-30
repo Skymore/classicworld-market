@@ -24,3 +24,12 @@ test('decorations and empty captured equipment do not gain an attribute placehol
  assert.equal(equipmentSummary({item_id:1002001,equipment:null}), '');
  assert.equal(equipmentSummary({item_id:1022001,equipment:{status:'candidate',stats:[{key:'dex',value:0}],remaining_upgrades:0}}), '');
 });
+
+test('tooltip-confirmed critical rate and damage use captured values in both languages',()=>{
+ const glove={item_id:1082000,equipment:{status:'candidate',stats:[{key:'weapon_defense',value:5},{key:'critical_rate',value:2}],remaining_upgrades:4}};
+ assert.equal(equipmentSummary(glove),'暴击率 +2 · 物防 +5 · 可升 4');
+ assert.match(equipmentSummary(glove,true),/Critical Rate \+2/);
+ const earring={item_id:1032007,equipment:{status:'candidate',stats:[{key:'critical_damage',value:2},{key:'int',value:6},{key:'magic_defense',value:27}],remaining_upgrades:0,enhancements:3}};
+ assert.equal(equipmentSummary(earring),'暴击伤害 +2 · 智 +6 · 魔防 +27 · 强化 +3 · 可升 0');
+ assert.match(equipmentSummary(earring,true),/Critical Damage \+2/);
+});

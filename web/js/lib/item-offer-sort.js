@@ -1,6 +1,6 @@
 import { compareQuotes } from './quote-order.js?v=20261023-item-sort-2';
 import { meso, esc } from './format.js';
-import { normalizeOfferFilters, filterOffers, offerFilterTokens } from './item-offer-filters.js?v=20261027-watch-groups-1';
+import { normalizeOfferFilters, filterOffers, offerFilterTokens } from './item-offer-filters.js?v=20261029-critical-1';
 
 // Preserve all offers and their room labels across sorting and filtering.
 // Realtime section replacements get a fresh snapshot of the incoming offers.

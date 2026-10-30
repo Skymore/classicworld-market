@@ -1,7 +1,7 @@
 import { ready as userDataReady, userStorage as localStorage } from '../lib/user-data.js';
 import { refreshTimes } from '../lib/time.js';
 import { applyOfferSort, getOfferRows } from '../lib/item-offer-sort.js?v=20261023-advanced-offers-1';
-import { normalizeOfferFilters } from '../lib/item-offer-filters.js?v=20261027-watch-groups-1';
+import { normalizeOfferFilters } from '../lib/item-offer-filters.js?v=20261029-critical-1';
 import { bindOfferFilters } from '../lib/item-offer-panel.js?v=20261023-advanced-offers-1';
 import { bindTrends } from '../lib/trend.js?v=20261021-trend-values-2';
 import { readPeriod, resolvePeriod, decoratePeriod, automaticPeriod, savePeriod } from '../lib/period.js?v=20261022-regressions-1';

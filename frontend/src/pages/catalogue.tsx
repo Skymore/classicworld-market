@@ -14,7 +14,7 @@ import Item from "./item";
 import { catalogKey, loadCatalog } from "../lib/catalog";
 import { useUserValue } from "../lib/live";
 import { useProvidePageContext } from "../lib/assistant";
-import { normalizeOfferFilters } from "/web/js/lib/item-offer-filters.js?v=20261027-watch-groups-1";
+import { normalizeOfferFilters } from "/web/js/lib/item-offer-filters.js?v=20261029-critical-1";
 export function useNames() {
   const { language } = usePreferences();
   return (names: any) =>

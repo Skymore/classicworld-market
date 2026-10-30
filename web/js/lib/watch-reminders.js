@@ -1,4 +1,4 @@
-import { normalizeOfferFilters, filterOffers, offerFilterTokens } from './item-offer-filters.js?v=20261027-watch-groups-1';
+import { normalizeOfferFilters, filterOffers, offerFilterTokens } from './item-offer-filters.js?v=20261029-critical-1';
 import { mergeShopOffers, shopOfferIdentity } from './quote-groups.js?v=20261026-reminders-2';
 
 export function normalizeReminder(value = {}) {

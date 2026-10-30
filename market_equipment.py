@@ -2,7 +2,9 @@
 
 Values come from packet bytes, never substituted from the item catalogue.
 Field mappings use multiple item families. STR, weapon attack and the upgrade
-tail were checked against a live Ryden +4 screenshot. Unknown bits remain labelled.
+tail were checked against a live Ryden +4 screenshot. Critical rate (bit 14)
+and critical damage (bit 15) were checked against same-offer Work Gloves and
+Emerald Earrings tooltips on 2026-10-29. Unknown bits remain labelled.
 """
 import struct
 
@@ -12,7 +14,8 @@ FIELDS = {
     6: ('speed', '移动速度'), 7: ('jump', '跳跃力'),
     9: ('magic_attack', '魔法攻击'), 10: ('weapon_defense', '物理防御'),
     11: ('magic_defense', '魔法防御'), 12: ('accuracy', '命中'),
-    13: ('avoid', '回避'), 16: ('weapon_attack', '物理攻击'),
+    13: ('avoid', '回避'), 14: ('critical_rate', '暴击率'),
+    15: ('critical_damage', '暴击伤害'), 16: ('weapon_attack', '物理攻击'),
 }
 
 

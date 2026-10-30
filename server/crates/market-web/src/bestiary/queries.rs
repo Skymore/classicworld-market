@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 
+use market_core::protocol::equipment_for_display;
 use market_core::report::Window;
 use market_core::sales::SaleKind;
 use serde_json::Value;
@@ -506,6 +507,7 @@ impl VariantColumns {
 }
 
 fn parse_variant(id: i64, value: &Value) -> Variant {
+    let value = equipment_for_display(value.clone());
     let stats = value
         .get("stats")
         .and_then(Value::as_array)
@@ -1731,5 +1733,19 @@ mod tests {
             (v.remaining_upgrades, v.enhancements, v.unknown_fields),
             (Some(7), Some(0), 1)
         );
+    }
+
+    #[test]
+    fn variants_display_critical_damage_from_legacy_captures() {
+        let value = json!({"status":"candidate", "stats":[
+            {"key":"int","label":"智力","value":6},
+            {"key":"magic_defense","label":"魔法防御","value":27}],
+            "remaining_upgrades":0,"enhancements":3,
+            "unknown_fields":[{"bit":15,"value":2}]});
+        let variant = parse_variant(3, &value);
+        assert_eq!(variant.stats[0].key, "critical_damage");
+        assert_eq!(variant.stats[0].value, 2);
+        assert_eq!(variant.unknown_fields, 0);
+        assert_eq!(value["unknown_fields"][0]["bit"], 15);
     }
 }

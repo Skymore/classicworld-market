@@ -280,6 +280,8 @@ export default function ItemPreview() {
             maximumFractionDigits: 20,
           });
   const labels: Record<string, [string, string]> = {
+    critical_rate: ["暴击率", "Critical Rate"],
+    critical_damage: ["暴击伤害", "Critical Damage"],
     weapon_attack: ["物理攻击", "Weapon ATT"],
     magic_attack: ["魔法攻击", "Magic ATT"],
     weapon_defense: ["物理防御", "Weapon DEF"],

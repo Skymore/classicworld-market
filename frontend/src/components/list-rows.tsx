@@ -4,7 +4,7 @@ import { useWords } from "../providers";
 import { Slot, ItemNames, Price, RelativeTime } from "./shared";
 import { SiteLink } from "./shell";
 import { t } from "/web/js/lib/i18n.js";
-import { equipmentSummary } from "/web/js/lib/equipment-summary.js?v=20261024-records-3";
+import { equipmentSummary } from "/web/js/lib/equipment-summary.js?v=20261029-critical-1";
 import { priceUnit } from "/web/js/lib/market-source.js?v=20261022-external-1";
 
 export function Location({

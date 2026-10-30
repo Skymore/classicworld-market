@@ -1,5 +1,5 @@
 import { esc } from './format.js';
-import { OFFER_HOURS, OFFER_PERCENTILES, normalizeOfferFilters, filterOffers, clearOfferFilter } from './item-offer-filters.js?v=20261027-watch-groups-1';
+import { OFFER_HOURS, OFFER_PERCENTILES, normalizeOfferFilters, filterOffers, clearOfferFilter } from './item-offer-filters.js?v=20261029-critical-1';
 
 // The modal stays outside data-market sections, so live updates can refresh
 // offers without replacing inputs or reopening a native select picker.

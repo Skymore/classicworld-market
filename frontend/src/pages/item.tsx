@@ -3,14 +3,14 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "/web/js/lib/i18n.js";
 import { meso, fullTime } from "/web/js/lib/format.js";
-import { equipmentSummary } from "/web/js/lib/equipment-summary.js?v=20261024-records-3";
+import { equipmentSummary } from "/web/js/lib/equipment-summary.js?v=20261029-critical-1";
 import {
   normalizeOfferFilters,
   filterOffers,
   offerFilterTokens,
   clearOfferFilter,
   EQUIPMENT_STATS,
-} from "/web/js/lib/item-offer-filters.js?v=20261027-watch-groups-1";
+} from "/web/js/lib/item-offer-filters.js?v=20261029-critical-1";
 import { useUserValue } from "../lib/live";
 import { useProvidePageContext } from "../lib/assistant";
 import {
@@ -68,6 +68,7 @@ function CollapsibleWell({
 }
 // Short stat names, as in the offer rows (物攻 / 魔防 / 力 ...).
 const STAT_SHORT: Record<string, [string, string]> = {
+  critical_rate: ["暴击率", "Critical Rate"], critical_damage: ["暴击伤害", "Critical Damage"],
   weapon_attack: ["物攻", "ATK"], pad: ["物攻", "ATK"], magic_attack: ["魔攻", "M.ATK"], mad: ["魔攻", "M.ATK"],
   weapon_defense: ["物防", "DEF"], pdd: ["物防", "DEF"], magic_defense: ["魔防", "M.DEF"], mdd: ["魔防", "M.DEF"],
   str: ["力", "STR"], dex: ["敏", "DEX"], int: ["智", "INT"], luk: ["运", "LUK"], hp: ["HP", "HP"], mp: ["MP", "MP"],
@@ -76,6 +77,7 @@ const STAT_SHORT: Record<string, [string, string]> = {
 };
 const DEFENCE = ["weapon_defense", "magic_defense", "pdd", "mdd"];
 const STAT_ORDER = [
+  "critical_rate", "critical_damage",
   "weapon_attack", "magic_attack", "str", "dex", "int", "luk", "hp", "mp",
   "accuracy", "avoid", "speed", "jump", "weapon_defense", "magic_defense",
 ];
@@ -98,6 +100,8 @@ function Variant({ variant, page }: { variant: any; page: any }) {
   const words = useWords(),
     base = page.market.base_stats || [];
   const labels: Record<string, string> = {
+    critical_rate: "Critical Rate",
+    critical_damage: "Critical Damage",
     weapon_attack: "Weapon ATT",
     magic_attack: "Magic ATT",
     weapon_defense: "Weapon DEF",

@@ -944,6 +944,8 @@ fn stat_label(stat: &Stat, lang: Lang) -> &str {
     match stat.key.as_str() {
         "weapon_attack" => "Weapon ATT",
         "magic_attack" => "Magic ATT",
+        "critical_rate" => "Critical Rate",
+        "critical_damage" => "Critical Damage",
         "weapon_defense" => "Weapon DEF",
         "magic_defense" => "Magic DEF",
         "str" => "STR",

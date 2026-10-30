@@ -11,6 +11,8 @@ fn stat_name(key: &str, lang: Lang) -> &str {
     let (zh, en) = match key {
         "weapon_attack" => ("物理攻击", "Weapon ATT"),
         "magic_attack" => ("魔法攻击", "Magic ATT"),
+        "critical_rate" => ("暴击率", "Critical Rate"),
+        "critical_damage" => ("暴击伤害", "Critical Damage"),
         "weapon_defense" => ("物理防御", "Weapon DEF"),
         "magic_defense" => ("魔法防御", "Magic DEF"),
         "str" => ("力量", "STR"),

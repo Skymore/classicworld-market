@@ -185,6 +185,8 @@ impl ItemParams {
         let allowed = [
             "weapon_attack",
             "magic_attack",
+            "critical_rate",
+            "critical_damage",
             "str",
             "dex",
             "int",
@@ -606,6 +608,13 @@ async fn catalog_page(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn item_selection_accepts_critical_attribute_filters() {
+        let params: ItemParams = serde_json::from_value(serde_json::json!({
+            "attributes": r#"[["critical_rate",2],["critical_damage",3]]"#
+        })).unwrap();
+        assert_eq!(params.selection().unwrap().attributes.len(), 2);
+    }
     #[test]
     fn search_crosses_catalogues_only_when_typing() {
         assert_eq!(search_kind("", ""), Some(SearchKind::Item));

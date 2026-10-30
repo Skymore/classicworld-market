@@ -2,6 +2,7 @@ export const OFFER_HOURS = ['all', '1', '6', '24', '48', '72', '168'];
 export const OFFER_PERCENTILES = ['all', '10', '25', '50', '75'];
 export const EQUIPMENT_STATS = [
   ['weapon_attack', '物理攻击', 'Weapon ATK'], ['magic_attack', '魔法攻击', 'Magic ATK'],
+  ['critical_rate', '暴击率', 'Critical Rate'], ['critical_damage', '暴击伤害', 'Critical Damage'],
   ['str', '力量', 'STR'], ['dex', '敏捷', 'DEX'], ['int', '智力', 'INT'], ['luk', '运气', 'LUK'],
   ['hp', '最大 HP', 'Max HP'], ['mp', '最大 MP', 'Max MP'], ['accuracy', '命中', 'Accuracy'],
   ['avoid', '回避', 'Avoidability'], ['speed', '移动速度', 'Speed'], ['jump', '跳跃力', 'Jump'],

@@ -12,6 +12,11 @@ const rows = [
   { key: 'unknown-time', price: 100, observed: null, stock: NaN },
 ];
 const ids = result => result.rows.map(row => row.key);
+test('critical rate and damage can be filtered independently',()=>{
+ const data=[{key:'rate',isEquipment:true,variant:{stats:[{key:'critical_rate',value:2}]}},{key:'damage',isEquipment:true,variant:{stats:[{key:'critical_damage',value:3}]}}];
+ assert.deepEqual(ids(filterOffers(data,'price',{stats:[{stat:'critical_rate',min:2}]})),['rate']);
+ assert.deepEqual(ids(filterOffers(data,'price',{stats:[{stat:'critical_damage',min:3}]})),['damage']);
+});
 test('remaining upgrades preserves zero, excludes unknowns and clears bounds together',()=>{
   const data=[0,1,5,null].map(n=>({key:n,isEquipment:true,variant:{status:'candidate',remaining_upgrades:n}}));
   data.push({key:'unsupported',isEquipment:true,variant:{status:'unsupported',remaining_upgrades:0}});

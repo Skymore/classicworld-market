@@ -1,6 +1,6 @@
 import { subscribeSync, userStorage as localStorage } from '../lib/user-data.js';
 import { itemNames } from '../lib/names.js';
-import { equipmentSummary } from '../lib/equipment-summary.js?v=20261022-1';
+import { equipmentSummary } from '../lib/equipment-summary.js?v=20261029-critical-1';
 import { sortWatchQuotes } from '../lib/quote-order.js?v=20261023-watch-cap-1';
 // /watch: the personal watchlist (plan v1 §5.5). Ids live in localStorage
 // `watchlist` (the price table's star writes the same key), cap and alert

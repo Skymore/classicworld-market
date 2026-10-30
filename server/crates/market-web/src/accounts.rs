@@ -627,7 +627,7 @@ fn valid_reminder(value: &Value) -> bool {
             }
             "equipment" => matches!(v.as_str(), Some("all" | "captured" | "missing" | "bonus")),
             "stats" => v.as_array().is_some_and(|rows| {
-                rows.len() <= 14
+                rows.len() <= 16
                     && rows.iter().all(|row| {
                         row.as_object().is_some_and(|stat| {
                             stat.len() == 2
@@ -635,6 +635,8 @@ fn valid_reminder(value: &Value) -> bool {
                                     [
                                         "weapon_attack",
                                         "magic_attack",
+                                        "critical_rate",
+                                        "critical_damage",
                                         "str",
                                         "dex",
                                         "int",
@@ -1026,6 +1028,10 @@ mod tests {
     }
     #[test]
     fn validates_per_item_reminders_without_time_filters() {
+        assert!(valid_reminder(&json!({"stats":[
+            {"stat":"critical_rate","min":2},
+            {"stat":"critical_damage","min":3}
+        ]})));
         let valid = json!({"percentile":"25","minPrice":null,"stock":"known","minStock":5,"equipment":"bonus","stats":[{"stat":"weapon_attack","min":45}]});
         assert!(valid_reminder(&valid));
         for (key, value) in [

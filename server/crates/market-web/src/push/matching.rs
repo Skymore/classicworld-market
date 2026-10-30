@@ -9,9 +9,11 @@
 use serde_json::Value;
 use std::collections::HashSet;
 
-const EQUIPMENT_STATS: [&str; 14] = [
+const EQUIPMENT_STATS: [&str; 16] = [
     "weapon_attack",
     "magic_attack",
+    "critical_rate",
+    "critical_damage",
     "str",
     "dex",
     "int",
