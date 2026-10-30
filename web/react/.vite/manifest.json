@@ -70,8 +70,8 @@
       "_shared-DwVz0E15.js"
     ]
   },
-  "_main-CNEneZCj.js": {
-    "file": "chunks/main-CNEneZCj.js",
+  "_main-B9aADEC4.js": {
+    "file": "chunks/main-B9aADEC4.js",
     "name": "main",
     "imports": [
       "_shared-DwVz0E15.js",
@@ -237,7 +237,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CNEneZCj.js"
+      "_main-B9aADEC4.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -457,7 +457,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CNEneZCj.js"
+      "_main-B9aADEC4.js"
     ]
   },
   "style.css": {

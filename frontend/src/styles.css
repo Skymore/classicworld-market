@@ -654,7 +654,8 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
 .where-tools .attr-trigger{gap:6px}
 .where-tools .attr-trigger small{font-size:12px;color:var(--ink-3)}
 .where-tools .attr-trigger[aria-expanded=true] svg{transform:rotate(180deg)}
-.attr-panel{border-bottom:1px solid var(--rule);background:var(--sheet-hi)}
+.ibox>[data-market=where]{min-width:0}
+.attr-panel{border-bottom:1px solid var(--rule);background:var(--sheet-hi);max-width:100%;overflow-x:auto}
 .attr-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:40px;padding:2px 10px;font-size:12px;color:var(--ink-3);border-bottom:1px solid var(--rule)}
 .attr-head .toggle{min-height:36px}
 .attr-table{display:grid;grid-template-columns:var(--attr-cols);font-size:13px;font-variant-numeric:tabular-nums}

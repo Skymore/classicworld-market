@@ -25,7 +25,8 @@ try {
       const page = await browser.newPage({ viewport: { width, height: 900 }, isMobile: width < 640, hasTouch: width < 640 });
       const errors = []; page.on('pageerror', error => errors.push(error.message));
       await page.goto(`${origin}/item/${id}?hours=all&lang=${lang}`);
-      await page.locator('[data-equipment-group]').first().waitFor();
+      await page.locator('[data-attributes-open]').click();
+      await page.locator('[data-equipment-group]').first().waitFor({ state: 'attached' });
       const text = await page.locator('.item-stall').innerText();
       assert(text.includes(lang === 'zh' ? label : en), `${id} ${width}px ${lang} displays ${key}`);
       await page.locator('[data-offer-filter-open]').click();
