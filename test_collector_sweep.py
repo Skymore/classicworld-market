@@ -1,3 +1,4 @@
+import copy
 import json
 import tempfile
 import time
@@ -636,6 +637,15 @@ class EngineTests(unittest.TestCase):
 
 
 class PlanTests(unittest.TestCase):
+    def test_server_resolved_percentile_is_compatible_with_existing_executor(self):
+        raw = plan(limit=0)
+        raw['source_watches'] = copy.deepcopy(raw['watches'])
+        resolved = raw['watches'][0]['groups'][0]
+        resolved.update(cap=123.5, price_percentile='25')
+        clean = configuration(raw)
+        self.assertEqual(clean['watches'][0]['groups'][0]['cap'], 123.5)
+        self.assertEqual(clean['watches'][0]['limit'], 0)
+
     def test_configuration_validates_the_server_plan(self):
         clean = configuration({'watches': [dict(item_id=ITEM, limit=2, name='Hat', groups=[group(minUpgrades=0, maxUpgrades=0)])]})
         self.assertEqual(clean['watches'][0]['groups'][0]['max_upgrades'], 0)

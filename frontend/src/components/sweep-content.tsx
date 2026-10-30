@@ -23,9 +23,11 @@ const number = (value: number | null | undefined) =>
 
 /** One condition group as text: "高物攻 · ≤ 9,000 · 物攻 ≥ 59". */
 export function groupText(group: any) {
+  const percentile = group.price_percentile || (group.reminder?.percentile !== 'all' && group.reminder?.percentile);
   return [
     group.name,
-    `≤ ${Number(group.cap).toLocaleString()}`,
+    percentile ? `${isEnglish() ? 'Lowest' : '最低'} ${percentile}%` : null,
+    (!percentile || group.price_percentile) && group.cap != null ? `≤ ${Number(group.cap).toLocaleString()}` : null,
     ...reminderTokens(group.reminder, isEnglish()).map((t: any) => t.label),
   ]
     .filter(Boolean)

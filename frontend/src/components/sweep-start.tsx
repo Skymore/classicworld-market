@@ -36,6 +36,7 @@ export function sweepMessage(words: Words, code: string) {
     device_unavailable: ["所选设备不可用", "A selected device is unavailable"],
     sweep_running: ["已有一轮扫货在进行", "A sweep is already running"],
     no_sweep_groups: ["没有可扫货的条件组", "No sweep groups"],
+    sweep_price_unavailable: ["部分商品暂无有效报价，请调整扫货条件", "Some items have no valid quotes; adjust the sweep rules"],
     sweep_stopped: ["本轮已结束", "This sweep has ended"],
     reauth_required: ["请重新登录后再继续", "Sign in again to continue"],
     invalid_request: ["预算或时长不正确", "Check the budget and duration"],

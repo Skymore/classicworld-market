@@ -6,8 +6,8 @@ import './watch-groups.css';
 
 // No price, no other condition and no alert: the item is only watched for its prices.
 export const trackOnly=(g:any)=>!g.notify&&!g.buy&&g.cap===null&&g.reminder.percentile==='all'&&!reminderTokens(g.reminder).length;
-// SWEEP.md §3: only a fixed price cap, any percentile and known equipment stats can sweep.
-export const sweepable=(g:any)=>g.cap!==null&&g.cap>0&&g.reminder.percentile==='all'&&g.reminder.equipment!=='missing';
+// Percentiles are resolved by the server when the run starts.
+export const sweepable=(g:any)=>(g.reminder.percentile!=='all'||(g.cap!==null&&g.cap>0))&&g.reminder.equipment!=='missing';
 
 export default function WatchGroups({id,name,setting,rows,reference,onChange,sweep=false,autoEdit=false}: {
   id:number; name:string; setting:any; rows:any[]; reference:any; onChange(patch:any):void; sweep?:boolean; autoEdit?:boolean;
@@ -41,13 +41,13 @@ export default function WatchGroups({id,name,setting,rows,reference,onChange,swe
             <small>{tracking?words('只看价格','Prices only'):`${selected.rows.length} ${words('条符合','matching')}`}</small>
           </div>
           <div className="wg-actions"><label><input type="checkbox" checked={g.notify} onChange={e=>patch(g.id,{notify:e.target.checked})}/>{words('提醒','Alert')}</label>
-          {(sweep||g.buy)&&<label title={!canBuy?words('扫货需设置固定最高价，并排除属性未知条件','Set a fixed price cap and remove unknown-stats filters to sweep'):undefined}><input type="checkbox" checked={g.buy} disabled={!canBuy&&!g.buy} onChange={e=>patch(g.id,{buy:e.target.checked})}/>{words('扫货','Sweep')}</label>}
+          {(sweep||g.buy)&&<label title={!canBuy?words('请选择价格条件，并排除属性未知条件','Choose a price condition and remove unknown-stats filters'):undefined}><input type="checkbox" checked={g.buy} disabled={!canBuy&&!g.buy} onChange={e=>patch(g.id,{buy:e.target.checked})}/>{words('扫货','Sweep')}</label>}
           <button type="button" className="wg-link" aria-expanded={editing===g.id} onClick={()=>setEditing(editing===g.id?null:g.id)}>{words('编辑','Edit')}</button>
           <button type="button" className="wg-link" aria-label={words(`删除条件组 ${g.name||index+1}`,`Delete group ${g.name||index+1}`)} onClick={()=>remove(g.id)}>{words('删除','Delete')}</button></div>
         </div>
         {editing===g.id&&<div className={'watch-group-editor'+(several?'':' single')}>
           {several&&<label className="wg-name">{words('名称','Name')}<input aria-label={words('条件组名称','Group name')} maxLength={40} value={g.name} placeholder={words('例如：白板自用','e.g. Clean equipment')} onChange={e=>patch(g.id,{name:e.target.value})}/></label>}
-          <WatchReminder id={id} name={name} setting={g} rows={rows} reference={reference} onChange={v=>{const next={...g,...v};if(tracking&&!trackOnly({...next,notify:false}))next.notify=true;if(next.cap===null||next.reminder.percentile!=='all'||next.reminder.equipment==='missing')next.buy=false;patch(g.id,next);}}/>
+          <WatchReminder id={id} name={name} setting={g} rows={rows} reference={reference} onChange={v=>{const next={...g,...v};if(tracking&&!trackOnly({...next,notify:false}))next.notify=true;if(!sweepable(next))next.buy=false;patch(g.id,next);}}/>
           <button className="wg-link" onClick={()=>setEditing(null)}>{words('完成','Done')}</button>
           <button type="button" className="wg-link wg-add" disabled={groups.length>=12} onClick={addGroup}>{words('＋ 另一组条件','＋ Another group')}</button></div>}
       </Fragment>;

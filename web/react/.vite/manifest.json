@@ -70,8 +70,8 @@
       "_shared-DwVz0E15.js"
     ]
   },
-  "_main-B9aADEC4.js": {
-    "file": "chunks/main-B9aADEC4.js",
+  "_main-CwE-1U13.js": {
+    "file": "chunks/main-CwE-1U13.js",
     "name": "main",
     "imports": [
       "_shared-DwVz0E15.js",
@@ -237,7 +237,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-B9aADEC4.js"
+      "_main-CwE-1U13.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -427,7 +427,7 @@
     ]
   },
   "src/pages/watch.tsx": {
-    "file": "chunks/watch-DsR5u39Q.js",
+    "file": "chunks/watch-Cy_BbHj4.js",
     "name": "watch",
     "src": "src/pages/watch.tsx",
     "isDynamicEntry": true,
@@ -457,7 +457,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-B9aADEC4.js"
+      "_main-CwE-1U13.js"
     ]
   },
   "style.css": {

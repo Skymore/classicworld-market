@@ -147,7 +147,7 @@ export default function SweepPanel({
     if (!running) setConfirmStop(false);
   }, [running]);
   const changed = Boolean(
-    run?.plan_stale || (run?.plan && signature(run.plan.watches) !== signature(watches)),
+    run?.plan_stale || (run?.plan && signature(run.plan.source_watches || run.plan.watches) !== signature(watches)),
   );
   const name = (id: number) => {
     const row = items.get(id);

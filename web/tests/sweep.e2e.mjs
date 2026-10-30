@@ -369,4 +369,31 @@ try{
  await page.screenshot({path:path.join(shots,'sweep-embedded.png')});
  assert.deepEqual(errors,[]);await page.close();
  console.log('PASS embedded collector page: no chrome, rules-only sweep tab');
+ // Percentile selection is sweepable without a manual cap, including when no quote exists yet.
+ reset();records[0].value.groups=[{...group('g1',null),buy:false,reminder:{percentile:'all'}}];
+ const percentPage=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+ await percentPage.goto(origin+'/watch?lang=zh');
+ await percentPage.locator('[data-watch-tab=items]').click();
+ const card=percentPage.locator('[data-card="2000000"]');
+ const buy=card.getByRole('checkbox',{name:'扫货',exact:true});
+ assert.equal(await buy.isDisabled(),true,'unlimited price is not sweepable');
+ await card.getByRole('button',{name:'编辑',exact:true}).click();
+ for(const p of ['10','25','50']){
+  await card.locator('[data-watch-reminder]').click();
+  await card.locator(`[data-reminder-preset="${p}"]`).click();
+  assert.equal(await buy.isEnabled(),true,'percentile needs no manual cap');await buy.check();
+  await waitFor(()=>records[0].value.groups[0].reminder.percentile===p&&records[0].value.groups[0].buy,'percentile sweep sync');
+ }
+ await percentPage.locator('[data-watch-tab=sweep]').click();
+ assert.match(await percentPage.locator('[data-sweep-rule="2000000"]').innerText(),/最低 50%/);
+ assert.doesNotMatch(await percentPage.locator('[data-sweep-rule="2000000"]').innerText(),/≤ 0/);
+ state.run=newRun({budget:100000});
+ state.run.plan.source_watches=structuredClone(state.run.plan.watches);
+ Object.assign(state.run.plan.watches[0].groups[0],{cap:120,price_percentile:'50',reminder:{percentile:'all'}});
+ emit('sweep');
+ await waitFor(()=>percentPage.locator('[data-sweep-rule="2000000"]').innerText().then(t=>t.includes('≤ 120')),'frozen price shown');
+ assert.match(await percentPage.locator('[data-sweep-rule="2000000"]').innerText(),/最低 50%[\s\S]*≤ 120/);
+ assert.equal(await percentPage.locator('[data-sweep-stale]').count(),0,'resolved prices do not mark unchanged rules stale');
+ assert(await noOverflow(percentPage));await percentPage.close();
+ console.log('PASS percentile sweep: selection, sync, frozen price and unchanged-rule status');
 }finally{await browser?.close();for(const s of [...accountStreams,...marketStreams])s.end();server.closeAllConnections();await new Promise(r=>server.close(r));}

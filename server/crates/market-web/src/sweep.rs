@@ -63,12 +63,16 @@ pub(crate) fn public_id(s: &str) -> bool {
     s.len() == 24 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
-/// Groups that can sweep: buy ticked, a fixed positive cap, every percentile, not "missing".
+fn price_percentile(group: &Value) -> Option<&str> {
+    group["reminder"]["percentile"].as_str().filter(|p| matches!(*p, "10" | "25" | "50"))
+}
+/// Percentile rules are converted to a fixed cap before reaching a collector.
 fn sweepable(group: &Value) -> bool {
     let reminder = &group["reminder"];
     group["buy"] == true
-        && group["cap"].as_f64().is_some_and(|cap| cap > 0.0)
-        && reminder.get("percentile").is_none_or(|p| p == "all")
+        && (price_percentile(group).is_some()
+            || (group["cap"].as_f64().is_some_and(|cap| cap > 0.0)
+                && reminder.get("percentile").is_none_or(|p| p == "all")))
         && reminder.get("equipment").is_none_or(|e| e != "missing")
 }
 /// Rule snapshot from watch records `(item id, value)`.
@@ -87,6 +91,39 @@ fn plan(watches: &[(String, Value)]) -> Value {
 }
 fn watches(plan: &Value) -> impl Iterator<Item = &Value> {
     plan["watches"].as_array().into_iter().flatten()
+}
+fn source_watches(plan: &Value) -> &Value {
+    plan.get("source_watches").unwrap_or(&plan["watches"])
+}
+/// Freeze the same server-computed grouped-offer percentiles used by reminders.
+/// Never fall back to a stale manual cap or silently omit an unpriced rule.
+fn freeze_prices(mut plan: Value, caps: &Value) -> Result<Value, Response> {
+    let source = plan["watches"].clone();
+    let mut changed = false;
+    for watch in plan["watches"].as_array_mut().into_iter().flatten() {
+        let item = watch["item_id"].to_string();
+        for group in watch["groups"].as_array_mut().into_iter().flatten() {
+            if let Some(percentile) = price_percentile(group).map(str::to_owned) {
+                let cap = caps[&item][&percentile].as_f64()
+                    .filter(|n| n.is_finite() && *n > 0.0 && *n <= 1e15)
+                    .ok_or_else(|| conflict("sweep_price_unavailable"))?;
+                group["cap"] = json!(cap);
+                group["price_percentile"] = json!(percentile);
+                group["reminder"]["percentile"] = json!("all");
+                changed = true;
+            }
+        }
+    }
+    if changed { plan["source_watches"] = source; }
+    Ok(plan)
+}
+async fn priced_plan(db: &sqlx::PgPool, plan: Value) -> Result<Value, Response> {
+    let items: Vec<i32> = watches(&plan).filter(|w| w["groups"].as_array().is_some_and(|groups|
+        groups.iter().any(|g| price_percentile(g).is_some())))
+        .filter_map(|w| w["item_id"].as_i64().map(|id| id as i32)).collect();
+    if items.is_empty() { return Ok(plan); }
+    let quotes = crate::views::watch_listings(db, &items, Utc::now().timestamp() as f64).await.map_err(internal)?;
+    freeze_prices(plan, &quotes["percentile_caps"])
 }
 /// (limit in units, highest sweepable cap) of a planned item.
 fn plan_item(plan: &Value, item: i64) -> Option<(i64, f64)> {
@@ -278,7 +315,7 @@ async fn web_view(tx: &mut PgConnection, run: &Run) -> Result<Value, Response> {
         "price":p.price,"spent":p.spent,"reason":p.reason,"room":p.location["room"],"channel":p.location["channel"],
         "owner":p.location["owner"],"created_at":p.created_at,"settled_at":p.settled_at,
     })).collect();
-    let stale = current_plan(tx, run.account_id).await?["watches"] != run.plan["watches"];
+    let stale = &current_plan(tx, run.account_id).await?["watches"] != source_watches(&run.plan);
     Ok(json!({
         "id":run.public_id,"status":run.status,"stop_reason":run.stop_reason,"budget":run.budget,
         "spent":t.spent,"reserved":t.reserved,"unknown":t.unknown,"remaining":(run.budget-t.used()).max(0),
@@ -325,7 +362,7 @@ fn valid_limits(budget: i64, minutes: i64) -> Result<(), Response> {
     }
 }
 /// Starts a run of the account (whose row the caller locked) with the given invitees.
-async fn begin_run(tx: &mut PgConnection, account: i64, budget: i64, minutes: i64, started_by: Option<i64>, invitees: &[i64], scan: &ScanMode) -> Result<(), Response> {
+async fn begin_run(db: &sqlx::PgPool, tx: &mut PgConnection, account: i64, budget: i64, minutes: i64, started_by: Option<i64>, invitees: &[i64], scan: &ScanMode) -> Result<(), Response> {
     // An overdue run must not block a new one; the notice below covers it.
     sqlx::query("UPDATE sweep_runs SET status='finished',stop_reason='time_up',stopped_at=ends_at WHERE account_id=$1 AND status='running' AND ends_at<=now()")
         .bind(account).execute(&mut *tx).await.map_err(internal)?;
@@ -338,6 +375,7 @@ async fn begin_run(tx: &mut PgConnection, account: i64, budget: i64, minutes: i6
     if empty(&plan) {
         return Err(conflict("no_sweep_groups"));
     }
+    plan = priced_plan(db, plan).await?;
     plan["scan"] = json!(scan);
     let run: i64 = sqlx::query_scalar("INSERT INTO sweep_runs(public_id,account_id,plan,budget,started_by,ends_at) VALUES($1,$2,$3,$4,$5,now()+make_interval(mins=>$6)) RETURNING id")
         .bind(auth::new_credentials().public_id).bind(account).bind(&plan).bind(budget).bind(started_by).bind(minutes as i32)
@@ -414,7 +452,7 @@ async fn web_start(State(state): State<AppState>, headers: HeaderMap, Json(input
             .bind(&ready).fetch_one(&mut *tx).await.map_err(internal)?;
         if capable != ready.len() as i64 { return Err(conflict("collector_update_required")); }
     }
-    begin_run(&mut tx, s.id, input.budget, input.minutes, None, &ready, &input.scan).await?;
+    begin_run(&state.db, &mut tx, s.id, input.budget, input.minutes, None, &ready, &input.scan).await?;
     tx.commit().await.map_err(internal)?;
     web_reply(&state, s.id).await
 }
@@ -476,7 +514,7 @@ async fn device_view(tx: &mut PgConnection, run: &Run, device: i64) -> Result<Op
     let here = totals(tx, run.id, Some(device)).await?;
     let (items, bought) = item_progress(tx, run).await?;
     let devices = participants(tx, run.id).await?;
-    let stale = current_plan(tx, run.account_id).await?["watches"] != run.plan["watches"];
+    let stale = &current_plan(tx, run.account_id).await?["watches"] != source_watches(&run.plan);
     Ok(Some(json!({
         "id":run.public_id,"status":run.status,"budget":run.budget,"spent":all.spent,"remaining":(run.budget-all.used()).max(0),
         "started_at":run.started_at,"ends_at":run.ends_at,"started_by":run.started_by.as_deref().unwrap_or("web"),"plan":run.plan,
@@ -503,6 +541,8 @@ async fn device_plan(State(state): State<AppState>, headers: HeaderMap) -> Reply
     let d = devices::device(&state, &headers).await?;
     let mut db = state.db.acquire().await.map_err(internal)?;
     let plan = current_plan(&mut db, d.account).await?;
+    drop(db);
+    let plan = priced_plan(&state.db, plan).await?;
     Ok(Json(json!({"plan":plan})).into_response())
 }
 #[derive(Deserialize)]
@@ -528,7 +568,7 @@ async fn device_start(State(state): State<AppState>, headers: HeaderMap, Json(in
         if ready.len() != ids.len() { return Err(conflict("device_unavailable")); }
         ready
     } else { vec![d.id] };
-    begin_run(&mut tx, d.account, input.budget, input.minutes, Some(d.id), &ready, &input.scan).await?;
+    begin_run(&state.db, &mut tx, d.account, input.budget, input.minutes, Some(d.id), &ready, &input.scan).await?;
     tx.commit().await.map_err(internal)?;
     device_reply(&state, &d).await
 }
@@ -861,11 +901,30 @@ mod tests {
         let p = plan(&watches);
         assert_eq!(p, json!({"watches":[
             {"item_id":1002000,"limit":1,"groups":[group("a", true, json!(10), json!({}))]},
-            {"item_id":1082002,"limit":2,"groups":[keep]},
+            {"item_id":1082002,"limit":2,"groups":[keep,group("p25", true, json!(1000), json!({"percentile":"25"}))]},
         ]}));
         assert_eq!(plan_item(&p, 1082002), Some((2, 500000.0)));
         assert_eq!(plan_item(&p, 2000000), None);
         assert!(empty(&plan(&watches[2..])));
+    }
+    #[test]
+    fn percentile_caps_are_frozen_and_preserve_the_source_rules() {
+        for percentile in ["10", "25", "50"] {
+            let rule = group("percent", true, json!(999999), json!({"percentile":percentile,"stats":[{"stat":"weapon_attack","min":60}]}));
+            let raw = plan(&[("1082002".into(), json!({"buyLimit":0,"groups":[rule]}))]);
+            let caps = json!({"1082002":{"10":123.5,"25":200,"50":300}});
+            let frozen = freeze_prices(raw.clone(), &caps).unwrap();
+            assert_eq!(source_watches(&frozen), &raw["watches"]);
+            let g = &frozen["watches"][0]["groups"][0];
+            assert_eq!(g["price_percentile"], percentile);
+            assert_eq!(g["reminder"]["percentile"], "all");
+            assert_eq!(g["reminder"]["stats"], raw["watches"][0]["groups"][0]["reminder"]["stats"]);
+            assert_eq!(plan_item(&frozen, 1082002), Some((0, caps["1082002"][percentile].as_f64().unwrap())));
+            assert!(freeze_prices(raw.clone(), &json!({})).is_err());
+            assert!(freeze_prices(raw.clone(), &json!({"1082002":{percentile:0}})).is_err());
+        }
+        let fixed = plan(&[("2000000".into(), json!({"groups":[group("fixed", true, json!(130), json!({}))]}))]);
+        assert_eq!(freeze_prices(fixed.clone(), &json!({})).unwrap(), fixed);
     }
     #[test]
     fn stars_and_bullets_count_per_bundle() {

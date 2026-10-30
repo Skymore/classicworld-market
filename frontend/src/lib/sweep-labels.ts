@@ -80,7 +80,7 @@ export interface Run {
   started_by: string;
   plan_version: number;
   plan_stale: boolean;
-  plan?: { watches: SweepWatch[]; scan?: { mode: "market" | "recent" | "priority"; recent_minutes?: number } };
+  plan?: { watches: SweepWatch[]; source_watches?: SweepWatch[]; scan?: { mode: "market" | "recent" | "priority"; recent_minutes?: number } };
   devices: RunDevice[];
   purchases: Purchase[];
   bought?: number;

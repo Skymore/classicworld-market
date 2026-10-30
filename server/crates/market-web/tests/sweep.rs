@@ -142,6 +142,56 @@ fn units(run: &Value, item: i64) -> i64 {
 }
 
 #[tokio::test]
+async fn percentile_sweep_uses_reminder_prices_and_keeps_the_run_cap() {
+    let Some(db) = TestDb::new().await else { return };
+    let s = AppState::new(db.pool.clone(), Settings::default());
+    let w = signup(&s, "percent_sweep").await;
+    let item = 2000000;
+    let rule = json!({"id":"p25","name":"","cap":999999,"notify":false,"buy":true,"reminder":{"percentile":"25"}});
+    let value = json!({"cap":null,"notify":false,"position":0,"buyLimit":0,"groups":[rule]});
+    let (status, body) = web(&s, "POST", "/api/v1/account/data", &w,
+        json!({"operations":[{"kind":"watch","key":item.to_string(),"version":0,"value":value}]})).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (token, _) = ready_device(&s, &w, "本机").await;
+    let (status, body) = dev(&s, "POST", "/api/v1/device/sweep/start", &token, json!({"budget":10000,"minutes":60})).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["error"], "sweep_price_unavailable");
+    let who = db.collector("percent-quotes").await;
+    let now = market_web::unix_now();
+    for (index, price) in [100, 200, 300, 400].into_iter().enumerate() {
+        let raw = json!({"version":1,"world":"ClassicWorld","complete":true,"observation_id":format!("percent-{index}"),
+            "observed_at":now,"shop_id":1000+index,"title":format!("Shop{index}"),"location":{"channel":1,"room":1},
+            "items":[{"item_id":item,"slot":1,"price":price,"bundle":1,"stock":10}]});
+        let upload = market_core::protocol::validate(&raw, now).unwrap();
+        let bytes = serde_json::to_vec(&raw).unwrap();
+        market_web::ingest::ingest(&db.pool, market_web::ingest::Received {
+            collector:&who, upload:&upload, raw:&bytes, received_at:now, now,
+        }).await.unwrap();
+    }
+    let (_, quotes) = send(&s, "GET", "/api/v1/watchlist/listings?ids=2000000", &[], Value::Null).await;
+    let (status, preview) = dev(&s, "GET", "/api/v1/device/sweep/plan", &token, Value::Null).await;
+    assert_eq!(status, StatusCode::OK, "{preview}");
+    assert_eq!(preview["plan"]["watches"][0]["groups"][0]["cap"], quotes["percentile_caps"]["2000000"]["25"]);
+    assert_eq!(preview["plan"]["watches"][0]["groups"][0]["cap"], 100.0);
+    let run = device_start(&s, &token, 10000).await;
+    let view = run_view(&s, &w).await;
+    assert_eq!(view["plan_stale"], false);
+    assert_eq!(view["plan"]["watches"][0]["groups"][0]["reminder"]["percentile"], "all");
+    assert_eq!(view["plan"]["watches"][0]["groups"][0]["price_percentile"], "25");
+    let lease = join(&s, &token, &run, 1).await;
+    assert_eq!(grant(&s, &token, order(&run, &lease, 1, item, 100)).await.0, 1);
+    let (status, body) = dev(&s, "POST", "/api/v1/device/sweep/reserve", &token, order(&run, &lease, 2, item, 101)).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["error"], "price_over_cap");
+    // Later market changes must neither make unchanged rules stale nor raise this run's price.
+    sqlx::query("UPDATE listings SET price=10000").execute(&db.pool).await.unwrap();
+    let after = run_view(&s, &w).await;
+    assert_eq!(after["plan"], view["plan"]);
+    assert_eq!(after["plan_stale"], false);
+    db.close().await;
+}
+
+#[tokio::test]
 async fn purchase_progress_counts_beyond_the_recent_records() {
     let Some(db) = TestDb::new().await else { return };
     let s = AppState::new(db.pool.clone(), Settings::default());
