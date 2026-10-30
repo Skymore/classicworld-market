@@ -81,7 +81,7 @@ class FakeServer:
         return {'reservation': 'res-%d' % len(self.named('reserve')), 'granted': granted, 'expires_in': 30}
 
     def on_start(self, body):
-        self.invite(started_by='dev-1')
+        self.invite(started_by='dev-1', plan=dict(plan(), scan=body.get('scan', {'mode':'market'})))
         self.run['id'] = 'run-2'
         return {'run': json.loads(json.dumps(self.run))}
 
@@ -540,7 +540,7 @@ class EngineTests(unittest.TestCase):
             self.engine.start_run({'budget': 0, 'minutes': 60})
         self.server.run = None
         self.engine.start_run({'budget': 5000, 'minutes': 10080})
-        self.assertEqual(self.server.named('start'), [{'budget': 5000, 'minutes': 10080, 'scan': {'mode':'market'}}])
+        self.assertEqual(self.server.named('start'), [{'budget': 5000, 'minutes': 10080, 'devices': None, 'scan': {'mode':'priority'}}])
         with self.assertRaises(ValueError):
             self.engine.start_run({'budget': 5000, 'minutes': 10081})
         self.assertTrue(self.engine.buying())
@@ -551,14 +551,20 @@ class EngineTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.engine.start_run({'budget': 5000, 'minutes': 60})
 
-    def test_start_requires_ready_executor_and_spend_limit(self):
-        with self.assertRaises(ValueError):
-            self.engine.start_run({'budget': 5000, 'minutes': 60})
-        self.settings()
+    def test_start_requires_ready_executor(self):
         self.purchaser.ready = False
         with self.assertRaises(ValueError):
             self.engine.start_run({'budget': 5000, 'minutes': 60})
         self.assertEqual(self.server.named('start'), [])
+
+    def test_shared_budget_ignores_legacy_local_caps_and_buys_other_shops(self):
+        self.settings(allow_web_start=False, max_spend=0, max_order=1, reserve_mesos=10000)
+        self.server.invite(plan=dict(plan(), scan={'mode':'priority'}))
+        self.engine.poll()
+        self.assertTrue(self.engine.buying())
+        self.engine.on_shop_open(self.capture(), 12)
+        self.assertEqual(len(self.purchaser.orders), 1)
+        self.assertEqual(self.purchaser.orders[0][0].quantity, 3)
 
     def test_status_contract_shape(self):
         self.joined()
@@ -567,7 +573,7 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(set(status['sweep']), {'settings', 'executor', 'run', 'recent', 'message', 'holdings', 'rules'})
         self.assertEqual(set(status['sweep']['run']), {'id', 'status', 'budget', 'remaining', 'ends_at', 'started_by',
                                                        'state', 'message', 'spent_here', 'plan_version',
-                                                       'spent', 'bought', 'items', 'started_at', 'checked'})
+                                                       'spent', 'bought', 'items', 'started_at', 'checked', 'devices', 'plan_stale'})
         # An older server sends no run totals: they stay unknown rather than zero.
         self.assertEqual((status['sweep']['run']['spent'], status['sweep']['run']['bought'], status['sweep']['run']['items']), (None, None, []))
         self.assertNotIn(TOKEN, json.dumps(status))

@@ -560,6 +560,12 @@ class DesktopController:
                 if not self.sweep.buying():
                     self._user_stop()
             else:
+                if self.sweep and self.sweep.buying() and self.sweep.scan_mode() == 'priority':
+                    from sweep_routes import run_recent
+                    run_recent(self._folder, self._hwnd, started, stop, self._on_scan, self.sweep, self._modules['run'], once=True)
+                    if not self.sweep.buying():
+                        stop.set()
+                    self.sweep.progress('全市场扫描')
                 assignments = self._modules['CloudScan'](config, stop, self._on_scan,
                     paused=self._modules['is_paused'], session=self._session, transport=transport)
                 outcome = self._modules['run'](self._folder, self._hwnd, started, stop,

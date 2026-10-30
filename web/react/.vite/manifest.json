@@ -70,8 +70,8 @@
       "_shared-DwVz0E15.js"
     ]
   },
-  "_main-FtTLs1At.js": {
-    "file": "chunks/main-FtTLs1At.js",
+  "_main-BIcaOkBi.js": {
+    "file": "chunks/main-BIcaOkBi.js",
     "name": "main",
     "imports": [
       "_shared-DwVz0E15.js",
@@ -171,8 +171,8 @@
       "src/pages/agent.tsx"
     ]
   },
-  "_sweep-labels-D06Zg_5S.js": {
-    "file": "chunks/sweep-labels-D06Zg_5S.js",
+  "_sweep-labels-B7CM0336.js": {
+    "file": "chunks/sweep-labels-B7CM0336.js",
     "name": "sweep-labels"
   },
   "_tabs-C4KRmwNC.js": {
@@ -237,11 +237,11 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-FtTLs1At.js"
+      "_main-BIcaOkBi.js"
     ]
   },
   "src/pages/account.tsx": {
-    "file": "chunks/account-Dv2rE4DW.js",
+    "file": "chunks/account-BWYREotF.js",
     "name": "account",
     "src": "src/pages/account.tsx",
     "isDynamicEntry": true,
@@ -253,7 +253,7 @@
       "_monitor-HVTKVn3h.js",
       "_pencil-CKT1puyy.js",
       "_push-vXClJZ4J.js",
-      "_sweep-labels-D06Zg_5S.js"
+      "_sweep-labels-B7CM0336.js"
     ]
   },
   "src/pages/agent.tsx": {
@@ -427,7 +427,7 @@
     ]
   },
   "src/pages/watch.tsx": {
-    "file": "chunks/watch-pvynDS-Y.js",
+    "file": "chunks/watch-BSTWu_bF.js",
     "name": "watch",
     "src": "src/pages/watch.tsx",
     "isDynamicEntry": true,
@@ -446,7 +446,7 @@
       "_dialog-_8S3wbcv.js",
       "_push-vXClJZ4J.js",
       "_list-copy-BbLeMbQN.js",
-      "_sweep-labels-D06Zg_5S.js",
+      "_sweep-labels-B7CM0336.js",
       "_offer-filters-CzJ70wQm.js",
       "_tabs-C4KRmwNC.js"
     ]
@@ -457,7 +457,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-FtTLs1At.js"
+      "_main-BIcaOkBi.js"
     ]
   },
   "style.css": {

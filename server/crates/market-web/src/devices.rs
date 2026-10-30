@@ -106,9 +106,10 @@ fn valid_state(v: &Value) -> bool {
         o.len() == 2
             && o.get("client_version").and_then(Value::as_str).is_some_and(valid_version)
             && o.get("sweep").and_then(Value::as_object).is_some_and(|s| {
-                (s.len() == 6 + usize::from(s.contains_key("holdings")) + usize::from(s.contains_key("recent_scan")))
+                (s.len() == 6 + usize::from(s.contains_key("holdings")) + usize::from(s.contains_key("recent_scan")) + usize::from(s.contains_key("shared_sweep")))
                     && s.get("holdings").is_none_or(valid_holdings)
                     && s.get("recent_scan").is_none_or(Value::is_boolean)
+                    && s.get("shared_sweep").is_none_or(Value::is_boolean)
                     && flag(s.get("allow_web_start"))
                     && ["max_spend", "max_order", "reserve_mesos"].iter().all(|k| amount(s.get(*k)))
                     && s.get("executor").and_then(Value::as_object).is_some_and(|e| {

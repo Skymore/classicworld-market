@@ -230,35 +230,6 @@ export default function SweepPanel({
           </button>
         </div>
       )}
-      {sweep.data && !running && hits.count > 0 && (
-        <div className="sweep-hits" data-sweep-hits>
-          <b>
-            <span className="sweep-where wide">{words("右边", "")}</span>
-            <span className="sweep-where narrow">{words("下面", "")}</span>
-            {words(`有 ${hits.count} 条命中`, `${hits.count} matches`)}
-          </b>
-          <select
-            aria-label={words("命中时间范围", "Matched within")}
-            data-sweep-recent-range
-            value={range}
-            onChange={(event) => setRange(Number(event.target.value))}
-          >
-            {RECENT_RANGES.map(([value, zh, en]) => (
-              <option key={value} value={value}>{words(zh, en)}</option>
-            ))}
-          </select>
-          <span className="sweep-sub">{words(`合计约 ${meso(hits.total)}`, `about ${meso(hits.total)}`)}</span>
-          <button
-            type="button"
-            className="btn"
-            data-sweep-recent
-            disabled={busy}
-            onClick={() => setDialog({ kind: "recent", hits })}
-          >
-            {words("先买这些", "Buy these first")}
-          </button>
-        </div>
-      )}
       {running && changed && <RuleChangeNotice />}
       {running ? (
         <RulesTable watches={run!.plan?.watches || watches} items={items} run={run} />

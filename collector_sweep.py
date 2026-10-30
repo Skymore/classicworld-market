@@ -304,7 +304,8 @@ class SweepEngine:
                     spent=self.run.get('spent') if type(self.run.get('spent')) is int else None,
                     bought=self.run.get('bought') if type(self.run.get('bought')) is int else None,
                     items=[i for i in items if isinstance(i, dict)] if isinstance(items, list) else [],
-                    started_at=self.run.get('started_at'), checked=self.checked)
+                    started_at=self.run.get('started_at'), checked=self.checked,
+                    devices=self.run.get('devices', []), plan_stale=self.run.get('plan_stale', False))
             rules = self._display_rules(self.run_plan) if self.run else self.idle_rules
             return copy.deepcopy(dict(linked=self.token is not None, account=self.account, device=self.device,
                 sweep=dict(settings=self.settings, holdings=read_inventory(self.folder, self.game_state), executor=dict(ready=bool(executor.ready), reason=str(executor.reason or '')),
@@ -422,6 +423,8 @@ class SweepEngine:
                 return
             self.seen.add(key)
             run, lease, settings = self.run['id'], self.lease, dict(self.settings)
+            if self.scan_mode() == 'priority':
+                settings = dict(allow_web_start=True, max_spend=LIMIT, max_order=0, reserve_mesos=0)
             spent = max(self.spent, self.run.get('spent_here') if type(self.run.get('spent_here')) is int else 0)
             caps = [('max_spend', (settings['max_spend']-spent)//price)]
             # Zero removes only the cumulative item cap; every money/stock guard remains.
@@ -721,12 +724,13 @@ class SweepEngine:
         """A short Chinese reason not to take part, or (None, validated plan)."""
         with self.lock:
             settings, device = dict(self.settings), (self.device or {}).get('id')
-        if run.get('started_by') != device and not settings['allow_web_start']:
+        shared = (run.get('plan') or {}).get('scan', {}).get('mode') == 'priority'
+        if not shared and run.get('started_by') != device and not settings['allow_web_start']:
             return '本机未允许网页发起扫货', None
         executor = self.purchaser.status()
         if not executor.ready:
             return str(executor.reason or UNAVAILABLE)[:80], None
-        if settings['max_spend'] <= 0:
+        if not shared and settings['max_spend'] <= 0:
             return '本机最多花费为 0', None
         try:
             return None, self._plan(run)
@@ -748,7 +752,7 @@ class SweepEngine:
                 base_stats=(reference.get('base_stats') or {}).get(str(w['item_id']), [])))
         result = configuration(dict(watches=enriched))
         scan = (run.get('plan') or {}).get('scan') or {'mode':'market'}
-        if scan.get('mode') not in ('market','recent') or (scan['mode']=='recent' and scan.get('recent_minutes') not in (10,30,60,360,1440)):
+        if scan.get('mode') not in ('market','recent','priority') or (scan['mode']=='recent' and scan.get('recent_minutes') not in (10,30,60,360,1440)):
             raise ValueError('扫货范围无效')
         result['scan'] = scan
         return result
@@ -820,14 +824,14 @@ class SweepEngine:
     def recent_targets(self):
         from sweep_routes import targets, shop_key
         with self.lock:
-            if not self.buying() or self.scan_mode() != 'recent':
+            if not self.buying() or self.scan_mode() not in ('recent', 'priority'):
                 return []
             run, version, plan = self.run['id'], self.plan_version, copy.deepcopy(self.plan)
         response = self.client.call('GET', '/api/v1/device/sweep/targets', timeout=8)
         with self.lock:
             if not self.buying() or self.run['id'] != run or response.get('run') != run or response.get('plan_version') != version:
                 return []
-            result = targets(response.get('listings', []), plan, plan['scan']['recent_minutes'], time.time())
+            result = targets(response.get('listings', []), plan, (180 if plan['scan']['mode'] == 'priority' else plan['scan']['recent_minutes']), time.time())
             self.recent_shops = {shop_key(s, s['owner']) for s in result}
             return result
 
@@ -880,7 +884,7 @@ class SweepEngine:
             self.game_checked = now
         with self.lock:
             settings = dict(self.settings)
-        return dict(client_version=VERSION, sweep=dict(settings, recent_scan=True, executor=dict(ready=bool(executor.ready),
+        return dict(client_version=VERSION, sweep=dict(settings, shared_sweep=True, recent_scan=True, executor=dict(ready=bool(executor.ready),
             reason=str(executor.reason or '')[:80]), game=dict(connected=self.game_state), holdings=read_inventory(self.folder, self.game_state)))
 
     def report(self, force=False):
@@ -913,12 +917,10 @@ class SweepEngine:
         if not self.token:
             raise ValueError('请先登录账号')
         executor = self.purchaser.status()
-        if not executor.ready:
+        if not executor.ready and (value.get('devices') is None or (self.device or {}).get('id') in value['devices']):
             raise ValueError(executor.reason or UNAVAILABLE)
-        if self.settings['max_spend'] <= 0:
-            raise ValueError('请先设置本机最多花费')
         answer = self.client.call('POST', '/api/v1/device/sweep/start',
-                                  dict(budget=value['budget'], minutes=value['minutes'], scan=value.get('scan', {'mode':'market'})), timeout=10)
+                                  dict(budget=value['budget'], minutes=value['minutes'], devices=value.get('devices'), scan={'mode':'priority'}), timeout=10)
         with self.poll_lock:
             self._apply(answer.get('run'))
 

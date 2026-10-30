@@ -19,6 +19,7 @@ export interface DeviceState {
     holdings?: Holdings | null;
     allow_web_start?: boolean;
     recent_scan?: boolean;
+    shared_sweep?: boolean;
     max_spend?: number;
     max_order?: number;
     reserve_mesos?: number;
@@ -79,7 +80,7 @@ export interface Run {
   started_by: string;
   plan_version: number;
   plan_stale: boolean;
-  plan?: { watches: SweepWatch[]; scan?: { mode: "market" | "recent"; recent_minutes?: number } };
+  plan?: { watches: SweepWatch[]; scan?: { mode: "market" | "recent" | "priority"; recent_minutes?: number } };
   devices: RunDevice[];
   purchases: Purchase[];
   bought?: number;
@@ -116,7 +117,7 @@ export function deviceBlocker(device: Device, words: Words) {
   if (!sweep) return words("未上报状态", "No status");
   if (!sweep.executor?.ready)
     return sweep.executor?.reason || words("不能扫货", "Cannot sweep");
-  if (!sweep.allow_web_start) return words("未允许网页启动", "Web start off");
+  if (!sweep.shared_sweep) return words("请更新采集端", "Update collector");
   return null;
 }
 export function executorLabel(state: DeviceState | null, words: Words) {
@@ -183,6 +184,7 @@ export function participantLabel(
   words: Words,
 ) {
   const labels: Record<string, [string, string]> = {
+    observing: ["未参与", "Not participating"],
     invited: ["等待加入", "Invited"],
     active: ["扫货中", "Sweeping"],
     refused: ["已拒绝", "Refused"],

@@ -48,6 +48,24 @@ class RecentRouteTests(unittest.TestCase):
         self.assertEqual(calls,[(1,3)])
         self.assertEqual(result['visited'],7)
 
+    def test_priority_scans_each_location_once_then_returns_to_market(self):
+        engine=Mock()
+        engine.buying.return_value=True
+        engine.recent_targets.return_value=[dict(room=1,channel=3,owner=n,offers=[]) for n in ('A','B')]
+        visits=[]
+        def scan(folder, hwnd, ready, stop, status, progress, **hooks):
+            visits.append((progress.state['room'], progress.state['channel']))
+            progress.begin(1,3,1)
+            progress.save(1,4,1,phase='pending')
+        with tempfile.TemporaryDirectory() as folder:
+            run_recent(folder,12,threading.Event(),threading.Event(),Mock(),engine,scan,once=True)
+        self.assertEqual(visits,[(1,3)])
+        engine.recent_targets.assert_called_once()
+        engine.recent_targets.return_value=[]
+        with tempfile.TemporaryDirectory() as folder:
+            result=run_recent(folder,12,threading.Event(),threading.Event(),Mock(),engine,scan,once=True)
+        self.assertEqual(result['visited'],0)
+
     def test_incomplete_target_is_never_marked_done(self):
         engine=Mock()
         engine.buying.return_value=True

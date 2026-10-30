@@ -261,11 +261,15 @@ async fn item_progress(tx: &mut PgConnection, run: &Run) -> Result<(Vec<Value>, 
         .collect();
     Ok((items, bought.values().sum()))
 }
+async fn participants(tx: &mut PgConnection, run: i64) -> Result<Vec<Participant>, Response> {
+    let devices: Vec<Participant> = sqlx::query_as("SELECT d.public_id AS id,d.name,p.state,p.message,(d.revoked_at IS NULL AND d.last_seen_at>now()-interval '75 seconds') AS online,(SELECT coalesce(sum(spent),0)::bigint FROM sweep_reservations s WHERE s.run_id=p.run_id AND s.device_id=p.device_id AND s.status='bought') AS spent,p.checked,p.recent_pending AS pending,p.progress_at,coalesce(p.state='active' AND p.lease_expires_at>now(),false) AS leased FROM sweep_run_devices p JOIN account_devices d ON d.id=p.device_id WHERE p.run_id=$1 ORDER BY d.created_at,d.id")
+        .bind(run).fetch_all(&mut *tx).await.map_err(internal)?;
+    Ok(devices)
+}
 async fn web_view(tx: &mut PgConnection, run: &Run) -> Result<Value, Response> {
     let t = totals(tx, run.id, None).await?;
     let (items, bought) = item_progress(tx, run).await?;
-    let devices: Vec<Participant> = sqlx::query_as("SELECT d.public_id AS id,d.name,p.state,p.message,(d.revoked_at IS NULL AND d.last_seen_at>now()-interval '75 seconds') AS online,(SELECT coalesce(sum(spent),0)::bigint FROM sweep_reservations s WHERE s.run_id=p.run_id AND s.device_id=p.device_id AND s.status='bought') AS spent,p.checked,p.recent_pending AS pending,p.progress_at,coalesce(p.state='active' AND p.lease_expires_at>now(),false) AS leased FROM sweep_run_devices p JOIN account_devices d ON d.id=p.device_id WHERE p.run_id=$1 ORDER BY d.created_at,d.id")
-        .bind(run.id).fetch_all(&mut *tx).await.map_err(internal)?;
+    let devices = participants(tx, run.id).await?;
     // quantity and spent are what the row counts against the run.
     let purchases: Vec<Purchase> = sqlx::query_as("SELECT s.public_id AS id,d.public_id AS device,s.item_id,s.status,CASE s.status WHEN 'bought' THEN s.bought_quantity WHEN 'not_bought' THEN 0 ELSE s.quantity END AS quantity,s.units_per,s.price,CASE s.status WHEN 'bought' THEN s.spent WHEN 'not_bought' THEN 0 ELSE s.cost END AS spent,s.reason,s.location,s.created_at,s.settled_at FROM sweep_reservations s JOIN account_devices d ON d.id=s.device_id WHERE s.run_id=$1 ORDER BY s.created_at DESC,s.id DESC LIMIT 50")
         .bind(run.id).fetch_all(&mut *tx).await.map_err(internal)?;
@@ -369,12 +373,13 @@ struct WebStart {
 enum ScanMode {
     #[default]
     Market,
+    Priority,
     Recent { recent_minutes: i64 },
 }
 impl ScanMode {
     fn validate(&self) -> Result<(), Response> {
         match self {
-            Self::Market => Ok(()),
+            Self::Market | Self::Priority => Ok(()),
             Self::Recent { recent_minutes } if [10, 30, 60, 360, 1440].contains(recent_minutes) => Ok(()),
             _ => Err(invalid()),
         }
@@ -394,10 +399,15 @@ async fn web_start(State(state): State<AppState>, headers: HeaderMap, Json(input
     input.scan.validate()?;
     let mut tx = state.db.begin().await.map_err(internal)?;
     lock_account(&mut tx, s.id).await?;
-    let ready: Vec<i64> = sqlx::query_scalar("SELECT id FROM account_devices WHERE account_id=$1 AND public_id=ANY($2) AND revoked_at IS NULL AND last_seen_at>now()-interval '75 seconds' AND state @> '{\"sweep\":{\"allow_web_start\":true,\"executor\":{\"ready\":true}}}'")
-        .bind(s.id).bind(&ids).fetch_all(&mut *tx).await.map_err(internal)?;
+    let ready: Vec<i64> = sqlx::query_scalar("SELECT id FROM account_devices WHERE account_id=$1 AND public_id=ANY($2) AND revoked_at IS NULL AND last_seen_at>now()-interval '75 seconds' AND state @> '{\"sweep\":{\"executor\":{\"ready\":true}}}' AND ($3 OR state @> '{\"sweep\":{\"allow_web_start\":true}}')")
+        .bind(s.id).bind(&ids).bind(matches!(input.scan, ScanMode::Priority)).fetch_all(&mut *tx).await.map_err(internal)?;
     if ready.len() != ids.len() {
         return Err(conflict("device_unavailable"));
+    }
+    if matches!(input.scan, ScanMode::Priority) {
+        let capable: i64 = sqlx::query_scalar("SELECT count(*) FROM account_devices WHERE id=ANY($1) AND state @> '{\"sweep\":{\"shared_sweep\":true}}'")
+            .bind(&ready).fetch_one(&mut *tx).await.map_err(internal)?;
+        if capable != ready.len() as i64 { return Err(conflict("collector_update_required")); }
     }
     if input.scan.recent() {
         let capable: i64 = sqlx::query_scalar("SELECT count(*) FROM account_devices WHERE id=ANY($1) AND state @> '{\"sweep\":{\"recent_scan\":true}}'")
@@ -457,14 +467,21 @@ async fn leased(tx: &mut PgConnection, run: i64, device: i64, lease: &str) -> Re
 async fn device_view(tx: &mut PgConnection, run: &Run, device: i64) -> Result<Option<Value>, Response> {
     let seat: Option<(String, String, Option<i32>)> = sqlx::query_as("SELECT state,message,plan_version FROM sweep_run_devices WHERE run_id=$1 AND device_id=$2 AND state IN ('invited','active')")
         .bind(run.id).bind(device).fetch_optional(&mut *tx).await.map_err(internal)?;
-    let Some((state, message, version)) = seat else { return Ok(None) };
+    let (state, message, version) = match seat {
+        Some(seat) => seat,
+        None if run.plan["scan"]["mode"] == "priority" => ("observing".to_owned(), String::new(), None),
+        None => return Ok(None),
+    };
     let all = totals(tx, run.id, None).await?;
     let here = totals(tx, run.id, Some(device)).await?;
     let (items, bought) = item_progress(tx, run).await?;
+    let devices = participants(tx, run.id).await?;
+    let stale = current_plan(tx, run.account_id).await?["watches"] != run.plan["watches"];
     Ok(Some(json!({
         "id":run.public_id,"status":run.status,"budget":run.budget,"spent":all.spent,"remaining":(run.budget-all.used()).max(0),
         "started_at":run.started_at,"ends_at":run.ends_at,"started_by":run.started_by.as_deref().unwrap_or("web"),"plan":run.plan,
         "plan_version":run.plan_version,"bought":bought,"items":items,
+        "devices":devices,"plan_stale":stale,
         "participant":{"state":state,"message":message,"plan_version":version},"spent_here":here.used(),
     })))
 }
@@ -490,6 +507,7 @@ async fn device_plan(State(state): State<AppState>, headers: HeaderMap) -> Reply
 }
 #[derive(Deserialize)]
 struct DeviceStart {
+    devices: Option<Vec<String>>,
     budget: i64,
     minutes: i64,
     #[serde(default)]
@@ -502,7 +520,15 @@ async fn device_start(State(state): State<AppState>, headers: HeaderMap, Json(in
     input.scan.validate()?;
     let mut tx = state.db.begin().await.map_err(internal)?;
     lock_account(&mut tx, d.account).await?;
-    begin_run(&mut tx, d.account, input.budget, input.minutes, Some(d.id), &[d.id], &input.scan).await?;
+    let ready = if let Some(ids) = &input.devices {
+        let mut unique = ids.clone(); unique.sort(); unique.dedup();
+        if ids.is_empty() || ids.len() > 8 || unique.len() != ids.len() { return Err(invalid()); }
+        let ready: Vec<i64> = sqlx::query_scalar("SELECT id FROM account_devices WHERE account_id=$1 AND public_id=ANY($2) AND revoked_at IS NULL AND last_seen_at>now()-interval '75 seconds' AND state @> '{\"sweep\":{\"shared_sweep\":true,\"executor\":{\"ready\":true}}}'")
+            .bind(d.account).bind(ids).fetch_all(&mut *tx).await.map_err(internal)?;
+        if ready.len() != ids.len() { return Err(conflict("device_unavailable")); }
+        ready
+    } else { vec![d.id] };
+    begin_run(&mut tx, d.account, input.budget, input.minutes, Some(d.id), &ready, &input.scan).await?;
     tx.commit().await.map_err(internal)?;
     device_reply(&state, &d).await
 }
@@ -517,7 +543,8 @@ async fn device_targets(State(state): State<AppState>, headers: HeaderMap) -> Re
     let member: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sweep_run_devices WHERE run_id=$1 AND device_id=$2 AND state='active' AND lease_expires_at>clock_timestamp())")
         .bind(run.id).bind(d.id).fetch_one(&mut *tx).await.map_err(internal)?;
     if !member { return Err(conflict("lease_lost")); }
-    let Some(minutes) = run.plan["scan"]["recent_minutes"].as_i64() else { return Err(invalid()) };
+    let minutes = if run.plan["scan"]["mode"] == "priority" { 180 }
+        else { run.plan["scan"]["recent_minutes"].as_i64().ok_or_else(invalid)? };
     let ids: Vec<i32> = watches(&run.plan).filter_map(|w| w["item_id"].as_i64().map(|n| n as i32)).collect();
     tx.commit().await.map_err(internal)?;
     let now = Utc::now().timestamp() as f64;

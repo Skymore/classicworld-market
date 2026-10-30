@@ -24,7 +24,7 @@ const records=[
  {kind:'watch',key:'1452003',version:1,value:{position:1,cap:null,notify:false,buyLimit:1,groups:[group('g2',80000,true)]}},
 ];
 const device=(id,name,{online=true,allow=true,ready=true,reason='',seen=-10,version='0.7.0'}={})=>({id,name,created_at:iso(-86400),last_seen_at:iso(seen),online,client_version:version,
- state:{client_version:version,sweep:{allow_web_start:allow,recent_scan:true,max_spend:5000000,max_order:0,reserve_mesos:0,executor:{ready,reason},holdings:{observed_at:Math.floor(now()),mesos:434333,categories:[2,3,4],items:[{item_id:2000000,quantity:189},{item_id:2070000,quantity:500}]}}}});
+ state:{client_version:version,sweep:{allow_web_start:allow,recent_scan:true,shared_sweep:allow,max_spend:5000000,max_order:0,reserve_mesos:0,executor:{ready,reason},holdings:{observed_at:Math.floor(now()),mesos:434333,categories:[2,3,4],items:[{item_id:2000000,quantity:189},{item_id:2070000,quantity:500}]}}}});
 const statuses=['bought','not_bought','held','unknown','expired'];
 const purchases=Array.from({length:24},(_,i)=>({id:'p'+i,device:'dev-a',item_id:[2000000,1452003,2070000][i%3],status:statuses[i%5],quantity:i%3===2?1:2,units:i%3===2?500:2,price:i%3===1?75000:50,
  spent:statuses[i%5]==='bought'?(i%3===1?75000:100):0,reason:statuses[i%5]==='not_bought'?'sold_out':null,room:3,channel:12,owner:'店主'+i,created_at:iso(-i*30),settled_at:iso(-i*30+5)}));
@@ -37,7 +37,7 @@ function reset({signedIn=true,mode=undefined,hasPassword=true}={}){
  calls=[];runs=0;
 }
 const newRun=input=>{const spent=Math.floor(input.budget*.24),reserved=Math.floor(input.budget*.06),unknown=Math.floor(input.budget*.01);return {id:'run-'+(++runs),status:'running',stop_reason:null,budget:input.budget,spent,reserved,unknown,remaining:input.budget-spent-reserved-unknown,
- started_at:iso(-60),ends_at:iso((input.minutes??10080)*60),stopped_at:null,started_by:'web',plan_version:1,plan_stale:false,plan:{scan:input.scan||{mode:'market'},watches:records.filter(r=>r.kind==='watch').map(r=>({item_id:Number(r.key),limit:r.value.buyLimit,groups:r.value.groups.filter(g=>g.buy)}))},bought:1234,items:[{item_id:2000000,limit:20,units:4,bought:4},{item_id:1452003,limit:1,units:0,bought:0}],
+ started_at:iso(-60),ends_at:iso((input.minutes??10080)*60),stopped_at:null,started_by:'web',plan_version:1,plan_stale:false,plan:{scan:input.scan||{mode:'priority'},watches:records.filter(r=>r.kind==='watch').map(r=>({item_id:Number(r.key),limit:r.value.buyLimit,groups:r.value.groups.filter(g=>g.buy)}))},bought:1234,items:[{item_id:2000000,limit:20,units:4,bought:4},{item_id:1452003,limit:1,units:0,bought:0}],
  devices:[{id:'dev-a',name:'书房电脑',state:'active',message:'正在扫 3 洞',online:true,leased:true,checked:273,progress_at:iso(-2),spent}],purchases};};
 const sweepBody=()=>({run:state.run,devices:state.devices});
 const json=(res,data,status=200)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
@@ -177,12 +177,7 @@ try{
   assert.match(await rule(2000000).innerText(),/红药水[\s\S]*≤ 60/);
   assert.equal(await rule(2000000).locator('[data-rule-held]').innerText(),'756','held units add up over online devices');
   assert.equal(await rule(1452003).locator('[data-rule-held]').innerText(),'—','an unread inventory tab is unknown, not zero');
-  // Recent matches: within range, in stock, under the cap, cut at each item's limit.
-  const hits=panel.locator('[data-sweep-hits]');
-  assert.match((await hits.innerText()).replace(/\s+/g,' '),/有 2 条命中[\s\S]*合计约 70.8K[\s\S]*先买这些/);
-  await hits.locator('[data-sweep-recent-range]').selectOption('360');
-  assert.match(await hits.innerText(),/有 3 条命中[\s\S]*合计约 71K/,'six hours adds the second shop, cut at the 20-unit limit');
-  await hits.locator('[data-sweep-recent-range]').selectOption('60');
+  assert.equal(await panel.locator('[data-sweep-hits],[data-sweep-recent-range],[data-sweep-recent]').count(),0);
   // Limits: number box and "no limit" box, synced to the account.
   const unlimited=page.getByLabel('红药水数量不限',{exact:true});
   await unlimited.check();
@@ -203,7 +198,7 @@ try{
   const dialog=page.locator('.sweep-start-dialog');await dialog.waitFor();
   const choice=id=>dialog.locator(`[data-sweep-choice="${id}"]`);
   assert.equal(await choice('dev-a').locator('input').isChecked(),true,'available devices start ticked');
-  for(const [id,why] of [['dev-b','离线'],['dev-c','未允许网页启动'],['dev-d','版本 0.6.18 过旧，请更新采集端'],['dev-e','购买功能加载失败']]){
+  for(const [id,why] of [['dev-b','离线'],['dev-c','请更新采集端'],['dev-d','版本 0.6.18 过旧，请更新采集端'],['dev-e','购买功能加载失败']]){
    assert.equal(await choice(id).locator('input').isDisabled(),true);assert.equal(await choice(id).locator('[data-sweep-blocker]').innerText(),why);
   }
   assert.equal(await dialog.locator('[data-sweep-rules],[data-sweep-holdings],[data-sweep-recent-range]').count(),0,'no repeated rules, inventory or mode');
@@ -232,7 +227,7 @@ try{
    await page.screenshot({path:path.join(shots,`sweep-start-${tag}.png`)});
   }
   await dialog.locator('[data-sweep-submit]').click();await dialog.waitFor({state:'detached'});
-  assert.deepEqual(lastCall('/sweep/start').body,{devices:['dev-a'],budget:5000000,minutes:10080,scan:{mode:'market'},current_password:mobile?'':PASSWORD});
+  assert.deepEqual(lastCall('/sweep/start').body,{devices:['dev-a'],budget:5000000,minutes:10080,scan:{mode:'priority'},current_password:mobile?'':PASSWORD});
   assert.equal(lastCall('/sweep/start').csrf,CSRF);
   // Running: status, budget bar, devices, this run's rules and the latest five purchases.
   assert.equal(await panel.getAttribute('data-sweep-state'),'running');
@@ -335,48 +330,12 @@ try{
   assert.equal(await tabText('sweep'),'扫货 2 件');
   assert.match(await panel.locator('[data-sweep-last]').innerText(),/^上一轮 今天 \d\d:\d\d 结束 · 花 2,000,000 · 买到 1,234 件 · 记录$/);
   // Buy recent matches first: devices, budget (the total) and password.
-  await panel.locator('[data-sweep-recent]').click();
-  const recent=page.locator('.sweep-start-dialog');await recent.waitFor();
-  assert.equal(await recent.locator('[data-sweep-recent-summary]').innerText(),'过去 1 小时命中 2 条，涉及红药水、战斗弓 · 买完后等新命中');
-  assert.equal(await recent.locator('[name=budget]').inputValue(),'70750');
-  assert.equal(await recent.locator('[data-sweep-duration]').count(),0,'no duration: the server default applies');
-  state.devices[0].state.sweep.recent_scan=false;emit('devices');
-  await choice('dev-a').getByText('请更新采集端').waitFor();
-  assert(await recent.locator('[data-sweep-submit]').isDisabled());
-  state.devices[0].state.sweep.recent_scan=true;emit('devices');
-  await waitFor(async()=>!(await choice('dev-a').locator('input').isDisabled()),'new collector can run recent route');
-  await choice('dev-a').locator('input').check();
-  if(!mobile)await recent.locator('[name=current_password]').fill(PASSWORD);
+  await panel.locator('[data-sweep-start]').click();
+  const again=page.locator('.sweep-start-dialog');await again.waitFor();
+  if(!mobile)await again.locator('[name=current_password]').fill(PASSWORD);
   else state.reauth=false;
-  await recent.locator('[data-sweep-submit]').click();await recent.waitFor({state:'detached'});
-  assert.deepEqual(lastCall('/sweep/start').body,{devices:['dev-a'],budget:70750,scan:{mode:'recent',recent_minutes:60},current_password:mobile?'':PASSWORD});
-  assert.equal(await tabText('sweep'),'扫货 买命中的');
-  assert.equal(await panel.locator('[data-sweep-summary]').innerText(),'正在买命中的');
-  // The heartbeat's `pending` decides the queue state; the message text is only a fallback for old collectors.
-  state.run.devices[0].message='近期命中：3 洞 · 12频道';state.run.devices[0].pending=7;emit('sweep');
-  await panel.locator('[data-sweep-progress-line]').filter({hasText:/^剩 7 处待回访 · 已买 1,234 件 · 已运行 1 分$/}).waitFor();
-  state.run.devices[0].message='等待新的命中店铺';state.run.devices[0].pending=5;emit('sweep');
-  await panel.locator('[data-sweep-progress-line]').filter({hasText:/^剩 5 处待回访/}).waitFor();
-  assert.equal(await panel.locator('[data-sweep-summary]').innerText(),'正在买命中的','a structured count outranks the message text');
-  state.run.devices[0].message='近期命中';state.run.devices[0].pending=0;emit('sweep');
-  await panel.locator('[data-sweep-summary]').filter({hasText:'命中的都看过了'}).waitFor();
-  assert.equal(await panel.locator('[data-sweep-progress-line]').innerText(),'已查 273 店次 · 买到 1,234 件 · 等新命中');
-  delete state.run.devices[0].pending;state.run.devices[0].message='近期命中：3 洞 · 12频道 · 待访 2 处';emit('sweep');
-  await panel.locator('[data-sweep-progress-line]').filter({hasText:/^剩 2 处待回访/}).waitFor();
-  state.run.devices[0].message='等待新的命中店铺';emit('sweep');
-  await panel.locator('[data-sweep-summary]').filter({hasText:'命中的都看过了'}).waitFor();
-  assert(await noOverflow(page));await page.screenshot({path:path.join(shots,`sweep-recent-drained-${tag}.png`)});
-  // Switching to a full-market sweep stops this run and starts one with what is left.
-  const left=state.run.remaining;
-  await panel.locator('[data-sweep-convert]').click();
-  const convert=page.locator('.sweep-start-dialog');await convert.waitFor();
-  assert.equal(await convert.locator('[name=budget]').inputValue(),String(left));
-  if(!mobile)await convert.locator('[name=current_password]').fill(PASSWORD);
-  await convert.locator('[data-sweep-submit]').click();await convert.waitFor({state:'detached'});
-  const order=calls.filter(c=>/\/sweep\/(stop|start)$/.test(c.path)).slice(-2).map(c=>c.path.split('/').pop());
-  assert.deepEqual(order,['stop','start']);assert.deepEqual(lastCall('/sweep/stop').body,{run:'run-2'});
-  assert.deepEqual(lastCall('/sweep/start').body.scan,{mode:'market'});assert.equal(lastCall('/sweep/start').body.budget,left);
-  assert.equal(await tabText('sweep'),'扫货 运行中');
+  await again.locator('[data-sweep-submit]').click();await again.waitFor({state:'detached'});
+  assert.deepEqual(lastCall('/sweep/start').body.scan,{mode:'priority'});
   state.run={...state.run,status:'finished',stop_reason:'time_up',stopped_at:iso(0)};emit('sweep');
   await panel.locator('[data-sweep-last]').waitFor();
   assert.equal(await panel.locator('[data-sweep-start]').isVisible(),true);

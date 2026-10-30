@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { type Holdings, clockTime, dayClock, duration, mesos, participantLabel, purchaseAmount, purchaseLabel, purchasePlace } from '../src/lib/sweep-labels';
 import { full, itemIcon, reminderTokens, toMs } from './format';
-import type { DeviceRun, RecentPurchase, Run, RunItem, Shell, SweepRule, SweepSettings, WorkspaceStatus } from './workspace';
+import { useDevices } from './workspace';
+import { deviceBlocker } from '../src/lib/sweep-labels';
+import type { DeviceRun, RecentPurchase, Run, RunItem, Shell, SweepRule, WorkspaceStatus } from './workspace';
 
 type Sweep = NonNullable<WorkspaceStatus['sweep']>;
 const MAX_MESOS = 1e12;
@@ -17,7 +19,7 @@ const amount = (text: string, min = 0) => {
 };
 function savedMinutes() {
   try { const n = Number(localStorage.getItem(MINUTES_KEY)); if (DURATIONS.some(([m]) => m === n)) return n; } catch { /* storage unavailable */ }
-  return 1440;
+  return 10080;
 }
 /** "高物攻 · ≤ 9,000 · 物攻 ≥ 59": the group name, its price cap and the website's condition chips. */
 export function ruleText(group: any) {
@@ -37,40 +39,52 @@ function bag(holdings: Holdings | null | undefined, itemId: number) {
 }
 
 export default function SweepPane({ sweep, deviceId, busy, run, shell }: { sweep: Sweep; deviceId?: string; busy: boolean; run: Run; shell: Shell }) {
-  const { executor, settings, run: current } = sweep, rules = sweep.rules?.watches ?? null;
+  const { executor, run: current } = sweep, rules = sweep.rules?.watches ?? null;
+  const { devices } = useDevices(true, Math.floor(Date.now() / 5000));
+  const [excluded, setExcluded] = useState<string[]>([]);
+  const chosen = (devices || []).filter(d => !deviceBlocker(d, zh) && !excluded.includes(d.id)).map(d => d.id);
   // The status cells already show why purchases are unavailable; the start block names only the other blockers.
-  const blocked = settings.max_spend === 0 ? '先设置本机每轮最多花' : rules && !rules.length ? '没有可扫货的条件' : '';
+  const blocked = rules && !rules.length ? '没有可扫货的条件' : '';
   return <div className="native-sweep" data-native-sweep>
     <div className="sweep-status">
       <span className={executor.ready ? '' : 'bad'} data-executor><i className={'sq-dot' + (executor.ready ? '' : ' warn')} />{executor.ready ? '购买功能就绪' : executor.reason || '购买功能不可用'}</span>
       <span data-game><i className={'sq-dot' + (shell.gameLive ? '' : ' off')} />{shell.gameLabel}</span>
       <span data-native-balance>金币 <b>{full(sweep.holdings?.mesos)}</b></span>
-      <span data-web-start>网页启动 <b>{settings.allow_web_start ? '允许' : '关闭'}</b></span>
+
     </div>
     {!current && sweep.message && <p className="workspace-note" data-sweep-message>{sweep.message}</p>}
     {current ? <RunConsole current={current} message={sweep.message || current.message || ''} deviceId={deviceId} busy={busy} run={run} />
-      : <LocalStart rules={rules} blocked={blocked} ready={executor.ready} busy={busy} run={run} />}
+      : <LocalStart rules={rules} blocked={blocked} ready={executor.ready || !chosen.includes(deviceId || '')} busy={busy} run={run} chosen={chosen} />}
+    {current?.plan_stale && <p className="workspace-note">条件待更新 · 停止后重新开始生效</p>}
     {rules && <RulesTable rules={rules} running={Boolean(current)} items={current?.items ?? []} holdings={sweep.holdings} openWatch={shell.openWatch} />}
+    <div className="native-block"><div className="native-block-head"><b>参与设备</b></div>
+      {(devices || []).map(d => <div className="native-block" key={d.id}>
+        <label className="check"><input type="checkbox" checked={current ? Boolean(current.devices?.some(p => p.id === d.id)) : chosen.includes(d.id)} disabled={Boolean(current) || Boolean(deviceBlocker(d, zh))} onChange={e => setExcluded(old => e.target.checked ? old.filter(id => id !== d.id) : [...old, d.id])} />{d.name}</label>
+        <span> · {deviceBlocker(d, zh) || '在线'} · 金币 {full(d.state?.sweep?.holdings?.mesos)}</span>
+        {current?.devices?.filter(p => p.id === d.id).map(p => <div key={p.id}>{participantLabel(p.state, zh)} · {p.message} · 已查 {full(p.checked)} 店次 · 已花 {full(p.spent)}</div>)}
+        <details><summary>背包详情</summary>{(d.state?.sweep?.holdings?.items || []).map(item => <div key={item.item_id}><ItemIcon id={item.item_id} />{rules?.find(r => r.item_id === item.item_id)?.name || item.item_id} · {full(item.quantity)}</div>)}</details>
+      </div>)}
+    </div>
     <RecentList rows={sweep.recent} />
-    <SettingsBlock saved={settings} running={Boolean(current)} busy={busy} run={run} />
+
   </div>;
 }
 
-function LocalStart({ rules, blocked, ready, busy, run }: { rules: SweepRule[] | null; blocked: string; ready: boolean; busy: boolean; run: Run }) {
+function LocalStart({ rules, blocked, ready, busy, run, chosen }: { rules: SweepRule[] | null; blocked: string; ready: boolean; busy: boolean; run: Run; chosen: string[] }) {
   const [budget, setBudget] = useState(''), [minutes, setMinutes] = useState(savedMinutes);
   const value = amount(budget, 1);
   const choose = (m: number) => { setMinutes(m); try { localStorage.setItem(MINUTES_KEY, String(m)); } catch { /* storage unavailable */ } };
   const summary = [rules?.length ? itemNames(rules) : '', value ? `预算 ${mesos(value)}` : '', `${dayClock(Date.now() + minutes * 60000, zh)} 结束`].filter(Boolean).join(' · ');
   return <div className="native-block" data-sweep-run>
-    <div className="native-block-head"><b>本机开始</b>{blocked && <span data-blocker>{blocked}</span>}</div>
+    <div className="native-block-head"><b>开始扫货</b>{blocked && <span data-blocker>{blocked}</span>}</div>
     <div className="sweep-form"><span className="sweep-label">预算</span>
       <input name="budget" aria-label="预算" type="number" inputMode="numeric" min={1} max={MAX_MESOS} step={1} value={budget} onChange={e => setBudget(e.target.value)} />
       <small className="sweep-hint">{value ? mesos(value) : ''}</small>
       <div className="quick">{BUDGETS.map(([v, label]) => <button type="button" key={label} aria-pressed={value === v} onClick={() => setBudget(String(v))}>{label}</button>)}</div></div>
     <div className="sweep-form"><span className="sweep-label">时长</span>
       <div className="seg" role="group" aria-label="时长">{DURATIONS.map(([m, label]) => <button type="button" key={m} aria-pressed={minutes === m} onClick={() => choose(m)}>{label}</button>)}</div></div>
-    <div className="start-row"><span className="sweep-sub" data-start-summary>{summary}</span>
-      <button className="ui-btn primary" data-native-start disabled={busy || !ready || Boolean(blocked) || !value} onClick={() => run('start', { budget: value, minutes })}>本机开始</button></div>
+        <div className="start-row"><span className="sweep-sub" data-start-summary>{summary}</span>
+      <button className="ui-btn primary" data-native-start disabled={busy || !ready || Boolean(blocked) || !value || !chosen.length} onClick={() => run('start', { budget: value, minutes, devices: chosen })}>开始扫货</button></div>
   </div>;
 }
 
@@ -132,41 +146,4 @@ function RecentList({ rows }: { rows: RecentPurchase[] }) {
       <span className="r"><b>{row.status === 'bought' ? full(row.spent) : '—'}</b></span></div>)}</div>
       : <p className="workspace-note">还没有购买</p>}
   </div>;
-}
-
-interface Draft { allow_web_start: boolean; max_spend: string; max_order: string; unlimited: boolean; reserve_mesos: string }
-const draftOf = (s: SweepSettings): Draft => ({ allow_web_start: s.allow_web_start, max_spend: String(s.max_spend),
-  max_order: s.max_order ? String(s.max_order) : '', unlimited: s.max_order === 0, reserve_mesos: String(s.reserve_mesos) });
-const settingsSummary = (s: SweepSettings) => [s.allow_web_start ? '允许网页启动' : '不允许网页启动',
-  `每轮最多花 ${s.max_spend ? mesos(s.max_spend) : '未设置'}`, s.max_order ? `单笔最多 ${mesos(s.max_order)}` : '单笔不限', `保留 ${mesos(s.reserve_mesos)}`].join(' · ');
-
-function SettingsBlock({ saved, running, busy, run }: { saved: SweepSettings; running: boolean; busy: boolean; run: Run }) {
-  const [draft, setDraft] = useState<Draft | null>(null), [open, setOpen] = useState(saved.max_spend === 0), [done, setDone] = useState(false);
-  useEffect(() => { if (!done) return; const timer = setTimeout(() => setDone(false), 2000); return () => clearTimeout(timer); }, [done]);
-  const shown = draft || draftOf(saved);
-  const parsed = { allow_web_start: shown.allow_web_start, max_spend: amount(shown.max_spend),
-    max_order: shown.unlimited ? 0 : amount(shown.max_order, 1), reserve_mesos: amount(shown.reserve_mesos) };
-  const valid = parsed.max_spend !== null && parsed.max_order !== null && parsed.reserve_mesos !== null;
-  const edit = (change: Partial<Draft>) => { setDraft({ ...shown, ...change }); setDone(false); };
-  const hint = (value: number | null) => value ? ` · ${mesos(value)}` : '';
-  async function save() { if (await run('settings', parsed)) { setDraft(null); setDone(true); } }
-  return <details className="native-block sweep-settings" data-sweep-settings open={open} onToggle={e => setOpen(e.currentTarget.open)}>
-    <summary><b>本机设置</b><span data-settings-summary>{(running ? '运行中不能修改 · ' : '') + settingsSummary(saved)}</span></summary>
-    <fieldset disabled={running}>
-      <button type="button" className={'toggle' + (shown.allow_web_start ? ' on' : '')} aria-pressed={shown.allow_web_start} data-allow-web
-        onClick={() => edit({ allow_web_start: !shown.allow_web_start })}><i />允许网页启动扫货</button>
-      <div className="native-fields">
-        <label><span>本机每轮最多花<small>{hint(parsed.max_spend)}</small></span>
-          <input name="max_spend" type="number" inputMode="numeric" min={0} max={MAX_MESOS} step={1} value={shown.max_spend} onChange={e => edit({ max_spend: e.target.value })} /></label>
-        <div className="native-field"><span>单笔上限<small>{shown.unlimited ? '' : hint(parsed.max_order)}</small></span>
-          <span className="with-check"><input name="max_order" aria-label="单笔上限" type="number" inputMode="numeric" min={1} max={MAX_MESOS} step={1}
-            disabled={shown.unlimited} value={shown.unlimited ? '' : shown.max_order} onChange={e => edit({ max_order: e.target.value })} />
-            <label className="check"><input type="checkbox" name="max_order_unlimited" checked={shown.unlimited} onChange={e => edit({ unlimited: e.target.checked })} />不限</label></span></div>
-        <label><span>保留金币<small>{hint(parsed.reserve_mesos)}</small></span>
-          <input name="reserve_mesos" type="number" inputMode="numeric" min={0} max={MAX_MESOS} step={1} value={shown.reserve_mesos} onChange={e => edit({ reserve_mesos: e.target.value })} /></label>
-      </div>
-      <div className="native-save-row">{done && <span className="saved" role="status">已保存</span>}
-        <button type="button" className="ui-btn" data-save-settings disabled={busy || !draft || !valid} onClick={save}>保存</button></div>
-    </fieldset>
-  </details>;
 }

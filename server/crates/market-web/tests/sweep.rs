@@ -684,6 +684,39 @@ async fn recent_route_is_frozen_capability_gated_and_account_scoped() {
     db.close().await;
 }
 
+#[tokio::test]
+async fn shared_priority_uses_one_budget_and_local_selection() {
+    let Some(db) = TestDb::new().await else { return };
+    let s = AppState::new(db.pool.clone(), Settings::default());
+    let w = signup(&s, "shared_priority").await;
+    watch(&s, &w, GLOVE, 500000, 0, 0).await;
+    let (one, a) = ready_device(&s, &w, "A").await;
+    let (two, b) = ready_device(&s, &w, "B").await;
+    let body = json!({"devices":[a,b],"budget":100000,"minutes":10080,"scan":{"mode":"priority"}});
+    assert_eq!(sensitive(&s,"/api/v1/account/sweep/start",&w,body.clone()).await.1["error"],"collector_update_required");
+    for token in [&one, &two] {
+        let mut state = local_state(false, true);
+        state["sweep"]["shared_sweep"] = json!(true);
+        state["sweep"]["max_spend"] = json!(0);
+        assert_eq!(dev(&s,"POST","/api/v1/device/state",token,state).await.0,StatusCode::OK);
+    }
+    let (status,view)=dev(&s,"POST","/api/v1/device/sweep/start",&one,body).await;
+    assert_eq!(status,StatusCode::OK,"{view}");
+    let run=view["run"]["id"].as_str().unwrap();
+    assert_eq!(view["run"]["devices"].as_array().unwrap().len(),2);
+    assert_eq!(view["run"]["plan"]["scan"],json!({"mode":"priority"}));
+    let (observer, _) = device(&s, &w, "Observer").await;
+    let view = dev(&s,"GET","/api/v1/device/sweep",&observer,Value::Null).await.1;
+    assert_eq!(view["run"]["participant"]["state"],"observing");
+    assert_eq!(dev(&s,"POST","/api/v1/device/sweep/join",&observer,json!({"run":run,"plan_version":1})).await.1["error"],"not_invited");
+    let first=join(&s,&one,run,1).await;
+    let second=join(&s,&two,run,1).await;
+    assert_eq!(grant(&s,&one,order(run,&first,1,GLOVE,60000)).await.0,1);
+    assert_eq!(grant(&s,&two,order(run,&second,2,GLOVE,60000)).await.0,0);
+    assert_eq!(dev(&s,"GET","/api/v1/device/sweep/targets",&one,Value::Null).await.0,StatusCode::OK);
+    db.close().await;
+}
+
 async fn next_event(body: &mut Body, millis: u64) -> Option<String> {
     let frame = tokio::time::timeout(Duration::from_millis(millis), body.frame()).await.ok()??.ok()?;
     frame.into_data().ok().map(|bytes| String::from_utf8_lossy(&bytes).into_owned())

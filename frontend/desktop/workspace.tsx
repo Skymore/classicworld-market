@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Device, Holdings } from '../src/lib/sweep-labels';
+import type { Device, Holdings, RunDevice } from '../src/lib/sweep-labels';
 import SweepPane from './sweep-pane';
 import AccountPane from './account-pane';
 
@@ -7,6 +7,7 @@ import AccountPane from './account-pane';
 export interface SweepSettings { allow_web_start: boolean; max_spend: number; max_order: number; reserve_mesos: number }
 export interface RunItem { item_id: number; limit: number; units: number; bought?: number }
 export interface DeviceRun {
+  devices?: RunDevice[]; plan_stale?: boolean;
   id: string; status: string; budget: number; remaining: number; ends_at: string | number;
   started_by: string; state: string; message?: string | null; spent_here: number; plan_version: number;
   // Run-wide totals; null or [] from servers that do not send them yet.

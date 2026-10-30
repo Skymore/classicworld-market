@@ -42,7 +42,7 @@ class TargetComplete(Exception):
     """Raised only at the scanner's completed-channel checkpoint, after cleanup."""
 
 
-def run_recent(folder, hwnd, ready, stop, status, engine, scan):
+def run_recent(folder, hwnd, ready, stop, status, engine, scan, *, once=False):
     from scan_progress import ScanProgress
     folder = Path(folder)
     visited = {}
@@ -59,6 +59,8 @@ def run_recent(folder, hwnd, ready, stop, status, engine, scan):
                 continue
             locations.setdefault((shop['room'], shop['channel']), []).append((shop, fingerprint))
         if not locations:
+            if once:
+                break
             engine.progress('等待新的命中店铺', revisits=0)
             status(('confirmed', dict(step='recent_wait', room=None, channel=None, visited=total)))
             stop.wait(15)
@@ -94,4 +96,6 @@ def run_recent(folder, hwnd, ready, stop, status, engine, scan):
                 for shop, fingerprint in shops:
                     visited[shop_key(shop, shop['owner'])] = fingerprint, time.monotonic()
                 total += count
+        if once:
+            break
     return dict(reason='recent_finished', visited=total)

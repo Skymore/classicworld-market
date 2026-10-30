@@ -97,7 +97,7 @@ function DevicePicker({
           const mesos = sweep?.holdings?.mesos;
           const facts = [
             mesos != null && words(`金币 ${mesos.toLocaleString()}`, `Mesos ${mesos.toLocaleString()}`),
-            sweep?.max_spend ? words(`每轮最多花 ${meso(sweep.max_spend)}`, `Up to ${meso(sweep.max_spend)} per run`) : "",
+
           ].filter(Boolean).join(" · ");
           return (
             <label className="filter-check sweep-device" key={device.id} data-sweep-choice={device.id}>
@@ -236,7 +236,7 @@ export function StartDialog({
           devices: chosen,
           budget: budgetValue,
           minutes,
-          scan: { mode: "market" },
+          scan: { mode: "priority" },
           current_password,
         });
         save(JSON.stringify({ budget: budgetValue, minutes, durationVersion: 1 }));

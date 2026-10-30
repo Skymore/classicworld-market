@@ -322,32 +322,7 @@ export function SweepDetails({
                   <dd>{run.devices.map((d) => d.name).join("、") || "—"}</dd>
                 </div>
               </dl>
-              {selected.map((device) => (
-                <details className="sweep-local-settings" key={device.id}>
-                  <summary>
-                    {device.name} ·{" "}
-                    {words("本机当前设置", "Current device settings")}
-                  </summary>
-                  <dl className="sweep-definition">
-                    <div>
-                      <dt>{words("每轮最多花", "Run spending cap")}</dt>
-                      <dd>{number(device.state?.sweep?.max_spend)}</dd>
-                    </div>
-                    <div>
-                      <dt>{words("单笔金额上限", "Order cap")}</dt>
-                      <dd>
-                        {device.state?.sweep?.max_order === 0
-                          ? words("不限", "Unlimited")
-                          : number(device.state?.sweep?.max_order)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>{words("保留金币", "Mesos reserve")}</dt>
-                      <dd>{number(device.state?.sweep?.reserve_mesos)}</dd>
-                    </div>
-                  </dl>
-                </details>
-              ))}
+
             </TabsContent>
             <TabsContent value="records">
               <PurchaseRecords run={run} items={items} />
