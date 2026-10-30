@@ -7,6 +7,41 @@ import time
 from pathlib import Path
 
 HOME = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'ClassicWorldMarket'
+BLOCKED_DOWNLOAD = ('Windows 阻止了从网络下载的程序文件，程序无法启动。\n'
+    '请右键下载的 ZIP → 属性 → 勾选“解除锁定” → 确定，然后重新解压并运行。')
+
+
+def clear_download_marks(root):
+    """Remove the Windows download mark from this program's own files.
+
+    Explorer copies a downloaded ZIP's mark onto every extracted file, and .NET
+    Framework then refuses to load the bundled assemblies (0x80131515). Only
+    files listed in the install manifest are touched. Returns how many files
+    still carry the mark.
+    """
+    from pathlib import PurePosixPath
+    root = Path(root)
+    try:
+        files = json.loads((root/'install-manifest.json').read_text(encoding='utf-8-sig'))['files']
+    except (OSError, ValueError, KeyError, TypeError):
+        return 0
+    remaining = 0
+    for name in files if isinstance(files, list) else ():
+        if not isinstance(name, str) or ':' in name or '\\' in name:
+            continue
+        relative = PurePosixPath(name)
+        if relative.is_absolute() or '..' in relative.parts:
+            continue
+        mark = f'{root/relative}:Zone.Identifier'
+        try:
+            os.remove(mark)
+        except FileNotFoundError:
+            pass
+        except OSError:
+            # File systems without streams reject the name; only an existing
+            # mark that could not be removed counts.
+            remaining += os.path.exists(mark)
+    return remaining
 
 
 def prepare_standard_streams():
@@ -147,6 +182,8 @@ class CollectorRuntime:
 
 def main():
     prepare_standard_streams()
+    if os.name == 'nt' and getattr(sys, 'frozen', False):
+        clear_download_marks(Path(sys.executable).resolve().parent)
     from shared_client import main as collector_main
     if '--scanner-self-test' in sys.argv:
         from scanner_desktop import scanner_modules
@@ -248,6 +285,8 @@ if __name__ == '__main__':
             '--version', '--check-updates', '--apply-update', '--dashboard-only'))
         if not diagnostic:
             import ctypes
+            blocked = getattr(sys, 'frozen', False) and clear_download_marks(Path(sys.executable).resolve().parent)
             ctypes.windll.user32.MessageBoxW(None,
-                '启动未完成，请确认安装包已完整解压。\n' + str(error), '枫叶市集', 0x10)
+                (BLOCKED_DOWNLOAD if blocked else '启动未完成，请确认安装包已完整解压。') + '\n' + str(error),
+                '枫叶市集', 0x10)
         raise SystemExit(1)

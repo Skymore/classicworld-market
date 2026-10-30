@@ -106,3 +106,32 @@ class UnifiedTests(unittest.TestCase):
         root=Path(__file__).resolve().parent
         self.assertTrue((root/'scanner/market_screen_scanner/scanner_gui.py').is_file())
         self.assertFalse(modules(root,['shared_client']) & modules(root/'scanner',['market_screen_scanner.scanner_gui']))
+
+    def test_download_marks_are_removed_only_from_manifest_files(self):
+        # Linux allows ':' in names, so 'x.dll:Zone.Identifier' stands in for
+        # the Windows stream of the same name.
+        from unified_client import clear_download_marks
+        import json
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)/'ClassicWorldCollector'
+            (root/'_internal').mkdir(parents=True)
+            names=['_internal/Python.Runtime.dll','ClassicWorldCollector.exe','../outside.dll','install-manifest.json']
+            (root/'install-manifest.json').write_text(json.dumps(dict(files=names)),encoding='utf-8')
+            marks=[root/'_internal/Python.Runtime.dll:Zone.Identifier',root/'ClassicWorldCollector.exe:Zone.Identifier']
+            outside=Path(folder)/'outside.dll:Zone.Identifier'
+            unlisted=root/'_internal/extra.dll:Zone.Identifier'
+            for path in [*marks,outside,unlisted]:
+                path.write_text('[ZoneTransfer]\nZoneId=3\n')
+            self.assertEqual(clear_download_marks(root),0)
+            self.assertFalse(any(path.exists() for path in marks))
+            self.assertTrue(outside.exists() and unlisted.exists())
+            # A mark that cannot be removed is reported; a missing manifest is not an error.
+            marks[0].write_text('[ZoneTransfer]\nZoneId=3\n')
+            real_remove=os.remove
+            def deny(path):
+                if path.endswith('Python.Runtime.dll:Zone.Identifier'):
+                    raise PermissionError(path)
+                real_remove(path)
+            with patch('os.remove',side_effect=deny):
+                self.assertEqual(clear_download_marks(root),1)
+            self.assertEqual(clear_download_marks(Path(folder)/'missing'),0)
