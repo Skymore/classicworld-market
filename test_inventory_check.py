@@ -51,6 +51,36 @@ class InventoryCheckTests(unittest.TestCase):
                 self.assertFalse(window.opened)
                 self.assertEqual(window.keys, ['i', 'i'])
 
+    def test_complete_current_packet_does_not_depend_on_scaled_currency_glyphs(self):
+        class ScaledScreen:
+            def locate(self,opened):return (100,100,None) if opened else None
+        packet=dict(session='current',revision=3,categories=[2,3,4],mesos=737594,
+                    items=[dict(item_id=4010101,quantity=3)])
+        for reason in ('scan_start','purchase'):
+            with self.subTest(reason=reason), tempfile.TemporaryDirectory() as folder:
+                window=Window()
+                checker=InventoryChecker(folder,ScaledScreen(),lambda:window.elapsed)
+                expected=dict(item_id=4010101,quantity=3,mesos=737594) if reason=='purchase' else None
+                with patch('inventory_check.read_inventory',return_value=packet):
+                    self.assertEqual(checker.run(window,reason,expected),packet)
+                self.assertLess(window.elapsed,1)
+                self.assertEqual(window.keys,['i','i'])
+
+    def test_packet_path_still_requires_complete_current_data_and_purchase_totals(self):
+        class ScaledScreen:
+            def locate(self,opened):return (100,100,None) if opened else None
+        for bad in (dict(session=None),dict(revision=0),dict(categories=[2]),dict(mesos=None),
+                    dict(mesos=737593),dict(items=[dict(item_id=4010101,quantity=2)])):
+            with self.subTest(bad=bad), tempfile.TemporaryDirectory() as folder:
+                packet=dict(session='current',revision=3,categories=[2,3,4],mesos=737594,
+                            items=[dict(item_id=4010101,quantity=3)])
+                packet.update(bad)
+                window=Window()
+                checker=InventoryChecker(folder,ScaledScreen(),lambda:window.elapsed)
+                with patch('inventory_check.read_inventory',return_value=packet), self.assertRaises(InventoryCheckError):
+                    checker.run(window,'purchase',dict(item_id=4010101,quantity=3,mesos=737594))
+                self.assertFalse(window.opened)
+
     def test_unrecognized_window_gets_no_blind_second_toggle(self):
         with tempfile.TemporaryDirectory() as folder:
             window = Window(responsive=False)

@@ -99,8 +99,15 @@ class InventoryChecker:
                 packet = read_inventory(self.folder)
                 matches = not expected or (packet and packet.get('mesos') == expected['mesos']
                     and next((i['quantity'] for i in packet.get('items', []) if i['item_id'] == expected['item_id']), 0) == expected['quantity'])
+                # The panel controls prove inventory opened; complete current
+                # stream data supplies its contents. Re-OCR of scaled currency
+                # is redundant and can falsely stop an already confirmed sale.
+                current_packet = (packet and isinstance(packet.get('session'), str) and packet['session']
+                    and type(packet.get('revision')) is int and packet['revision'] > 0
+                    and type(packet.get('mesos')) is int and packet['mesos'] >= 0)
+                visual_balance = packet and type(view[2]) is int and packet.get('mesos') == view[2]
                 if (packet and set(packet.get('categories', [])) >= {2, 3, 4}
-                        and type(view[2]) is int and packet.get('mesos') == view[2] and matches):
+                        and (current_packet or visual_balance) and matches):
                     result = packet
                     break
             if not opened:
