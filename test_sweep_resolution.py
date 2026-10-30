@@ -1,12 +1,13 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 from PIL import Image
 
 from sweep_screen import Canvas, Reader
 from sweep_purchaser_windows import WindowsInput, WindowsPurchaser
+from inventory_check import InventoryCheckError
 
 
 class ResolutionTests(unittest.TestCase):
@@ -85,6 +86,42 @@ class ResolutionTests(unittest.TestCase):
         self.assertFalse(WindowsPurchaser(reader, lambda window: control).prepare(object()))
         control.click.assert_not_called()
         control.quantity.assert_not_called()
+
+    def closing_window(self, states):
+        self.now = 0
+        def pause(seconds):self.now += seconds
+        bounds=(0,0,1920,1080)
+        window=SimpleNamespace(bounds=bounds,capture=Mock(return_value=('raw',bounds)),
+                               pause=pause,press=Mock(),vision=Mock())
+        window.vision.window_markers.side_effect=states
+        reader=Mock();reader.shop.return_value=True;reader.dialog.return_value=(None,None)
+        control=Mock()
+        buyer=WindowsPurchaser(reader,lambda window:control,lambda:self.now)
+        helper=SimpleNamespace(try_keyboard_close=Mock(return_value=False),
+                               game_menu_visible=lambda image:False,single_button_notice_visible=lambda image:False)
+        return buyer,window,control,helper
+
+    def test_post_purchase_escape_fallback_closes_then_checks_inventory(self):
+        buyer,window,control,helper=self.closing_window([
+            dict(owner=[],leave=[1]),dict(owner=[],leave=[]),dict(owner=[],leave=[])])
+        expected=dict(item_id=2012000,quantity=53,mesos=738993)
+        with patch.dict('sys.modules',shop_window_control=helper), patch('inventory_check.InventoryChecker') as check:
+            self.assertTrue(buyer.verify_inventory(window,'folder',expected))
+            control.click.assert_called_once_with(604,272)
+            check.return_value.run.assert_called_once_with(window,'purchase',expected)
+            self.assertEqual(window.capture.call_count,3)
+
+    def test_post_purchase_close_must_be_verified_before_inventory_input(self):
+        for failure in ('unknown','moved','still_open'):
+            with self.subTest(failure=failure):
+                buyer,window,control,helper=self.closing_window(None)
+                window.vision.window_markers.return_value=dict(owner=[],leave=[1])
+                if failure=='unknown':buyer.reader.shop.return_value=False
+                if failure=='moved':window.capture.return_value=('raw',(1,0,1920,1080))
+                with patch.dict('sys.modules',shop_window_control=helper), patch('inventory_check.InventoryChecker') as check:
+                    with self.assertRaises(InventoryCheckError):buyer.verify_inventory(window,'folder')
+                    check.assert_not_called()
+                    if failure=='unknown':control.click.assert_not_called()
 
 
 if __name__ == '__main__':

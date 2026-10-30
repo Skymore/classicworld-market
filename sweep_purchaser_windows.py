@@ -153,12 +153,35 @@ class WindowsPurchaser:
 
     def verify_inventory(self, window, folder, expected=None):
         from inventory_check import InventoryChecker, InventoryCheckError
-        from shop_window_control import try_keyboard_close
+        from shop_window_control import try_keyboard_close, game_menu_visible, single_button_notice_visible
         # The game blocks inventory while a visitor store is open. Close the
         # verified store first; the scanner then moves on after this order.
         if not try_keyboard_close(window.capture, window.pause, window.vision,
                                   lambda: window.press('esc'), window.bounds):
-            raise InventoryCheckError('购买已完成，但无法确认商店已关闭')
+            # Escape can dismiss focus or open the game menu after buying.
+            # The scanner's close helper explicitly requests a button fallback.
+            control = self.input_factory(window)
+            control.move()
+            image = control.capture()
+            if not self.reader.shop(image) or self.reader.dialog(image)[0] is not None:
+                raise InventoryCheckError('购买已完成，但无法确认商店已关闭')
+            control.click(604, 272)
+            closed = 0
+            deadline = self.clock()+2
+            while self.clock() < deadline:
+                window.pause(.05)
+                raw, bounds = window.capture()
+                if bounds != window.bounds:
+                    raise InventoryCheckError('关闭商店时游戏窗口位置变化')
+                state = window.vision.window_markers(raw)
+                if state['owner']:
+                    raise InventoryCheckError('关闭商店时出现了自己的商店')
+                clear = not state['leave'] and not game_menu_visible(raw) and not single_button_notice_visible(raw)
+                closed = closed+1 if clear else 0
+                if closed >= 2:
+                    break
+            if closed < 2:
+                raise InventoryCheckError('购买已完成，但无法确认商店已关闭')
         InventoryChecker(folder).run(window, 'purchase', expected)
         return True
 
