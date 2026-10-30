@@ -1,6 +1,6 @@
 """Conservative Windows native purchaser, running on the scanner input thread.
 
-Standard 1366x768 player stores, fully readable non-equipment listings.
+Resolution-normalized player stores, fully readable non-equipment listings.
 Quantity is bounded by the reservation and read back before confirmation.
 Scroll position is recovered from the
 entire visible page against RAW packet order, never from category/slot sorting.
@@ -17,12 +17,13 @@ import numpy as np
 from shared_protocol import from_snapshot
 from sweep_purchase import PurchaseHalt, PurchaseResult, PurchaserStatus
 from sweep_purchase_flow import Listing, PurchaseFlow, Receipt, View, Action
-from sweep_screen import Reader, canonical
+from sweep_screen import Canvas, Reader, canonical
 
 
 class WindowsInput:
     def __init__(self, window):
         self.window = window
+        self.canvas = Canvas(*window.bounds[2:])
         self.user = ctypes.WinDLL('user32', use_last_error=True)
         self.user.GetForegroundWindow.restype = wintypes.HWND
         self.user.GetClientRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
@@ -44,7 +45,8 @@ class WindowsInput:
     def move(self):
         self.check()
         x, y, _, _ = self.window.bounds
-        if not self.user.SetCursorPos(x+930, y+570):
+        px, py = self.canvas.point(930, 570)
+        if not self.user.SetCursorPos(x+px, y+py):
             raise RuntimeError('Cannot move pointer away from listing tooltip')
         self.window.pause(.08)
         self.check()
@@ -55,11 +57,11 @@ class WindowsInput:
         self.check()
         if tuple(bounds) != tuple(self.window.bounds):
             raise RuntimeError('Capture bounds changed')
-        return np.asarray(shot.convert('RGB'))
+        return self.canvas.frame(shot)
 
     def click(self, x, y):
         self.check()
-        self.window.click(x, y)
+        self.window.click(*self.canvas.point(x, y))
         self.move()
 
     def quantity(self, value, allowed):
@@ -142,7 +144,9 @@ class WindowsPurchaser:
             raise PurchaseHalt(PurchaseResult('not_bought', reason='shop_closed'))
         self.mesos = self.reader.balance(image)
         if self.mesos is None:
-            raise PurchaseHalt(PurchaseResult('not_bought', reason='error'))
+            # A verified store with unreadable scaled digits has not received
+            # any purchase input. Skip this visit; do not stop the whole scan.
+            return False
         # The visit's fresh packet establishes shop identity. Unsupported
         # title glyphs use an unchanged title bitmap, never guessed OCR.
         return True

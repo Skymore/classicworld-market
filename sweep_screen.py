@@ -1,4 +1,4 @@
-"""Exact native-size shop/dialog reading. Unknown pixels never become a price.
+"""Resolution-normalized shop/dialog reading. Unknown glyphs never become a price.
 
 Templates contain controls and font glyphs only, not character/account captures.
 The raw packet order is the display order; normalized category/slot order is not.
@@ -11,10 +11,44 @@ import re
 import sys
 
 import numpy as np
-from PIL import Image
+import cv2
+from PIL import Image, ImageFilter
 
 ROOT = Path(getattr(sys, '_MEIPASS', Path(__file__).parent))
 ASSETS = ROOT/'assets/sweep'
+
+
+class Frame(np.ndarray):
+    """A normalized client capture, retaining whether interpolation was needed."""
+    resampled = False
+    source_size = (1366, 768)
+
+    def __array_finalize__(self, source):
+        self.resampled = getattr(source, 'resampled', False)
+        self.source_size = getattr(source, 'source_size', (1366, 768))
+
+
+@dataclass(frozen=True)
+class Canvas:
+    width: int
+    height: int
+
+    def point(self, x, y):
+        if not (0 <= x < 1366 and 0 <= y < 768):
+            raise ValueError('Purchase point outside reference canvas')
+        return round(x*self.width/1366), round(y*self.height/768)
+
+    def frame(self, image):
+        image = np.asarray(image.convert('RGB') if hasattr(image, 'convert') else image)
+        if image.shape != (self.height, self.width, 3) or min(self.width, self.height) < 600:
+            raise ValueError('Purchase capture dimensions changed')
+        scaled = (self.width, self.height) != (1366, 768)
+        if scaled:
+            image = np.asarray(Image.fromarray(image).resize((1366, 768), Image.Resampling.BICUBIC))
+        frame = image.view(Frame)
+        frame.resampled = scaled
+        frame.source_size = (self.width, self.height)
+        return frame
 
 
 def runs(mask):
@@ -116,11 +150,32 @@ class Reader:
         template = self.templates[name]
         h, w = template.shape[:2]
         crop = image[y:y+h, x:x+w, :3]
-        return crop.shape == template.shape and np.max(np.abs(crop.astype(int)-template.astype(int))) <= 2
+        if crop.shape != template.shape:
+            return False
+        difference = np.abs(crop.astype(int)-template.astype(int))
+        if not getattr(image, 'resampled', False):
+            return difference.max() <= 2
+        # Fixed-position pairs of independent controls establish each view.
+        # Interpolation changes edge pixels; text/amounts are checked separately.
+        # Exclude the outermost interpolation halo from neighbouring UI pixels.
+        crop = crop[1:-1, 1:-1]
+        candidates = (template[1:-1, 1:-1], self.scaled_template(name, x, y, image.source_size)[1:-1, 1:-1])
+        return any(np.abs(crop.astype(int)-candidate.astype(int)).mean() < 32
+                   and float(cv2.matchTemplate(np.asarray(crop), candidate,
+                             cv2.TM_CCOEFF_NORMED)[0, 0]) >= .92 for candidate in candidates)
+
+    @lru_cache(maxsize=64)
+    def scaled_template(self, name, x, y, size):
+        template = self.templates[name]
+        height, width = template.shape[:2]
+        canvas = np.zeros((768, 1366, 3), dtype=np.uint8)
+        canvas[y:y+height, x:x+width] = template
+        normalized = Canvas(*size).frame(Image.fromarray(canvas).resize(size, Image.Resampling.BILINEAR))
+        return np.asarray(normalized[y:y+height, x:x+width]).copy()
 
     def shop(self, image):
-        # This first native adapter is deliberately restricted to the verified
-        # 1366x768 client and standard, unmoved player-store window.
+        # Input and reading share the same normalized client canvas. Controls
+        # must still occupy their expected positions before any purchase input.
         if image.shape[:2] != (768, 1366):
             return False
         panel = image[335:410,558:808,:3].astype(int)
@@ -129,8 +184,30 @@ class Reader:
 
     def line(self, image, x0, x1, base, white=False, grey=False):
         band = image[base-9:base+4, x0:x1, :3]
+        if getattr(image, 'resampled', False):
+            return self.scaled_text(self.font, band, white=white,
+                                    thresholds=range(185, 241, 5) if grey else range(110, 161, 5))
         mask = band.min(axis=2) > 240 if white else band.max(axis=2) < (200 if grey else 80)
         return self.font.read(mask)
+
+    @staticmethod
+    def scaled_text(font, band, white=False, thresholds=range(100, 181, 2), pattern=None, **options):
+        # Decode complete, exact glyphs at several contrast thresholds. Never
+        # pick the closest digit, truncate unknown ink or use packet prices as OCR.
+        values = set()
+        blank_rows = [i for i in range(band.shape[0])
+                      if all('#' not in glyph[i] for _, glyph in font.glyphs)]
+        sharpened = np.asarray(Image.fromarray(np.asarray(band)).filter(
+            ImageFilter.UnsharpMask(radius=.4, percent=150, threshold=0)))
+        for pixels in (band, sharpened):
+            for threshold in thresholds:
+                mask = pixels.min(axis=2) > 255-threshold if white else pixels.max(axis=2) < threshold
+                # Resampling can blend the field border into unused font padding.
+                mask[blank_rows] = False
+                value = font.read(mask, **options)
+                if value is not None and (pattern is None or re.fullmatch(pattern, value)):
+                    values.add(value)
+        return values.pop() if len(values) == 1 else None
 
     def owner(self, image):
         return self.line(image, 435, 521, 297, white=True)
@@ -201,11 +278,17 @@ class Reader:
         if self.matches(image, 'room-missing', 557, 345):
             return 'rejected', 'shop_closed'
         if self.matches(image, 'quantity-prompt', 566, 347) and self.matches(image, 'quantity-cancel', 763, 416):
-            band = image[373:385, 571:790, :3].max(axis=2) < 80
-            value = self.input_font.read(band, spaces=False, caret=True)
+            band = image[373:385, 571:790, :3]
+            value = (self.scaled_text(self.input_font, band, spaces=False, caret=True)
+                     if getattr(image, 'resampled', False)
+                     else self.input_font.read(band.max(axis=2) < 80, spaces=False, caret=True))
             return 'quantity', int(value) if value and re.fullmatch(r'[1-9][0-9]{0,3}', value) else None
         if self.matches(image, 'confirm-prompt', 611, 369) and self.matches(image, 'cancel', 763, 414):
-            text = self.dialog_font.read(image[353:367, 568:800, :3].min(axis=2) > 240, spaces=False)
+            band = image[353:367, 568:800, :3]
+            text = (self.scaled_text(self.dialog_font, band, white=True, spaces=False,
+                                    pattern=r'Thetotalpriceis([0-9,]+)mesos\.')
+                    if getattr(image, 'resampled', False)
+                    else self.dialog_font.read(band.min(axis=2) > 240, spaces=False))
             match = re.fullmatch(r'Thetotalpriceis([0-9,]+)mesos\.', text or '')
             return 'confirm', money(match[1]) if match else None
         return None, None
