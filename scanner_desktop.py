@@ -1,5 +1,6 @@
 """Local React desktop shell. Game actions stay in the existing scanner engine."""
 import ctypes
+import hashlib
 import json
 import sys
 import os
@@ -728,6 +729,14 @@ class DesktopAPI:
         return self._workspace.run(name, value)
 
 
+def desktop_entry_url(assets):
+    # Persistent WebView profiles reuse the local HTTP origin between upgrades.
+    # Hash the entry document (which references hashed JS/CSS) so a cached old
+    # index cannot load an old UI while the Python bridge reports a new version.
+    revision = hashlib.sha256(assets.read_bytes()).hexdigest()[:20]
+    return f'{assets}?ui={revision}'
+
+
 def main(collector, argv=None):
     import argparse
     import webview
@@ -747,7 +756,7 @@ def main(collector, argv=None):
     assets = Path(__file__).resolve().parent/'desktop_ui/index.html'
     if not assets.is_file():
         raise RuntimeError('界面文件缺失，请完整解压安装包。')
-    window = webview.create_window('枫叶市集 · 扫描与采集', str(assets), js_api=DesktopAPI(controller),
+    window = webview.create_window('枫叶市集 · 扫描与采集', desktop_entry_url(assets), js_api=DesktopAPI(controller),
         width=MIN_SIZE[0], height=MIN_SIZE[1], resizable=True, min_size=MIN_SIZE, background_color='#e6e1d6',
         frameless=True, easy_drag=False, shadow=True)
     controller._window = window
