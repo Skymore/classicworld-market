@@ -14,7 +14,7 @@ class ResolutionTests(unittest.TestCase):
     def setUpClass(cls):
         cls.reader = Reader()
 
-    def render(self, kind, amount):
+    def render(self, kind, amount, caret=False):
         r = self.reader
         quantity = kind == 'quantity'
         image = np.full((768, 1366, 3), 255 if quantity else 0, dtype=np.uint8)
@@ -31,7 +31,17 @@ class ResolutionTests(unittest.TestCase):
             mask = np.array([[p == '#' for p in row] for row in glyph])
             image[top:bottom, x:x+len(glyph[0])][mask] = 0 if quantity else 255
             x += len(glyph[0])+1
+        if caret:
+            image[top:bottom-1, x:x+1] = 0
         return Image.fromarray(image)
+
+    def test_quantity_with_blinking_caret_does_not_wait_forever(self):
+        for size in ((1366,768), (1600,900), (1920,1080), (2560,1440)):
+            for amount in (54, 100, 193, 200):
+                for caret in (False, True):
+                    with self.subTest(size=size, amount=amount, caret=caret):
+                        frame = Canvas(*size).frame(self.render('quantity', amount, caret).resize(size, Image.Resampling.BILINEAR))
+                        self.assertEqual(self.reader.dialog(frame), ('quantity', amount))
 
     def test_scaled_quantity_and_total_readback(self):
         for size in ((1366,768), (1600,900), (1920,1080), (2560,1440)):

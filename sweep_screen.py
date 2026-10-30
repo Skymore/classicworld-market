@@ -202,8 +202,19 @@ class Reader:
         for pixels in (band, sharpened):
             for threshold in thresholds:
                 mask = pixels.min(axis=2) > 255-threshold if white else pixels.max(axis=2) < threshold
+                caret = None
+                if options.get('caret'):
+                    pieces = list(runs(mask))
+                    if pieces:
+                        start, end, ink = pieces[-1]
+                        if end-start == 1 and ink.sum() >= 10:
+                            caret = (start, mask[:, start].copy())
                 # Resampling can blend the field border into unused font padding.
                 mask[blank_rows] = False
+                # A trailing input caret intentionally extends beyond glyph
+                # padding. Preserve its height so Font.read can exclude it.
+                if caret is not None:
+                    mask[:, caret[0]] = caret[1]
                 value = font.read(mask, **options)
                 if value is not None and (pattern is None or re.fullmatch(pattern, value)):
                     values.add(value)

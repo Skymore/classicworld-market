@@ -82,6 +82,7 @@ class PurchaseFlow:
         self.outcome = None
         self.typed = False
         self.halted = False
+        self.cleanup_deadline = order.deadline
 
     def halt(self, reason='error'):
         self.halted = True
@@ -96,6 +97,7 @@ class PurchaseFlow:
             return self.outcome
         if view.kind in ('quantity', 'confirm'):
             self.phase = 'cleanup'
+            self.cleanup_deadline = self.clock()+2
             return Action('cancel')
         self.halt(reason)
 
@@ -106,14 +108,19 @@ class PurchaseFlow:
             return self.outcome
         if not view.focused:
             self.halt('window_lost')
-        # Deadline includes cleanup; no blind Esc/Enter is sent on timeout.
-        if self.clock() >= self.order.deadline:
-            self.halt('timeout')
         if self.phase == 'cleanup':
             if view.kind == 'shop' and view.shop_verified:
                 self.phase = 'done'
                 return self.outcome
+            if self.clock() >= self.cleanup_deadline:
+                self.halt('timeout')
             return None
+        # An expired reservation forbids buying, not cancelling a recognized
+        # pre-payment dialog. Observe cleanup for a separate bounded interval.
+        if self.clock() >= self.order.deadline:
+            if not self.submitted:
+                return self._abort(view, 'timeout')
+            self.halt('timeout')
         if self.submitted:
             if view.kind == 'rejected' and view.reason in (
                     'sold_out', 'not_enough_mesos', 'inventory_full', 'trade_locked', 'shop_closed'):

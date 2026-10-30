@@ -199,6 +199,22 @@ class NativeFlowTests(unittest.TestCase):
         self.assertEqual(self.control.actions,[(638,537),(638,537),(535,521),(604,252),
                                               ('quantity',1),(735,423),(735,421)])
 
+    def test_expired_quantity_dialog_is_cancelled_and_shop_is_restored(self):
+        frames = [Page(kind='shop'), Page(kind='shop',selected=True),
+                  Page(kind='quantity'), Page(kind='quantity',number=None), Page(kind='shop')]
+        class Input(ScriptedInput):
+            def click(self,x,y):
+                self.actions.append((x,y))
+                self.index = 4 if (x,y)==(783,423) else self.index+1
+        control=Input(frames)
+        def pause(seconds):self.now+=.5
+        window=SimpleNamespace(capture_file='visit.json',pause=pause)
+        buyer=WindowsPurchaser(ScriptedReader(frames),lambda window:control,lambda:self.now)
+        with patch('sweep_purchaser_windows.ordered_snapshot',return_value=('Potions',[{'stock':200}]*8,7)):
+            self.assertEqual(buyer.buy(replace(self.order,deadline=2.5),window),
+                             PurchaseResult('not_bought',reason='timeout'))
+        self.assertEqual(control.actions,[(535,521),(604,252),('quantity',1),(783,423)])
+
     def test_unreadable_shop_before_buy_is_skipped_without_input(self):
         with patch.object(ScriptedReader,'offset',return_value=None):
             self.assertEqual(self.run_buy(),PurchaseResult('not_bought',reason='listing_unverified'))

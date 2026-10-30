@@ -70,6 +70,26 @@ class FlowTests(unittest.TestCase):
         self.assertIsNone(self.flow.step(View('confirm', total=40)))
         self.assertEqual(self.flow.step(self.shop), PurchaseResult('not_bought', reason='stopped'))
 
+    def test_quantity_timeout_cancels_once_then_returns_to_scan(self):
+        self.to_quantity()
+        self.flow.step(View('quantity', quantity=54))
+        self.now = self.order.deadline
+        self.assertEqual(self.flow.step(View('quantity')), Action('cancel'))
+        self.assertIsNone(self.flow.step(View('quantity')))
+        self.now += .2
+        self.assertEqual(self.flow.step(self.shop), PurchaseResult('not_bought', reason='timeout'))
+
+    def test_pre_payment_timeout_cleanup_is_bounded_and_unknown_modal_untouched(self):
+        self.to_confirm()
+        self.now = self.order.deadline
+        self.assertEqual(self.flow.step(View('confirm', total=40)), Action('cancel'))
+        self.now += 2
+        with self.assertRaises(PurchaseHalt):
+            self.flow.step(View('confirm', total=40))
+        flow = PurchaseFlow(self.order, clock=lambda:self.now)
+        with self.assertRaises(PurchaseHalt):
+            flow.step(View('pending'))
+
     def test_unknown_after_submit_stays_unknown_when_stopped(self):
         self.submitted()
         self.allowed = False

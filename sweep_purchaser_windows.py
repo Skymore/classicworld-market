@@ -256,7 +256,7 @@ class WindowsPurchaser:
                 if isinstance(action, PurchaseResult):
                     return action
                 if isinstance(action, Action):
-                    if self.clock() >= order.deadline:
+                    if self.clock() >= order.deadline and action.kind not in ('cancel', 'dismiss'):
                         if action.kind == 'confirm':
                             flow.submitted = False  # Confirmation has not been dispatched.
                         flow.halt('timeout')
