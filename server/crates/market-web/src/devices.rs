@@ -89,7 +89,16 @@ fn token_shape(t: &str) -> bool {
 fn valid_holdings(v: &Value) -> bool {
     if v.is_null() { return true; }
     let Some(o) = v.as_object() else { return false; };
-    o.len() == 4
+    // v0.6.34 adds stream identity/revision for local purchase receipts.
+    // Accept the bounded pair while retaining the original four-field wire format.
+    let capture = match (o.get("session"), o.get("revision")) {
+        (None, None) => o.len() == 4,
+        (Some(session), Some(revision)) => o.len() == 6
+            && session.as_str().is_some_and(|s| (1..=64).contains(&s.len()) && s.bytes().all(|b| b.is_ascii_hexdigit()))
+            && revision.as_u64().is_some_and(|n| n > 0),
+        _ => false,
+    };
+    capture
         && o.get("observed_at").and_then(Value::as_u64).is_some_and(|n| n > 0 && n <= (Utc::now().timestamp() + 60) as u64)
         && o.get("mesos").is_some_and(|v| v.is_null() || v.as_u64().is_some_and(|n| n <= MAX_AMOUNT))
         && o.get("categories").and_then(Value::as_array).is_some_and(|a| a.len() <= 5 && a.iter().all(|v| v.as_u64().is_some_and(|n| (1..=5).contains(&n))))
@@ -489,6 +498,23 @@ mod tests {
         with_holdings["sweep"]["holdings"] = json!({"observed_at":Utc::now().timestamp(),"mesos":434333,"categories":[2,3,4],
             "items":[{"item_id":2000001,"quantity":489}]});
         assert!(valid_state(&with_holdings));
+        let mut current = with_holdings.clone();
+        current["client_version"] = json!("0.6.34");
+        current["sweep"]["holdings"]["session"] = json!("24397baf6a0c");
+        current["sweep"]["holdings"]["revision"] = json!(166);
+        assert!(valid_state(&current));
+        for (key, value) in [("session", json!("")), ("session", json!("x".repeat(65))),
+            ("session", json!("not a capture")), ("revision", json!(0)), ("revision", json!(-1)),
+            ("revision", json!(1.5)), ("revision", Value::Null), ("extra", json!(true))] {
+            let mut invalid = current.clone();
+            invalid["sweep"]["holdings"][key] = value;
+            assert!(!valid_state(&invalid), "{key}");
+        }
+        for key in ["session", "revision"] {
+            let mut partial = current.clone();
+            partial["sweep"]["holdings"].as_object_mut().unwrap().remove(key);
+            assert!(!valid_state(&partial));
+        }
         with_holdings["sweep"]["holdings"]["mesos"] = Value::Null;
         assert!(valid_state(&with_holdings));
         with_holdings["sweep"]["holdings"]["items"][0]["quantity"] = json!(-1);
