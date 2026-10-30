@@ -92,6 +92,7 @@ def snapshot(data):
 
 class Inventory:
     def __init__(self):
+        self.revision = 0
         self.session = None
         self.slots = None
         self.mesos = None
@@ -100,10 +101,19 @@ class Inventory:
 
     def invalidate(self, session=None):
         if session is None or session == self.session:
+            self.revision += 1
             self.slots = self.mesos = None
             self.observed_at = 0
 
     def observe(self, data, session):
+        # Updates replace slots atomically. Health/MP and unrelated frames do
+        # not trigger inventory disk writes or a new position revision.
+        before = self.session, self.slots, self.mesos
+        self._observe(data, session)
+        if before != (self.session, self.slots, self.mesos):
+            self.revision += 1
+
+    def _observe(self, data, session):
         opcode = int.from_bytes(data[:2], 'little')
         if opcode in (0x1a6, 0x1a9) and len(data) >= 512:
             self.invalidate()
@@ -196,7 +206,7 @@ class Inventory:
         totals = collections.Counter()
         for item, quantity in (self.slots or {}).values():
             totals[item] += quantity
-        return dict(observed_at=self.observed_at, mesos=self.mesos, categories=[2, 3, 4] if self.slots is not None else [],
+        return dict(session=self.session, revision=self.revision, observed_at=self.observed_at, mesos=self.mesos, categories=[2, 3, 4] if self.slots is not None else [],
                     items=[dict(item_id=item, quantity=quantity) for item, quantity in sorted(totals.items())])
 
 

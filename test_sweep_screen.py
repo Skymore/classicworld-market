@@ -15,6 +15,27 @@ class ScreenTests(unittest.TestCase):
     def setUpClass(cls):
         cls.reader = Reader()
 
+    def test_text_cache_uses_exact_pixels_and_colour_mode(self):
+        reader = Reader()
+        image = np.full((768,1366,3),255,dtype=np.uint8)
+        def paint(value):
+            image[311:324,400:460] = 255
+            x = 402
+            for ch in value:
+                glyph = dict(reader.font.glyphs)[ch]
+                mask = np.array([[p == '#' for p in row] for row in glyph])
+                image[311:324,x:x+len(glyph[0])][mask] = 0
+                x += len(glyph[0])+1
+        paint('135')
+        self.assertEqual(reader.line(image,400,460,320),'135')
+        for _ in range(5):self.assertEqual(reader.line(image,400,460,320),'135')
+        self.assertEqual(reader._cached_line.cache_info().misses,1)
+        paint('139')
+        self.assertEqual(reader.line(image,400,460,320),'139')
+        self.assertEqual(reader._cached_line.cache_info().misses,2)
+        reader.line(image,400,460,320,grey=True)
+        self.assertEqual(reader._cached_line.cache_info().misses,3)
+
     def test_raw_display_order_and_ambiguous_duplicate_pages(self):
         ids = [2000001, 2000003, 2000002, 4000017, 4000013, 4000019, 2010000, 2000000]
         ordered = [dict(item_id=iid, bundle=1, price=100+i) for i, iid in enumerate(ids)]
@@ -261,6 +282,67 @@ class NativeFlowTests(unittest.TestCase):
             return None if attempts <= 2 else original(reader,page,ordered)
         with patch.object(ScriptedReader,'offset',offset):
             self.assertEqual(self.run_buy(),PurchaseResult('bought',1,135))
+        self.assertEqual(self.control.actions.count((735,421)),1)
+
+    def packet_reader(self, after):
+        def read():
+            if self.control.index < len(self.frames)-1:
+                return dict(session='stream',revision=4,mesos=1000,categories=[2],
+                            items=[dict(item_id=2000001,quantity=10)])
+            return after
+        return read
+
+    def test_packet_receipt_does_not_read_sold_out_glyphs_or_resubmit(self):
+        after=dict(session='stream',revision=6,mesos=865,categories=[2],
+                   items=[dict(item_id=2000001,quantity=11)])
+        original=ScriptedReader.page
+        def page(reader,image):
+            if reader.frame(image).get('stock_changed'):
+                raise AssertionError('Sold-out row must not need glyph matching')
+            return original(reader,image)
+        with patch.object(ScriptedReader,'page',page):
+            self.assertEqual(self.run_buy(order=replace(self.order,inventory=self.packet_reader(after))),
+                             PurchaseResult('bought',1,135))
+        self.assertEqual(self.control.actions.count((735,421)),1)
+
+    def test_packet_receipt_counts_units_in_multi_item_bundles(self):
+        self.frames[5]['number']=3
+        self.frames[-2]['number']=405
+        after=dict(session='stream',revision=6,mesos=595,categories=[2],
+                   items=[dict(item_id=2000001,quantity=25)])
+        order=replace(self.order,quantity=3,bundle=5,inventory=self.packet_reader(after))
+        self.assertEqual(self.run_buy(order=order),PurchaseResult('bought',3,405))
+        self.assertEqual(self.control.actions.count((735,421)),1)
+
+    def test_packet_receipt_needs_both_deltas_complete_bag_and_same_stream(self):
+        cases=[dict(mesos=1000),dict(items=[dict(item_id=2000001,quantity=10)]),
+               dict(items=[dict(item_id=2000001,quantity=12)]),dict(categories=[]),
+               dict(session='reconnected'),dict(revision=4),dict(mesos=None)]
+        for changed in cases:
+            with self.subTest(changed=changed):
+                self.setUp()
+                after=dict(session='stream',revision=6,mesos=865,categories=[2],
+                           items=[dict(item_id=2000001,quantity=11)])
+                after.update(changed)
+                with self.assertRaises(PurchaseHalt) as caught:
+                    self.run_buy(order=replace(self.order,inventory=self.packet_reader(after)))
+                self.assertEqual(caught.exception.result.status,'unknown')
+                self.assertEqual(self.control.actions.count((735,421)),1)
+
+    def test_packet_receipt_waits_for_separate_money_and_item_updates(self):
+        complete=dict(session='stream',revision=6,mesos=865,categories=[2],
+                      items=[dict(item_id=2000001,quantity=11)])
+        reader=self.packet_reader(complete)
+        calls=0
+        def read():
+            nonlocal calls
+            value=reader()
+            if value['revision']==6:
+                calls+=1
+                if calls==1:return dict(value,revision=5,items=[dict(item_id=2000001,quantity=10)])
+            return value
+        self.assertEqual(self.run_buy(order=replace(self.order,inventory=read)),PurchaseResult('bought',1,135))
+        self.assertEqual(calls,2)
         self.assertEqual(self.control.actions.count((735,421)),1)
 
     def test_unreadable_after_confirmation_stops_without_retrying_purchase(self):

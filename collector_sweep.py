@@ -479,7 +479,8 @@ class SweepEngine:
             owner=owner.get('name'), room=location['room'], channel=location['channel'],
             deadline=min(started+(ttl if type(ttl) is int else 0)-5, self.lease_deadline),
             can_buy=lambda: self._purchase_allowed(run, lease, plan_version),
-            reserve_mesos=settings['reserve_mesos'])
+            reserve_mesos=settings['reserve_mesos'],
+            inventory=lambda: read_inventory(self.folder, self.game_state))
         # Stop or logout may have landed while the reservation was in flight.
         with self.lock:
             stopped = self.lease != lease or not self.buying()

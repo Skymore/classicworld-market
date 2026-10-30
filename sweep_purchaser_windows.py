@@ -124,6 +124,28 @@ def ordered_snapshot(filename, order, now=time.time):
     return packet['title'], ordered, found[0]
 
 
+def inventory_position(order):
+    """A complete, fresh position in the current capture stream, or unknown."""
+    if order.inventory is None:
+        return None
+    try:
+        state = order.inventory()
+        if (not isinstance(state, dict) or not isinstance(state.get('session'), str) or not state['session']
+                or type(state.get('revision')) is not int or state['revision'] < 1
+                or type(state.get('mesos')) is not int or state['mesos'] < 0
+                or order.category not in state.get('categories', [])):
+            return None
+        rows = [row for row in state['items'] if row['item_id'] == order.item_id]
+        if len(rows) > 1:
+            return None
+        quantity = rows[0]['quantity'] if rows else 0
+        if type(quantity) is not int or quantity < 0:
+            return None
+        return state['session'], state['revision'], state['mesos'], quantity
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
+
+
 class WindowsPurchaser:
     max_quantity = 9999
 
@@ -153,35 +175,31 @@ class WindowsPurchaser:
 
     def verify_inventory(self, window, folder, expected=None):
         from inventory_check import InventoryChecker, InventoryCheckError
-        from shop_window_control import try_keyboard_close, game_menu_visible, single_button_notice_visible
-        # The game blocks inventory while a visitor store is open. Close the
-        # verified store first; the scanner then moves on after this order.
-        if not try_keyboard_close(window.capture, window.pause, window.vision,
-                                  lambda: window.press('esc'), window.bounds):
-            # Escape can dismiss focus or open the game menu after buying.
-            # The scanner's close helper explicitly requests a button fallback.
-            control = self.input_factory(window)
-            control.move()
-            image = control.capture()
-            if not self.reader.shop(image) or self.reader.dialog(image)[0] is not None:
-                raise InventoryCheckError('购买已完成，但无法确认商店已关闭')
-            control.click(604, 272)
-            closed = 0
-            deadline = self.clock()+2
-            while self.clock() < deadline:
-                window.pause(.05)
-                raw, bounds = window.capture()
-                if bounds != window.bounds:
-                    raise InventoryCheckError('关闭商店时游戏窗口位置变化')
-                state = window.vision.window_markers(raw)
-                if state['owner']:
-                    raise InventoryCheckError('关闭商店时出现了自己的商店')
-                clear = not state['leave'] and not game_menu_visible(raw) and not single_button_notice_visible(raw)
-                closed = closed+1 if clear else 0
-                if closed >= 2:
-                    break
-            if closed < 2:
-                raise InventoryCheckError('购买已完成，但无法确认商店已关闭')
+        from shop_window_control import game_menu_visible, single_button_notice_visible
+        # Directly use the verified Leave control: Escape is commonly ignored
+        # here and can open the game menu. Still require two clear fresh frames.
+        control = self.input_factory(window)
+        control.move()
+        image = control.capture()
+        if not self.reader.shop(image) or self.reader.dialog(image)[0] is not None:
+            raise InventoryCheckError('购买已完成，但无法确认商店已关闭')
+        control.click(604, 272)
+        closed = 0
+        deadline = self.clock()+2
+        while self.clock() < deadline:
+            window.pause(.05)
+            raw, bounds = window.capture()
+            if bounds != window.bounds:
+                raise InventoryCheckError('关闭商店时游戏窗口位置变化')
+            state = window.vision.window_markers(raw)
+            if state['owner']:
+                raise InventoryCheckError('关闭商店时出现了自己的商店')
+            clear = not state['leave'] and not game_menu_visible(raw) and not single_button_notice_visible(raw)
+            closed = closed+1 if clear else 0
+            if closed >= 2:
+                break
+        if closed < 2:
+            raise InventoryCheckError('购买已完成，但无法确认商店已关闭')
         InventoryChecker(folder).run(window, 'purchase', expected)
         return True
 
@@ -200,6 +218,7 @@ class WindowsPurchaser:
             control.move()
             owner_stamp = title_stamp = None
             before_balance = before_stock = selected_row = None
+            before_packet = None
             last_offset, unchanged, scrolls = None, 0, 0
             unreadable = 0
             while True:
@@ -224,55 +243,65 @@ class WindowsPurchaser:
                     if owner_stamp is None:
                         owner_stamp = stamp.copy()
                         title_stamp = title_pixels.copy()
-                    page = self.reader.page(image)
-                    offset = self.reader.offset(page, ordered)
-                    if offset is None:
-                        unreadable += 1
-                        if unreadable < 3 and self.clock() < order.deadline and order.can_buy():
+                    if flow.submitted and before_packet is not None:
+                        after = inventory_position(order)
+                        receipt = None
+                        if (after is not None and after[0] == before_packet[0] and after[1] > before_packet[1]
+                                and before_packet[2]-after[2] == order.quantity*order.price
+                                and after[3]-before_packet[3] == order.quantity*order.bundle):
+                            self.mesos = after[2]
+                            receipt = Receipt(order.reservation, flow.listing, order.quantity, order.quantity*order.price)
+                        view = View('shop', receipt=receipt, shop_verified=True)
+                    else:
+                        page = self.reader.page(image)
+                        offset = self.reader.offset(page, ordered)
+                        if offset is None:
+                            unreadable += 1
+                            if unreadable < 3 and self.clock() < order.deadline and order.can_buy():
+                                window.pause(.12)
+                                continue
+                            # No purchase dialog/input has been dispatched in these
+                            # phases. A verified open shop can safely be skipped.
+                            if flow.phase in ('select', 'selected') and not flow.submitted:
+                                return PurchaseResult('not_bought', reason='listing_unverified')
+                            flow.halt('listing_unverified')
+                        unreadable = 0
+                        if not offset <= target < offset+6:
+                            if flow.phase != 'select' or flow.submitted:
+                                flow.halt('error')
+                            if self.clock() >= order.deadline:
+                                flow.halt('timeout')
+                            if not order.can_buy():
+                                return PurchaseResult('not_bought', reason='stopped')
+                            unchanged = unchanged+1 if offset == last_offset else 0
+                            if unchanged >= 2 or scrolls >= len(ordered):
+                                return PurchaseResult('not_bought', reason='error')
+                            last_offset, scrolls = offset, scrolls+1
+                            control.click(638, 537 if target >= offset+6 else 315)
                             window.pause(.12)
                             continue
-                        # No purchase dialog/input has been dispatched in these
-                        # phases. A verified open shop can safely be skipped.
-                        if flow.phase in ('select', 'selected') and not flow.submitted:
-                            return PurchaseResult('not_bought', reason='listing_unverified')
-                        flow.halt('listing_unverified')
-                    unreadable = 0
-                    if not offset <= target < offset+6:
-                        if flow.phase != 'select' or flow.submitted:
-                            flow.halt('error')
-                        if self.clock() >= order.deadline:
-                            flow.halt('timeout')
-                        if not order.can_buy():
-                            return PurchaseResult('not_bought', reason='stopped')
-                        unchanged = unchanged+1 if offset == last_offset else 0
-                        if unchanged >= 2 or scrolls >= len(ordered):
-                            return PurchaseResult('not_bought', reason='error')
-                        last_offset, scrolls = offset, scrolls+1
-                        control.click(638, 537 if target >= offset+6 else 315)
-                        window.pause(.12)
-                        continue
-                    screen_row = target-offset
-                    visible = page[screen_row]
-                    if not self.reader.row_matches(visible, ordered[target], complete=True):
-                        reason = ('price_changed' if visible is not None
-                                  and canonical(visible.name) == canonical(self.reader.names.get(order.item_id))
-                                  and visible.price != order.price else 'listing_unverified')
-                        if flow.phase in ('select', 'selected') and not flow.submitted:
-                            return PurchaseResult('not_bought', reason=reason)
-                        flow.halt(reason)
-                    self.mesos = self.reader.balance(image)
-                    # The fresh capture supplies the available bundle count;
-                    # grey text vetoes a listing sold out since that capture.
-                    # The game must then echo our quantity and exact total.
-                    stock = ordered[target]['stock'] if visible.available else 0
-                    stock_pixels = image[330+40*screen_row:342+40*screen_row,428:461]
-                    receipt = None
-                    if flow.submitted and before_balance is not None and self.mesos is not None:
-                        if (before_balance-self.mesos == order.quantity*order.price and selected_row == screen_row
-                                and before_stock is not None and not np.array_equal(before_stock, stock_pixels)):
-                            receipt = Receipt(order.reservation, flow.listing, order.quantity, order.quantity*order.price)
-                    view = View('shop', flow.listing, stock=stock, mesos=self.mesos,
-                                selected=visible.selected, receipt=receipt, shop_verified=True)
+                        screen_row = target-offset
+                        visible = page[screen_row]
+                        if not self.reader.row_matches(visible, ordered[target], complete=True):
+                            reason = ('price_changed' if visible is not None
+                                      and canonical(visible.name) == canonical(self.reader.names.get(order.item_id))
+                                      and visible.price != order.price else 'listing_unverified')
+                            if flow.phase in ('select', 'selected') and not flow.submitted:
+                                return PurchaseResult('not_bought', reason=reason)
+                            flow.halt(reason)
+                        self.mesos = self.reader.balance(image)
+                        # The fresh capture supplies the available bundle count;
+                        # grey text vetoes a listing sold out since that capture.
+                        # The game must then echo our quantity and exact total.
+                        stock = ordered[target]['stock'] if visible.available else 0
+                        stock_pixels = image[330+40*screen_row:342+40*screen_row,428:461]
+                        receipt = None
+                        if flow.submitted and before_balance is not None and self.mesos is not None:
+                            if (before_balance-self.mesos == order.quantity*order.price and selected_row == screen_row
+                                    and before_stock is not None and not np.array_equal(before_stock, stock_pixels)):
+                                receipt = Receipt(order.reservation, flow.listing, order.quantity, order.quantity*order.price)
+                        view = View('shop', flow.listing, stock=stock, mesos=self.mesos,
+                                    selected=visible.selected, receipt=receipt, shop_verified=True)
                 else:
                     view = View('pending')
                 action = flow.step(view)
@@ -293,6 +322,10 @@ class WindowsPurchaser:
                     if action.kind == 'select':
                         control.click(535, 321+40*screen_row)
                     elif action.kind == 'buy':
+                        before_packet = inventory_position(order)
+                        if before_packet is not None and before_packet[2] != self.mesos:
+                            # Do not anchor to a delayed/unrelated balance.
+                            before_packet = None
                         before_balance, before_stock = self.mesos, stock_pixels.copy()
                         selected_row = screen_row
                         control.click(604, 252)

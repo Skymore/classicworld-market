@@ -54,6 +54,7 @@ class PurchaseOrder:
     # No guard means no permission to buy (older/custom callers fail closed).
     can_buy: Callable[[], bool] = field(default=lambda: False, repr=False, compare=False)
     reserve_mesos: int = 0
+    inventory: Optional[Callable[[], Optional[dict]]] = field(default=None, repr=False, compare=False)
 
 
 @dataclass(frozen=True)

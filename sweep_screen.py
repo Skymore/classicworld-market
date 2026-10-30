@@ -137,6 +137,7 @@ class Reader:
         if not font.exists():
             font = ROOT/'server/crates/market-core/assets/font.json'
         self.font = Font(font, ASSETS/'shop-font-extra.json')
+        self._cached_line = lru_cache(maxsize=256)(self._decode_line)
         self.dialog_font = Font(ASSETS/'dialog-font.json')
         self.input_font = Font(ASSETS/'input-font.json')
         self.templates = {name: np.asarray(Image.open(ASSETS/(name+'.png')).convert('RGB'))
@@ -184,7 +185,13 @@ class Reader:
 
     def line(self, image, x0, x1, base, white=False, grey=False):
         band = image[base-9:base+4, x0:x1, :3]
-        if getattr(image, 'resampled', False):
+        return self._cached_line(band.tobytes(), band.shape, bool(getattr(image, 'resampled', False)), white, grey)
+
+    def _decode_line(self, pixels, shape, resampled, white, grey):
+        # Exact field pixels are the cache key. Scrolling, price, stock and
+        # selection changes invalidate naturally; unknown text stays unknown.
+        band = np.frombuffer(pixels, dtype=np.uint8).reshape(shape)
+        if resampled:
             return self.scaled_text(self.font, band, white=white,
                                     thresholds=range(185, 241, 5) if grey else range(110, 161, 5))
         mask = band.min(axis=2) > 240 if white else band.max(axis=2) < (200 if grey else 80)

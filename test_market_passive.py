@@ -16,6 +16,27 @@ def raw(seq,data=b'',flags=0x18):
 
 
 class PassiveTests(unittest.TestCase):
+    def test_inventory_delta_publishes_without_waiting_for_status_tick(self):
+        from test_market_inventory import character, update
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as folder:
+            collector=Collector(folder)
+            session=SimpleNamespace(id='stream',observe=lambda plain:None)
+            observe=collector.observer(session)
+            observe(character())
+            path=Path(folder)/'inventory_state.json'
+            initial=json.loads(path.read_text())['holdings']
+            observe(update(struct.pack('<BBhH',1,2,2,101)))
+            current=json.loads(path.read_text())['holdings']
+            self.assertEqual(current['session'],'stream')
+            self.assertGreater(current['revision'],initial['revision'])
+            self.assertEqual(next(i['quantity'] for i in current['items'] if i['item_id']==2000001),190)
+            with patch.object(collector,'publish_inventory') as publish:
+                observe(bytes.fromhex('7e00000001010000000000'))  # Non-money stat update.
+                publish.assert_not_called()
+            collector.invalidate_inventory('stream')
+            self.assertIsNone(json.loads(path.read_text())['holdings'])
+
     def test_busy_status_file_does_not_stop_capture_or_retry_every_packet(self):
         with tempfile.TemporaryDirectory() as folder:
             collector=Collector(folder)

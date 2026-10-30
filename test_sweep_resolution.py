@@ -101,13 +101,15 @@ class ResolutionTests(unittest.TestCase):
                                game_menu_visible=lambda image:False,single_button_notice_visible=lambda image:False)
         return buyer,window,control,helper
 
-    def test_post_purchase_escape_fallback_closes_then_checks_inventory(self):
+    def test_post_purchase_direct_leave_closes_then_checks_inventory(self):
         buyer,window,control,helper=self.closing_window([
             dict(owner=[],leave=[1]),dict(owner=[],leave=[]),dict(owner=[],leave=[])])
         expected=dict(item_id=2012000,quantity=53,mesos=738993)
         with patch.dict('sys.modules',shop_window_control=helper), patch('inventory_check.InventoryChecker') as check:
             self.assertTrue(buyer.verify_inventory(window,'folder',expected))
             control.click.assert_called_once_with(604,272)
+            helper.try_keyboard_close.assert_not_called()
+            window.press.assert_not_called()
             check.return_value.run.assert_called_once_with(window,'purchase',expected)
             self.assertEqual(window.capture.call_count,3)
 
