@@ -1,0 +1,1 @@
+var e=new URLSearchParams(location.search).get(`embed`)===`1`;e&&(document.documentElement.dataset.embed=`1`);export{e as t};
