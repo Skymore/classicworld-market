@@ -5,8 +5,29 @@ import time
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
-from scanner_desktop import DesktopAPI, DesktopController, purchase_text, status_text
+from scanner_desktop import DesktopAPI, DesktopController, desktop_entry_url, purchase_text, status_text
 import collector_dashboard
+
+
+class DesktopEntryTests(unittest.TestCase):
+    def test_entry_revision_changes_with_ui_without_changing_profile_origin(self):
+        from urllib.parse import urlsplit
+        from webview.window import Window
+        with tempfile.TemporaryDirectory(prefix='desktop ui ') as folder:
+            path = Path(folder) / 'index.html'
+            path.write_text('<script src="assets/old.js"></script>')
+            previous = desktop_entry_url(path)
+            self.assertEqual(previous, desktop_entry_url(path))
+            path.write_text('<script src="assets/new.js"></script>')
+            current = desktop_entry_url(path)
+            self.assertNotEqual(previous, current)
+            window = Window('test', 'test', current)
+            window._url_prefix = 'http://127.0.0.1:42001/'
+            window._common_path = folder
+            resolved = urlsplit(window._resolve_url(current))
+            self.assertEqual(resolved.netloc, '127.0.0.1:42001')
+            self.assertEqual(resolved.path, '/index.html')
+            self.assertTrue(resolved.query.startswith('ui='))
 
 
 class DashboardReadinessTests(unittest.TestCase):
