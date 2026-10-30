@@ -262,6 +262,11 @@ class Reader:
         if not wanted:
             return False
         same_name = name == wanted or not complete and name.endswith('...') and wanted.startswith(name[:-3])
+        # Catalog equipment names include a gender suffix omitted by the shop.
+        # Use this display alias only for page anchors, never a buy target.
+        if not complete and packet['item_id']//1000000 == 1:
+            display = canonical(re.sub(r' \([MF]\)$', '', self.names.get(packet['item_id'], '')))
+            same_name = same_name or name == display or (name.endswith('...') and display.startswith(name[:-3]))
         # Rechargeable ammunition is normalized as one set in captures, while
         # the shop prints the remaining charges (e.g. 800). It may anchor a
         # page by exact name/price, but cannot be a fully verified buy target.
@@ -294,6 +299,30 @@ class Reader:
     def offset(self, visible, ordered):
         candidates = self.offsets(visible, ordered)
         return candidates[0] if len(candidates) == 1 else None
+
+    def alignment_details(self, visible, ordered):
+        """Explain the closest alignments without weakening purchase checks."""
+        pages = []
+        for start in range(len(ordered)):
+            checks = []
+            for i, row in enumerate(visible):
+                if row is None:
+                    continue
+                if start+i >= len(ordered):
+                    checks.append(dict(row=i, failed=['unexpected_row']))
+                    continue
+                packet = ordered[start+i]
+                failed = []
+                if row.price != packet['price']: failed.append('price')
+                if row.bundle != packet['bundle'] and packet['item_id']//10000 not in (207,233): failed.append('bundle')
+                if row.name and self.names.get(packet['item_id']) and not self.row_matches(
+                        Row(row.name, packet['bundle'], packet['price'], row.available, row.selected), packet):
+                    failed.append('name')
+                checks.append(dict(row=i, item_id=packet['item_id'], failed=failed))
+            pages.append(dict(offset=start, checks=checks))
+        pages.sort(key=lambda p: sum(len(c['failed']) for c in p['checks']))
+        return dict(candidates=self.offsets(visible, ordered), closest=pages[:2],
+                    visible=[None if r is None else dict(name=r.name,price=r.price,bundle=r.bundle,available=r.available) for r in visible])
 
     def equivalent_row(self, visible, ordered, target, quantity):
         """A fungible row is safe only under EVERY possible page alignment.

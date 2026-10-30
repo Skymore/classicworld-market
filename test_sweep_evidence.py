@@ -21,10 +21,12 @@ class EvidenceTests(unittest.TestCase):
             order=SimpleNamespace(reservation='r1',item_id=2000001,quantity=100,price=130,diagnostic=events.append)
             trace=PurchaseTrace(order,SimpleNamespace(capture_file=str(Path(temp)/'shop.json')))
             for _ in range(12):trace.frame(np.zeros((768,1366,3),dtype=np.uint8),'quantity','notice')
+            trace.check(stage='page_alignment', candidates=[])
             trace.action('dismiss');trace.finish(PurchaseResult('not_bought',reason='error'))
             saved=json.loads(Path(events[0]['replay']).read_text(encoding='utf-8'))
             self.assertEqual(len(saved['frames']),8)
             self.assertEqual(saved['actions'],['dismiss'])
+            self.assertEqual(saved['checks'],[dict(stage='page_alignment',candidates=[])])
             order.diagnostic=lambda _: (_ for _ in ()).throw(RuntimeError('diagnostics offline'))
             trace.finish(PurchaseResult('bought',1,130))
 

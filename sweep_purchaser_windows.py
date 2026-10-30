@@ -285,6 +285,9 @@ class WindowsPurchaser:
                                 continue
                             # No purchase dialog/input has been dispatched in these
                             # phases. A verified open shop can safely be skipped.
+                            if hasattr(self.reader, 'alignment_details'):
+                                trace.check(stage='page_alignment', target=target,
+                                            **self.reader.alignment_details(page, ordered))
                             if flow.phase in ('select', 'selected') and not flow.submitted:
                                 return PurchaseResult('not_bought', reason='listing_unverified')
                             flow.halt('listing_unverified')
@@ -300,12 +303,16 @@ class WindowsPurchaser:
                             if unchanged >= 2 or scrolls >= len(ordered):
                                 return PurchaseResult('not_bought', reason='error')
                             last_offset, scrolls = offset, scrolls+1
+                            trace.action('scroll_down' if target >= offset+6 else 'scroll_up')
                             control.click(638, 537 if target >= offset+6 else 315)
                             window.pause(.12)
                             continue
                         screen_row = equivalent[0] if equivalent is not None else target-offset
                         visible = page[screen_row]
                         if not self.reader.row_matches(visible, ordered[target], complete=True):
+                            trace.check(stage='target_row', row=screen_row, item_id=order.item_id,
+                                        expected_price=order.price, actual_price=visible.price if visible else None,
+                                        actual_name=visible.name if visible else None)
                             reason = ('price_changed' if visible is not None
                                       and canonical(visible.name) == canonical(self.reader.names.get(order.item_id))
                                       and visible.price != order.price else 'listing_unverified')

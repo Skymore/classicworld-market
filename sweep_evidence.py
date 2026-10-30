@@ -26,6 +26,10 @@ class PurchaseTrace:
         self.frames = deque(maxlen=8)
         self.started = time.monotonic()
         self.actions = []
+        self.checks = deque(maxlen=8)
+
+    def check(self, **fields):
+        self.checks.append(fields)
 
     def frame(self, image, phase, kind):
         if self.order.diagnostic:
@@ -38,7 +42,7 @@ class PurchaseTrace:
         data = dict(reservation=self.order.reservation, item_id=self.order.item_id,
                     quantity=self.order.quantity, price=self.order.price,
                     status=result.status, reason=result.reason, actions=self.actions,
-                    elapsed_ms=round((time.monotonic()-self.started)*1000, 1))
+                    elapsed_ms=round((time.monotonic()-self.started)*1000, 1), checks=list(self.checks))
         try:
             if result.status != 'bought' and self.frames:
                 from PIL import Image
