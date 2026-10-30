@@ -371,6 +371,22 @@ class NativeFlowTests(unittest.TestCase):
         with patch.object(ScriptedReader, 'title', return_value=None):
             self.assertEqual(self.run_buy(), PurchaseResult('bought',1,135))
 
+    def test_animated_owner_nameplate_is_not_a_shop_change(self):
+        original = ScriptedInput.capture
+        def capture(control):
+            image = original(control)
+            image[287:301,435:521] = (control.index % 2)*255
+            return image
+        with patch.object(ScriptedInput, 'capture', capture):
+            self.assertEqual(self.run_buy(),PurchaseResult('bought',1,135))
+        self.assertEqual(self.control.actions.count((735,421)),1)
+
+    def test_existing_quantity_dialog_without_verified_visit_stops_input(self):
+        with self.assertRaises(PurchaseHalt) as caught:
+            self.run_buy(frames=[Page(kind='quantity',number=43)])
+        self.assertEqual(caught.exception.result,PurchaseResult('not_bought',reason='shop_closed'))
+        self.assertEqual(self.control.actions,[])
+
     def test_title_pixels_change_after_selection_stops_input(self):
         original = ScriptedInput.capture
         def capture(control):

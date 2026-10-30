@@ -216,7 +216,7 @@ class WindowsPurchaser:
         try:
             control = self.input_factory(window)
             control.move()
-            owner_stamp = title_stamp = None
+            title_stamp = None
             before_balance = before_stock = selected_row = None
             before_packet = None
             last_offset, unchanged, scrolls = None, 0, 0
@@ -228,7 +228,7 @@ class WindowsPurchaser:
                     flow.halt('shop_closed')
                 kind, number = self.reader.dialog(image)
                 if kind:
-                    if owner_stamp is None or not np.array_equal(image[287:301,435:521], owner_stamp):
+                    if title_stamp is None:
                         flow.halt('shop_closed')
                     view = View(kind, quantity=number if kind == 'quantity' else None,
                                 total=number if kind == 'confirm' else None,
@@ -237,11 +237,10 @@ class WindowsPurchaser:
                     visible_title = self.reader.title(image)
                     if visible_title is not None and canonical(visible_title) != canonical(title):
                         flow.halt('shop_closed')
-                    stamp = image[287:301,435:521]
-                    if owner_stamp is not None and not np.array_equal(stamp, owner_stamp):
-                        flow.halt('shop_closed')
-                    if owner_stamp is None:
-                        owner_stamp = stamp.copy()
+                    # Animated equipment can overlap the owner's nameplate.
+                    # Shop identity comes from the fresh packet and verified
+                    # target page; retain the unchanged static title throughout.
+                    if title_stamp is None:
                         title_stamp = title_pixels.copy()
                     if flow.submitted and before_packet is not None:
                         after = inventory_position(order)
