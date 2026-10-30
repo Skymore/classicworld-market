@@ -16,6 +16,8 @@ from collector_recovery import ScanIntent, RecoveryLog, atomic_json, failure_sta
 
 RUNS = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'ClassworldFMBot/screen_scanner'
 ABORT_GRACE = 8
+ACTIVITY_LIMIT = 40  # The activity panel fills the window and scrolls.
+MIN_SIZE = (880, 740)  # Smallest window the layout is designed for.
 
 
 def scanner_modules(backend='windows'):
@@ -124,6 +126,19 @@ def status_text(value):
     return value if re.search('[\u4e00-\u9fff]', value) else None
 
 
+def purchase_text(entry):
+    """'买到 红色药水 ×100 @41 · 3 洞 12 频道 COSTCO' for a bought sweep entry."""
+    price = entry.get('price')
+    place = ' '.join(part for part in (
+        f"{entry['room']} 洞" if entry.get('room') is not None else '',
+        f"{entry['channel']} 频道" if entry.get('channel') is not None else '',
+        str(entry.get('owner') or '')) if part)
+    head = f"买到 {entry.get('name') or entry.get('item_id')} ×{entry.get('units') or entry.get('quantity') or 0}"
+    if type(price) is int:
+        head += f' @{price:,}'
+    return head + (f' · {place}' if place else '')
+
+
 class DesktopController:
     def __init__(self, collector, *, modules=None, windows=game_windows, sweep=None,
                  ready=game_ready, emergency=emergency_stop):
@@ -163,7 +178,7 @@ class DesktopController:
                            room=None, channel=None, visited=0, uploaded=0, started_at=None, stopped_at=None,
                            run_shops=0, run_items=0, run_started_at=time.time(),
                            capture='connecting', upload='ready', last_shop_at=None, windows=[],
-                           selected=None, theme='system', updates='checking', activities=[],
+                           selected=None, theme='system', updates='checking', activities=[], maximized=False,
                            desired=False, last_progress_at=None, retries=0, next_retry_at=None,
                            pending_uploads=0, failure=None)
         try:
@@ -173,6 +188,8 @@ class DesktopController:
         except (OSError, ValueError):
             pass
         collector.add_listener(self._collector_event)
+        if sweep is not None:
+            sweep.add_listener(lambda entry: self._activity(purchase_text(entry), 'sweep', repeat=True))
         self._read_statistics()
 
     def _read_statistics(self):
@@ -191,13 +208,13 @@ class DesktopController:
             self._state.update(values)
         self._events.put(None)
 
-    def _activity(self, text, kind='info'):
+    def _activity(self, text, kind='info', repeat=False):
         with self._lock:
             items = self._state['activities']
-            if items and items[0]['text'] == text:
+            if items and items[0]['text'] == text and not repeat:
                 return
             items.insert(0, dict(at=time.time(), text=text, kind=kind))
-            del items[8:]
+            del items[ACTIVITY_LIMIT:]
         self._events.put(None)
 
     def _collector_event(self, event):
@@ -231,11 +248,28 @@ class DesktopController:
 
     def command(self, name, value=None):
         if name == 'window':
-            if value not in ('minimize', 'close'):
+            if isinstance(value, dict) and set(value) == {'resize'}:
+                # Frameless windows have no native resize border on Windows; the corner grip sends sizes here.
+                size = value['resize']
+                if not (isinstance(size, list) and len(size) == 2 and all(type(n) is int for n in size)):
+                    raise ValueError('无效窗口操作')
+                width, height = max(MIN_SIZE[0], min(size[0], 7680)), max(MIN_SIZE[1], min(size[1], 4320))
+                if self._window and not self.snapshot().get('maximized'):
+                    self._window.resize(width, height)
+                return self.snapshot()
+            if value not in ('minimize', 'maximize', 'close'):
                 raise ValueError('无效窗口操作')
             if self._window:
                 if value == 'close':
                     self.close()
+                elif value == 'maximize':
+                    # A frameless window has no resize border on Windows; this toggles a large layout.
+                    maximized = not self.snapshot().get('maximized')
+                    if maximized:
+                        self._window.maximize()
+                    else:
+                        self._window.restore()
+                    self._change(maximized=maximized)
                 else:
                     self._window.minimize()
             return self.snapshot()
@@ -708,10 +742,12 @@ def main(collector, argv=None):
     if not assets.is_file():
         raise RuntimeError('界面文件缺失，请完整解压安装包。')
     window = webview.create_window('枫叶市集 · 扫描与采集', str(assets), js_api=DesktopAPI(controller),
-        width=880, height=740, resizable=False, background_color='#e6e1d6',
+        width=MIN_SIZE[0], height=MIN_SIZE[1], resizable=True, min_size=MIN_SIZE, background_color='#e6e1d6',
         frameless=True, easy_drag=False, shadow=True)
     controller._window = window
     window.events.closing += controller.close
+    window.events.maximized += lambda: controller._change(maximized=True)
+    window.events.restored += lambda: controller._change(maximized=False)
     def run():
         controller.pump(args.auto_start)
     if args.exit_after_stop:

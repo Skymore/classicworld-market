@@ -89,13 +89,18 @@ try {
     assert.equal(new URL(page.url()).searchParams.get('job'), 'warrior');
     await page.keyboard.press('Escape');
     await page.locator('.ui-dialog-content').waitFor({ state: 'detached' });
-    assert.equal(await filter.evaluate(node => node === document.activeElement), true, 'Radix restores focus to the filter button');
+    // Radix restores focus to the filter button in a task after the dialog unmounts.
+    await page.waitForFunction(() => document.activeElement?.matches('[data-filter-btn]'));
     await page.locator('[data-clear-price-filters=all]').click();
     const rows = page.locator('[data-item-row]:visible');
-    await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=low]').click();
+    // The URL changes at once; React Router renders the new order as a transition.
+    const sortBy = async (key, label) => {
+      await page.locator('[data-sort-btn]').click(); await page.locator(`[data-sort=${key}]`).click();
+      await page.waitForFunction(expected => document.querySelector('[data-sort-label]')?.textContent === expected, label);
+    };
+    await sortBy('low', '最低报价 ↑');
     assert.match(await rows.first().textContent(), /蓝色头巾/);
     assert.match(await rows.last().textContent(), /蜗牛壳/, 'items without an ask stay last');
-    assert.equal(await page.locator('[data-sort-label]').textContent(), '最低报价 ↑');
     await page.locator('[data-sort-btn]').click();
     assert.equal(await page.locator('[role=menuitemradio]').count(), 6, 'one list contains useful field/direction combinations');
     assert.equal(await page.locator('[data-sort-dir]').count(), 0, 'there is no separate direction control');
@@ -121,27 +126,23 @@ try {
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.locator('[data-lang-toggle]:visible').click();
     }
-    await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=low]').click();
+    await sortBy('low', '最低报价 ↓');
     assert.equal(new URL(page.url()).searchParams.get('dir'), 'desc');
-    assert.equal(await page.locator('[data-sort-label]').textContent(), '最低报价 ↓');
     assert.match(await rows.first().textContent(), /红色药水/);
     assert.match(await rows.last().textContent(), /蜗牛壳/);
-    await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=price]').click();
+    await sortBy('price', '成交价 ↓');
     if (mobile) assert.equal(await page.locator('[data-mobile-price-heading]').textContent(), '成交价');
-    assert.equal(await page.locator('[data-sort-label]').textContent(), '成交价 ↓');
-    await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=price]').click();
-    assert.equal(await page.locator('[data-sort-label]').textContent(), '成交价 ↑');
+    await sortBy('price', '成交价 ↑');
 
-    await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=lastsale]').click();
+    await sortBy('lastsale', '最新成交');
     await page.locator('[data-price-records=sales] .market-record').first().waitFor();
-    assert.equal(await page.locator('[data-sort-label]').textContent(), '最新成交');
     assert.equal(await rows.count(), 2, 'only items with a matching latest sale are included');
     assert.match(await rows.first().textContent(), /红色药水/);
     assert.match(await rows.last().textContent(), /蓝色头巾/);
     assert.deepEqual(await rows.locator('.ware-price').allTextContents(), ['13.5K', '25K']);
     assert.match(await rows.first().locator('.name-primary .evi').textContent(), /已售/);
     assert.equal(await rows.first().locator('.record-value > .record-time [data-relative-time]').getAttribute('data-relative-time'), String(now));
-    await page.locator('[data-sort-btn]').click(); await page.locator('[data-sort=recent]').click();
+    await sortBy('recent', '最新报价');
     await page.locator('[data-price-records=quotes] .market-record').first().waitFor();
     assert.equal(new URL(page.url()).searchParams.get('sort'), 'recent');
     assert.match(await rows.first().textContent(), /红色药水/); assert.match(await rows.last().textContent(), /蓝色头巾/);

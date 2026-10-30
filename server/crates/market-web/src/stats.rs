@@ -370,7 +370,7 @@ fn compute(items: &[i32], data: &ItemData, _as_of: f64, now: f64) -> Vec<(i32, I
                 .unwrap_or((&[], &[]));
             (
                 id,
-                item_figures(i64::from(id), &listings, &sales, anchor, now),
+                item_figures(i64::from(id), listings, sales, anchor, now),
             )
         })
         .collect()

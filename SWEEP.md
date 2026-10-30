@@ -1,6 +1,6 @@
 # 设备登录、多端同步与扫货
 
-账号是唯一身份。网页和每台登录的采集端都是这个账号的一台设备，看同一份数据。网页决定买什么、什么时候开始；真实购买只在本机同意的采集端上执行。购买本身是一个接口，Windows 上的游戏内购买执行器另行实现；没有执行器的电脑不能参与扫货。
+账号是唯一身份。网页和每台登录的采集端都是这个账号的一台设备，看同一份数据。网页决定买什么、什么时候开始；真实购买只在本机同意的采集端上执行。购买本身是一个接口，Windows 上由游戏内购买执行器实现；执行器未就绪的电脑不能参与扫货。
 
 本文件是服务端、采集端和网页三方共同遵守的契约。错误一律返回 `{"error":"<code>"}`，沿用现有写法。
 
@@ -59,6 +59,10 @@
  "client_version":"0.7.0","state":DeviceState|null}
 ```
 `online` = `last_seen_at` 在 75 秒内。
+
+`GET /api/v1/device/devices`（设备令牌）→ 同样的 `{"devices":[Device]}`。
+
+`POST /api/v1/device/rename`（设备令牌）`{"name"}` → `{"device":{"id","name"}}`。只改本机；`name` 规则同 `authorize`（去掉首尾空白后 1-40 字符，无控制字符），否则 `invalid_request`。名字变了才发 `devices` 消息。其他设备的撤销只在网页上做。
 
 `POST /api/v1/account/devices/revoke`（`writable`）`{"device"}` → `{"ok":true}`。撤销后该设备参与的扫货改为 `left`，原因 `revoked`；设备记录的采集器若仍归属本账号，同时解除绑定，和在设备上退出一样。
 
@@ -136,14 +140,20 @@
 {"id","status","stop_reason","budget","spent","reserved","unknown","remaining",
  "started_at","ends_at","stopped_at","started_by":"web|<device id>","plan_version","plan_stale":false,"bought",
  "items":[{"item_id","limit","units","bought"}],
- "devices":[{"id","name","state","message","online","spent","checked","progress_at","leased"}],
+ "devices":[{"id","name","state","message","online","spent","checked","pending","progress_at","leased"}],
  "purchases":[Purchase]}
 ```
 `run` 是运行中的任务，没有时取 24 小时内最近结束的一个。`plan_stale` = 按当前规则重新生成的快照与任务快照不同。`purchases` 为最近 50 条预留，新的在前：
 
-关注页只显示本轮状态、简要金额和“查看详情”。详情用进度、背包、设置、记录四个分页；SSE 更新保留当前分页。设置读取启动时的 `plan`，修改关注只提示停止后重开，不覆盖本轮条件。停止需在详情内确认，结束后仍可查看记录。
+关注页左栏分“物品 | 扫货”两个页签（选中的记在用户设置 `watch.panelTab`）。物品页签是关注卡片，卡片上只有每组的“扫货”勾选；每件物品的“本轮最多买”在扫货页签的条件表里改（数字框加“不限”勾选，写 `buyLimit`，0 = 不限）。扫货页签空闲时显示“未开始 · N 件物品 · 在线设备”和“开始扫货”，以及 24 小时内最近一轮的结果；运行中显示已运行时长、结束时间、进度条、已花/剩余、每台设备的消息和已查店次，条件表改为“已买 / 上限”，买满的行标“已满”，下面是最近 5 条购买。关注里改了条件时提示“关注里的扫货条件已修改，下一轮生效”。停止在页签里就地确认；详情弹窗保留（进度、背包、设置、记录四个分页，SSE 更新保留当前分页），里面也能停止，结束后仍可查看记录。
 
-`bought` 与 `items[].bought` 是全轮实际成交数量，独立于最近 50 条记录及仍占用额度的 `units`。`checked` 保存采集器最近上报的检查店次，未上报为 null；这是当前采集进程的计数，重启会重新计数，不是去重商店数。`progress_at` 是最近有效扫货心跳时间；`leased` 表示当前有有效租约。任务处于运行中或设备已加入，不代表扫描器正在移动。界面单独显示设备消息，通用“扫货中”只显示“已加入任务”；离线和租约中断优先显示。
+“先买命中的”是扫货页签里的独立入口，不是开始弹窗里的方式：网页用右栏的命中列表算“N 条命中 · 合计约 X”（范围内、仍在售、价格达标，按每件物品的数量上限截断），确认框只有设备、预算（默认填合计）和密码，提交 `scan:{"mode":"recent","recent_minutes"}`，不传 `minutes`（用默认的 7 天）。运行中标题“正在买命中的”，第二行“剩 N 处待回访”取各设备 `pending` 之和；在线且已加入的设备都报 `pending=0` 时视为队列空，标题改为“命中的都看过了”，并提供“转为全市场扫货”：先停止本轮，再用剩余预算开一轮全市场（需要密码）。
+
+开始弹窗只有设备（不可选的写原因）、预算（带 100K/1M/3M/10M 快捷值）、时长（1 小时/6 小时/24 小时/3 天/7 天，默认沿用上次）、当前密码，加一行摘要。设备可用性先按 `client_version` 判断，低于 0.6.19 显示“版本 X 过旧，请更新采集端”；网页不解析 `executor.reason` 的字样。购买记录地点中文写“12频道 3洞 · 店主”，英文“CH 12 FM3 · owner”，和站内报价行一致。
+
+URL 带 `embed=1` 时（采集端内嵌）不显示站点头部、底栏、AI 助手和通知行；`mode: "collector"` 时扫货页签只有可编辑的条件表，不请求 `/api/v1/account/sweep`。
+
+`bought` 与 `items[].bought` 是全轮实际成交数量，独立于最近 50 条记录及仍占用额度的 `units`。`checked` 保存采集器最近上报的检查店次，未上报为 null；这是当前采集进程的计数，重启会重新计数，不是去重商店数。`pending` 是买命中的时还要回访的店铺数，0 表示队列空、在等新命中，不在该模式或未上报为 null（迁移 `0035`）。`progress_at` 是最近有效扫货心跳时间；`leased` 表示当前有有效租约。任务处于运行中或设备已加入，不代表扫描器正在移动。界面单独显示设备消息，通用“扫货中”只显示“已加入任务”；离线和租约中断优先显示。
 
 背包显示每台设备的目标物品和可展开的其他已读物品、金币及读取时间。不同角色不合并；离线、断开游戏和未读取类别显示“—”，只有完整读取的类别中没有物品时才显示 0。
 
@@ -154,7 +164,7 @@
 `POST /api/v1/account/sweep/start`（`sensitive`：需当前密码，Google 账号需 15 分钟内登录过）
 - `{"devices":[id],"budget":1000000,"minutes":120,"current_password":""}`
 - 设备 1-8 台：属于本账号、未撤销、在线、`state.sweep.allow_web_start` 为真、`state.sweep.executor.ready` 为真，否则 `device_unavailable`。
-- `budget` 1 到 10^12 整数，`minutes` 5 到 10080（7 天，默认 10080）。已有运行中任务 `sweep_running`。
+- `budget` 1 到 10^12 整数，`minutes` 5 到 10080（7 天），可省略，省略时 10080；“先买命中的”不传。已有运行中任务 `sweep_running`。
 - 返回同 `GET /api/v1/account/sweep`。
 
 `POST /api/v1/account/sweep/stop`（`writable`，不需要密码）`{"run"}`，`stop_reason='stopped_on_web'`。
@@ -167,17 +177,20 @@
 
 ```json
 {"client_version":"0.7.0","sweep":{"allow_web_start":false,"max_spend":0,"max_order":0,"reserve_mesos":0,
- "executor":{"ready":false,"reason":"此电脑尚未安装购买执行器"},"game":{"connected":true}}}
+ "executor":{"ready":false,"reason":"购买功能加载失败"},"game":{"connected":true}}}
 ```
 即 `DeviceState`。数值为 0 到 10^12 的整数，`reason` 最多 80 字符。
 
 `GET /api/v1/device/sweep` → `{"run":null}` 或
 
 ```json
-{"run":{"id","status","budget","remaining","ends_at","started_by","plan","plan_version",
+{"run":{"id","status","budget","spent","remaining","started_at","ends_at","started_by","plan","plan_version","bought",
+ "items":[{"item_id","limit","units","bought"}],
  "participant":{"state","message","plan_version"},"spent_here"}}
 ```
-只返回本设备处于 `invited` 或 `active` 的运行中任务。
+只返回本设备处于 `invited` 或 `active` 的运行中任务。`spent`、`bought`、`items` 与网页 `Run` 同义。
+
+`GET /api/v1/device/sweep/plan` → `{"plan":{"watches":[...]}}`：按当前关注规则生成的快照，形状同“规则快照”；没有可扫货的组时 `watches` 为 `[]`，不报错。运行中的任务仍用自己的 `plan`。
 
 `POST /api/v1/device/sweep/start` 本机发起：`{"budget","minutes"}`，参与设备只有本机，不需要密码（在电脑前操作即同意）。返回同上。
 
@@ -185,7 +198,7 @@
 
 `POST /api/v1/device/sweep/refuse` `{"run","reason"}`。
 
-`POST /api/v1/device/sweep/heartbeat` `{"run","lease","status":{"message","checked"}}` → `{"plan_version","remaining"}`；任务已结束 `409 {"error":"sweep_stopped","reason":...}`；租约无效或过期 `409 lease_lost`。
+`POST /api/v1/device/sweep/heartbeat` `{"run","lease","status":{"message","checked","pending"}}` → `{"plan_version","remaining","spent"}`。`pending` 只在买命中的时发（0–100000，剩余待回访店铺数，等待时为 0），按发来的值存，不带就清空；任务已结束 `409 {"error":"sweep_stopped","reason":...}`；租约无效或过期 `409 lease_lost`。
 
 `POST /api/v1/device/sweep/leave` `{"run","lease","reason"}`；`POST /api/v1/device/sweep/stop` `{"run"}` 停止整个任务，`stop_reason='stopped_on_device'`。
 
@@ -210,7 +223,7 @@
 
 ## 4. 购买接口
 
-`sweep_purchase.py` 定义接口，采集端的扫货引擎调用，Windows 执行器以后实现。
+`sweep_purchase.py` 定义接口，采集端的扫货引擎调用，Windows 执行器在 `sweep_purchaser_windows.py`。
 
 ```python
 PurchaserStatus(ready: bool, reason: str, mesos: int | None)
@@ -235,7 +248,7 @@ class Purchaser(Protocol):
 
 `ShopWindow` 由扫描器提供：`bounds`、`capture()`、`click(x, y)`、`press(key)`、`pause(seconds)`、`vision`、`capture_file`（本次商店抓包文件路径）。
 
-`load_purchaser()` 尝试导入 Windows 执行器模块，失败返回 `UnavailablePurchaser`，其状态为 `ready=False`、`reason='此电脑尚未安装购买执行器'`。
+`load_purchaser()` 导入并创建 Windows 执行器；导入或创建失败都返回 `UnavailablePurchaser`，其状态为 `ready=False`、`reason='购买功能加载失败'`。
 
 ### 扫描器钩子
 
@@ -258,6 +271,7 @@ class Purchaser(Protocol):
 5. 任何一步连不上服务器超过 30 秒、租约丢失、任务结束、退出账号：立即停止购买。
 6. 拿到预留后、调用 `buy` 前再确认一次仍在扫货且租约未变；停止或退出恰好发生在预留途中时，不买，回报 `not_bought/stopped`。
 7. 退出账号的顺序：停止购买 → 等正在进行的购买结束（最多 40 秒）→ 把待回报的结果报完 → 注销令牌。回报遇到 401 不丢弃，留在待回报队列里，24 小时后清除。
+8. 桌面界面：空闲时每 60 秒、以及收到 `data` 消息后，读一次 `GET /api/v1/device/sweep/plan`，在“扫货条件”表里只读显示（物品名、条件、本轮最多买、背包）；运行中改为显示本轮的 `run.plan`，列为“已买 / 上限”。数量上限只能在网页的关注里改，采集端内嵌的关注页就能改。服务端没有返回 `spent`、`bought`、`items` 时显示为未知，不当作 0；`plan` 接口返回 404 时不显示条件表。买到东西时在扫描页的“动态”里记一条，只在本机显示。账号页用 `GET /api/v1/device/devices` 列出这个账号的设备（只读），用 `POST /api/v1/device/rename` 改本机名字，成功后同步更新本机保存的登录记录。
 8. 离开任务时有租约用 `leave`；没有租约（执行器失效、租约丢失、重启后）或 `leave` 被拒时用 `refuse`，服务器对 `active` 的设备也接受 `refuse`，网页上这台设备显示为已拒绝并带原因。
 
 本机文件（采集目录 `sweep/`）：`settings.json` 本机设置；`purchases.jsonl` 每次购买；`pending.json` 待回报。都不上传。重启后同一轮的本机已花和已处理的挂单从 `purchases.jsonl` 恢复。
@@ -272,22 +286,26 @@ class Purchaser(Protocol):
 - `settle` 的 `reason` 为 `[a-z_]{0,40}`；`location.owner` 为最多 24 字符的字符串或 null。
 - 设备状态只在真正变化时发 `devices` 消息；心跳只在 `message` 变化时发 `sweep` 消息；消息流重连或积压后，所有已连接的客户端都收到全部三个主题，各自重新拉取。
 - 采集端内嵌的账号页点“登录”时，本机网关返回 `/device` 授权地址并开始一次设备登录。
+- 购买执行器随采集端一起打包。网页按 `client_version`（≥ 0.6.19）判断能否扫货，版本过旧时提示更新。
 
-## 6. 实现情况（2026-10-28，主分支）
+## 6. 实现情况（2026-10-29，主分支）
 
 已完成：
-- 服务端：迁移 `0033_devices_and_sweep.sql`；`devices.rs`（设备登录、令牌、迁移、数据、状态、我的设备）、`sweep.rs`（规则快照、预算与件数、租约、预留与回报、网页和设备接口）；账号消息流加在 `realtime.rs`。
+- 服务端：迁移 `0033_devices_and_sweep.sql`、`0035_sweep_recent_pending.sql`；`devices.rs`（设备登录、令牌、迁移、数据、状态、我的设备）、`sweep.rs`（规则快照、预算与件数、租约、预留与回报、网页和设备接口）；账号消息流加在 `realtime.rs`。
 - 采集端：`account_device.py`（浏览器登录与本机回调、令牌加密保存、设备接口、消息流）；`collector_sweep.py`（扫货引擎，模拟已删除）；`sweep_purchase.py`（购买接口，执行器加载失败时不可用）；`sweep_purchaser_windows.py` 与 `sweep_screen.py`（Windows 内测执行器）；本机网关映射与消息转发在 `collector_dashboard.py`；扫描器 `shop_callback` 钩子在子模块。
-- 网页：`/device` 授权页；账号页“我的设备”；关注页扫货面板；`web/js/lib/user-data.js` 共用一条账号消息流；桌面端“扫货”页。
+- 网页：`/device` 授权页；账号页“我的设备”；关注页“物品 | 扫货”页签、开始弹窗、“先买命中的”、嵌入模式；`web/js/lib/user-data.js` 共用一条账号消息流。
+- 采集端桌面界面（`frontend/desktop/`）：合并头部、扫描页、扫货页（状态、本机开始、条件表、本轮进度、最近购买、本机设置）、账号页（改名、设备列表）；窗口可调大小，最小 880x740。
 
 已验证：
-- 服务端数据库测试 `tests/sweep.rs`（10 个），覆盖登录、迁移、撤销、两台设备共用预算、重复挂单、部分批准、过期与补报、规则版本、停止和到时。
+- 服务端数据库测试 `tests/sweep.rs`（15 个），覆盖登录、迁移、撤销、两台设备共用预算、重复挂单、部分批准、过期与补报、规则版本、停止和到时、设备端的全轮数字与网页一致、规则快照接口、设备列表与改名。
 - 采集端单元测试（引擎、登录、网关、桌面接口、扫描器钩子）。
-- 网页 `web/tests/sweep.e2e.mjs`、`desktop-workspace.e2e.mjs`，桌面与 390px 手机宽度。
-- `test_sweep_live_server.py`：在本机 127.0.0.1 启动服务端，用假执行器跑完整条链路：浏览器登录、同步关注、网页输入密码开始、采集端加入、预留、购买、回报，核对服务器账目。
+- 网页 `web/tests/sweep.e2e.mjs`（桌面、390px 手机、嵌入采集端）、`desktop-workspace.e2e.mjs`、`scanner-desktop.e2e.mjs`（880x740）。
+- `test_sweep_live_server.py`：在本机 127.0.0.1 启动服务端，用假执行器跑完整条链路：浏览器登录、改名、设备列表、空闲时的规则快照、同步关注、网页输入密码开始、采集端加入、预留、购买、回报，核对服务器账目和设备端拿到的全轮数字。
 
 未验证（需要 Windows 真机和游戏）：
 - 真实 pywebview 桌面窗口里的登录跳转和“扫货”页。
+- 无边框窗口在 Windows 上能否拖边调整大小（pywebview 对 `frameless` 窗口可能不支持），所以头部另有“最大化/还原”按钮，双击头部空白也触发。
+- 改名后 DPAPI 加密的登录记录更新。
 
 ## 7. 后续
 
@@ -334,10 +352,11 @@ Windows 已另行核对一笔小额手动成交：Stirge Wing 单价 22，买一
 2. **真机联调**：一台电脑完整跑一轮小预算扫货；两台电脑同时参加同一轮，核对共享预算；退出账号、网页撤销、断网、关游戏各试一次，确认都会停止购买且回报不丢。
 3. **发布**：
    - 先把扫描器子模块的提交推到 `cwscreenscanner`，再推主仓库，否则主仓库引用的子模块提交取不到。
-   - 迁移 `0033` 已随服务端发布并备份；以后只有再次迁移或高风险数据变更才使用 `--backup-database`。
+   - 迁移 `0033` 已随服务端发布并备份。本次带迁移 `0035`（给 `sweep_run_devices` 加一列），发布时用 `--backup-database`；以后只有再次迁移或高风险数据变更才备份。
    - 服务端先上线，再推新版采集端；旧版采集端用的 `/api/v1/collector/*` 接口保留，可以继续同步关注。
    - 执行器首版使用 `publish_collector_release.py --channel beta`，只写 `beta.json`，保留稳定通道。稳定更新器拒绝 beta 清单；内测安装需手动选取版本。
 4. 旧的绑定码接口 `/api/v1/collector/account-link` 等，在大部分采集器升级后删除。
+5. 采集端“关注”页签上的命中数角标、账号页的“关注已同步 N 件”：采集端现有状态里拿不到这两个数，先没显示。
 
 ### 不限数量（v0.6.20）
 

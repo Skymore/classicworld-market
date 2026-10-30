@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useWords } from "../providers";
 import {
   OFFER_HOURS,
@@ -35,7 +35,8 @@ export default function OfferFilterDialog({
   const preview = filterRows
     ? filterRows(rows, draft)
     : filterOffers(rows, "price", draft);
-  useEffect(() => {
+  // Sync the draft before paint so the opened dialog never shows the previous draft.
+  useLayoutEffect(() => {
     if (open) {
       setDraft(normalizeOfferFilters(filters));
       dialog.current?.showModal();

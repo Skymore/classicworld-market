@@ -10,6 +10,9 @@ use serde_json::{json, Value};
 use tower::ServiceExt;
 
 const PASSWORD: &str = "a long unique maple passphrase";
+// Password hashing has a process-wide limit of 4 concurrent jobs and answers
+// 429 above it. Tests run in parallel, so they take turns, as in tests/sweep.rs.
+static PASSWORDS: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 #[tokio::test]
 async fn upgrade_keeps_google_owners_and_does_not_refresh_old_authentication() {
     let Some(db) = TestDb::new().await else {
@@ -51,6 +54,7 @@ async fn request(
     csrf: &str,
     origin: bool,
 ) -> (StatusCode, HeaderMap, Value) {
+    let _guard = PASSWORDS.lock().await;
     let mut req = Request::builder()
         .method(method)
         .uri(path)

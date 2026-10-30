@@ -4,6 +4,11 @@ import { Icon } from "./shared";
 import { useWords } from "../providers";
 import { OfferRow } from "./list-rows";
 import { useMarketQuery } from "../lib/query";
+import {
+  pushSubscribed,
+  showSystemNotification,
+  usePushWorker,
+} from "../lib/push";
 import { api, qs } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
 
 export function OfferReminder({ row, item }: { row: any; item?: any }) {
@@ -29,18 +34,13 @@ export function announce(
       detail: { id: Date.now() + Math.random(), title, href, body },
     }),
   );
-  if (
-    desktop &&
-    "Notification" in window &&
-    Notification.permission === "granted"
-  )
-    try {
-      new Notification(title, desktop);
-    } catch {
-      /* unsupported on some mobile browsers */
-    }
+  // Watch alerts already arrive by push on a subscribed browser.
+  if (desktop && !pushSubscribed())
+    void showSystemNotification(title, { ...desktop, data: { url: href } });
 }
+/** Page toasts; mounted once per app, it also starts the push service worker. */
 export function ToastHost() {
+  usePushWorker();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const words = useWords();
   useEffect(() => {

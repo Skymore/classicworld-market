@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE);
+const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const origin=process.env.FILTER_TEST_ORIGIN || 'http://127.0.0.1:18767';
 const shots=process.env.FILTER_SCREENSHOTS;
 if(shots)await mkdir(shots,{recursive:true});
-const browser=await chromium.launch({channel:'chrome'});
+const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
 try {
   const thumbColors=[];
   for(const width of [1440,800,375,320])for(const theme of ['light','dark']) {

@@ -106,6 +106,10 @@ pub fn layout(ctx: &Ctx, page: &Page<'_>, body: Markup) -> Markup {
                 meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover";
                 meta name="color-scheme" content="light dark";
                 meta name="theme-color" content="#3b5f8a";
+                // Add to Home Screen from any page gets the app name and icon (WEB_PUSH.md).
+                meta name="apple-mobile-web-app-title" content="枫叶市集";
+                link rel="manifest" href="/manifest.webmanifest";
+                link rel="apple-touch-icon" href="/web/icons/apple-touch-icon.png";
                 // Blocking initialization must run before CSS and deferred modules.
                 script src=(format!("/web/js/lib/boot.js?v={asset_version}")) {}
                 title { (page.title) " · " (brand) }

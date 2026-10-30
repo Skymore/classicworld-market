@@ -23,6 +23,8 @@ STATS = {'weapon_attack', 'magic_attack', 'str', 'dex', 'int', 'luk', 'hp', 'mp'
          'accuracy', 'avoid', 'speed', 'jump', 'weapon_defense', 'magic_defense'}
 LIMIT = 10**12
 DEFAULT_SETTINGS = dict(allow_web_start=False, max_spend=0, max_order=0, reserve_mesos=0)
+RULES_REFRESH = 60  # seconds between idle reads of the account's sweep rules
+UNAVAILABLE = '购买功能不可用'
 
 
 def number(value, low, high, integer=True):
@@ -221,6 +223,7 @@ class SweepEngine:
         self.lease_deadline, self.ttl = 0, 30
         self.left = set()
         self.seen, self.units, self.spent, self.checked = set(), {}, 0, 0
+        self.revisits = None  # Recent-match mode: shops left to revisit (0 = waiting for new hits).
         self.message = ''
         self.captures = collections.deque(maxlen=32)
         self.captures_seen = 0
@@ -228,6 +231,9 @@ class SweepEngine:
         self.game_state, self.game_checked = False, -10
         self.connected, self.connected_at = False, 0
         self.names = {}
+        self.run_plan = None  # The running run's plan as the server sent it, for display.
+        self.idle_rules, self.rules_due = None, 0
+        self.listeners = []
         self.thread = None
         self.recent_shops = set()
 
@@ -263,7 +269,11 @@ class SweepEngine:
 
     @staticmethod
     def _entry(e):
-        return {k: e.get(k) for k in ('name', 'item_id', 'status', 'quantity', 'units', 'spent', 'reason', 'room', 'channel', 'owner', 'at')}
+        return {k: e.get(k) for k in ('name', 'item_id', 'status', 'quantity', 'units', 'price', 'spent', 'reason', 'room', 'channel', 'owner', 'at')}
+
+    def add_listener(self, callback):
+        """callback(entry) after each settled purchase; the desktop adds it to its activity list."""
+        self.listeners.append(callback)
 
     def _note(self, entry, record=None):
         with self.lock:
@@ -286,12 +296,33 @@ class SweepEngine:
             run = None
             if self.run:
                 participant = self.run.get('participant') or {}
+                items = self.run.get('items')
                 run = dict({k: self.run.get(k) for k in ('id', 'status', 'budget', 'remaining', 'ends_at', 'started_by', 'plan_version')},
                     state=participant.get('state'), message=participant.get('message') or '',
-                    spent_here=max(self.spent, self.run.get('spent_here') if type(self.run.get('spent_here')) is int else 0))
+                    spent_here=max(self.spent, self.run.get('spent_here') if type(self.run.get('spent_here')) is int else 0),
+                    # Run-wide totals from newer servers; None or [] when an older server omits them.
+                    spent=self.run.get('spent') if type(self.run.get('spent')) is int else None,
+                    bought=self.run.get('bought') if type(self.run.get('bought')) is int else None,
+                    items=[i for i in items if isinstance(i, dict)] if isinstance(items, list) else [],
+                    started_at=self.run.get('started_at'), checked=self.checked)
+            rules = self._display_rules(self.run_plan) if self.run else self.idle_rules
             return copy.deepcopy(dict(linked=self.token is not None, account=self.account, device=self.device,
                 sweep=dict(settings=self.settings, holdings=read_inventory(self.folder, self.game_state), executor=dict(ready=bool(executor.ready), reason=str(executor.reason or '')),
-                           run=run, recent=self.recent, message=self.message)))
+                           run=run, recent=self.recent, message=self.message, rules=rules)))
+
+    def _display_rules(self, plan):
+        """{watches:[{item_id,name,limit,groups}]} for the desktop table, or None."""
+        watches = (plan or {}).get('watches') if isinstance(plan, dict) else None
+        if not isinstance(watches, list):
+            return None
+        rows = []
+        for w in watches[:100]:
+            if not isinstance(w, dict) or type(w.get('item_id')) is not int:
+                continue
+            rows.append(dict(item_id=w['item_id'], name=self.names.get(w['item_id'], str(w['item_id'])),
+                             limit=w.get('limit') if type(w.get('limit')) is int else 0,
+                             groups=[g for g in w.get('groups') or [] if isinstance(g, dict)]))
+        return dict(watches=rows)
 
     def summary(self):
         with self.lock:
@@ -385,7 +416,7 @@ class SweepEngine:
         per, price = units_per(row), row['price']
         key = listing_key(location, owner.get('character_id', packet['shop_id']), row)
         note = dict(name=watch['name'], item_id=row['item_id'], room=location['room'], channel=location['channel'],
-                    owner=owner.get('name'), quantity=0, units=0, spent=0)
+                    owner=owner.get('name'), price=price, quantity=0, units=0, spent=0)
         with self.lock:
             if key in self.seen or not self.run or not self.lease:
                 return
@@ -409,7 +440,7 @@ class SweepEngine:
                 raise PurchaseHalt(PurchaseResult('not_bought', reason='window_lost')) from error
         executor = self.purchaser.status()
         if not executor.ready:
-            self._stop_buying(executor.reason or '购买执行器未就绪')
+            self._stop_buying(executor.reason or UNAVAILABLE)
             return
         if settings['max_order']:
             caps.append(('max_order', settings['max_order']//price))
@@ -485,6 +516,12 @@ class SweepEngine:
                                price=order.price, bundle=order.bundle, shop_id=order.shop_id))
         self.settle(dict(reservation=order.reservation, status=result.status, quantity=result.quantity,
                          spent=result.spent, reason=result.reason))
+        if result.status == 'bought':
+            for callback in list(self.listeners):
+                try:
+                    callback(dict(entry))
+                except Exception:
+                    pass  # Display only; never disturb settlement.
         if unknown:
             self._leave(run, lease, 'unknown', '购买结果不确定，本机已退出本轮扫货')
         elif result.reason == 'trade_locked':
@@ -504,13 +541,15 @@ class SweepEngine:
             self.token = token
             self.account = record['account'] if record else None
             self.device = record['device'] if record else None
+            self.idle_rules = None  # Rules belong to the account.
             self._clear_run('' if token else '登录账号后可参加扫货')
             self.reported, self.report_due = None, 0
         self.wake.set()
 
     def _clear_run(self, message):
         with self.lock:
-            self.run = self.plan = self.plan_version = self.lease = None
+            self.run = self.plan = self.plan_version = self.lease = self.run_plan = None
+            self.rules_due = 0  # Show the account's current rules again.
             self.lease_deadline = 0
             self.message = message
 
@@ -608,16 +647,21 @@ class SweepEngine:
                 self._new_run(run)
             plan = self.plan if self.plan_version == run.get('plan_version') else None
             self.run = {k: v for k, v in run.items() if k != 'plan'}
-            if run['id'] in self.left:
-                return
+            self.run_plan = run.get('plan')
+            left = run['id'] in self.left
             state = (run.get('participant') or {}).get('state')
             settled = self.lease is not None and plan is not None
+        watches = (run.get('plan') or {}).get('watches') if isinstance(run.get('plan'), dict) else None
+        if isinstance(watches, list):  # Names for the run's rule table, even when this device refuses.
+            self._load_names([w['item_id'] for w in watches if isinstance(w, dict) and type(w.get('item_id')) is int])
+        if left:
+            return
         if state == 'invited' or state == 'active' and not settled:
             self._decide(run, state == 'invited')
 
     def _new_run(self, run):
         self.plan = self.plan_version = self.lease = None
-        self.lease_deadline, self.checked = 0, 0
+        self.lease_deadline, self.checked, self.revisits = 0, 0, None
         self.seen, self.units, self.spent = set(), {}, 0
         for entry in self._purchases(run['id']):  # Survive a restart within the same run.
             self.seen.add(entry.get('listing'))
@@ -681,7 +725,7 @@ class SweepEngine:
             return '本机未允许网页发起扫货', None
         executor = self.purchaser.status()
         if not executor.ready:
-            return str(executor.reason or '购买执行器未就绪')[:80], None
+            return str(executor.reason or UNAVAILABLE)[:80], None
         if settings['max_spend'] <= 0:
             return '本机最多花费为 0', None
         try:
@@ -694,14 +738,7 @@ class SweepEngine:
         if not isinstance(watches, list) or not 1 <= len(watches) <= 100:
             raise ValueError('没有可扫货的条件组')
         ids = [number(w.get('item_id'), 1000000, 5999999) for w in watches]
-        # Names are display only: exact-id lookups, cached, at most 20 per plan.
-        for iid in [i for i in ids if i not in self.names][:20]:
-            try:
-                items = self.client.public('/api/v1/watchlist/catalog?'+urlencode({'q': iid})).get('items') or []
-            except (OSError, DeviceError, AttributeError):
-                break
-            item = next((x for x in items if isinstance(x, dict) and x.get('item_id') == iid), {})
-            self.names[iid] = str(item.get('name_zh') or item.get('name_en') or iid)
+        self._load_names(ids)
         # Base stats decide "bonus" rules, so they must load.
         reference = self.client.public('/api/v1/watchlist/listings?'+urlencode({'ids': ','.join(map(str, ids))}))
         enriched = []
@@ -716,14 +753,69 @@ class SweepEngine:
         result['scan'] = scan
         return result
 
+    def _load_names(self, ids):
+        """Names are display only: exact-id lookups, cached, at most 20 per call."""
+        for iid in [i for i in ids if i not in self.names][:20]:
+            try:
+                items = self.client.public('/api/v1/watchlist/catalog?'+urlencode({'q': iid})).get('items') or []
+            except (OSError, DeviceError, AttributeError):
+                break
+            item = next((x for x in items if isinstance(x, dict) and x.get('item_id') == iid), {})
+            self.names[iid] = str(item.get('name_zh') or item.get('name_en') or iid)
+
+    def refresh_rules(self):
+        """While idle, the rules a run started now would use (GET /api/v1/device/sweep/plan)."""
+        try:
+            answer = self.client.call('GET', '/api/v1/device/sweep/plan', timeout=5)
+        except DeviceError as error:
+            if error.status == 404:  # An older server without this endpoint.
+                with self.lock:
+                    self.idle_rules = None
+            return
+        plan = answer.get('plan') if isinstance(answer, dict) else None
+        watches = (plan or {}).get('watches') if isinstance(plan, dict) else None
+        if isinstance(watches, list):
+            self._load_names([w['item_id'] for w in watches if isinstance(w, dict) and type(w.get('item_id')) is int])
+        with self.lock:
+            self.idle_rules = self._display_rules(plan) if isinstance(watches, list) else None
+
+    def devices(self):
+        """This account's devices, as the website's device list."""
+        answer = self.client.call('GET', '/api/v1/device/devices', timeout=8)
+        devices = answer.get('devices') if isinstance(answer, dict) else None
+        if not isinstance(devices, list):
+            raise ValueError('设备列表暂不可用')
+        return dict(devices=[d for d in devices if isinstance(d, dict)])
+
+    def rename(self, value):
+        """Rename this device only; other devices are signed out on the website."""
+        name = value.get('name') if isinstance(value, dict) else None
+        name = name.strip() if isinstance(name, str) else ''
+        if not 1 <= len(name) <= 40 or any(ord(c) < 32 or 127 <= ord(c) < 160 for c in name):
+            raise ValueError('名称需为 1 到 40 个字')
+        self._identity()
+        answer = self.client.call('POST', '/api/v1/device/rename', dict(name=name), timeout=8)
+        name = str(((answer or {}).get('device') or {}).get('name') or name)[:40]
+        store, record = getattr(self.client, 'store', None), self.client.record()
+        if store is not None and record:
+            try:  # The signed-in record keeps the name shown after a restart.
+                store.save(dict(record, device=dict(record['device'], name=name)))
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
+        with self.lock:
+            if self.device:
+                self.device = dict(self.device, name=name)
+
     def scan_mode(self):
         with self.lock:
             return ((self.plan or {}).get('scan') or {}).get('mode', 'market')
 
-    def progress(self, message):
+    def progress(self, message, revisits=None):
+        """`revisits`: shops still to revisit in recent-match mode, 0 while waiting; None otherwise."""
         with self.lock:
             if self.buying():
                 self.message = message[:80]
+                self.revisits = revisits if type(revisits) is int and 0 <= revisits <= 100000 else None
 
     def recent_targets(self):
         from sweep_routes import targets, shop_key
@@ -744,7 +836,10 @@ class SweepEngine:
             if not self.run or not self.lease:
                 return
             run, lease = self.run['id'], self.lease
-            body = dict(run=run, lease=lease, status=dict(message=self.message[:80], checked=self.checked))
+            status = dict(message=self.message[:80], checked=self.checked)
+            if self.revisits is not None:
+                status['pending'] = self.revisits
+            body = dict(run=run, lease=lease, status=status)
         started = time.monotonic()
         try:
             answer = self.client.call('POST', '/api/v1/device/sweep/heartbeat', body, timeout=3)
@@ -766,6 +861,8 @@ class SweepEngine:
             self.lease_deadline = started+min(15, self.ttl-10)
             if type(answer.get('remaining')) is int:
                 self.run['remaining'] = answer['remaining']
+            if type(answer.get('spent')) is int:
+                self.run['spent'] = answer['spent']
             if answer.get('plan_version') != self.plan_version:
                 self.plan = None  # Stop reserving until the new plan is checked and joined.
                 self.message = '扫货规则已更新，正在重新确认'
@@ -817,7 +914,7 @@ class SweepEngine:
             raise ValueError('请先登录账号')
         executor = self.purchaser.status()
         if not executor.ready:
-            raise ValueError(executor.reason or '购买执行器未就绪')
+            raise ValueError(executor.reason or UNAVAILABLE)
         if self.settings['max_spend'] <= 0:
             raise ValueError('请先设置本机最多花费')
         answer = self.client.call('POST', '/api/v1/device/sweep/start',
@@ -848,7 +945,10 @@ class SweepEngine:
 
     # Background work.
     def _event(self, name):
-        if name == 'sweep':
+        if name == 'data':  # Watch rules may have changed; a burst of edits is read once.
+            with self.lock:
+                self.rules_due = min(self.rules_due, time.monotonic()+1)
+        elif name == 'sweep':
             self.wake.set()
 
     def _local_events(self):
@@ -892,6 +992,12 @@ class SweepEngine:
                     if self.pending and now >= next_pending:
                         next_pending = now+10
                         self.retry_pending()
+                    with self.lock:
+                        rules_due = self.run is None and now >= self.rules_due
+                        if rules_due:
+                            self.rules_due = now+RULES_REFRESH
+                    if rules_due:
+                        self.refresh_rules()
                 with self.lock:
                     if self.connected and time.monotonic()-self.connected_at > 30:
                         self.connected = False

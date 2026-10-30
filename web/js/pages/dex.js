@@ -1,6 +1,5 @@
 import { ready as userDataReady, userStorage as localStorage } from '../lib/user-data.js';
 import { bindClock } from '../lib/time.js';
-import '../lib/item-preview.js?v=20261023-header-icons-2';
 import { bindQuickSearch } from '../lib/quick-search.js?v=20261024-search-tap-1';
 // Shell of the server-rendered pages (/item, /mob, /map, /route, /search):
 // what app.js does for the SPA. The server set data-device from the

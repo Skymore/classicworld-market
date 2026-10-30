@@ -8,7 +8,7 @@ fn colliding_keys() -> Vec<String> {
     (0..10000).map(|i| format!("item:collision:{i}")).filter(|key| {
         let mut hash = std::collections::hash_map::DefaultHasher::new();
         key.hash(&mut hash);
-        hash.finish() % 32 == 0
+        hash.finish().is_multiple_of(32)
     }).take(8).collect()
 }
 

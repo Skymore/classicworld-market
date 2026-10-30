@@ -6,7 +6,6 @@
 import { renderChrome } from './lib/chrome.js?v=20261023-agent-3321100';
 import { lang, setLang } from './lib/i18n.js';
 import { ready as userDataReady, userStorage as localStorage } from './lib/user-data.js';
-import './lib/item-preview.js?v=20261023-agent-3321100';
 
 // path prefix -> page module. Order matters: first match wins.
 const PAGES = [

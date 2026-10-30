@@ -109,12 +109,9 @@ pub async fn events(
             // A burst is one invalidation, including its last committed change.
             // Bound refresh fan-out for existing clients as well as new ones.
             tokio::time::sleep_until(last + Duration::from_secs(1)).await;
-            loop {
-                match receiver.try_recv() {
-                    Ok(()) | Err(broadcast::error::TryRecvError::Lagged(_)) => continue,
-                    _ => break,
-                }
-            }
+            while let Ok(()) | Err(broadcast::error::TryRecvError::Lagged(_)) =
+                receiver.try_recv()
+            {}
         }
         // Public invalidation only. Personal alerts stay behind their bearer API.
         Some((

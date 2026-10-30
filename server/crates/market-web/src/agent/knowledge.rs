@@ -249,7 +249,7 @@ pub fn run(request: Request) -> Value {
                     }
                 })
                 .collect::<Vec<_>>();
-            rows.sort_by(|a, b| b.0.cmp(&a.0));
+            rows.sort_by_key(|row| std::cmp::Reverse(row.0));
             // A resolved topic should not bring in unrelated classes merely
             // because all their documents contain a generic tag such as 加点.
             let specific = rows.first().is_some_and(|(score, _)| *score >= 40);

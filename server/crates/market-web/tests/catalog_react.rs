@@ -32,7 +32,8 @@ async fn catalog_snapshots_keep_search_filters_and_do_not_expose_arbitrary_paths
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(response.headers()["cache-control"], "no-store");
+        // Snapshots carry a weak ETag and must be revalidated before reuse.
+        assert_eq!(response.headers()["cache-control"], "private, no-cache");
         let json: serde_json::Value =
             serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
                 .unwrap();

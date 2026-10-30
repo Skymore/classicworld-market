@@ -33,6 +33,8 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/device/migrate", post(migrate))
         .route("/api/v1/device/logout", post(logout))
         .route("/api/v1/device/account", get(account))
+        .route("/api/v1/device/devices", get(list_from_device))
+        .route("/api/v1/device/rename", post(rename))
         .route("/api/v1/device/data", get(data).post(save_data))
         .route("/api/v1/device/state", post(save_state))
         .route("/api/v1/account/devices", get(list))
@@ -69,6 +71,11 @@ fn challenge_of(verifier: &str) -> String {
 }
 pub(crate) fn valid_text(s: &str, max: usize) -> bool {
     s.chars().count() <= max && !s.chars().any(char::is_control)
+}
+/// A device name without surrounding whitespace: 1-40 characters, no control characters.
+fn device_name(raw: &str) -> Option<&str> {
+    let name = raw.trim();
+    (!name.is_empty() && valid_text(name, 40)).then_some(name)
 }
 fn valid_version(s: &str) -> bool {
     s.len() <= 32
@@ -194,8 +201,8 @@ async fn authorize(State(state): State<AppState>, headers: HeaderMap, Json(input
     if !state.limiter.allow(&format!("device-authorize:{}", s.id), 10) {
         return Err(error(StatusCode::TOO_MANY_REQUESTS, "rate_limited"));
     }
-    let name = input.name.trim();
-    if !valid_redirect(&input.redirect_uri) || !valid_challenge(&input.challenge) || name.is_empty() || !valid_text(name, 40) {
+    let name = device_name(&input.name).unwrap_or_default();
+    if !valid_redirect(&input.redirect_uri) || !valid_challenge(&input.challenge) || name.is_empty() {
         return Err(error(StatusCode::BAD_REQUEST, "invalid_request"));
     }
     let code = auth::new_credentials().token;
@@ -312,6 +319,24 @@ async fn account(State(state): State<AppState>, headers: HeaderMap) -> Result<Re
     Ok(Json(json!({"account":account,"device":{"id":d.public_id,"name":d.name}})).into_response())
 }
 
+#[derive(Deserialize)]
+struct Rename {
+    name: String,
+}
+/// Renames the calling device only; other devices are signed out on the web.
+async fn rename(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<Rename>) -> Result<Response, Response> {
+    let d = device(&state, &headers).await?;
+    let name = device_name(&input.name).ok_or_else(|| error(StatusCode::BAD_REQUEST, "invalid_request"))?;
+    let mut tx = state.db.begin().await.map_err(internal)?;
+    let changed = sqlx::query("UPDATE account_devices SET name=$2 WHERE id=$1 AND name<>$2")
+        .bind(d.id).bind(name).execute(&mut *tx).await.map_err(internal)?;
+    if changed.rows_affected() > 0 {
+        notify(&mut tx, d.account, "devices").await.map_err(internal)?;
+    }
+    tx.commit().await.map_err(internal)?;
+    Ok(Json(json!({"device":{"id":d.public_id,"name":name}})).into_response())
+}
+
 /// Watch rules and `watch.*` preferences only; never credentials or other settings.
 fn in_scope(r: &Record) -> bool {
     r.kind == "watch" || (r.kind == "pref" && r.key.starts_with("watch."))
@@ -370,11 +395,18 @@ async fn save_state(State(state): State<AppState>, headers: HeaderMap, Json(inpu
     Ok(Json(json!({"ok":true})).into_response())
 }
 
+async fn devices_reply(db: &PgPool, account: i64) -> Result<Response, Response> {
+    let mut db = db.acquire().await.map_err(internal)?;
+    let devices = device_list(&mut db, account).await.map_err(internal)?;
+    Ok(Json(json!({"devices":devices})).into_response())
+}
 async fn list(State(state): State<AppState>, headers: HeaderMap) -> Result<Response, Response> {
     let s = session(&state, &headers).await?.ok_or_else(|| error(StatusCode::UNAUTHORIZED, "login_required"))?;
-    let mut db = state.db.acquire().await.map_err(internal)?;
-    let devices = device_list(&mut db, s.id).await.map_err(internal)?;
-    Ok(Json(json!({"devices":devices})).into_response())
+    devices_reply(&state.db, s.id).await
+}
+async fn list_from_device(State(state): State<AppState>, headers: HeaderMap) -> Result<Response, Response> {
+    let d = device(&state, &headers).await?;
+    devices_reply(&state.db, d.account).await
 }
 #[derive(Deserialize)]
 struct Revoke {
@@ -432,12 +464,22 @@ mod tests {
         assert!(!valid_challenge(&format!("{}.", "a".repeat(42))));
     }
     #[test]
+    fn device_names_are_trimmed_and_bounded() {
+        let longest = "长".repeat(40);
+        assert_eq!(device_name(" 书房电脑\t"), Some("书房电脑"));
+        assert_eq!(device_name(&longest), Some(longest.as_str()));
+        let too_long = "长".repeat(41);
+        for bad in ["", "   ", too_long.as_str(), "a\nb", "a\u{7}b"] {
+            assert_eq!(device_name(bad), None, "{bad:?}");
+        }
+    }
+    #[test]
     fn device_tokens_and_state_are_strict() {
         let token = format!("cwd_{}", auth::new_credentials().token);
         assert!(token_shape(&token));
         assert!(!token_shape(&token[1..]) && !token_shape(&format!("cwx_{}", &token[4..])));
         let state = json!({"client_version":"0.7.0","sweep":{"allow_web_start":false,"max_spend":0,"max_order":0,"reserve_mesos":0,
-            "executor":{"ready":false,"reason":"此电脑尚未安装购买执行器"},"game":{"connected":true}}});
+            "executor":{"ready":false,"reason":"购买功能加载失败"},"game":{"connected":true}}});
         assert!(valid_state(&state));
         let mut no_reason = state.clone();
         no_reason["sweep"]["executor"] = json!({"ready":true});

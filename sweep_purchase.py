@@ -11,14 +11,15 @@ A purchaser implementation must:
 5. Return bought only after confirmation (for example a shop row update or inventory packet).
 6. Use only the reasons in REASONS.
 
-The Windows executor is a separate module `sweep_purchaser_windows` exposing `create()`.
+The Windows executor is a separate module `sweep_purchaser_windows` exposing `create()`. It ships
+with the collector; if it cannot be imported or started, purchases report LOAD_FAILED.
 """
 from dataclasses import dataclass, field
 from typing import Any, Callable, Literal, Optional, Protocol
 
 REASONS = ('sold_out', 'price_changed', 'not_enough_mesos', 'inventory_full',
            'shop_closed', 'window_lost', 'timeout', 'error', 'stopped', 'trade_locked')
-NOT_INSTALLED = '此电脑尚未安装购买执行器'
+LOAD_FAILED = '购买功能加载失败'
 
 
 @dataclass(frozen=True)
@@ -98,7 +99,7 @@ class Purchaser(Protocol):
 
 
 class UnavailablePurchaser:
-    def __init__(self, reason=NOT_INSTALLED):
+    def __init__(self, reason=LOAD_FAILED):
         self.reason = reason
 
     def status(self):
@@ -111,9 +112,6 @@ class UnavailablePurchaser:
 def load_purchaser():
     try:
         import sweep_purchaser_windows
-    except ImportError:
-        return UnavailablePurchaser()
-    try:
         return sweep_purchaser_windows.create()
-    except Exception:
-        return UnavailablePurchaser('购买执行器无法启动')
+    except Exception:  # ImportError included: one reason for every load or start failure.
+        return UnavailablePurchaser()

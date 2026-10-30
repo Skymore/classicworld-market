@@ -204,6 +204,23 @@ class DeploymentTests(unittest.TestCase):
         artifact = self.bundle()
         self.assertFalse((artifact / "web/releases").exists())
 
+    def test_web_push_key_path_is_passed_before_the_file_exists_and_never_packaged(self):
+        key = self.root / "shared_data/web_push.json"
+        with patch.dict(deployment.os.environ, {}, clear=True):
+            env = deployment.web_environment(self.root, {"database_url": "synthetic"}, self.root / "release/web")
+        self.assertEqual(env["WEB_PUSH_CONFIG"], str(key))
+        self.assertFalse(key.exists(), "the service, not the deployer, creates the key")
+        self.assertNotIn("WEB_PUSH_PRIVATE_KEY", env)
+        with patch.dict(deployment.os.environ, {"WEB_PUSH_CONFIG": "/elsewhere/web_push.json"}, clear=True):
+            env = deployment.web_environment(self.root, {"database_url": "synthetic"}, self.root / "release/web")
+        self.assertEqual(env["WEB_PUSH_CONFIG"], "/elsewhere/web_push.json")
+        source_key = self.root / "source/shared_data/web_push.json"
+        deployment.write_json(source_key, {"private_key": "fixture-key-only"})
+        artifact = self.bundle()
+        manifest = json.loads((artifact / "manifest.json").read_text())
+        self.assertFalse([name for name in manifest["files"] if "web_push" in name])
+        self.assertFalse(list(artifact.rglob("web_push*")))
+
 
 if __name__ == "__main__":
     unittest.main()

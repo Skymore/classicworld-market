@@ -35,6 +35,7 @@ pub mod crafting;
 pub mod external;
 pub mod ingest;
 pub mod presence;
+pub mod push;
 pub mod roster;
 pub mod legacy;
 pub mod market_cache;
@@ -88,6 +89,8 @@ pub struct AppState {
     pub collector_updates: tokio::sync::watch::Sender<Option<String>>,
     pub google: Option<Arc<contributors::GoogleOAuth>>,
     pub agent: Option<Arc<agent::OpenRouter>>,
+    /// `None` when no VAPID key is configured.
+    pub push: Option<Arc<push::WebPush>>,
 }
 
 impl AppState {
@@ -115,6 +118,7 @@ impl AppState {
             collector_updates: tokio::sync::watch::channel(None).0,
             google: None,
             agent: None,
+            push: None,
         }
     }
 }
@@ -158,6 +162,7 @@ pub fn app_with_web(state: AppState, web_dir: Option<&std::path::Path>) -> Route
         .merge(api_headers(accounts::router()))
         .merge(api_headers(devices::router()))
         .merge(api_headers(sweep::router()))
+        .merge(api_headers(push::router()))
         .merge(bestiary::routes())
         .layer(SetResponseHeaderLayer::if_not_present(
             header::X_CONTENT_TYPE_OPTIONS,

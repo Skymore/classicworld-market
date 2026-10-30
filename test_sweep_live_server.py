@@ -116,6 +116,15 @@ class LiveSweepTests(unittest.TestCase):
         device = engine.status()['device']['id']
         listed = self.web('GET', '/api/v1/account/devices')['devices']
         self.assertEqual([d['state']['sweep']['executor']['ready'] for d in listed if d['id'] == device], [True])
+        # The desktop shows the account's devices and renames itself through the device token.
+        self.assertEqual(engine.devices()['devices'], listed)
+        engine.rename({'name': ' 测试电脑 '})
+        self.assertEqual(engine.status()['device']['name'], '测试电脑')
+        self.assertEqual([d['name'] for d in self.web('GET', '/api/v1/account/devices')['devices'] if d['id'] == device], ['测试电脑'])
+        # While idle, the rules table comes from the plan a run started now would freeze.
+        engine.refresh_rules()
+        rules = engine.status()['sweep']['rules']
+        self.assertEqual([(w['item_id'], w['limit']) for w in rules['watches']], [(ITEM, 5)])
 
         deadline = time.monotonic()+15
         while not self.server.upstream.connected and time.monotonic() < deadline:
@@ -142,11 +151,15 @@ class LiveSweepTests(unittest.TestCase):
 
         run = self.web('GET', '/api/v1/account/sweep')['run']
         self.assertEqual((run['status'], run['spent'], run['reserved'], run['unknown'], run['remaining']), ('running', 480, 0, 0, 9520))
-        self.assertEqual(run['items'], [{'item_id': ITEM, 'limit': 5, 'units': 5}])
+        self.assertEqual(run['items'], [{'item_id': ITEM, 'limit': 5, 'units': 5, 'bought': 5}])
         self.assertEqual(sorted((p['status'], p['quantity'], p['spent'], p['device']) for p in run['purchases']),
                          [('bought', 2, 180, device), ('bought', 3, 300, device)])
         self.assertEqual([(d['id'], d['state'], d['spent']) for d in run['devices']], [(device, 'active', 480)])
-        self.assertEqual(engine.status()['sweep']['run']['spent_here'], 480)
+        engine.poll()  # Re-reads the device view, which now carries the run-wide totals.
+        here = engine.status()['sweep']
+        self.assertEqual((here['run']['spent_here'], here['run']['spent'], here['run']['bought']), (480, 480, 5))
+        self.assertEqual(here['run']['items'], run['items'])
+        self.assertEqual([(w['item_id'], w['limit']) for w in here['rules']['watches']], [(ITEM, 5)], 'running: rules from the run plan')
 
         engine.stop_run()
         run = self.web('GET', '/api/v1/account/sweep')['run']

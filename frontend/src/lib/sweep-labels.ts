@@ -43,6 +43,8 @@ export interface RunDevice {
   online: boolean;
   spent: number;
   checked?: number | null;
+  /** Recent-match mode: shops left to revisit, 0 while waiting for new hits; null otherwise. */
+  pending?: number | null;
   progress_at?: string | null;
   leased?: boolean;
 }
@@ -88,9 +90,28 @@ export interface SweepState {
   devices: Device[];
 }
 
+/** First collector release that ships the purchase executor. */
+export const MIN_SWEEP_VERSION = "0.6.19";
+const versionParts = (version: string) => {
+  const parts = version.replace(/^v/i, "").split(/[.+-]/).slice(0, 3).map(Number);
+  return parts.length === 3 && parts.every(Number.isInteger) ? parts : null;
+};
+/** The reported version when it predates MIN_SWEEP_VERSION; unknown versions are not blocked. */
+export function outdatedVersion(version: string | null | undefined) {
+  const parts = version ? versionParts(version) : null;
+  const minimum = versionParts(MIN_SWEEP_VERSION)!;
+  if (!parts) return null;
+  const order = parts.findIndex((part, i) => part !== minimum[i]);
+  return order >= 0 && parts[order] < minimum[order] ? version! : null;
+}
+const outdatedLabel = (version: string, words: Words) =>
+  words(`版本 ${version} 过旧，请更新采集端`, `Version ${version} is outdated; update the collector`);
+
 /** Why a device cannot join a sweep started on the website, or null. */
 export function deviceBlocker(device: Device, words: Words) {
   if (!device.online) return words("离线", "Offline");
+  const old = outdatedVersion(device.client_version ?? device.state?.client_version);
+  if (old) return outdatedLabel(old, words);
   const sweep = device.state?.sweep;
   if (!sweep) return words("未上报状态", "No status");
   if (!sweep.executor?.ready)
@@ -99,6 +120,8 @@ export function deviceBlocker(device: Device, words: Words) {
   return null;
 }
 export function executorLabel(state: DeviceState | null, words: Words) {
+  const old = outdatedVersion(state?.client_version);
+  if (old) return outdatedLabel(old, words);
   const executor = state?.sweep?.executor;
   if (!executor) return words("未上报状态", "No status");
   return executor.ready
@@ -167,17 +190,86 @@ export function participantLabel(
   };
   return state && labels[state] ? words(...labels[state]) : state || "—";
 }
-/** FM room · CH channel · owner, skipping unknown parts. */
+/** Channel and room as on the site's offer rows ("12频道 3洞", "CH 12 FM3"), then the owner. */
 export function purchasePlace(
   purchase: Pick<Purchase, "room" | "channel" | "owner">,
+  english = typeof document !== "undefined" &&
+    document.documentElement.lang === "en",
 ) {
-  return [
-    purchase.room != null && `FM ${purchase.room}`,
-    purchase.channel != null && `CH ${purchase.channel}`,
-    purchase.owner,
+  const spot = [
+    purchase.channel != null &&
+      (english ? `CH ${purchase.channel}` : `${purchase.channel}频道`),
+    purchase.room != null &&
+      (english ? `FM${purchase.room}` : `${purchase.room}洞`),
   ]
     .filter(Boolean)
-    .join(" · ");
+    .join(" ");
+  return [spot, purchase.owner].filter(Boolean).join(" · ");
+}
+/** "100 件 @41", or lots and pieces when a lot holds several pieces. */
+export function purchaseAmount(
+  purchase: Pick<Purchase, "quantity" | "units" | "price">,
+  words: Words,
+) {
+  const units = purchase.units || purchase.quantity || 0;
+  const amount =
+    purchase.units && purchase.units !== purchase.quantity
+      ? words(
+          `${purchase.quantity} 组 · ${purchase.units} 件`,
+          `${purchase.quantity} lots · ${purchase.units} pcs`,
+        )
+      : words(`${units} 件`, `${units} pcs`);
+  return purchase.price != null
+    ? `${amount} @${purchase.price.toLocaleString("en-US")}`
+    : amount;
+}
+/** "2 小时 14 分" from milliseconds. */
+export function duration(milliseconds: number, words: Words) {
+  if (!Number.isFinite(milliseconds)) return "—";
+  const minutes = Math.max(0, Math.floor(milliseconds / 60000));
+  const days = Math.floor(minutes / 1440),
+    hours = Math.floor((minutes % 1440) / 60),
+    rest = minutes % 60;
+  return [
+    days && words(`${days} 天`, `${days}d`),
+    hours && words(`${hours} 小时`, `${hours}h`),
+    ((!days && !hours) || rest > 0) && words(`${rest} 分`, `${rest}m`),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+/** What a run's device is doing. A lease is permission to buy, not evidence that the scanner moves. */
+export function deviceActivity(
+  device: RunDevice,
+  run: Pick<Run, "status" | "stop_reason">,
+  words: Words,
+) {
+  if (run.status !== "running") return stopReasonLabel(run.stop_reason, words);
+  if (!device.online) return words("设备离线", "Device offline");
+  if (device.state !== "active") return participantLabel(device.state, words);
+  if (device.leased === false)
+    return words("等待重新连接", "Waiting to reconnect");
+  const message = device.message?.trim();
+  if (!message || ["扫货中", "Sweeping", "运行中", "Running"].includes(message))
+    return words("已加入任务", "Joined the sweep");
+  return message;
+}
+/** "今天 17:12", "明天 09:30"; other days show the date. Numbers are epoch seconds. */
+export function dayClock(at: string | number | null | undefined, words: Words) {
+  if (at == null || at === "") return "—";
+  const date = new Date(
+    typeof at === "number" ? (at > 1e12 ? at : at * 1000) : at,
+  );
+  if (Number.isNaN(date.getTime())) return "—";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const day = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const offset = Math.round((day(date) - day(new Date())) / 86400000);
+  if (offset === 0) return words(`今天 ${time}`, `today ${time}`);
+  if (offset === 1) return words(`明天 ${time}`, `tomorrow ${time}`);
+  if (offset === -1) return words(`昨天 ${time}`, `yesterday ${time}`);
+  return `${date.getMonth() + 1}/${date.getDate()} ${time}`;
 }
 /** Clock time; earlier or later days also show the date. Numbers are epoch seconds. */
 export function clockTime(

@@ -49,6 +49,15 @@ async fn main() -> Result<()> {
         }
     });
     state.agent = market_web::agent::OpenRouter::from_env()?.map(std::sync::Arc::new);
+    state.push = market_web::push::WebPush::from_env()?.map(std::sync::Arc::new);
+    if let Some(push) = state.push.clone() {
+        // Rounds hold an advisory lock on one connection and query on the other.
+        let push_db = PgPoolOptions::new()
+            .max_connections(2)
+            .connect_lazy_with(state.db.connect_options().as_ref().clone());
+        tokio::spawn(market_web::push::run(push_db, push));
+        tracing::info!("web push enabled");
+    }
     state.google = market_web::contributors::GoogleOAuth::load(
         config.web_dir.as_deref(),
         &config.settings.hostname,

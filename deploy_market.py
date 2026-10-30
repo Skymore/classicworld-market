@@ -113,6 +113,8 @@ def web_environment(root, native, web, port=8766):
     openrouter = Path(root) / "shared_data/openrouter.json"
     if openrouter.is_file():
         env.setdefault("OPENROUTER_CONFIG", str(openrouter))
+    # Passed even before the file exists: the service then creates the VAPID key.
+    env.setdefault("WEB_PUSH_CONFIG", str(Path(root) / "shared_data/web_push.json"))
     return env
 
 

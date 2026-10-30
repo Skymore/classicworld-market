@@ -6,7 +6,7 @@ from account_device import DeviceError
 from desktop_workspace import DesktopWorkspace
 
 STATUS = {'linked': True, 'account': {'id': 'acct', 'nickname': 'N'}, 'device': {'id': 'dev', 'name': 'PC'},
-          'sweep': {'settings': {}, 'executor': {'ready': False, 'reason': '此电脑尚未安装购买执行器'},
+          'sweep': {'settings': {}, 'executor': {'ready': False, 'reason': '购买功能加载失败'},
                     'run': None, 'recent': [], 'message': ''}}
 
 
@@ -32,6 +32,14 @@ class DesktopWorkspaceTests(unittest.TestCase):
         self.assertEqual(self.workspace.run('logout'),STATUS)
         self.sweep.logout.assert_called_once_with()
 
+    def test_devices_and_rename_go_to_the_engine(self):
+        self.sweep.devices.return_value={'devices':[]}
+        self.assertEqual(self.workspace.run('devices'),{'devices':[]})
+        self.assertEqual(self.workspace.run('rename',{'name':'书房电脑'}),STATUS)
+        self.sweep.rename.assert_called_once_with({'name':'书房电脑'})
+        self.sweep.rename.side_effect=DeviceError(400,{'error':'invalid_request'})
+        with self.assertRaisesRegex(ValueError,'请求无效'):self.workspace.run('rename',{'name':'x'})
+
     def test_errors_are_short_chinese_messages(self):
         self.sweep.start_run.side_effect=DeviceError(409,{'error':'sweep_running'})
         with self.assertRaisesRegex(ValueError,'已有进行中的扫货'):self.workspace.run('start',{'budget':1,'minutes':5})
@@ -55,7 +63,7 @@ class DesktopWorkspaceTests(unittest.TestCase):
 
     def test_page_uses_only_trusted_local_routes(self):
         (self.workspace.runtime.home/'dashboard.json').write_text('{"url":"http://127.0.0.1:8780/alerts"}')
-        self.assertEqual(self.workspace.run('page',{'page':'watch'})['url'],'http://127.0.0.1:8780/watch?lang=zh&theme=light')
+        self.assertEqual(self.workspace.run('page',{'page':'watch'})['url'],'http://127.0.0.1:8780/watch?lang=zh&theme=light&embed=1')
         with self.assertRaises(ValueError):self.workspace.run('page',{'page':'https://example.com'})
         (self.workspace.runtime.home/'dashboard.json').write_text('{"url":"https://example.com/alerts"}')
         with self.assertRaises(ValueError):self.workspace.run('page',{'page':'prices'})

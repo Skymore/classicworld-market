@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { ago, fullTime } from "/web/js/lib/format.js";
 import { useAccount } from "../lib/query";
 import { setAssistantOpen, useAssistantOpen } from "../lib/assistant";
+import { embedded } from "../lib/embed";
 import { usePreferences, useWords } from "../providers";
 import { AssistantDock } from "./assistant-dock";
 import { AssistantIcon } from "./assistant-icon";
@@ -290,12 +291,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
   return (
     <>
-      <header className="ptop">
-        <PhoneHeader />
-      </header>
-      <header className="dhead">
-        <DesktopHeader />
-      </header>
+      {!embedded && (
+        <>
+          <header className="ptop">
+            <PhoneHeader />
+          </header>
+          <header className="dhead">
+            <DesktopHeader />
+          </header>
+        </>
+      )}
       <main
         className={
           "pmain dwrap " +
@@ -325,10 +330,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
         {children}
       </main>
-      <nav className="dock" aria-label={words("主导航", "Main navigation")}>
-        <Navigation dock />
-      </nav>
-      <AssistantDock />
+      {!embedded && (
+        <>
+          <nav className="dock" aria-label={words("主导航", "Main navigation")}>
+            <Navigation dock />
+          </nav>
+          <AssistantDock />
+        </>
+      )}
     </>
   );
 }

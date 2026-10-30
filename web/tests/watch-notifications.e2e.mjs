@@ -42,6 +42,7 @@ const server=createServer(async(req,res)=>{
  try{res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.svg')?'image/svg+xml':'text/html; charset=utf-8');res.end(await readFile(file));}catch{res.writeHead(404);res.end();}
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+// 127.0.0.1 is the collector's local gateway: page notifications, no Web Push (see web-push.e2e.mjs).
 const origin=`http://127.0.0.1:${server.address().port}`;
 const frames=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
 async function refresh(page){revision++;const responses=Promise.all(['/api/v1/watchlist/listings','/api/v1/collector/watch-listings'].map(endpoint=>page.waitForResponse(r=>new URL(r.url()).pathname===endpoint).then(r=>r.finished())));for(const stream of streams)stream.write('event: market\ndata: {}\n\n');await responses;await frames(page);}

@@ -89,14 +89,6 @@ async fn call_tool(
     }
 }
 
-pub(crate) async fn execute(
-    db: &sqlx::PgPool,
-    name: &str,
-    args: Value,
-) -> Result<Value, (StatusCode, &'static str)> {
-    execute_with_provider(db, None, name, args).await
-}
-
 pub(crate) async fn execute_with_provider(
     db: &sqlx::PgPool,
     provider: Option<&OpenRouter>,

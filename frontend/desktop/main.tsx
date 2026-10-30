@@ -1,32 +1,49 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Play, Pause, Square, Sun, Moon, Monitor, RefreshCw, UserRound, Minus, X, ArrowUpRight, Package, Clock3, ScanLine, MousePointer2, AlertCircle } from 'lucide-react';
+import { Copy, Minus, Square, X } from 'lucide-react';
 import '../../web/css/base.css';
 import './style.css';
-import WorkspaceTab, { useWorkspaceStatus } from './workspace';
-import { mesos } from '../src/lib/sweep-labels';
-import SitePage from './site-page';
+import WorkspaceTab, { useWorkspaceStatus, type Shell } from './workspace';
+import ScanPage from './scan-page';
+import SitePage, { type WatchSummary } from './site-page';
+import { updateLabel } from './format';
+import { healthLabel, initial, isLive, type State, type Theme } from './state';
 
-type State = {
-  version: string; phase: string; mode: string; message: string; room: number | null;
-  channel: number | null; visited: number; uploaded: number; started_at: number | null; stopped_at: number | null;
-  run_shops: number; run_items: number; run_started_at: number | null;
-  capture: string; upload: string; last_shop_at: number | null; updates: string;
-  selected: number | null; windows: { id: number; title: string; pid: number }[];
-  theme: 'light' | 'dark' | 'system'; activities: { at: number; text: string; kind: string }[];
-  desired?: boolean; last_progress_at?: number | null; retries?: number; next_retry_at?: number | null; pending_uploads?: number;
+type Tab = 'scan' | 'watch' | 'prices' | 'sweep' | 'account';
+const TABS: [Tab, string][] = [['scan', '扫描采集'], ['watch', '关注'], ['prices', '价格表'], ['sweep', '扫货'], ['account', '账号']];
+// One button cycles light → dark → system.
+const THEMES: Record<Theme, { label: string; next: Theme }> = {
+  light: { label: '浅色', next: 'dark' }, dark: { label: '深色', next: 'system' }, system: { label: '跟随系统', next: 'light' },
 };
-declare global { interface Window { pywebview?: { api: { ready(): Promise<State>; command(name: string, value?: unknown): Promise<State>; workspace(name:string,value?:unknown):Promise<any> } } } }
-const initial: State = { version: '', phase: 'idle', mode: 'scan', message: '正在连接采集器…', room: null, channel: null, visited: 0, uploaded: 0, started_at: null, stopped_at: null, run_shops: 0, run_items: 0, run_started_at: null, capture: 'connecting', upload: 'ready', last_shop_at: null, updates: 'checking', selected: null, windows: [], theme: 'system', activities: [] };
-const phases: Record<string, string> = { idle: '准备就绪', scanning: '扫描中', paused: '已暂停', stopping: '正在停止', stopped: '已停止', error: '需要处理', waiting_task:'等待任务', recovering_network:'网络恢复中', waiting_game:'等待游戏', rebuilding:'重建任务', needs_attention:'需要人工处理' };
-const health: Record<string, string> = { connecting: '正在连接', connected: '游戏已连接', capturing: '正在采集', waiting: '等待游戏连接', handshake: '请切一次频道', no_game: '等待打开游戏', no_inbound: '等待游戏数据', offline: '尚未连接', parse_error: '连接需要刷新' };
-function Leaf() { return <img src={new URL('../../assets/app-icon.svg', import.meta.url).href} width="34" height="34" alt="" aria-hidden="true" />; }
-function elapsed(start: number | null, now: number) { if (!start) return '—'; const secs = Math.max(0, Math.floor(now / 1000 - start)); return `${Math.floor(secs / 3600) ? `${Math.floor(secs / 3600)}:` : ''}${String(Math.floor(secs / 60) % 60).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`; }
+/** A half-filled circle: the theme button. */
+function ThemeIcon() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" /></svg>;
+}
+/** Bottom-right grip: frameless windows have no native resize border on Windows. */
+function ResizeGrip() {
+  const drag = useRef<{ x: number; y: number; w: number; h: number; pending: boolean; next: [number, number] | null } | null>(null);
+  const send = () => {
+    const d = drag.current;
+    if (!d || d.pending || !d.next) return;
+    const size = d.next; d.next = null; d.pending = true;
+    window.pywebview?.api.command('window', { resize: size }).catch(() => {}).finally(() => { if (drag.current === d) { d.pending = false; send(); } });
+  };
+  return <div className="resize-grip" aria-hidden="true"
+    onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); drag.current = { x: e.screenX, y: e.screenY, w: window.innerWidth, h: window.innerHeight, pending: false, next: null }; }}
+    onPointerMove={e => { const d = drag.current; if (!d) return; d.next = [Math.round(d.w + e.screenX - d.x), Math.round(d.h + e.screenY - d.y)]; send(); }}
+    onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} />;
+}
+function Leaf() { return <img src={new URL('../../assets/app-icon.svg', import.meta.url).href} width="28" height="28" alt="" aria-hidden="true" />; }
+
 function App() {
-  const [tab,setTab]=useState<'scan'|'watch'|'prices'|'sweep'|'account'>('scan');
+  const [tab, setTab] = useState<Tab>('scan');
   const [state, setState] = useState<State>(initial), [connected, setConnected] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(''), [now, setNow] = useState(Date.now());
-  const [selected, setSelected] = useState<number | null>(null);
-  const workspace = useWorkspaceStatus(), sweepRun = workspace.status?.linked ? workspace.status.sweep?.run : null;
+  const [selected, setSelected] = useState<number | null>(null), [resolved, setResolved] = useState<'light' | 'dark'>('light');
+  const [watch, setWatch] = useState<WatchSummary | null>(null), [pricesOpened, setPricesOpened] = useState(false);
+  const onSummary = useCallback((summary: WatchSummary) => setWatch(summary), []);
+  useEffect(() => { if (tab === 'prices') setPricesOpened(true); }, [tab]);
+  const workspace = useWorkspaceStatus(), sweep = workspace.status?.linked ? workspace.status.sweep : null;
   useEffect(() => {
     let alive = true;
     const accept = (next: State) => { if (alive) { setState(next); setConnected(true); setSelected(v => next.windows.some(w => w.id === v) ? v : next.selected); } };
@@ -37,45 +54,51 @@ function App() {
     return () => { alive = false; window.removeEventListener('pywebviewready', ready); window.removeEventListener('scanner-state', update); };
   }, []);
   useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
-  useEffect(() => { const mq = matchMedia('(prefers-color-scheme: dark)'); const apply = () => { document.documentElement.dataset.theme = state.theme === 'system' ? (mq.matches ? 'dark' : 'light') : state.theme; }; apply(); mq.addEventListener('change', apply); return () => mq.removeEventListener('change', apply); }, [state.theme]);
-  const action = async (name: string, value?: unknown) => { if (!window.pywebview?.api || busy) return; setBusy(true); setError(''); try { setState(await window.pywebview.api.command(name, value)); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); } };
-  const active = state.desired || ['scanning','paused','stopping','waiting_task','recovering_network','waiting_game','rebuilding'].includes(state.phase), live = ['connected','capturing'].includes(state.capture);
-  const progressStatus = state.phase === 'scanning'
-    ? ['扫描中', state.room ? `${state.room} 洞` : '', state.channel ? `${state.channel}频道` : ''].filter(Boolean).join(' · ')
-    : ['stopped','paused'].includes(state.phase)
-      ? `${phases[state.phase]} · ${live ? '手动采集中' : (health[state.capture] || '等待游戏连接')}`
-      : state.mode === 'manual' && live ? '手动采集中' : (phases[state.phase] || '准备中');
+  useEffect(() => {
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => { const theme = state.theme === 'system' ? (mq.matches ? 'dark' : 'light') : state.theme; document.documentElement.dataset.theme = theme; setResolved(theme); };
+    apply(); mq.addEventListener('change', apply); return () => mq.removeEventListener('change', apply);
+  }, [state.theme]);
+  const action = async (name: string, value?: unknown) => {
+    if (!window.pywebview?.api || busy) return;
+    setBusy(true); setError('');
+    try { setState(await window.pywebview.api.command(name, value)); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  };
+  const theme = THEMES[state.theme] || THEMES.system;
+  const shell: Shell = {
+    version: state.version, updates: state.updates, uploaded: state.uploaded, gameLive: isLive(state), gameLabel: healthLabel(state), watch,
+    openWatch: () => setTab('watch'), openWebsite: () => action('website'),
+  };
   return <div className="desktop-app">
-    <header className="app-header"><div className="app-brand pywebview-drag-region"><Leaf /><div><strong>枫叶市集</strong><span>扫描与采集</span></div></div><div className="header-tools">
-      <div className="theme-switch" aria-label="主题">{([['system',Monitor,'跟随系统'],['light',Sun,'浅色主题'],['dark',Moon,'深色主题']] as const).map(([value, Icon, label]) => <button key={value} title={label} aria-label={label} aria-pressed={state.theme === value} onClick={() => action('theme',value)} disabled={!connected || busy}><Icon size={17}/></button>)}</div>
-      <button className="icon-btn" title="账号与提醒" aria-label="账号与提醒" onClick={() => setTab('account')} disabled={!connected || busy}><UserRound size={19}/></button>
-      <div className="window-controls" aria-label="窗口操作">
-        <button title="最小化" aria-label="最小化" onClick={() => action('window','minimize')} disabled={!connected}><Minus size={17}/></button>
-        <button className="window-close" title="关闭" aria-label="关闭" onClick={() => action('window','close')} disabled={!connected}><X size={19}/></button>
-      </div>
-    </div></header>
-    <nav className="desktop-tabs" aria-label="功能"><button aria-pressed={tab==='scan'} onClick={()=>setTab('scan')}>扫描采集</button><button aria-pressed={tab==='watch'} onClick={()=>setTab('watch')}>关注</button><button aria-pressed={tab==='prices'} onClick={()=>setTab('prices')}>价格表</button><button aria-pressed={tab==='sweep'} onClick={()=>setTab('sweep')}>扫货</button><button aria-pressed={tab==='account'} onClick={()=>setTab('account')}>账号</button></nav>
-    <main className={'desktop-main'+(tab!=='scan'?' workspace-main':'')}>
-      {tab==='scan'?<>
-      <div className="page-heading"><div><div className="eyebrow">FREE MARKET</div><h1>让逛摊，更轻松。</h1><p>自动扫店，发现好价。每一份报价，都与大家共享。</p></div><div className="desktop-watch-actions"><button className="text-link" onClick={() => setTab('watch')} disabled={!connected}>关注 <ArrowUpRight size={16}/></button><button className="text-link" onClick={() => action('website')} disabled={!connected}>打开市集 <ArrowUpRight size={16}/></button></div></div>
-      {sweepRun&&<div className="desktop-sweep-status" data-sweep-status-line><span>扫货{sweepRun.status==='running'?'中':'已结束'} · 剩余 {mesos(sweepRun.remaining)} · 本机已花 {mesos(sweepRun.spent_here)}{sweepRun.message?` · ${sweepRun.message}`:''}</span><button className="text-link" onClick={()=>setTab('sweep')}>查看</button></div>}
-      {error && <div role="alert" className="error-banner"><AlertCircle size={18}/><span>{error}</span></div>}
-      <section className="stall scan-panel" aria-label="扫描控制"><div className="stall-bar"><ScanLine size={18}/><h2>开始采集</h2><span className={`connection ${live?'live':''}`}><i/>{health[state.capture] || '等待游戏连接'}</span></div>
-        <div className="scan-body"><div className="mode-tabs" role="group" aria-label="采集方式"><button aria-pressed={state.mode==='scan'} disabled={!connected || active || busy} onClick={() => action('mode','scan')}><ScanLine size={17}/>自动扫描</button><button aria-pressed={state.mode==='manual'} disabled={!connected || active || busy} onClick={() => action('mode','manual')}><MousePointer2 size={17}/>手动逛摊</button></div>
-          {state.mode === 'scan' ? <><label className="field-label" htmlFor="game-window">游戏窗口</label><div className="window-picker"><Monitor size={19}/><select id="game-window" value={selected ?? ''} disabled={active || !connected} onChange={e => setSelected(Number(e.target.value))}>{!state.windows.length && <option value="">打开 MapleStory 后刷新列表</option>}{state.windows.map(w => <option key={w.id} value={w.id}>{w.title}{state.windows.length>1?` · ${w.pid}`:''}</option>)}</select><button className="icon-btn refresh" onClick={() => action('refresh')} title="刷新游戏窗口" aria-label="刷新游戏窗口" disabled={active || busy || !connected}><RefreshCw size={17}/></button></div>
-          <div className="scan-actions">{active ? <><button className="ui-btn primary" disabled={busy || !['scanning','paused'].includes(state.phase)} onClick={() => action(state.phase==='paused'?'resume':'pause')}>{state.phase==='paused'?<Play size={17}/>:<Pause size={17}/>} {state.phase==='paused'?'继续扫描':'暂停扫描'}</button><button className="ui-btn" disabled={busy || state.phase==='stopping'} onClick={() => action('stop')}><Square size={15}/>停止</button></> : <button className="ui-btn primary" disabled={!connected || busy || !selected || state.capture==='offline'} onClick={() => action('start',selected)}><Play size={17} fill="currentColor"/>开始扫描</button>}<span className="action-note">自动领取洞号 · 扫完接着扫</span></div></> : <div className="manual-mode"><MousePointer2 size={32}/><div><h3>按你的节奏逛摊</h3><p>切换一次频道，然后照常打开摊位。<br/>报价会自动采集并上传。</p></div><span className="manual-badge">已开启</span></div>}
+    <header className="app-header">
+      <div className="app-brand pywebview-drag-region"><Leaf /><strong className="pywebview-drag-region">枫叶市集</strong></div>
+      <nav className="app-tabs" aria-label="功能">{TABS.map(([key, label]) => {
+        const hits = key === 'watch' ? watch?.hits ?? 0 : 0;
+        return <button key={key} aria-pressed={tab === key} aria-label={hits ? `${label}，${hits} 件有符合条件的在售` : undefined} onClick={() => setTab(key)}>
+          {label}{hits > 0 && <b className="tab-badge" data-watch-hits>{hits}</b>}</button>;
+      })}</nav>
+      <div className="app-drag pywebview-drag-region" onDoubleClick={() => action('window', 'maximize')} />
+      <div className="header-tools">
+        <button className="icon-btn" title={`主题：${theme.label}`} aria-label={`主题：${theme.label}`} onClick={() => action('theme', theme.next)} disabled={!connected || busy}><ThemeIcon /></button>
+        <div className="window-controls" aria-label="窗口操作">
+          <button title="最小化" aria-label="最小化" onClick={() => action('window', 'minimize')} disabled={!connected}><Minus size={17} /></button>
+          <button title={state.maximized ? '还原' : '最大化'} aria-label={state.maximized ? '还原' : '最大化'} onClick={() => action('window', 'maximize')} disabled={!connected}>
+            {state.maximized ? <Copy size={14} /> : <Square size={14} />}</button>
+          <button className="window-close" title="关闭" aria-label="关闭" onClick={() => action('window', 'close')} disabled={!connected}><X size={19} /></button>
         </div>
-      </section>
-      <section className="stall progress-panel" aria-label="本次运行"><div className="stall-bar"><h2>本次运行</h2><span className="bar-meta">待传 {state.pending_uploads ?? 0}{state.last_progress_at ? ` · 最近进展 ${elapsed(state.last_progress_at, now)} 前` : ''}</span><span role="status" title={state.message} className={`phase phase-${state.phase}`}>{progressStatus}</span></div><div className="metrics">
-        <div><span><ScanLine size={15}/>已扫店铺</span><strong>{(state.run_shops ?? 0).toLocaleString()}<small>家</small></strong></div>
-        <div><span><Package size={15}/>已扫商品</span><strong>{(state.run_items ?? 0).toLocaleString()}<small>件</small></strong></div>
-        <div><span><Clock3 size={15}/>运行时长</span><strong className="time-value">{elapsed(state.run_started_at, now)}</strong></div>
-      </div>{['waiting_task','recovering_network','waiting_game','rebuilding','needs_attention'].includes(state.phase) && <p className="recovery-status">{state.message}{state.next_retry_at ? ` · 重试 ${state.retries ?? 0} · ${Math.max(0,Math.ceil(state.next_retry_at-now/1000))} 秒后` : ''}</p>}</section>
-      <div className="bottom-grid"><section className="stall activity-panel" aria-label="最近动态"><div className="stall-bar"><h2>最近动态</h2><span className="bar-meta">实时更新</span></div><div className="activity-list">{state.activities.length ? state.activities.slice(0,4).map((item,i) => <div className={`activity ${item.kind}`} key={`${item.at}-${i}`}><i/><span>{item.text}</span><time>{new Date(item.at*1000).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</time></div>) : <div className="activity-empty">开始扫描后，进度会显示在这里。</div>}</div></section>
       </div>
-      </>:tab==='prices'||tab==='watch'?<SitePage page={tab}/>:<WorkspaceTab tab={tab} workspace={workspace}/> }
+    </header>
+    <main className={'desktop-main ' + (tab === 'scan' ? 'scan-main' : tab === 'watch' || tab === 'prices' ? 'workspace-main site-main' : 'workspace-main')}>
+      {tab === 'scan' ? <ScanPage state={state} connected={connected} busy={busy} error={error} now={now} selected={selected} select={setSelected}
+          action={action} sweep={sweep} openSweep={() => setTab('sweep')} />
+        : tab === 'sweep' || tab === 'account' ? <WorkspaceTab tab={tab} workspace={workspace} shell={shell} /> : null}
+      {/* Site pages stay mounted once opened: the watch page reports hits even while another tab is shown. */}
+      {connected && <SitePage page="watch" theme={resolved} hidden={tab !== 'watch'} onSummary={onSummary} />}
+      {connected && pricesOpened && <SitePage page="prices" theme={resolved} hidden={tab !== 'prices'} />}
     </main>
-    <footer className="app-footer"><span><kbd>F9</kbd> 停止扫描 <b>·</b> 扫描时保持游戏在前台</span><span>{state.version?`v${state.version}`:'正在连接'} <b>·</b> {state.updates==='waiting_for_game_exit'?'新版本已就绪，退出游戏后更新':state.updates==='retry_later'?'稍后重试更新':'自动更新已开启'}</span></footer>
+    {connected && !state.maximized && <ResizeGrip />}
+    <footer className="app-footer"><span><kbd>F9</kbd> 停止扫描 <b>·</b> 扫描时保持游戏在前台</span>
+      <span>{state.version ? `v${state.version}` : '正在连接'} <b>·</b> {updateLabel(state.updates)}</span></footer>
   </div>;
 }
-createRoot(document.getElementById('root')!).render(<App/>);
+createRoot(document.getElementById('root')!).render(<App />);

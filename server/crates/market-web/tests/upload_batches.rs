@@ -36,7 +36,7 @@ async fn batch_matches_sequential_replay_and_recomputes_shared_items_once() {
     let Some(db) = TestDb::new().await else { return };
     let sequential = TestDb::new().await.unwrap();
     let a = vec![db.collector("one").await, db.collector("two").await];
-    let b = vec![sequential.collector("one").await, sequential.collector("two").await];
+    let b = [sequential.collector("one").await, sequential.collector("two").await];
     let now = unix_now();
     let first = observation("first", now-60.0, 8, 7);
     let mut conflict = first.clone(); conflict["items"][0]["price"] = json!(900);

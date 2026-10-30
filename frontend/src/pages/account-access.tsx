@@ -20,6 +20,7 @@ import { useWords } from "../providers";
 import type { Account } from "../lib/types";
 import { Button } from "../components/ui/button";
 import { queryClient } from "../lib/query";
+import { PUSH_LIST_KEY, dropLocalPush, keepPushAfterSessionChange } from "../lib/push";
 
 type Words = (zh: string, en: string) => string;
 const ACCOUNT_MESSAGES: Record<string, [string, string]> = {
@@ -511,6 +512,9 @@ export function SecurityPanel({
       });
       recover(result.recovery_code || null);
       await refresh(true);
+      // A password change revokes sessions and their push subscriptions; this browser keeps its own.
+      await keepPushAfterSessionChange(queryClient.getQueryData<Account>(["account"])?.csrf, document.documentElement.lang === "en" ? "en" : "zh");
+      void queryClient.invalidateQueries({ queryKey: PUSH_LIST_KEY });
     } catch (error) {
       setStatus(message((error as Error).message));
     } finally {
@@ -525,6 +529,8 @@ export function SecurityPanel({
       const result = await post("/api/v1/account/" + kind, {
         current_password: current.current?.value || "",
       });
+      // The server already dropped every subscription with the sessions.
+      if (kind === "logout-all") await dropLocalPush();
       if (kind === "google/link") {
         const url = new URL(result.url!);
         if (url.origin !== "https://accounts.google.com")

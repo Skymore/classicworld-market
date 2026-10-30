@@ -5,7 +5,7 @@ import time
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
-from scanner_desktop import DesktopAPI, DesktopController, status_text
+from scanner_desktop import DesktopAPI, DesktopController, purchase_text, status_text
 import collector_dashboard
 
 
@@ -71,8 +71,21 @@ class DesktopTests(unittest.TestCase):
         self.controller._window = window
         self.controller.command('window', 'minimize')
         window.minimize.assert_called_once()
+        self.assertTrue(self.controller.command('window', 'maximize')['maximized'])
+        window.maximize.assert_called_once()
+        self.assertFalse(self.controller.command('window', 'maximize')['maximized'])
+        window.restore.assert_called_once()
         self.runtime.close.assert_not_called()
         with self.assertRaises(ValueError): self.controller.command('window', 'anything')
+        # The corner grip resizes, never below the designed minimum and not while maximized.
+        self.controller._window = Mock()
+        self.controller.command('window', {'resize': [1200, 500]})
+        self.controller._window.resize.assert_called_once_with(1200, 740)
+        for bad in ({'resize': [1200]}, {'resize': ['1200', 900]}, {'resize': [1200, 900], 'x': 1}):
+            with self.assertRaises(ValueError): self.controller.command('window', bad)
+        self.controller._change(maximized=True)
+        self.controller.command('window', {'resize': [1300, 900]})
+        self.controller._window.resize.assert_called_once()
 
     def test_invalid_game_window_cannot_start_input(self):
         with patch('scanner_desktop.focus_game') as focus:
@@ -167,13 +180,28 @@ class DesktopTests(unittest.TestCase):
         sweep.buying.return_value = True
         sweep.scan_mode.return_value = 'recent'
         self.controller.sweep = sweep
-        with patch.object(self.controller, 'start') as start:
+        # release_keys imports market_keyboard, which needs ctypes.WinDLL.
+        with patch.object(self.controller, 'start') as start, patch('scanner_desktop.release_keys'):
             self.controller.sync_sweep()
             self.controller.sync_sweep()
             start.assert_called_once_with(12)
             self.controller.command('stop')
             self.controller.sync_sweep()
             start.assert_called_once_with(12)
+
+    def test_purchases_are_added_to_the_activity_list(self):
+        sweep = Mock(lock=threading.RLock())
+        controller = DesktopController(self.runtime, modules=self.modules, windows=lambda: [], sweep=sweep)
+        notify = sweep.add_listener.call_args.args[0]
+        entry = dict(name='红色药水', item_id=2000000, units=100, quantity=100, price=41, room=3, channel=12, owner='COSTCO')
+        notify(entry)
+        notify(entry)  # The same listing bought twice is two rows.
+        rows = controller.snapshot()['activities']
+        self.assertEqual([(r['text'], r['kind']) for r in rows[:2]], [('买到 红色药水 ×100 @41 · 3 洞 12 频道 COSTCO', 'sweep')]*2)
+        self.assertEqual(purchase_text(dict(name='弯刀', units=1, price=9000, room=None, channel=None, owner=None)), '买到 弯刀 ×1 @9,000')
+        for i in range(60):
+            controller._activity(f'步骤 {i}')
+        self.assertEqual(len(controller.snapshot()['activities']), 40)
 
     def test_internal_event_names_do_not_leak_into_ui(self):
         self.assertEqual(status_text('full_scanning_room_8_channel_12'), '正在扫描 8 洞 · 12频道')

@@ -15,8 +15,6 @@ export default function WatchGroups({id,name,setting,rows,reference,onChange,swe
   const words=useWords(), groups=watchGroups(setting);
   const [editing,setEditing]=useState<string|null>(null), [undo,setUndo]=useState<any>(null);
   const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
-  const limitedQuantity=useRef(setting.buyLimit>0?setting.buyLimit:1);
-  useEffect(()=>{if(setting.buyLimit>0)limitedQuantity.current=setting.buyLimit;},[setting.buyLimit]);
   useEffect(()=>()=>{if(timer.current)clearTimeout(timer.current);},[]);
   useEffect(()=>{if(autoEdit&&groups.length)setEditing(groups[0].id);},[autoEdit]);
   const write=(next:any[])=>onChange({groups:next});
@@ -30,7 +28,7 @@ export default function WatchGroups({id,name,setting,rows,reference,onChange,swe
     const key=crypto.randomUUID();write([...groups,{id:key,name:'',cap:null,notify:true,buy:false,reminder:{}}]);setEditing(key);
   }
   // Sweeping needs an account; for guests the box shows only on groups that already sweep.
-  const buying=groups.some((g:any)=>g.buy), several=groups.length>1;
+  const several=groups.length>1;
   return <div className="watch-groups">
     {groups.map((g:any,index:number)=>{
       const selected=reminderSelection(rows,id,g,reference), tokens=reminderTokens(g.reminder,document.documentElement.lang==='en');
@@ -55,7 +53,6 @@ export default function WatchGroups({id,name,setting,rows,reference,onChange,swe
       </Fragment>;
     })}
     {undo&&<div className="wg-undo" role="status">{words('条件组已删除','Group deleted')} <button onClick={()=>{const next=[...groups];next.splice(Math.min(undo.at,next.length),0,undo.group);write(next);setUndo(null);}}>{words('撤销','Undo')}</button></div>}
-    {(!groups.length||buying)&&<div className="wg-footer">{!groups.length&&<button className="wg-link" onClick={addGroup}>{words('＋ 添加条件','＋ Add conditions')}</button>}
-      {buying&&<><label><input aria-label={words(`${name}数量不限`,`${name} unlimited quantity`)} type="checkbox" checked={setting.buyLimit===0} onChange={e=>onChange({buyLimit:e.target.checked?0:limitedQuantity.current})}/>{words('数量不限','Unlimited quantity')}</label>{setting.buyLimit!==0&&<label>{words('本轮最多买','Session limit')}<input aria-label={words(`${name}本轮购买上限`,`${name} session quantity limit`)} type="number" min={1} max={9999} step={1} value={setting.buyLimit??1} onChange={e=>{const n=Number(e.target.value);if(Number.isInteger(n)&&n>=1&&n<=9999)onChange({buyLimit:n});}}/>{words('件','units')}</label>}</>}</div>}
+    {!groups.length&&<div className="wg-footer"><button className="wg-link" onClick={addGroup}>{words('＋ 添加条件','＋ Add conditions')}</button></div>}
   </div>;
 }

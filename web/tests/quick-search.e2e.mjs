@@ -133,6 +133,9 @@ try {
     const input = finder.locator('input[name=q]');
     const box = finder.locator('.quick-search');
     async function search() {
+      // A pointer left where a result row reappears opens the desktop hover
+      // preview over that row before the next press.
+      await page.mouse.move(0, 0);
       await page.goto(origin + route + '?hours=all&lang=zh');
       const answer = page.waitForResponse(response => {
         const url = new URL(response.url());

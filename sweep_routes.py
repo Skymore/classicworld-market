@@ -59,14 +59,14 @@ def run_recent(folder, hwnd, ready, stop, status, engine, scan):
                 continue
             locations.setdefault((shop['room'], shop['channel']), []).append((shop, fingerprint))
         if not locations:
-            engine.progress('等待新的命中店铺')
+            engine.progress('等待新的命中店铺', revisits=0)
             status(('confirmed', dict(step='recent_wait', room=None, channel=None, visited=total)))
             stop.wait(15)
             continue
         for index, ((room, channel), shops) in enumerate(locations.items()):
             if stop.is_set() or not engine.buying():
                 break
-            engine.progress(f'近期命中：{room} 洞 · {channel}频道 · 待访 {len(locations)-index} 处')
+            engine.progress(f'近期命中：{room} 洞 · {channel}频道 · 待访 {len(locations)-index} 处', revisits=len(locations)-index)
             class VisitProgress(ScanProgress):
                 armed = False
                 def save(self, r, ch, cycle, **details):

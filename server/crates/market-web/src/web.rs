@@ -8,6 +8,7 @@ use std::path::Path;
 
 use axum::{
     http::{header, HeaderValue},
+    response::Response,
     Router,
 };
 use tower_http::{
@@ -18,12 +19,13 @@ use tower_http::{
 use crate::AppState;
 
 /// `wasm-unsafe-eval` lets the collector instantiate its WASM; `media-src
-/// blob:` is the screen-share preview; `img-src https:` the item icons.
+/// blob:` is the screen-share preview; `img-src https:` the item icons;
+/// `manifest-src` the web app manifest.
 /// `style-src 'unsafe-inline'` only covers style attributes: the UI passes
 /// sizes as inline custom properties (`style="--s:28px"`); scripts stay strict.
 pub(crate) const CSP: &str = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; \
     style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; media-src blob:; connect-src 'self' http://127.0.0.1:8780; \
-    font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+    font-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 
 /// Client-routed pages (see `web/js/app.js`). Each also matches `/<page>/*`.
 pub const PAGE_ROUTES: &[&str] = &[
@@ -88,8 +90,14 @@ pub fn routes_with_releases(web_dir: &Path, releases: &Path) -> Router<AppState>
             shell = shell.route_service(&format!("{route}/{{*rest}}"), file);
         }
     }
+    // The service worker must sit at the root to control every page.
+    let root_files = root_file("/sw.js", web_dir, "text/javascript").merge(root_file(
+        "/manifest.webmanifest",
+        web_dir,
+        "application/manifest+json",
+    ));
     assets
-        .merge(shell.layer(cache("no-cache")))
+        .merge(shell.merge(root_files).layer(cache("no-cache")))
         .layer(SetResponseHeaderLayer::if_not_present(
             header::REFERRER_POLICY,
             HeaderValue::from_static("no-referrer"),
@@ -97,5 +105,20 @@ pub fn routes_with_releases(web_dir: &Path, releases: &Path) -> Router<AppState>
         .layer(SetResponseHeaderLayer::if_not_present(
             header::CONTENT_SECURITY_POLICY,
             HeaderValue::from_static(CSP),
+        ))
+}
+
+/// `web/<path>` at the site root with an explicit type (none on errors).
+fn root_file(path: &'static str, web_dir: &Path, kind: &'static str) -> Router<AppState> {
+    Router::new()
+        .route_service(path, ServeFile::new(web_dir.join(&path[1..])))
+        .layer(SetResponseHeaderLayer::overriding(
+            header::CONTENT_TYPE,
+            move |response: &Response| {
+                response
+                    .status()
+                    .is_success()
+                    .then(|| HeaderValue::from_static(kind))
+            },
         ))
 }

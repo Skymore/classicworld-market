@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Monitor, Pencil, ArrowUpRight } from "lucide-react";
 import { useAccount } from "../lib/query";
 import { beforeSignOut } from "/web/js/lib/user-data.js";
+import { releasePushForSignOut } from "../lib/push";
 import {
   AuthForm,
   RecoveryNotice,
@@ -88,7 +89,10 @@ export default function AccountPage() {
           throw Error("unavailable");
         location.assign(url);
       } else {
-        if (kind === "logout") await beforeSignOut();
+        if (kind === "logout") {
+          await releasePushForSignOut(profile?.csrf);
+          await beforeSignOut();
+        }
         await post(
           kind === "claim" ? "/api/v1/account/link" : "/api/v1/account/logout",
           kind === "claim" ? { code: link } : {},

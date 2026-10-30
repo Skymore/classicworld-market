@@ -3,7 +3,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from account_device import DeviceError
 from collector_sweep import SweepEngine, configuration, listing_key
 from sweep_purchase import PurchaseHalt, PurchaseResult, PurchaserStatus, UnavailablePurchaser, load_purchaser
@@ -197,6 +197,17 @@ class EngineTests(unittest.TestCase):
             self.engine.heartbeat()
             self.assertEqual(self.engine.lease_deadline, 1020.0)
             self.assertEqual(self.server.named('heartbeat')[-1]['lease'], 'lease-2')
+            self.assertNotIn('pending', self.server.named('heartbeat')[-1]['status'], 'market mode reports no revisit count')
+            # Recent-match progress carries the revisit count; waiting is 0; leaving the mode clears it.
+            self.engine.progress('近期命中：3 洞 · 12频道 · 待访 7 处', revisits=7)
+            self.engine.heartbeat()
+            self.assertEqual(self.server.named('heartbeat')[-1]['status'], {'message': '近期命中：3 洞 · 12频道 · 待访 7 处', 'checked': 0, 'pending': 7})
+            self.engine.progress('等待新的命中店铺', revisits=0)
+            self.engine.heartbeat()
+            self.assertEqual(self.server.named('heartbeat')[-1]['status']['pending'], 0)
+            self.engine.progress('扫货中')
+            self.engine.heartbeat()
+            self.assertNotIn('pending', self.server.named('heartbeat')[-1]['status'])
             self.server.down.add('heartbeat')
             clock[0] = 1010
             self.engine.heartbeat()
@@ -553,11 +564,69 @@ class EngineTests(unittest.TestCase):
         self.joined()
         status = self.engine.status()
         self.assertEqual(set(status), {'linked', 'account', 'device', 'sweep'})
-        self.assertEqual(set(status['sweep']), {'settings', 'executor', 'run', 'recent', 'message', 'holdings'})
+        self.assertEqual(set(status['sweep']), {'settings', 'executor', 'run', 'recent', 'message', 'holdings', 'rules'})
         self.assertEqual(set(status['sweep']['run']), {'id', 'status', 'budget', 'remaining', 'ends_at', 'started_by',
-                                                       'state', 'message', 'spent_here', 'plan_version'})
+                                                       'state', 'message', 'spent_here', 'plan_version',
+                                                       'spent', 'bought', 'items', 'started_at', 'checked'})
+        # An older server sends no run totals: they stay unknown rather than zero.
+        self.assertEqual((status['sweep']['run']['spent'], status['sweep']['run']['bought'], status['sweep']['run']['items']), (None, None, []))
         self.assertNotIn(TOKEN, json.dumps(status))
         self.assertEqual(self.engine.summary()['enabled'], True)
+
+
+    def test_run_totals_rules_and_heartbeat_spent_reach_the_status(self):
+        self.server.invite(spent=400, bought=3, items=[dict(item_id=ITEM, limit=10, units=4, bought=3)])
+        self.settings()
+        self.engine.poll()
+        run = self.engine.status()['sweep']['run']
+        self.assertEqual((run['spent'], run['bought'], run['items']), (400, 3, [dict(item_id=ITEM, limit=10, units=4, bought=3)]))
+        rules = self.engine.status()['sweep']['rules']
+        self.assertEqual(rules, {'watches': [dict(item_id=ITEM, name='测试帽', limit=10, groups=[group()])]})
+        self.server.on_heartbeat = lambda body: {'plan_version': 1, 'remaining': 9000, 'spent': 1000}
+        self.engine.heartbeat()
+        self.assertEqual(self.engine.status()['sweep']['run']['spent'], 1000)
+
+    def test_idle_rules_come_from_the_plan_endpoint_and_follow_data_events(self):
+        self.server.on_plan = lambda body: {'plan': {'watches': [dict(item_id=4000000, limit=0, groups=[group()])]}}
+        self.assertIsNone(self.engine.status()['sweep']['rules'])
+        self.engine.refresh_rules()
+        self.assertEqual(self.engine.status()['sweep']['rules'],
+                         {'watches': [dict(item_id=4000000, name='蜗牛壳', limit=0, groups=[group()])]})
+        self.server.on_plan = lambda body: {'plan': {'watches': []}}
+        self.engine.rules_due = 10**9
+        self.engine._event('data')
+        self.assertLess(self.engine.rules_due, 10**9)
+        self.engine.refresh_rules()
+        self.assertEqual(self.engine.status()['sweep']['rules'], {'watches': []})
+        def missing(body):
+            raise DeviceError(404, {'error': 'not_found'})
+        self.server.on_plan = missing  # An older server.
+        self.engine.refresh_rules()
+        self.assertIsNone(self.engine.status()['sweep']['rules'])
+
+    def test_bought_rows_reach_listeners_with_price(self):
+        seen = []
+        self.engine.add_listener(seen.append)
+        self.engine.add_listener(lambda entry: 1/0)  # A broken display never disturbs buying.
+        self.joined()
+        self.engine.on_shop_open(self.capture(), 'window')
+        self.assertEqual([(e['name'], e['units'], e['price'], e['room'], e['channel'], e['owner']) for e in seen],
+                         [('测试帽', 3, 100, 3, 8, 'Owner')])
+        self.assertEqual(self.engine.status()['sweep']['recent'][0]['price'], 100)
+
+    def test_devices_and_rename_use_the_device_token(self):
+        self.server.on_devices = lambda body: {'devices': [dict(id='dev-1', name='PC', online=True), 'junk']}
+        self.assertEqual(self.engine.devices(), {'devices': [dict(id='dev-1', name='PC', online=True)]})
+        self.server.on_rename = lambda body: {'device': {'id': 'dev-1', 'name': body['name']}}
+        self.server.store = Mock()
+        self.engine.rename({'name': '  书房电脑 '})
+        self.server.store.save.assert_called_once_with(dict(RECORD, device=dict(id='dev-1', name='书房电脑')))
+        self.assertEqual(self.server.named('rename'), [{'name': '书房电脑'}])
+        self.assertEqual(self.engine.status()['device'], {'id': 'dev-1', 'name': '书房电脑'})
+        for bad in [{'name': ''}, {'name': '长'*41}, {'name': 'a\nb'}, {'name': 5}, None]:
+            with self.assertRaises(ValueError):
+                self.engine.rename(bad)
+        self.assertEqual(len(self.server.named('rename')), 1)
 
 
 class PlanTests(unittest.TestCase):
@@ -580,7 +649,13 @@ class PlanTests(unittest.TestCase):
         with patch.dict('sys.modules', {'sweep_purchaser_windows': None}):
             purchaser = load_purchaser()
         self.assertIsInstance(purchaser, UnavailablePurchaser)
-        self.assertEqual(purchaser.status(), PurchaserStatus(False, '此电脑尚未安装购买执行器', None))
+        self.assertEqual(purchaser.status(), PurchaserStatus(False, '购买功能加载失败', None))
+
+    def test_executor_start_failure_has_the_same_reason(self):
+        broken = type('Module', (), {'create': staticmethod(lambda: 1/0)})
+        with patch.dict('sys.modules', {'sweep_purchaser_windows': broken}):
+            purchaser = load_purchaser()
+        self.assertEqual(purchaser.status(), PurchaserStatus(False, '购买功能加载失败', None))
 
 
 if __name__ == '__main__':

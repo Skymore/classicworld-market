@@ -1,92 +1,170 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { watchGroups } from "/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1";
+import { watchGroups, watchSelection } from "/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1";
 import { meso } from "/web/js/lib/format.js";
-import { flush, getSyncState } from "/web/js/lib/user-data.js";
-import { accountMessage, postAccount } from "../pages/account-access";
+import { itemName } from "/web/js/lib/i18n.js";
+import { postAccount } from "../pages/account-access";
 import { getAccountJson, useAccountTopics } from "../lib/account-api";
 import { queryClient } from "../lib/query";
-import { rememberReturn } from "../lib/return-to";
-import { useUserValue } from "../lib/live";
 import { useWords } from "../providers";
 import {
-  deviceBlocker,
-  stopReasonLabel,
+  dayClock,
+  deviceActivity,
+  duration,
   type Device,
+  type Run,
+  type RunDevice,
   type SweepWatch,
   type SweepState,
-  type Words,
 } from "../lib/sweep-labels";
 import type { Account } from "../lib/types";
-import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
-import { SweepRules, HoldingsRows } from "./sweep-content";
+import { RulesTable, RecentPurchases } from "./sweep-content";
 import { SweepDetails, RuleChangeNotice } from "./sweep-details";
+import {
+  RecentDialog,
+  StartDialog,
+  RECENT_RANGES,
+  sweepMessage,
+  type RecentHits,
+} from "./sweep-start";
 import "./sweep-panel.css";
 
 const SWEEP_KEY = ["account-sweep"] as const;
-const MAX_BUDGET = 1e12;
-const DEFAULT_MINUTES = 10080;
+// Collectors before the structured `pending` field only said so in their progress message.
+const RECENT_IDLE = "等待新的命中";
+const number = (value: number | null | undefined) =>
+  value == null ? "—" : value.toLocaleString();
+const at = (value?: string | null) => (value ? Date.parse(value) : NaN);
 
-function sweepMessage(words: Words, code: string) {
-  const messages: Record<string, [string, string]> = {
-    device_unavailable: ["所选设备不可用", "A selected device is unavailable"],
-    sweep_running: ["已有一轮扫货在进行", "A sweep is already running"],
-    no_sweep_groups: ["没有可扫货的条件组", "No sweep groups"],
-    sweep_stopped: ["本轮已结束", "This sweep has ended"],
-    reauth_required: ["请重新登录后再继续", "Sign in again to continue"],
-    invalid_request: ["预算或时长不正确", "Check the budget and duration"],
-    restart_required: ["请停止后重新开始扫货", "Stop and restart the sweep"],
-    sync_pending: ["关注还在同步，请稍后再试", "Watches are still syncing"],
-    collector_update_required: ["请更新采集器后使用近期扫货", "Update the collector to scan recent matches"],
-  };
-  return messages[code]
-    ? words(...messages[code])
-    : accountMessage(words, code);
-}
-
-/** Watch-page control for sweeps run by the account's devices (SWEEP.md §3). */
-export default function SweepPanel({
-  profile,
-  watches,
-  items,
-}: {
-  profile: Account;
-  watches: SweepWatch[];
-  items: Map<number, any>;
-}) {
-  const words = useWords();
-  const groups = watches.reduce((n, w) => n + w.groups.length, 0);
+/** The account's current or last sweep (SWEEP.md §3), refreshed by account events. */
+export function useSweep(enabled: boolean) {
   const sweep = useQuery({
     queryKey: SWEEP_KEY,
+    enabled,
     queryFn: ({ signal }) =>
       getAccountJson<SweepState>("/api/v1/account/sweep", signal),
     // Events drive updates; the minute tick only catches the end time.
     refetchInterval: (query) =>
       query.state.data?.run?.status === "running" ? 60_000 : false,
   });
-  useAccountTopics(["sweep", "devices", "data"], SWEEP_KEY);
-  const [dialog, setDialog] = useState<"start" | "details" | null>(null);
-  const [mode, setMode] = useState<"market" | "recent">("market");
+  useAccountTopics(["sweep", "devices", "data"], SWEEP_KEY, enabled);
+  return sweep;
+}
+export const isRecentRun = (run: Run | null | undefined) =>
+  run?.plan?.scan?.mode === "recent";
+
+/**
+ * Matching offers inside the last `minutes` that the sweep rules would buy,
+ * cheapest first and cut at each item's quantity limit.
+ */
+function recentHits(
+  rows: any[],
+  watches: SweepWatch[],
+  reference: any,
+  minutes: number,
+  now: number,
+  name: (id: number) => string,
+): RecentHits {
+  const since = now - minutes * 60;
+  let count = 0,
+    total = 0;
+  const names: string[] = [];
+  for (const watch of watches) {
+    const offers = watchSelection(rows, watch.item_id, { groups: watch.groups }, reference)
+      .rows.filter((row: any) => Number(row.observed) >= since)
+      .sort((a: any, b: any) => a.unit_price - b.unit_price);
+    let left = watch.limit > 0 ? watch.limit : Infinity;
+    let used = false;
+    for (const row of offers) {
+      // Throwing stars and bullets are priced and bought per set; other lots hold `bundle` pieces.
+      const perLot = row.unit_basis === "set" ? 1 : Math.max(1, row.bundle || 1);
+      const lots = Number.isSafeInteger(row.stock) && row.stock > 0 ? row.stock : 1;
+      const take = Math.min(lots, Math.floor(left / perLot));
+      if (take < 1) continue;
+      left -= take * perLot;
+      total += take * perLot * row.unit_price;
+      count++;
+      used = true;
+    }
+    if (used) names.push(name(watch.item_id));
+  }
+  return { minutes, count, total, names };
+}
+
+function signature(list: SweepWatch[]) {
+  return JSON.stringify(
+    [...list]
+      .sort((a, b) => a.item_id - b.item_id)
+      .map((w) => ({ item_id: w.item_id, limit: w.limit, groups: watchGroups({ groups: w.groups }) })),
+  );
+}
+
+type Dialog =
+  | { kind: "start"; budget?: number; replace?: string }
+  | { kind: "recent"; hits: RecentHits }
+  | { kind: "details"; tab: "progress" | "records" };
+
+/** The watch page's sweep tab: status and actions, the rules table and the latest purchases. */
+export default function SweepPanel({
+  profile,
+  sweep,
+  watches,
+  items,
+  rows,
+  reference,
+  rulesOnly = false,
+  onLimit,
+  onEditRules,
+}: {
+  profile: Account;
+  sweep: ReturnType<typeof useSweep>;
+  watches: SweepWatch[];
+  items: Map<number, any>;
+  rows: any[];
+  reference: any;
+  /** The collector's embedded page: only the editable rules table. */
+  rulesOnly?: boolean;
+  onLimit(itemId: number, limit: number): void;
+  onEditRules(): void;
+}) {
+  const words = useWords();
+  const [dialog, setDialog] = useState<Dialog | null>(null);
+  const [confirmStop, setConfirmStop] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [range, setRange] = useState(60);
+  // Re-render every 30 s for elapsed time and the hit window; times use the render's clock.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  const now = Date.now();
   const run = sweep.data?.run || null;
+  const devices = sweep.data?.devices || [];
   const running = run?.status === "running";
-  const signature = (list: SweepWatch[]) =>
-    JSON.stringify(
-      [...list]
-        .sort((a, b) => a.item_id - b.item_id)
-        .map((w) => ({
-          item_id: w.item_id,
-          limit: w.limit,
-          groups: watchGroups({ groups: w.groups }),
-        })),
-    );
+  useEffect(() => {
+    if (!running) setConfirmStop(false);
+  }, [running]);
   const changed = Boolean(
-    run?.plan_stale ||
-    (run?.plan && signature(run.plan.watches) !== signature(watches)),
+    run?.plan_stale || (run?.plan && signature(run.plan.watches) !== signature(watches)),
   );
-  const post = (path: string, data: unknown) =>
-    postAccount(profile.csrf, path, data);
+  const name = (id: number) => {
+    const row = items.get(id);
+    return row ? itemName(row) : String(id);
+  };
+  const hits = useMemo(
+    () => recentHits(rows, watches, reference, range, Date.now() / 1000, name),
+    [rows, watches, reference, range, tick, items],
+  );
+  if (rulesOnly)
+    return (
+      <section className="sweep-panel" data-sweep-panel data-sweep-state="rules" aria-label={words("扫货", "Sweep")}>
+        <RulesTable watches={watches} items={items} onLimit={onLimit} onEdit={onEditRules} />
+      </section>
+    );
+
+  const post = (path: string, data: unknown) => postAccount(profile.csrf, path, data);
   async function adopt(result: any) {
     if (result && "run" in result) queryClient.setQueryData(SWEEP_KEY, result);
     else await queryClient.invalidateQueries({ queryKey: SWEEP_KEY });
@@ -101,106 +179,134 @@ export default function SweepPanel({
       setError(sweepMessage(words, (failure as Error).message));
     } finally {
       setBusy(false);
+      setConfirmStop(false);
     }
   }
+  const finish = async (result: any) => {
+    await adopt(result);
+    setDialog(null);
+  };
+  const state = !run ? "idle" : run.status;
   return (
-    <section
-      className="sweep-panel"
-      data-sweep-panel
-      data-sweep-state={!run ? "idle" : run.status}
-      aria-label={words("扫货", "Sweep")}
-    >
-      <div className="sweep-bar">
-        <b>{words("扫货", "Sweep")}</b>
-        <span className="sweep-state" data-sweep-summary>
-          {sweep.isError
-            ? words("暂时无法加载", "Unavailable")
-            : !sweep.data
-              ? words("加载中…", "Loading…")
-              : running
-                ? `${words("运行中", "Running")} · ${words("预算", "Budget")} ${meso(run!.budget)}`
-                : run
-                  ? `${words("已结束", "Ended")} · ${stopReasonLabel(run.stop_reason, words)}`
-                  : words(`${groups} 组已选`, `${groups} groups selected`)}
-        </span>
-        <div className="sweep-actions">
-          {run && (
-            <button
-              type="button"
-              className="btn primary"
-              data-sweep-details
-              onClick={() => setDialog("details")}
-            >
-              {words("查看详情", "View details")}
-            </button>
-          )}
-          {!running && (
-            <>
-            <button
-              type="button"
-              className={"btn" + (run ? "" : " primary")}
-              data-sweep-start
-              disabled={!sweep.data || busy}
-              onClick={() => { setMode("market"); setDialog("start"); }}
-            >
-              {words("全市场扫货", "Full market sweep")}
-            </button>
-            <button type="button" className="btn" data-sweep-recent
-              disabled={!sweep.data || busy}
-              onClick={() => { setMode("recent"); setDialog("start"); }}>
-              {words("近期命中扫货", "Sweep recent matches")}
-            </button>
-            </>
-          )}
-        </div>
+    <section className="sweep-panel" data-sweep-panel data-sweep-state={state} aria-label={words("扫货", "Sweep")}>
+      <div className="sweep-console">
+        {sweep.isError ? (
+          <div className="sweep-line"><b>{words("暂时无法加载", "Unavailable")}</b></div>
+        ) : !sweep.data ? (
+          <div className="sweep-line"><b>{words("加载中…", "Loading…")}</b></div>
+        ) : running ? (
+          <RunningConsole
+            run={run!}
+            now={now}
+            confirmStop={confirmStop}
+            busy={busy}
+            onDetails={() => setDialog({ kind: "details", tab: "progress" })}
+            onStop={() => setConfirmStop(true)}
+            onConfirmStop={stop}
+            onCancelStop={() => setConfirmStop(false)}
+          />
+        ) : (
+          <IdleConsole
+            run={run}
+            devices={devices}
+            items={watches.length}
+            onStart={() => setDialog({ kind: "start" })}
+            onRecords={() => setDialog({ kind: "details", tab: "records" })}
+          />
+        )}
+        {error && <p className="sweep-error" role="alert">{error}</p>}
       </div>
-      {error && (
-        <p className="sweep-error" role="alert">
-          {error}
-        </p>
+      {running && isRecentRun(run) && drained(run!) && (
+        <div className="sweep-wait" data-sweep-wait>
+          <span>{words("有新命中会自动去买。想扫整个市场，就", "New matches are bought automatically. To sweep the whole market,")}</span>
+          <button
+            type="button"
+            className="btn"
+            data-sweep-convert
+            disabled={busy}
+            onClick={() => setDialog({ kind: "start", budget: run!.remaining, replace: run!.id })}
+          >
+            {words("转为全市场扫货", "Switch to full market")}
+          </button>
+        </div>
       )}
-      {run && (
-        <div className="sweep-compact-stats">
-          {run.bought != null && (
-            <span>
-              {words("本轮已购", "Bought")} {run.bought.toLocaleString()}
-            </span>
-          )}
-          <span>
-            {words("已花", "Spent")} {meso(run.spent)}
-          </span>
-          <span>
-            {words("预算剩余", "Budget left")} {meso(run.remaining)}
-          </span>
+      {sweep.data && !running && hits.count > 0 && (
+        <div className="sweep-hits" data-sweep-hits>
+          <b>
+            <span className="sweep-where wide">{words("右边", "")}</span>
+            <span className="sweep-where narrow">{words("下面", "")}</span>
+            {words(`有 ${hits.count} 条命中`, `${hits.count} matches`)}
+          </b>
+          <select
+            aria-label={words("命中时间范围", "Matched within")}
+            data-sweep-recent-range
+            value={range}
+            onChange={(event) => setRange(Number(event.target.value))}
+          >
+            {RECENT_RANGES.map(([value, zh, en]) => (
+              <option key={value} value={value}>{words(zh, en)}</option>
+            ))}
+          </select>
+          <span className="sweep-sub">{words(`合计约 ${meso(hits.total)}`, `about ${meso(hits.total)}`)}</span>
+          <button
+            type="button"
+            className="btn"
+            data-sweep-recent
+            disabled={busy}
+            onClick={() => setDialog({ kind: "recent", hits })}
+          >
+            {words("先买这些", "Buy these first")}
+          </button>
         </div>
       )}
       {running && changed && <RuleChangeNotice />}
-      {dialog === "details" && run && (
+      {running ? (
+        <RulesTable watches={run!.plan?.watches || watches} items={items} run={run} />
+      ) : (
+        <RulesTable
+          watches={watches}
+          items={items}
+          devices={sweep.data ? devices : undefined}
+          onLimit={onLimit}
+          onEdit={onEditRules}
+        />
+      )}
+      {running && (
+        <RecentPurchases run={run!} items={items} onAll={() => setDialog({ kind: "details", tab: "records" })} />
+      )}
+      {dialog?.kind === "details" && run && (
         <SweepDetails
           key={run.id}
           run={run}
           changed={changed}
           items={items}
-          devices={sweep.data?.devices || []}
+          devices={devices}
           busy={busy}
           error={error}
+          initialTab={dialog.tab}
           onStop={stop}
           onClose={() => setDialog(null)}
         />
       )}
-
-      {dialog === "start" && sweep.data && (
+      {dialog?.kind === "start" && sweep.data && (
         <StartDialog
-          mode={mode}
           profile={profile}
-          devices={sweep.data.devices}
-          watches={watches}
-          items={items}
+          devices={devices}
+          names={watches.map((w) => name(w.item_id))}
+          initialBudget={dialog.budget}
           post={post}
-          onDone={async (result) => {
-            await adopt(result);
-            setDialog(null);
-          }}
+          beforeStart={dialog.replace ? stopOnce(dialog.replace, post, adopt) : undefined}
+          onDone={finish}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === "recent" && sweep.data && (
+        <RecentDialog
+          profile={profile}
+          devices={devices}
+          hits={dialog.hits}
+          post={post}
+          onDone={finish}
           onClose={() => setDialog(null)}
         />
       )}
@@ -208,278 +314,203 @@ export default function SweepPanel({
   );
 }
 
-function StartDialog({
-  mode,
-  profile,
+/** Switching to a full-market sweep stops the recent run once, even if the start is retried. */
+function stopOnce(
+  runId: string,
+  post: (path: string, data: unknown) => Promise<any>,
+  adopt: (result: any) => Promise<void>,
+) {
+  let stopped = false;
+  return async () => {
+    if (stopped) return;
+    await adopt(await post("/api/v1/account/sweep/stop", { run: runId }));
+    stopped = true;
+  };
+}
+
+/** Shops a device still has to revisit: the heartbeat's `pending`, or the message of an older collector. */
+function revisits(device: RunDevice) {
+  if (device.pending != null) return device.pending;
+  if (device.message?.startsWith(RECENT_IDLE)) return 0;
+  const said = device.message?.match(/待访\s*(\d+)\s*处/)?.[1];
+  return said ? Number(said) : null;
+}
+/** Every device that is buying recent matches reports an empty queue. */
+function drained(run: Run) {
+  const active = run.devices.filter((d) => d.online && d.state === "active");
+  return active.length > 0 && active.every((d) => revisits(d) === 0);
+}
+/** Shops left to revisit, summed over the devices that report it. */
+function pendingPlaces(run: Run) {
+  const counts = run.devices.map(revisits).filter((n): n is number => n != null);
+  return counts.length ? counts.reduce((a, b) => a + b, 0) : null;
+}
+const checkedShops = (run: Run) =>
+  run.devices.length && run.devices.every((d) => d.checked != null)
+    ? run.devices.reduce((sum, d) => sum + d.checked!, 0)
+    : null;
+
+function IdleConsole({
+  run,
   devices,
-  watches,
   items,
-  post,
-  onDone,
-  onClose,
+  onStart,
+  onRecords,
 }: {
-  mode: "market" | "recent";
-  profile: Account;
+  run: Run | null;
   devices: Device[];
-  watches: SweepWatch[];
-  items: Map<number, any>;
-  post(path: string, data: unknown): Promise<any>;
-  onDone(result: any): Promise<void>;
-  onClose(): void;
+  items: number;
+  onStart(): void;
+  onRecords(): void;
 }) {
   const words = useWords();
-  const [saved, save] = useUserValue("sweep.lastStart", "{}");
-  const last = (() => {
-    try {
-      return JSON.parse(saved) || {};
-    } catch {
-      return {};
-    }
-  })();
-  const blockerFor = (device: Device) => deviceBlocker(device, words) ||
-    (mode === "recent" && !device.state?.sweep?.recent_scan ? words("请更新采集器", "Update collector") : null);
-  const available = devices.filter((device) => !blockerFor(device));
-  const [chosen, setChosen] = useState<string[]>(() =>
-    available.map((device) => device.id),
-  );
-  const [budget, setBudget] = useState(last.budget ? String(last.budget) : "");
-  const [minutes, setMinutes] = useState(
-    String((last.durationVersion === 1 && last.minutes) || DEFAULT_MINUTES),
-  );
-  const [recentMinutes, setRecentMinutes] = useState("60");
-  // A device that goes offline while the dialog is open is unticked.
-  useEffect(() => {
-    setChosen((old) =>
-      old.filter((id) => available.some((device) => device.id === id)),
-    );
-  }, [available.map((device) => device.id).join()]);
-  const budgetValue = Number(budget),
-    minutesValue = Number(minutes);
-  const valid =
-    chosen.length >= 1 &&
-    chosen.length <= 8 &&
-    Number.isSafeInteger(budgetValue) &&
-    budgetValue >= 1 &&
-    budgetValue <= MAX_BUDGET &&
-    Number.isInteger(minutesValue) &&
-    minutesValue >= 5 &&
-    minutesValue <= 10080;
+  const online = devices.filter((d) => d.online).map((d) => d.name);
   return (
-    <SweepDialog
-      title={mode === "recent" ? words("近期命中扫货", "Sweep recent matches") : words("全市场扫货", "Full market sweep")}
-      submit={words("开始", "Start")}
-      profile={profile}
-      disabled={!valid || watches.length === 0}
-      onClose={onClose}
-      onSubmit={async (current_password) => {
-        await flush();
-        const sync = getSyncState();
-        if (sync.signed_in && (sync.pending || sync.status !== "synced"))
-          throw Error("sync_pending");
-        const result = await post("/api/v1/account/sweep/start", {
-          devices: chosen,
-          budget: budgetValue,
-          minutes: minutesValue,
-          scan: mode === "recent" ? { mode, recent_minutes: Number(recentMinutes) } : { mode },
-          current_password,
-        });
-        save(
-          JSON.stringify({
-            budget: budgetValue,
-            minutes: minutesValue,
-            durationVersion: 1,
-          }),
-        );
-        await onDone(result);
-      }}
-    >
-      {mode === "recent" && <div className="fsec">
-        <label className="offer-field"><span>{words("命中时间范围", "Matched within")}</span>
-          <select value={recentMinutes} onChange={(event) => setRecentMinutes(event.target.value)}>
-            {[[10,"过去 10 分钟","Last 10 minutes"],[30,"过去 30 分钟","Last 30 minutes"],[60,"过去 1 小时","Last hour"],[360,"过去 6 小时","Last 6 hours"],[1440,"过去 24 小时","Last 24 hours"]].map(([value,zh,en]) =>
-              <option key={value} value={value}>{words(String(zh),String(en))}</option>)}
-          </select>
-        </label>
-        <small>{words("回访符合条件的店铺，到店后核价购买。", "Revisit matching shops and verify prices before buying.")}</small>
-      </div>}
-      <SweepRules watches={watches} items={items} />
-      <HoldingsRows
-        devices={devices.filter((d) => chosen.includes(d.id))}
-        watches={watches}
-        items={items}
-      />
-      <fieldset className="fsec sweep-device-list" data-sweep-device-list>
-        <h4>
-          {words("设备", "Devices")}
-          <small>
-            {words(`已选 ${chosen.length} 台`, `${chosen.length} selected`)}
-          </small>
-        </h4>
-        {devices.length ? (
-          devices.map((device) => {
-            const blocker = blockerFor(device);
-            return (
-              <label
-                className="filter-check sweep-device"
-                key={device.id}
-                data-sweep-choice={device.id}
-              >
-                <input
-                  type="checkbox"
-                  disabled={Boolean(blocker)}
-                  checked={chosen.includes(device.id)}
-                  onChange={(event) =>
-                    setChosen((old) =>
-                      event.target.checked
-                        ? [...old, device.id]
-                        : old.filter((id) => id !== device.id),
-                    )
-                  }
-                />
-                <span>{device.name}</span>
-                {blocker && <small data-sweep-blocker>{blocker}</small>}
-              </label>
-            );
-          })
-        ) : (
-          <p className="sweep-empty">
-            {words("还没有设备登录", "No devices signed in")}
-          </p>
-        )}
-      </fieldset>
-      <div className="fsec offer-field-grid">
-        <label className="offer-field">
-          <span>
-            {words("预算", "Budget")}
-            {budgetValue > 0 && <small> · {meso(budgetValue)}</small>}
-          </span>
-          <input
-            name="budget"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={MAX_BUDGET}
-            step={1}
-            required
-            value={budget}
-            onChange={(event) => setBudget(event.target.value)}
-          />
-        </label>
-        <label className="offer-field">
-          <span>
-            {words("时长（分钟，最长 7 天）", "Duration (min, up to 7 days)")}
-          </span>
-          <input
-            name="minutes"
-            type="number"
-            inputMode="numeric"
-            min={5}
-            max={10080}
-            step={1}
-            required
-            value={minutes}
-            onChange={(event) => setMinutes(event.target.value)}
-          />
-        </label>
+    <>
+      <div className="sweep-line">
+        <b data-sweep-summary>{words("未开始", "Not running")}</b>
+        <span className="sweep-sub">
+          {[
+            words(`${items} 件物品`, `${items} items`),
+            online.length
+              ? words(`${online.join("、")}在线`, `${online.join(", ")} online`)
+              : words("没有设备在线", "No device online"),
+          ].join(" · ")}
+        </span>
+        <button
+          type="button"
+          className="btn primary sweep-push"
+          data-sweep-start
+          disabled={!items}
+          onClick={onStart}
+        >
+          {words("开始扫货", "Start sweep")}
+        </button>
       </div>
-    </SweepDialog>
+      {run && (
+        <div className="sweep-last" data-sweep-last>
+          {[
+            words(
+              `上一轮 ${dayClock(run.stopped_at || run.ends_at, words)} 结束`,
+              `Last run ended ${dayClock(run.stopped_at || run.ends_at, words)}`,
+            ),
+            words(`花 ${number(run.spent)}`, `spent ${number(run.spent)}`),
+            run.bought != null && words(`买到 ${number(run.bought)} 件`, `bought ${number(run.bought)}`),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          {" · "}
+          <button type="button" className="sweep-link" data-sweep-details onClick={onRecords}>
+            {words("记录", "Records")}
+          </button>
+        </div>
+      )}
+    </>
   );
 }
 
-/** The site's dialog window: blue title bar, sections, footer buttons. */
-function SweepDialog({
-  title,
-  submit,
-  profile,
-  disabled = false,
-  onSubmit,
-  onClose,
-  children,
+function RunningConsole({
+  run,
+  now,
+  confirmStop,
+  busy,
+  onDetails,
+  onStop,
+  onConfirmStop,
+  onCancelStop,
 }: {
-  title: string;
-  submit: string;
-  profile: Account;
-  disabled?: boolean;
-  onSubmit(currentPassword: string): Promise<void>;
-  onClose(): void;
-  children?: ReactNode;
+  run: Run;
+  now: number;
+  confirmStop: boolean;
+  busy: boolean;
+  onDetails(): void;
+  onStop(): void;
+  onConfirmStop(): void;
+  onCancelStop(): void;
 }) {
   const words = useWords();
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  async function send(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      await onSubmit(password);
-    } catch (failure) {
-      setError((failure as Error).message);
-      setBusy(false);
-    }
-  }
+  const recent = isRecentRun(run);
+  const empty = recent && drained(run);
+  const elapsed = words(
+    `已运行 ${duration(Math.min(now, at(run.ends_at)) - at(run.started_at), words)}`,
+    `running ${duration(Math.min(now, at(run.ends_at)) - at(run.started_at), words)}`,
+  );
+  const bought = run.bought != null ? number(run.bought) : null;
+  const pending = pendingPlaces(run);
+  const checked = checkedShops(run);
+  const detail = !recent
+    ? [elapsed, words(`${dayClock(run.ends_at, words)} 结束`, `ends ${dayClock(run.ends_at, words)}`)]
+    : empty
+      ? [
+          checked != null && words(`已查 ${number(checked)} 店次`, `${number(checked)} shop checks`),
+          bought != null && words(`买到 ${bought} 件`, `bought ${bought}`),
+          words("等新命中", "waiting for new matches"),
+        ]
+      : [
+          pending != null && words(`剩 ${pending} 处待回访`, `${pending} places to revisit`),
+          bought != null && words(`已买 ${bought} 件`, `bought ${bought}`),
+          elapsed,
+        ];
+  const percent = run.budget > 0 ? Math.min(100, (run.spent / run.budget) * 100) : 0;
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className="sweep-dialog"
-        closeLabel={words("关闭", "Close")}
-        aria-describedby={undefined}
+    <>
+      <div className="sweep-line">
+        <i className="sweep-dot" aria-hidden="true" />
+        <b data-sweep-summary>
+          {!recent
+            ? words("运行中", "Running")
+            : empty
+              ? words("命中的都看过了", "All matches checked")
+              : words("正在买命中的", "Buying matches")}
+        </b>
+        <span className="sweep-push sweep-buttons">
+          <button type="button" className="btn" data-sweep-details onClick={onDetails}>
+            {words("详情", "Details")}
+          </button>
+          {confirmStop ? (
+            <>
+              <button type="button" className="btn sweep-stop-button" data-sweep-confirm-stop disabled={busy} onClick={onConfirmStop}>
+                {words("确定停止", "Confirm stop")}
+              </button>
+              <button type="button" className="btn" data-sweep-cancel-stop disabled={busy} onClick={onCancelStop}>
+                {words("取消", "Cancel")}
+              </button>
+            </>
+          ) : (
+            <button type="button" className="btn sweep-stop-button" data-sweep-stop onClick={onStop}>
+              {words("停止", "Stop")}
+            </button>
+          )}
+        </span>
+      </div>
+      <div className="sweep-sub" data-sweep-progress-line>{detail.filter(Boolean).join(" · ")}</div>
+      <div
+        className="sweep-progress"
+        role="progressbar"
+        aria-label={words("已花预算", "Budget spent")}
+        aria-valuemin={0}
+        aria-valuemax={run.budget}
+        aria-valuenow={run.spent}
       >
-        <div className="stall-bar">
-          <DialogTitle>{title}</DialogTitle>
-        </div>
-        <form onSubmit={send} data-sweep-dialog>
-          {children}
-          {profile.has_password && (
-            <div className="fsec">
-              <label className="offer-field">
-                <span>{words("当前密码", "Current password")}</span>
-                <input
-                  name="current_password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  maxLength={128}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-              </label>
-            </div>
-          )}
-          {error && (
-            <div
-              className="fsec sweep-dialog-error"
-              role="alert"
-              data-sweep-error
-            >
-              <span>{sweepMessage(words, error)}</span>
-              {error === "reauth_required" && profile.google_enabled && (
-                <a
-                  className="btn"
-                  href="/auth/google/start"
-                  onClick={() => rememberReturn("/watch")}
-                >
-                  {words("重新登录", "Sign in again")}
-                </a>
-              )}
-            </div>
-          )}
-          <div className="ffoot">
-            <button type="button" className="btn" onClick={onClose}>
-              {words("取消", "Cancel")}
-            </button>
-            <button
-              type="submit"
-              className="btn primary"
-              data-sweep-submit
-              disabled={busy || disabled}
-            >
-              {submit}
-            </button>
+        <div style={{ width: `${percent}%` }} />
+      </div>
+      <div className="sweep-money">
+        <span data-sweep-spent>
+          {words("已花", "Spent")} <b>{number(run.spent)}</b> / {number(run.budget)}
+        </span>
+        <span data-sweep-remaining>
+          {words("剩余", "Left")} <b>{number(run.remaining)}</b>
+        </span>
+      </div>
+      {!empty &&
+        run.devices.map((device) => (
+          <div className="sweep-device-line" key={device.id} data-sweep-run-device={device.id}>
+            <b>{device.name}</b>
+            {" · "}
+            <span data-device-activity>{deviceActivity(device, run, words)}</span>
+            {device.checked != null && ` · ${words(`已查 ${number(device.checked)} 店次`, `${number(device.checked)} shop checks`)}`}
           </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+        ))}
+    </>
   );
 }

@@ -37,6 +37,10 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = "0.10"
+# Web Push (RFC 8291 aes128gcm, RFC 8292 VAPID ES256) in pure Rust.
+p256 = { version = "0.13", default-features = false, features = ["ecdh", "ecdsa", "std"] }
+aes-gcm = { version = "0.10", default-features = false, features = ["aes", "alloc"] }
+hkdf = "0.12"
 thiserror = { workspace = true }
 # sqlite: import_catalog reads data/fixture/items.sqlite; json: item_records.
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "sqlite", "migrate", "macros", "chrono", "json"] }

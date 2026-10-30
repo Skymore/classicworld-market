@@ -33,6 +33,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/account/sweep/stop", post(web_stop))
         .route("/api/v1/account/sweep/apply", post(web_apply))
         .route("/api/v1/device/sweep", get(device_get))
+        .route("/api/v1/device/sweep/plan", get(device_plan))
         .route("/api/v1/device/sweep/targets", get(device_targets))
         .route("/api/v1/device/sweep/start", post(device_start))
         .route("/api/v1/device/sweep/join", post(join))
@@ -46,6 +47,9 @@ pub fn router() -> Router<AppState> {
 }
 
 type Reply = Result<Response, Response>;
+fn default_minutes() -> i64 {
+    10080
+}
 fn invalid() -> Response {
     error(StatusCode::BAD_REQUEST, "invalid_request")
 }
@@ -221,6 +225,8 @@ struct Participant {
     online: bool,
     spent: i64,
     checked: Option<i64>,
+    /// Shops still to revisit in recent-match mode; 0 = waiting for new hits; None = not reported.
+    pending: Option<i32>,
     progress_at: Option<DateTime<Utc>>,
     leased: bool,
 }
@@ -239,8 +245,8 @@ struct Purchase {
     created_at: DateTime<Utc>,
     settled_at: Option<DateTime<Utc>>,
 }
-async fn web_view(tx: &mut PgConnection, run: &Run) -> Result<Value, Response> {
-    let t = totals(tx, run.id, None).await?;
+/// `items` of each planned item and the run's total `bought` units.
+async fn item_progress(tx: &mut PgConnection, run: &Run) -> Result<(Vec<Value>, i64), Response> {
     let units = item_units(tx, run.id).await?;
     // Aggregate every settled purchase, independently of the recent-record limit
     // and of held/unknown units that still consume a purchase allowance.
@@ -253,7 +259,12 @@ async fn web_view(tx: &mut PgConnection, run: &Run) -> Result<Value, Response> {
             json!({"item_id":item,"limit":w["limit"],"units":units.get(&item).copied().unwrap_or(0),"bought":bought.get(&item).copied().unwrap_or(0)})
         })
         .collect();
-    let devices: Vec<Participant> = sqlx::query_as("SELECT d.public_id AS id,d.name,p.state,p.message,(d.revoked_at IS NULL AND d.last_seen_at>now()-interval '75 seconds') AS online,(SELECT coalesce(sum(spent),0)::bigint FROM sweep_reservations s WHERE s.run_id=p.run_id AND s.device_id=p.device_id AND s.status='bought') AS spent,p.checked,p.progress_at,coalesce(p.state='active' AND p.lease_expires_at>now(),false) AS leased FROM sweep_run_devices p JOIN account_devices d ON d.id=p.device_id WHERE p.run_id=$1 ORDER BY d.created_at,d.id")
+    Ok((items, bought.values().sum()))
+}
+async fn web_view(tx: &mut PgConnection, run: &Run) -> Result<Value, Response> {
+    let t = totals(tx, run.id, None).await?;
+    let (items, bought) = item_progress(tx, run).await?;
+    let devices: Vec<Participant> = sqlx::query_as("SELECT d.public_id AS id,d.name,p.state,p.message,(d.revoked_at IS NULL AND d.last_seen_at>now()-interval '75 seconds') AS online,(SELECT coalesce(sum(spent),0)::bigint FROM sweep_reservations s WHERE s.run_id=p.run_id AND s.device_id=p.device_id AND s.status='bought') AS spent,p.checked,p.recent_pending AS pending,p.progress_at,coalesce(p.state='active' AND p.lease_expires_at>now(),false) AS leased FROM sweep_run_devices p JOIN account_devices d ON d.id=p.device_id WHERE p.run_id=$1 ORDER BY d.created_at,d.id")
         .bind(run.id).fetch_all(&mut *tx).await.map_err(internal)?;
     // quantity and spent are what the row counts against the run.
     let purchases: Vec<Purchase> = sqlx::query_as("SELECT s.public_id AS id,d.public_id AS device,s.item_id,s.status,CASE s.status WHEN 'bought' THEN s.bought_quantity WHEN 'not_bought' THEN 0 ELSE s.quantity END AS quantity,s.units_per,s.price,CASE s.status WHEN 'bought' THEN s.spent WHEN 'not_bought' THEN 0 ELSE s.cost END AS spent,s.reason,s.location,s.created_at,s.settled_at FROM sweep_reservations s JOIN account_devices d ON d.id=s.device_id WHERE s.run_id=$1 ORDER BY s.created_at DESC,s.id DESC LIMIT 50")
@@ -268,7 +279,7 @@ async fn web_view(tx: &mut PgConnection, run: &Run) -> Result<Value, Response> {
         "id":run.public_id,"status":run.status,"stop_reason":run.stop_reason,"budget":run.budget,
         "spent":t.spent,"reserved":t.reserved,"unknown":t.unknown,"remaining":(run.budget-t.used()).max(0),
         "started_at":run.started_at,"ends_at":run.ends_at,"stopped_at":run.stopped_at,"started_by":run.started_by.as_deref().unwrap_or("web"),
-        "bought":bought.values().sum::<i64>(),
+        "bought":bought,
         "plan":run.plan,"plan_version":run.plan_version,"plan_stale":stale,"items":items,"devices":devices,"purchases":purchases,
     }))
 }
@@ -344,6 +355,8 @@ async fn web_get(State(state): State<AppState>, headers: HeaderMap) -> Reply {
 struct WebStart {
     devices: Vec<String>,
     budget: i64,
+    /// Optional: 7 days when omitted ("buy recent hits first" has no duration to pick).
+    #[serde(default = "default_minutes")]
     minutes: i64,
     #[serde(default)]
     scan: ScanMode,
@@ -447,11 +460,12 @@ async fn device_view(tx: &mut PgConnection, run: &Run, device: i64) -> Result<Op
     let Some((state, message, version)) = seat else { return Ok(None) };
     let all = totals(tx, run.id, None).await?;
     let here = totals(tx, run.id, Some(device)).await?;
+    let (items, bought) = item_progress(tx, run).await?;
     Ok(Some(json!({
-        "id":run.public_id,"status":run.status,"budget":run.budget,"remaining":(run.budget-all.used()).max(0),
-        "ends_at":run.ends_at,"started_by":run.started_by.as_deref().unwrap_or("web"),"plan":run.plan,
-        "plan_version":run.plan_version,"participant":{"state":state,"message":message,"plan_version":version},
-        "spent_here":here.used(),
+        "id":run.public_id,"status":run.status,"budget":run.budget,"spent":all.spent,"remaining":(run.budget-all.used()).max(0),
+        "started_at":run.started_at,"ends_at":run.ends_at,"started_by":run.started_by.as_deref().unwrap_or("web"),"plan":run.plan,
+        "plan_version":run.plan_version,"bought":bought,"items":items,
+        "participant":{"state":state,"message":message,"plan_version":version},"spent_here":here.used(),
     })))
 }
 async fn device_reply(state: &AppState, d: &Device) -> Reply {
@@ -466,6 +480,13 @@ async fn device_reply(state: &AppState, d: &Device) -> Reply {
 async fn device_get(State(state): State<AppState>, headers: HeaderMap) -> Reply {
     let d = devices::device(&state, &headers).await?;
     device_reply(&state, &d).await
+}
+/// The snapshot a run started now would freeze; empty `watches` when nothing can sweep.
+async fn device_plan(State(state): State<AppState>, headers: HeaderMap) -> Reply {
+    let d = devices::device(&state, &headers).await?;
+    let mut db = state.db.acquire().await.map_err(internal)?;
+    let plan = current_plan(&mut db, d.account).await?;
+    Ok(Json(json!({"plan":plan})).into_response())
 }
 #[derive(Deserialize)]
 struct DeviceStart {
@@ -565,6 +586,9 @@ struct Status {
     message: String,
     #[serde(default)]
     checked: Option<u64>,
+    /// Recent-match mode: shops left to revisit, 0 while waiting for new hits. Absent otherwise.
+    #[serde(default)]
+    pending: Option<u32>,
 }
 #[derive(Deserialize)]
 struct Heartbeat {
@@ -575,24 +599,27 @@ struct Heartbeat {
 }
 async fn heartbeat(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<Heartbeat>) -> Reply {
     let d = devices::device(&state, &headers).await?;
-    if !devices::valid_text(&input.status.message, 80) || input.status.checked.is_some_and(|n| n > MAX_AMOUNT as u64) {
+    if !devices::valid_text(&input.status.message, 80) || input.status.checked.is_some_and(|n| n > MAX_AMOUNT as u64)
+        || input.status.pending.is_some_and(|n| n > 100_000) {
         return Err(invalid());
     }
     let mut tx = state.db.begin().await.map_err(internal)?;
     let run = lock(&mut tx, d.account, &input.run).await?;
     ensure_running(&run)?;
     let seat = leased(&mut tx, run.id, d.id, &input.lease).await?;
-    let previous_checked: Option<i64> = sqlx::query_scalar("SELECT checked FROM sweep_run_devices WHERE run_id=$1 AND device_id=$2")
+    let (previous_checked, previous_pending): (Option<i64>, Option<i32>) = sqlx::query_as("SELECT checked,recent_pending FROM sweep_run_devices WHERE run_id=$1 AND device_id=$2")
         .bind(run.id).bind(d.id).fetch_one(&mut *tx).await.map_err(internal)?;
     let checked = input.status.checked.map(|n| n as i64);
-    sqlx::query("UPDATE sweep_run_devices SET lease_expires_at=clock_timestamp()+make_interval(secs=>$3),message=$4,checked=coalesce($5,checked),progress_at=now() WHERE run_id=$1 AND device_id=$2")
-        .bind(run.id).bind(d.id).bind(LEASE_SECONDS as f64).bind(&input.status.message).bind(checked).execute(&mut *tx).await.map_err(internal)?;
-    if seat.message != input.status.message || checked.is_some() && checked != previous_checked {
+    // `pending` is stored as sent: a beat without it clears the value (the device left recent-match mode).
+    let pending = input.status.pending.map(|n| n as i32);
+    sqlx::query("UPDATE sweep_run_devices SET lease_expires_at=clock_timestamp()+make_interval(secs=>$3),message=$4,checked=coalesce($5,checked),recent_pending=$6,progress_at=now() WHERE run_id=$1 AND device_id=$2")
+        .bind(run.id).bind(d.id).bind(LEASE_SECONDS as f64).bind(&input.status.message).bind(checked).bind(pending).execute(&mut *tx).await.map_err(internal)?;
+    if seat.message != input.status.message || checked.is_some() && checked != previous_checked || pending != previous_pending {
         notify(&mut tx, d.account, "sweep").await.map_err(internal)?;
     }
     let t = totals(&mut tx, run.id, None).await?;
     tx.commit().await.map_err(internal)?;
-    Ok(Json(json!({"plan_version":run.plan_version,"remaining":(run.budget-t.used()).max(0)})).into_response())
+    Ok(Json(json!({"plan_version":run.plan_version,"remaining":(run.budget-t.used()).max(0),"spent":t.spent})).into_response())
 }
 #[derive(Deserialize)]
 struct Leave {

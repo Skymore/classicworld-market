@@ -9,13 +9,12 @@ import { meso } from "/web/js/lib/format.js";
 import { useWords } from "../providers";
 import {
   clockTime,
-  participantLabel,
+  deviceActivity,
+  duration,
   stopReasonLabel,
   type Device,
   type Run,
-  type RunDevice,
   type SweepWatch,
-  type Words,
 } from "../lib/sweep-labels";
 import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
@@ -30,41 +29,13 @@ const number = (value: number | null | undefined) =>
   value == null ? "—" : value.toLocaleString();
 const timestamp = (value?: string | null) => (value ? Date.parse(value) : NaN);
 
-/** A lease is permission to buy, not evidence that the scanner is moving. */
-function deviceActivity(device: RunDevice, run: Run, words: Words) {
-  if (run.status !== "running") return stopReasonLabel(run.stop_reason, words);
-  if (!device.online) return words("设备离线", "Device offline");
-  if (device.state !== "active") return participantLabel(device.state, words);
-  if (device.leased === false)
-    return words("等待重新连接", "Waiting to reconnect");
-  const message = device.message?.trim();
-  if (!message || ["扫货中", "Sweeping", "运行中", "Running"].includes(message))
-    return words("已加入任务", "Joined the sweep");
-  return message;
-}
-
-function duration(milliseconds: number, words: Words) {
-  if (!Number.isFinite(milliseconds)) return "—";
-  const minutes = Math.max(0, Math.floor(milliseconds / 60000));
-  const days = Math.floor(minutes / 1440),
-    hours = Math.floor((minutes % 1440) / 60),
-    rest = minutes % 60;
-  return [
-    days && words(`${days} 天`, `${days}d`),
-    hours && words(`${hours} 小时`, `${hours}h`),
-    ((!days && !hours) || rest > 0) && words(`${rest} 分`, `${rest}m`),
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
 export function RuleChangeNotice() {
   const words = useWords();
   return (
     <div className="sweep-stale" data-sweep-stale role="status">
       {words(
-        "扫货条件已修改，停止后重新开始生效",
-        "Rules changed. Stop and restart to use them.",
+        "关注里的扫货条件已修改，下一轮生效",
+        "Watchlist sweep rules changed; they apply to the next run.",
       )}
     </div>
   );
@@ -77,6 +48,7 @@ export function SweepDetails({
   devices,
   busy,
   error,
+  initialTab = "progress",
   onStop,
   onClose,
 }: {
@@ -86,12 +58,13 @@ export function SweepDetails({
   devices: Device[];
   busy: boolean;
   error: string;
+  initialTab?: "progress" | "records";
   onStop(): Promise<void>;
   onClose(): void;
 }) {
   const words = useWords();
   const running = run.status === "running";
-  const [tab, setTab] = useState("progress");
+  const [tab, setTab] = useState<string>(initialTab);
   const [confirm, setConfirm] = useState(false);
   const [now, setNow] = useState(Date.now);
   useEffect(() => {

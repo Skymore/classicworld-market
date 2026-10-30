@@ -1043,3 +1043,17 @@ tr.price-group-head:hover td {
     padding: 8px 10px 0;
   }
 }
+
+/* Embedded in the collector (?embed=1): no site header or dock, so content
+   starts at the top and sticky headers stick to the top edge. */
+html[data-embed] .dwrap {
+  padding-top: 12px;
+}
+html[data-embed] .app {
+  padding-bottom: 16px;
+}
+html[data-embed] .ptable th,
+html[data-embed] .lhead,
+html[data-embed] .item-summary-sticky {
+  top: 0;
+}

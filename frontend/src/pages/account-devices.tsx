@@ -5,6 +5,14 @@ import { AccountSetting, postAccount } from "./account-access";
 import { getAccountJson, useAccountTopics } from "../lib/account-api";
 import { queryClient } from "../lib/query";
 import { executorLabel, type Device } from "../lib/sweep-labels";
+import {
+  PUSH_LIST_KEY,
+  isThisBrowser,
+  removePushSubscription,
+  usePushRecord,
+  usePushSubscriptions,
+  type PushSubscriptionRow,
+} from "../lib/push";
 import { RelativeTime } from "../components/shared";
 import { useWords } from "../providers";
 import type { Account } from "../lib/types";
@@ -106,6 +114,86 @@ export function DevicesPanel({
       <p role="status" data-devices-status>
         {status}
       </p>
+      <PushList profile={profile} message={message} />
     </AccountSetting>
+  );
+}
+
+const toSeconds = (at?: string | number | null) =>
+  typeof at === "number" ? at : seconds(at);
+
+/** The account's push subscriptions; removing one stops pushes to that browser. */
+function PushList({
+  profile,
+  message,
+}: {
+  profile: Account;
+  message(code: string): string;
+}) {
+  const words = useWords();
+  const subscriptions = usePushSubscriptions(true);
+  usePushRecord(); // re-render when this browser subscribes or unsubscribes
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("");
+  const list = subscriptions.data?.subscriptions || [];
+  if (!list.length) return null;
+  async function remove(id: PushSubscriptionRow["id"]) {
+    setBusy(true);
+    setStatus("");
+    try {
+      await removePushSubscription(profile.csrf, id);
+    } catch (error) {
+      setStatus(message((error as Error).message));
+    } finally {
+      await queryClient.invalidateQueries({ queryKey: PUSH_LIST_KEY });
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <p>
+        <b>{words("推送", "Push")}</b>
+      </p>
+      <ul className="device-list" data-push-list>
+        {list.map((row) => (
+          <li className="device-row" key={row.id} data-push-row={row.id}>
+            <span className="device-main">
+              <b>
+                {row.label || words("浏览器", "Browser")}
+                {isThisBrowser(row.id) && (
+                  <span data-push-current>
+                    {" · " + words("这台浏览器", "This browser")}
+                  </span>
+                )}
+              </b>
+              <small>
+                {words("开启于 ", "Added ")}
+                <RelativeTime at={toSeconds(row.created_at)} />
+                {" · "}
+                {row.last_sent_at ? (
+                  <>
+                    {words("最近推送 ", "Last push ")}
+                    <RelativeTime at={toSeconds(row.last_sent_at)} />
+                  </>
+                ) : (
+                  words("尚未推送", "No push yet")
+                )}
+              </small>
+            </span>
+            <button
+              type="button"
+              data-push-remove={row.id}
+              disabled={busy}
+              onClick={() => void remove(row.id)}
+            >
+              {words("移除", "Remove")}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p role="status" data-push-status>
+        {status}
+      </p>
+    </>
   );
 }

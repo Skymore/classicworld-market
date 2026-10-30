@@ -13,7 +13,7 @@ import { t, itemName } from "/web/js/lib/i18n.js";
 import Core, {
   MAX_WATCHES,
 } from "/web/js/lib/watchlist-core.js?v=20261027-watch-groups-1";
-import { userStorage } from "/web/js/lib/user-data.js";
+import { getSyncState, subscribeSync, userStorage } from "/web/js/lib/user-data.js";
 import { sortWatchQuotes } from "/web/js/lib/quote-order.js?v=20261023-watch-cap-1";
 import { useUserValue } from "../lib/live";
 import { useAccount, useMarketQuery } from "../lib/query";
@@ -36,7 +36,8 @@ import {
 import { OfferRow } from "../components/list-rows";
 import { useWatchAlerts } from "../components/watch-alerts";
 import { NotificationSettings } from "../components/notification-settings";
-import SweepPanel from "../components/sweep-panel";
+import SweepPanel, { isRecentRun, useSweep } from "../components/sweep-panel";
+import { embedded } from "../lib/embed";
 import "../lib/list-copy";
 import "./watch.css";
 // Cheapest offers shown per item before "show more".
@@ -73,8 +74,26 @@ export default function Watch() {
     [rawFilters, writeFilters] = useUserValue("watch.offerFilters", "{}"),
     [groupPref, writeGroupPref] = useUserValue("watch.groupByItem", "true");
   const profile = useAccount().data;
-  // Signed-in web pages start sweeps; the collector's embedded page only edits rules.
-  const sweepWeb = Boolean(profile?.signed_in) && profile?.mode !== "collector";
+  // Signed-in accounts get the Items | Sweep tabs. The collector's embedded page
+  // (mode "collector") has no sweep API: its sweep tab only edits the rules.
+  const sweepTab = Boolean(profile?.signed_in);
+  const rulesOnly = profile?.mode === "collector";
+  const sweep = useSweep(sweepTab && !rulesOnly);
+  const [panelTab, writePanelTab] = useUserValue("watch.panelTab", "items");
+  const tab = sweepTab && panelTab === "sweep" ? "sweep" : "items";
+  const sweepWatches = useMemo(
+    () =>
+      ids
+        .map((id) => ({
+          item_id: id,
+          limit: settings[id]?.buyLimit ?? 1,
+          groups: watchGroups(settings[id]).filter((group: any) => group.buy && sweepable(group)),
+        }))
+        .filter((watch) => watch.groups.length),
+    [ids, settings],
+  );
+  const run = sweep.data?.run;
+  const sweeping = run?.status === "running";
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filterButton = useRef<HTMLButtonElement>(null);
   const filters = useMemo(() => {
@@ -205,6 +224,24 @@ export default function Watch() {
       }),
     );
   }, [hits]);
+  // The collector window shows the hit badge and sync state of its embedded watch page.
+  useEffect(() => {
+    if (!embedded || window.parent === window) return;
+    const post = (sync = getSyncState()) =>
+      window.parent.postMessage(
+        {
+          type: "cwm-watch",
+          hits,
+          watches: ids.length,
+          synced: sync.signed_in && !sync.pending && sync.status === "synced",
+        },
+        "*",
+      );
+    const off = subscribeSync(post);
+    return () => {
+      off();
+    };
+  }, [hits, ids.length]);
   useEffect(() => {
     if (composing.current) return;
     const timer = setTimeout(
@@ -270,6 +307,7 @@ export default function Watch() {
   const alerting = ids.some((id) =>
     watchGroups(settings[id]).some((group: any) => group.notify),
   );
+  const notifications = alerting && !embedded ? <NotificationSettings /> : null;
   // Grouping by item is its own switch; either sort order applies inside each group.
   const byItem =
     groupPref !== "true" && focusId === null
@@ -322,17 +360,62 @@ export default function Watch() {
             <Icon name="caret" />
           </button>
         </div>
-        {alerting && <NotificationSettings />}
-        {sweepWeb && (
-          <SweepPanel
-            profile={profile!}
-            watches={ids.map((id) => ({item_id: id, limit: settings[id]?.buyLimit ?? 1,
-              groups: watchGroups(settings[id]).filter((group: any) => group.buy && sweepable(group))
-            })).filter((watch) => watch.groups.length)}
-            items={items}
-          />
+        {(!sweepTab || collapsed === "true") && notifications}
+        {sweepTab && collapsed !== "true" && (
+          <div className="watch-tabs" role="tablist" aria-label={words("关注分类", "Watch sections")}>
+            <button
+              type="button"
+              role="tab"
+              id="watch-tab-items"
+              aria-selected={tab === "items"}
+              aria-controls="watch-list"
+              data-watch-tab="items"
+              onClick={() => writePanelTab("items")}
+            >
+              {words("物品", "Items")} <small>{ids.length}</small>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id="watch-tab-sweep"
+              aria-selected={tab === "sweep"}
+              aria-controls="watch-sweep"
+              data-watch-tab="sweep"
+              onClick={() => writePanelTab("sweep")}
+            >
+              {sweeping && <i className="sweep-dot" aria-hidden="true" />}
+              {words("扫货", "Sweep")}{" "}
+              <small>
+                {sweeping
+                  ? isRecentRun(run)
+                    ? words("买命中的", "Buying matches")
+                    : words("运行中", "Running")
+                  : words(`${sweepWatches.length} 件`, String(sweepWatches.length))}
+              </small>
+            </button>
+          </div>
         )}
-        <div id="watch-list" hidden={collapsed === "true"}>
+        {sweepTab && collapsed !== "true" && tab === "sweep" && (
+          <div id="watch-sweep" role="tabpanel" aria-labelledby="watch-tab-sweep">
+            <SweepPanel
+              profile={profile!}
+              sweep={sweep}
+              watches={sweepWatches}
+              items={items}
+              rows={grouped}
+              reference={reference}
+              rulesOnly={rulesOnly}
+              onLimit={(id, limit) => update(id, { buyLimit: limit })}
+              onEditRules={() => writePanelTab("items")}
+            />
+          </div>
+        )}
+        <div
+          id="watch-list"
+          hidden={collapsed === "true" || tab !== "items"}
+          {...(sweepTab ? { role: "tabpanel", "aria-labelledby": "watch-tab-items" } : {})}
+        >
+          {sweepTab && collapsed !== "true" && notifications}
           <div className="wadd">
             <form
               className="finder"
@@ -498,7 +581,7 @@ export default function Watch() {
                     <div className="wc-set" id={"wc-set-" + id}>
                       <WatchGroups
                         id={id}
-                        sweep={inScanner || Boolean(profile?.signed_in)}
+                        sweep={inScanner || embedded || Boolean(profile?.signed_in)}
                         autoEdit={added === id}
                         name={itemName(item)}
                         setting={current}

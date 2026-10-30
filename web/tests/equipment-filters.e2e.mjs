@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE);
+const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const origin = process.env.FILTER_TEST_ORIGIN || 'http://127.0.0.1:18767';
 const shots = process.env.FILTER_SCREENSHOTS;
 if (shots) await mkdir(shots, { recursive: true });
-const browser = await chromium.launch({ channel: 'chrome' });
+const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
 const fixture = [
   [1002000, '零级帽', '帽子', 0, '弓箭手'],
   [1002001, '二十级帽', '帽子', 20, '弓箭手'],
@@ -28,6 +28,8 @@ try {
   for (const mobile of [false,true]) for (const theme of ['light','dark']) {
     const page = await browser.newPage({viewport:{width:mobile?375:1440,height:900},isMobile:mobile,hasTouch:mobile});
     const errors=[]; page.on('pageerror',error=>errors.push(error.message));
+    // Filter chips update the URL at once; React Router renders the new state as a transition.
+    const pressed=selector=>page.locator(`${selector}[aria-pressed=true]`).waitFor();
     await page.addInitScript(theme=>{localStorage.setItem('lang','zh');localStorage.setItem('theme',theme);},theme);
     // Exercise the actual data before switching to controlled boundary examples.
     await page.goto(origin+'/prices?job=bowman&lmin=40&lmax=50&lang=zh');
@@ -61,7 +63,7 @@ try {
     assert.deepEqual(await ids(page),[1002003,1002004,1002009,1072000]);
     await page.locator('[data-filter-btn]').click();
     await page.locator('[data-equipment-type=hat]').click();
-    assert.equal(await page.locator('[data-equipment-type=hat]').getAttribute('aria-pressed'),'true');
+    await pressed('[data-equipment-type=hat]');
     assert.equal(new URL(page.url()).searchParams.get('type'),'hat');
     assert.equal(new URL(page.url()).searchParams.get('cat'),'equip');
     await page.locator('[data-apply]').click();
@@ -73,6 +75,7 @@ try {
     assert.equal(await page.locator('[data-equipment-type=hat]').getAttribute('aria-pressed'),'true');
     assert.equal(await page.locator('[data-lv="40-50"]').getAttribute('aria-pressed'),'true');
     await page.locator('[data-lv="70+"]').click();
+    await pressed('[data-lv="70+"]');
     assert.equal(await page.locator('[data-lmax]').inputValue(),'');
     assert.equal(new URL(page.url()).searchParams.has('lmax'),false);
     await page.locator('[data-apply]').click();
@@ -82,16 +85,18 @@ try {
     assert.equal(new URL(page.url()).searchParams.get('lmin'),'70');
     await page.locator('[data-filter-btn]').click();
     await page.locator('[data-lv="0-20"]').click();
+    await pressed('[data-lv="0-20"]');
     await page.locator('[data-apply]').click();
     assert.deepEqual(await ids(page),[1002000,1002001]);
     await page.locator('[data-filter-btn]').click();
     await page.locator('[data-equipment-type=hat]').click();
     await page.locator('[data-filter-reset]').click();
-    assert.equal(await page.locator('[data-job=all]').getAttribute('aria-pressed'),'true');
+    await pressed('[data-job=all]');
     assert.equal(await page.locator('[data-equipment-type=all]').getAttribute('aria-pressed'),'true');
     assert.equal(await page.locator('[data-lmin]').inputValue(),'');
     await page.locator('[data-apply]').click();
     await page.locator('[data-cats] [data-cat=use]').click();
+    await pressed('[data-cats] [data-cat=use]');
     assert.deepEqual(await ids(page),[2000000]);
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     assert.deepEqual(errors,[]);

@@ -732,3 +732,99 @@ async fn account_events_reach_only_their_account() {
     drop((device_feed, their_feed, my_site));
     db.close().await;
 }
+
+#[tokio::test]
+async fn device_sweep_reports_run_totals_and_the_current_plan() {
+    let Some(db) = TestDb::new().await else { return };
+    let s = AppState::new(db.pool.clone(), Settings::default());
+    let w = signup(&s, "device_totals").await;
+    let (token, _) = ready_device(&s, &w, "本机").await;
+    let current = |token: String| {
+        let s = s.clone();
+        async move { dev(&s, "GET", "/api/v1/device/sweep/plan", &token, Value::Null).await }
+    };
+    assert_eq!(current(token.clone()).await, (StatusCode::OK, json!({"plan":{"watches":[]}})));
+    assert_eq!(current(format!("cwd_{}", "x".repeat(43))).await.0, StatusCode::UNAUTHORIZED);
+    watch(&s, &w, GLOVE, 500000, 3, 0).await;
+    let rules = json!({"watches":[{"item_id":GLOVE,"limit":3,"groups":[group(500000)]}]});
+    assert_eq!(current(token.clone()).await, (StatusCode::OK, json!({"plan":rules})));
+
+    let run = device_start(&s, &token, 1_000_000).await;
+    let lease = join(&s, &token, &run, 1).await;
+    let (_, bought) = grant(&s, &token, order(&run, &lease, 1, GLOVE, 400000)).await;
+    assert_eq!(settle(&s, &token, &bought, "bought", 1, 390000, "").await, StatusCode::OK);
+    assert_eq!(grant(&s, &token, order(&run, &lease, 2, GLOVE, 450000)).await.0, 1, "held");
+    let seen = dev(&s, "GET", "/api/v1/device/sweep", &token, Value::Null).await.1["run"].clone();
+    assert_eq!((seen["spent"].as_i64(), seen["bought"].as_i64(), seen["remaining"].as_i64(), seen["spent_here"].as_i64()),
+        (Some(390000), Some(1), Some(160000), Some(840000)));
+    assert_eq!(seen["items"], json!([{"item_id":GLOVE,"limit":3,"units":2,"bought":1}]));
+    let site = run_view(&s, &w).await;
+    for key in ["spent", "bought", "items", "remaining"] {
+        assert_eq!(seen[key], site[key], "{key} matches the web Run");
+    }
+    let beat = json!({"run":run,"lease":lease,"status":{"message":"扫货中","checked":3}});
+    let (status, body) = dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, beat.clone()).await;
+    assert_eq!((status, body), (StatusCode::OK, json!({"plan_version":1,"remaining":160000,"spent":390000})));
+    // Recent-match progress is structured: pending shops as sent, cleared when the beat omits it.
+    assert_eq!(run_view(&s, &w).await["devices"][0]["pending"], Value::Null);
+    let pending = |n: Value| json!({"run":run,"lease":lease,"status":{"message":"近期命中","pending":n}});
+    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, pending(json!(7))).await.0, StatusCode::OK);
+    assert_eq!(run_view(&s, &w).await["devices"][0]["pending"], 7);
+    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, pending(json!(0))).await.0, StatusCode::OK);
+    assert_eq!(run_view(&s, &w).await["devices"][0]["pending"], 0);
+    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, pending(json!(100_001))).await.0, StatusCode::BAD_REQUEST);
+    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/heartbeat", &token, beat).await.0, StatusCode::OK);
+    assert_eq!(run_view(&s, &w).await["devices"][0]["pending"], Value::Null);
+
+    // The plan route follows the rules; the running run keeps its snapshot.
+    watch(&s, &w, GLOVE, 300000, 3, 1).await;
+    assert_eq!(current(token.clone()).await.1["plan"]["watches"][0]["groups"][0]["cap"], 300000);
+    assert_eq!(dev(&s, "GET", "/api/v1/device/sweep", &token, Value::Null).await.1["run"]["plan"]["watches"][0]["groups"][0]["cap"], 500000);
+    db.close().await;
+}
+
+#[tokio::test]
+async fn devices_list_the_account_and_rename_only_themselves() {
+    let Some(db) = TestDb::new().await else { return };
+    let s = AppState::new(db.pool.clone(), Settings::default());
+    let mut ready = s.events.subscribe();
+    let listener = tokio::spawn(realtime::listen(s.db.clone(), s.events.clone(), s.collector_updates.clone(), s.account_events.clone()));
+    tokio::time::timeout(Duration::from_secs(5), ready.recv()).await.unwrap().unwrap();
+    let w = signup(&s, "device_names").await;
+    let (a, a_id) = device(&s, &w, "书房").await;
+    let (b, b_id) = device(&s, &w, "客厅").await;
+    let other = signup(&s, "device_names_other").await;
+    let (theirs, _) = device(&s, &other, "别人").await;
+    let names = |v: &Value| v["devices"].as_array().unwrap().iter().map(|d| d["name"].as_str().unwrap().to_owned()).collect::<Vec<_>>();
+    let site_names = || async { names(&web(&s, "GET", "/api/v1/account/devices", &w, Value::Null).await.1) };
+
+    let (status, listed) = dev(&s, "GET", "/api/v1/device/devices", &a, Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(listed, web(&s, "GET", "/api/v1/account/devices", &w, Value::Null).await.1, "same as the web list");
+    assert_eq!(names(&listed), ["书房", "客厅"]);
+    assert_eq!(names(&dev(&s, "GET", "/api/v1/device/devices", &theirs, Value::Null).await.1), ["别人"]);
+
+    let mut feed = open_events(&s, &[("cookie", w.cookie.clone())]).await;
+    let too_long = "长".repeat(41);
+    for bad in ["", "   ", too_long.as_str(), "a\nb"] {
+        let (status, body) = dev(&s, "POST", "/api/v1/device/rename", &a, json!({"name":bad})).await;
+        assert_eq!((status, body["error"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_request")), "{bad:?}");
+    }
+    // The body cannot point at another device: the token decides which one.
+    let (status, renamed) = dev(&s, "POST", "/api/v1/device/rename", &a, json!({"name":" 新名字 ","device":b_id})).await;
+    assert_eq!((status, renamed), (StatusCode::OK, json!({"device":{"id":a_id,"name":"新名字"}})));
+    assert!(next_event(&mut feed, 3000).await.unwrap().contains("event: devices"));
+    assert_eq!(site_names().await, ["新名字", "客厅"]);
+    assert_eq!(dev(&s, "GET", "/api/v1/device/account", &a, Value::Null).await.1["device"]["name"], "新名字");
+    assert_eq!(dev(&s, "POST", "/api/v1/device/rename", &a, json!({"name":"新名字"})).await.0, StatusCode::OK);
+    assert_eq!(next_event(&mut feed, 300).await, None, "an unchanged name sends no message");
+    let longest = "长".repeat(40);
+    assert_eq!(dev(&s, "POST", "/api/v1/device/rename", &a, json!({"name":longest})).await.1["device"]["name"], longest.as_str());
+
+    assert_eq!(web(&s, "POST", "/api/v1/account/devices/revoke", &w, json!({"device":b_id})).await.0, StatusCode::OK);
+    assert_eq!(dev(&s, "POST", "/api/v1/device/rename", &b, json!({"name":"撤销后"})).await.0, StatusCode::UNAUTHORIZED);
+    assert_eq!(site_names().await, [longest]);
+    listener.abort();
+    drop(feed);
+    db.close().await;
+}

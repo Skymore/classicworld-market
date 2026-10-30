@@ -21,6 +21,53 @@
   gap: 8px;
   padding: 8px;
 }
+
+/* Items | Sweep: two joined buttons under the heading. */
+.watch-tabs {
+  display: flex;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.watch-tabs button {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  border: 2px solid var(--edge);
+  background: var(--sheet-hi);
+  color: var(--ink-2);
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  box-shadow: inset 1px 1px 0 var(--bevel-hi), inset -1px -1px 0 var(--bevel-lo);
+}
+.watch-tabs button + button {
+  margin-left: -2px;
+}
+.watch-tabs button[aria-selected="true"] {
+  position: relative;
+  z-index: 1;
+  background: var(--maple);
+  color: #fff;
+  box-shadow: none;
+}
+.watch-tabs small {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+.watch-tabs button[aria-selected="true"] .sweep-dot {
+  border-color: #fff;
+}
+@media (max-width: 640px) {
+  .watch-tabs button {
+    min-height: 44px;
+  }
+}
 .watch-page .wcard .wc-head {
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   gap: 4px 12px;

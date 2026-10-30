@@ -67,7 +67,8 @@ class DesktopWorkspace:
             if not isinstance(value, dict) or value.get('page') not in ('watch', 'prices'):
                 raise ValueError('无效页面')
             theme = value.get('theme') if value.get('theme') in ('light','dark') else 'light'
-            return {'url': f'http://127.0.0.1:{self.dashboard()}/'+value['page']+'?lang=zh&theme='+theme}
+            # embed=1: the site hides its own header, navigation and assistant inside the collector.
+            return {'url': f'http://127.0.0.1:{self.dashboard()}/'+value['page']+'?lang=zh&theme='+theme+'&embed=1'}
         if action == 'catalog':
             return self.fetch('/api/v1/watchlist/catalog', 300)
         if action == 'login':
@@ -89,5 +90,10 @@ class DesktopWorkspace:
             return self.engine().status()
         if action == 'stop':
             self.engine().stop_run()
+            return self.engine().status()
+        if action == 'devices':
+            return self.engine().devices()
+        if action == 'rename':
+            self.engine().rename(value)
             return self.engine().status()
         raise ValueError('未知操作')

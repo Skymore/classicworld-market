@@ -43,7 +43,10 @@ fn item_bootstrap_reuses_public_data_and_escapes_script_delimiters() {
     assert_eq!(snapshot["url"], ctx.here);
     assert_eq!(snapshot["updatedAt"], ctx.now.timestamp_millis());
     assert_eq!(snapshot["data"]["kind"], "item");
-    assert_eq!(snapshot["data"]["page"], serde_json::to_value(&page).unwrap());
+    // The bootstrap adds the pricing unit, matching the catalog page API.
+    let mut expected = serde_json::to_value(&page).unwrap();
+    expected["unit"] = "item".into();
+    assert_eq!(snapshot["data"]["page"], expected);
 }
 
 #[test]

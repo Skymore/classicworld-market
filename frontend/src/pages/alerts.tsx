@@ -14,6 +14,7 @@ import { useWords } from "../providers";
 import { Slot, Price, Empty, usePageReady } from "../components/shared";
 import { Location } from "../components/list-rows";
 import { announce, OfferReminder } from "../components/toasts";
+import { showSystemNotification } from "../lib/push";
 import "../lib/list-copy";
 const pct = (value: number) =>
   `${value >= 0 ? "+" : ""}${Number(value).toFixed(1)}%`;
@@ -212,17 +213,12 @@ export default function Alerts() {
           "/item/" + row.item_id,
           <OfferReminder row={{ ...row, name_zh: row.name, unit_price: row.buy }} />,
         );
-      if (
-        settings.desktop &&
-        "Notification" in window &&
-        Notification.permission === "granted"
-      )
-        try {
-          new Notification(title, {
-            body: `${row.name} · ${line} · ${row.shop}`,
-            tag: row.id,
-          });
-        } catch {}
+      if (settings.desktop)
+        void showSystemNotification(title, {
+          body: `${row.name} · ${line} · ${row.shop}`,
+          tag: String(row.id),
+          data: { url: "/item/" + row.item_id },
+        });
     }),
   );
   const state = useSyncExternalStore<any>(store.subscribe, store.getSnapshot);

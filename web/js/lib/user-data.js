@@ -214,3 +214,6 @@ if(browser){
   }
  });
 }
+// Browser tests read the page's own instance: the React bundle includes this module, so importing
+// /web/js/lib/user-data.js from a test would load a second copy with its own state.
+if(browser&&navigator.webdriver)globalThis.cwmUserData??={getSyncState,userStorage,flush,refreshIdentity};

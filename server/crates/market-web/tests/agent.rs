@@ -45,7 +45,30 @@ async fn tool_discovery_does_not_need_model_key_or_database() {
     let (status, data) = request(&offline(true), "/api/v1/agent/tools", None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(data["enabled"], false);
-    assert_eq!(data["tools"].as_array().unwrap().len(), 6);
+    let names: Vec<_> = data["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|tool| tool["function"]["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "search_items",
+            "get_item",
+            "get_listings",
+            "get_recent_sales",
+            "get_price_advice",
+            "get_market_overview",
+            "get_game_rules",
+            "get_skills",
+            "search_game_data",
+            "get_game_entity",
+            "search_guides",
+            "get_guide",
+            "search_web",
+        ]
+    );
     assert_eq!(data["read_only"], true);
     assert!(!data.to_string().contains("API_KEY"));
 }
