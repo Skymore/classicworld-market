@@ -396,4 +396,67 @@ try{
  assert.equal(await percentPage.locator('[data-sweep-stale]').count(),0,'resolved prices do not mark unchanged rules stale');
  assert(await noOverflow(percentPage));await percentPage.close();
  console.log('PASS percentile sweep: selection, sync, frozen price and unchanged-rule status');
+ for(const mobile of [false,true]){
+  reset();records.splice(0,records.length,
+   {kind:'watch',key:'2000000',version:1,value:{position:0,cap:null,notify:false,buyLimit:20,groups:[group('g1',60)]}},
+   {kind:'watch',key:'1452003',version:1,value:{position:1,cap:null,notify:true,buyLimit:1,groups:[{...group('g2',80000,true),reminder:{stats:[{stat:'weapon_attack',min:60}]}}]}});
+  const context=await browser.newContext({viewport:{width:mobile?390:1280,height:900},isMobile:mobile,hasTouch:mobile});
+  const listPage=await context.newPage(), listErrors=[];listPage.on('pageerror',e=>listErrors.push(e.message));
+  await listPage.goto(origin+'/watch?lang=zh');
+  const picker=listPage.getByLabel('关注清单',{exact:true});await picker.waitFor();
+  const listRecord=()=>records.find(r=>r.key==='watch.lists');
+  await listPage.getByRole('button',{name:'＋ 新建清单',exact:true}).click();
+  let editor=listPage.locator('.wl-dialog');await editor.getByLabel('清单名称',{exact:true}).fill('药水补给');
+  await editor.getByRole('button',{name:'保存',exact:true}).click();
+  await waitFor(()=>listRecord()?.value.includes('药水补给'),'list name syncs');
+  const listId=JSON.parse(listRecord().value)[0].id;
+  assert.equal(await listPage.locator('[data-card]').count(),0,'new list is empty');
+  await picker.selectOption('all');await listPage.getByLabel('红药水所属清单',{exact:true}).selectOption(listId);
+  await listPage.getByLabel('战斗弓所属清单',{exact:true}).selectOption(listId);
+  await picker.selectOption(listId);assert.equal(await listPage.locator('[data-card]').count(),2);
+  await listPage.locator('[data-search]').fill('海星镖');await listPage.locator('[data-add="2070000"]').click();
+  await waitFor(()=>JSON.parse(listRecord().value)[0].items.includes(2070000),'new watch joins selected list');
+  await listPage.getByRole('button',{name:'清单操作',exact:true}).click();
+  await listPage.getByRole('button',{name:'全部关闭提醒',exact:true}).click();
+  await waitFor(()=>records.filter(r=>r.kind==='watch').every(r=>r.value.groups?.every(g=>!g.notify)),'bulk alerts off');
+  await listPage.getByRole('button',{name:'批量设置扫货',exact:true}).click();editor=listPage.locator('.wl-dialog');
+  await editor.getByLabel('红药水条件 1价格',{exact:true}).selectOption('25');
+  await editor.getByLabel('红药水本轮购买上限',{exact:true}).fill('42');
+  const star=editor.locator('[data-batch-item="2070000"]');
+  await star.getByRole('spinbutton',{name:'海星镖条件 1最高单价',exact:true}).fill('800');
+  await star.getByRole('checkbox',{name:'扫货',exact:true}).check();
+  assert(await noOverflow(listPage));
+  assert(await editor.locator('.wl-dialog-foot').evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight),'batch save stays visible');
+  await editor.locator('.wl-batch-body').evaluate(el=>el.scrollTop=0);
+  await listPage.screenshot({path:path.join(shots,`watch-lists-batch-${mobile?'phone':'desktop'}.png`)});
+  await editor.getByRole('button',{name:'保存',exact:true}).click();
+  await waitFor(()=>records[0].value.buyLimit===42&&records[0].value.groups[0].reminder.percentile==='25','batch saves individual rules');
+  assert.deepEqual(records[1].value.groups[0].reminder.stats,[{stat:'weapon_attack',min:60}],'advanced equipment conditions retained');
+  await listPage.reload();await picker.selectOption(listId);assert.equal(await listPage.locator('[data-card]').count(),3,'membership survives reload');
+  await listPage.getByRole('button',{name:'批量设置扫货',exact:true}).click();editor=listPage.locator('.wl-dialog');
+  await editor.getByLabel('红药水本轮购买上限',{exact:true}).fill('9');await editor.getByRole('button',{name:'取消',exact:true}).click();
+  assert.equal(records[0].value.buyLimit,42,'cancel does not write');
+  await listPage.getByRole('button',{name:'批量设置扫货',exact:true}).click();editor=listPage.locator('.wl-dialog');
+  records[0].value.buyLimit=43;records[0].version++;emit('data');
+  await waitFor(()=>listPage.evaluate(()=>JSON.parse(localStorage.getItem('cwm.user-data.v1.acct-1')||'{}').values?.watchlist_settings?.includes('43')),'remote quantity arrives during editing');
+  await editor.getByRole('button',{name:'保存',exact:true}).click();
+  await editor.getByRole('alert').waitFor();assert.equal(records[0].value.buyLimit,43,'stale draft never overwrites remote rules');
+  await editor.getByRole('button',{name:'取消',exact:true}).click();
+  await listPage.getByRole('button',{name:'清单操作',exact:true}).click();await listPage.getByRole('button',{name:'重命名',exact:true}).click();
+  editor=listPage.locator('.wl-dialog');await editor.getByLabel('清单名称',{exact:true}).fill('日常补给');await editor.getByRole('button',{name:'保存',exact:true}).click();
+  await waitFor(()=>listRecord().value.includes('日常补给'),'rename syncs');
+  // A second page sees the same account lists and device-like SSE updates.
+  const second=await context.newPage();await second.goto(origin+'/watch?lang=zh');await second.getByLabel('关注清单',{exact:true}).selectOption(listId);
+  assert.equal(await second.locator('[data-card]').count(),3);
+  const remote=JSON.parse(listRecord().value);remote[0].name='同步清单';listRecord().value=JSON.stringify(remote);listRecord().version++;emit('data');
+  await waitFor(()=>listPage.locator('.wl-summary b').innerText().then(t=>t==='同步清单'),'SSE updates list name');
+  await listPage.screenshot({path:path.join(shots,`watch-lists-${mobile?'phone':'desktop'}.png`)});await second.close();
+  await listPage.getByRole('button',{name:'清单操作',exact:true}).click();await listPage.getByRole('button',{name:'删除清单',exact:true}).click();
+  await listPage.locator('.wl-dialog').getByRole('button',{name:'确认删除',exact:true}).click();
+  await waitFor(()=>listRecord().value==='[]','deleting list syncs');
+  assert.equal(await picker.inputValue(),'default');assert.equal(await listPage.locator('[data-card]').count(),3,'deletion preserves watches');
+  assert.equal(records[0].value.buyLimit,43);assert.equal(records[0].value.groups[0].buy,true);
+  assert(await noOverflow(listPage));assert.deepEqual(listErrors,[]);await context.close();
+  console.log(`PASS ${mobile?'phone':'desktop'} watch lists: create, move, add, bulk rules, cancel, rename, reload, SSE and safe delete`);
+ }
 }finally{await browser?.close();for(const s of [...accountStreams,...marketStreams])s.end();server.closeAllConnections();await new Promise(r=>server.close(r));}

@@ -142,6 +142,35 @@ fn units(run: &Value, item: i64) -> i64 {
 }
 
 #[tokio::test]
+async fn watch_lists_sync_between_web_and_devices_without_changing_sweep() {
+    let Some(db) = TestDb::new().await else { return };
+    let s = AppState::new(db.pool.clone(), Settings::default());
+    let w = signup(&s, "lists_owner").await;
+    watch(&s, &w, GLOVE, 100, 2, 0).await;
+    let (token, _) = ready_device(&s, &w, "本机").await;
+    device_start(&s, &token, 1000).await;
+    let original = run_view(&s, &w).await;
+    let lists = json!([{"id":"gear","name":"练级装备","items":[GLOVE]}]).to_string();
+    let op = |value:Value,version:i64| json!({"kind":"pref","key":"watch.lists","value":value,"version":version});
+    let (status, body) = web(&s,"POST","/api/v1/account/data",&w,json!({"operations":[op(json!(lists),0)]})).await;
+    assert_eq!(status,StatusCode::OK,"{body}");
+    let (status, data) = dev(&s,"GET","/api/v1/device/data",&token,Value::Null).await;
+    assert_eq!(status,StatusCode::OK,"{data}");
+    assert!(data["records"].as_array().unwrap().iter().any(|r|r["key"]=="watch.lists"&&r["value"]==lists));
+    let other = signup(&s,"lists_other").await;
+    let (_, data) = web(&s,"GET","/api/v1/account/data",&other,Value::Null).await;
+    assert!(!data["records"].as_array().unwrap().iter().any(|r|r["key"]=="watch.lists"));
+    assert_eq!(dev(&s,"POST","/api/v1/device/data",&token,json!({"operations":[op(json!("[]"),0)]})).await.0,StatusCode::CONFLICT);
+    assert_eq!(dev(&s,"POST","/api/v1/device/data",&token,json!({"operations":[op(json!("[]"),1)]})).await.0,StatusCode::OK);
+    let (_, data) = web(&s,"GET","/api/v1/account/data",&w,Value::Null).await;
+    assert!(data["records"].as_array().unwrap().iter().any(|r|r["kind"]=="watch"&&r["value"]["groups"][0]["cap"]==100));
+    let latest = run_view(&s,&w).await;
+    assert_eq!(latest["plan"],original["plan"]);
+    assert_eq!(latest["plan_stale"],false);
+    db.close().await;
+}
+
+#[tokio::test]
 async fn percentile_sweep_uses_reminder_prices_and_keeps_the_run_cap() {
     let Some(db) = TestDb::new().await else { return };
     let s = AppState::new(db.pool.clone(), Settings::default());

@@ -1,7 +1,9 @@
 import { useQueries } from "@tanstack/react-query";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { SiteLink } from "../components/shell";
 import WatchGroups, { sweepable, trackOnly } from "../components/watch-groups";
+import WatchLists, { type WatchList } from "../components/watch-lists";
+import { LISTS_KEY, readWatchLists, listItems, listForItem, moveToList } from "/web/js/lib/watch-lists.js";
 import {
   activeOffers,
   matchingReminders,
@@ -57,6 +59,7 @@ export default function Watch() {
   usePageReady();
   const words = useWords();
   const route = useLocation();
+  const navigate = useNavigate();
   const {
     ids,
     settings,
@@ -74,6 +77,12 @@ export default function Watch() {
     [rawFilters, writeFilters] = useUserValue("watch.offerFilters", "{}"),
     [groupPref, writeGroupPref] = useUserValue("watch.groupByItem", "true");
   const profile = useAccount().data;
+  const [rawLists, writeLists] = useUserValue(LISTS_KEY, "[]");
+  const lists = useMemo<WatchList[]>(() => readWatchLists(rawLists).map((list:WatchList)=>({...list,items:list.items.filter(id=>ids.includes(id))})), [rawLists, ids]);
+  const [selectedList, selectList] = useState("all");
+  useEffect(()=>{if(!["all","default"].includes(selectedList)&&!lists.some(list=>list.id===selectedList))selectList("all");},[lists,selectedList]);
+  const visibleIds: number[] = listItems(lists, ids, selectedList);
+  const saveLists = (next:WatchList[]) => writeLists(JSON.stringify(next));
   // Signed-in accounts get the Items | Sweep tabs. The collector's embedded page
   // (mode "collector") has no sweep API: its sweep tab only edits the rules.
   const sweepTab = Boolean(profile?.signed_in);
@@ -188,6 +197,10 @@ export default function Watch() {
   );
   const requestedId = Number(new URLSearchParams(route.search).get("item"));
   const focusId = ids.includes(requestedId) ? requestedId : null;
+  function chooseList(id:string) {
+    selectList(id);
+    if(focusId!==null){const params=new URLSearchParams(route.search);params.delete('item');navigate({pathname:route.pathname,search:params.toString(),hash:route.hash},{replace:true});}
+  }
   useEffect(() => {
     if (focusId !== null)
       document
@@ -209,7 +222,7 @@ export default function Watch() {
   }
   const matches = sortWatchQuotes(
     focusId === null
-      ? filterWatchRows(baseMatches, filters).rows
+      ? filterWatchRows(baseMatches.filter((row:any)=>tab==='sweep'||visibleIds.includes(row.item_id)), filters).rows
       : baseMatches.filter((row: any) => row.item_id === focusId),
     sort === "recent" ? "recent" : "price",
   );
@@ -293,6 +306,7 @@ export default function Watch() {
       return;
     }
     saveIds(Core.add(ids, item.item_id));
+    saveLists(moveToList(lists,item.item_id,selectedList==='all'?'default':selectedList));
     // Close the results and open the new card's conditions, so the price is set right away.
     setAdded(item.item_id);
     setQuery("");
@@ -312,7 +326,7 @@ export default function Watch() {
   const byItem =
     groupPref !== "true" && focusId === null
       ? null
-      : (focusId === null ? ids : [focusId])
+      : (focusId === null ? (tab==='sweep'?ids:visibleIds) : [focusId])
           .map((id) => ({
             id,
             rows: matches.filter((row: any) => row.item_id === id),
@@ -416,6 +430,10 @@ export default function Watch() {
           {...(sweepTab ? { role: "tabpanel", "aria-labelledby": "watch-tab-items" } : {})}
         >
           {sweepTab && collapsed !== "true" && notifications}
+          <WatchLists lists={lists} selected={selectedList} ids={ids} settings={settings}
+            name={id=>itemName(items.get(id)||{item_id:id,name_zh:String(id)})}
+            onSelect={chooseList} onLists={saveLists} onSettings={next=>writeSettings(JSON.stringify(next))}
+            canSweep={inScanner||embedded||Boolean(profile?.signed_in)} />
           <div className="wadd">
             <form
               className="finder"
@@ -512,8 +530,8 @@ export default function Watch() {
               : ""}
           </p>
           <div className="wcards" data-cards>
-            {ids.length ? (
-              ids.map((id) => {
+            {visibleIds.length ? (
+              visibleIds.map((id) => {
                 const item = items.get(id) || {
                   item_id: id,
                   name_zh: String(id),
@@ -573,11 +591,17 @@ export default function Watch() {
                         className="bar-btn wc-x"
                         data-remove={id}
                         aria-label={t("watch.remove", { name: itemName(item) })}
-                        onClick={() => saveIds(Core.remove(ids, id))}
+                        onClick={() => {saveIds(Core.remove(ids, id));saveLists(moveToList(lists,id,'default'));}}
                       >
                         <Icon name="close" />
                       </button>
                     </div>
+                    {lists.length>0&&<label className="wc-list">{words('清单','List')}
+                      <select aria-label={words(`${itemName(item)}所属清单`,`${itemName(item)} list`)} value={listForItem(lists,id)} onChange={e=>saveLists(moveToList(lists,id,e.target.value))}>
+                        <option value="default">{words('默认清单','Default list')}</option>
+                        {lists.map(list=><option key={list.id} value={list.id}>{list.name}</option>)}
+                      </select>
+                    </label>}
                     <div className="wc-set" id={"wc-set-" + id}>
                       <WatchGroups
                         id={id}

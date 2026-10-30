@@ -1,9 +1,9 @@
 // A storage facade: guest keys stay untouched; account caches and pending writes
 // are namespaced by a server-confirmed public account ID. Credentials stay in cookies.
-const PREFS=['lang','theme','market.offerSort','watch.offerSort','market.hours','watch.sweepSettings'];
+const PREFS=['lang','theme','market.offerSort','watch.offerSort','market.hours','watch.sweepSettings','watch.lists'];
 const KEYS=['watchlist','watchlist_settings',...PREFS];
 const itemPref=key=>/^item\.(offerFilters|showExpired)\.[1-5]\d{6}$/.test(key);
-const scoped=key=>profile?.sync_scope!=='watch'||key==='watch.sweepSettings';
+const scoped=key=>profile?.sync_scope!=='watch'||['watch.sweepSettings','watch.lists'].includes(key);
 const preference=key=>(PREFS.includes(key)||itemPref(key))&&scoped(key);
 const managed=key=>key==='watchlist'||key==='watchlist_settings'||preference(key);
 const PREFIX='cwm.user-data.v1.';
@@ -80,6 +80,8 @@ function queue(){
  const desired=new Map(recordsFrom(context.values).map(r=>[recordKey(r),r]));
  const base=new Map(context.records.map(r=>[recordKey(r),r]));
  for(const key of new Set([...desired.keys(),...base.keys(),...Object.keys(context.pending)])){
+  const record=base.get(key)||context.pending[key];
+  if(record&&record.kind!=='watch'&&!(record.kind==='pref'&&preference(record.key)))continue;
   const previous=base.get(key),next=desired.get(key)||{kind:previous?.kind||context.pending[key].kind,key:previous?.key||context.pending[key].key,value:null};
   if(same(previous?.value,next.value))delete context.pending[key];
   else context.pending[key]={...next,version:context.pending[key]?.version??previous?.version??0};

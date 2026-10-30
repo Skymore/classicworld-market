@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {readWatchLists,listForItem,listItems,moveToList} from '../js/lib/watch-lists.js';
+const lists=readWatchLists(JSON.stringify([{id:'potions',name:'药水',items:[2000000,2000001,2000000]}, {id:'gear',name:'装备',items:[2000001,1082002]}]));
+assert.deepEqual(lists[0].items,[2000000,2000001]);
+assert.deepEqual(lists[1].items,[1082002]);
+assert.equal(listForItem(lists,4000000),'default');
+assert.deepEqual(listItems(lists,[2000000,1082002,4000000],'potions'),[2000000]);
+assert.deepEqual(listItems(lists,[2000000,1082002,4000000],'default'),[4000000]);
+const moved=moveToList(lists,2000000,'gear');
+assert.equal(listForItem(moved,2000000),'gear');
+assert.equal(listForItem(lists,2000000),'potions');
+assert.equal(listForItem(moveToList(moved,2000000,'default'),2000000),'default');
+assert.deepEqual(moveToList(lists,2000000,'missing'),lists);
+assert.equal(listForItem(lists.filter(list=>list.id!=='potions'),2000000),'default');
+assert.deepEqual(readWatchLists('broken'),[]);
+assert.deepEqual(readWatchLists([{id:'default',name:'x',items:[]},{id:'a',name:'',items:[]}]),[]);
+console.log('PASS watch list normalization, membership, moves and non-destructive deletion');

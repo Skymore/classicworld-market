@@ -755,6 +755,7 @@ pub(crate) fn valid_record(r: &Record) -> bool {
             "watch.offerSort",
             "market.hours",
             "watch.sweepSettings",
+            "watch.lists",
         ]
         .contains(&r.key.as_str());
     };
@@ -763,6 +764,7 @@ pub(crate) fn valid_record(r: &Record) -> bool {
         "theme" => v == "light" || v == "dark",
         "market.offerSort" | "watch.offerSort" => v == "price" || v == "recent",
         "market.hours" => v == "72" || v == "all",
+        "watch.lists" => v.as_str().is_some_and(valid_watch_lists),
         "watch.sweepSettings" => v.as_str().is_some_and(|s| {
             s.len() <= 1024 && serde_json::from_str::<Value>(s).ok().is_some_and(|v| v.as_object().is_some_and(|o| {
                 o.len() == 6 && o.iter().all(|(k,v)| match k.as_str() {
@@ -774,6 +776,21 @@ pub(crate) fn valid_record(r: &Record) -> bool {
         }),
         _ => false,
     }
+}
+fn valid_watch_lists(raw: &str) -> bool {
+    if raw.len() > 16384 { return false; }
+    serde_json::from_str::<Value>(raw).ok().is_some_and(|v| v.as_array().is_some_and(|lists| {
+        let mut keys = std::collections::HashSet::new();
+        let mut members = std::collections::HashSet::new();
+        lists.len() <= 20 && lists.iter().all(|list| list.as_object().is_some_and(|o| {
+            o.len() == 3
+                && o.get("id").and_then(Value::as_str).is_some_and(|id| !id.is_empty() && id.len() <= 64 && !["all","default"].contains(&id)
+                    && id.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-') && keys.insert(id))
+                && o.get("name").and_then(Value::as_str).is_some_and(|name| !name.trim().is_empty() && name.chars().count() <= 20 && !name.chars().any(char::is_control))
+                && o.get("items").and_then(Value::as_array).is_some_and(|items| items.len() <= 100 && items.iter().all(|item|
+                    item.as_u64().is_some_and(|id| (1000000..=5999999).contains(&id) && members.insert(id))))
+        })) && members.len() <= 100
+    }))
 }
 fn valid_watch_group(v: &Value) -> bool {
     v.as_object().is_some_and(|o| {
@@ -886,7 +903,7 @@ async fn collector_watch_snapshot(db: &PgPool, collector: i64) -> Response {
     let account: Option<(i64,String,String)> = match sqlx::query_as("SELECT a.id,a.public_id,a.nickname FROM collectors c JOIN accounts a ON a.id=c.account_id WHERE c.id=$1 AND c.active")
         .bind(collector).fetch_optional(db).await { Ok(a)=>a,Err(e)=>return internal(e) };
     let Some((id,public_id,nickname))=account else { return Json(json!({"linked":false,"records":[]})).into_response() };
-    let records: Vec<Record> = match sqlx::query_as("SELECT kind,key,value,version FROM account_data WHERE account_id=$1 AND (kind='watch' OR (kind='pref' AND key='watch.sweepSettings')) ORDER BY kind,key")
+    let records: Vec<Record> = match sqlx::query_as("SELECT kind,key,value,version FROM account_data WHERE account_id=$1 AND (kind='watch' OR (kind='pref' AND key IN ('watch.sweepSettings','watch.lists'))) ORDER BY kind,key")
         .bind(id).fetch_all(db).await { Ok(v)=>v,Err(e)=>return internal(e) };
     Json(json!({"linked":true,"public_id":public_id,"nickname":nickname,"records":records})).into_response()
 }
@@ -894,7 +911,7 @@ async fn collector_watch_snapshot(db: &PgPool, collector: i64) -> Response {
 struct CollectorChanges { account: String, operations: Vec<Record> }
 fn valid_collector_changes(input: &CollectorChanges) -> bool {
     !input.operations.is_empty() && input.operations.len()<=120 && input.operations.iter().all(|r|
-        valid_record(r) && (r.kind=="watch" || (r.kind=="pref" && r.key=="watch.sweepSettings")))
+        valid_record(r) && (r.kind=="watch" || (r.kind=="pref" && ["watch.sweepSettings","watch.lists"].contains(&r.key.as_str()))))
         && input.operations.iter().map(|r|(&r.kind,&r.key)).collect::<std::collections::HashSet<_>>().len()==input.operations.len()
 }
 async fn collector_save_watch(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<CollectorChanges>) -> Response {
@@ -934,6 +951,21 @@ mod tests {
         c.operations[0]=Record{kind:"watch".into(),key:"1002000".into(),value:None,version:1};
         assert!(valid_collector_changes(&c));
         c.operations.push(c.operations[0].clone());assert!(!valid_collector_changes(&c));
+    }
+    #[test]
+    fn watch_lists_validate_membership_and_collector_scope() {
+        let valid = json!([{"id":"potions","name":"药水补给","items":[2000000,2000001]}, {"id":"gear","name":"装备","items":[1082002]}]);
+        let mut r = Record {kind:"pref".into(),key:"watch.lists".into(),version:0,value:Some(json!(valid.to_string()))};
+        assert!(valid_record(&r));
+        assert!(valid_collector_changes(&CollectorChanges{account:"test".into(),operations:vec![r.clone()]}));
+        for bad in [json!({}), json!([{"id":"all","name":"x","items":[]}]),
+            json!([{"id":"x","name":"","items":[]}]), json!([{"id":"x","name":"ok","items":[1]}]),
+            json!([{"id":"x","name":"ok","items":[2000000,2000000]}]),
+            json!([{"id":"x","name":"one","items":[2000000]},{"id":"y","name":"two","items":[2000000]}]),
+            json!([{"id":"x","name":"one","items":[]},{"id":"x","name":"two","items":[]}])] {
+            r.value=Some(json!(bad.to_string()));assert!(!valid_record(&r),"{bad}");
+        }
+        r.value=None;assert!(valid_record(&r));
     }
     #[test]
     fn watch_groups_empty_delete_and_upgrade_zero_are_valid() {
