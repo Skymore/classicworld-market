@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.6.45：修复用完后仍占格的飞镖、子弹数量为 0 时导致整包解析失败；支持数量归零及补充，保留普通物品零数量与截断数据校验。包含 v0.6.44 的扫描误停修复。\n'
         'v0.6.44：修复普通扫描被扫货背包核对误停；开始核对时切出游戏改为等待恢复，真正需要处理的停止会显示具体原因。保留扫货前及成交后的核对。\n'
         'v0.6.43：修复停止后任务未释放及重新开始等待过久；停止期间返回的任务也会清理，任务占用时快速复查，准确区分任务占用、过期与网络中断。\n'
         'v0.6.42：换频道改为 Esc、Enter、左右键、Enter，全程不点击菜单或频道按钮，消除换频道流程误点 Key Bindings 的路径；保留频道核对和失败重试。\n'

@@ -18,11 +18,14 @@ def stack(data, pos, category, capacity):
     if len(data) < pos + 43 or data[pos+16:pos+20] != b'\xff'*4 or data[pos+20] not in (0, 1):
         raise ValueError('Unsupported stack layout')
     quantity = struct.unpack_from('<H', data, pos+21)[0]
-    if not quantity:
+    rechargeable = item//10000 in (207, 233)
+    # Used-up stars/bullets remain in their occupied slot until recharged.
+    # Their explicit zero is valid; ordinary occupied stacks still need units.
+    if not quantity and not rechargeable:
         raise ValueError('Empty occupied slot')
     # Rechargeable ammunition has an additional eight-byte serial after the
     # ordinary stack. It is part of this record, not the next inventory slot.
-    end = pos+43+(8 if item//10000 in (207, 233) else 0)
+    end = pos+43+(8 if rechargeable else 0)
     if len(data) < end:
         raise ValueError('Truncated rechargeable stack')
     return end, slot, item, quantity
@@ -179,7 +182,7 @@ class Inventory:
             elif mode == 1:
                 quantity = struct.unpack_from('<H', data, pos)[0]
                 pos += 2
-                if not quantity:
+                if not quantity and slots[key][0]//10000 not in (207, 233):
                     raise ValueError('Zero quantity without removal')
                 slots[key] = slots[key][0], quantity
             elif mode == 2:

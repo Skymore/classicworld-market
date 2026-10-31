@@ -84,6 +84,42 @@ class InventoryTests(unittest.TestCase):
             self.inventory.observe(update(bytes([0,2])+record(8,item,700)+bytes(8)),'ammo')
             self.assertEqual(self.quantities()[item],1500)
 
+    def test_empty_rechargeable_slots_keep_all_three_bags_decodable(self):
+        for item in (2070000,2330000):
+            data=character()
+            # Match the observed structure: ordinary stacks, two exhausted
+            # rechargeable slots with serials, then an ordinary stack.
+            pos=600+2*43
+            data[pos:pos]=record(6,item,0)+bytes.fromhex('ba814e1b00000000')
+            data[pos+51:pos+51]=record(7,item,0)+bytes.fromhex('bb814e1b00000000')
+            struct.pack_into('<H',data,pos+102,9)
+            self.inventory.observe(data,'empty-ammo')
+            self.assertEqual(self.inventory.view()['categories'],[2,3,4])
+            self.assertEqual(self.quantities()[item],0)
+            self.assertEqual(self.quantities()[2000001],189)
+            self.assertEqual(self.quantities()[2000003],8)
+            self.assertEqual(self.quantities()[4000000],15)
+
+    def test_rechargeable_quantity_can_reach_zero_and_be_recharged(self):
+        for item in (2070000,2330000):
+            self.inventory.observe(character(),'one')
+            self.inventory.observe(update(bytes([0,2])+record(8,item,3)+bytes(8)),'one')
+            self.inventory.observe(update(struct.pack('<BBhH',1,2,8,0)),'one')
+            self.assertEqual(self.quantities()[item],0)
+            self.assertEqual(self.inventory.view()['categories'],[2,3,4])
+            self.inventory.observe(update(struct.pack('<BBhh',2,2,8,9)),'one')
+            self.inventory.observe(update(struct.pack('<BBhH',1,2,9,1000)),'one')
+            self.assertEqual(self.quantities()[item],1000)
+
+    def test_zero_ordinary_stack_and_truncated_ammo_are_still_invalid(self):
+        data=character();struct.pack_into('<H',data,621,0)
+        with self.assertRaises(ValueError):snapshot(data)
+        self.inventory.observe(update(struct.pack('<BBhH',1,2,2,0)),'one')
+        self.assertEqual(self.inventory.view()['categories'],[])
+        self.inventory.observe(character(),'two')
+        self.inventory.observe(update(bytes([0,2])+record(8,2070000,0)),'two')
+        self.assertEqual(self.inventory.view()['categories'],[])
+
     def test_cash_pet_refresh_does_not_clear_tracked_bags(self):
         pet=bytes([3])+struct.pack('<I',5000007)+bytes([1])+bytes(69)
         refresh=update(struct.pack('<BBh',3,5,7),struct.pack('<BBh',0,5,7)+pet)
