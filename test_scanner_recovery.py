@@ -116,6 +116,13 @@ class PolicyTests(unittest.TestCase):
         self.assertNotIn('token', error.resource_diagnostic)
         self.assertEqual(failure_state(RouteError('Position feed is stale'))[0], 'waiting_game')
 
+    def test_unrecognized_received_shop_has_specific_attention_message(self):
+        from market_browser_bot import ShopWindowUnconfirmed
+        phase,message=failure_state(ShopWindowUnconfirmed('exit button missing'))
+        self.assertEqual(phase,'needs_attention')
+        self.assertIn('离店按钮',message)
+        self.assertNotIn('游戏尚未就绪',message)
+
     def test_full_disk_stop_revokes_existing_permit_without_new_file(self):
         with tempfile.TemporaryDirectory() as folder:
             intent=ScanIntent(folder)
