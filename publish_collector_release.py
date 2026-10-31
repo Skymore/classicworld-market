@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.6.42：换频道改为 Esc、Enter、左右键、Enter，全程不点击菜单或频道按钮，消除换频道流程误点 Key Bindings 的路径；保留频道核对和失败重试。\n'
         'v0.6.41：内置自由市场大厅与 1–20 洞导航数据，Steam、Nexon 和自定义安装目录无需配置地图路径；地图配置失败显示明确状态并保留本机诊断。\n'
         'v0.6.40：修复内嵌价格表缺少返回和搜索入口；商品详情、搜索结果与刷新后保留内嵌导航。\n'
         'v0.6.39：支持扫货中直接编辑价格和本轮数量上限；条件同步至同一轮所有设备，保留额度和进度，正在处理的购买完成后切换新规则。\n'
