@@ -29,6 +29,25 @@ class Screen:
 
 
 class InventoryCheckTests(unittest.TestCase):
+    def test_startup_focus_loss_preserves_recoverable_input_exception(self):
+        for failure in (RuntimeError('Game lost foreground; stopped'), InterruptedError('Request cancelled')):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as folder:
+                window = Window()
+                def interrupted_pause(duration): raise failure
+                window.pause = interrupted_pause
+                with self.assertRaises(type(failure)) as caught:
+                    InventoryChecker(folder, Screen(), lambda: window.elapsed).run(window)
+                self.assertIs(caught.exception, failure)
+                self.assertEqual(window.keys, ['i'])
+
+    def test_post_purchase_interruption_still_requires_attention(self):
+        with tempfile.TemporaryDirectory() as folder:
+            window = Window()
+            def interrupted_pause(duration): raise RuntimeError('Game lost foreground; stopped')
+            window.pause = interrupted_pause
+            with self.assertRaises(InventoryCheckError):
+                InventoryChecker(folder, Screen(), lambda: window.elapsed).run(window, 'purchase')
+
     def test_open_verify_close_and_preserve_purchase_expectation(self):
         packet = dict(categories=[2, 3, 4], mesos=500, items=[dict(item_id=2000001, quantity=40)])
         for initially_open in (False, True):

@@ -141,6 +141,11 @@ class InventoryChecker:
                 except (OSError, TypeError, AttributeError):
                     pass
             self.record(reason, 'failed', error=str(error)[:160])
+            # Startup has not bought anything. Preserve input interruptions so
+            # the scanner can wait for the game again instead of revoking intent.
+            # Post-purchase verification still fails closed through PurchaseHalt.
+            if reason == 'scan_start' and isinstance(error, (RuntimeError, InterruptedError)):
+                raise
             if isinstance(error, InventoryCheckError):
                 raise
             raise InventoryCheckError('背包确认失败：'+str(error)) from error

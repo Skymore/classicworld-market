@@ -207,6 +207,67 @@ if n==1:
 
 
 class RecoveryTests(unittest.TestCase):
+    def scan_with_preflight(self, folder, hwnd, started, stop, callback, ready_callback, **kwargs):
+        ready_callback(object())
+        callback(('confirmed',dict(step='scan',room=5)))
+        stop.wait()
+
+    def buying_sweep(self):
+        sweep=Mock()
+        sweep.buying.return_value=True
+        sweep.scan_mode.return_value='market'
+        self.controller.sweep=sweep
+        return sweep
+
+    def test_price_scanning_does_not_require_personal_inventory(self):
+        self.modules['run']=self.scan_with_preflight
+        with patch('inventory_check.check_at_start',side_effect=AssertionError('not buying')) as check:
+            self.controller.start(12)
+            self.until(lambda:self.controller.snapshot()['phase']=='scanning')
+            check.assert_not_called()
+        self.assertTrue(ScanIntent(self.home).load()['enabled'])
+
+    def test_sweep_inventory_failure_keeps_reason_and_requires_manual_restart(self):
+        from inventory_check import InventoryCheckError
+        self.buying_sweep()
+        self.modules['run']=self.scan_with_preflight
+        with patch('inventory_check.check_at_start',side_effect=InventoryCheckError('背包数据尚未完成核对')) as check:
+            self.controller.start(12)
+            self.controller._worker.join(3)
+            check.assert_called_once()
+        state=self.controller.snapshot()
+        self.assertEqual(state['phase'],'needs_attention')
+        self.assertFalse(state['desired'])
+        self.assertIn('背包数据尚未完成核对',state['message'])
+        self.assertTrue(any('背包数据尚未完成核对' in row['text'] for row in state['activities']))
+        self.assertFalse(ScanIntent(self.home).load()['enabled'])
+        rows=[json.loads(row) for row in (self.home/'scan-recovery.jsonl').read_text(encoding='utf-8').splitlines()]
+        self.assertTrue(any(row['event']=='scan_stopped' and '背包' in row['reason'] for row in rows))
+        self.assertFalse(any(row['event']=='user_stop' for row in rows))
+        # Fixing the problem and starting again clears the previous fault.
+        with patch('inventory_check.check_at_start'):
+            self.controller.start(12)
+            self.until(lambda:self.controller.snapshot()['phase']=='scanning')
+        self.assertIsNone(self.controller.snapshot()['failure'])
+
+    def test_startup_focus_interruption_waits_then_resumes_without_user_stop(self):
+        self.buying_sweep()
+        self.modules['run']=self.scan_with_preflight
+        attempts=[]
+        def check(*args):
+            attempts.append(1)
+            if len(attempts)==1:
+                self.ready=False
+                raise RuntimeError('Game lost foreground; stopped')
+        with patch('inventory_check.check_at_start',side_effect=check):
+            self.controller.start(12)
+            self.until(lambda:self.controller.snapshot()['phase']=='waiting_game')
+            self.assertTrue(ScanIntent(self.home).load()['enabled'])
+            self.assertTrue(self.controller.snapshot()['desired'])
+            self.ready=True
+            self.until(lambda:self.controller.snapshot()['phase']=='scanning')
+        self.assertEqual(len(attempts),2)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

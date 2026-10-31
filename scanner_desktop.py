@@ -155,6 +155,7 @@ class DesktopController:
         self._cancel.set()
         self._paused = threading.Event()
         self._desired = False
+        self._halt_reason = None
         self._session = None
         self._step_deadline = None
         self._guard_thread = None
@@ -323,10 +324,12 @@ class DesktopController:
             raise ValueError('未知操作')
         return self.snapshot()
 
-    def _user_stop(self, *, persist=True):
+    def _user_stop(self, *, persist=True, reason=None):
         # Close the input gate BEFORE disk I/O or teardown. Never clear a gate
         # that an earlier scanner still holds.
         with self._lock:
+            if self._desired or reason:
+                self._halt_reason = reason
             self._desired = False
             self._cancel.set()
             self._stop.set()
@@ -335,9 +338,15 @@ class DesktopController:
             release_keys()
             if persist:
                 self._intent.stop()
-            self._change(desired=False, phase='stopping' if self._worker and self._worker.is_alive() else 'stopped',
-                         message='已停止，自动恢复已取消。', next_retry_at=None)
-            self._journal.event('user_stop' if persist else 'update_handoff')
+            self._change(desired=False, phase='stopping' if self._worker and self._worker.is_alive()
+                         else ('needs_attention' if self._halt_reason else 'stopped'),
+                         message=self._halt_reason or '已停止，自动恢复已取消。',
+                         failure=self._halt_reason, next_retry_at=None)
+            if reason:
+                self._activity(reason, 'error')
+                self._journal.event('scan_stopped', reason=reason)
+            else:
+                self._journal.event('user_stop' if persist else 'update_handoff')
 
     def start(self, hwnd, *, restore=False):
         with self._lock:
@@ -362,6 +371,7 @@ class DesktopController:
                 raise ValueError('采集服务未连接，请重新启动程序。')
             self._session = self._intent.start(hwnd, saved.get('session'))['session']
             self._desired = True
+            self._halt_reason = None
             self._cancel = threading.Event()
             self._restart_requested = False
             self._retry_at = 0
@@ -371,7 +381,8 @@ class DesktopController:
             self._modules['clear_pause']()
             self._hwnd = hwnd
             self._change(phase='rebuilding', desired=True, mode='scan', selected=hwnd, visited=0, room=None,
-                         channel=None, started_at=time.time(), stopped_at=None, message='正在连接游戏并领取任务…')
+                         channel=None, started_at=time.time(), stopped_at=None, failure=None, retries=0,
+                         next_retry_at=None, message='正在连接游戏并领取任务…')
             if self._window:
                 self._window.minimize()
             if not restore:
@@ -527,8 +538,9 @@ class DesktopController:
             self._stop.set()
             release_keys()
             if not self._desired:
-                self._change(phase='stopped', stopped_at=time.time(), desired=False, next_retry_at=None,
-                             message='扫描已停止，手动采集仍在运行。')
+                self._change(phase='needs_attention' if self._halt_reason else 'stopped',
+                             stopped_at=time.time(), desired=False, next_retry_at=None,
+                             message=self._halt_reason or '扫描已停止，手动采集仍在运行。')
 
     def _attempt(self, stop):
         threads = []
@@ -572,9 +584,14 @@ class DesktopController:
             # The sweep engine buys in shops the scanner opens; it decides per visit.
             hooks = dict(shop_callback=self.sweep.on_shop_open, capture_receipt=self.sweep.receipt) if self.sweep else {}
             from inventory_check import check_at_start
+            def ready(switcher):
+                # Reading shop prices does not need the character's inventory.
+                # Keep the preflight while buying, as well as per-purchase checks.
+                if self.sweep and self.sweep.buying():
+                    check_at_start(self.collector.folder, switcher)
             def scan(*args, **kwargs):
                 return self._modules['run'](*args, **kwargs,
-                    ready_callback=lambda switcher: check_at_start(self.collector.folder, switcher))
+                    ready_callback=ready)
             if self.sweep and self.sweep.buying() and self.sweep.scan_mode() == 'recent':
                 from sweep_routes import run_recent
                 outcome = run_recent(self._folder, self._hwnd, started, stop, self._on_scan, self.sweep, scan)
@@ -599,7 +616,20 @@ class DesktopController:
             failure = error
             from sweep_purchase import purchase_halted
             from inventory_check import inventory_check_failed
-            if inventory_check_failed(error) or purchase_halted(error) or any(s in str(error).lower() for s in ('stopped with f9', 'mouse failsafe')):
+            if inventory_check_failed(error) or purchase_halted(error):
+                # Preserve the concrete cause in the existing attention panel
+                # and activity feed instead of reporting an unexplained user stop.
+                cause = error
+                seen = set()
+                while id(cause) not in seen:
+                    seen.add(id(cause))
+                    nested = cause.__cause__ or cause.__context__
+                    if nested is None:
+                        break
+                    cause = nested
+                message = '背包核对失败：'+str(cause) if inventory_check_failed(error) else '购买流程需要确认，已停止扫描。'
+                self._user_stop(reason=message)
+            elif any(s in str(error).lower() for s in ('stopped with f9', 'mouse failsafe')):
                 self._user_stop()
         finally:
             failure = getattr(stop, 'failure', None) or failure

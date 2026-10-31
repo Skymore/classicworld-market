@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.6.44：修复普通扫描被扫货背包核对误停；开始核对时切出游戏改为等待恢复，真正需要处理的停止会显示具体原因。保留扫货前及成交后的核对。\n'
         'v0.6.43：修复停止后任务未释放及重新开始等待过久；停止期间返回的任务也会清理，任务占用时快速复查，准确区分任务占用、过期与网络中断。\n'
         'v0.6.42：换频道改为 Esc、Enter、左右键、Enter，全程不点击菜单或频道按钮，消除换频道流程误点 Key Bindings 的路径；保留频道核对和失败重试。\n'
         'v0.6.41：内置自由市场大厅与 1–20 洞导航数据，Steam、Nexon 和自定义安装目录无需配置地图路径；地图配置失败显示明确状态并保留本机诊断。\n'
