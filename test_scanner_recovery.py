@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 from urllib.error import HTTPError, URLError
 
 from collector_recovery import ScanIntent, failure_state, retry_after, retry_delay
-from collector_http import request_json
+from collector_http import request_json, scanner_request
 from collector_watchdog import HealthMonitor, should_restart
 
 
@@ -82,6 +82,29 @@ def response_429(pipe):
 
 
 class PolicyTests(unittest.TestCase):
+    def test_conflict_messages_and_retry_match_the_operation(self):
+        for action, message in (('claim','占用'),('heartbeat','过期'),('complete','过期')):
+            error=HTTPError('',409,'',{},None)
+            error.scanner_action=action
+            self.assertIn(message,failure_state(error)[1])
+            for attempt in (1,4,10,100):
+                self.assertLessEqual(retry_delay(attempt,error),2)
+            error.headers['Retry-After']='30'
+            self.assertEqual(retry_delay(100,error),30)
+        self.assertNotIn('过期',failure_state(HTTPError('',409,'',{},None))[1])
+
+    def test_scanner_cleanup_survives_stop_but_other_new_requests_do_not(self):
+        stop=threading.Event();stop.set()
+        config=dict(endpoint='https://mxd.ruit.me',token='fixture')
+        with patch('collector_http.request_json',return_value={}) as request:
+            scanner_request(config,'release',{'lease_id':'owned'},stop=stop)
+            self.assertIsNone(request.call_args.kwargs['stop'])
+            self.assertEqual(request.call_args.kwargs['timeout'],3)
+            for action in ('claim','heartbeat','complete'):
+                with self.assertRaises(InterruptedError):scanner_request(config,action,{},stop=stop)
+            self.assertEqual(request.call_count,1)
+        self.assertTrue(stop.is_set())
+
     def test_map_configuration_failure_is_actionable_and_keeps_local_diagnostic(self):
         from free_market_route import MapResourceError, RouteError
         error = MapResourceError(80002000, dict(reason='map_resource_parse_failed',
@@ -241,6 +264,48 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(maximum,1)
         self.assertEqual(len(set(self.sessions)),1)
         self.assertTrue(ScanIntent(self.home).load()['enabled'])
+
+    def test_stop_and_restart_release_real_cloud_assignment_without_expiry_wait(self):
+        from scanner.cloud_scan import CloudScan, LeaseStopEvent
+        owner=None
+        sessions=[]
+        actions=[]
+        # Exercise controller -> HTTP cancellation policy -> CloudScan cleanup.
+        # The fake service enforces the same cross-session exclusion as the API.
+        def request(url,body,headers,*,stop,timeout):
+            nonlocal owner
+            if stop is not None and stop.is_set():raise InterruptedError('cancelled')
+            action=url.rsplit('/',1)[-1]
+            actions.append(action)
+            if action=='claim':
+                if owner and owner!=body['session_id']:raise HTTPError(url,409,'',{},None)
+                owner=body['session_id'];sessions.append(owner)
+                # Reproduce stopping while the claim response is on its way.
+                if len(sessions)==1:self.controller.command('stop')
+                return dict(assignment=dict(room=5,lease_id=owner,ttl_seconds=30))
+            if action=='release':
+                self.assertEqual(body['lease_id'],owner)
+                owner=None
+                return dict(ok=True)
+            return dict(ttl_seconds=30)
+        def run(folder,hwnd,started,stop,callback,assignments,**kwargs):
+            assignments.claim()
+            stop.wait()
+        self.modules.update(CloudScan=lambda *a,**kw:CloudScan(*a,connected=lambda:True,**kw),
+                            LeaseStopEvent=LeaseStopEvent,run=run)
+        with patch('collector_http.request_json',side_effect=request):
+            self.controller.start(12)
+            self.controller._worker.join(3)
+            self.assertFalse(self.controller._worker.is_alive())
+            self.assertIsNone(owner)
+            self.controller.start(12)
+            self.until(lambda:self.controller.snapshot()['phase']=='scanning')
+            self.controller.command('stop')
+            self.controller._worker.join(3)
+        self.assertIsNone(owner)
+        self.assertEqual(actions,['claim','release','claim','release'])
+        self.assertNotEqual(sessions[0],sessions[1])
+        self.assertEqual(self.controller.snapshot()['retries'],0)
 
     def test_auth_does_not_retry_until_user_intervenes(self):
         self.modules['run']=Mock(side_effect=HTTPError('',401,'',{},None))

@@ -552,18 +552,20 @@ class DesktopController:
                 thread.start()
                 threads.append(thread)
             config = self.collector.configuration()
-            from collector_http import request_json
+            from collector_http import scanner_request
             def transport(action, body):
                 began = time.monotonic()
                 result = 'ok'
+                status_code = None
                 try:
-                    return request_json(config['endpoint'].rstrip('/') + '/api/v1/scanner/' + action, body,
-                        {'Authorization': 'Bearer ' + config['token'], 'Content-Type': 'application/json'}, stop=stop)
+                    return scanner_request(config, action, body, stop=stop)
                 except Exception as error:
                     result = type(error).__name__
+                    status_code = getattr(error, 'code', None)
                     raise
                 finally:
                     self._journal.event('request', action=action, result=result,
+                                        status_code=status_code,
                                         duration_ms=round((time.monotonic()-began)*1000))
             started = threading.Event()
             started.set()

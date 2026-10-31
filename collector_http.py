@@ -12,6 +12,17 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request
 
 
+def scanner_request(config, action, body, *, stop):
+    # Stop game input immediately, but let a bounded claim return its lease so
+    # teardown can release it. Cleanup itself must survive the closed input gate.
+    if action != 'release' and stop.is_set():
+        raise InterruptedError('Request cancelled')
+    return request_json(config['endpoint'].rstrip('/') + '/api/v1/scanner/' + action, body,
+        {'Authorization': 'Bearer ' + config['token'], 'Content-Type': 'application/json'},
+        stop=None if action in ('claim', 'release') else stop,
+        timeout=3 if action == 'release' else 6)
+
+
 def _request_worker(pipe):
     try:
         url, payload, headers = pipe.recv()

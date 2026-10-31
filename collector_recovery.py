@@ -85,6 +85,10 @@ def retry_after(error, now=None):
 def retry_delay(attempt, error=None):
     # A server embargo is a lower bound, including HTTP-date Retry-After.
     delay = min(30, 2 ** min(max(0, attempt - 1), 5)) * random.uniform(.8, 1)
+    if isinstance(error, HTTPError) and error.code == 409 and getattr(error, 'scanner_action', None) in ('claim', 'heartbeat', 'complete'):
+        # The service is reachable. Recheck ownership promptly after expiry;
+        # network outages still use exponential backoff.
+        delay = min(delay, 2)
     return max(delay, retry_after(error))
 
 
@@ -96,7 +100,11 @@ def failure_state(error):
         if error.code in (408, 429) or error.code >= 500:
             return 'recovering_network', f'任务服务暂时不可用（HTTP {error.code}），正在重试。'
         if error.code == 409:
-            return 'rebuilding', '任务已失效，正在重新领取。'
+            if getattr(error, 'scanner_action', None) == 'claim':
+                return 'rebuilding', '已有扫描占用任务，正在等待释放。'
+            if getattr(error, 'scanner_action', None) in ('heartbeat', 'complete'):
+                return 'rebuilding', '任务已过期，正在重新领取。'
+            return 'rebuilding', '任务状态已变化，正在重新确认。'
         return 'needs_attention', f'任务请求被拒绝（HTTP {error.code}），请检查登录及权限。'
     if isinstance(error, (TimeoutError, ConnectionError, URLError)):
         return 'recovering_network', '任务连接中断，正在等待网络恢复。'
