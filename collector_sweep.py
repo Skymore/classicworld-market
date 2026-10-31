@@ -17,7 +17,7 @@ from urllib.parse import urlencode, urlsplit
 from account_device import DeviceError, EventStream
 from shared_protocol import from_snapshot
 from market_inventory import read_inventory
-from sweep_purchase import REASONS, PurchaseHalt, PurchaseOrder, PurchaseResult, load_purchaser
+from sweep_purchase import REASONS, PurchaseHalt, PurchasePreparationSkipped, PurchaseOrder, PurchaseResult, load_purchaser
 
 STATS = {'weapon_attack', 'magic_attack', 'str', 'dex', 'int', 'luk', 'hp', 'mp',
          'accuracy', 'avoid', 'speed', 'jump', 'weapon_defense', 'magic_defense'}
@@ -481,8 +481,14 @@ class SweepEngine:
                     self._decision('balance_unavailable', row, packet)
                     self._note(dict(note, status='skipped', reason='error', at=time.time()))
                     return
+                self._decision('prepare_confirmed',row,packet,geometry=getattr(window,'purchase_geometry',None))
+            except PurchasePreparationSkipped as error:
+                self._decision('prepare_skipped', row, packet, detail=error.reason)
+                self._note(dict(note,status='skipped',reason=error.reason,at=time.time()))
+                return
             except Exception as error:
-                self._decision('prepare_failed', row, packet, detail=type(error).__name__)
+                self._decision('prepare_failed', row, packet, detail=type(error).__name__,
+                               error_reason=getattr(getattr(error,'result',None),'reason',None))
                 self._leave(run, lease, 'window_lost', '购买窗口无法确认，已停止扫描')
                 raise PurchaseHalt(PurchaseResult('not_bought', reason='window_lost')) from error
         executor = self.purchaser.status()

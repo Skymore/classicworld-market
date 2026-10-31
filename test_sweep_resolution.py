@@ -8,6 +8,7 @@ from PIL import Image
 from sweep_screen import Canvas, Reader
 from sweep_purchaser_windows import WindowsInput, WindowsPurchaser
 from inventory_check import InventoryCheckError
+from sweep_purchase import PurchasePreparationSkipped, PurchaseHalt, PurchaseResult, purchase_halt_message
 
 
 class ResolutionTests(unittest.TestCase):
@@ -86,6 +87,70 @@ class ResolutionTests(unittest.TestCase):
         self.assertFalse(WindowsPurchaser(reader, lambda window: control).prepare(object()))
         control.click.assert_not_called()
         control.quantity.assert_not_called()
+
+    def native_frame(self, reference, size):
+        frame=Image.new('RGB',size)
+        frame.paste(reference,((size[0]-1366)//2,(size[1]-768)//2))
+        return frame
+
+    def shop_frame(self):
+        image=Image.new('RGB',(1366,768))
+        for name,x,y in [('buy',565,244),('leave',565,264)]:
+            image.paste(Image.fromarray(self.reader.templates[name]),(x,y))
+        return image
+
+    def native_control(self,size,frames):
+        control=object.__new__(WindowsInput)
+        bounds=(10,20,*size)
+        control.canvas=Canvas(*size)
+        control.reader=self.reader
+        control.geometry_checked=False
+        control.window=SimpleNamespace(bounds=bounds,capture=Mock(side_effect=[(f,bounds) for f in frames]),click=Mock())
+        control.check=Mock()
+        control.move=Mock()
+        return control
+
+    def test_native_shop_calibration_preserves_dialog_digits_and_input(self):
+        for size in [(1280,720),(1365,767),(1920,1080)]:
+            with self.subTest(size=size):
+                frames=[self.native_frame(f,size) for f in [self.shop_frame(),self.render('quantity',193),self.render('confirm',54040)]]
+                control=self.native_control(size,frames)
+                self.assertTrue(self.reader.shop(control.capture()))
+                self.assertTrue(control.canvas.native)
+                control.click(604,252)
+                control.window.click.assert_called_with(604+(size[0]-1366)//2,252+(size[1]-768)//2)
+                self.assertEqual(self.reader.dialog(control.capture()),('quantity',193))
+                self.assertEqual(self.reader.dialog(control.capture()),('confirm',54040))
+                self.assertTrue(control.canvas.native,'do not recalibrate while a payment dialog is open')
+
+    def test_scaled_shop_keeps_existing_geometry_and_one_control_is_insufficient(self):
+        size=(1920,1080)
+        scaled=self.shop_frame().resize(size,Image.Resampling.BILINEAR)
+        control=self.native_control(size,[scaled])
+        self.assertTrue(self.reader.shop(control.capture()))
+        self.assertFalse(control.canvas.native)
+        incomplete=self.shop_frame()
+        incomplete.paste(0,(565,244,645,260))
+        control=self.native_control((1280,720),[self.native_frame(incomplete,(1280,720))])
+        self.assertFalse(self.reader.shop(control.capture()))
+        self.assertFalse(control.canvas.native)
+
+    def test_unrecognized_preflight_skips_before_input_but_existing_modal_halts(self):
+        reader=Mock();reader.dialog.return_value=(None,None);reader.shop.return_value=False
+        control=Mock();buyer=WindowsPurchaser(reader,lambda _:control)
+        with self.assertRaises(PurchasePreparationSkipped):buyer.prepare(object())
+        control.click.assert_not_called();control.quantity.assert_not_called()
+        reader.dialog.return_value=('confirm',100)
+        with self.assertRaises(PurchaseHalt):buyer.prepare(object())
+        control.click.assert_not_called()
+
+    def test_purchase_stop_message_preserves_uncertain_transaction_and_nested_reason(self):
+        inner=PurchaseHalt(PurchaseResult('unknown',reason='timeout'))
+        outer=PurchaseHalt(PurchaseResult('not_bought',reason='window_lost'))
+        outer.__cause__=inner
+        message=purchase_halt_message(outer)
+        self.assertIn('结果尚未确认',message)
+        self.assertIn('超时',message)
 
     def closing_window(self, states):
         self.now = 0

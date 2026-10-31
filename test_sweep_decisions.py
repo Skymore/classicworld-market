@@ -2,6 +2,7 @@
 import json
 import unittest
 import test_collector_sweep as fixtures
+from sweep_purchase import PurchasePreparationSkipped
 from test_collector_sweep import plan
 
 
@@ -64,6 +65,21 @@ class DecisionTests(unittest.TestCase):
         self.engine.on_shop_open(c,'window')
         self.server.down.clear()
         self.engine.on_shop_open(c,'window')
+        self.assertEqual(len(self.server.named('reserve')),1)
+
+    def test_unrecognized_read_only_preparation_skips_then_allows_next_visit(self):
+        self.joined();capture=self.capture()
+        def unsupported(window):raise PurchasePreparationSkipped('listing_unverified')
+        self.purchaser.prepare=unsupported
+        self.engine.on_shop_open(capture,'window')
+        self.assertEqual(self.server.named('reserve'),[])
+        self.assertEqual(self.server.named('leave'),[])
+        self.assertEqual(self.purchaser.orders,[])
+        self.assertTrue(self.engine.buying())
+        self.assertIn('prepare_skipped',[row['reason'] for row in self.decisions()])
+        self.assertEqual(self.decisions()[-1]['reason'],'listing_unverified')
+        self.purchaser.prepare=lambda window:True
+        self.engine.on_shop_open(capture,'window')
         self.assertEqual(len(self.server.named('reserve')),1)
 
 

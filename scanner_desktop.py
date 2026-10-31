@@ -614,7 +614,7 @@ class DesktopController:
                 raise RuntimeError('Room scan incomplete')
         except Exception as error:
             failure = error
-            from sweep_purchase import purchase_halted
+            from sweep_purchase import purchase_halted, purchase_halt_message
             from inventory_check import inventory_check_failed
             if inventory_check_failed(error) or purchase_halted(error):
                 # Preserve the concrete cause in the existing attention panel
@@ -627,7 +627,7 @@ class DesktopController:
                     if nested is None:
                         break
                     cause = nested
-                message = '背包核对失败：'+str(cause) if inventory_check_failed(error) else '购买流程需要确认，已停止扫描。'
+                message = '背包核对失败：'+str(cause) if inventory_check_failed(error) else purchase_halt_message(error)
                 self._user_stop(reason=message)
             elif any(s in str(error).lower() for s in ('stopped with f9', 'mouse failsafe')):
                 self._user_stop()

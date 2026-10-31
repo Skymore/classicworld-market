@@ -67,6 +67,13 @@ class PurchaseResult:
     reason: str = ''
 
 
+class PurchasePreparationSkipped(Exception):
+    """A read-only preflight failed before reservation or purchase input."""
+    def __init__(self, reason):
+        self.reason = reason
+        super().__init__(reason)
+
+
 class PurchaseHalt(Exception):
     """Stop scanner input even when a purchase outcome is known.
 
@@ -99,6 +106,23 @@ def purchase_halted(error):
         seen.add(id(error))
         error = error.__cause__ or error.__context__
     return False
+
+
+def purchase_halt_message(error):
+    """Keep the innermost purchase outcome/reason through scanner wrappers."""
+    seen,result=set(),None
+    while error is not None and id(error) not in seen:
+        seen.add(id(error))
+        if isinstance(error,PurchaseHalt):
+            result=error.result
+        error=error.__cause__ or error.__context__
+    if result is None:
+        return '购买流程需要确认，已停止扫描。'
+    outcome={'bought':'购买已完成','not_bought':'本次未成交','unknown':'购买结果尚未确认'}[result.status]
+    reason={'shop_closed':'商店窗口未能确认','window_lost':'游戏窗口位置或前台状态变化',
+            'timeout':'等待游戏响应超时','listing_unverified':'商品信息未能核实',
+            'stopped':'购买授权已停止','error':'购买流程异常'}.get(result.reason,'商店状态未恢复')
+    return outcome+'：'+reason+'，已停止扫描。'
 
 
 class Purchaser(Protocol):

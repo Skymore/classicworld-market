@@ -32,16 +32,31 @@ class Frame(np.ndarray):
 class Canvas:
     width: int
     height: int
+    native: bool = False
 
     def point(self, x, y):
         if not (0 <= x < 1366 and 0 <= y < 768):
             raise ValueError('Purchase point outside reference canvas')
+        if self.native:
+            point=(x+(self.width-1366)//2,y+(self.height-768)//2)
+            if not (0 <= point[0] < self.width and 0 <= point[1] < self.height):
+                raise ValueError('Purchase point outside game viewport')
+            return point
         return round(x*self.width/1366), round(y*self.height/768)
 
     def frame(self, image):
         image = np.asarray(image.convert('RGB') if hasattr(image, 'convert') else image)
         if image.shape != (self.height, self.width, 3) or min(self.width, self.height) < 600:
             raise ValueError('Purchase capture dimensions changed')
+        if self.native:
+            # Native controls remain centered without changing glyph size.
+            # Pad/crop only: input uses the exact inverse translation above.
+            canvas=Image.new('RGB',(1366,768))
+            canvas.paste(Image.fromarray(image),(-((self.width-1366)//2),-((self.height-768)//2)))
+            frame=np.asarray(canvas).view(Frame)
+            frame.resampled=False
+            frame.source_size=(self.width,self.height)
+            return frame
         scaled = (self.width, self.height) != (1366, 768)
         if scaled:
             image = np.asarray(Image.fromarray(image).resize((1366, 768), Image.Resampling.BICUBIC))

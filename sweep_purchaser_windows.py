@@ -15,16 +15,18 @@ import time
 import numpy as np
 
 from shared_protocol import from_snapshot
-from sweep_purchase import PurchaseHalt, PurchaseResult, PurchaserStatus
+from sweep_purchase import PurchaseHalt, PurchasePreparationSkipped, PurchaseResult, PurchaserStatus
 from sweep_purchase_flow import Listing, PurchaseFlow, Receipt, View, Action
 from sweep_screen import Canvas, Reader, canonical
 from sweep_evidence import packet_balance, PurchaseTrace
 
 
 class WindowsInput:
-    def __init__(self, window):
+    def __init__(self, window, reader=None):
         self.window = window
         self.canvas = Canvas(*window.bounds[2:])
+        self.reader = reader or Reader()
+        self.geometry_checked = False
         self.user = ctypes.WinDLL('user32', use_last_error=True)
         self.user.GetForegroundWindow.restype = wintypes.HWND
         self.user.GetClientRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
@@ -58,6 +60,16 @@ class WindowsInput:
         self.check()
         if tuple(bounds) != tuple(self.window.bounds):
             raise RuntimeError('Capture bounds changed')
+        if not self.geometry_checked:
+            native=Canvas(*self.window.bounds[2:],native=True)
+            # Select native geometry only when BOTH Buy and Leave controls
+            # match at their exact positions. Keep this mapping for dialogs,
+            # scrolling, confirmation and closure throughout this operation.
+            if self.reader.shop(native.frame(shot)):
+                self.canvas=native
+            self.geometry_checked=True
+            self.window.purchase_geometry=dict(mode='native' if self.canvas.native else 'scaled',
+                                               size=list(self.window.bounds[2:]))
         return self.canvas.frame(shot)
 
     def click(self, x, y):
@@ -150,9 +162,10 @@ def inventory_position(order):
 class WindowsPurchaser:
     max_quantity = 9999
 
-    def __init__(self, reader=None, input_factory=WindowsInput, clock=time.monotonic):
+    def __init__(self, reader=None, input_factory=None, clock=time.monotonic):
         self.reader = reader or Reader()
-        self.input_factory, self.clock = input_factory, clock
+        self.input_factory = input_factory or (lambda window: WindowsInput(window,self.reader))
+        self.clock = clock
         self.mesos = None
 
     def status(self):
@@ -166,8 +179,13 @@ class WindowsPurchaser:
         control = self.input_factory(window)
         control.move()
         image = control.capture()
-        if self.reader.dialog(image)[0] is not None or not self.reader.shop(image):
+        if self.reader.dialog(image)[0] is not None:
             raise PurchaseHalt(PurchaseResult('not_bought', reason='shop_closed'))
+        if not self.reader.shop(image):
+            # Preparation only moves the cursor and reads the screen. No
+            # reservation or purchase input exists yet; skip this listing and
+            # let the scanner independently verify closure before continuing.
+            raise PurchasePreparationSkipped('listing_unverified')
         self.mesos = packet_balance(holdings)
         if self.mesos is None:
             self.mesos = self.reader.balance(image)
