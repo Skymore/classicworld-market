@@ -190,10 +190,13 @@ def main():
         scanner_modules()
         from channel_plan import ChannelPlan
         from cloud_scan import LeaseStopEvent
+        from free_market_metadata import MAPS
         import cv2, numpy, mss, webview, clr
         assert (Path(__file__).resolve().parent/'desktop_ui/index.html').is_file()
         assert ChannelPlan().channel == 1
         assert not LeaseStopEvent().is_set()
+        assert set(MAPS) == set(range(80002000, 80002021))
+        assert all(row.get('available') and row.get('portals') for row in MAPS.values())
         print('Scanner self-test passed', flush=True)
         return
     collector_commands = {'--version','--self-test','--check-updates','--repair-history','--apply-update',

@@ -510,7 +510,8 @@ class DesktopController:
                     continue
                 attempts += 1
                 phase, message = failure_state(error)
-                self._journal.event('recovery_wait', attempt=attempts, state=phase, error=type(error).__name__)
+                self._journal.event('recovery_wait', attempt=attempts, state=phase, error=type(error).__name__,
+                                    resource=getattr(error, 'resource_diagnostic', None))
                 self._journal.event('recovery_end', outcome='waiting', state=phase)
                 self._change(phase=phase, message=message, retries=attempts, failure=message)
                 if phase == 'needs_attention':

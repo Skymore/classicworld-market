@@ -89,6 +89,9 @@ def retry_delay(attempt, error=None):
 
 
 def failure_state(error):
+    from free_market_route import MapResourceError
+    if isinstance(error, MapResourceError):
+        return 'needs_attention', '地图导航数据读取失败，请检查地图路径配置或更新扫描器，修复后停止并重新开始。'
     if isinstance(error, HTTPError):
         if error.code in (408, 429) or error.code >= 500:
             return 'recovering_network', f'任务服务暂时不可用（HTTP {error.code}），正在重试。'

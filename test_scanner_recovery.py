@@ -82,6 +82,17 @@ def response_429(pipe):
 
 
 class PolicyTests(unittest.TestCase):
+    def test_map_configuration_failure_is_actionable_and_keeps_local_diagnostic(self):
+        from free_market_route import MapResourceError, RouteError
+        error = MapResourceError(80002000, dict(reason='map_resource_parse_failed',
+            map_file='D:/SteamLibrary/Map0_000.wz', error='invalid WZ header', token='must not be logged'))
+        phase, message = failure_state(error)
+        self.assertEqual(phase, 'needs_attention')
+        self.assertIn('地图', message)
+        self.assertEqual(error.resource_diagnostic['error'], 'invalid WZ header')
+        self.assertNotIn('token', error.resource_diagnostic)
+        self.assertEqual(failure_state(RouteError('Position feed is stale'))[0], 'waiting_game')
+
     def test_full_disk_stop_revokes_existing_permit_without_new_file(self):
         with tempfile.TemporaryDirectory() as folder:
             intent=ScanIntent(folder)
@@ -237,6 +248,21 @@ class RecoveryTests(unittest.TestCase):
         self.until(lambda:self.controller.snapshot()['phase']=='needs_attention')
         time.sleep(.1)
         self.assertEqual(self.modules['run'].call_count,1)
+
+    def test_map_resource_error_stops_retry_and_records_the_actual_cause(self):
+        from free_market_route import MapResourceError
+        self.modules['run'] = Mock(side_effect=MapResourceError(80002000, dict(
+            reason='map_resource_parse_failed', map_file='D:/SteamLibrary/Map0_000.wz',
+            error='invalid WZ header', token='do-not-log')))
+        self.controller.start(12)
+        self.until(lambda: self.controller.snapshot()['phase'] == 'needs_attention')
+        time.sleep(.1)
+        self.assertEqual(self.modules['run'].call_count, 1)
+        rows = [json.loads(line) for line in (self.home/'scan-recovery.jsonl').read_text(encoding='utf-8').splitlines()]
+        failure = next(row for row in rows if row['event'] == 'recovery_wait')
+        self.assertEqual(failure['resource']['reason'], 'map_resource_parse_failed')
+        self.assertEqual(failure['resource']['error'], 'invalid WZ header')
+        self.assertNotIn('token', failure['resource'])
 
     def test_f9_during_backoff_cancels_persisted_restart_intent(self):
         self.modules['run']=Mock(side_effect=TimeoutError())
