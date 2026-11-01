@@ -7,7 +7,14 @@ import { useEffect, type ReactNode } from "react";
 import { getJson } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
 import { subscribeMarket } from "/web/js/lib/realtime.js?v=20261022-regressions-1";
 import type { Account } from "./types";
-import { adoptAccount } from "/web/js/lib/user-data.js";
+import { adoptAccount, ready as userDataReady } from "/web/js/lib/user-data.js";
+
+let initialAccountRead = true;
+let initialAccountAt = 0;
+const initialAccount = userDataReady.then((account: Account | null) => {
+  initialAccountAt = Date.now();
+  return account;
+});
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -84,6 +91,11 @@ export function useAccount() {
     queryKey: ["account"],
     staleTime: 30_000,
     queryFn: async ({ signal }) => {
+      if (initialAccountRead) {
+        initialAccountRead = false;
+        const initial = await initialAccount;
+        if (initial && Date.now() - initialAccountAt < 30_000) return initial;
+      }
       const response = await fetch("/api/v1/account", {
         credentials: "same-origin",
         cache: "no-store",

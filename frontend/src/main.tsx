@@ -15,7 +15,12 @@ import {
   useNavigate,
 } from "react-router-dom";
 import ItemPreview, { previewEntry } from "./components/item-preview";
-import { Providers, useWords, initializePreferences } from "./providers";
+import {
+  Providers,
+  useWords,
+  usePreferences,
+  initializePreferences,
+} from "./providers";
 import { AppShell } from "./components/shell";
 import { ensureStyle } from "./lib/styles";
 import { queryClient } from "./lib/query";
@@ -25,6 +30,7 @@ import { ToastHost } from "./components/toasts";
 import { Loading, ErrorState } from "./components/shared";
 import "./styles.css";
 import { trackPage } from "/web/js/lib/traffic.js";
+import Home from "./pages/home";
 
 const Watch = lazy(() => import("./pages/watch"));
 const Alerts = lazy(() => import("./pages/alerts"));
@@ -52,7 +58,6 @@ const Collect = lazy(async () => {
   await ensureStyle("collect");
   return import("./pages/collect");
 });
-const Home = lazy(() => import("./pages/home"));
 const Prices = lazy(() => import("./pages/prices"));
 const Account = lazy(() => import("./pages/account"));
 const Device = lazy(() => import("./pages/device"));
@@ -120,6 +125,7 @@ function LegacyRedirect() {
 }
 function Application() {
   const route = useLocation();
+  const { ready } = usePreferences();
   useEffect(() => {
     // Redirects settle first; state updates and SSE do not add page views.
     const timer = setTimeout(() => trackPage(route.pathname), 0);
@@ -213,7 +219,9 @@ function Application() {
       }
       event.preventDefault();
       // A link in the phone item preview replaces the preview's history entry.
-      navigate(url.pathname + url.search + url.hash, { replace: previewEntry() });
+      navigate(url.pathname + url.search + url.hash, {
+        replace: previewEntry(),
+      });
     };
     document.addEventListener("click", click);
     return () => {
@@ -228,33 +236,37 @@ function Application() {
       <span id="site-react-shell" hidden />
       <PageErrorBoundary key={route.pathname}>
         <Suspense fallback={<Loading />}>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/prices/*" element={<Prices />} />
-            <Route path="/account" element={<Account />} />
-            <Route path="/device" element={<Device />} />
-            <Route path="/contributors" element={<Contributors />} />
-            <Route path="/traffic" element={<Traffic />} />
-            <Route path="/watch/*" element={<Watch />} />
-            <Route path="/alerts/*" element={<Alerts />} />
-            <Route path="/tools" element={<Tools />} />
-            <Route path="/tools/enhancement" element={<Enhancement />} />
-            <Route path="/agent/*" element={<Agent />} />
-            <Route path="/selling/*" element={<Selling />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/web/download.html" element={<Download />} />
-            {["search", "item", "mob", "map", "route"].map((path) => (
-              <Route
-                key={path}
-                path={"/" + path + "/*"}
-                element={<Catalogue />}
-              />
-            ))}
-            <Route path="/collect/*" element={<Collect />} />
-            <Route path="/sales" element={<SalesRedirect />} />
-            <Route path="/v2/*" element={<LegacyRedirect />} />
-            <Route path="*" element={<Home />} />
-          </Routes>
+          {!ready && route.pathname !== "/" ? (
+            <Loading />
+          ) : (
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/prices/*" element={<Prices />} />
+              <Route path="/account" element={<Account />} />
+              <Route path="/device" element={<Device />} />
+              <Route path="/contributors" element={<Contributors />} />
+              <Route path="/traffic" element={<Traffic />} />
+              <Route path="/watch/*" element={<Watch />} />
+              <Route path="/alerts/*" element={<Alerts />} />
+              <Route path="/tools" element={<Tools />} />
+              <Route path="/tools/enhancement" element={<Enhancement />} />
+              <Route path="/agent/*" element={<Agent />} />
+              <Route path="/selling/*" element={<Selling />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/web/download.html" element={<Download />} />
+              {["search", "item", "mob", "map", "route"].map((path) => (
+                <Route
+                  key={path}
+                  path={"/" + path + "/*"}
+                  element={<Catalogue />}
+                />
+              ))}
+              <Route path="/collect/*" element={<Collect />} />
+              <Route path="/sales" element={<SalesRedirect />} />
+              <Route path="/v2/*" element={<LegacyRedirect />} />
+              <Route path="*" element={<Home />} />
+            </Routes>
+          )}
         </Suspense>
       </PageErrorBoundary>
     </AppShell>
@@ -271,16 +283,20 @@ if (snapshot)
   queryClient.setQueryData(catalogKey(snapshot.url), snapshot.data, {
     updatedAt: snapshot.updatedAt,
   });
-await initializePreferences();
+const preferencesReady = initializePreferences();
+// Public home/search previews can paint while account data synchronizes.
+// Other routes retain their account-scoped initialization before rendering.
+if (location.pathname !== "/") await preferencesReady;
 if (catalogueLocation) {
   document.documentElement.dataset.reactShell = "1";
   await Promise.all([
     catalogueReady,
-    !snapshot && queryClient.prefetchQuery({
-      queryKey: catalogKey(location.pathname + location.search),
-      queryFn: ({ signal }) =>
-        loadCatalog(location.pathname + location.search, signal),
-    }),
+    !snapshot &&
+      queryClient.prefetchQuery({
+        queryKey: catalogKey(location.pathname + location.search),
+        queryFn: ({ signal }) =>
+          loadCatalog(location.pathname + location.search, signal),
+      }),
   ]);
 }
 await Promise.all(["home", "prices", "account", "lists"].map(ensureStyle));

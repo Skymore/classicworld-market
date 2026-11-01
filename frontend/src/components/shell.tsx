@@ -51,7 +51,7 @@ export function Freshness() {
   );
 }
 function Preferences() {
-  const { toggleTheme, changeLanguage, language } = usePreferences();
+  const { toggleTheme, changeLanguage, language, ready } = usePreferences();
   const words = useWords();
   const account = useAccount();
   const [live, setLive] = useState(
@@ -80,6 +80,7 @@ function Preferences() {
         className="iconbtn"
         type="button"
         data-lang-toggle
+        disabled={!ready}
         aria-label={
           language === "zh" ? "切换语言 / English" : "Switch language / 中文"
         }
@@ -94,6 +95,7 @@ function Preferences() {
         className="iconbtn"
         type="button"
         data-theme-toggle
+        disabled={!ready}
         aria-label={words("切换夜市主题", "Toggle night market theme")}
         title={words("切换夜市主题", "Toggle night market theme")}
         onClick={toggleTheme}

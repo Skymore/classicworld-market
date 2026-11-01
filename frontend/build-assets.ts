@@ -39,10 +39,21 @@ export function versionHtml(html: string, version: string) {
 }
 
 export function versionAssets(root: string, version: string): Plugin {
+  let appPreloads: string[] = [];
   return {
     name: "version-site-entry-assets",
     apply: "build",
-    generateBundle() {
+    generateBundle(_, bundle) {
+      const seen = new Set<string>();
+      const visit = (file: string) => {
+        if (seen.has(file)) return;
+        const chunk = bundle[file];
+        if (!chunk || chunk.type !== "chunk") return;
+        seen.add(file);
+        for (const dependency of chunk.imports) visit(dependency);
+      };
+      visit("app.js");
+      appPreloads = [...seen].filter((file) => file !== "app.js");
       this.emitFile({
         type: "asset",
         fileName: "asset-version.txt",
@@ -57,7 +68,25 @@ export function versionAssets(root: string, version: string): Plugin {
       ]) {
         const file = join(root, "web", name);
         const html = readFileSync(file, "utf8");
-        const output = versionHtml(html, version);
+        let output = versionHtml(html, version);
+        if (name === "index.html") {
+          // Flatten the startup module waterfall without loading other routes.
+          const preloads =
+            "  <!-- app-preloads:start -->\n" +
+            appPreloads
+              .map(
+                (file) =>
+                  `  <link rel="modulepreload" href="/web/react/${file}">`,
+              )
+              .join("\n") +
+            "\n  <!-- app-preloads:end -->\n";
+          output = output
+            .replace(
+              /  <!-- app-preloads:start -->[\s\S]*?<!-- app-preloads:end -->\r?\n/g,
+              "",
+            )
+            .replace("</head>", preloads + "</head>");
+        }
         if (html !== output) writeFileSync(file, output);
       }
     },

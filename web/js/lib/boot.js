@@ -81,5 +81,8 @@
   html.dataset.device = w <= 640 ? 'phone' : w >= 1101 ? 'desktop' : 'tablet';
   // A page that states its own language (<html data-lang>, as the SSR pages and /collect do) keeps it.
   var lang = query.get('lang') || preference('lang');
-  if (!html.dataset.lang && (lang === 'en' || lang === 'zh')) html.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  if (!html.dataset.lang && (lang === 'en' || lang === 'zh')) {
+    html.lang = lang === 'zh' ? 'zh-CN' : 'en';
+    html.dataset.lang = lang;
+  }
 }());

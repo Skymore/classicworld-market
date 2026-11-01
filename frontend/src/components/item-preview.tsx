@@ -58,7 +58,7 @@ export const previewEntry = () =>
   !!(history.state as { preview?: boolean } | null)?.preview;
 export default function ItemPreview() {
   const words = useWords(),
-    { language } = usePreferences(),
+    { language, ready } = usePreferences(),
     route = useLocation();
   const [hit, setHit] = useState<Hit | null>(null),
     [position, setPosition] = useState({ left: 12, top: 12 });
@@ -374,7 +374,7 @@ export default function ItemPreview() {
                     : words("关注这件物品", "Watch this item")
                 }
                 aria-pressed={watching}
-                disabled={watchFull}
+                disabled={!ready || watchFull}
                 title={
                   watchFull
                     ? words("最多关注 100 件物品", "Watch up to 100 items")

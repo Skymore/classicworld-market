@@ -21,6 +21,7 @@ const Preferences = createContext<{
   toggleTheme(): void;
   changeLanguage(): void;
   server: boolean;
+  ready: boolean;
 } | null>(null);
 function storedTheme() {
   try {
@@ -41,9 +42,14 @@ function applyPreferences() {
   if ((language === "zh" || language === "en") && language !== legacyLanguage)
     setLang(language);
 }
-export async function initializePreferences() {
-  await userDataReady;
+let preferencesInitialized = false;
+let initialization: Promise<void> | undefined;
+export function initializePreferences() {
+  return (initialization ??= initialize());
+}
+async function initialize() {
   const params = new URLSearchParams(location.search);
+  await userDataReady;
   for (const key of ["theme", "lang"]) {
     const value = params.get(key);
     if (
@@ -58,6 +64,8 @@ export async function initializePreferences() {
     }
   }
   applyPreferences();
+  preferencesInitialized = true;
+  window.dispatchEvent(new Event("user-preferences"));
 }
 export function Providers({
   children,
@@ -66,6 +74,7 @@ export function Providers({
   children: ReactNode;
   server?: boolean;
 }) {
+  const [ready, setReady] = useState(preferencesInitialized);
   const language = useSyncExternalStore(
     subscribeLanguage,
     () => legacyLanguage as Language,
@@ -104,14 +113,22 @@ export function Providers({
       }
     };
     const preferences = () => {
+      if (!preferencesInitialized) return;
       applyPreferences();
       update();
+      setReady(true);
     };
     document.addEventListener("themechange", update);
     window.addEventListener("storage", storage);
     window.addEventListener("user-preferences", preferences);
     system.addEventListener("change", followSystem);
+    // Also handle initialization that finished before this effect subscribed.
+    let active = true;
+    void initializePreferences().then(() => {
+      if (active) preferences();
+    });
     return () => {
+      active = false;
       document.removeEventListener("themechange", update);
       window.removeEventListener("storage", storage);
       window.removeEventListener("user-preferences", preferences);
@@ -145,7 +162,7 @@ export function Providers({
   }
   return (
     <Preferences.Provider
-      value={{ language, theme, toggleTheme, changeLanguage, server }}
+      value={{ language, theme, toggleTheme, changeLanguage, server, ready }}
     >
       <DataProvider>{children}</DataProvider>
     </Preferences.Provider>

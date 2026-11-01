@@ -20,19 +20,20 @@ import {
 } from "/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1";
 import { t, itemName } from "/web/js/lib/i18n.js";
 import { useLiveData, useUserValue } from "../lib/live";
-import { useWords } from "../providers";
+import { useWords, usePreferences } from "../providers";
 import { announce, OfferReminder } from "./toasts";
 import "../lib/list-copy";
 
 // Owned by the application, so navigation neither stops feeds nor resets deduplication.
 function useWatchState() {
   const words = useWords();
+  const { ready } = usePreferences();
   const [list, writeList] = useUserValue(LIST_KEY, "[]");
   const [setting, writeSettings] = useUserValue(SETTINGS_KEY, "{}");
   const [token] = useUserValue("cwm.collector.token");
   const ids = useMemo<number[]>(
-    () => Core.readList({ getItem: () => list }),
-    [list],
+    () => ready ? Core.readList({ getItem: () => list }) : [],
+    [list, ready],
   );
   const settings = useMemo<any>(
     () => Core.readSettings({ getItem: () => setting }, ids),

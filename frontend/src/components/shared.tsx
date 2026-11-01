@@ -233,7 +233,7 @@ export function PeriodControl({
   item?: boolean;
 }) {
   const ref = useRef<HTMLSelectElement>(null);
-  const { language } = usePreferences();
+  const { language, ready } = usePreferences();
   useEffect(() => {
     decoratePeriod(ref.current, hours);
   }, [hours, language]);
@@ -245,6 +245,7 @@ export function PeriodControl({
       <select
         ref={ref}
         data-period
+        disabled={!ready}
         data-item-period={item ? "" : undefined}
         defaultValue={automaticPeriod() ? "auto" : hours}
         aria-label={language === "en" ? "Statistics period" : "统计范围"}

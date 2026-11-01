@@ -10,7 +10,9 @@ const stored = () => {
 // `?lang=en` (shared links, screenshot runs) wins over the saved choice and
 // is saved, so client-side navigation keeps it.
 const fromUrl = new URLSearchParams(location.search).get('lang');
-const saved = fromUrl === 'en' || fromUrl === 'zh' ? fromUrl : stored();
+// The blocking boot script already resolved cached account language without
+// exposing its watch data before the server confirms the current identity.
+const saved = fromUrl === 'en' || fromUrl === 'zh' ? fromUrl : document.documentElement.dataset.lang || stored();
 export let lang = saved === 'en' || saved === 'zh'
   ? saved
   : ((navigator.language || 'zh').toLowerCase().startsWith('zh') ? 'zh' : 'en');

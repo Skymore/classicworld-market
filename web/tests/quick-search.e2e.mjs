@@ -100,7 +100,10 @@ try {
       const deadline = Date.now() + 10000;
       while (marketReads === reads && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 20));
       assert(marketReads > reads, 'SSE refetches market data during composition');
-      await page.waitForFunction(expected => [...document.querySelectorAll('[data-fresh]')].some(node => Number(node.dataset.asOf) === expected), now + generation);
+      await page.waitForFunction(expected => [...document.querySelectorAll('[data-fresh]')].some(node => Number(node.dataset.asOf) === expected), now + generation).catch(async error => {
+        console.error({ route, generation, marketReads, errors, page: await page.locator('body').innerText() });
+        throw error;
+      });
       assert.equal(await input.inputValue(), before + drafts.at(-1), 'SSE preserves the active composition');
       assert(await input.evaluate(node => node === window.savedPriceInput && node === document.activeElement), 'SSE preserves the composing input and focus');
       await cdp.send('Input.insertText', { text: committed });
