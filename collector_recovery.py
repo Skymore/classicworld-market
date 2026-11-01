@@ -112,7 +112,7 @@ def failure_state(error):
         return 'recovering_network', '任务连接中断，正在等待网络恢复。'
     if isinstance(error, OSError):
         return 'needs_attention', '本地读写失败，请检查磁盘空间和文件权限。'
-    return 'waiting_game', '游戏尚未就绪，确认登录并将游戏切换到前台后自动继续。'
+    return 'waiting_game', '游戏尚未就绪，正在恢复前台；登录连接后自动继续。'
 
 
 class ScanIntent:

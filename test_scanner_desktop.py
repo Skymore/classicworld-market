@@ -4,9 +4,88 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from scanner_desktop import DesktopAPI, DesktopController, desktop_entry_url, purchase_text, status_text
 import collector_dashboard
+
+
+class FocusGameTests(unittest.TestCase):
+    def setUp(self):
+        self.hwnd = 0x123456789
+        self.user = Mock()
+        self.kernel = Mock()
+        self.user.GetForegroundWindow.return_value = 99
+        self.user.IsIconic.return_value = False
+        self.user.IsHungAppWindow.return_value = False
+        self.user.GetWindowThreadProcessId.side_effect = lambda hwnd, _: {99: 2, self.hwnd: 3}[hwnd]
+        self.kernel.GetCurrentThreadId.return_value = 1
+        self.user.AttachThreadInput.return_value = True
+        for target, value in [('scanner_desktop.ctypes.windll', SimpleNamespace(user32=self.user, kernel32=self.kernel)),
+                              ('scanner_desktop.game_windows', Mock(return_value=[{'id': self.hwnd}]))]:
+            patcher = patch(target, value, create=True)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def focus(self, **kwargs):
+        from scanner_desktop import focus_game
+        return focus_game(self.hwnd, **kwargs)
+
+    def test_fallback_verifies_actual_foreground_and_detaches_queues(self):
+        from unittest.mock import call
+        def activate(hwnd):
+            if self.user.SetForegroundWindow.call_count == 2:
+                self.user.GetForegroundWindow.return_value = hwnd
+            return True  # The first API success is deliberately not sufficient.
+        self.user.SetForegroundWindow.side_effect = activate
+        self.assertTrue(self.focus())
+        self.assertEqual(self.user.AttachThreadInput.call_args_list,
+                         [call(1, 2, True), call(1, 3, True), call(1, 3, False), call(1, 2, False)])
+        self.user.SetForegroundWindow.assert_called_with(self.hwnd)
+
+    def test_refused_activation_is_not_reported_as_success(self):
+        self.assertFalse(self.focus())
+        self.assertEqual(self.user.SetForegroundWindow.call_count, 2)
+
+    def test_minimized_restore_and_already_foreground_noop(self):
+        self.user.IsIconic.return_value = True
+        self.assertFalse(self.focus())
+        self.user.ShowWindowAsync.assert_called_once_with(self.hwnd, 9)
+        self.user.reset_mock()
+        self.user.IsIconic.return_value = False
+        self.user.GetForegroundWindow.return_value = self.hwnd
+        self.assertTrue(self.focus())
+        self.user.SetForegroundWindow.assert_not_called()
+        self.user.AttachThreadInput.assert_not_called()
+
+    def test_stop_during_fallback_detaches_without_more_activation(self):
+        allowed = Mock(return_value=True)
+        def attach(*args):
+            allowed.return_value = False
+            return True
+        self.user.AttachThreadInput.side_effect = attach
+        self.assertFalse(self.focus(allowed=allowed))
+        self.user.SetForegroundWindow.assert_called_once()
+        self.user.BringWindowToTop.assert_not_called()
+        self.user.AttachThreadInput.assert_called_with(1, 2, False)
+
+    def test_exception_detaches_only_successfully_attached_threads(self):
+        from unittest.mock import call
+        self.user.AttachThreadInput.side_effect = lambda current, target, attach: target != 2
+        self.user.BringWindowToTop.side_effect = OSError('window closed')
+        with self.assertRaises(OSError):
+            self.focus()
+        self.assertEqual(self.user.AttachThreadInput.call_args_list,
+                         [call(1, 2, True), call(1, 3, True), call(1, 3, False)])
+
+    def test_foreign_window_stopped_intent_and_hung_game_are_untouched(self):
+        with patch('scanner_desktop.game_windows', return_value=[]):
+            self.assertFalse(self.focus())
+        self.assertFalse(self.focus(allowed=lambda: False))
+        self.user.IsHungAppWindow.return_value = True
+        self.assertFalse(self.focus())
+        self.user.SetForegroundWindow.assert_not_called()
+        self.user.ShowWindowAsync.assert_not_called()
 
 
 class DesktopEntryTests(unittest.TestCase):

@@ -416,6 +416,91 @@ class RecoveryTests(unittest.TestCase):
         self.ready=True
         self.until(lambda:self.modules['run'].call_count==1)
 
+    def test_restored_session_automatically_recovers_foreground_before_scanning(self):
+        self.ready = False
+        self.modules['run'] = Mock(side_effect=lambda folder,hwnd,start,stop,callback,**kw:stop.wait())
+        self.controller._intent.start(12, 'saved-session')
+        def focus(hwnd, *, allowed):
+            self.assertTrue(allowed())
+            self.modules['run'].assert_not_called()
+            self.ready = True
+            return True
+        with patch('scanner_desktop.focus_game', side_effect=focus) as activate:
+            self.controller.start(12, restore=True)
+            self.until(lambda:self.modules['run'].call_count==1)
+            activate.assert_called_once()
+        self.assertEqual(self.sessions, ['saved-session'])
+
+    def test_foreground_loss_finishes_old_attempt_before_refocusing(self):
+        lease = Mock()
+        self.modules['CloudScan'] = Mock(return_value=lease)
+        calls = []
+        def run(folder,hwnd,start,stop,callback,**kw):
+            calls.append(stop)
+            if len(calls) == 1:
+                self.ready = False
+                raise RuntimeError('Game lost foreground; stopped')
+            stop.wait()
+        self.modules['run'] = run
+        def focus(hwnd, *, allowed):
+            self.assertTrue(allowed())
+            self.assertTrue(calls[0].is_set())
+            self.assertFalse(self.controller._attempt_active)
+            lease.close.assert_called_once()
+            self.ready = True
+            return True
+        with patch('scanner_desktop.focus_game', side_effect=focus) as activate:
+            self.controller.start(12)
+            self.until(lambda:len(calls)==2)
+            activate.assert_called_once()
+        self.assertIsNot(calls[0], calls[1])
+
+    def test_focus_retries_are_throttled_and_blocked_by_pause_stop_or_emergency(self):
+        controller = self.controller
+        controller._intent.start(12)
+        controller._hwnd = 12
+        controller._desired = True
+        controller._cancel.clear()
+        with patch('scanner_desktop.focus_game', return_value=False) as focus:
+            controller._restore_foreground()
+            controller._restore_foreground()
+            focus.assert_called_once()
+            controller._focus_retry_at = 0
+            controller._paused.set()
+            controller._restore_foreground()
+            controller._paused.clear()
+            self.emergency = True
+            controller._restore_foreground()
+            self.emergency = False
+            controller._intent.stop()
+            controller._restore_foreground()
+            controller._intent.start(12)
+            controller.command('stop')
+            controller._restore_foreground()
+            focus.assert_called_once()
+
+    def test_blocked_activation_keeps_stop_responsive_and_requests_watchdog(self):
+        entered, unblock = threading.Event(), threading.Event()
+        self.ready = False
+        self.modules['run'] = Mock()
+        def blocked(hwnd, *, allowed):
+            entered.set()
+            unblock.wait(3)
+            self.assertFalse(allowed())
+            return False
+        with patch('scanner_desktop.focus_game', side_effect=blocked):
+            try:
+                self.controller.start(12)
+                self.assertTrue(entered.wait(2))
+                self.controller._focus_deadline = time.monotonic()-1
+                self.until(lambda:self.controller._restart_requested)
+                self.controller.command('stop')
+                self.assertFalse(ScanIntent(self.home).load()['enabled'])
+            finally:
+                unblock.set()
+                self.controller._worker.join(3)
+        self.modules['run'].assert_not_called()
+
     def test_dead_capture_worker_is_rebuilt(self):
         count=0
         def capture(path,stop):

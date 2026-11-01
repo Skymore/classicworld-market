@@ -66,15 +66,58 @@ def game_windows():
     return found
 
 
-def focus_game(hwnd):
+def focus_game(hwnd, *, allowed=lambda: True):
+    """Best-effort activation of a verified game; never synthesize input."""
+    if not allowed() or not any(w['id'] == hwnd for w in game_windows()):
+        return False
+    from ctypes import wintypes
     user = ctypes.windll.user32
-    for name in ('IsIconic', 'BringWindowToTop', 'SetForegroundWindow'):
-        getattr(user, name).argtypes = [ctypes.c_void_p]
-    user.ShowWindow.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    kernel = ctypes.windll.kernel32
+    for name in ('IsIconic', 'IsHungAppWindow', 'BringWindowToTop', 'SetForegroundWindow'):
+        getattr(user, name).argtypes = [wintypes.HWND]
+        getattr(user, name).restype = wintypes.BOOL
+    user.GetForegroundWindow.restype = wintypes.HWND
+    user.ShowWindowAsync.argtypes = [wintypes.HWND, ctypes.c_int]
+    user.ShowWindowAsync.restype = wintypes.BOOL
+    user.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+    user.GetWindowThreadProcessId.restype = wintypes.DWORD
+    user.AttachThreadInput.argtypes = [wintypes.DWORD, wintypes.DWORD, wintypes.BOOL]
+    user.AttachThreadInput.restype = wintypes.BOOL
+    kernel.GetCurrentThreadId.restype = wintypes.DWORD
+    def focused():
+        return user.GetForegroundWindow() == hwnd and not user.IsIconic(hwnd)
+    if focused():
+        return True
+    if not allowed() or user.IsHungAppWindow(hwnd):
+        return False
     if user.IsIconic(hwnd):
-        user.ShowWindow(hwnd, 9)
-    user.BringWindowToTop(hwnd)
+        user.ShowWindowAsync(hwnd, 9)  # SW_RESTORE, without waiting on the game.
+    if not allowed():
+        return False
     user.SetForegroundWindow(hwnd)
+    if focused():
+        return True
+    foreground = user.GetForegroundWindow()
+    if foreground and user.IsHungAppWindow(foreground):
+        return False
+    current = kernel.GetCurrentThreadId()
+    attached = []
+    try:
+        # A worker thread does not own the launcher's foreground input queue.
+        # Temporarily share it for activation, then always detach again.
+        for window in (foreground, hwnd):
+            thread = user.GetWindowThreadProcessId(window, None) if window else 0
+            if thread and thread != current and thread not in attached and allowed():
+                if user.AttachThreadInput(current, thread, True):
+                    attached.append(thread)
+        if allowed():
+            user.BringWindowToTop(hwnd)
+        if allowed():
+            user.SetForegroundWindow(hwnd)
+    finally:
+        for thread in reversed(attached):
+            user.AttachThreadInput(current, thread, False)
+    return allowed() and focused()
 
 
 def release_keys():
@@ -97,7 +140,7 @@ def emergency_stop():
 
 
 def game_ready(hwnd):
-    """Recovery never steals focus or restores a minimized game window."""
+    """Input remains gated on the actual foreground and game connection."""
     from cloud_scan import game_connected
     user = ctypes.windll.user32
     user.GetForegroundWindow.restype = ctypes.c_void_p
@@ -119,7 +162,7 @@ def status_text(value):
         match = re.fullmatch(pattern, value)
         if match:
             return template.format(*match.groups())
-    labels = {'full_preparing_capture': '正在连接游戏', 'waiting_for_game_foreground': '请将游戏切换到前台',
+    labels = {'full_preparing_capture': '正在连接游戏', 'waiting_for_game_foreground': '正在恢复游戏前台',
               'loading_keyboard_and_screenshot_backend': '正在准备扫描', 'started': '正在识别摊位',
               'route_calibration_connecting': '正在确认当前频道'}
     if value in labels:
@@ -163,6 +206,8 @@ class DesktopController:
         self._restart_requested = False
         self._retry_at = 0
         self._retry_deadline = 0
+        self._focus_retry_at = 0
+        self._focus_deadline = None
         self._attempt_active = False
         self._last_prune = 0
         self._lock = threading.RLock()
@@ -376,6 +421,8 @@ class DesktopController:
             self._restart_requested = False
             self._retry_at = 0
             self._retry_deadline = 0
+            self._focus_retry_at = 0
+            self._focus_deadline = None
             self._paused.clear()
             self._stop = self._modules['LeaseStopEvent']()
             self._modules['clear_pause']()
@@ -385,8 +432,6 @@ class DesktopController:
                          next_retry_at=None, message='正在连接游戏并领取任务…')
             if self._window:
                 self._window.minimize()
-            if not restore:
-                focus_game(hwnd)
             self._worker = threading.Thread(target=self._run, name='shop-scanner', daemon=True)
             self._worker.start()
             self._guard_thread = threading.Thread(target=self._guard, args=(self._cancel,), name='scan-guard', daemon=True)
@@ -443,6 +488,10 @@ class DesktopController:
             if self._emergency() or self._intent.tombstone.exists() or not self._intent.permit.exists():
                 self._user_stop()
                 return
+            if self._focus_deadline and time.monotonic() >= self._focus_deadline:
+                # Native activation can block on another application's queue.
+                # Keep this guard responsive and let the watchdog replace us.
+                self._restart_requested = True
             if not self._paused.is_set() and self._step_deadline and time.monotonic() >= self._step_deadline:
                 self._stop.failure = TimeoutError('Scan step exceeded deadline')
                 self._stop.set()
@@ -477,6 +526,27 @@ class DesktopController:
                         except OSError:
                             pass  # Keep the input guard alive even on a full disk.
 
+    def _focus_permitted(self):
+        return (self._desired and not self._cancel.is_set() and not self._paused.is_set()
+                and not self._emergency() and not self._intent.tombstone.exists()
+                and self._intent.permit.exists())
+
+    def _restore_foreground(self):
+        # Called only between attempts, after old input and leases have ended.
+        with self._lock:
+            if not self._focus_permitted() or time.monotonic() < self._focus_retry_at:
+                return False
+            self._focus_retry_at = time.monotonic() + 2
+            self._focus_deadline = time.monotonic() + 5
+        # Never hold the controller lock across a Windows activation call;
+        # F9/Stop must still revoke intent if another app's queue is blocked.
+        try:
+            return focus_game(self._hwnd, allowed=self._focus_permitted)
+        except OSError:
+            return False  # A locked desktop or vanished window is retried.
+        finally:
+            self._focus_deadline = None
+
     def _run(self):
         attempts = 0
         try:
@@ -491,14 +561,19 @@ class DesktopController:
                 if not any(w['id'] == self._hwnd for w in choices) and len(choices) == 1:
                     self._hwnd = choices[0]['id']
                     self._change(selected=self._hwnd, windows=choices)
-                if not any(w['id'] == self._hwnd for w in choices) or not self._game_ready(self._hwnd):
+                present = any(w['id'] == self._hwnd for w in choices)
+                if not present or not self._game_ready(self._hwnd):
                     self._step_deadline = None
-                    self._change(phase='waiting_game', message='等待游戏连接并切换到前台。')
-                    self._cancel.wait(1)
+                    self._change(phase='waiting_game', message='正在恢复游戏前台并等待连接。' if present else '等待游戏连接。')
+                    if present:
+                        self._restore_foreground()
+                    self._cancel.wait(.2)
                     continue
                 with self._lock:
                     if self._cancel.is_set():
                         break
+                    if not self._focus_permitted():
+                        continue
                     self._stop = self._modules['LeaseStopEvent']()
                     stop = self._stop
                     self._step_deadline = time.monotonic() + 120
