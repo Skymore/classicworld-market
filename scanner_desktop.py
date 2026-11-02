@@ -121,7 +121,8 @@ def focus_game(hwnd, *, allowed=lambda: True):
 
 
 def release_keys():
-    from market_keyboard import send_key
+    from market_keyboard import send_key, release_held_keys
+    release_held_keys()
     for key in ('left', 'right', 'up', 'down', 'space'):
         try:
             send_key(key, False)
@@ -162,7 +163,8 @@ def status_text(value):
         match = re.fullmatch(pattern, value)
         if match:
             return template.format(*match.groups())
-    labels = {'full_preparing_capture': '正在连接游戏', 'waiting_for_game_foreground': '正在恢复游戏前台',
+    labels = {'reading_movement_bindings':'正在读取移动和跳跃键',
+              'full_preparing_capture': '正在连接游戏', 'waiting_for_game_foreground': '正在恢复游戏前台',
               'loading_keyboard_and_screenshot_backend': '正在准备扫描', 'started': '正在识别摊位',
               'route_calibration_connecting': '正在确认当前频道'}
     if value in labels:

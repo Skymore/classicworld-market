@@ -16,6 +16,11 @@ from collector_watchdog import HealthMonitor, should_restart
 
 
 class HealthTests(unittest.TestCase):
+    def test_unknown_key_bindings_require_attention_without_reconnect(self):
+        from keyboard_bindings import KeyBindingError
+        phase,message=failure_state(KeyBindingError('up binding missing'))
+        self.assertEqual(phase,'needs_attention')
+        self.assertIn('移动和跳跃键',message)
     def test_update_handoff_grace_is_launch_scoped_and_bounded(self):
         monitor=HealthMonitor('launch')
         intent=dict(enabled=True,session='session')
