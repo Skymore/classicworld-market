@@ -1,10 +1,11 @@
 //! Regions of the currently imported Classic World map catalogue.
 //! Classic World uses its own map IDs (not the GMS numbering scheme).
+/// Orbis and El Nath (`region_sql` still classifies them) are not open yet:
+/// their maps are imported as unreleased and never listed, so they are not
+/// offered as filters. Add them back here and in `catalogue-search.tsx`.
 pub const REGIONS: &[(&str, &str, &str)] = &[
     ("maple", "彩虹岛", "Maple Island"),
     ("victoria", "金银岛", "Victoria Island"),
-    ("orbis", "天空之城", "Orbis"),
-    ("elnath", "冰峰雪域", "El Nath"),
     ("market", "自由市场", "Free Market"),
     ("special", "活动／特殊地图", "Events / special maps"),
     ("other", "其他／待归类", "Other / unclassified"),

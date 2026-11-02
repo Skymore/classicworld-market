@@ -76,6 +76,14 @@ async fn seeded() -> Option<(common::TestDb, Router)> {
         &wz::parse(r#"{"map_id": 10001000, "portals": [{"pn": "east00", "tm": 10001010, "tn": "west00"}]}"#).unwrap(),
     );
     wz::import(&db.pool, &portals, "test").await.unwrap();
+    // NiaDB's community votes, which pages show instead of rates.
+    sqlx::query(
+        "UPDATE drops SET upvotes = CASE mob_id WHEN 2 THEN 60 ELSE 2 END, downvotes = 0
+         WHERE item_id IN (4000019, 1002000)",
+    )
+    .execute(&db.pool)
+    .await
+    .unwrap();
     sqlx::query(
         "INSERT INTO item_stats (item_id, typical, typical_low, typical_high, sample_size, sales_24h,
                                  change_24h, lowest_ask, listings_count, shops_count, as_of)
@@ -174,13 +182,21 @@ async fn item_page() {
     assert!(page.content_type.starts_with("text/html"));
     assert!(page.csp.contains("script-src 'self'") && page.csp.contains("connect-src 'self'"));
     assert!(page.csp.contains("style-src 'self'"));
-    assert!(!page.csp.split(';').find(|part| part.trim_start().starts_with("script-src")).unwrap().contains("unsafe-inline"));
+    assert!(!page
+        .csp
+        .split(';')
+        .find(|part| part.trim_start().starts_with("script-src"))
+        .unwrap()
+        .contains("unsafe-inline"));
     assert_eq!(page.vary, "Sec-CH-UA-Mobile");
     let body = &page.body;
     assert!(body.contains("<h1>蜗牛壳</h1>"));
     assert!(body.contains("450"), "typical price from item_stats");
     assert!(body.contains(r#"href="/mob/2""#));
-    assert!(body.contains("60%"));
+    assert!(
+        body.contains("60 票") && !body.contains("60%"),
+        "votes, not a rate"
+    );
     assert!(body.contains("射手训练场Ⅰ"), "dropper's map");
     // The cheapest channel is in the first paint, from the same rows as /api/v1/item.
     assert!(body.contains(r#"<div class="cgroup open" data-ch-key="14">"#));
@@ -209,7 +225,7 @@ async fn item_page() {
 
     let no_stats = get(&router, "/item/1002000").await;
     assert!(no_stats.body.contains("还没有成交价"));
-    assert!(no_stats.body.contains("0.15%"));
+    assert!(no_stats.body.contains("2 票"));
 
     for missing in ["/item/999", "/item/abc"] {
         let page = get(&router, missing).await;

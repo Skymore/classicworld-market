@@ -8,7 +8,7 @@ use serde_json::json;
 use sqlx::{PgConnection, PgPool};
 
 use super::catalog::{Catalog, ItemReferences};
-use super::mapledex::{Dataset, ZhNameCounts};
+use super::mapledex::{Dataset, NiaBestiaryCounts, ZhNameCounts};
 
 /// Where the data came from, for `catalog_versions`.
 pub struct Sources<'a> {
@@ -21,6 +21,8 @@ pub struct Sources<'a> {
 pub struct NiaDbSource<'a> {
     pub path: &'a str,
     pub version: &'a str,
+    /// What its monsters, maps and drops changed, when they were applied.
+    pub bestiary: Option<&'a NiaBestiaryCounts>,
 }
 
 /// The zh-names file `data` was filled from, for `catalog_versions`.
@@ -45,7 +47,10 @@ pub struct Input<'a> {
 pub struct ImportSummary {
     pub items: u64,
     pub mobs: u64,
+    /// Mobs and maps that are not open yet (kept, never shown).
+    pub mobs_unreleased: i64,
     pub maps: u64,
+    pub maps_unreleased: i64,
     /// Maps with a simplified name.
     pub maps_zh: i64,
     pub spawns: u64,
@@ -58,6 +63,7 @@ pub struct ImportSummary {
     /// Drops with a name of their own (from the item, or Mapledex's GMS name).
     pub drops_named: i64,
     pub npcs: u64,
+    pub npcs_unreleased: i64,
     pub npcs_named: i64,
     /// NPCs with a simplified name.
     pub npcs_zh: i64,
@@ -114,7 +120,13 @@ pub async fn import(pool: &PgPool, input: &Input<'_>) -> Result<ImportSummary> {
     )
     .await?;
     let drops = insert_json(&mut tx, "drops", DROP_COLUMNS, &data.drops).await?;
-    let npcs = insert_json(&mut tx, "npcs", "id, name_en, name_zh, name_tw", &data.npcs).await?;
+    let npcs = insert_json(
+        &mut tx,
+        "npcs",
+        "id, name_en, name_zh, name_tw, unreleased",
+        &data.npcs,
+    )
+    .await?;
     let npc_placements = insert_json(&mut tx, "map_npcs", "map_id, npc_id", &data.map_npcs).await?;
     let npc_shops = insert_json(
         &mut tx,
@@ -144,11 +156,19 @@ pub async fn import(pool: &PgPool, input: &Input<'_>) -> Result<ImportSummary> {
     let maps_zh: i64 = sqlx::query_scalar("SELECT count(*) FROM maps WHERE name_zh IS NOT NULL")
         .fetch_one(&mut *tx)
         .await?;
+    let (mobs_unreleased, maps_unreleased, npcs_unreleased): (i64, i64, i64) = sqlx::query_as(
+        "SELECT (SELECT count(*) FROM mobs WHERE unreleased), (SELECT count(*) FROM maps WHERE unreleased),
+                (SELECT count(*) FROM npcs WHERE unreleased)",
+    )
+    .fetch_one(&mut *tx)
+    .await?;
 
     let summary = ImportSummary {
         items,
         mobs,
+        mobs_unreleased,
         maps,
+        maps_unreleased,
         maps_zh,
         spawns,
         drops,
@@ -157,6 +177,7 @@ pub async fn import(pool: &PgPool, input: &Input<'_>) -> Result<ImportSummary> {
         drops_with_item_id,
         drops_named,
         npcs,
+        npcs_unreleased,
         npcs_named,
         npcs_zh,
         npc_placements,
@@ -186,7 +207,11 @@ pub async fn import(pool: &PgPool, input: &Input<'_>) -> Result<ImportSummary> {
             "niadb",
             niadb.version,
             niadb.path,
-            json!({ "items": input.references.niadb_items, "npc_shops": npc_shops }),
+            json!({
+                "items": input.references.niadb_items,
+                "npc_shops": npc_shops,
+                "bestiary": niadb.bestiary,
+            }),
         )
         .await?;
     }
@@ -248,12 +273,12 @@ async fn upsert_items(
 }
 
 const MOB_COLUMNS: &str = "id, gms_id, link_id, name_en, name_zh, name_tw, level, hp, mp, exp, \
-    pad, pdd, mad, mdd, acc, eva, speed, is_boss, is_undead, description, drop_source";
+    pad, pdd, mad, mdd, acc, eva, speed, is_boss, is_undead, description, drop_source, unreleased";
 const MAP_COLUMNS: &str =
     "id, gms_id, name_en, name_zh, name_tw, street_en, street_zh, street_tw, \
-    description, is_town, return_map_id, mob_rate, bgm, minimap_url";
+    description, is_town, return_map_id, mob_rate, bgm, minimap_url, unreleased";
 const DROP_COLUMNS: &str = "mob_id, ord, item_id, gms_item_id, name_en, name_zh, name_tw, \
-    meso_min, meso_max, rate_pct, quest_id, source";
+    meso_min, meso_max, rate_pct, quest_id, source, upvotes, downvotes";
 pub(crate) const PORTAL_COLUMNS: &str =
     "from_map_id, to_map_id, kind, portal_name, target_portal, x, y, source";
 

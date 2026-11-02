@@ -11,6 +11,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
 use super::rows::{DropRow, MapNpcRow, MapRow, MobRow, NpcRow, PortalRow, SpawnRow};
@@ -191,6 +192,7 @@ impl Dataset {
                 is_undead: mob.undead.is_some_and(|v| v != 0),
                 description: mob.d.as_ref().and_then(Names::chinese_first),
                 drop_source: mob.drop_src.clone(),
+                unreleased: false,
             });
             for (ord, drop) in mob.drops.iter().enumerate() {
                 if let Some(row) = self.drop_row(mob, ord, drop) {
@@ -232,9 +234,11 @@ impl Dataset {
             name_tw: names.and_then(Names::tw),
             meso_min: drop.meso.map(|(lo, _)| lo),
             meso_max: drop.meso.map(|(_, hi)| hi),
-            rate_pct: drop.p,
+            rate_pct: Some(drop.p),
             quest_id: drop.quest,
             source: mob.drop_src.clone(),
+            upvotes: None,
+            downvotes: None,
         })
     }
 
@@ -281,6 +285,7 @@ impl Dataset {
                 mob_rate: map.mob_rate,
                 bgm: clean(map.bgm.as_deref()),
                 minimap_url: None,
+                unreleased: false,
             });
             self.add_spawns(map, &mob_ids);
             for npc_id in map.npcs.iter().copied().collect::<BTreeSet<_>>() {
@@ -387,6 +392,7 @@ fn unnamed_npc(id: i32) -> NpcRow {
         name_en: None,
         name_zh: None,
         name_tw: None,
+        unreleased: false,
     }
 }
 
@@ -399,6 +405,8 @@ struct NiaMap {
     name: Option<String>,
     #[serde(rename = "streetName")]
     street: Option<String>,
+    /// MapleIsland, VictoriaIsland, Ossyria, Other, Event.
+    region: Option<String>,
     #[serde(rename = "isTown", default)]
     is_town: bool,
     bgm: Option<String>,
@@ -553,6 +561,7 @@ impl Dataset {
                 mob_rate: map.mob_rate,
                 bgm: clean(map.bgm.as_deref()),
                 minimap_url: None,
+                unreleased: false,
             });
             counts.maps += 1;
             counts.spawns += self.add_nia_spawns(id, &map.monsters, &mob_ids);
@@ -655,6 +664,351 @@ impl Dataset {
             }
         }
         counts.shop_rows = self.npc_shops.len();
+    }
+}
+
+// ---------- NiaDB bestiary (what exists in Classic World) ----------
+
+/// The NiaDB region that is in the client but not open yet (Orbis, El Nath).
+/// NiaDB hides it by default on its map and monster lists.
+const UNRELEASED_REGION: &str = "Ossyria";
+
+/// Areas NiaDB lists that open on a known day: (first map id, last map id,
+/// opening day). Their maps stay unreleased when imported before that day;
+/// re-run `import_catalog` after it.
+const OPENS_LATER: &[(i32, i32, (i32, u32, u32))] = &[
+    // Forgotten Hollow (NiaDB: opens November 18).
+    (10_006_000, 10_006_999, (2026, 11, 18)),
+];
+
+fn opens_later(map_id: i32, today: NaiveDate) -> bool {
+    OPENS_LATER.iter().any(|&(first, last, (y, m, d))| {
+        (first..=last).contains(&map_id)
+            && NaiveDate::from_ymd_opt(y, m, d).is_some_and(|day| today < day)
+    })
+}
+
+/// An entry of NiaDB `monsters.json`: launch stats and the regions it spawns in.
+#[derive(Deserialize)]
+struct NiaMonster {
+    id: i32,
+    name: Option<String>,
+    level: Option<i16>,
+    hp: Option<i64>,
+    mp: Option<i64>,
+    exp: Option<i64>,
+    pdmg: Option<i32>,
+    mdmg: Option<i32>,
+    pdef: Option<i32>,
+    mdef: Option<i32>,
+    acc: Option<i32>,
+    avoid: Option<i32>,
+    #[serde(default)]
+    tags: Vec<String>,
+    #[serde(default)]
+    regions: Vec<String>,
+}
+
+/// NiaDB `drops.json` (written by `tools/niadb_bestiary.py`).
+#[derive(Deserialize)]
+struct NiaDrops {
+    monsters: BTreeMap<String, NiaMobDrops>,
+}
+
+#[derive(Deserialize)]
+struct NiaMobDrops {
+    #[serde(default)]
+    drops: Vec<NiaDrop>,
+}
+
+/// One item players reported for a monster, with its community votes.
+#[derive(Deserialize)]
+struct NiaDrop {
+    /// Classic World item id.
+    #[serde(rename = "itemIconKey")]
+    icon_key: String,
+    #[serde(rename = "itemName")]
+    item_name: Option<String>,
+    #[serde(default)]
+    upvotes: f64,
+    #[serde(default)]
+    downvotes: f64,
+}
+
+/// What `apply_niadb_bestiary` changed.
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize)]
+pub struct NiaBestiaryCounts {
+    pub mobs: usize,
+    /// Mobs only NiaDB lists.
+    pub mobs_added: usize,
+    /// Mapledex mobs NiaDB does not list (test and unused copies), dropped.
+    pub mobs_removed: usize,
+    pub mobs_unreleased: usize,
+    pub maps: usize,
+    /// Mapledex maps NiaDB does not list, dropped.
+    pub maps_removed: usize,
+    pub maps_unreleased: usize,
+    pub npcs_unreleased: usize,
+    pub spawns: usize,
+    /// Drops with more up than down votes.
+    pub drops: usize,
+    /// Reported drops left out: no more up than down votes.
+    pub drops_unconfirmed: usize,
+}
+
+impl Dataset {
+    /// Everything `import_catalog` takes from a NiaDB directory: `add_niadb`
+    /// (`maps.json`, `npc-shops.json`) and `apply_niadb_bestiary` (`monsters.json`,
+    /// `maps.json`, `drops.json`). `today` decides which areas in `OPENS_LATER`
+    /// are open.
+    pub fn add_niadb_bestiary_dir(
+        &mut self,
+        dir: &Path,
+        today: NaiveDate,
+    ) -> Result<(NiaDbCounts, NiaBestiaryCounts)> {
+        self.add_niadb_bestiary(
+            &read(dir, "monsters.json")?,
+            &read(dir, "maps.json")?,
+            &read(dir, "npc-shops.json")?,
+            &read(dir, "drops.json")?,
+            today,
+        )
+    }
+
+    /// Makes NiaDB the source of what exists: its mobs with their launch stats
+    /// (Mapledex keeps the names it has; mobs NiaDB does not list are dropped),
+    /// its maps (other Mapledex maps are dropped), its spawns, and only the drops
+    /// players confirmed (more up than down votes; Mapledex's drop table and
+    /// rates are replaced). Content that is not open yet is marked unreleased:
+    /// Orbis / El Nath, areas in `OPENS_LATER` before their day, mobs that only
+    /// spawn there, and NPCs that only stand there. Runs `add_niadb` in between,
+    /// once the mob list is NiaDB's. Call after `add_npc_names`, before `add_zh_names`.
+    pub fn add_niadb_bestiary(
+        &mut self,
+        monsters: &str,
+        maps: &str,
+        shops: &str,
+        drops: &str,
+        today: NaiveDate,
+    ) -> Result<(NiaDbCounts, NiaBestiaryCounts)> {
+        let monsters: Vec<NiaMonster> =
+            serde_json::from_str(monsters).context("parsing NiaDB monsters.json")?;
+        let drops: NiaDrops = serde_json::from_str(drops).context("parsing NiaDB drops.json")?;
+        let mut counts = NiaBestiaryCounts::default();
+        self.apply_nia_mobs(&monsters, &mut counts);
+        let added = self.add_niadb(maps, shops)?;
+        let maps: Vec<NiaMap> = serde_json::from_str(maps).context("parsing NiaDB maps.json")?;
+        let reported = self.warnings.len();
+        let maps = self.parse_nia_maps(&maps);
+        self.warnings.truncate(reported); // `add_niadb` already reported bad map ids
+        self.apply_nia_maps(&maps, today, &mut counts);
+        self.mark_mobs_without_open_maps(&mut counts);
+        self.apply_nia_drops(&drops, &mut counts);
+        Ok((added, counts))
+    }
+
+    fn apply_nia_mobs(&mut self, monsters: &[NiaMonster], counts: &mut NiaBestiaryCounts) {
+        let mut mapledex: HashMap<i32, MobRow> = self.mobs.drain(..).map(|m| (m.id, m)).collect();
+        let mut seen = HashSet::new();
+        for nia in monsters {
+            if !seen.insert(nia.id) {
+                self.warnings.push(format!(
+                    "NiaDB monster {} listed twice; kept the first",
+                    nia.id
+                ));
+                continue;
+            }
+            let mut row = match mapledex.remove(&nia.id) {
+                Some(row) => row,
+                None => {
+                    let Some(name_en) = clean(nia.name.as_deref()) else {
+                        self.warnings
+                            .push(format!("NiaDB monster {} has no name", nia.id));
+                        continue;
+                    };
+                    counts.mobs_added += 1;
+                    MobRow {
+                        id: nia.id,
+                        gms_id: None,
+                        link_id: None,
+                        name_en,
+                        name_zh: None,
+                        name_tw: None,
+                        level: None,
+                        hp: None,
+                        mp: None,
+                        exp: None,
+                        pad: None,
+                        pdd: None,
+                        mad: None,
+                        mdd: None,
+                        acc: None,
+                        eva: None,
+                        speed: None,
+                        is_boss: false,
+                        is_undead: false,
+                        description: None,
+                        drop_source: None,
+                        unreleased: false,
+                    }
+                }
+            };
+            row.level = nia.level.or(row.level);
+            row.hp = nia.hp.or(row.hp);
+            row.mp = nia.mp.or(row.mp);
+            row.exp = nia.exp.or(row.exp);
+            row.pad = nia.pdmg.or(row.pad);
+            row.mad = nia.mdmg.or(row.mad);
+            row.pdd = nia.pdef.or(row.pdd);
+            row.mdd = nia.mdef.or(row.mdd);
+            row.acc = nia.acc.or(row.acc);
+            row.eva = nia.avoid.or(row.eva);
+            row.is_boss |= nia.tags.iter().any(|t| t == "boss");
+            row.is_undead |= nia.tags.iter().any(|t| t == "undead");
+            row.drop_source = Some("niadb".into());
+            // Mobs without spawns keep this; the others follow their maps.
+            row.unreleased =
+                !nia.regions.is_empty() && nia.regions.iter().all(|r| r == UNRELEASED_REGION);
+            self.mobs.push(row);
+        }
+        counts.mobs_removed = mapledex.len();
+        counts.mobs = self.mobs.len();
+        self.mobs.sort_by_key(|m| m.id);
+    }
+
+    fn apply_nia_maps(
+        &mut self,
+        maps: &[(i32, &NiaMap)],
+        today: NaiveDate,
+        counts: &mut NiaBestiaryCounts,
+    ) {
+        let nia: HashMap<i32, &NiaMap> = maps.iter().copied().collect();
+        let before = self.maps.len();
+        self.maps.retain(|m| nia.contains_key(&m.id));
+        counts.maps_removed = before - self.maps.len();
+        let listed: HashSet<i32> = self.maps.iter().map(|m| m.id).collect();
+        let mut unreleased = HashSet::new();
+        for map in &mut self.maps {
+            let source = nia[&map.id];
+            map.unreleased =
+                source.region.as_deref() == Some(UNRELEASED_REGION) || opens_later(map.id, today);
+            if map.unreleased {
+                unreleased.insert(map.id);
+            }
+            map.mob_rate = source.mob_rate.or(map.mob_rate);
+            map.return_map_id = map.return_map_id.filter(|to| listed.contains(to));
+        }
+        counts.maps = self.maps.len();
+        counts.maps_unreleased = unreleased.len();
+        self.portals
+            .retain(|p| listed.contains(&p.from_map_id) && listed.contains(&p.to_map_id));
+        self.map_npcs.retain(|p| listed.contains(&p.map_id));
+        // NPCs whose every placement is on an unreleased map are not reachable.
+        let mut placements: HashMap<i32, (usize, usize)> = HashMap::new();
+        for p in &self.map_npcs {
+            let entry = placements.entry(p.npc_id).or_default();
+            entry.0 += 1;
+            entry.1 += usize::from(unreleased.contains(&p.map_id));
+        }
+        for npc in &mut self.npcs {
+            npc.unreleased =
+                matches!(placements.get(&npc.id), Some(&(all, hidden)) if all == hidden);
+            counts.npcs_unreleased += usize::from(npc.unreleased);
+        }
+        // Spawns: NiaDB's per-map monster lists replace Mapledex's.
+        self.spawns.clear();
+        let mob_ids: HashSet<i32> = self.mobs.iter().map(|m| m.id).collect();
+        let mut ids: Vec<i32> = listed.into_iter().collect();
+        ids.sort_unstable();
+        for id in ids {
+            counts.spawns += self.add_nia_spawns(id, &nia[&id].monsters, &mob_ids);
+        }
+    }
+
+    /// A mob is unreleased when every map it spawns on is.
+    fn mark_mobs_without_open_maps(&mut self, counts: &mut NiaBestiaryCounts) {
+        let hidden: HashSet<i32> = self
+            .maps
+            .iter()
+            .filter(|m| m.unreleased)
+            .map(|m| m.id)
+            .collect();
+        let mut maps: HashMap<i32, (usize, usize)> = HashMap::new();
+        for spawn in &self.spawns {
+            let entry = maps.entry(spawn.mob_id).or_default();
+            entry.0 += 1;
+            entry.1 += usize::from(hidden.contains(&spawn.map_id));
+        }
+        for mob in &mut self.mobs {
+            if let Some(&(all, unreleased)) = maps.get(&mob.id) {
+                mob.unreleased = all == unreleased;
+            }
+            counts.mobs_unreleased += usize::from(mob.unreleased);
+        }
+    }
+
+    fn apply_nia_drops(&mut self, drops: &NiaDrops, counts: &mut NiaBestiaryCounts) {
+        let mob_ids: HashSet<i32> = self.mobs.iter().map(|m| m.id).collect();
+        self.drops.clear();
+        for (mob, list) in &drops.monsters {
+            let Some(mob_id) = nia_id(mob).filter(|id| mob_ids.contains(id)) else {
+                if !list.drops.is_empty() {
+                    self.warnings
+                        .push(format!("NiaDB drops of unknown monster {mob:?}"));
+                }
+                continue;
+            };
+            // One row per item: the report with the best score.
+            let mut best: BTreeMap<i32, &NiaDrop> = BTreeMap::new();
+            for drop in &list.drops {
+                let Some(item_id) = nia_id(&drop.icon_key) else {
+                    self.warnings.push(format!(
+                        "NiaDB drop of monster {mob_id}: item {:?} is not an id",
+                        drop.icon_key
+                    ));
+                    continue;
+                };
+                if drop.upvotes <= drop.downvotes {
+                    counts.drops_unconfirmed += 1;
+                    continue;
+                }
+                let score = |d: &NiaDrop| d.upvotes - d.downvotes;
+                if best
+                    .get(&item_id)
+                    .is_none_or(|kept| score(drop) > score(kept))
+                {
+                    best.insert(item_id, drop);
+                }
+            }
+            let mut rows: Vec<(i32, &NiaDrop)> = best.into_iter().collect();
+            rows.sort_by(|(a_id, a), (b_id, b)| {
+                (b.upvotes - b.downvotes)
+                    .total_cmp(&(a.upvotes - a.downvotes))
+                    .then(a_id.cmp(b_id))
+            });
+            for (ord, (item_id, drop)) in rows.into_iter().enumerate() {
+                let Ok(ord) = i16::try_from(ord) else {
+                    break;
+                };
+                self.drops.push(DropRow {
+                    mob_id,
+                    ord,
+                    item_id: Some(item_id),
+                    gms_item_id: None,
+                    name_en: clean(drop.item_name.as_deref()),
+                    name_zh: None,
+                    name_tw: None,
+                    meso_min: None,
+                    meso_max: None,
+                    rate_pct: None,
+                    quest_id: None,
+                    source: Some("niadb".into()),
+                    upvotes: Some(drop.upvotes),
+                    downvotes: Some(drop.downvotes),
+                });
+            }
+        }
+        counts.drops = self.drops.len();
     }
 }
 

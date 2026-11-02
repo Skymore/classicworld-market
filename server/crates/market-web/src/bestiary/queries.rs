@@ -15,7 +15,7 @@ use super::route::{Edge, EdgeKind};
 
 // Apply before pagination and counts, retaining imported test data privately.
 macro_rules! public_mob {
-    () => { "m.id NOT BETWEEN 9990000 AND 9990005 AND m.name_en !~* '^test([[:space:]]|[(]|$)' AND COALESCE(m.name_zh, '') NOT LIKE '测试%'" };
+    () => { "NOT m.unreleased AND m.id NOT BETWEEN 9990000 AND 9990005 AND m.name_en !~* '^test([[:space:]]|[(]|$)' AND COALESCE(m.name_zh, '') NOT LIKE '测试%'" };
 }
 pub(crate) const PUBLIC_MOB_FILTER: &str = public_mob!();
 
@@ -329,7 +329,7 @@ async fn npc_offers(db: &PgPool, item_id: i32) -> sqlx::Result<Vec<NpcOffer>> {
         ", ",
         name_en!("n"),
         ", s.price FROM npc_shops s JOIN npcs n ON n.id = s.npc_id
-         WHERE s.item_id = $1 ORDER BY s.price, n.id"
+         WHERE s.item_id = $1 AND NOT n.unreleased ORDER BY s.price, n.id"
     ))
     .bind(item_id)
     .fetch_all(db)
@@ -429,19 +429,19 @@ async fn droppers(db: &PgPool, item_id: i32) -> sqlx::Result<Vec<Dropper>> {
     struct Row {
         #[sqlx(flatten)]
         mob: MobRef,
-        rate_pct: f64,
+        votes: Option<f64>,
     }
-    // A mob can list the same item twice (quest copies); show it once.
+    // A mob can list the same item twice; show it once.
     let rows: Vec<Row> = sqlx::query_as(concat!(
         "SELECT m.id, ",
         name!("m"),
         " AS name, ",
         name_en!("m"),
-        " AS name_en, m.level, COALESCE(m.gms_id, l.gms_id) AS image_id, max(d.rate_pct) AS rate_pct
+        " AS name_en, m.level, COALESCE(m.gms_id, l.gms_id) AS image_id, max(d.upvotes)::float8 AS votes
          FROM drops d JOIN mobs m ON m.id = d.mob_id LEFT JOIN mobs l ON l.id = m.link_id
          WHERE d.item_id = $1 AND ", public_mob!(), "
          GROUP BY m.id, l.gms_id
-         ORDER BY rate_pct DESC, m.level NULLS LAST, m.id"
+         ORDER BY votes DESC NULLS LAST, m.level NULLS LAST, m.id"
     ))
     .bind(item_id)
     .fetch_all(db)
@@ -453,7 +453,7 @@ async fn droppers(db: &PgPool, item_id: i32) -> sqlx::Result<Vec<Dropper>> {
         .map(|r| Dropper {
             maps: maps.remove(&r.mob.id).unwrap_or_default(),
             mob: r.mob,
-            rate_pct: r.rate_pct,
+            votes: r.votes.map(|v| v.round() as i64),
         })
         .collect();
     Ok(merge_variants(droppers))
@@ -497,7 +497,7 @@ async fn maps_of_mobs(db: &PgPool, mob_ids: &[i32]) -> sqlx::Result<HashMap<i32,
         ", ",
         name_en!("mp"),
         " FROM mob_spawns s JOIN maps mp ON mp.id = s.map_id
-         WHERE s.mob_id = ANY($1)
+         WHERE s.mob_id = ANY($1) AND NOT mp.unreleased
          ORDER BY s.mob_id, s.spawn_count DESC, mp.id"
     ))
     .bind(mob_ids)
@@ -948,7 +948,7 @@ pub async fn mob_page(db: &PgPool, id: i32) -> sqlx::Result<Option<MobPage>> {
             streets!("mp"),
             ", s.spawn_count
          FROM mob_spawns s JOIN maps mp ON mp.id = s.map_id
-         WHERE s.mob_id = $1 ORDER BY s.spawn_count DESC, mp.id"
+         WHERE s.mob_id = $1 AND NOT mp.unreleased ORDER BY s.spawn_count DESC, mp.id"
         ))
         .bind(id)
         .fetch_all(db)
@@ -983,7 +983,7 @@ async fn mob_drops(db: &PgPool, mob_id: i32) -> sqlx::Result<Vec<MobDrop>> {
         gms_item_id: Option<i32>,
         meso_min: Option<i32>,
         meso_max: Option<i32>,
-        rate_pct: f64,
+        votes: Option<f64>,
         quest_id: Option<i32>,
     }
     let rows: Vec<Row> = sqlx::query_as(concat!(
@@ -993,12 +993,12 @@ async fn mob_drops(db: &PgPool, mob_id: i32) -> sqlx::Result<Vec<MobDrop>> {
         name!("d"),
         " AS drop_name, ",
         name_en!("d"),
-        " AS drop_name_en, d.gms_item_id, d.meso_min, d.meso_max, d.rate_pct, d.quest_id
+        " AS drop_name_en, d.gms_item_id, d.meso_min, d.meso_max, d.upvotes::float8 AS votes, d.quest_id
          FROM drops d
          LEFT JOIN items i ON i.id = d.item_id
          LEFT JOIN item_stats st ON st.item_id = i.id
          WHERE d.mob_id = $1
-         ORDER BY d.meso_max IS NULL, d.rate_pct DESC, d.ord"
+         ORDER BY d.meso_max IS NULL, d.upvotes DESC NULLS LAST, d.ord"
     ))
     .bind(mob_id)
     .fetch_all(db)
@@ -1027,13 +1027,13 @@ async fn mob_drops(db: &PgPool, mob_id: i32) -> sqlx::Result<Vec<MobDrop>> {
             };
             MobDrop {
                 what,
-                rate_pct: r.rate_pct,
+                votes: r.votes.map(|v| v.round() as i64),
                 quest_id: r.quest_id,
             }
         })
         .collect();
     drops.dedup();
-    // Mesos, then drops with a market price, then the rest; rate order inside each.
+    // Mesos, then drops with a market price, then the rest; vote order inside each.
     drops.sort_by_key(|drop| drop_rank(&drop.what));
     Ok(drops)
 }
@@ -1084,7 +1084,8 @@ pub async fn map_page(db: &PgPool, id: i32) -> sqlx::Result<Option<MapPage>> {
         " AS return_name, ",
         name_en!("r"),
         " AS return_name_en
-         FROM maps m LEFT JOIN maps r ON r.id = m.return_map_id WHERE m.id = $1"
+         FROM maps m LEFT JOIN maps r ON r.id = m.return_map_id AND NOT r.unreleased
+         WHERE m.id = $1 AND NOT m.unreleased"
     ))
     .bind(id)
     .fetch_optional(db)
@@ -1172,7 +1173,8 @@ async fn links(db: &PgPool, map_id: i32, direction: Direction) -> sqlx::Result<V
             ", ",
             name_en!("m"),
             ", p.kind, p.portal_name FROM map_portals p LEFT JOIN maps m ON m.id = p.to_map_id
-             WHERE p.from_map_id = $1 ORDER BY p.kind, p.to_map_id, p.portal_name"
+             WHERE p.from_map_id = $1 AND m.unreleased IS NOT TRUE
+             ORDER BY p.kind, p.to_map_id, p.portal_name"
         ),
         Direction::In => concat!(
             "SELECT p.from_map_id, ",
@@ -1180,7 +1182,8 @@ async fn links(db: &PgPool, map_id: i32, direction: Direction) -> sqlx::Result<V
             ", ",
             name_en!("m"),
             ", p.kind, p.portal_name FROM map_portals p LEFT JOIN maps m ON m.id = p.from_map_id
-             WHERE p.to_map_id = $1 ORDER BY p.kind, p.from_map_id, p.portal_name"
+             WHERE p.to_map_id = $1 AND m.unreleased IS NOT TRUE
+             ORDER BY p.kind, p.from_map_id, p.portal_name"
         ),
     };
     #[allow(clippy::type_complexity)]
@@ -1210,7 +1213,9 @@ async fn links(db: &PgPool, map_id: i32, direction: Direction) -> sqlx::Result<V
 
 pub async fn load_edges(db: &PgPool) -> sqlx::Result<Vec<Edge>> {
     let rows: Vec<(i32, i32, String, Option<String>)> = sqlx::query_as(
-        "SELECT from_map_id, to_map_id, kind, portal_name FROM map_portals ORDER BY id",
+        "SELECT p.from_map_id, p.to_map_id, p.kind, p.portal_name FROM map_portals p
+         WHERE NOT EXISTS (SELECT 1 FROM maps m WHERE m.id IN (p.from_map_id, p.to_map_id) AND m.unreleased)
+         ORDER BY p.id",
     )
     .fetch_all(db)
     .await?;
@@ -1234,7 +1239,7 @@ pub async fn map_refs(db: &PgPool, ids: &[i32]) -> sqlx::Result<HashMap<i32, Map
         name!("m"),
         " AS name, ",
         name_en!("m"),
-        " AS name_en FROM maps m WHERE m.id = ANY($1)"
+        " AS name_en FROM maps m WHERE m.id = ANY($1) AND NOT m.unreleased"
     ))
     .bind(ids)
     .fetch_all(db)
@@ -1257,8 +1262,9 @@ pub async fn resolve_map(db: &PgPool, input: &str) -> sqlx::Result<Resolution> {
     let input = input.trim();
     if let Ok(id) = input.parse::<i32>() {
         let known: bool = sqlx::query_scalar(
-            "SELECT EXISTS (SELECT 1 FROM maps WHERE id = $1)
-                 OR EXISTS (SELECT 1 FROM map_portals WHERE from_map_id = $1 OR to_map_id = $1)",
+            "SELECT EXISTS (SELECT 1 FROM maps WHERE id = $1 AND NOT unreleased)
+                 OR (NOT EXISTS (SELECT 1 FROM maps WHERE id = $1)
+                     AND EXISTS (SELECT 1 FROM map_portals WHERE from_map_id = $1 OR to_map_id = $1))",
         )
         .bind(id)
         .fetch_one(db)
@@ -1277,7 +1283,8 @@ pub async fn resolve_map(db: &PgPool, input: &str) -> sqlx::Result<Resolution> {
         " AS name, ",
         name_en!("m"),
         " AS name_en FROM maps m
-         WHERE lower(m.name_zh) = lower($1) OR lower(m.name_tw) = lower($1) OR lower(m.name_en) = lower($1)
+         WHERE (lower(m.name_zh) = lower($1) OR lower(m.name_tw) = lower($1) OR lower(m.name_en) = lower($1))
+           AND NOT m.unreleased
          ORDER BY m.id LIMIT 8"
     ))
     .bind(input)
@@ -1351,7 +1358,7 @@ pub async fn search_places(
         "SELECT {region_expr} AS region, {area_expr} AS key,
          COALESCE(max(NULLIF(m.street_zh,'')),max(m.street_en)) AS name,
          COALESCE(max(NULLIF(m.street_en,'')),max(m.street_zh)) AS name_en
-         FROM maps m WHERE {area_expr}<>'' GROUP BY 1,2 ORDER BY region,key"
+         FROM maps m WHERE {area_expr}<>'' AND NOT m.unreleased GROUP BY 1,2 ORDER BY region,key"
     ))
     .fetch_all(db)
     .await?;
@@ -1514,7 +1521,7 @@ async fn search_mobs(
          FROM mobs m LEFT JOIN mobs l ON l.id = m.link_id WHERE ({filter}) AND {PUBLIC_MOB_FILTER}
          AND (($6='' AND $7='') OR EXISTS (
              SELECT 1 FROM mob_spawns sp JOIN maps mp ON mp.id=sp.map_id
-             WHERE sp.mob_id=m.id AND ($6='' OR {region_expr}=$6) AND ($7='' OR {area_expr}=$7)))
+             WHERE sp.mob_id=m.id AND NOT mp.unreleased AND ($6='' OR {region_expr}=$6) AND ($7='' OR {area_expr}=$7)))
          ORDER BY {rank}, m.level NULLS LAST, m.id LIMIT $4 OFFSET $5",
         region_expr=super::regions::region_sql("mp"),
         area_expr=super::regions::area_sql("mp"),
@@ -1552,7 +1559,7 @@ async fn search_maps_in_region(
     let (filter, rank) = matcher("m.id", &["m.name_zh", "m.name_tw", "m.name_en"], "$8");
     let sql = format!(
         "SELECT m.id, {name} AS name, {name_en} AS name_en, {streets}
-         FROM maps m WHERE {filter}
+         FROM maps m WHERE {filter} AND NOT m.unreleased
          AND ($6='' OR {region_expr}=$6) AND ($7='' OR {area_expr}=$7)
          ORDER BY {rank}, length({name}), m.id LIMIT $4 OFFSET $5",
         name = name!("m"),
@@ -1590,7 +1597,7 @@ mod tests {
                 level: Some(20),
                 image_id: None,
             },
-            rate_pct: 20.0,
+            votes: Some(20),
             maps: maps.iter().map(|&m| MapRef::new(m, "m", "m")).collect(),
         };
         let out = merge_variants(vec![
@@ -1671,7 +1678,7 @@ mod tests {
                 typical,
                 lowest_ask,
             },
-            rate_pct: 1.0,
+            votes: Some(1),
             quest_id: None,
         };
         let unlisted = MobDrop {
@@ -1679,12 +1686,12 @@ mod tests {
                 id: Some(9),
                 names: None,
             },
-            rate_pct: 50.0,
+            votes: Some(50),
             quest_id: None,
         };
         let meso = MobDrop {
             what: DropTarget::Meso { min: 1, max: 2 },
-            rate_pct: 40.0,
+            votes: None,
             quest_id: None,
         };
         let mut drops = [

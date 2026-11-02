@@ -357,7 +357,8 @@ async fn item(db: &PgPool, id: i32) -> sqlx::Result<Value> {
          s.source,mp.id AS map_id,mp.name_zh AS map_name_zh,mp.name_en AS map_name_en
          FROM npc_shops s JOIN npcs n ON n.id=s.npc_id
          LEFT JOIN map_npcs mn ON mn.npc_id=n.id LEFT JOIN maps mp ON mp.id=mn.map_id
-         WHERE s.item_id=$1 ORDER BY s.price,n.id,mp.id LIMIT 20) x")
+         WHERE s.item_id=$1 AND NOT n.unreleased AND mp.unreleased IS NOT TRUE
+         ORDER BY s.price,n.id,mp.id LIMIT 20) x")
         .bind(id).fetch_all(db).await?;
     let record: Option<Value> =
         sqlx::query_scalar("SELECT record FROM item_records WHERE item_id=$1")
@@ -375,18 +376,19 @@ async fn item(db: &PgPool, id: i32) -> sqlx::Result<Value> {
                 })
         })
         .cloned();
-    let droppers: Vec<Value> = sqlx::query_scalar(
+    let droppers: Vec<Value> = sqlx::query_scalar(&format!(
         "SELECT to_jsonb(x) FROM (SELECT m.id AS mob_id,m.name_en,m.name_zh,m.level,
-         d.rate_pct,d.quest_id,d.source FROM drops d JOIN mobs m ON m.id=d.mob_id
-         WHERE d.item_id=$1 AND m.name_en !~* '^test([[:space:]]|[(]|$)'
-         ORDER BY m.level,m.id LIMIT 12) x",
-    )
+         d.upvotes,d.downvotes,d.source FROM drops d JOIN mobs m ON m.id=d.mob_id
+         WHERE d.item_id=$1 AND {}
+         ORDER BY d.upvotes DESC NULLS LAST,m.level,m.id LIMIT 12) x",
+        crate::bestiary::queries::PUBLIC_MOB_FILTER
+    ))
     .bind(id)
     .fetch_all(db)
     .await?;
     Ok(
         json!({"item":row,"npc_offers":offers,"npc_resale_reference":resale,
-        "drop_reference":{"monsters":droppers,"provenance":"Imported Mapledex catalogue includes CoT2 reference data. Drop rates/availability are not verified for the live launch. Quest-only drops must not be treated as ordinary drops."},
+        "drop_reference":{"monsters":droppers,"provenance":"NiaDB community reports of what players saw drop in Classic World, kept only with more up than down votes (upvotes/downvotes are weighted). Classic World publishes no drop rates; do not state or estimate one."},
         "item_url":format!("/item/{id}"),"unit_basis":crate::external::unit(id)}),
     )
 }

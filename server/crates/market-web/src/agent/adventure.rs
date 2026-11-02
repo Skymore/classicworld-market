@@ -293,8 +293,8 @@ pub fn trusted_source(url: &str) -> bool {
         .any(|v| v.as_str() == Some(url))
 }
 
-/// Drop chances are server data, absent from the client. Keep the older
-/// catalogue clearly separate rather than pretending it is launch evidence.
+/// Drop chances are server data, absent from the client. The drops come from
+/// NiaDB's community reports; keep them separate from the client stats.
 pub async fn supplement(db: &sqlx::PgPool, value: &mut Value) -> sqlx::Result<()> {
     if value["kind"] != "monster" {
         return Ok(());
@@ -304,16 +304,16 @@ pub async fn supplement(db: &sqlx::PgPool, value: &mut Value) -> sqlx::Result<()
     };
     let drops: Vec<Value> = sqlx::query_scalar(
         "SELECT to_jsonb(x) FROM (SELECT d.item_id,COALESCE(i.name_en,d.name_en) AS name_en,
-         COALESCE(i.name_zh,d.name_zh) AS name_zh,d.rate_pct,d.quest_id,d.source,
-         d.meso_min,d.meso_max FROM drops d LEFT JOIN items i ON i.id=d.item_id
+         COALESCE(i.name_zh,d.name_zh) AS name_zh,d.upvotes,d.downvotes,d.source
+         FROM drops d LEFT JOIN items i ON i.id=d.item_id
          WHERE d.mob_id=$1 ORDER BY d.ord LIMIT 20) x",
     )
     .bind(id as i32)
     .fetch_all(db)
     .await?;
     value["drop_reference"] = json!({"drops":drops,"limit":20,
-        "provenance":"Imported Mapledex catalogue; includes CW GMS_COT2_2026-08-11 reference data, not verified live server drops. Rates/availability are unconfirmed for the launch. Quest-only drops have quest_id; do not recommend farming them as ordinary drops.",
-        "note":"Current client stats above and legacy server-drop references below have different provenance. Do not call these guaranteed or current drop rates."});
+        "provenance":"NiaDB community reports of what players saw this monster drop in Classic World, kept only with more up than down votes (weighted), most confirmed first. Classic World publishes no drop rates.",
+        "note":"Client stats above and player-reported drops below have different provenance. Do not state or estimate drop rates."});
     Ok(())
 }
 

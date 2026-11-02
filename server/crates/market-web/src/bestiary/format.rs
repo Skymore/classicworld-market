@@ -67,13 +67,6 @@ fn one_decimal(x: f64) -> String {
     text.strip_suffix(".0").map(str::to_string).unwrap_or(text)
 }
 
-/// Drop rate in percent: 100 -> "100%", 0.03 -> "0.03%", 0.005 -> "0.005%".
-pub fn percent(rate: f64) -> String {
-    let text = format!("{rate:.3}");
-    let text = text.trim_end_matches('0').trim_end_matches('.');
-    format!("{text}%")
-}
-
 /// 2100000000 -> "2,100,000,000".
 pub fn grouped(value: i64) -> String {
     let digits = value.unsigned_abs().to_string();
@@ -131,14 +124,6 @@ mod tests {
         assert_eq!(meso_f(449.0), "449");
         assert_eq!(meso_f(12.5), "12.5");
         assert_eq!(meso_f(1_250.4), "1.3K");
-    }
-
-    #[test]
-    fn percent_trims_zeros() {
-        assert_eq!(percent(100.0), "100%");
-        assert_eq!(percent(0.03), "0.03%");
-        assert_eq!(percent(0.005), "0.005%");
-        assert_eq!(percent(1.5), "1.5%");
     }
 
     #[test]

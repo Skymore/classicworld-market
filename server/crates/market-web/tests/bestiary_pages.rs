@@ -203,7 +203,7 @@ fn item_page(stats: Option<MarketStats>, market: ItemMarket) -> ItemPage {
         stats,
         droppers: vec![Dropper {
             mob: mob(2, "蜗牛"),
-            rate_pct: 60.0,
+            votes: Some(60),
             maps: vec![map(10001010, "射手训练场Ⅰ"), map(40, "蜗牛猎场Ⅰ")],
         }],
         npc_offers: vec![],
@@ -244,13 +244,14 @@ fn item_page_head_sources_and_shell() {
     assert!(html.contains("▼ 6.1%"));
     assert!(html.contains("数据 1小时前更新"), "freshness from as_of");
     assert!(html.contains(r#"href="/mob/2""#));
-    assert!(html.contains("60%"));
+    assert!(html.contains("60 票"), "NiaDB confirmations, not a rate");
+    assert!(!html.contains("60%"));
     assert!(html.contains("射手训练场Ⅰ · 蜗牛猎场Ⅰ"));
     assert!(html.contains("没有 NPC 出售记录"));
     assert!(html.contains("卖给 NPC 只得 20 / 个"));
     assert!(
-        html.contains("可以自己打"),
-        "60% drop: about 2 kills, worth farming"
+        html.contains("市场买或自己打") && html.contains("1 种怪物会掉"),
+        "no drop rate, so no kill count to weigh against the price"
     );
     assert!(!html.contains("无等级限制"), "no level tag without a level requirement");
     assert!(html.contains("https://maplestory.io/api/GMS/83/mob/100100/render/stand"));
@@ -358,7 +359,7 @@ fn item_without_market_data_says_so() {
     let html = pages::item_page(&page, &zh()).into_string();
     assert!(html.contains("还没有成交价"));
     assert!(html.contains("市场数据暂无"));
-    assert!(html.contains("图鉴里没有怪物掉落记录"));
+    assert!(html.contains("还没有玩家确认的怪物掉落"));
     assert!(html.contains("NPC #212 出售 <b>50</b> / 个"));
     assert!(html.contains("去 NPC 买"));
     assert!(html.contains("最近 72 小时没有看到在售挂单"));
@@ -376,7 +377,7 @@ fn english_page() {
     assert!(html.contains("<h1>Snail Shell</h1>"));
     assert!(html.contains("Where to buy"));
     assert!(html.contains("found sold"));
-    assert!(html.contains("Farm it"));
+    assert!(html.contains("Buy or farm"));
     assert!(
         html.contains(r#"href="/mob/2?lang=en""#),
         "links keep the language"
@@ -481,7 +482,7 @@ fn mob_page_lists_maps_and_every_drop_kind() {
         drops: vec![
             MobDrop {
                 what: DropTarget::Meso { min: 4, max: 6 },
-                rate_pct: 40.0,
+                votes: None,
                 quest_id: None,
             },
             MobDrop {
@@ -492,7 +493,7 @@ fn mob_page_lists_maps_and_every_drop_kind() {
                     typical: Some(450),
                     lowest_ask: Some(233),
                 },
-                rate_pct: 60.0,
+                votes: Some(60),
                 quest_id: None,
             },
             MobDrop {
@@ -500,7 +501,7 @@ fn mob_page_lists_maps_and_every_drop_kind() {
                     id: Some(2040002),
                     names: None,
                 },
-                rate_pct: 0.03,
+                votes: Some(3),
                 quest_id: Some(1035),
             },
         ],
@@ -517,7 +518,7 @@ fn mob_page_lists_maps_and_every_drop_kind() {
     assert!(html.contains("成交 450 · 在售最低 233"));
     assert!(html.contains("物品 #2040002"));
     assert!(html.contains("任务 #1035 期间"));
-    assert!(html.contains("0.03%"));
+    assert!(html.contains("3 票") && html.contains("60 票"));
     assert!(html.contains("<p>第二行</p>"));
     let english = pages::mob_page(&page, &en()).into_string();
     assert!(english.contains("<h1>Snail</h1>") && english.contains("Maple Island"));

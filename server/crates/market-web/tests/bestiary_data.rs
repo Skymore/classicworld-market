@@ -17,7 +17,10 @@ use market_web::{
         import::{
             import, import_catalog, ImportSummary, Input, NiaDbSource, Sources, ZhNamesSource,
         },
-        mapledex::{Dataset, NiaDbCounts, ZhNameCounts, ZhNames, ZhSourceCounts},
+        mapledex::{
+            Dataset, NiaBestiaryCounts, NiaDbCounts, ZhNameCounts, ZhNames, ZhSourceCounts,
+        },
+        model::SearchKind,
         queries,
         rows::ItemRow,
         wz,
@@ -124,18 +127,25 @@ fn niadb_fills_mapledex_gaps() {
     assert_eq!(
         counts,
         NiaDbCounts {
-            maps: 12,
-            spawns: 2,
-            return_links: 11,
-            npc_placements: 9,
-            npc_names: 7,
+            maps: 36,
+            spawns: 13,
+            return_links: 33,
+            npc_placements: 21,
+            npc_names: 15,
             shop_rows: 877,
         }
     );
-    assert_eq!(
-        data.warnings,
-        vec!["NiaDB map 10003111: unknown mob \"700006\"".to_string()]
-    );
+    // Mobs Mapledex lacks; `apply_niadb_bestiary` adds them from NiaDB's list.
+    let nia_mobs = std::fs::read_to_string(repo_data("reference/niadb/monsters.json")).unwrap();
+    assert!(!data.warnings.is_empty());
+    for warning in &data.warnings {
+        let id = warning
+            .split("unknown mob \"")
+            .nth(1)
+            .and_then(|rest| rest.strip_suffix('"'))
+            .unwrap_or_else(|| panic!("{warning}"));
+        assert!(nia_mobs.contains(&format!("\"id\":{id},")), "{warning}");
+    }
     // Every portal target NiaDB lists now has a map row.
     let maps: std::collections::HashSet<i32> = data.maps.iter().map(|m| m.id).collect();
     for id in [
@@ -144,6 +154,104 @@ fn niadb_fills_mapledex_gaps() {
         assert!(maps.contains(&id), "map {id}");
     }
     assert!(data.npcs.iter().all(|n| n.name_en.is_some()));
+}
+
+#[test]
+fn niadb_bestiary_decides_what_exists() {
+    let mut data = mapledex();
+    let (added, counts) = data
+        .add_niadb_bestiary_dir(&repo_data("reference/niadb"), fetch_day())
+        .expect("NiaDB monsters, maps, shops and drops");
+    assert!(data.warnings.is_empty(), "{:?}", data.warnings);
+    assert_eq!(
+        (added.maps, added.spawns),
+        (36, 35),
+        "NiaDB's mobs are known before its maps are added"
+    );
+    assert_eq!(
+        (
+            counts.mobs,
+            counts.mobs_added,
+            counts.mobs_removed,
+            counts.mobs_unreleased
+        ),
+        (206, 19, 8, 41 + 11),
+        "Orbis / El Nath, and Forgotten Hollow's 11"
+    );
+    assert_eq!(
+        (counts.maps, counts.maps_removed, counts.maps_unreleased),
+        (453, 15, 92 + 27)
+    );
+    assert_eq!(
+        (counts.drops, counts.drops_unconfirmed),
+        (data.drops.len(), 106)
+    );
+    assert_eq!(counts.spawns, data.spawns.len());
+
+    let mob = |id: i32| data.mobs.iter().find(|m| m.id == id);
+    let map = |id: i32| data.maps.iter().find(|m| m.id == id);
+    assert!(mob(9990000).is_none(), "Mapledex test mobs are gone");
+    assert!(map(900000000).is_none(), "Mapledex test maps are gone");
+    let zombie = mob(700002).unwrap();
+    assert_eq!(
+        (zombie.name_zh.is_some(), zombie.level, zombie.hp),
+        (true, Some(55), Some(66640)),
+        "launch stats from NiaDB, the name from Mapledex"
+    );
+    assert!(
+        mob(1001).unwrap().unreleased,
+        "Jr. Sentinel only spawns in Orbis"
+    );
+    assert!(!mob(3).unwrap().unreleased);
+    assert!(map(20000000).unwrap().unreleased, "Orbis is not open yet");
+    assert!(!map(10001000).unwrap().unreleased);
+    assert!(map(10004130).is_some(), "Excavation Site I, new in NiaDB");
+    assert!(
+        map(10006000).unwrap().unreleased,
+        "Forgotten Hollow opens on November 18"
+    );
+    assert!(mob(54).unwrap().unreleased, "Glowshroom only spawns there");
+
+    // Only drops players confirmed; no rates, best-confirmed first.
+    assert!(data.drops.iter().all(|d| d.rate_pct.is_none()
+        && d.source.as_deref() == Some("niadb")
+        && d.upvotes > d.downvotes
+        && d.item_id.is_some()));
+    let blue_snail: Vec<_> = data.drops.iter().filter(|d| d.mob_id == 3).collect();
+    assert_eq!(
+        (blue_snail[0].item_id, blue_snail[0].upvotes),
+        (Some(4010001), Some(78.25)),
+        "Iron Ore"
+    );
+    let mobs: std::collections::HashSet<i32> = data.mobs.iter().map(|m| m.id).collect();
+    let maps: std::collections::HashSet<i32> = data.maps.iter().map(|m| m.id).collect();
+    assert!(data
+        .spawns
+        .iter()
+        .all(|s| mobs.contains(&s.mob_id) && maps.contains(&s.map_id)));
+    assert!(data.map_npcs.iter().all(|p| maps.contains(&p.map_id)));
+    assert!(data
+        .portals
+        .iter()
+        .all(|p| maps.contains(&p.from_map_id) && maps.contains(&p.to_map_id)));
+    assert!(counts.npcs_unreleased > 0);
+    assert_eq!(
+        data.npcs.iter().filter(|n| n.unreleased).count(),
+        counts.npcs_unreleased
+    );
+
+    // Imported on its opening day, Forgotten Hollow shows; Orbis still does not.
+    let mut later = mapledex();
+    let opening = chrono::NaiveDate::from_ymd_opt(2026, 11, 18).unwrap();
+    let (_, counts) = later
+        .add_niadb_bestiary_dir(&repo_data("reference/niadb"), opening)
+        .unwrap();
+    assert_eq!((counts.maps_unreleased, counts.mobs_unreleased), (92, 41));
+}
+
+/// The day the NiaDB files were fetched: Forgotten Hollow is not open yet.
+fn fetch_day() -> chrono::NaiveDate {
+    chrono::NaiveDate::from_ymd_opt(2026, 11, 2).unwrap()
 }
 
 fn zh_names() -> ZhNames {
@@ -158,7 +266,7 @@ fn zh_names_fill_map_and_npc_gaps() {
         data.maps.iter().filter(|m| m.name_zh.is_none()).count(),
         data.npcs.iter().filter(|n| n.name_zh.is_none()).count(),
     );
-    assert_eq!(before, (186, 52));
+    assert_eq!(before, (210, 60));
     let mapledex_names: Vec<(i32, Option<String>)> = data
         .maps
         .iter()
@@ -185,7 +293,11 @@ fn zh_names_fill_map_and_npc_gaps() {
         data.maps.iter().filter(|m| m.name_zh.is_none()).count(),
         data.npcs.iter().filter(|n| n.name_zh.is_none()).count(),
     );
-    assert_eq!(still_english, (22, 1));
+    assert_eq!(
+        still_english,
+        (46, 9),
+        "DVG has no names for NiaDB's newer maps yet"
+    );
     for (map, (id, name)) in data.maps.iter().zip(&mapledex_names) {
         assert_eq!(map.id, *id);
         if name.is_some() {
@@ -443,6 +555,7 @@ struct Full {
     catalog: Catalog,
     refs: ItemReferences,
     data: Dataset,
+    bestiary: NiaBestiaryCounts,
     zh_names: ZhNames,
     zh: ZhNameCounts,
 }
@@ -453,7 +566,9 @@ fn full(items: Vec<ItemRow>) -> Full {
     refs.extend(&mut catalog);
     refs.annotate_records(&mut catalog);
     let mut data = mapledex();
-    data.add_niadb_dir(&repo_data("reference/niadb")).unwrap();
+    let (_, bestiary) = data
+        .add_niadb_bestiary_dir(&repo_data("reference/niadb"), fetch_day())
+        .unwrap();
     let zh_names = zh_names();
     let zh = data.add_zh_names(&zh_names);
     refs.resolve_drops(&catalog, &mut data.drops);
@@ -461,6 +576,7 @@ fn full(items: Vec<ItemRow>) -> Full {
         catalog,
         refs,
         data,
+        bestiary,
         zh_names,
         zh,
     }
@@ -476,7 +592,8 @@ async fn import_full(pool: &sqlx::PgPool, full: &Full) -> ImportSummary {
             sources: &SOURCES,
             niadb: Some(NiaDbSource {
                 path: "data/reference/niadb",
-                version: "fetched 2026-10-21",
+                version: "fetched 2026-11-02",
+                bestiary: Some(&full.bestiary),
             }),
             zh_names: Some(ZhNamesSource {
                 path: "data/reference/zh-names.json",
@@ -547,9 +664,14 @@ async fn full_import_is_idempotent_and_upgrades_an_r3_database() {
             first.npc_shops,
             first.portals
         ),
-        (2919, 444, 3038, 3038, 4433, 273, 273, 309, 877, 404)
+        (2919, 453, 1655, 1636, 1655, 281, 281, 315, 877, 426)
     );
-    assert_eq!((first.maps_zh, first.npcs_zh), (444 - 22, 273 - 1));
+    assert_eq!((first.maps_zh, first.npcs_zh), (453 - 31, 281 - 9));
+    assert_eq!(
+        (first.mobs_unreleased, first.maps_unreleased),
+        (52, 119),
+        "Orbis / El Nath and Forgotten Hollow"
+    );
     let before = dump(&fresh.pool).await;
     assert_eq!(import_full(&fresh.pool, &input).await, first);
     assert_eq!(dump(&fresh.pool).await, before, "a re-run changes nothing");
@@ -613,6 +735,83 @@ async fn full_import_is_idempotent_and_upgrades_an_r3_database() {
     assert_eq!(zh_counts["npcs"]["dvg"], 51);
     fresh.drop_schema().await;
     upgraded.drop_schema().await;
+}
+
+/// Orbis / El Nath are imported but never shown: no page, no search hit, no
+/// dropper, no NPC price, no route step. Drops show votes, not rates.
+#[tokio::test]
+async fn unreleased_content_is_never_shown() {
+    let Some(db) = common::test_db().await else {
+        return;
+    };
+    let input = full(market_items());
+    import_full(&db.pool, &input).await;
+    let pool = &db.pool;
+    let orbis = 20000000;
+    let jr_sentinel = 1001;
+    assert!(queries::map_page(pool, orbis).await.unwrap().is_none());
+    assert!(queries::mob_page(pool, jr_sentinel)
+        .await
+        .unwrap()
+        .is_none());
+    let henesys = queries::map_page(pool, 10001000).await.unwrap().unwrap();
+    assert!(henesys
+        .exits
+        .iter()
+        .chain(&henesys.entrances)
+        .all(|l| l.other.id != orbis));
+    let blue_snail = queries::mob_page(pool, 3).await.unwrap().unwrap();
+    assert_eq!(blue_snail.drops.len(), {
+        input.data.drops.iter().filter(|d| d.mob_id == 3).count()
+    });
+    assert!(blue_snail.drops.iter().all(|d| d.votes.is_some()));
+
+    let hidden: Vec<i32> = sqlx::query_scalar("SELECT id FROM maps WHERE unreleased")
+        .fetch_all(pool)
+        .await
+        .unwrap();
+    assert_eq!(hidden.len(), 119);
+    let hits = queries::search(pool, "Orbis", Some(SearchKind::Map))
+        .await
+        .unwrap();
+    assert!(hits.maps.rows.iter().all(|m| !hidden.contains(&m.id)));
+    let hits = queries::search(pool, "Jr. Sentinel", Some(SearchKind::Mob))
+        .await
+        .unwrap();
+    assert!(hits.mobs.rows.iter().all(|m| m.id != jr_sentinel));
+    assert!(queries::load_edges(pool)
+        .await
+        .unwrap()
+        .iter()
+        .all(|e| e.from != orbis && e.to != orbis));
+
+    let now = 1_793_000_000.0;
+    let item = input
+        .data
+        .drops
+        .iter()
+        .find(|d| d.mob_id == jr_sentinel && d.item_id.is_some_and(|id| id / 1_000_000 == 4))
+        .and_then(|d| d.item_id)
+        .expect("a confirmed Jr. Sentinel drop");
+    if let Some(page) = queries::item_page(pool, item, now).await.unwrap() {
+        assert!(page.droppers.iter().all(|d| d.mob.id != jr_sentinel));
+        assert!(page
+            .droppers
+            .iter()
+            .flat_map(|d| &d.maps)
+            .all(|m| m.id != orbis));
+    }
+    let (npc, sold): (i32, i32) = sqlx::query_as(
+        "SELECT s.npc_id, s.item_id FROM npc_shops s JOIN npcs n ON n.id = s.npc_id
+         WHERE n.unreleased ORDER BY s.npc_id, s.item_id LIMIT 1",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("an Orbis shop");
+    if let Some(page) = queries::item_page(pool, sold, now).await.unwrap() {
+        assert!(page.npc_offers.iter().all(|o| o.npc.id != npc));
+    }
+    db.drop_schema().await;
 }
 
 #[tokio::test]
@@ -693,14 +892,23 @@ async fn dropped_items_endpoint() {
         .iter()
         .map(|v| v.as_i64().unwrap())
         .collect();
-    let distinct: i64 =
-        sqlx::query_scalar("SELECT count(DISTINCT item_id) FROM drops WHERE item_id IS NOT NULL")
-            .fetch_one(&db.pool)
-            .await
-            .unwrap();
-    assert_eq!(ids.len() as i64, distinct);
+    let distinct: i64 = sqlx::query_scalar(
+        "SELECT count(DISTINCT d.item_id) FROM drops d JOIN mobs m ON m.id = d.mob_id
+         WHERE d.item_id IS NOT NULL AND NOT m.unreleased",
+    )
+    .fetch_one(&db.pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        ids.len() as i64,
+        distinct,
+        "drops of unreleased mobs are not listed"
+    );
     assert!(ids.windows(2).all(|w| w[0] < w[1]), "sorted and distinct");
-    assert!(ids.contains(&4000019) && ids.contains(&1072049));
+    assert!(
+        ids.contains(&4000001) && ids.contains(&1040001),
+        "Snail Shell, White Undershirt"
+    );
 
     let cached = get(&router, Some(&tag)).await;
     assert_eq!(cached.status(), StatusCode::NOT_MODIFIED);

@@ -3,11 +3,11 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useWords } from "../providers";
 import { Icon, Slot } from "../components/shared";
 import { MapRow, MobRow, Secondary, useNames, Well } from "./catalogue";
+// Orbis and El Nath are not open yet; their maps are imported as unreleased
+// and never listed. Add them back here and in regions.rs when they open.
 const regions = [
   ["maple", "彩虹岛", "Maple Island"],
   ["victoria", "金银岛", "Victoria Island"],
-  ["orbis", "天空之城", "Orbis"],
-  ["elnath", "冰峰雪域", "El Nath"],
   ["market", "自由市场", "Free Market"],
   ["special", "活动／特殊地图", "Events / special maps"],
   ["other", "其他／待归类", "Other / unclassified"],

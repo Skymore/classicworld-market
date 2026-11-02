@@ -785,9 +785,11 @@ mod tests {
             name_tw: None,
             meso_min: None,
             meso_max: None,
-            rate_pct: 1.0,
+            rate_pct: Some(1.0),
             quest_id: None,
             source: None,
+            upvotes: None,
+            downvotes: None,
         }
     }
 

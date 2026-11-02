@@ -202,10 +202,14 @@ function Mob({ page }: { page: any }) {
         <div className="dgrid">
           <Well
             title={words("掉落", "Drops")}
-            note={words(
-              `${page.drops.length} 种`,
-              `${page.drops.length} kinds`,
-            )}
+            note={
+              <>
+                {words(`${page.drops.length} 种 · 玩家确认 `, `${page.drops.length} kinds · player-confirmed `)}
+                <a href={`https://meowdb.com/msclassic/monsters/${mob.id}`} target="_blank" rel="noopener noreferrer">
+                  NiaDB
+                </a>
+              </>
+            }
           >
             {page.drops.slice(0, allDrops ? undefined : 10).map((drop: any, i: number) => {
               const item = drop.what.Item,
@@ -265,12 +269,11 @@ function Mob({ page }: { page: any }) {
                         )}
                     </span>
                   </span>
-                  <span className="r">
-                    {Number(drop.rate_pct).toLocaleString(undefined, {
-                      maximumFractionDigits: 4,
-                    })}
-                    %
-                  </span>
+                  {drop.votes != null && (
+                    <span className="r" title={words("NiaDB 玩家确认票数", "NiaDB player confirmations")}>
+                      {words(`${drop.votes} 票`, `${drop.votes} votes`)}
+                    </span>
+                  )}
                 </>
               );
               return item ? (
@@ -300,8 +303,8 @@ function Mob({ page }: { page: any }) {
             {!page.drops.length && (
               <p className="note">
                 {words(
-                  "图鉴里没有这只怪物的掉落记录。",
-                  "The dex has no drops for this monster.",
+                  "还没有玩家确认这只怪物的掉落。",
+                  "No player has confirmed a drop for this monster yet.",
                 )}
               </p>
             )}

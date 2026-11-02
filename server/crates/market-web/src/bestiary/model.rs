@@ -145,7 +145,8 @@ pub struct MarketStats {
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Dropper {
     pub mob: MobRef,
-    pub rate_pct: f64,
+    /// NiaDB players who confirmed the drop (weighted votes, rounded).
+    pub votes: Option<i64>,
     pub maps: Vec<MapRef>,
 }
 
@@ -289,7 +290,8 @@ pub struct Spawn {
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct MobDrop {
     pub what: DropTarget,
-    pub rate_pct: f64,
+    /// NiaDB players who confirmed the drop (weighted votes, rounded).
+    pub votes: Option<i64>,
     pub quest_id: Option<i32>,
 }
 

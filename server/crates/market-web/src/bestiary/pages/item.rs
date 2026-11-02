@@ -7,14 +7,12 @@ use maud::{html, Markup, PreEscaped};
 use super::market::{self, View};
 use super::shell::{icon, layout, Ctx, Icon, Nav, Page};
 use super::{map_list, mob_pic};
-use crate::bestiary::format::{ago, meso, percent, Lang};
+use crate::bestiary::format::{ago, meso, Lang};
 use crate::bestiary::model::*;
 
 /// Droppers shown before "more": phone, desktop.
 const MOBS_PHONE: usize = 4;
 const MOBS_DESKTOP: usize = 6;
-/// A drop this easy (at most this many kills on average) is worth farming.
-const EASY_KILLS: i64 = 3;
 
 pub fn item_page(page: &ItemPage, ctx: &Ctx) -> Markup {
     let v = View::new(ctx, page);
@@ -191,19 +189,16 @@ fn sources_well(v: &View) -> Markup {
     let page = v.page;
     let lang = v.ctx.lang;
     let droppers = &page.droppers;
-    let same_rate = droppers
-        .first()
-        .filter(|first| droppers.iter().all(|d| d.rate_pct == first.rate_pct))
-        .map(|d| d.rate_pct);
-    let mobs_note = match (droppers.len(), same_rate, lang) {
-        (0, _, _) => v
+    let mobs_note = match (droppers.len(), lang) {
+        (0, _) => v
             .ctx
-            .t("图鉴里没有怪物掉落记录", "no monster drops in the dex")
+            .t(
+                "还没有玩家确认的怪物掉落",
+                "no player-confirmed monster drops yet",
+            )
             .to_string(),
-        (n, Some(rate), Lang::Zh) => format!("{n} 种怪物 · 每只掉率 {}", percent(rate)),
-        (n, Some(rate), Lang::En) => format!("{n} monsters · {} each", percent(rate)),
-        (n, None, Lang::Zh) => format!("{n} 种怪物"),
-        (n, None, Lang::En) => format!("{n} monsters"),
+        (n, Lang::Zh) => format!("{n} 种怪物 · 玩家确认"),
+        (n, Lang::En) => format!("{n} monsters · player-confirmed"),
     };
     let (verdict, reason) = verdict(v);
     html! {
@@ -219,7 +214,7 @@ fn sources_well(v: &View) -> Markup {
                         (super::secondary_name(&d.mob.names, lang))
                         div.maps { (map_list(&d.maps, lang)) }
                     }
-                    span.rate { (percent(d.rate_pct)) }
+                    @if let Some(votes) = d.votes { span.rate { (votes_label(votes, lang)) } }
                 }
             }
             @if droppers.len() > MOBS_PHONE {
@@ -246,6 +241,14 @@ fn sources_well(v: &View) -> Markup {
     }
 }
 
+/// NiaDB's confirmations of a drop, as a short label.
+pub(super) fn votes_label(votes: i64, lang: Lang) -> String {
+    match lang {
+        Lang::Zh => format!("{votes} 票"),
+        Lang::En => format!("{votes} votes"),
+    }
+}
+
 fn all_mobs(lang: Lang, n: usize) -> String {
     match lang {
         Lang::Zh => format!("查看全部 {n} 种怪物 "),
@@ -261,14 +264,15 @@ enum Verdict {
         npc: i64,
         market: Option<i64>,
     },
-    /// Drops often enough to farm.
+    /// Monsters drop it and the market has no price. Classic World publishes
+    /// no drop rates, so there is no kill count to weigh against a price.
     Farm {
-        kills: i64,
-        market: Option<i64>,
+        mobs: usize,
     },
-    Buy {
-        kills: i64,
+    /// The market has a price and monsters drop it.
+    MarketOrFarm {
         market: i64,
+        mobs: usize,
     },
     MarketOnly {
         market: i64,
@@ -279,18 +283,12 @@ enum Verdict {
 fn decide(page: &ItemPage) -> Verdict {
     let market = page.stats.as_ref().and_then(|s| s.typical);
     let npc = page.npc_offers.iter().map(|o| o.price).min();
-    let kills = page
-        .droppers
-        .first()
-        .filter(|d| d.rate_pct > 0.0)
-        .map(|d| ((100.0 / d.rate_pct).round() as i64).max(1));
-    match (npc, market, kills) {
+    let mobs = page.droppers.len();
+    match (npc, market, mobs) {
         (Some(npc), m, _) if m.is_none_or(|m| npc < m) => Verdict::Npc { npc, market: m },
-        (_, m, Some(kills)) if kills <= EASY_KILLS || m.is_none() => {
-            Verdict::Farm { kills, market: m }
-        }
-        (_, Some(market), Some(kills)) => Verdict::Buy { kills, market },
-        (_, Some(market), None) => Verdict::MarketOnly { market },
+        (_, Some(market), 0) => Verdict::MarketOnly { market },
+        (_, Some(market), mobs) => Verdict::MarketOrFarm { market, mobs },
+        (_, None, mobs) if mobs > 0 => Verdict::Farm { mobs },
         _ => Verdict::Unknown,
     }
 }
@@ -325,24 +323,20 @@ fn verdict(v: &View) -> (&'static str, String) {
                 (None, false) => format!("NPC {} each, no market sales yet", meso(npc)),
             },
         ),
-        Verdict::Farm { kills, market } => (
+        Verdict::Farm { mobs } => (
             v.ctx.lang.t("可以自己打", "Farm it"),
-            match (market, zh) {
-                (Some(m), true) => format!("平均 {kills} 只怪就出 1 个；市场 {}/个", meso(m)),
-                (Some(m), false) => format!("about 1 in {kills} kills; market {} each", meso(m)),
-                (None, true) => format!("市场还没有成交价；平均 {kills} 只怪出 1 个"),
-                (None, false) => format!("no market sales yet; about 1 in {kills} kills"),
+            if zh {
+                format!("市场还没有成交价；{mobs} 种怪物会掉")
+            } else {
+                format!("no market sales yet; {mobs} monsters drop it")
             },
         ),
-        Verdict::Buy { kills, market } => (
-            v.ctx.lang.t("建议直接买", "Just buy it"),
+        Verdict::MarketOrFarm { market, mobs } => (
+            v.ctx.lang.t("市场买或自己打", "Buy or farm"),
             if zh {
-                format!("市场 {}/个；自己打平均 {kills} 只怪才出 1 个", meso(market))
+                format!("市场 {}/个；{mobs} 种怪物会掉", meso(market))
             } else {
-                format!(
-                    "market {} each; farming takes about {kills} kills per drop",
-                    meso(market)
-                )
+                format!("market {} each; {mobs} monsters drop it", meso(market))
             },
         ),
         Verdict::MarketOnly { market } => (

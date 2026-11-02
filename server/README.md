@@ -219,16 +219,31 @@ cargo run --release -p market-web --bin reachability        # 从射手村能到
 
 开发库还要市场数据时，在 `import_portals` 之后跑 `replay_uploads`（见上面「旧数据重放与对照」，它只需要物品表已经导入）。`dev` 就是这样播种的：`import_catalog` → `niadb_portals.py` → `import_portals` → `replay_uploads`。
 
-`import_catalog` 的参数和默认值：`--items ../data/fixture/items.sqlite`（市场见过的 1001 个物品，字段原样保留）、`--mapledex ../data/reference/mapledex`（`items.json`、`equips.json`、`monsters.json`、`maps.json`、`npcs.json`）、`--niadb ../data/reference/niadb`（`items.json`、`maps.json`、`npc-shops.json`）、`--zh-names ../data/reference/zh-names.json`（地图和 NPC 的简体名，见规则 6）、`--mapledex-version`、`--niadb-version`（写进 `catalog_versions`；`zh-names` 的版本取文件里的 `version`）。
+`import_catalog` 的参数和默认值：`--items ../data/fixture/items.sqlite`（市场见过的 1001 个物品，字段原样保留）、`--mapledex ../data/reference/mapledex`（`items.json`、`equips.json`、`monsters.json`、`maps.json`、`npcs.json`）、`--niadb ../data/reference/niadb`（`items.json`、`maps.json`、`npc-shops.json`，以及图鉴用的 `monsters.json`、`drops.json`，见规则 7）、`--zh-names ../data/reference/zh-names.json`（地图和 NPC 的简体名，见规则 6）、`--mapledex-version`、`--niadb-version`（写进 `catalog_versions`；`zh-names` 的版本取文件里的 `version`）。
 
 导入规则：
 
 1. 物品：items.sqlite 里有的照原样；其余来自 Mapledex（三种名字、需求等级和职业、`src` 存为 `gms_id`），Mapledex 没有的来自 NiaDB（只有英文名）。`category` 按 ID 前缀分栏，`subcategory` 按前缀给槽位名（与 DVG 给 1001 个市场物品的标注逐个一致），图标都用 DVG CDN `https://mxdgcw.dvg.cn/dbsource/icon/item/<id>.png`。装备的 `item_records.record` 另加 `niadb_reference.stats`（NiaDB `items.json` 里这件装备的 `stats`），因为暴击率、暴击伤害的基础值只有 NiaDB 有；物品页的基础属性和"加了多少"从这里读暴击两项。导入结束时 `records` 一行打印写进 NiaDB 属性的装备数。装备详情（物品页的资料条、报价行的游戏格式属性卡、快速预览的"装备资料"）由 `bestiary::equipment` 从同一条记录读：要求等级/力量/敏捷/智力/运气、职业、攻击速度和可升级次数先用 Mapledex，没有时用 DVG 的 `requirements`，再没有用 NiaDB；武器分类按 ID 前缀。接口里是 `page.equipment`（`/api/v1/catalog/page` 的物品页和快速预览都有），非装备没有这个字段。
-2. 掉落：Mapledex 只给了 GMS ID 的掉落，先找唯一带这个 `gms_id` 的物品，再在没有 GMS 对应的物品里找同类（装备按 ID 前四位，其余按前三位）、同名（英文只比字母和数字，或简体名）的唯一一个。CW 改过一些英文名（Windshoes → Wind Shoes、Steal Pow → Steel Pow），Mapledex 因此没配上。有物品的掉落一律用物品的名字。还找不到的保留 `gms_item_id` 和 Mapledex 给的 GMS 名字，`item_id` 留空：这些是 GMS v83 掉落表里 CW 客户端没有的物品（同号的 CW 物品是别的东西，比如 2040002 在 GMS 是头盔防御卷轴 10%，在 CW 是帽子命中卷轴），不能按号码硬配。
+2. 掉落（2026-11-02 起被规则 7 取代，下面是 Mapledex 掉落表本身的处理，只在不加 NiaDB 时生效）：Mapledex 只给了 GMS ID 的掉落，先找唯一带这个 `gms_id` 的物品，再在没有 GMS 对应的物品里找同类（装备按 ID 前四位，其余按前三位）、同名（英文只比字母和数字，或简体名）的唯一一个。CW 改过一些英文名（Windshoes → Wind Shoes、Steal Pow → Steel Pow），Mapledex 因此没配上。有物品的掉落一律用物品的名字。还找不到的保留 `gms_item_id` 和 Mapledex 给的 GMS 名字，`item_id` 留空：这些是 GMS v83 掉落表里 CW 客户端没有的物品（同号的 CW 物品是别的东西，比如 2040002 在 GMS 是头盔防御卷轴 10%，在 CW 是帽子命中卷轴），不能按号码硬配。
 3. NPC：名字来自 Mapledex `npcs.json`，它没有的用 NiaDB 的英文名；NPC 商店来自 NiaDB `npc-shops.json`，没有 `classicPrice` 的不导入，`priceSource` 存进 `npc_shops.source`。
 4. 地图：Mapledex 没有、NiaDB 有的地图连同刷怪、NPC 位置和回城点一起导入，回城边记为 `source = 'niadb'`。传送口仍由 `import_portals` 写（`source = 'wz'`），它只替换输入里那些地图的传送口；`import_catalog` 不碰 `wz` 边，两个工具互不覆盖。
 5. 路线：回城卷轴算 3 步，代价相同时少用非步行步骤的路线优先，所以走 1–3 个传送口能到时不用卷轴，4 个以上才用。射手村 → 废弃都市仍是 5 个传送口加回城卷轴：按 NiaDB 的传送口，废都森林I 没有通往废弃都市的传送口，全程步行最少 10 步（经逆恩森林和废都南方工地）。来源里没有带票价的船和出租车，没有导入这两类边。
 6. 地图和 NPC 的简体名：Mapledex 有简体名（`cw`）的照用，从不覆盖。没有的按 `zh-names.json` 填 `name_zh`，这个文件由 `tools/zh_names.py` 离线生成，`import_catalog` 只读它：先用 DVG 的名字（物品中文名也来自 DVG，和本服中文玩家看到的一致），条件是同一 ID 的 DVG 英文名和我们的一致（只比字母和数字；三个 NPC 拼法不同但地图位置相同，人工核过）；DVG 没有、但 Mapledex 有繁体名（`zh`）的，用 OpenCC t2s（`opencc-python-reimplemented==0.1.7`）转简体。两边都没有的保持英文，不自己翻译。DVG 的名字不用的情况写在 `zh-names.json` 的 `dvg_not_used`：占位名（`地图 80003000`）、名字里有繁体字（20000055 `天空楼梯Ⅱ天空階梯`，改用 Mapledex 繁体名转换）、英文对不上（900000000 我们是 White Map，DVG 是 The Manager's Room「测试」）。10001008 的名字和街道在 NiaDB 与 DVG 里是反的，用 DVG 的街道名「黄蘑菇屋」。
+7. 图鉴以 NiaDB 为准（`Dataset::add_niadb_bestiary`，取代规则 2，并在规则 4 之后执行）：Mapledex 的怪物表、掉落表是 GMS 时代的数据，和 Classic World 对不上（2026-11-02 对比：我们的 3025 条有物品号的掉落只有 528 条被 NiaDB 玩家确认）。
+   - 怪物：只保留 NiaDB `monsters.json` 里的怪物；Mapledex 有、NiaDB 没有的测试怪和旧副本去掉。等级、HP、MP、经验、攻防、命中、回避用 NiaDB 的上线数值；名字（含简繁中文）、`gms_id`、图片用的 `link_id`、说明和移动速度仍用 Mapledex。NiaDB 才有的怪物只有英文名。
+   - 地图和刷怪：只保留 NiaDB `maps.json` 里的地图（Mapledex 有、NiaDB 没有的 Up and Up、White Map 等去掉，连同它们的 NPC 位置和回城边）；刷怪点全部换成 NiaDB 每张地图的怪物列表。
+   - 掉落：整张表换成 NiaDB `drops.json`（玩家报告、投票），只收赞成多于反对的，每只怪每种物品一行，按（赞成 − 反对）从高到低。没有掉率（`rate_pct` 为空，Classic World 不公布），存 `upvotes` / `downvotes`；页面显示"N 票"，不再估算"打多少只出一个"。Mapledex 的金币掉落也不再导入。
+   - 未开放：NiaDB 区域为 `Ossyria`（天空之城、冰峰雪域，NiaDB 默认隐藏）的地图，以及 `OPENS_LATER` 里开放日之前的区域（遗忘洞穴 10006000–10006999，2026-11-18 开放），标 `unreleased`；所有刷怪地图都未开放的怪物、所有站位都在未开放地图的 NPC 也标 `unreleased`（没有刷怪记录的怪物按 NiaDB `regions` 是否全是 `Ossyria`）。数据留在表里，页面、搜索、区域筛选、掉落来源、NPC 价格、制作成本、路线和 AI 助手都不显示。开放日之后重跑 `import_catalog` 即可显示；天空之城开放时去掉 `UNRELEASED_REGION` 的判断，并在 `regions.rs` 和 `catalogue-search.tsx` 加回区域选项。
+
+2026-11-02 NiaDB 图鉴（规则 7）的结果（2026-11-02 导入；之前 → 之后）：
+
+| | 之前 | 之后 |
+|---|---|---|
+| `mobs` | 195 | 206（NiaDB 才有的 19 个，去掉 Mapledex 的 8 个）；未开放 52（天空之城、冰峰雪域 41，遗忘洞穴 11） |
+| `maps` | 444 | 453（NiaDB 新增 36 张，去掉 Mapledex 的 15 张）；未开放 119（92 + 遗忘洞穴 27） |
+| `mob_spawns` | 896 | 915 |
+| `drops` | 4575（GMS 时代掉落表，带掉率） | 1655（玩家确认，没有掉率；另有 106 条赞成不多于反对的报告没收） |
+| `npcs` 未开放 | 0 | 62 |
 
 2026-10-21 数据的结果（之前 → 之后）：
 
@@ -260,7 +275,11 @@ for f in items equips npcs meta monsters maps; do
   curl -fsS -o ../data/reference/mapledex/$f.json https://kafuffu20.com/classic-world/data/$f.json
 done
 python3 ../tools/niadb_items.py --output ../data/reference/niadb/items.json
+python3 ../tools/niadb_bestiary.py --output ../data/reference/niadb   # monsters.json、maps.json、drops.json，约 15 分钟
+python3 ../tools/niadb_portals.py ../data/reference/niadb/maps.json --output ../data/reference/niadb/portals.json
 ```
+
+`niadb_bestiary.py` 一次只发一个请求（默认间隔 3 秒），全部成功才写文件，中途被拒（403/429）就停下、旧文件不变。新地图的传送口要重新生成 `portals.json` 并跑 `import_portals`。
 
 Mapledex、NiaDB 或 DVG 有更新时重新生成 `zh-names.json`（`fetch` 只用标准库；`build` 需要 OpenCC，装在临时 venv 里），然后重跑 `import_catalog`：
 

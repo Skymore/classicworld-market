@@ -39,6 +39,8 @@ pub struct MobRow {
     pub is_undead: bool,
     pub description: Option<String>,
     pub drop_source: Option<String>,
+    /// In the client but not open yet; never shown.
+    pub unreleased: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -57,6 +59,8 @@ pub struct MapRow {
     pub mob_rate: Option<f64>,
     pub bgm: Option<String>,
     pub minimap_url: Option<String>,
+    /// In the client but not open yet; never shown.
+    pub unreleased: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -77,9 +81,13 @@ pub struct DropRow {
     pub name_tw: Option<String>,
     pub meso_min: Option<i32>,
     pub meso_max: Option<i32>,
-    pub rate_pct: f64,
+    /// Mapledex's rate; NiaDB drops have none.
+    pub rate_pct: Option<f64>,
     pub quest_id: Option<i32>,
     pub source: Option<String>,
+    /// NiaDB community votes (weighted, so fractional).
+    pub upvotes: Option<f64>,
+    pub downvotes: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -88,6 +96,8 @@ pub struct NpcRow {
     pub name_en: Option<String>,
     pub name_zh: Option<String>,
     pub name_tw: Option<String>,
+    /// Every map the NPC stands on is unreleased.
+    pub unreleased: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

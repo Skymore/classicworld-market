@@ -44,8 +44,8 @@ pub async fn prices(db: &PgPool, now: f64) -> sqlx::Result<Vec<IngredientPrice>>
          n.price AS npc_price, n.source AS npc_source
          FROM items i LEFT JOIN item_stats s ON s.item_id = i.id
          LEFT JOIN LATERAL (
-           SELECT price::float8 AS price, source FROM npc_shops
-           WHERE item_id=i.id AND price >= 0 ORDER BY price, npc_id LIMIT 1
+           SELECT sh.price::float8 AS price, sh.source FROM npc_shops sh JOIN npcs np ON np.id = sh.npc_id
+           WHERE sh.item_id=i.id AND sh.price >= 0 AND NOT np.unreleased ORDER BY sh.price, sh.npc_id LIMIT 1
          ) n ON true WHERE i.id = ANY($1) ORDER BY i.id",
     )
     .bind(&*ITEM_IDS)

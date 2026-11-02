@@ -33,6 +33,7 @@
 !/assets/app-icon.ico
 !/assets/sweep/
 !/tools/niadb_portals.py
+!/tools/niadb_bestiary.py
 !/web/
 !/design/
 !/server/

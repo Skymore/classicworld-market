@@ -5,7 +5,7 @@ use maud::{html, Markup, PreEscaped};
 
 use super::shell::{icon, layout, Ctx, Icon, Nav, Page};
 use super::{mob_image_url, mob_pic, mob_picture_url, slot};
-use crate::bestiary::format::{grouped, meso, percent, Lang};
+use crate::bestiary::format::{grouped, meso, Lang};
 use crate::bestiary::model::*;
 use crate::bestiary::route::{EdgeKind, HENESYS};
 
@@ -172,7 +172,7 @@ pub fn mob_page(page: &MobPage, ctx: &Ctx) -> Markup {
                             (match lang { Lang::Zh => format!("显示全部 {} 种", page.drops.len()), Lang::En => format!("Show all {}", page.drops.len()) })
                         }
                     }
-                    @if page.drops.is_empty() { (empty(ctx.t("图鉴里没有这只怪物的掉落记录。", "The dex has no drops for this monster."))) }
+                    @if page.drops.is_empty() { (empty(ctx.t("还没有玩家确认这只怪物的掉落。", "No player has confirmed a drop for this monster yet."))) }
                 }
                 section.well {
                     (well_head(ctx.t("出现地图", "Found in"), Some(n_of(ctx, page.spawns.len(), "张", "maps"))))
@@ -200,7 +200,7 @@ fn drop_row(ctx: &Ctx, drop: &MobDrop) -> Markup {
         Lang::Zh => format!(" · 任务 #{q} 期间"),
         Lang::En => format!(" · during quest #{q}"),
     });
-    let rate = html! { span.r { (percent(drop.rate_pct)) } };
+    let rate = html! { @if let Some(votes) = drop.votes { span.r { (super::item::votes_label(votes, lang)) } } };
     match &drop.what {
         DropTarget::Item {
             id,

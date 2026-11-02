@@ -1,15 +1,16 @@
 //! Loads the item catalogue and the bestiary into Postgres: items.sqlite (the
-//! market's items), Mapledex (items, equips, mobs, maps, NPCs), NiaDB
-//! (items, the maps Mapledex lacks, NPC names, NPC shops) and zh-names.json
-//! (simplified map and NPC names Mapledex lacks, from DVG or Mapledex's
-//! traditional names). Idempotent: a re-run replaces the bestiary rows and
-//! upserts items.
+//! market's items), Mapledex (items, equips, names of mobs, maps and NPCs),
+//! NiaDB (items, NPC names and shops, and what exists in Classic World: maps,
+//! spawns, mobs with launch stats, community-confirmed drops, unreleased
+//! Orbis / El Nath content) and zh-names.json (simplified map and NPC names
+//! Mapledex lacks, from DVG or Mapledex's traditional names). Idempotent: a
+//! re-run replaces the bestiary rows and upserts items.
 //!
 //! ```sh
 //! DATABASE_URL=postgres://... cargo run -p market-web --bin import_catalog -- \
 //!     [--items ../data/fixture/items.sqlite] [--mapledex ../data/reference/mapledex] \
 //!     [--mapledex-version "CW GMS_COT2_2026-08-11"] [--niadb ../data/reference/niadb] \
-//!     [--niadb-version "fetched 2026-10-21"] [--zh-names ../data/reference/zh-names.json]
+//!     [--niadb-version "fetched 2026-11-02"] [--zh-names ../data/reference/zh-names.json]
 //! ```
 
 use std::path::Path;
@@ -23,7 +24,8 @@ use market_web::bestiary::{
 };
 
 /// Date the files in data/reference/niadb were fetched; update on refetch.
-const NIADB_VERSION: &str = "fetched 2026-10-21";
+/// `monsters.json`, `maps.json` and `drops.json` come from `tools/niadb_bestiary.py`.
+const NIADB_VERSION: &str = "fetched 2026-11-02";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -51,10 +53,12 @@ async fn main() -> Result<()> {
     let added = references.extend(&mut catalog);
     let niadb_stats = references.annotate_records(&mut catalog);
     let mut data = Dataset::from_dir(Path::new(mapledex_path))?;
-    let niadb = data.add_niadb_dir(Path::new(niadb_path))?;
+    let (niadb, bestiary) =
+        data.add_niadb_bestiary_dir(Path::new(niadb_path), chrono::Utc::now().date_naive())?;
     let zh_names = ZhNames::from_file(Path::new(zh_names_path))?;
     let zh = data.add_zh_names(&zh_names);
-    let resolution = references.resolve_drops(&catalog, &mut data.drops);
+    // NiaDB drops carry Classic World ids; this fills their names from the items.
+    references.resolve_drops(&catalog, &mut data.drops);
     let warnings: Vec<&String> = catalog
         .warnings
         .iter()
@@ -81,6 +85,7 @@ async fn main() -> Result<()> {
             niadb: Some(NiaDbSource {
                 path: niadb_path,
                 version: niadb_version,
+                bestiary: Some(&bestiary),
             }),
             zh_names: Some(ZhNamesSource {
                 path: zh_names_path,
@@ -99,25 +104,32 @@ async fn main() -> Result<()> {
         "records  {:>5}  item records ({niadb_stats} with NiaDB equipment stats)",
         catalog.records.len()
     );
-    println!("mobs     {:>5}", s.mobs);
     println!(
-        "maps     {:>5}  ({} only in NiaDB; {} with a simplified name, {} from DVG, {} from \
-         Mapledex traditional)",
-        s.maps, niadb.maps, s.maps_zh, zh.maps.dvg, zh.maps.mapledex_tw
-    );
-    println!("spawns   {:>5}", s.spawns);
-    println!(
-        "drops    {:>5}  ({} with an item id, {} in the catalogue, {} meso, {} named)",
-        s.drops, s.drops_with_item_id, s.drops_in_catalog, s.drops_meso, s.drops_named
+        "mobs     {:>5}  NiaDB ({} not in Mapledex, {} Mapledex-only dropped, {} unreleased)",
+        s.mobs, bestiary.mobs_added, bestiary.mobs_removed, s.mobs_unreleased
     );
     println!(
-        "         GMS-only drops: {} resolved by GMS id, {} by name, {} left (no Classic World item)",
-        resolution.by_gms_id, resolution.by_name, resolution.unresolved
+        "maps     {:>5}  NiaDB ({} not in Mapledex, {} Mapledex-only dropped, {} unreleased; {} \
+         with a simplified name, {} from DVG, {} from Mapledex traditional)",
+        s.maps,
+        niadb.maps,
+        bestiary.maps_removed,
+        s.maps_unreleased,
+        s.maps_zh,
+        zh.maps.dvg,
+        zh.maps.mapledex_tw
+    );
+    println!("spawns   {:>5}  NiaDB", s.spawns);
+    println!(
+        "drops    {:>5}  NiaDB, more up than down votes ({} in the catalogue, {} named; {} \
+         reports left out)",
+        s.drops, s.drops_in_catalog, s.drops_named, bestiary.drops_unconfirmed
     );
     println!(
-        "npcs     {:>5}  ({} named, {} from NiaDB; {} with a simplified name, {} from DVG, {} \
-         from Mapledex traditional; {} map placements)",
+        "npcs     {:>5}  ({} unreleased; {} named, {} from NiaDB; {} with a simplified name, {} \
+         from DVG, {} from Mapledex traditional; {} map placements)",
         s.npcs,
+        s.npcs_unreleased,
         s.npcs_named,
         niadb.npc_names,
         s.npcs_zh,

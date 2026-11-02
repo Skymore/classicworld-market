@@ -51,13 +51,13 @@ try {
       await select.selectOption(value);
       return before;
     }
-    let before = await choose('region', 'orbis');
-    await waitForResult('orbis|');
+    let before = await choose('region', 'maple');
+    await waitForResult('maple|');
     assert.equal(await callCount(), before, 'pointer selection must not refocus the replacement region menu');
     assert.equal(await page.locator('select[name=area]').isEnabled(), true);
-    assert.deepEqual(await page.locator('select[name=area] option').evaluateAll(els => els.map(el => el.value)), ['', 'orbis-town', 'orbis-field']);
-    before = await choose('area', 'orbis-town');
-    await waitForResult('orbis|orbis-town');
+    assert.deepEqual(await page.locator('select[name=area] option').evaluateAll(els => els.map(el => el.value)), ['', 'maple-town', 'maple-field']);
+    before = await choose('area', 'maple-town');
+    await waitForResult('maple|maple-town');
     assert.equal(await callCount(), before, 'pointer selection must not refocus the replacement area menu');
     before = await choose('region', 'victoria', true);
     await waitForResult('victoria|');

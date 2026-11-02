@@ -53,9 +53,11 @@ pub struct DroppedItems {
 }
 
 pub async fn load(db: &PgPool) -> sqlx::Result<DroppedItems> {
-    let item_ids = sqlx::query_scalar(
-        "SELECT DISTINCT item_id FROM drops WHERE item_id IS NOT NULL ORDER BY item_id",
-    )
+    let item_ids = sqlx::query_scalar(&format!(
+        "SELECT DISTINCT d.item_id FROM drops d JOIN mobs m ON m.id = d.mob_id
+         WHERE d.item_id IS NOT NULL AND {} ORDER BY d.item_id",
+        super::queries::PUBLIC_MOB_FILTER
+    ))
     .fetch_all(db)
     .await?;
     let as_of: Option<i64> = sqlx::query_scalar(
@@ -78,7 +80,7 @@ pub struct Counts {
 
 pub async fn load_counts(db: &PgPool) -> sqlx::Result<Counts> {
     sqlx::query_as(
-        &format!("SELECT (SELECT count(*) FROM mobs m WHERE {}) AS mobs, (SELECT count(*) FROM maps) AS maps,
+        &format!("SELECT (SELECT count(*) FROM mobs m WHERE {}) AS mobs, (SELECT count(*) FROM maps WHERE NOT unreleased) AS maps,
                 (SELECT count(*) FROM items) AS items", super::queries::PUBLIC_MOB_FILTER),
     )
     .fetch_one(db)

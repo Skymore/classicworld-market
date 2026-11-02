@@ -278,10 +278,8 @@ function Verdict({ page }: { page: any }) {
     npc = page.npc_offers.length
       ? Math.min(...page.npc_offers.map((offer: any) => offer.price))
       : null,
-    kills =
-      page.droppers[0]?.rate_pct > 0
-        ? Math.max(1, Math.round(100 / page.droppers[0].rate_pct))
-        : null;
+    // Classic World publishes no drop rates, so there is no kill count to weigh.
+    mobs = page.droppers.length;
   let title = "",
     reason = "";
   if (page.unit === "set") {
@@ -313,23 +311,17 @@ function Verdict({ page }: { page: any }) {
             `NPC ${meso(npc)}/个，市场还没有成交价`,
             `NPC ${meso(npc)} each, no market sales yet`,
           );
-  } else if (kills != null && (kills <= 3 || market == null)) {
-    title = words("可以自己打", "Farm it");
-    reason =
-      market != null
-        ? words(
-            `平均 ${kills} 只怪就出 1 个；市场 ${meso(market)}/个`,
-            `about 1 in ${kills} kills; market ${meso(market)} each`,
-          )
-        : words(
-            `市场还没有成交价；平均 ${kills} 只怪出 1 个`,
-            `no market sales yet; about 1 in ${kills} kills`,
-          );
-  } else if (market != null && kills != null) {
-    title = words("建议直接买", "Just buy it");
+  } else if (market != null && mobs > 0) {
+    title = words("市场买或自己打", "Buy or farm");
     reason = words(
-      `市场 ${meso(market)}/个；自己打平均 ${kills} 只怪才出 1 个`,
-      `market ${meso(market)} each; farming takes about ${kills} kills per drop`,
+      `市场 ${meso(market)}/个；${mobs} 种怪物会掉`,
+      `market ${meso(market)} each; ${mobs} monsters drop it`,
+    );
+  } else if (mobs > 0) {
+    title = words("可以自己打", "Farm it");
+    reason = words(
+      `市场还没有成交价；${mobs} 种怪物会掉`,
+      `no market sales yet; ${mobs} monsters drop it`,
     );
   } else if (market != null) {
     title = words("只能在市场买", "Market only");
@@ -1465,12 +1457,12 @@ export default function Item({ page }: { page: any }) {
                 <small>
                   {page.droppers.length
                     ? words(
-                        `${page.droppers.length} 种怪物`,
-                        `${page.droppers.length} monsters`,
+                        `${page.droppers.length} 种怪物 · NiaDB 玩家确认`,
+                        `${page.droppers.length} monsters · confirmed by NiaDB players`,
                       )
                     : words(
-                        "图鉴里没有怪物掉落记录",
-                        "no monster drops in the dex",
+                        "还没有玩家确认的怪物掉落",
+                        "no player-confirmed monster drops yet",
                       )}
                 </small>
               </div>
@@ -1503,12 +1495,11 @@ export default function Item({ page }: { page: any }) {
                         words("没有出现地图记录", "no maps recorded")}
                     </div>
                   </span>
-                  <span className="rate">
-                    {Number(drop.rate_pct).toLocaleString(undefined, {
-                      maximumFractionDigits: 4,
-                    })}
-                    %
-                  </span>
+                  {drop.votes != null && (
+                    <span className="rate" title={words("NiaDB 玩家确认票数", "NiaDB player confirmations")}>
+                      {words(`${drop.votes} 票`, `${drop.votes} votes`)}
+                    </span>
+                  )}
                 </a>
               ))}
               {page.droppers.length > 4 && (
