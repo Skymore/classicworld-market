@@ -192,7 +192,7 @@ class CaptureReceipt:
                 continue
             if (not isinstance(row, dict) or row.get('triggered_by_python') is not False
                     or not isinstance(row.get('items'), list) or type(row.get('shop_id')) is not int
-                    or type(row.get('time')) not in (int, float) or row['time'] < self.started-1):
+                    or type(row.get('time')) not in (int, float) or not self.started <= row['time'] <= time.time()):
                 continue
             found.append(dict(file=str(path.resolve()), time=row['time'], session=row.get('session'),
                 shop_id=row['shop_id'], item_count=len(row['items']), market_location=row.get('market_location'),

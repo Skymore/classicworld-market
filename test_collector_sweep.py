@@ -583,6 +583,13 @@ class EngineTests(unittest.TestCase):
             receipt.poll()
         self.assertEqual(self.engine.receipt().poll(), None)
 
+    def test_delayed_previous_capture_is_not_this_visit(self):
+        self.joined()
+        self.capture()
+        receipt=self.engine.receipt()
+        self.engine.collector_event({'type':'captured','file':'shop_a.json','items':1})
+        self.assertIsNone(receipt.poll())
+
     def test_logout_stop_and_start(self):
         self.joined()
         self.engine.stop_run()
