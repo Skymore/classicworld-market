@@ -1,5 +1,5 @@
 import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261025-presence-1";
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "/web/js/lib/i18n.js";
 import { meso } from "/web/js/lib/format.js";
@@ -364,7 +364,7 @@ export default function Item({ page }: { page: any }) {
     [watchSettings, saveWatchSettings] = useUserValue("watchlist_settings", "{}"),
     [sort, saveSort] = useUserValue("market.offerSort", "price"),
     [showExpired, saveShowExpired] = useUserValue(`item.showExpired.${item.id}`, "true"),
-    [attributesOpen, saveAttributesOpen] = useUserValue("item.attributesOpen", "false"),
+    [offerView, saveOfferView] = useUserValue("item.offerView", "groups"),
     [raw, saveFilters] = useUserValue(`item.offerFilters.${item.id}`, "{}");
   const [tab, setTab] = useState("ladder"),
     [more, setMore] = useState<Set<string>>(new Set()),
@@ -482,18 +482,12 @@ export default function Item({ page }: { page: any }) {
     return route.pathname + (params.size ? "?" + params : "");
   };
   // One list for both orders: cheapest first (newer first on ties), or newest first.
-  const cheapest = [...filtered.rows].sort(
-    (a, b) =>
-      a.unit_price - b.unit_price ||
-      b.observed - a.observed ||
-      a.key.localeCompare(b.key),
-  );
-  const flat = [...filtered.rows].sort(
-    (a, b) =>
-      b.observed - a.observed ||
-      a.unit_price - b.unit_price ||
-      a.key.localeCompare(b.key),
-  );
+  const byPrice = (a: any, b: any) =>
+      a.unit_price - b.unit_price || b.observed - a.observed || a.key.localeCompare(b.key),
+    byTime = (a: any, b: any) =>
+      b.observed - a.observed || a.unit_price - b.unit_price || a.key.localeCompare(b.key);
+  const cheapest = [...filtered.rows].sort(byPrice);
+  const flat = [...filtered.rows].sort(byTime);
   // Slots of one shop visit with the same price and the same parsed stats look
   // identical in the list, so show them as one row with the combined stock.
   const sameGear = (sorted: any[]) => {
@@ -526,7 +520,6 @@ export default function Item({ page }: { page: any }) {
   const list = sameGear(sort === "recent" ? flat : cheapest),
     moreKey = sort === "recent" ? "recent" : "where",
     firstPage = matchMedia("(min-width:641px)").matches ? 50 : 20,
-    firstAttributes = 6,
     active = filtered.rows.filter((row: any) => !row.invalidated_at),
     activeShops = new Set(active.map((row: any) => JSON.stringify([row.shop, row.channel, row.room]))).size;
   const ids = useMemo<any[]>(() => {
@@ -591,12 +584,13 @@ export default function Item({ page }: { page: any }) {
       )}
     </>
   );
-  function quote(row: any, recent = false) {
+  function quote(row: any, detail?: string) {
     const stale = Date.now() / 1000 - row.observed > 48 * 3600,
       content = (
         <OfferRow
           plain
           hideIdentity
+          detail={detail}
           row={{
             ...row,
             id: row.key,
@@ -766,8 +760,39 @@ export default function Item({ page }: { page: any }) {
           ? [words(`可升 ${variants[0].variant.remaining_upgrades}`, `${variants[0].variant.remaining_upgrades} slots`)]
           : []),
       ];
-  // Stat columns stay compact on the left; the price column takes the spare width.
-  const attrColumns = `repeat(${attrKeys.length + (attrSlots ? 1 : 0)}, minmax(52px, max-content)) minmax(64px, 1fr) minmax(44px, max-content)`;
+  // Grouped view: a thin header per stat set, then its offers in the chosen order.
+  // Offers without captured stats come last under their own header.
+  const grouped = equipment && offerView !== "list";
+  const unstated = filtered.rows.filter((row: any) => !row.variant);
+  const offerGroups: { key: string; variant: any; offers: any[] }[] = grouped
+    ? [
+        ...variants.map((group: any) => ({ ...group, offers: sameGear([...group.offers].sort(sort === "recent" ? byTime : byPrice)) })),
+        ...(unstated.length
+          ? [{ key: "unstated", variant: null, offers: sameGear([...unstated].sort(sort === "recent" ? byTime : byPrice)) }]
+          : []),
+      ]
+    : [];
+  const groupedTotal = offerGroups.reduce((n, group) => n + group.offers.length, 0);
+  // Whole groups until the first page of offers is filled.
+  let shownGroups = 0;
+  for (let shown = 0; shownGroups < offerGroups.length && (more.has("groups") || shown < firstPage); shownGroups++)
+    shown += offerGroups[shownGroups].offers.length;
+  const count = (offers: any[]) => offers.reduce((n: number, row: any) => n + (row.merged_count || 1), 0);
+  // The header carries the shared stats; a row keeps what still varies: enhancements and defence rolls.
+  const groupDetail = (row: any, group: any) => {
+    if (!group.variant) return undefined;
+    const parts = (row.variant?.stats || [])
+      .filter(
+        (stat: any) =>
+          DEFENCE.includes(stat.key) &&
+          group.variant.stats.some((shared: any) => shared.key === stat.key && shared.maxValue > shared.value),
+      )
+      .map((stat: any) => `${words(...(STAT_SHORT[stat.key] || [stat.key, stat.key]))} ${stat.value}`);
+    const enhancements = row.variant?.enhancements;
+    if (Number.isInteger(enhancements) && enhancements > 0)
+      parts.push(words(`强化 +${enhancements}`, `Enhancements +${enhancements}`));
+    return parts.join(" · ");
+  };
   // Quick filters: thresholds of the main stat seen on sale, and the usual prices.
   const mainSeen = main
     ? rows
@@ -1047,7 +1072,7 @@ export default function Item({ page }: { page: any }) {
               className={
                 "where-well " +
                 (sort === "recent" ? "recent-order " : "") +
-                (more.has(sort === "recent" ? "recent" : "where") ? "all" : "")
+                (more.has(grouped ? "groups" : moreKey) ? "all" : "")
               }
               title={words("在哪买", "Where to buy")}
               note={words(
@@ -1094,18 +1119,25 @@ export default function Item({ page }: { page: any }) {
                     {tokens.length > 0 && <b>{tokens.length}</b>}
                   </button>
                   {equipment && (
-                    <button
-                      type="button"
-                      className={"offer-filter-trigger attr-trigger " + (selectedVariant ? "on" : "")}
-                      data-attributes-open
-                      aria-expanded={attributesOpen === "true"}
-                      aria-controls="item-attributes"
-                      onClick={() => saveAttributesOpen(attributesOpen === "true" ? "false" : "true")}
-                    >
-                      <span>{words("属性", "Stats")}</span>
-                      {!selectedVariant && <small>{variants.length}</small>}
-                      <Icon name="caret" />
-                    </button>
+                    <span className="offer-view" role="radiogroup" aria-label={words("报价显示方式", "Offer view")}>
+                      {[
+                        ["groups", "按属性", "By stats"],
+                        ["list", "按报价", "By offer"],
+                      ].map(([value, zh, en]) => (
+                        <button
+                          type="button"
+                          key={value}
+                          role="radio"
+                          className={"chip " + ((grouped ? "groups" : "list") === value ? "on" : "")}
+                          aria-checked={(grouped ? "groups" : "list") === value}
+                          data-offer-view={value}
+                          onClick={() => saveOfferView(value)}
+                        >
+                          {words(zh, en)}
+                          {value === "groups" && !selectedVariant && variants.length > 0 && <small>{variants.length}</small>}
+                        </button>
+                      ))}
+                    </span>
                   )}
                   <label className="show-expired-toggle">
                     <input
@@ -1200,94 +1232,6 @@ export default function Item({ page }: { page: any }) {
                   </div>
                 </div>
               )}
-              {equipment && !!rows.length && attributesOpen === "true" && (
-                <div className="attr-panel" id="item-attributes">
-                  <div className="attr-head">
-                    <span>
-                      {selectedVariant
-                        ? words("已选这组属性", "This stat set")
-                        : words(`${variants.length} 种属性在售`, `${variants.length} stat sets on sale`)}
-                      {attrShared.length > 0 && words(` · 都是 ${attrShared.join(" · ")}`, ` · all ${attrShared.join(" · ")}`)}
-                    </span>
-                    <button
-                      type="button"
-                      className={"toggle right " + (filters.equipment === "bonus" ? "on" : "")}
-                      data-bonus-only
-                      aria-pressed={filters.equipment === "bonus"}
-                      onClick={() =>
-                        saveFilters(
-                          JSON.stringify(
-                            normalizeOfferFilters({
-                              ...filters,
-                              equipment: filters.equipment === "bonus" ? "all" : "bonus",
-                            }),
-                          ),
-                        )
-                      }
-                    >
-                      <i aria-hidden="true" />
-                      {words("只看有加成", "Bonus only")}
-                    </button>
-                  </div>
-                  {variants.length > 0 && (
-                    <div className="attr-table" style={{ "--attr-cols": attrColumns } as CSSProperties}>
-                      <div className="attr-tr attr-th">
-                        {attrKeys.map((key) => (
-                          <span key={key}>{words(...(STAT_SHORT[key] || [key, key]))}</span>
-                        ))}
-                        {attrSlots && <span>{words("可升", "Slots")}</span>}
-                        <span>{words("最低", "From")}</span>
-                        <span>{words("件数", "Listed")}</span>
-                      </div>
-                      {variants.slice(0, more.has("equip") ? undefined : firstAttributes).map(({ key, variant, offers }) => (
-                        <SiteLink
-                          key={key}
-                          href={itemHref(selectedVariant || variant)}
-                          className="attr-tr"
-                          data-equipment-group={key}
-                          data-bonus={hasBonus(variant, market.base_stats || []) ? "1" : "0"}
-                          aria-current={selectedVariant ? "true" : undefined}
-                        >
-                          {attrKeys.map((stat) => (
-                            <span key={stat}>
-                              <StatValue
-                                stat={variant.stats.find((row: any) => row.key === stat)}
-                                base={baseStat(stat)}
-                              />
-                            </span>
-                          ))}
-                          {attrSlots && <span>{variant.remaining_upgrades ?? "—"}</span>}
-                          <span className="attr-price">
-                            <Price value={lowest(offers)} />
-                          </span>
-                          <span className="attr-count">
-                            {words(
-                              `${offers.reduce((n: number, row: any) => n + (row.merged_count || 1), 0)} 件`,
-                              `${offers.reduce((n: number, row: any) => n + (row.merged_count || 1), 0)}`,
-                            )}
-                          </span>
-                        </SiteLink>
-                      ))}
-                    </div>
-                  )}
-                  {!more.has("equip") && variants.length > firstAttributes && (
-                    <button className="more" data-more="equip" onClick={() => show("equip")}>
-                      {words(`显示全部 ${variants.length} 种 `, `Show all ${variants.length} `)}
-                      <Icon name="chev" />
-                    </button>
-                  )}
-                  {!variants.length && (
-                    <p className="note">
-                      {words(
-                        rows.some((row: any) => row.variant) ? "没有符合条件的装备。" : "最近 72 小时没有看到带属性的在售装备。",
-                        rows.some((row: any) => row.variant)
-                          ? "No equipment matches these filters."
-                          : "No listed instance with decoded stats in the last 72 hours.",
-                      )}
-                    </p>
-                  )}
-                </div>
-              )}
               {(tokens.length > 0 || selectedVariant) && (
                 <div className="offer-filter-summary">
                   {selectedVariant && (
@@ -1337,6 +1281,35 @@ export default function Item({ page }: { page: any }) {
                   )}
                 </div>
               )}
+              {grouped && !!rows.length && (
+                <div className="attr-head">
+                  <span>
+                    {selectedVariant
+                      ? words("已选这组属性", "This stat set")
+                      : words(`${variants.length} 种属性`, `${variants.length} stat sets`)}
+                    {attrShared.length > 0 && words(` · 都是 ${attrShared.join(" · ")}`, ` · all ${attrShared.join(" · ")}`)}
+                  </span>
+                  <button
+                    type="button"
+                    className={"toggle right " + (filters.equipment === "bonus" ? "on" : "")}
+                    data-bonus-only
+                    aria-pressed={filters.equipment === "bonus"}
+                    onClick={() =>
+                      saveFilters(
+                        JSON.stringify(
+                          normalizeOfferFilters({
+                            ...filters,
+                            equipment: filters.equipment === "bonus" ? "all" : "bonus",
+                          }),
+                        ),
+                      )
+                    }
+                  >
+                    <i aria-hidden="true" />
+                    {words("只看有加成", "Bonus only")}
+                  </button>
+                </div>
+              )}
               {!rows.length ? (
                 <p className="note">
                   {words(
@@ -1351,11 +1324,68 @@ export default function Item({ page }: { page: any }) {
                     "No offers match. Try a wider filter.",
                   )}
                 </p>
+              ) : grouped ? (
+                <div className="recent-offers offer-groups" data-offer-list>
+                  {offerGroups.slice(0, shownGroups).map((group) => (
+                    <section className="offer-group" key={group.key} data-offer-group={group.variant ? "" : "unstated"}>
+                      {group.variant ? (
+                        <SiteLink
+                          href={itemHref(selectedVariant || group.variant)}
+                          className="offer-group-head"
+                          data-equipment-group={group.key}
+                          data-bonus={hasBonus(group.variant, market.base_stats || []) ? "1" : "0"}
+                          aria-current={selectedVariant ? "true" : undefined}
+                        >
+                          <span className="og-stats">
+                            {attrKeys
+                              .filter((stat) => group.variant.stats.some((row: any) => row.key === stat))
+                              .map((stat) => (
+                                <span key={stat}>
+                                  <small>{words(...(STAT_SHORT[stat] || [stat, stat]))}</small>
+                                  <StatValue
+                                    stat={group.variant.stats.find((row: any) => row.key === stat)}
+                                    base={baseStat(stat)}
+                                  />
+                                </span>
+                              ))}
+                            {attrSlots && (
+                              <span>
+                                <small>{words("可升", "Slots")}</small>
+                                {group.variant.remaining_upgrades ?? "—"}
+                              </span>
+                            )}
+                          </span>
+                          <span className="attr-count">{words(`${count(group.offers)} 件`, `${count(group.offers)}`)}</span>
+                          <span className="og-low">
+                            {words("最低 ", "from ")}
+                            <b><Price value={lowest(group.offers)} /></b>
+                          </span>
+                        </SiteLink>
+                      ) : (
+                        <div className="offer-group-head">
+                          <span className="og-stats">{words("属性未采集", "Stats not captured")}</span>
+                          <span className="attr-count">{words(`${count(group.offers)} 件`, `${count(group.offers)}`)}</span>
+                          <span className="og-low">
+                            {words("最低 ", "from ")}
+                            <b><Price value={lowest(group.offers)} /></b>
+                          </span>
+                        </div>
+                      )}
+                      {group.offers.map((row) => quote(row, groupDetail(row, group)))}
+                    </section>
+                  ))}
+                  {shownGroups < offerGroups.length && (
+                    <button className="more" data-more="groups" onClick={() => show("groups")}>
+                      {words(`显示全部 ${groupedTotal} 条报价 `, `Show all ${groupedTotal} offers `)}
+                      <Icon name="chev" />
+                    </button>
+                  )}
+                </div>
               ) : (
                 <div className="recent-offers" data-offer-list>
                   {list
                     .slice(0, more.has(moreKey) ? undefined : firstPage)
-                    .map((row) => quote(row, sort === "recent"))}
+                    .map((row) => quote(row))}
                   {list.length > firstPage && (
                     <button
                       className="more"

@@ -92,6 +92,8 @@ try {
     const submit = async () => { await page.locator('[data-offer-apply]').click(); await page.locator('dialog[open]').waitFor({state:'hidden'}); };
     await page.goto(url); await waitRevision();
     await page.evaluate(()=>localStorage.setItem('market.offerFilters','{"hours":"1","equipment":"bonus"}'));
+    assert.equal(await page.locator('[data-offer-view=groups]').getAttribute('aria-checked'),'true','equipment offers are grouped by stat set by default');
+    await page.evaluate(()=>localStorage.setItem('item.offerView','list'));
     await page.reload();await waitRevision();
     if (!mobile) await page.evaluate(() => document.documentElement.dataset.theme = 'dark');
     assert.equal(await page.locator('.offer-filter-summary').isVisible(), false);
@@ -201,14 +203,20 @@ try {
     ].map((r,i)=>({...r,variantId:100+i,ch:'1',room:1,price:10000+i*1000,age:60,stock:1,equipment:true,captured:true,enhancements:r.enhancements??0}));
     revision++;broadcast();await waitRevision();
     const groups=()=>page.locator('[data-equipment-group]:visible');
-    // Stat sets are a filter inside where-to-buy; the open state is remembered.
-    if(await page.locator('[data-attributes-open]').getAttribute('aria-expanded')!=='true')await page.locator('[data-attributes-open]').click();
-    assert.equal(await page.locator('[data-equipment-group]').count(),3,'hidden equipment cards are deferred');
-    assert.equal(await page.locator('[data-more=equip]').count(),0,'enhancement counts no longer add another group');
+    // Grouped view: one header per stat set, its offers listed under it; the choice is remembered.
+    assert.equal(await page.locator('[data-equipment-group]').count(),0,'the list view has no stat-set headers');
+    await page.locator('[data-offer-view=groups]').click();
+    assert.equal(await page.locator('[data-offer-view=groups]').getAttribute('aria-checked'),'true');
+    assert.equal(await page.locator('[data-equipment-group]').count(),3);
+    assert.equal(await page.locator('[data-more=groups]').count(),0,'enhancement counts no longer add another group');
     const plain=page.locator('[data-equipment-group]').filter({hasText:'10–30'});
     assert.equal(await plain.count(),1);assert.equal(await plain.locator('.attr-count').textContent(),mobile?'3 件':'3');
     assert.match(await plain.textContent(),/10K/,'group minimum includes all defence and enhancement counts');
-    assert.doesNotMatch(await page.locator('.attr-table').textContent(),/\+\d/,'stat values have no plus sign and enhancement counts are not shown');
+    assert.doesNotMatch((await page.locator('.offer-group-head').allTextContents()).join(' '),/\+\d/,'headers have no plus sign and no enhancement counts');
+    assert.deepEqual(await visibleRows(),['plain-a','plain-b','def-enhanced','dex2-a','dex2-b','dex4'],'each set lists its own offers, cheapest first');
+    const plainOffers=page.locator('.offer-group').filter({has:plain}).locator('[data-quote]');
+    assert.deepEqual(await plainOffers.locator('.offer-equipment').allTextContents(),mobile?['物防 10 · 魔防 5','物防 15 · 魔防 9','物防 30 · 魔防 5 · 强化 +1']:['DEF 10 · M.DEF 5','DEF 15 · M.DEF 9','DEF 30 · M.DEF 5 · Enhancements +1'],'rows keep only what varies inside the set');
+    await page.screenshot({path:path.join(output,`offer-groups-${mobile?'mobile':'desktop'}.png`)});
 
     assert.equal(await page.locator('[data-equipment-stat]').count(),0,'one filter dialog serves the entire page');
     const bonusSwitch=page.locator('[data-bonus-only]');

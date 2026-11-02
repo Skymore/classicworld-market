@@ -38,7 +38,7 @@ try {
     await page.goto(origin+parentUrl);
     const card=page.locator(`[data-equipment-group][href*="variant=${selectedId}"]`);
     await card.waitFor({state:'attached'});
-    if(!await card.isVisible())await page.locator('[data-more=equip]').click();
+    if(!await card.isVisible())await page.locator('[data-more=groups]').click();
     await card.click();await page.locator('[data-selected-attributes]').waitFor();
     assert.equal(new URL(page.url()).searchParams.get('variant'),String(selectedId));
     assert.equal(await page.locator('.item-peek:visible').count(),0,'attribute links navigate directly on touch devices');

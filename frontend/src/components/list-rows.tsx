@@ -84,6 +84,7 @@ export function OfferRow({
   href,
   hideIdentity = false,
   plain = false,
+  detail,
 }: {
   row: any;
   item?: any;
@@ -91,9 +92,11 @@ export function OfferRow({
   href?: string;
   hideIdentity?: boolean;
   plain?: boolean;
+  /** Replaces the captured-stat summary, e.g. when a group header already shows the shared stats. */
+  detail?: string;
 }) {
   const words = useWords();
-  const equip = equipmentSummary(row, document.documentElement.lang === "en");
+  const equip = detail ?? equipmentSummary(row, document.documentElement.lang === "en");
   const status =
     row.kind === "sold_out"
       ? words("卖光", "Sold out")

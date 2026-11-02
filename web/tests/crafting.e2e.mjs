@@ -72,6 +72,8 @@ try {
     await page.setViewportSize({width:mobile?390:1280,height:844});
     assert.equal(await where.locator('.where-tools').evaluate(node=>getComputedStyle(node).display),'grid','sorting and filters share a compact aligned toolbar');
     if(mobile)assert.equal(await page.locator('[data-offer-sort]').evaluate(node=>getComputedStyle(node).fontSize),'16px','native sort controls do not zoom the phone viewport');
+    // Row anatomy of the flat list; the default stat-set view is covered in item-offer-filters.
+    await where.locator('[data-offer-view=list]').click();
     await page.locator('[data-offer-sort]').selectOption('recent');
     const quotes=where.locator('.variant-record');assert.equal(await quotes.count(),2);
     const quote=quotes.first();assert.equal(await quote.locator('.slot,.ware-name,.name-secondary').count(),0,'same-item variant rows omit repeated identity');
