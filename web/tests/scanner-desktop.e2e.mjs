@@ -29,20 +29,27 @@ try {
     await page.evaluate(() => {
       const original = window.pywebview.api.command;
       window.pywebview.api.command = async (name, value) => {
-        if (name === 'diagnostics') window.state.diagnostics = { enabled: value, message: value ? '持续上传已开启' : '持续上传已关闭', report_id: '' };
         if (name === 'report_bug') window.state.diagnostics = { ...window.state.diagnostics, message: '已上传', report_id: '0123456789abcdef0123456789abcdef' };
         return original(name, value);
       };
     });
     await page.locator('.diagnostic-tools summary').click();
-    const diagnostics = page.getByRole('checkbox', { name: '持续上传日志 · 保留 7 天' });
-    assert.equal(await diagnostics.isChecked(), false);
-    await diagnostics.check();
-    await page.getByText('持续上传已开启', { exact: true }).waitFor();
-    await page.getByRole('button', { name: '报 Bug', exact: true }).click();
+    assert.equal(await page.getByRole('checkbox').count(), 0);
+    assert.equal(await page.getByText('持续上传日志 · 保留 7 天').count(), 0);
+    const submit = page.getByRole('button', { name: '提交 Bug', exact: true });
+    assert(await submit.isDisabled());
+    await page.getByLabel('选择问题截图', {exact:true}).setInputFiles({name:'invalid.txt',mimeType:'text/plain',buffer:Buffer.from('invalid')});
+    await page.getByText('请选择 20 MB 以内的 PNG、JPG 或 WebP 截图').waitFor();
+    assert(await submit.isDisabled());
+    const png = await page.evaluate(() => { const c=document.createElement('canvas');c.width=40;c.height=40;c.getContext('2d').fillRect(0,0,40,40);return c.toDataURL().split(',')[1]; });
+    await page.getByLabel('选择问题截图', {exact:true}).setInputFiles({name:'bug.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
+    await page.getByAltText('待上传的问题截图').waitFor();
+    const bugPanel = await page.locator('.diagnostic-panel').boundingBox();
+    assert(bugPanel.x >= 0 && bugPanel.y >= 0 && bugPanel.x + bugPanel.width <= width && bugPanel.y + bugPanel.height <= height);
+    if(out){await mkdir(out,{recursive:true});await page.screenshot({path:path.join(out,`bug-${label}.png`)});}
+    await submit.click();
     await page.getByText('报告编号：0123456789abcdef0123456789abcdef', { exact: true }).waitFor();
-    await diagnostics.uncheck();
-    await page.getByText('持续上传已关闭', { exact: true }).waitFor();
+    assert(await page.evaluate(() => window.calls.some(c => c.startsWith('report_bug:/9j/'))));
     await page.locator('.diagnostic-tools summary').click();
     const tabs=page.getByRole('navigation',{name:'功能'});
     assert.deepEqual(await tabs.getByRole('button').allInnerTexts(),['扫描采集','关注','价格表','扫货','账号']);

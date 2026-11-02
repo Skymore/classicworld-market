@@ -303,14 +303,11 @@ class DesktopController:
         return self.snapshot()
 
     def command(self, name, value=None):
-        if name in ('diagnostics', 'report_bug'):
+        if name == 'report_bug':
             diagnostics = getattr(self.collector, 'diagnostics', None)
             if diagnostics is None:
                 raise ValueError('诊断服务未启动')
-            if name == 'diagnostics':
-                diagnostics.configure(value)
-            else:
-                diagnostics.report()
+            diagnostics.report(value)
             self._change(diagnostics=diagnostics.view())
             return self.snapshot()
         if name == 'window':

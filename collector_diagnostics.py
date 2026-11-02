@@ -1,4 +1,6 @@
-"""Opt-in, bounded diagnostic upload. Never reads credentials or capture payload files."""
+"""Automatic bounded diagnostics, with player-selected screenshots for bug reports."""
+import base64
+import io
 import hashlib
 import json
 import os
@@ -14,6 +16,7 @@ from collector_update import VERSION
 RETENTION = 7 * 86400
 MAX_BATCH = 60 * 1024
 MAX_QUEUE = 64 * 1024 * 1024
+MAX_SCREENSHOT = 1024 * 1024
 SENSITIVE = re.compile(r'token|secret|password|authorization|cookie|credential|api_key|account|email|nickname|character|owner|holdings|inventory|payload|raw|prefix|body|items|title|name', re.I)
 
 
@@ -52,31 +55,40 @@ class Diagnostics:
     def __init__(self, runtime):
         self.runtime = runtime
         self.root = runtime.home / 'diagnostics'
-        self.prefs = runtime.home / 'diagnostic-settings.json'
-        self.enabled = read_json(self.prefs).get('enabled') is True
         self.snapshot = lambda: {}
-        self.status = {'enabled': self.enabled, 'message': '', 'report_id': ''}
+        self.status = {'message': '', 'report_id': ''}
+        self.last_report_at = 0
         self.lock = threading.RLock()
         self.wake = threading.Event()
-        self.manual = False
+        self.manual = None
         self.cancel_upload = threading.Event()
         self.thread = threading.Thread(target=self.run, name='diagnostic-upload', daemon=True)
         self.thread.start()
 
-    def configure(self, enabled):
-        if type(enabled) is not bool:
-            raise ValueError('无效日志设置')
+    def report(self, screenshot):
+        # Only the explicitly selected image crosses the bridge. Decode and
+        # re-encode to strip metadata and reject malformed/oversized images.
+        from PIL import Image
+        if not isinstance(screenshot, str) or len(screenshot) > 1400000:
+            raise ValueError('请选择有效截图（PNG、JPG 或 WebP）')
+        try:
+            data = base64.b64decode(screenshot, validate=True)
+            with Image.open(io.BytesIO(data)) as picture:
+                if picture.width * picture.height > 4000000:
+                    raise ValueError('截图尺寸过大')
+                picture.load()
+                output = io.BytesIO()
+                picture.convert('RGB').save(output, format='JPEG', quality=85)
+            data = output.getvalue()
+            if len(data) > MAX_SCREENSHOT:
+                raise ValueError('截图过大')
+        except Exception as error:
+            raise ValueError('截图无法读取或过大，请换一张截图') from error
         with self.lock:
-            atomic_json(self.prefs, {'enabled': enabled})
-            self.enabled = enabled
-            self.status.update(enabled=enabled, message='持续上传已开启' if enabled else '持续上传已关闭')
-            if not enabled:
-                self.cancel_upload.set()
-            self.wake.set()
-
-    def report(self):
-        with self.lock:
-            self.manual = True
+            if self.manual is not None:
+                raise ValueError('上一份报告正在处理')
+            self.manual = base64.b64encode(data).decode('ascii')
+            self.last_report_at = time.time()
             self.status['message'] = '正在收集诊断…'
             self.status['report_id'] = ''
             self.wake.set()
@@ -101,7 +113,7 @@ class Diagnostics:
                 for name in ('full_scan.jsonl', 'channels.jsonl'):
                     yield f'run{index}-{name}', folder / name
 
-    def collect(self, manual=False):
+    def collect(self, manual=False, screenshot=None):
         config = self.runtime.configuration()
         secrets = [config.get('token', '')]
         cursors = read_json(self.root / 'cursors.json')
@@ -146,6 +158,8 @@ class Diagnostics:
                 updated[key] = cursors[key]
             else:
                 updated.pop(key, None)
+        if manual and screenshot is not None:
+            report['screenshot'] = screenshot
         self.root.mkdir(parents=True, exist_ok=True)
         atomic_json(self.root / (report['id'] + '.json'), report)
         # A cursor is advanced only after durable local queuing.
@@ -160,9 +174,9 @@ class Diagnostics:
             if now - path.stat().st_mtime > RETENTION or size > MAX_QUEUE:
                 path.unlink(missing_ok=True)
 
-    def cycle(self, manual=False):
+    def cycle(self, manual=False, screenshot=None):
         from collector_http import request_json
-        report = self.collect(manual)
+        report = self.collect(manual, screenshot)
         self.prune()
         config = self.runtime.configuration()
         if config['endpoint'].rstrip('/') != 'https://mxd.ruit.me':
@@ -170,36 +184,33 @@ class Diagnostics:
         current = self.root / (report['id'] + '.json')
         paths = [current] + sorted((p for p in self.root.glob('????????????????????????????????.json') if p != current), key=lambda p:p.stat().st_mtime)[:3]
         for path in paths:
-            with self.lock:
-                if not self.enabled and not manual:
-                    break
+            if self.runtime.stop_event.is_set():
+                break
             item = read_json(path)
-            if not self.enabled and item.get('kind') != 'manual':
-                continue
             result = request_json(config['endpoint'].rstrip('/') + '/api/v1/collector/diagnostics', item,
                 {'Authorization': 'Bearer ' + config['token'], 'Content-Type': 'application/json'},
                 stop=self.cancel_upload, timeout=15)
             if result.get('report_id') != item.get('id'):
                 raise ValueError('诊断上传未确认')
             path.unlink(missing_ok=True)
-            if path == current:
+            if item.get('kind') == 'manual':
                 with self.lock:
-                    self.status['message'] = '已上传' if manual else '持续上传中'
-                    if manual:
+                    if item.get('created_at', 0) >= self.last_report_at:
+                        self.last_report_at = item['created_at']
+                        self.status['message'] = '已上传'
                         self.status['report_id'] = item['id']
 
     def run(self):
         while not self.runtime.stop_event.is_set():
             with self.lock:
-                manual, self.manual = self.manual, False
-                enabled = self.enabled
+                screenshot, self.manual = self.manual, None
                 self.cancel_upload.clear()
             try:
                 self.prune()
-                if enabled or manual:
-                    self.cycle(manual)
+                self.cycle(screenshot is not None, screenshot)
             except Exception:
                 with self.lock:
-                    self.status['message'] = '上传暂不可用，将自动重试' if self.enabled else '上传失败，可再次报 Bug'
+                    if screenshot is not None:
+                        self.status['message'] = '上传暂不可用，将自动重试'
             self.wake.wait(60)
             self.wake.clear()

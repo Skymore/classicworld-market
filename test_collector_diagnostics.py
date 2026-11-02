@@ -24,12 +24,34 @@ class DiagnosticsTests(unittest.TestCase):
         self.client.paths = lambda: [('scan-recovery.jsonl', self.home/'scan-recovery.jsonl'),
                                     ('player_position.json', self.home/'player_position.json')]
 
-    def test_default_off_and_persisted_switch(self):
-        self.assertFalse(self.client.enabled)
-        self.client.configure(True)
-        self.assertTrue(json.loads(self.client.prefs.read_text())['enabled'])
-        self.client.configure(False)
-        self.assertTrue(self.client.cancel_upload.is_set())
+    def test_automatic_start_ignores_old_disabled_preference(self):
+        (self.home/'diagnostic-settings.json').write_text('{"enabled":false}')
+        self.client.wake.set()
+        with patch.object(self.client, 'cycle', side_effect=lambda *args: self.client.runtime.stop_event.set()) as cycle:
+            self.client.run()
+        cycle.assert_called_once_with(False, None)
+        self.assertFalse(hasattr(self.client, 'configure'))
+
+    def test_selected_screenshot_is_validated_and_queued_with_report(self):
+        import base64, io
+        from PIL import Image
+        output = io.BytesIO()
+        Image.new('RGB', (20,20), 'red').save(output, format='PNG')
+        self.client.report(base64.b64encode(output.getvalue()).decode())
+        screenshot = self.client.manual
+        self.assertTrue(base64.b64decode(screenshot).startswith(b'\xff\xd8'))
+        with patch('collector_http.request_json', side_effect=TimeoutError):
+            with self.assertRaises(TimeoutError): self.client.cycle(True, screenshot)
+        pending = list(self.client.root.glob('????????????????????????????????.json'))
+        saved = json.loads(pending[0].read_text())
+        self.assertEqual(saved['screenshot'], screenshot)
+        self.assertEqual(saved['kind'], 'manual')
+        with patch('collector_http.request_json', side_effect=lambda url,body,*args,**kwargs: {'report_id':body['id']}):
+            self.client.cycle()
+        self.assertEqual(self.client.view()['report_id'], saved['id'])
+        self.assertNotIn('screenshot', self.client.collect())
+        for invalid in ('bad base64', '', 'a'*1400001):
+            with self.assertRaises(ValueError): self.client.report(invalid)
 
     def test_redaction_and_incremental_logs(self):
         path=self.home/'scan-recovery.jsonl'
@@ -48,7 +70,6 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertNotIn('No position',json.dumps(third))
 
     def test_network_failure_keeps_queue_and_retry_is_idempotent(self):
-        self.client.enabled=True
         with patch('collector_http.request_json',side_effect=TimeoutError):
             with self.assertRaises(TimeoutError):self.client.cycle()
         pending=list(self.client.root.glob('????????????????????????????????.json'))
@@ -74,9 +95,9 @@ class DiagnosticsTests(unittest.TestCase):
         for secret in ('abcdefghijklmnop','alice','192.168.1.2'):
             self.assertNotIn(secret,output)
 
-    def test_shutdown_or_disabled_upload_does_not_drain_automatic_batches(self):
+    def test_shutdown_does_not_drain_automatic_batches(self):
         self.client.collect()
-        self.client.cancel_upload.clear()
+        self.client.runtime.stop_event.set()
         with patch('collector_http.request_json',return_value={}) as upload:
             self.client.cycle()
         upload.assert_not_called()

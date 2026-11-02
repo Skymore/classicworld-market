@@ -2,7 +2,7 @@
 export type Theme = 'light' | 'dark' | 'system';
 export interface Activity { at: number; text: string; kind: string }
 export interface State {
-  diagnostics?: { enabled: boolean; message: string; report_id: string };
+  diagnostics?: { message: string; report_id: string };
   version: string; phase: string; mode: string; message: string; room: number | null;
   channel: number | null; visited: number; uploaded: number; started_at: number | null; stopped_at: number | null;
   run_shops: number; run_items: number; run_started_at: number | null;

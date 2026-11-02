@@ -11,6 +11,7 @@ use axum::{
     Json,
 };
 use flate2::{write::GzEncoder, Compression};
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -26,6 +27,7 @@ use std::{
 
 const RETENTION: Duration = Duration::from_secs(7 * 86400);
 const CAPACITY: u64 = 512 * 1024 * 1024;
+pub const MAX_REPORT: usize = 1536000;
 static STORAGE: Mutex<()> = Mutex::new(());
 static USED: AtomicU64 = AtomicU64::new(0);
 
@@ -39,6 +41,8 @@ struct Report {
     kind: String,
     state: BTreeMap<String, Value>,
     files: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    screenshot: Option<String>,
 }
 
 impl Report {
@@ -52,6 +56,12 @@ impl Report {
             && matches!(self.kind.as_str(), "manual" | "continuous")
             && self.state.len() <= 12
             && self.files.len() <= 16
+            && self.screenshot.as_ref().is_none_or(|encoded| {
+                self.kind == "manual" && encoded.len() <= 1400000 &&
+                base64::engine::general_purpose::STANDARD.decode(encoded).is_ok_and(|data| {
+                    data.len() <= 1024 * 1024 && data.starts_with(b"\xff\xd8\xff") && data.ends_with(b"\xff\xd9")
+                })
+            })
             && self.files.iter().all(|(name, data)| {
                 !name.is_empty()
                     && name.len() <= 80
@@ -77,7 +87,7 @@ fn save(root: &Path, collector: i64, id: &str, body: &[u8]) -> std::io::Result<(
     if final_path.exists() {
         let mut previous = Vec::new();
         flate2::read::GzDecoder::new(std::fs::File::open(final_path)?)
-            .take(65537)
+            .take((MAX_REPORT + 1) as u64)
             .read_to_end(&mut previous)?;
         return if previous == body {
             Ok(())
@@ -156,7 +166,7 @@ pub async fn prune() {
 }
 
 pub async fn upload(State(state): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
-    if body.len() > 65536 {
+    if body.len() > MAX_REPORT {
         return error(StatusCode::PAYLOAD_TOO_LARGE, "Diagnostic batch too large");
     }
     let collector = match auth::authenticate(&state.db, bearer(&headers)).await {
@@ -174,6 +184,9 @@ pub async fn upload(State(state): State<AppState>, headers: HeaderMap, body: Byt
         Ok(r) if r.valid() => r,
         _ => return error(StatusCode::BAD_REQUEST, "Invalid diagnostics"),
     };
+    if report.screenshot.is_none() && body.len() > 65536 {
+        return error(StatusCode::PAYLOAD_TOO_LARGE, "Diagnostic batch too large");
+    }
     let id = report.id.clone();
     let canonical = match serde_json::to_vec(&report) {
         Ok(v) => v,
@@ -203,6 +216,9 @@ mod tests {
         let app = crate::app(AppState::new(db, crate::Settings::default()));
         let response = app.clone().oneshot(Request::builder().method("POST")
             .uri("/api/v1/collector/diagnostics").body(Body::from("{}")).unwrap()).await.unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        let response = app.clone().oneshot(Request::builder().method("POST")
+            .uri("/api/v1/collector/diagnostics").body(Body::from(vec![b'x'; 300000])).unwrap()).await.unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
         let response = app.oneshot(Request::builder().uri("/api/v1/collector/diagnostics")
             .body(Body::empty()).unwrap()).await.unwrap();
@@ -239,5 +255,17 @@ mod tests {
         let mut extra = value;
         extra["token"] = json!("secret");
         assert!(serde_json::from_value::<Report>(extra).is_err());
+    }
+    #[test]
+    fn screenshots_are_bounded_manual_attachments_only() {
+        let mut value = json!({"schema":1,"id":"0123456789abcdef0123456789abcdef","version":"0.6.53","created_at":1,"kind":"manual","state":{},"files":{},"screenshot":"/9j/2Q=="});
+        assert!(serde_json::from_value::<Report>(value.clone()).unwrap().valid());
+        value["kind"] = json!("continuous");
+        assert!(!serde_json::from_value::<Report>(value.clone()).unwrap().valid());
+        value["kind"] = json!("manual");
+        value["screenshot"] = json!("not an image");
+        assert!(!serde_json::from_value::<Report>(value.clone()).unwrap().valid());
+        value["screenshot"] = json!("a".repeat(1400001));
+        assert!(!serde_json::from_value::<Report>(value).unwrap().valid());
     }
 }
