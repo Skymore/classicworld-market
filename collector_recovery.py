@@ -92,8 +92,12 @@ def retry_delay(attempt, error=None):
     return max(delay, retry_after(error))
 
 
-def failure_state(error):
-    from free_market_route import MapResourceError
+def failure_state(error, position_failures=0):
+    from free_market_route import MapResourceError, PositionSyncError
+    if isinstance(error, PositionSyncError):
+        if position_failures >= 3:
+            return "needs_attention", "位置同步连续失败，已停止重复切频道。请报 Bug 或开启远程调试；处理后点击停止再开始。"
+        return "rebuilding", "游戏已连接，但位置同步未恢复，正在重建收包。"
     if getattr(error, 'shop_window_unconfirmed', False):
         return 'needs_attention', '已收到店铺数据，但未能识别离店按钮。请关闭商店后停止并重新开始扫描。'
     if isinstance(error, MapResourceError):

@@ -12,27 +12,19 @@ from classicworld_codec import advance, frame_header
 from market_proxy import Session
 from market_inventory import Inventory
 
-# Channel connections have also been observed on 8913. Keep a bounded game
-# service range; process ownership is still required before any decoding.
-GAME_PORT_MIN, GAME_PORT_MAX = 8500, 8999
-FILTER = f'ip and tcp and ((inbound and !loopback and tcp.SrcPort >= {GAME_PORT_MIN} and tcp.SrcPort <= {GAME_PORT_MAX}) or loopback)'
+# Capture copies only; process ownership and protocol greeting gate decoding.
+FILTER = 'tcp'
 SNIFF_RECV_ONLY = 1 | 4
 LIMIT = 1024 * 1024
 
 
 def packet(raw):
-    if len(raw)<40 or raw[0]>>4!=4 or raw[9]!=6:return None
-    ihl=(raw[0]&15)*4;total=int.from_bytes(raw[2:4],'big')
-    if ihl<20 or total>len(raw) or total<ihl+20 or int.from_bytes(raw[6:8],'big')&0x3fff:return None
-    tcp=raw[ihl:total];offset=(tcp[12]>>4)*4
-    if offset<20 or offset>len(tcp):return None
-    sport,dport,seq=struct.unpack_from('!HHI',tcp)
-    src='.'.join(map(str,raw[12:16]));dst='.'.join(map(str,raw[16:20]))
-    from game_transport import loopback, proxy_direction
-    if loopback(src) and loopback(dst):
-        if proxy_direction(src,sport,dst,dport,bool(tcp[13]&2))!='server':return None
-    elif not GAME_PORT_MIN<=sport<=GAME_PORT_MAX:return None
-    return (src,sport,dst,dport),seq,tcp[13],tcp[offset:]
+    from game_transport import tcp_packet
+    parsed = tcp_packet(raw)
+    if parsed and parsed[1] == 'server':
+        connection, _, sequence, flags, data = parsed
+        return connection, sequence, flags, data
+    return None
 
 
 class Stream:
@@ -81,14 +73,9 @@ class Decoder:
             self.observe(plain)
 
 
-def game_owner(key):
-    import psutil
-    remote,rport,local,lport=key
-    for conn in psutil.net_connections(kind='tcp4'):
-        if conn.pid and conn.raddr and tuple(conn.laddr)==(local,lport) and tuple(conn.raddr)==(remote,rport):
-            try:return psutil.Process(conn.pid).name().lower()=='maplestory.exe'
-            except (psutil.NoSuchProcess,psutil.AccessDenied):return False
-    return False
+def game_owner(connection):
+    from game_transport import game_owner as owns
+    return owns(connection)
 
 
 class Collector:
@@ -131,9 +118,15 @@ class Collector:
             except Exception as error:
                 print(f'Capture statistics unavailable ({type(error).__name__}).',flush=True)
     def check_owner(self,key,flow,now):
-        if flow['decoder'] is None and now>=flow['check']:
+        if flow['decoder'] is None and now>=flow['check'] and len(flow['buffer'])>=21:
             flow['check']=now+0.2
             if self.owner(key):
+                if len(flow['buffer']) < 21:
+                    return
+                if flow['buffer'][:11].hex() != '1300010001000000010030':
+                    flow['failed'] = True
+                    flow['buffer'].clear()
+                    return
                 session=Session(self,None,None,None,None,key[0],key[1])
                 flow['session']=session.id
                 self.invalidate_inventory()
@@ -182,6 +175,13 @@ class Collector:
         if not parsed:return
         self.captured+=1;key,seq,flags,data=parsed
         flow=self.flows.get(key)
+        if flow is None and not flags & 2:
+            from game_transport import handshake
+            syn=handshake(key).get('server')
+            if syn is not None:
+                if len(self.flows)>=64:self.flows.pop(next(iter(self.flows)))
+                flow=dict(syn=syn,stream=Stream(syn+1),decoder=None,buffer=bytearray(),created=now,last=now,check=0,failed=False)
+                self.flows[key]=flow
         if flags&0x12==0x12:
             if flow and flow['syn']==seq:return # SYN retransmit must not reset IV.
             if len(self.flows)>=64:self.flows.pop(next(iter(self.flows)))
@@ -190,7 +190,7 @@ class Collector:
         if not flow:self.ignored+=1;return
         flow['last']=now
         if flags&4:
-            self.invalidate_inventory(flow.get('session'))
+            if flow.get('session'): self.invalidate_inventory(flow['session'])
             self.flows.pop(key,None);return
         if flow['failed']:return
         try:
@@ -203,7 +203,7 @@ class Collector:
         except Exception as error:
             self.fail(flow,str(error))
         if flags&1:
-            self.invalidate_inventory(flow.get('session'))
+            if flow.get('session'): self.invalidate_inventory(flow['session'])
             if flow['stream'].pending or (flow['decoder'] and flow['decoder'].buf):self.fail(flow,'Incomplete stream on close')
             self.flows.pop(key,None)
     def fail(self,flow,reason):
@@ -220,7 +220,7 @@ class Collector:
             if flow['decoder'] is None and now-flow['created']>3:
                 self.flows.pop(key,None);continue
             if now-flow['last']>600:
-                self.invalidate_inventory(flow.get('session'))
+                if flow.get('session'): self.invalidate_inventory(flow['session'])
                 self.flows.pop(key,None);continue
             gap=flow['stream'].gap_since
             if not flow['failed'] and gap is not None and now-gap>10:self.fail(flow,'TCP gap timeout')
@@ -233,7 +233,7 @@ class Collector:
                 failed=sum(f['failed'] for f in self.flows.values()),
                 frames=sum(f['decoder'].frames for f in self.flows.values() if f['decoder']),
                 message_counts=self.message_counts,last_shop_at=self.last_shop_at,
-                capture_ports=f'{GAME_PORT_MIN}-{GAME_PORT_MAX}',
+                capture_ports='game-process-owned TCP',
                 health_state=getattr(self,'health_state',None),
                 location=getattr(self,'last_location',None),last_map_at=getattr(self,'last_map_at',None))
             status=self.folder/'passive_status.json'
@@ -263,10 +263,18 @@ class Sniffer:
         if self.handle==ctypes.c_void_p(-1).value:raise ctypes.WinError(ctypes.get_last_error())
         # Intentionally never bind or call WinDivertSend.
     def recv(self):
-        buf=ctypes.create_string_buffer(65535);addr=ctypes.create_string_buffer(80);size=ctypes.c_uint()
-        if not self.dll.WinDivertRecv(self.handle,buf,len(buf),ctypes.byref(size),addr):
-            raise ctypes.WinError(ctypes.get_last_error())
-        return buf.raw[:size.value]
+        from game_transport import tcp_packet
+        buffer=ctypes.create_string_buffer(65535)
+        address=ctypes.create_string_buffer(80)
+        size=ctypes.c_uint()
+        while self.handle is not None:
+            if not self.dll.WinDivertRecv(self.handle,buffer,len(buffer),ctypes.byref(size),address):
+                raise ctypes.WinError(ctypes.get_last_error())
+            raw=buffer.raw[:size.value]
+            if tcp_packet(raw) is not None:
+                return raw
+        raise OSError('Capture closed')
+
     def close(self):
         if self.handle is not None:
             self.dll.WinDivertShutdown(self.handle,1)
@@ -303,14 +311,14 @@ class WindowsSniffer:
                     self.sockets.append(sock)
                 except OSError:
                     if sock:sock.close()
-        if not self.sockets:raise OSError('No active IPv4 interface supports Windows receive-only capture')
-        # Winsock raw capture cannot observe localhost accelerator traffic.
+        # WinDivert also covers IPv6 and interfaces added after startup.
+        # Supplement raw sockets across all interfaces, including localhost and IPv6.
         # Separate receive-only handles have distinct priorities so all three
         # decoders (market, channel, position) receive their own packet copies.
         self.local_packets=queue.Queue(maxsize=8192)
         self.local_error=None
         try:
-            self.local_sniffer=Sniffer('loopback and ip and tcp')
+            self.local_sniffer=Sniffer('tcp')
         except Exception:
             self.close()
             raise
@@ -334,6 +342,9 @@ class WindowsSniffer:
                 self.tcp_datagrams+=1
                 return raw
             except queue.Empty:pass
+            if not self.sockets:
+                time.sleep(.05)
+                continue
             ready,_,_=select.select(self.sockets,[],[],0.05)
             for sock in ready:
                 raw=sock.recv(65535)
@@ -341,9 +352,11 @@ class WindowsSniffer:
                 if len(raw)>=40 and raw[0]>>4==4 and raw[9]==6:
                     self.tcp_datagrams+=1
                     ihl=(raw[0]&15)*4
-                    if ihl>=20 and len(raw)>=ihl+4 and GAME_PORT_MIN<=int.from_bytes(raw[ihl+2:ihl+4],'big')<=GAME_PORT_MAX:
+                    from game_transport import tcp_packet
+                    parsed=tcp_packet(raw)
+                    if parsed and parsed[1]=='client':
                         self.game_outbound_datagrams+=1
-                # Only game service ports proceed to the owner gate/decoder.
+                # Only game-process-owned flows proceed to the protocol decoder.
                 if self.accept(raw):
                     self.matched_datagrams+=1
                     return raw

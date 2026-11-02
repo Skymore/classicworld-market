@@ -212,7 +212,7 @@ class DesktopTests(unittest.TestCase):
             callback(('progress', {'channel': 12, 'visited': 3}))
             stop.wait(2)
             return {'reason': 'cancelled'}
-        self.modules.update({'channel_capture': lambda path, stop: stop.wait(2), 'position_capture': lambda path, stop: stop.wait(2),
+        self.modules.update({'channel_capture': lambda path, stop, ready_event: (ready_event.set(), stop.wait(2)), 'position_capture': lambda path, stop, ready_event: (ready_event.set(), stop.wait(2)),
                              'DEFAULT_STATE': None, 'POSITION_STATE': None, 'CloudScan': Mock(return_value=lease), 'run': run})
         with patch('scanner_desktop.focus_game'), patch('scanner_desktop.release_keys'), patch('scanner_desktop.RUNS', Path(self.temp.name)/'runs'):
             self.controller._change(run_shops=12,run_items=90)
@@ -242,8 +242,8 @@ class DesktopTests(unittest.TestCase):
                 raise PurchaseHalt(PurchaseResult('unknown', reason='timeout'))
             except PurchaseHalt as error:
                 raise RuntimeError('shop callback stopped') from error
-        self.modules.update(channel_capture=lambda path,stop:stop.wait(2),
-            position_capture=lambda path,stop:stop.wait(2), DEFAULT_STATE=None, POSITION_STATE=None,
+        self.modules.update(channel_capture=lambda path,stop,ready_event:(ready_event.set(),stop.wait(2)),
+            position_capture=lambda path,stop,ready_event:(ready_event.set(),stop.wait(2)), DEFAULT_STATE=None, POSITION_STATE=None,
             CloudScan=Mock(return_value=Mock()),run=run)
         with patch('scanner_desktop.focus_game'), patch('scanner_desktop.release_keys'), \
              patch('scanner_desktop.RUNS',Path(self.temp.name)/'runs'):
@@ -265,7 +265,7 @@ class DesktopTests(unittest.TestCase):
             hooks.update(kwargs)
             controller.command('stop')
             return {'reason': 'cancelled'}
-        self.modules.update({'channel_capture': lambda path, stop: stop.wait(2), 'position_capture': lambda path, stop: stop.wait(2),
+        self.modules.update({'channel_capture': lambda path, stop, ready_event: (ready_event.set(), stop.wait(2)), 'position_capture': lambda path, stop, ready_event: (ready_event.set(), stop.wait(2)),
                              'DEFAULT_STATE': None, 'POSITION_STATE': None, 'CloudScan': Mock(), 'run': run})
         with patch('scanner_desktop.focus_game'), patch('scanner_desktop.release_keys'), patch('scanner_desktop.RUNS', Path(self.temp.name)/'runs'):
             controller.start(12)

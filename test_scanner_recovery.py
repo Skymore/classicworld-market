@@ -279,7 +279,7 @@ class RecoveryTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.home = Path(self.temp.name)
-        self.runtime = Mock(home=self.home, folder=self.home/'captures', error=None)
+        self.runtime = Mock(home=self.home, folder=self.home/'captures', error=None, diagnostics=None, remote_debug=None)
         self.runtime.stopped.return_value = False
         self.runtime.configuration.return_value = dict(endpoint='https://mxd.ruit.me', token='fixture')
         self.sessions = []
@@ -288,7 +288,7 @@ class RecoveryTests(unittest.TestCase):
             return Mock()
         self.modules = dict(LeaseStopEvent=threading.Event, clear_pause=Mock(), request_pause=Mock(),
                             is_paused=lambda:False, CloudScan=cloud, DEFAULT_STATE=None, POSITION_STATE=None,
-                            channel_capture=lambda path,stop:stop.wait(), position_capture=lambda path,stop:stop.wait())
+                            channel_capture=lambda path,stop,ready_event:(ready_event.set(),stop.wait()), position_capture=lambda path,stop,ready_event:(ready_event.set(),stop.wait()))
         self.ready = True
         self.emergency = False
         self.controller = DesktopController(self.runtime, modules=self.modules,
@@ -311,6 +311,15 @@ class RecoveryTests(unittest.TestCase):
             if predicate():return
             time.sleep(.01)
         self.fail('Timed out waiting for recovery condition')
+
+    def test_position_failure_stops_after_three_attempts(self):
+        from free_market_route import PositionSyncError
+        self.modules['run']=Mock(side_effect=PositionSyncError('Position feed is stale'))
+        self.controller.start(12)
+        self.until(lambda:self.controller.snapshot()['phase']=='needs_attention')
+        time.sleep(.1)
+        self.assertEqual(self.modules['run'].call_count,3)
+        self.assertIn('停止重复切频道',self.controller.snapshot()['message'])
 
     def test_repeated_faults_recover_with_one_scanner_and_same_session(self):
         failures=[TimeoutError(),URLError('DNS'),HTTPError('',502,'',{},None),HTTPError('',503,'',{},None)]
@@ -503,7 +512,8 @@ class RecoveryTests(unittest.TestCase):
 
     def test_dead_capture_worker_is_rebuilt(self):
         count=0
-        def capture(path,stop):
+        def capture(path,stop,ready_event):
+            ready_event.set()
             nonlocal count
             count+=1
             if count==1:raise RuntimeError('injected capture exit')

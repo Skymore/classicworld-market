@@ -16,6 +16,11 @@ def raw(seq,data=b'',flags=0x18):
 
 
 class PassiveTests(unittest.TestCase):
+    def setUp(self):
+        import game_transport
+        game_transport._syn.clear()
+        self.enterContext(patch('game_transport.connections',return_value=frozenset(('44.230.128.74',p,'192.168.1.5',51000) for p in range(8500,9000))))
+
     def test_inventory_delta_publishes_without_waiting_for_status_tick(self):
         from test_market_inventory import character, update
         from types import SimpleNamespace
@@ -94,7 +99,8 @@ class PassiveTests(unittest.TestCase):
             self.assertFalse(list(Path(tmp).glob('raw_shop*')))
             collector=Collector(Path(tmp),owner=lambda _:True)
             collector.receive(raw(100,flags=0x12),1)
-            collector.receive(raw(110,b'gap'),2);collector.tick(13)
+            collector.receive(raw(101,bytes.fromhex('1300010001000000010030')+b'abcd'+b'1234'+b'zz'),1.1)
+            collector.receive(raw(140,b'gap'),2);collector.tick(13)
             self.assertTrue(next(iter(collector.flows.values()))['failed'])
 
     def test_syn_retransmission_does_not_reset_and_new_syn_does(self):
@@ -128,7 +134,7 @@ class PassiveTests(unittest.TestCase):
             collector.event('shop_list',item_count=1)
             collector.tick(10)
             status=json.loads((Path(tmp)/'passive_status.json').read_text())
-            self.assertEqual(status['capture_ports'],'8500-8999')
+            self.assertEqual(status['capture_ports'],'game-process-owned TCP')
             self.assertEqual(status['message_counts']['0x577'],1)
             self.assertIsNotNone(status['last_shop_at'])
 

@@ -102,7 +102,7 @@ class Diagnostics:
         base = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'ClassworldFMBot'
         for name in ('scan-recovery.jsonl', 'scan-watchdog.jsonl', 'unified-client.log', 'scan-health.json'):
             yield name, home / name
-        for name in ('player_position.json', 'channel_state.json'):
+        for name in ('player_position.json', 'channel_state.json', 'player_position_status.json', 'channel_capture_status.json'):
             yield name, base / name
         for name in ('passive_status.json', 'native_health.json'):
             yield name, captures / name

@@ -500,6 +500,8 @@ class DesktopController:
                     self.sweep.progress(text)
 
     def _confirmed(self, progress):
+        if progress.get("step") == "scan":
+            self._position_failures = 0
         with self._lock:
             if self._cancel.is_set() or self._stop.is_set():
                 return
@@ -579,6 +581,7 @@ class DesktopController:
 
     def _run(self):
         attempts = 0
+        self._position_failures = 0
         try:
             while not self._cancel.is_set():
                 if self._paused.is_set():
@@ -625,8 +628,11 @@ class DesktopController:
                     self._change(phase='paused', message='已暂停，继续时重新领取任务。')
                     continue
                 attempts += 1
-                phase, message = failure_state(error)
-                self._journal.event('recovery_wait', attempt=attempts, state=phase, error=type(error).__name__,
+                from free_market_route import PositionSyncError
+                if isinstance(error, PositionSyncError):
+                    self._position_failures += 1
+                phase, message = failure_state(error, self._position_failures)
+                self._journal.event('recovery_wait', attempt=attempts, state=phase, error=type(error).__name__, reason=str(error)[:500],
                                     resource=getattr(error, 'resource_diagnostic', None))
                 self._journal.event('recovery_end', outcome='waiting', state=phase)
                 self._change(phase=phase, message=message, retries=attempts, failure=message)
@@ -654,10 +660,13 @@ class DesktopController:
         try:
             self._folder = RUNS / 'supervised' / datetime.now().strftime('%Y%m%d_%H%M%S_%f')
             self._folder.mkdir(parents=True, exist_ok=False)
+            ready_events = []
             for capture, path in [('channel_capture', 'DEFAULT_STATE'), ('position_capture', 'POSITION_STATE')]:
-                def listen(capture=capture, path=path):
+                capture_ready = threading.Event()
+                ready_events.append(capture_ready)
+                def listen(capture=capture, path=path, capture_ready=capture_ready):
                     try:
-                        self._modules[capture](self._modules[path], stop)
+                        self._modules[capture](self._modules[path], stop, ready_event=capture_ready)
                         if not stop.is_set():
                             stop.failure = RuntimeError('Capture worker exited')
                             stop.set()
@@ -668,6 +677,13 @@ class DesktopController:
                 thread = threading.Thread(target=listen, daemon=True, name=capture)
                 thread.start()
                 threads.append(thread)
+            capture_deadline = time.monotonic() + 10
+            while not all(event.is_set() for event in ready_events):
+                if stop.wait(.05):
+                    raise stop.failure or RuntimeError('Capture startup cancelled')
+                if time.monotonic() >= capture_deadline:
+                    from free_market_route import PositionSyncError
+                    raise PositionSyncError('Capture listeners did not become ready')
             config = self.collector.configuration()
             from collector_http import scanner_request
             def transport(action, body):
