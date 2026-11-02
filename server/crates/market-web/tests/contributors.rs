@@ -10,6 +10,51 @@ use serde_json::{json, Value};
 use tower::ServiceExt;
 
 #[tokio::test]
+async fn expired_rollup_reads_only_its_shop_states() {
+    let Some(db) = TestDb::new().await else { return };
+    let state = AppState::new(db.pool.clone(), Settings::default());
+    let credentials = auth::register(&db.pool, "expiry-plan").await.unwrap();
+    let now = unix_now();
+    upload(&state, &credentials.token, "small", 101, now-60.0).await;
+    // Unrelated history must not be read to recount one expired shop.
+    sqlx::query("INSERT INTO shops(shop_key,public_key,world,shop_id,title,first_seen_at,last_seen_at)
+        SELECT 'history-'||n,'history-'||n,'ClassicWorld',1000+n,'History',now(),now()
+        FROM generate_series(1,500) n")
+        .execute(&db.pool).await.unwrap();
+    sqlx::query("INSERT INTO contribution_states
+        SELECT collector_id,s.id,slot,item_id,variant_id,price,bundle,n,
+               first_seen,week_windows,month_windows
+        FROM contribution_states CROSS JOIN shops s CROSS JOIN generate_series(10,19) n
+        WHERE s.shop_key LIKE 'history-%'")
+        .execute(&db.pool).await.unwrap();
+    sqlx::query("UPDATE contribution_shop_rollups SET valid_until=now()-interval '1 second'
+        WHERE shop_id=(SELECT min(shop_id) FROM contribution_states)")
+        .execute(&db.pool).await.unwrap();
+    sqlx::query("ANALYZE contribution_states").execute(&db.pool).await.unwrap();
+    sqlx::query("ANALYZE contribution_shop_rollups").execute(&db.pool).await.unwrap();
+    let ids: Vec<i64> = sqlx::query_scalar("SELECT id FROM collectors")
+        .fetch_all(&db.pool).await.unwrap();
+    for period in [0,7,30] {
+        let (shops,quotes): (i64,i64) = sqlx::query_as(
+            "SELECT count(*),sum(quotes)::bigint FROM contribution_shop_counts($1,$2,now())")
+            .bind(&ids).bind(period).fetch_one(&db.pool).await.unwrap();
+        assert_eq!((shops,quotes),(501,5001));
+        let plan: Value = sqlx::query_scalar(
+            "EXPLAIN (ANALYZE,FORMAT JSON) SELECT * FROM contribution_shop_counts($1,$2,now())")
+            .bind(&ids).bind(period).fetch_one(&db.pool).await.unwrap();
+        fn examined(node: &Value) -> u64 {
+            let own = if node["Relation Name"] == "contribution_states" {
+                assert_ne!(node["Node Type"],"Seq Scan","{node}");
+                node["Actual Rows"].as_u64().unwrap_or(0)*node["Actual Loops"].as_u64().unwrap_or(0)
+            } else { 0 };
+            own + node["Plans"].as_array().map(|p|p.iter().map(examined).sum()).unwrap_or(0)
+        }
+        assert_eq!(examined(&plan[0]["Plan"]),1,"{plan}");
+    }
+    db.close().await;
+}
+
+#[tokio::test]
 async fn shop_rollups_match_exact_states_across_devices_and_window_boundaries() {
     let Some(db) = TestDb::new().await else { return };
     let state = AppState::new(db.pool.clone(), Settings::default());
