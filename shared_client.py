@@ -20,6 +20,7 @@ import truststore
 from collector_http import request_json
 from collector_recovery import retry_delay
 from collector_network import HTTPHandler, HTTPSHandler
+from collector_upload_diagnostics import rejection
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -67,13 +68,27 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
         timeline=LocationTimeline(folder/'map_observations.jsonl')
         total=0
         paths = sorted([*folder.glob('shop_*.json'), *folder.glob('presence_*.json'), *folder.glob('roster_*.json')])
-        if on_event:
-            sent = {row[0] for row in connection.execute('SELECT path FROM sent')}
-            on_event(dict(type='upload_queue', pending=sum(p.name not in sent and not p.stem.endswith('_zh') for p in paths)))
+        records = {row[0]: (row[1], row[2]) for row in connection.execute('SELECT path,status,updated FROM sent')}
+        paths = [p for p in paths if not p.stem.endswith('_zh')]
+        def report_queue():
+            if on_event:
+                on_event(dict(type='upload_queue', pending=sum(
+                    records.get(p.name, ('',))[0] != 'sent' for p in paths)))
+        report_queue()
+        # New captures first. Older v0.6.49 rejected_400 entries automatically
+        # become eligible, without deleting or migrating the user's ledger.
+        paths.sort(key=lambda p: p.name in records)
+        retries = 0
         for path in paths:
             if stop is not None and stop.is_set():break
             if path.stem.endswith('_zh'):continue
-            if connection.execute('SELECT 1 FROM sent WHERE path=?',(path.name,)).fetchone():continue
+            previous = records.get(path.name)
+            if previous:
+                status, updated = previous
+                if status != 'rejected_400':continue
+                age = time.time() - updated
+                if 0 <= age < 3600 or retries >= 10:continue
+                retries += 1
             try:
                 data=json.loads(path.read_text(encoding='utf-8'))
                 if path.name.startswith('roster_'):
@@ -107,9 +122,21 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
             except urllib.error.HTTPError as error:
                 if error.code in (400,409,413):
                     state='rejected_'+str(error.code)
-                    print(f'Upload rejected ({error.code}); see local ledger for file.',flush=True)
+                    detail = rejection(error, payload)
+                    detail.update(file=path.name, route=route)
+                    # One bounded latest diagnostic; original captures stay intact.
+                    diagnostic = ledger.with_suffix('.last-error.json')
+                    temporary = diagnostic.with_suffix('.pending')
+                    temporary.write_text(json.dumps(detail), encoding='utf-8')
+                    os.replace(temporary, diagnostic)
+                    print(f'Upload rejected ({error.code}): {detail["reason"]}; file={path.name}',flush=True)
+                    if on_event:on_event(dict(type='upload_rejected', **detail))
                 else:raise
-            connection.execute('INSERT OR IGNORE INTO sent VALUES (?,?,?)',(path.name,state,time.time()));connection.commit()
+            updated = time.time()
+            connection.execute('INSERT INTO sent VALUES (?,?,?) ON CONFLICT(path) DO UPDATE SET status=excluded.status,updated=excluded.updated',
+                               (path.name,state,updated));connection.commit()
+            records[path.name] = (state, updated)
+        report_queue()
         return total
     finally:connection.close()
 

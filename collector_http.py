@@ -8,6 +8,7 @@ import json
 import multiprocessing
 import time
 import threading
+import io
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
 
@@ -34,7 +35,14 @@ def _request_worker(pipe):
                 raise ValueError('Oversized service response')
             pipe.send(('ok', json.loads(raw)))
     except HTTPError as error:
-        pipe.send(('http', error.code, (error.headers or {}).get('Retry-After', '')))
+        # Preserve bounded diagnostics across the worker boundary. Never pass
+        # request headers (credentials) or unbounded gateway error pages.
+        try:
+            body = error.read(4096)
+        except Exception:
+            body = b''
+        pipe.send(('http', error.code, (error.headers or {}).get('Retry-After', ''),
+                   (error.headers or {}).get('Date', ''), body))
     except Exception as error:
         pipe.send(('error', type(error).__name__))
     finally:
@@ -75,7 +83,9 @@ def request_json(url, payload, headers, *, stop=None, timeout=6, worker=_request
         if stop is not None and stop.is_set():
             raise InterruptedError('Request cancelled')
         if result[0] == 'http':
-            raise HTTPError(url, result[1], 'Service request rejected', {'Retry-After': result[2]}, None)
+            raise HTTPError(url, result[1], 'Service request rejected',
+                            {'Retry-After': result[2], 'Date': result[3] if len(result) > 3 else ''},
+                            io.BytesIO(result[4] if len(result) > 4 else b''))
         if result[0] != 'ok':
             raise URLError(result[1])
         if not isinstance(result[1], dict):

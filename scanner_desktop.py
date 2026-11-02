@@ -278,6 +278,12 @@ class DesktopController:
             self._activity('上传暂时中断，记录已保存在本机。', 'warning')
         elif event['type'] == 'upload_queue':
             self._change(pending_uploads=event['pending'])
+        elif event['type'] == 'upload_rejected':
+            self._change(upload='retrying')
+            message = ('采集时间超前，记录已保留，时间有效后自动补传。'
+                       if event.get('reason') == 'capture_time_ahead' else
+                       '上传被拒收，记录已保留；400 错误会自动重试。')
+            self._activity(message, 'warning')
         elif event['type'] == 'storage_error':
             self._stop.failure = OSError('Capture storage unavailable')
             self._stop.set()
