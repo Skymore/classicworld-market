@@ -26,6 +26,24 @@ try {
     const start=page.getByRole('button',{name:'开始扫描',exact:true});await start.waitFor();
     if(label==='dark'){assert(await start.isDisabled());await page.evaluate(()=>window.finishBridge());}
     // One header row: brand, five tabs, a single theme button and the window buttons.
+    await page.evaluate(() => {
+      const original = window.pywebview.api.command;
+      window.pywebview.api.command = async (name, value) => {
+        if (name === 'diagnostics') window.state.diagnostics = { enabled: value, message: value ? '持续上传已开启' : '持续上传已关闭', report_id: '' };
+        if (name === 'report_bug') window.state.diagnostics = { ...window.state.diagnostics, message: '已上传', report_id: '0123456789abcdef0123456789abcdef' };
+        return original(name, value);
+      };
+    });
+    await page.locator('.diagnostic-tools summary').click();
+    const diagnostics = page.getByRole('checkbox', { name: '持续上传日志 · 保留 7 天' });
+    assert.equal(await diagnostics.isChecked(), false);
+    await diagnostics.check();
+    await page.getByText('持续上传已开启', { exact: true }).waitFor();
+    await page.getByRole('button', { name: '报 Bug', exact: true }).click();
+    await page.getByText('报告编号：0123456789abcdef0123456789abcdef', { exact: true }).waitFor();
+    await diagnostics.uncheck();
+    await page.getByText('持续上传已关闭', { exact: true }).waitFor();
+    await page.locator('.diagnostic-tools summary').click();
     const tabs=page.getByRole('navigation',{name:'功能'});
     assert.deepEqual(await tabs.getByRole('button').allInnerTexts(),['扫描采集','关注','价格表','扫货','账号']);
     assert.equal(await page.locator('.desktop-tabs,.theme-switch,.page-heading').count(),0,'old second tab row, theme switch and slogan are gone');

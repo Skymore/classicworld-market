@@ -239,6 +239,8 @@ class DesktopController:
         if sweep is not None:
             sweep.add_listener(lambda entry: self._activity(purchase_text(entry), 'sweep', repeat=True))
         self._read_statistics()
+        if getattr(collector, 'diagnostics', None):
+            collector.diagnostics.snapshot = self.snapshot
 
     def _read_statistics(self):
         stats = self.collector.statistics()
@@ -301,6 +303,16 @@ class DesktopController:
         return self.snapshot()
 
     def command(self, name, value=None):
+        if name in ('diagnostics', 'report_bug'):
+            diagnostics = getattr(self.collector, 'diagnostics', None)
+            if diagnostics is None:
+                raise ValueError('诊断服务未启动')
+            if name == 'diagnostics':
+                diagnostics.configure(value)
+            else:
+                diagnostics.report()
+            self._change(diagnostics=diagnostics.view())
+            return self.snapshot()
         if name == 'window':
             if isinstance(value, dict) and set(value) == {'resize'}:
                 # Frameless windows have no native resize border on Windows; the corner grip sends sizes here.
@@ -732,6 +744,8 @@ class DesktopController:
 
     def read_local_status(self):
         folder = self.collector.folder
+        if getattr(self.collector, 'diagnostics', None):
+            self._change(diagnostics=self.collector.diagnostics.view())
         if time.monotonic() - self._last_prune > 60:
             self._last_prune = time.monotonic()
             prune_diagnostics(RUNS/'supervised')

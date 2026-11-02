@@ -27,6 +27,7 @@ async fn main() -> Result<()> {
         .connect_lazy_with(db.connect_options().as_ref().clone());
     tokio::spawn(refresh_stats(maintenance_db, config.stats_refresh));
     tokio::spawn(market_web::traffic::prune(db.clone()));
+    tokio::spawn(market_web::diagnostics::prune());
 
     let mut state = AppState::new(db, config.settings.clone());
     let read_cache = state.public_reads.clone();

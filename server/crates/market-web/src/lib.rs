@@ -27,6 +27,7 @@ pub mod api;
 pub mod auth;
 pub mod bestiary;
 pub mod collector_updates;
+pub mod diagnostics;
 pub mod config;
 pub mod contributors;
 mod delivery;

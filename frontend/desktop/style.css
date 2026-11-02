@@ -1,4 +1,5 @@
 /* Collector window. Tokens, borders and controls come from web/css/base.css. */
+.diagnostic-tools{position:relative;font-size:12px}.diagnostic-tools summary{cursor:pointer}.diagnostic-panel{position:absolute;bottom:28px;left:50%;transform:translateX(-50%);width:330px;padding:14px;background:var(--sheet-hi);border:1px solid var(--rule);box-shadow:0 4px 18px #0003;z-index:20;color:var(--ink);display:flex;flex-wrap:wrap;gap:10px;align-items:center}.diagnostic-panel label{display:flex;align-items:center;gap:6px}.diagnostic-panel p{font-size:11px;color:var(--ink-3);margin:0}.diagnostic-panel code{font-size:10px;overflow-wrap:anywhere;user-select:text;width:100%}
 html,body,#root{height:100%;min-width:600px;overflow:hidden}html{scrollbar-gutter:auto}body{font-size:14px}
 button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--maple);outline-offset:3px}
 button:hover:not(:disabled){filter:brightness(.96)}button:disabled{opacity:.48;cursor:default}

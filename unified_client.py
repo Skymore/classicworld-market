@@ -111,6 +111,8 @@ class CollectorRuntime:
         self.config = None
         self.thread = threading.Thread(target=self._run, name='market-collector', daemon=True)
         self.thread.start()
+        from collector_diagnostics import Diagnostics
+        self.diagnostics = Diagnostics(self)
 
     def _run(self):
         try:
@@ -177,6 +179,9 @@ class CollectorRuntime:
 
     def close(self):
         self.stop_event.set()
+        if getattr(self, 'diagnostics', None):
+            self.diagnostics.cancel_upload.set()
+            self.diagnostics.wake.set()
         return not self.thread.is_alive()
 
 

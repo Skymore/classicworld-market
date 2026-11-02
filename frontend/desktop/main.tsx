@@ -98,6 +98,14 @@ function App() {
     </main>
     {connected && !state.maximized && <ResizeGrip />}
     <footer className="app-footer"><span><kbd>F9</kbd> 停止扫描 <b>·</b> 扫描时保持游戏在前台</span>
+      <details className="diagnostic-tools"><summary>诊断日志</summary><div className="diagnostic-panel">
+        <label><input type="checkbox" checked={state.diagnostics?.enabled ?? false} disabled={!connected}
+          onChange={e => action('diagnostics', e.target.checked)} />持续上传日志 · 保留 7 天</label>
+        <p>仅上传诊断记录，不含截图和账号凭据。</p>
+        <button className="ui-btn" disabled={!connected} onClick={() => action('report_bug')}>报 Bug</button>
+        <span role="status">{state.diagnostics?.message}</span>
+        {state.diagnostics?.report_id && <code title={state.diagnostics.report_id}>报告编号：{state.diagnostics.report_id}</code>}
+      </div></details>
       <span>{state.version ? `v${state.version}` : '正在连接'} <b>·</b> {updateLabel(state.updates)}</span></footer>
   </div>;
 }

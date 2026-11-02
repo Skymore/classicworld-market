@@ -39,6 +39,7 @@ pub fn router() -> Router<AppState> {
         // The collector posts to /observations; /upload is the plan's name.
         .route("/api/v1/observations", post(upload))
         .route("/api/v1/upload", post(upload))
+        .route("/api/v1/collector/diagnostics", post(crate::diagnostics::upload))
         .route(
             "/api/v1/collector/player-departure",
             post(crate::presence::upload),

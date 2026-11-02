@@ -152,7 +152,7 @@ class DesktopTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.runtime = Mock(home=Path(self.temp.name), folder=Path(self.temp.name)/'captures', error=None)
+        self.runtime = Mock(home=Path(self.temp.name), folder=Path(self.temp.name)/'captures', error=None, diagnostics=None)
         self.runtime.stopped.return_value = False
         self.modules = {'LeaseStopEvent': threading.Event, 'clear_pause': Mock(), 'request_pause': Mock(), 'is_paused': Mock(return_value=False)}
         self.controller = DesktopController(self.runtime, modules=self.modules,
