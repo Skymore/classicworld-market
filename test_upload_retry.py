@@ -85,6 +85,16 @@ class UploadRetryTests(unittest.TestCase):
             self.assertEqual(self.run_upload(), 0); send.assert_not_called()
         self.assertEqual(self.events[-1]['pending'], 1)
 
+    def test_invalid_old_files_do_not_starve_valid_retry(self):
+        for n in range(12):
+            name = f'shop_a{n}.json'
+            (self.root/name).write_text('{}')
+            self.seed(name, 'rejected_400')
+        self.capture('shop_zvalid.json'); self.seed('shop_zvalid.json', 'rejected_400')
+        with patch('shared_client.request_json', return_value={'ok': True}) as send:
+            self.assertEqual(self.run_upload(), 1)
+            send.assert_called_once()
+
     def test_http_worker_boundary_retains_bounded_diagnostics(self):
         with self.assertRaises(HTTPError) as caught:
             request_json('unused', {}, {}, worker=error_worker)

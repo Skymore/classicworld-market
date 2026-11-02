@@ -88,7 +88,6 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
                 if status != 'rejected_400':continue
                 age = time.time() - updated
                 if 0 <= age < 3600 or retries >= 10:continue
-                retries += 1
             try:
                 data=json.loads(path.read_text(encoding='utf-8'))
                 if path.name.startswith('roster_'):
@@ -112,6 +111,7 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
             except (ValueError,KeyError,TypeError,OSError):
                 # A file could still be being written; retry next pass.
                 continue
+            if previous:retries += 1
             request=urllib.request.Request(destination+route,
                 data=json.dumps(payload,ensure_ascii=False).encode(),
                 headers={'Authorization':'Bearer '+config['token'],'Content-Type':'application/json'},method='POST')
