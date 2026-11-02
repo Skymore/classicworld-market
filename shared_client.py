@@ -57,6 +57,16 @@ def ensure_identity(config_path,endpoint='https://mxd.ruit.me'):
     return config
 
 
+# Retries share the server's 120/min per-collector upload quota with live
+# captures, so they get a small rolling budget and a few attempts per record.
+RETRY_ATTEMPTS = 3
+RETRY_PER_MINUTE = 10
+RETRY_PER_HOUR = 60
+UPLOAD_WINDOW = 30 * 86400
+# Kept locally, never uploaded again and not counted as pending.
+FINAL_STATES = ('rejected_final', 'rejected_clock')
+
+
 def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None):
     destination=(endpoint or config['endpoint']).rstrip('/')
     if destination!='https://mxd.ruit.me' and not destination.startswith('http://127.0.0.1:'):
@@ -65,20 +75,26 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
     connection=sqlite3.connect(ledger)
     try:
         connection.execute('CREATE TABLE IF NOT EXISTS sent (path TEXT PRIMARY KEY, status TEXT, updated REAL)')
+        # Separate table so older collectors can still write the sent ledger.
+        connection.execute('CREATE TABLE IF NOT EXISTS retries (path TEXT PRIMARY KEY, attempts INTEGER NOT NULL, retried REAL)')
         timeline=LocationTimeline(folder/'map_observations.jsonl')
         total=0
         paths = sorted([*folder.glob('shop_*.json'), *folder.glob('presence_*.json'), *folder.glob('roster_*.json')])
         records = {row[0]: (row[1], row[2]) for row in connection.execute('SELECT path,status,updated FROM sent')}
+        attempts = dict(connection.execute('SELECT path,attempts FROM retries'))
+        now = time.time()
+        minute, hour = connection.execute('SELECT COALESCE(SUM(retried>=?),0),COALESCE(SUM(retried>=?),0) FROM retries',
+                                          (now-60, now-3600)).fetchone()
+        budget = max(0, min(RETRY_PER_MINUTE-minute, RETRY_PER_HOUR-hour))
         paths = [p for p in paths if not p.stem.endswith('_zh')]
         def report_queue():
             if on_event:
                 on_event(dict(type='upload_queue', pending=sum(
-                    records.get(p.name, ('',))[0] != 'sent' for p in paths)))
+                    records.get(p.name, ('',))[0] not in ('sent', *FINAL_STATES) for p in paths)))
         report_queue()
         # New captures first. Older v0.6.49 rejected_400 entries automatically
         # become eligible, without deleting or migrating the user's ledger.
         paths.sort(key=lambda p: p.name in records)
-        retries = 0
         for path in paths:
             if stop is not None and stop.is_set():break
             if path.stem.endswith('_zh'):continue
@@ -87,9 +103,17 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
                 status, updated = previous
                 if status != 'rejected_400':continue
                 age = time.time() - updated
-                if 0 <= age < 3600 or retries >= 10:continue
+                if 0 <= age < 3600 or budget <= 0:continue
             try:
                 data=json.loads(path.read_text(encoding='utf-8'))
+                observed = data.get('observed_at', data.get('time')) if isinstance(data, dict) else None
+                if previous and type(observed) in (int, float) and observed < time.time() - UPLOAD_WINDOW - 3600:
+                    # Outside the server's 30-day window: it can never be accepted.
+                    updated = time.time()
+                    connection.execute('INSERT INTO sent VALUES (?,?,?) ON CONFLICT(path) DO UPDATE SET status=excluded.status,updated=excluded.updated',
+                                       (path.name,'rejected_final',updated));connection.commit()
+                    records[path.name] = ('rejected_final', updated)
+                    continue
                 if path.name.startswith('roster_'):
                     from market_presence import roster_payload
                     payload = roster_payload(data)
@@ -111,7 +135,13 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
             except (ValueError,KeyError,TypeError,OSError):
                 # A file could still be being written; retry next pass.
                 continue
-            if previous:retries += 1
+            # Legacy rejected_400 rows have no count; they failed at least once.
+            tries = attempts.get(path.name, 1 if previous else 0)
+            if previous:
+                budget -= 1
+                # Count the retry before sending, so a 429 or timeout still spends budget.
+                connection.execute('INSERT INTO retries VALUES (?,?,?) ON CONFLICT(path) DO UPDATE SET retried=excluded.retried',
+                                   (path.name, tries, time.time()));connection.commit()
             request=urllib.request.Request(destination+route,
                 data=json.dumps(payload,ensure_ascii=False).encode(),
                 headers={'Authorization':'Bearer '+config['token'],'Content-Type':'application/json'},method='POST')
@@ -123,7 +153,16 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
                 if error.code in (400,409,413):
                     state='rejected_'+str(error.code)
                     detail = rejection(error, payload)
-                    detail.update(file=path.name, route=route)
+                    if error.code == 400:
+                        tries += 1
+                        attempts[path.name] = tries
+                        connection.execute('INSERT INTO retries VALUES (?,?,NULL) ON CONFLICT(path) DO UPDATE SET attempts=excluded.attempts',
+                                           (path.name, tries))
+                        # A clock-ahead capture would later land with a future
+                        # timestamp, so it is never retried.
+                        if detail['reason'] == 'capture_time_ahead':state = 'rejected_clock'
+                        elif tries >= RETRY_ATTEMPTS:state = 'rejected_final'
+                    detail.update(file=path.name, route=route, final=state != 'rejected_400')
                     # One bounded latest diagnostic; original captures stay intact.
                     diagnostic = ledger.with_suffix('.last-error.json')
                     temporary = diagnostic.with_suffix('.pending')

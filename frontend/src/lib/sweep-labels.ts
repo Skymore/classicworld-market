@@ -80,7 +80,13 @@ export interface Run {
   started_by: string;
   plan_version: number;
   plan_stale: boolean;
-  plan?: { watches: SweepWatch[]; source_watches?: SweepWatch[]; scan?: { mode: "market" | "recent" | "priority"; recent_minutes?: number } };
+  plan?: {
+    watches: SweepWatch[];
+    source_watches?: SweepWatch[];
+    /** Percentile groups a live edit could not price; they are not bought. */
+    unpriced?: { item_id: number; group_id: string }[];
+    scan?: { mode: "market" | "recent" | "priority"; recent_minutes?: number };
+  };
   devices: RunDevice[];
   purchases: Purchase[];
   bought?: number;
@@ -89,6 +95,18 @@ export interface Run {
 export interface SweepState {
   run: Run | null;
   devices: Device[];
+}
+/** The run's rules for display: bought groups plus unpriced ones (marked `unpriced`), in rule order. */
+export function runWatches(plan: Run["plan"]): SweepWatch[] {
+  if (!plan) return [];
+  const missing = new Set((plan.unpriced || []).map((u) => `${u.item_id}:${u.group_id}`));
+  if (!missing.size || !plan.source_watches) return plan.watches;
+  return plan.source_watches.flatMap((source) => {
+    const bought = plan.watches.find((w) => w.item_id === source.item_id)?.groups || [];
+    const groups = source.groups.flatMap((g) =>
+      missing.has(`${source.item_id}:${g.id}`) ? [{ ...g, unpriced: true }] : bought.filter((b) => b.id === g.id));
+    return groups.length ? [{ ...source, groups }] : [];
+  });
 }
 
 /** First collector release that ships the purchase executor. */

@@ -18,9 +18,9 @@
 
 ## Windows 朋友版
 
-v0.5.5 使用 Windows 原生只读采集：完整解压发行 ZIP，双击 ClassicWorldCollector.exe 并允许管理员权限，无需第三方驱动或 Proxifier。原生后端已通过游戏内换频道／开摊、上传和页面自动更新核对；启动时配置仅当前程序、TCP来源端口8500–8999的入站规则，并区分真实收包状态。首次使用前先退出旧代理和游戏，看到 capture_started 后重新进入游戏，手动逛摊即可；随机采集身份自动保存。具体步骤和限制见 [客户端指南](SHARED_CLIENT_GUIDE.md)。
+v0.5.5 使用 Windows 原生只读采集：完整解压发行 ZIP，双击 ClassicWorldCollector.exe 并允许管理员权限，无需 Proxifier。原生后端已通过游戏内换频道／开摊、上传和页面自动更新核对；启动时配置仅当前程序、TCP来源端口8500–8999的入站规则，并区分真实收包状态。首次使用前先退出旧代理和游戏，看到 capture_started 后重新进入游戏，手动逛摊即可；随机采集身份自动保存。具体步骤和限制见 [客户端指南](SHARED_CLIENT_GUIDE.md)。
 
-安装包通过 Windows Winsock 接收网络包副本，仅将游戏服务端口且确认属于 MapleStory.exe 的连接交给解码器；不包含 WinDivert 驱动，也不调用发包接口。旧本机 WinDivert 方式仍保留为开发兼容选项。游戏连接必须从握手开始观察；遇到缺包停止解析，提示重连。
+安装包通过 Windows Winsock 接收网络包副本，并用随附的 WinDivert 驱动只读补充加速器的本机连接和 IPv6；驱动无法加载或出错时继续用原生收包，采集状态记为“加速器连接不可用”。只有确认属于 MapleStory.exe 的连接才交给解码器，不调用发包接口。旧本机 WinDivert 方式仍保留为开发兼容选项。游戏连接必须从握手开始观察；遇到缺包停止解析，提示重连。
 
 ## 开发启动（Windows / Python 3.12）
 

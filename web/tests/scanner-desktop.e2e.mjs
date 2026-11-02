@@ -19,15 +19,44 @@ try {
       window.calls=[];
       window.state={version:'0.6.4',phase:'idle',mode:'scan',message:'准备就绪，选择游戏后即可开始。',room:null,channel:null,visited:0,uploaded:0,run_shops:0,run_items:0,run_started_at:Date.now()/1000-11958,started_at:null,stopped_at:null,capture:'connected',upload:'ready',last_shop_at:null,updates:'up_to_date',selected:12,windows:[{id:12,title:'MapleStory',pid:42},{id:13,title:'MapleStory',pid:43}],theme,activities:[{at:Date.now()/1000,text:'扫描器已就绪。',kind:'info'}],maximized:false};
       const cycle={light:'dark',dark:'system',system:'light'};
-      window.pywebview={api:{ready:async()=>{window.calls.push('ready');return structuredClone(window.state);},command:async(name,value)=>{window.calls.push(value===undefined?name:name+':'+(typeof value==='object'?JSON.stringify(value):value));if(name==='window'&&value==='maximize')window.state.maximized=!window.state.maximized; if(name==='theme'){if(value!==cycle[window.state.theme])throw new Error('theme skipped');window.state.theme=value;}if(name==='mode')window.state.mode=value;if(name==='start')Object.assign(window.state,{phase:'scanning',desired:true,selected:value,room:8,channel:12,visited:3,started_at:Date.now()/1000,message:'正在扫描 8 洞 · 12频道'});if(name==='pause')window.state.phase='paused';if(name==='resume')window.state.phase='scanning';if(name==='stop')Object.assign(window.state,{phase:'stopped',desired:false});return structuredClone(window.state);},workspace:async()=>({linked:false,account:null,device:null,sweep:null})}};
+      window.pywebview={api:{ready:async()=>{window.calls.push('ready');return structuredClone(window.state);},command:async(name,value)=>{window.calls.push(value===undefined?name:name+':'+(typeof value==='object'?JSON.stringify(value):value));if(name==='window'&&value==='maximize')window.state.maximized=!window.state.maximized; if(name==='theme'){if(value!==cycle[window.state.theme])throw new Error('theme skipped');window.state.theme=value;}if(name==='mode')window.state.mode=value;if(name==='start')Object.assign(window.state,{phase:'scanning',desired:true,selected:value,room:8,channel:12,visited:3,started_at:Date.now()/1000,message:'正在扫描 8 洞 · 12频道'});if(name==='pause')window.state.phase='paused';if(name==='resume')window.state.phase='scanning';if(name==='stop')Object.assign(window.state,{phase:'stopped',desired:false});if(name==='update')window.state.update_requested=true;return structuredClone(window.state);},workspace:async()=>({linked:false,account:null,device:null,sweep:null})}};
       if(delayed){const api=window.pywebview.api;window.pywebview.api={};window.finishBridge=()=>{window.pywebview.api=api;window.dispatchEvent(new Event('pywebviewready'));};}
     },{theme,delayed:label==='dark'});
     await page.goto(`http://127.0.0.1:${server.address().port}/`);
     const start=page.getByRole('button',{name:'开始扫描',exact:true});await start.waitFor();
     if(label==='dark'){assert(await start.isDisabled());await page.evaluate(()=>window.finishBridge());}
-    await page.evaluate(()=>{window.state.updates='waiting_for_safe_restart';window.dispatchEvent(new CustomEvent('scanner-state',{detail:structuredClone(window.state)}));});
-    await page.getByText('新版本已就绪，将自动更新',{exact:false}).waitFor();
-    assert.equal(await page.getByText('退出游戏后更新',{exact:false}).count(),0);
+    // A downloaded release waits for the player's click; it never restarts on its own.
+    const push=extra=>page.evaluate(extra=>window.dispatchEvent(new CustomEvent('scanner-state',{detail:{...structuredClone(window.state),...extra}})),extra);
+    const footer=page.locator('footer');
+    await footer.getByText('自动更新已开启',{exact:false}).waitFor();
+    await page.evaluate(()=>Object.assign(window.state,{updates:'ready_to_update',update_version:'v0.6.57'}));await push({});
+    const updateButton=footer.getByRole('button',{name:'更新到 v0.6.57',exact:true});await updateButton.waitFor();
+    assert.equal(await footer.getByText('自动更新已开启',{exact:false}).count(),0);
+    const footerBox=await footer.boundingBox(),buttonBox=await updateButton.boundingBox();
+    assert(buttonBox.y>=footerBox.y-1&&buttonBox.y+buttonBox.height<=footerBox.y+footerBox.height+3,'update button fits the footer row');
+    assert(buttonBox.x+buttonBox.width<=width,'update button is not clipped');
+    const debugBanner=page.getByRole('region',{name:'远程调试已授权'});
+    await push({remote_debug:{active:true,message:'',session:'',expires_at:Date.now()/1000+900,command:''}});
+    await debugBanner.waitFor();assert(await updateButton.isDisabled(),'no update while remote debugging');
+    await push({});await debugBanner.waitFor({state:'detached'});assert(await updateButton.isEnabled());
+    if(out){await mkdir(out,{recursive:true});await page.screenshot({path:path.join(out,`update-ready-${label}.png`)});}
+    await updateButton.click();
+    await footer.getByText('正在准备更新…',{exact:false}).waitFor();
+    assert(await page.evaluate(()=>window.calls.includes('update')));
+    await push({desired:true,phase:'scanning'});
+    await footer.getByText('扫完当前摊位后更新',{exact:false}).waitFor();
+    await push({updates:'restarting'});
+    await footer.getByText('正在更新…',{exact:false}).waitFor();
+    await page.evaluate(()=>Object.assign(window.state,{updates:'up_to_date',update_version:null,update_requested:false}));await push({});
+    await footer.getByText('自动更新已开启',{exact:false}).waitFor();
+    // A short capture caveat sits next to the connection state and fits the bar.
+    await push({capture_warning:'加速器连接不可用'});
+    const warning=page.locator('.scan-panel [data-capture-warning]');await warning.waitFor();
+    assert.equal(await warning.innerText(),'加速器连接不可用');
+    const bar=await page.locator('.scan-panel .stall-bar').boundingBox(),warnBox=await warning.boundingBox();
+    assert(warnBox.x+warnBox.width<=bar.x+bar.width+1&&warnBox.y>=bar.y-1,'warning stays inside the panel bar');
+    if(out){await page.screenshot({path:path.join(out,`capture-warning-${label}.png`)});}
+    await push({});await warning.waitFor({state:'detached'});
     // One header row: brand, five tabs, a single theme button and the window buttons.
     await page.evaluate(() => {
       const original = window.pywebview.api.command;

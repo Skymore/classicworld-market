@@ -110,18 +110,50 @@ class CollectorUpdate(unittest.TestCase):
             game.clear();thread.join(7)
             self.assertFalse(thread.is_alive());self.assertTrue(stop.is_set());self.assertEqual(len(ready),1)
 
-    def test_desktop_updates_while_game_runs_only_after_safe_handoff(self):
+    def test_desktop_offers_update_and_restarts_only_after_click_and_safe_handoff(self):
         stop=threading.Event();ready=[];asked=threading.Event();safe=threading.Event()
         def prepare():asked.set();return safe.is_set()
-        with tempfile.TemporaryDirectory() as folder,patch.object(update,'read_release',return_value={'version':'v0.6.56'}),\
+        with tempfile.TemporaryDirectory() as folder,patch.object(update,'read_release',return_value={'version':'v0.6.57'}),\
              patch.object(update,'write_plan',return_value=(Path('plan'),Path('bundle'))) as plan,\
              patch.object(update,'ask_update',side_effect=AssertionError('no confirmation')):
             thread=update.start_checker(folder,stop,ready,[],game_running=lambda:True,prepare_restart=prepare)
             self.assertTrue(asked.wait(2));self.assertFalse(stop.is_set());self.assertFalse(ready)
-            self.assertEqual(json.loads((Path(folder)/'update-status.json').read_text())['state'],'waiting_for_safe_restart')
-            safe.set();thread.join(7)
+            status=json.loads((Path(folder)/'update-status.json').read_text())
+            self.assertEqual((status['state'],status['available']),('ready_to_update','v0.6.57'))
+            safe.set();thread.join(3)  # The gate is polled every second, not every five.
             self.assertFalse(thread.is_alive());self.assertTrue(stop.is_set());self.assertEqual(len(ready),1)
             plan.assert_called_once()
+
+    def test_staged_update_stays_offered_when_a_later_check_fails(self):
+        stop=threading.Event();ready=[];calls=[]
+        def read():
+            calls.append(1)
+            if len(calls)>1:raise OSError('offline')
+            return {'version':'v0.6.57'}
+        with tempfile.TemporaryDirectory() as folder,patch.object(update,'read_release',side_effect=read),\
+             patch.object(update,'write_plan',return_value=(Path('plan'),Path('bundle'))):
+            thread=update.start_checker(folder,stop,ready,[],interval=.1,prepare_restart=lambda:False)
+            deadline=time.monotonic()+3
+            while len(calls)<3 and time.monotonic()<deadline:time.sleep(.01)
+            stop.set();thread.join(2)
+            status=json.loads((Path(folder)/'update-status.json').read_text())
+            self.assertGreaterEqual(len(calls),3)
+            self.assertEqual((status['state'],status['available']),('ready_to_update','v0.6.57'))
+            self.assertFalse(ready)
+
+    def test_installed_update_always_opens_with_scanning_stopped(self):
+        from collector_recovery import ScanIntent
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);bundle=root/'unpacked'/'ClassicWorldCollector';bundle.mkdir(parents=True)
+            old=root/'installed';old.mkdir();(old/update.EXE).write_bytes(b'old');(bundle/update.EXE).write_bytes(b'new')
+            plan=root/'plan.json';plan.write_text(json.dumps(dict(version='v0.6.57',bundle=str(bundle),install=str(old),
+                silent=True,home=str(root),parent_pid=987654321,parent_created=0,argv=['--home',str(root)],hashes={update.EXE:hashlib.sha256(b'new').hexdigest()})))
+            # An older collector (v0.6.56) kept the scan running across its own hand-off.
+            ScanIntent(root).start(12,'old-session')
+            with patch.object(update,'install_bundle'),patch.object(update,'check_bundle'),patch.object(update.subprocess,'Popen') as launch:
+                update.apply_plan(plan,executable=bundle/update.EXE)
+            launch.assert_called_once()
+            self.assertFalse(ScanIntent(root).load()['enabled'])
 
     def test_failed_update_gate_keeps_collector_and_game_running(self):
         stop=threading.Event();ready=[];failed=threading.Event()

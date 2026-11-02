@@ -1,5 +1,6 @@
 import copy
 import json
+import struct
 import tempfile
 import time
 import unittest
@@ -669,6 +670,16 @@ class EngineTests(unittest.TestCase):
         self.engine.refresh_rules()
         self.assertIsNone(self.engine.status()['sweep']['rules'])
 
+    def test_unpriced_groups_are_shown_but_not_planned(self):
+        p25 = dict(group(percentile='25'), id='p25')
+        source = [dict(item_id=ITEM, limit=10, groups=[group(), p25]), dict(item_id=4000000, limit=0, groups=[p25])]
+        shown = dict(watches=[dict(item_id=ITEM, limit=10, groups=[group()])], source_watches=source,
+                     unpriced=[dict(item_id=ITEM, group_id='p25'), dict(item_id=4000000, group_id='p25')])
+        rules = self.engine._display_rules(shown)['watches']
+        self.assertEqual([[g.get('unpriced', False) for g in w['groups']] for w in rules], [[False, True], [True]])
+        self.assertEqual(rules[0]['groups'][0], group())
+        self.assertEqual(configuration(dict(watches=shown['watches']))['watches'][0]['item_id'], ITEM)
+
     def test_bought_rows_reach_listeners_with_price(self):
         seen = []
         self.engine.add_listener(seen.append)
@@ -693,6 +704,23 @@ class EngineTests(unittest.TestCase):
                 self.engine.rename(bad)
         self.assertEqual(len(self.server.named('rename')), 1)
 
+    def test_critical_rate_rule_buys_only_the_matching_equipment(self):
+        gloves = 1082000
+
+        def row(slot, critical):
+            # Work Gloves record as market_equipment decodes it: DEF 5 (bit 10), critical rate (bit 14).
+            raw = bytearray(40)
+            raw[20:22], raw[22:26], raw[35:40] = b'\x01\x01', struct.pack('<I', gloves), bytes.fromhex('ffffffff01')
+            raw += struct.pack('<IHH', (1 << 10) | (1 << 14), 5, critical) + struct.pack('<IB', 0x40001, 4) + b'\xff' + bytes(8)
+            return dict(item_id=gloves, slot=slot, price_mesos_candidate=90, bundle_quantity_candidate=1,
+                        available_quantity_candidate=1, raw_record_hex=raw.hex())
+        self.settings()
+        self.server.invite(plan=plan(item=gloves, equipment='captured', stats=[dict(stat='critical_rate', min=2)]))
+        self.engine.poll()
+        self.assertTrue(self.engine.buying(), self.engine.message)
+        self.engine.on_shop_open(self.capture(items=[row(1, 1), row(2, 2)]), 'window')
+        self.assertEqual([b['location']['slot'] for b in self.server.named('reserve')], [2])
+
 
 class PlanTests(unittest.TestCase):
     def test_server_resolved_percentile_is_compatible_with_existing_executor(self):
@@ -712,6 +740,19 @@ class PlanTests(unittest.TestCase):
                     {'watches': [dict(item_id=ITEM, limit=-1, groups=[group()])]}, {'mode': 'simulate'}]:
             with self.assertRaises(ValueError):
                 configuration(bad)
+
+    def test_all_server_stats_including_critical_are_accepted(self):
+        from collector_sweep import STATS
+        from market_equipment import FIELDS
+        # Server reminder validation (accounts.rs) allows these 16 keys; the decoder produces the same keys.
+        stats = ['weapon_attack', 'magic_attack', 'critical_rate', 'critical_damage', 'str', 'dex', 'int', 'luk',
+                 'hp', 'mp', 'accuracy', 'avoid', 'speed', 'jump', 'weapon_defense', 'magic_defense']
+        self.assertEqual(STATS, set(stats))
+        self.assertEqual({key for key, _ in FIELDS.values()}, STATS)
+        every = [dict(stat=s, min=0) for s in stats]
+        self.assertEqual(len(configuration(plan(stats=every))['watches'][0]['groups'][0]['stats']), 16)
+        with self.assertRaises(ValueError):
+            configuration(plan(stats=every+[dict(stat='str', min=0)]))
 
     def test_listing_identity_changes_with_price_and_owner(self):
         row = dict(item_id=ITEM, category=1, slot=1, price=100, bundle=1, equipment=None)

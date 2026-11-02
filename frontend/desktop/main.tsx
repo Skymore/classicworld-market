@@ -37,6 +37,15 @@ function ResizeGrip() {
     onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} />;
 }
 function Leaf() { return <img src={new URL('../../assets/app-icon.svg', import.meta.url).href} width="28" height="28" alt="" aria-hidden="true" />; }
+/** A downloaded release installs only when the player clicks; the game stays open. */
+function UpdateControl({ state, connected, busy, action }: { state: State; connected: boolean; busy: boolean; action(name: string): void }) {
+  if (state.updates === 'restarting') return <>正在更新…</>;
+  if (state.update_requested) return <>{state.desired ? '扫完当前摊位后更新' : '正在准备更新…'}</>;
+  if (state.updates !== 'ready_to_update') return <>{updateLabel(state.updates)}</>;
+  const tag = state.update_version ? 'v' + state.update_version.replace(/^v/, '') : '新版本';
+  return <button className="ui-btn primary footer-update" title="采集器会短暂重启，游戏无需退出" onClick={() => action('update')}
+    disabled={!connected || busy || Boolean(state.remote_debug?.active)}>更新到 {tag}</button>;
+}
 
 function App() {
   const [tab, setTab] = useState<Tab>('scan');
@@ -103,7 +112,7 @@ function App() {
     <footer className="app-footer"><span><kbd>F9</kbd> 停止扫描 <b>·</b> 扫描时保持游戏在前台</span>
       <BugReport state={state} connected={connected} update={setState} />
       <RemoteDebugTools state={state} connected={connected} update={setState} />
-      <span>{state.version ? `v${state.version}` : '正在连接'} <b>·</b> {updateLabel(state.updates)}</span></footer>
+      <span>{state.version ? `v${state.version}` : '正在连接'} <b>·</b> <UpdateControl state={state} connected={connected} busy={busy} action={action} /></span></footer>
   </div>;
 }
 createRoot(document.getElementById('root')!).render(<App />);

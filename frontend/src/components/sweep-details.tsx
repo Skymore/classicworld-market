@@ -11,6 +11,7 @@ import {
   clockTime,
   deviceActivity,
   duration,
+  runWatches,
   stopReasonLabel,
   type Device,
   type Run,
@@ -80,7 +81,7 @@ export function SweepDetails({
   const selected = devices.filter((d) =>
     run.devices.some((r) => r.id === d.id),
   );
-  const watches = run.plan?.watches || [];
+  const watches = runWatches(run.plan);
   const name = useItemNames(
     watches.map((w) => w.item_id),
     items,

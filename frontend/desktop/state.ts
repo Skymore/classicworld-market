@@ -11,6 +11,10 @@ export interface State {
   selected: number | null; windows: { id: number; title: string; pid: number }[];
   theme: Theme; activities: Activity[]; maximized?: boolean;
   desired?: boolean; last_progress_at?: number | null; retries?: number; next_retry_at?: number | null; pending_uploads?: number;
+  /** Staged release tag such as "v0.6.57", and whether the player clicked Update. */
+  update_version?: string | null; update_requested?: boolean;
+  /** One short capture caveat from passive_status.json, e.g. "加速器连接不可用". */
+  capture_warning?: string | null;
 }
 declare global {
   interface Window {

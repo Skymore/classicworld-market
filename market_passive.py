@@ -16,6 +16,8 @@ from market_inventory import Inventory
 FILTER = 'tcp'
 SNIFF_RECV_ONLY = 1 | 4
 LIMIT = 1024 * 1024
+# Shown when the WinDivert copy is unavailable and only native capture runs.
+LOCAL_UNAVAILABLE = '加速器连接不可用'
 
 
 def packet(raw):
@@ -235,6 +237,7 @@ class Collector:
                 message_counts=self.message_counts,last_shop_at=self.last_shop_at,
                 capture_ports='game-process-owned TCP',
                 health_state=getattr(self,'health_state',None),
+                capture_warning=getattr(self,'capture_warning',None),
                 location=getattr(self,'last_location',None),last_map_at=getattr(self,'last_map_at',None))
             status=self.folder/'passive_status.json'
             if self.write_status(status,state):self.last_status=now
@@ -316,25 +319,44 @@ class WindowsSniffer:
         # Separate receive-only handles have distinct priorities so all three
         # decoders (market, channel, position) receive their own packet copies.
         self.local_packets=queue.Queue(maxsize=8192)
-        self.local_error=None
+        self.local_error=None;self.local_sniffer=None;self.degraded=None;self.local_dropped=0
         try:
             self.local_sniffer=Sniffer('tcp')
-        except Exception:
-            self.close()
-            raise
+        except Exception as error:
+            # Antivirus or another WinDivert version can block the driver.
+            # Native receive still covers direct IPv4 game connections.
+            if not self.sockets:
+                self.close()
+                raise
+            self.degrade(error)
+            return
         def receive_local():
             try:
                 while self.handle is not None:
                     raw=self.local_sniffer.recv()
-                    if self.accept(raw):self.local_packets.put_nowait(raw)
+                    if self.accept(raw):
+                        # A dropped copy shows up as a TCP gap on that flow only.
+                        try:self.local_packets.put_nowait(raw)
+                        except queue.Full:self.local_dropped+=1
             except Exception as error:
                 if self.handle is not None:self.local_error=error
         self.local_thread=threading.Thread(target=receive_local,daemon=True)
         self.local_thread.start()
+    def degrade(self,error):
+        """Stop only the WinDivert copy; native receive keeps running."""
+        self.degraded=LOCAL_UNAVAILABLE
+        if self.local_sniffer:
+            try:self.local_sniffer.close()
+            except Exception:pass
+        print(json.dumps(dict(event='local_capture_unavailable',error=type(error).__name__,
+            winerror=getattr(error,'winerror',None))),flush=True)
     def recv(self):
         import select
         while self.handle is not None:
-            if self.local_error:raise self.local_error
+            if self.local_error:
+                error,self.local_error=self.local_error,None
+                if not self.sockets:raise error
+                self.degrade(error)
             try:
                 raw=self.local_packets.get_nowait()
                 self.received_datagrams+=1
@@ -426,6 +448,10 @@ def run(folder,seconds=0,backend="windivert",stop_event=None,on_event=None):
                 if state!=health_state:
                     collector.event('capture_health',state=state,message=message)
                     health_state=state
+                warning=getattr(sniffer,'degraded',None)
+                if warning!=getattr(collector,'capture_warning',None):
+                    collector.capture_warning=warning
+                    collector.event('capture_degraded',reason=warning)
             previous_status=collector.last_status
             collector.tick()
             if backend=="windows" and collector.last_status!=previous_status:
@@ -433,7 +459,8 @@ def run(folder,seconds=0,backend="windivert",stop_event=None,on_event=None):
                 collector.write_status(diagnostic,dict(time=time.time(),reader_alive=thread.is_alive(),
                     sockets=len(sniffer.sockets),received_datagrams=sniffer.received_datagrams,
                     matched_datagrams=sniffer.matched_datagrams,tcp_datagrams=sniffer.tcp_datagrams,
-                    game_outbound_datagrams=sniffer.game_outbound_datagrams))
+                    game_outbound_datagrams=sniffer.game_outbound_datagrams,
+                    local_capture=sniffer.degraded or 'ok',local_dropped=sniffer.local_dropped))
     finally:
         sniffer.close();thread.join(timeout=2)
         collector.inventory.invalidate()

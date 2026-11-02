@@ -19,9 +19,11 @@ from shared_protocol import from_snapshot
 from market_inventory import read_inventory
 from sweep_purchase import REASONS, PurchaseHalt, PurchasePreparationSkipped, PurchaseOrder, PurchaseResult, load_purchaser
 
-STATS = {'weapon_attack', 'magic_attack', 'str', 'dex', 'int', 'luk', 'hp', 'mp',
-         'accuracy', 'avoid', 'speed', 'jump', 'weapon_defense', 'magic_defense'}
+# Same keys as the server's reminder validation and market_equipment.FIELDS.
+STATS = {'weapon_attack', 'magic_attack', 'critical_rate', 'critical_damage', 'str', 'dex', 'int', 'luk',
+         'hp', 'mp', 'accuracy', 'avoid', 'speed', 'jump', 'weapon_defense', 'magic_defense'}
 LIMIT = 10**12
+MAX_VISIT_PURCHASES = 8  # Verified purchases per stall visit, re-openings included.
 DEFAULT_SETTINGS = dict(allow_web_start=False, max_spend=0, max_order=0, reserve_mesos=0)
 RULES_REFRESH = 60  # seconds between idle reads of the account's sweep rules
 UNAVAILABLE = '购买功能不可用'
@@ -63,7 +65,7 @@ def configuration(raw):
             if lower is not None and upper is not None and lower > upper:
                 raise ValueError('可升级次数范围无效')
             stats = f.get('stats', [])
-            if not isinstance(stats, list) or len(stats) > 14:
+            if not isinstance(stats, list) or len(stats) > len(STATS):
                 raise ValueError('属性条件无效')
             clean_stats = []
             for stat in stats:
@@ -138,6 +140,28 @@ def listing_key(location, owner, row):
     identity = [location['room'], location['channel'], owner, row['category'], row['slot'],
                 row['item_id'], row['price'], row['bundle'], row.get('equipment')]
     return hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+
+
+def shop_identity(packet):
+    location, owner = packet.get('location') or {}, packet.get('owner') or {}
+    return (packet.get('shop_id'), owner.get('character_id'), owner.get('name'), location.get('room'), location.get('channel'))
+
+
+class ShopRevisit:
+    """Returned to the scanner when a verified purchase closed a shop that still has matching rows.
+
+    The scanner re-opens the same stall through its normal open checks and passes this object
+    back as window.revisit, or calls ended(reason) when it does not deliver that shop.
+    """
+    shop_revisit = True  # The scanner's marker for a re-open request.
+
+    def __init__(self, engine, packet, rows, bought):
+        self.engine, self.packet, self.rows, self.bought = engine, packet, rows, bought
+        self.identity = shop_identity(packet)
+        self.done = False
+
+    def ended(self, reason):
+        self.engine._end_revisit(self, reason)
 
 
 def checked_result(result, order):
@@ -236,6 +260,7 @@ class SweepEngine:
         self.listeners = []
         self.thread = None
         self.recent_shops = set()
+        self.revisit = None  # ShopRevisit handed to the scanner and not yet delivered or ended.
 
     def _decision(self, reason, row=None, packet=None, **details):
         """Local diagnostic journal, separate from spend/deduplication ledger."""
@@ -332,10 +357,26 @@ class SweepEngine:
                            run=run, recent=self.recent, message=self.message, rules=rules)))
 
     def _display_rules(self, plan):
-        """{watches:[{item_id,name,limit,groups}]} for the desktop table, or None."""
+        """{watches:[{item_id,name,limit,groups}]} for the desktop table, or None.
+
+        Groups a live edit could not price are not bought; they are shown from source_watches marked unpriced."""
         watches = (plan or {}).get('watches') if isinstance(plan, dict) else None
         if not isinstance(watches, list):
             return None
+        missing = {(u.get('item_id'), u.get('group_id')) for u in plan.get('unpriced') or []
+                   if isinstance(u, dict) and type(u.get('item_id')) is int and isinstance(u.get('group_id'), str)}
+        if missing and isinstance(plan.get('source_watches'), list):
+            bought = {w.get('item_id'): w.get('groups') or [] for w in watches if isinstance(w, dict)}
+            merged = []
+            for s in plan['source_watches']:
+                if not isinstance(s, dict):
+                    continue
+                groups = [dict(g, unpriced=True) if (s.get('item_id'), g.get('id')) in missing
+                          else next((b for b in bought.get(s.get('item_id'), []) if isinstance(b, dict) and b.get('id') == g.get('id')), None)
+                          for g in s.get('groups') or [] if isinstance(g, dict)]
+                if any(groups):
+                    merged.append(dict(s, groups=[g for g in groups if g]))
+            watches = merged
         rows = []
         for w in watches[:100]:
             if not isinstance(w, dict) or type(w.get('item_id')) is not int:
@@ -386,26 +427,108 @@ class SweepEngine:
                         and self.plan_version == plan_version)
 
     def on_shop_open(self, collected, window):
-        """Called on the scanner input thread while the shop is open and its prices are captured."""
+        """Called on the scanner input thread while the shop is open and its prices are captured.
+
+        Returns a ShopRevisit when a verified purchase closed the shop before its other matching rows.
+        """
         if not isinstance(collected, dict):
-            return
+            return None
         with self.shop_lock:
-            self._shop(collected, window)
+            return self._shop(collected, window)
+
+    def _end_revisit(self, request, reason):
+        """Give every row still waiting for a re-open its final reason, once."""
+        with self.lock:
+            if request.done:
+                return
+            request.done = True
+            if self.revisit is request:
+                self.revisit = None
+        if reason not in ('visit_ended_after_purchase', 'reopen_unconfirmed', 'shop_changed',
+                          'purchase_limit_per_visit', 'scan_stopped'):
+            reason = 'reopen_unconfirmed'
+        for row in request.rows:
+            self._decision(reason, row, request.packet, purchases=request.bought)
+
+    def _take_revisit(self, request, packet):
+        """Purchases already made in this stall visit, or None when the re-opened shop must not be used."""
+        with self.lock:
+            pending, self.revisit = self.revisit, None
+            fresh = request is not None and request is pending and not request.done
+        if pending is not None and pending is not request:
+            self._end_revisit(pending, 'visit_ended_after_purchase')  # The scanner moved on without it.
+        if request is None:
+            return 0
+        if not fresh:
+            self._decision('shop_changed', packet=packet, detail='stale_revisit')
+            return None
+        if packet is None or shop_identity(packet) != request.identity:
+            self._end_revisit(request, 'shop_changed' if packet else 'reopen_unconfirmed')
+            return None
+        with self.lock:
+            request.done = True
+        present = {(r['category'], r['slot'], stock_key(r)) for r in packet['items']}
+        for row in request.rows:
+            if (row['category'], row['slot'], stock_key(row)) not in present:
+                self._decision('sold_out', row, packet, detail='not_in_reopened_shop')
+        return request.bought
+
+    def _after_closing(self, packet, rows, watches, stock, owner, bought, reopen):
+        """The shop closed: explain each remaining watched row. After a verified purchase,
+        ask the scanner to re-open the stall when some rows still match."""
+        waiting = []
+        for row in rows:
+            watch = watches.get(row['item_id'])
+            if not watch:
+                continue
+            key = listing_key(packet['location'], owner.get('character_id', packet['shop_id']), row)
+            with self.lock:
+                attempted = key in self.seen
+            if row['stock'] <= 0:
+                self._decision('sold_out', row, packet)
+            elif not any(matching({**row, 'stock': stock[stock_key(row)]}, rule, watch['base']) for rule in watch['groups']):
+                self._decision('rule_not_matched', row, packet)
+            elif attempted:
+                self._decision('already_attempted', row, packet, listing=key)
+            else:
+                waiting.append(row)
+        if not waiting:
+            return None
+        if not reopen:
+            reason = 'shop_closed'
+        elif bought >= MAX_VISIT_PURCHASES:
+            reason = 'purchase_limit_per_visit'
+        elif not self.buying():
+            reason = 'lease_lost'
+        else:
+            reason = None
+        if reason:
+            for row in waiting:
+                self._decision(reason, row, packet, purchases=bought)
+            return None
+        request = ShopRevisit(self, packet, waiting, bought)
+        with self.lock:
+            self.revisit = request
+        for row in waiting:
+            self._decision('revisit_requested', row, packet, purchases=bought)
+        return request
 
     def _shop(self, collected, window):
         packet = self._load(collected.get('file'))
-        if packet is None:
-            return
+        bought = self._take_revisit(getattr(window, 'revisit', None), packet)
+        if packet is None or bought is None:
+            return None
         location = packet.get('location') or {}
         with self.lock:
             if not self.buying():
                 self._decision('buying_disabled', packet=packet, capture=collected.get('file'), detail=self.message)
-                return
+                return None
             if not location.get('room') or not location.get('channel'):
                 self.message = '本次店铺缺少洞频道，已跳过'
                 self._decision('location_missing', packet=packet)
-                return
-            self.checked += 1
+                return None
+            if not bought:
+                self.checked += 1  # A re-opened stall is the same checked shop.
             watches = {w['item_id']: w for w in self.plan['watches']}
             plan_version = self.plan_version
         owner = packet.get('owner') or {}
@@ -413,11 +536,11 @@ class SweepEngine:
             from sweep_routes import shop_key
             if shop_key(location, owner.get('name')) not in self.recent_shops:
                 self._decision('outside_recent_targets', packet=packet)
-                return
+                return None
         stock = collections.Counter()
         for row in packet['items']:
             stock[stock_key(row)] += row['stock']
-        for row in packet['items']:
+        for index, row in enumerate(packet['items']):
             watch = watches.get(row['item_id'])
             if not watch:
                 continue
@@ -429,11 +552,17 @@ class SweepEngine:
                 continue
             if not self.buying():
                 self._decision('lease_lost', row, packet)
-                return
+                return None
             self._decision('rule_matched', row, packet, capture=Path(collected['file']).name)
             result = self._buy(row, watch, packet, location, owner, plan_version, window)
+            if result is not None and result.status == 'bought':
+                bought += 1
             if result is not None and result.reason == 'shop_closed':
-                break
+                # Only a verified purchase closes a shop that may be re-opened; a game
+                # rejection such as "room could not be found" ends this shop.
+                return self._after_closing(packet, packet['items'][index+1:], watches, stock, owner, bought,
+                                           reopen=result.status == 'bought')
+        return None
 
     def _load(self, filename):
         try:
@@ -746,7 +875,8 @@ class SweepEngine:
             left = run['id'] in self.left
             state = (run.get('participant') or {}).get('state')
             settled = self.lease is not None and plan is not None
-        watches = (run.get('plan') or {}).get('watches') if isinstance(run.get('plan'), dict) else None
+        shown = run.get('plan') if isinstance(run.get('plan'), dict) else {}
+        watches = shown.get('source_watches') if isinstance(shown.get('source_watches'), list) else shown.get('watches')
         if isinstance(watches, list):  # Names for the run's rule table, even when this device refuses.
             self._load_names([w['item_id'] for w in watches if isinstance(w, dict) and type(w.get('item_id')) is int])
         if left:

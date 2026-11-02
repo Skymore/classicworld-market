@@ -1,8 +1,10 @@
 """Ticket #6: captured stock, rules, disabled buying and reason persistence."""
 import json
+import time
 import unittest
+from types import SimpleNamespace
 import test_collector_sweep as fixtures
-from sweep_purchase import PurchasePreparationSkipped
+from sweep_purchase import PurchasePreparationSkipped, PurchaseResult
 from test_collector_sweep import plan
 
 
@@ -81,6 +83,105 @@ class DecisionTests(unittest.TestCase):
         self.purchaser.prepare=lambda window:True
         self.engine.on_shop_open(capture,'window')
         self.assertEqual(len(self.server.named('reserve')),1)
+
+
+class SameShopTests(unittest.TestCase):
+    """Issue #6: a verified purchase closes the shop; its other matching rows are re-opened or explained."""
+    tearDown = fixtures.EngineTests.tearDown
+    make = fixtures.EngineTests.make
+    settings = fixtures.EngineTests.settings
+    joined = fixtures.EngineTests.joined
+    capture = fixtures.EngineTests.capture
+    decisions = DecisionTests.decisions
+
+    def rows(self, *slots, stock=2):
+        return [dict(item_id=fixtures.ITEM, slot=s, price_mesos_candidate=100, bundle_quantity_candidate=1,
+                     available_quantity_candidate=stock) for s in slots]
+
+    def visit(self, name, rows, revisit=None, **capture):
+        """One scanner opening: collector event, then the callback with a window like the scanner's."""
+        c = self.capture(name, items=rows, **capture)
+        self.engine.collector_event(dict(type='captured', file=c['file']))
+        return self.engine.on_shop_open(c, SimpleNamespace(capture_file=c['file'], revisit=revisit))
+
+    def reasons(self, slot):
+        return [d['reason'] for d in self.decisions() if d.get('slot') == slot]
+
+    def setUp(self):
+        fixtures.EngineTests.setUp(self)
+        self.joined()
+        self.verified = []
+        self.purchaser.verify_inventory = lambda window, folder, expected: self.verified.append(window) or True
+        guards = []
+        def buy(order):
+            # The engine-side guards are live for the re-opened capture, as on a first visit.
+            guards.append((order.slot, order.visit_current(), order.can_buy(), order.deadline > time.monotonic()))
+            return PurchaseResult('bought', order.quantity, order.quantity*order.price)
+        self.purchaser.result, self.guards = buy, guards
+
+    def test_second_matching_row_is_bought_after_reopening_the_same_shop(self):
+        request = self.visit('shop_a.json', self.rows(1, 2))
+        self.assertIs(request.shop_revisit, True)
+        self.assertEqual([b['location']['slot'] for b in self.server.named('reserve')], [1])
+        self.assertIn('revisit_requested', self.reasons(2))
+        self.assertIsNone(self.visit('shop_a2.json', self.rows(2), revisit=request))
+        self.assertEqual([b['location']['slot'] for b in self.server.named('reserve')], [1, 2])
+        self.assertEqual([s['status'] for s in self.server.named('settle')], ['bought', 'bought'])
+        self.assertEqual(len(self.verified), 2, 'every purchase still verifies the backpack')
+        self.assertEqual(self.guards, [(1, True, True, True), (2, True, True, True)])
+        self.assertEqual([d['reason'] for d in self.decisions()].count('bought'), 2)
+        request.ended('reopen_unconfirmed')  # Already delivered: nothing more is logged.
+        self.assertNotIn('reopen_unconfirmed', self.reasons(2))
+
+    def test_unconfirmed_reopen_explains_each_waiting_row_once(self):
+        other = 2000001
+        self.server.run['plan']['watches'].append(dict(item_id=other, limit=10, groups=[fixtures.group()]))
+        self.server.run['plan_version'] = 2
+        self.engine.poll()
+        self.assertTrue(self.engine.buying(), self.engine.message)
+        rows = self.rows(1, 2)+[dict(item_id=other, slot=3, price_mesos_candidate=50, bundle_quantity_candidate=1,
+                                     available_quantity_candidate=4)]
+        request = self.visit('shop_a.json', rows)
+        request.ended('reopen_unconfirmed')
+        request.ended('scan_stopped')
+        self.assertEqual(self.reasons(2).count('reopen_unconfirmed'), 1)
+        self.assertEqual(self.reasons(3)[-1], 'reopen_unconfirmed')
+        self.assertNotIn('scan_stopped', self.reasons(2)+self.reasons(3))
+        self.assertEqual(len(self.server.named('reserve')), 1)
+
+    def test_changed_shop_on_reopen_buys_nothing(self):
+        request = self.visit('shop_a.json', self.rows(1, 2))
+        self.assertIsNone(self.visit('shop_b.json', self.rows(2), revisit=request, owner=456))
+        self.assertEqual(len(self.server.named('reserve')), 1)
+        self.assertEqual(self.reasons(2)[-1], 'shop_changed')
+
+    def test_sold_row_and_scanner_moving_on_are_both_explained(self):
+        request = self.visit('shop_a.json', self.rows(1, 2, 3))
+        self.visit('shop_a2.json', self.rows(3), revisit=request)
+        self.assertIn('not_in_reopened_shop', [d.get('detail') for d in self.decisions() if d.get('slot') == 2])
+        later = self.visit('shop_a3.json', self.rows(4, 5))  # Bought slot 4; slot 5 waits.
+        self.visit('shop_c.json', self.rows(7), owner=789)  # A different shop, no revisit handed back.
+        self.assertIsNotNone(later)
+        self.assertEqual(self.reasons(5)[-1], 'visit_ended_after_purchase')
+
+    def test_purchases_per_stall_visit_are_bounded(self):
+        from collector_sweep import MAX_VISIT_PURCHASES
+        self.server.run['plan']['watches'][0]['limit'] = 100
+        self.server.run['plan_version'] = 2
+        self.engine.poll()
+        slots = list(range(1, MAX_VISIT_PURCHASES+2))
+        request = None
+        for number in range(MAX_VISIT_PURCHASES):
+            request = self.visit(f'shop_{number}.json', self.rows(*slots[number:]), revisit=request)
+        self.assertIsNone(request)
+        self.assertEqual(len(self.server.named('reserve')), MAX_VISIT_PURCHASES)
+        self.assertEqual(self.reasons(slots[-1])[-1], 'purchase_limit_per_visit')
+
+    def test_game_rejection_closing_the_shop_is_not_reopened(self):
+        self.purchaser.result = lambda order: PurchaseResult('not_bought', reason='shop_closed')
+        self.assertIsNone(self.visit('shop_a.json', self.rows(1, 2)))
+        self.assertEqual(self.reasons(2)[-1], 'shop_closed')
+        self.assertEqual(self.verified, [])
 
 
 if __name__=='__main__':

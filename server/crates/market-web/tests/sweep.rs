@@ -220,6 +220,113 @@ async fn percentile_sweep_uses_reminder_prices_and_keeps_the_run_cap() {
     db.close().await;
 }
 
+async fn put_watch(s: &AppState, w: &Web, item: i64, value: Value, version: i64) -> (StatusCode, Value) {
+    web(s, "POST", "/api/v1/account/data", w,
+        json!({"operations":[{"kind":"watch","key":item.to_string(),"value":value,"version":version}]})).await
+}
+fn percent_watch(id: &str, percentile: &str, notify: bool) -> Value {
+    json!({"cap":null,"notify":notify,"position":0,"buyLimit":0,
+        "groups":[{"id":id,"name":"","cap":999999,"notify":notify,"buy":true,"reminder":{"percentile":percentile}}]})
+}
+async fn quote(db: &TestDb, item: i64, prices: &[i64]) {
+    let who = db.collector(&format!("quotes-{item}")).await;
+    let now = market_web::unix_now();
+    for (index, price) in prices.iter().enumerate() {
+        let raw = json!({"version":1,"world":"ClassicWorld","complete":true,"observation_id":format!("q-{item}-{index}"),
+            "observed_at":now,"shop_id":2000+index,"title":format!("Shop{index}"),"location":{"channel":1,"room":1},
+            "items":[{"item_id":item,"slot":1,"price":price,"bundle":1,"stock":10}]});
+        let upload = market_core::protocol::validate(&raw, now).unwrap();
+        let bytes = serde_json::to_vec(&raw).unwrap();
+        market_web::ingest::ingest(&db.pool, market_web::ingest::Received {
+            collector:&who, upload:&upload, raw:&bytes, received_at:now, now,
+        }).await.unwrap();
+    }
+}
+fn first_group(run: &Value, item: i64) -> Value {
+    run["plan"]["watches"].as_array().unwrap().iter().find(|w| w["item_id"] == item).unwrap()["groups"][0].clone()
+}
+fn cap(run: &Value, item: i64) -> Value {
+    first_group(run, item)["cap"].clone()
+}
+
+#[tokio::test]
+async fn live_edits_keep_frozen_percentile_caps_of_unchanged_groups() {
+    let Some(db) = TestDb::new().await else { return };
+    let s = AppState::new(db.pool.clone(), Settings::default());
+    let w = signup(&s, "percent_live").await;
+    let item = 2000000;
+    assert_eq!(put_watch(&s, &w, item, percent_watch("p25", "25", false), 0).await.0, StatusCode::OK);
+    watch(&s, &w, GLOVE, 500, 1, 0).await;
+    quote(&db, item, &[100, 200, 300, 400]).await;
+    let (token, _) = ready_device(&s, &w, "本机").await;
+    device_start(&s, &token, 100_000).await;
+    assert_eq!(cap(&run_view(&s, &w).await, item), 100.0);
+    // The cheap stock is bought: the 25% price rises.
+    sqlx::query("UPDATE listings SET price=price*10").execute(&db.pool).await.unwrap();
+    let (_, quotes) = send(&s, "GET", "/api/v1/watchlist/listings?ids=2000000", &[], Value::Null).await;
+    assert!(quotes["percentile_caps"]["2000000"]["10"].as_f64().unwrap() > 100.0, "{quotes}");
+    // Another item's limit and this group's reminder switch leave the frozen cap alone.
+    watch(&s, &w, GLOVE, 500, 3, 1).await;
+    assert_eq!(put_watch(&s, &w, item, percent_watch("p25", "25", true), 1).await.0, StatusCode::OK);
+    let view = run_view(&s, &w).await;
+    assert_eq!(view["plan_version"], 3);
+    assert_eq!(view["plan_stale"], false);
+    assert_eq!(cap(&view, item), 100.0);
+    assert_eq!(cap(&view, GLOVE), 500);
+    // Editing the percentile group itself prices it at the current market.
+    assert_eq!(put_watch(&s, &w, item, percent_watch("p25", "10", true), 2).await.0, StatusCode::OK);
+    let view = run_view(&s, &w).await;
+    assert_eq!(view["plan_version"], 4);
+    assert_eq!(cap(&view, item), quotes["percentile_caps"]["2000000"]["10"]);
+    assert_eq!(first_group(&view, item)["price_percentile"], "10");
+    db.close().await;
+}
+
+#[tokio::test]
+async fn live_edits_skip_unpriced_percentile_groups_without_failing_the_write() {
+    let Some(db) = TestDb::new().await else { return };
+    let s = AppState::new(db.pool.clone(), Settings::default());
+    let w = signup(&s, "percent_unpriced").await;
+    let item = 2000002;
+    watch(&s, &w, GLOVE, 500, 0, 0).await;
+    let (token, _) = ready_device(&s, &w, "本机").await;
+    let run = device_start(&s, &token, 100_000).await;
+    // A percentile rule for an item with no quotes: the write is saved; the group is not bought.
+    let (status, body) = put_watch(&s, &w, item, percent_watch("p25", "25", true), 0).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let view = run_view(&s, &w).await;
+    assert_eq!(view["plan_version"], 2);
+    assert_eq!(view["plan_stale"], false);
+    assert_eq!(view["plan"]["unpriced"], json!([{"item_id":item,"group_id":"p25"}]));
+    assert_eq!(view["plan"]["watches"].as_array().unwrap().len(), 1);
+    assert_eq!(view["plan"]["source_watches"].as_array().unwrap().len(), 2);
+    let lease = join(&s, &token, &run, 2).await;
+    let mut miss = order(&run, &lease, 1, item, 1);
+    miss["plan_version"] = json!(2);
+    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/reserve", &token, miss).await.1["error"], "item_not_in_plan");
+    let mut glove = order(&run, &lease, 2, GLOVE, 500);
+    glove["plan_version"] = json!(2);
+    assert_eq!(grant(&s, &token, glove).await.0, 1);
+    // Unrelated account data still saves.
+    let (status, body) = web(&s, "POST", "/api/v1/account/data", &w,
+        json!({"operations":[{"kind":"pref","key":"watch.lists","value":"[]","version":0}]})).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    // Once quotes exist, the next watch write prices the group.
+    quote(&db, item, &[100, 200, 300, 400]).await;
+    watch(&s, &w, GLOVE, 500, 2, 1).await;
+    let view = run_view(&s, &w).await;
+    assert_eq!(view["plan_version"], 3);
+    assert!(view["plan"].get("unpriced").is_none(), "{}", view["plan"]);
+    assert_eq!(cap(&view, item), 100.0);
+    // Starting a run still refuses a rule without quotes.
+    assert_eq!(dev(&s, "POST", "/api/v1/device/sweep/stop", &token, json!({"run":run})).await.0, StatusCode::OK);
+    assert_eq!(put_watch(&s, &w, 2000003, percent_watch("p25", "25", true), 0).await.0, StatusCode::OK);
+    let (status, body) = dev(&s, "POST", "/api/v1/device/sweep/start", &token, json!({"budget":10000,"minutes":60})).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["error"], "sweep_price_unavailable");
+    db.close().await;
+}
+
 #[tokio::test]
 async fn purchase_progress_counts_beyond_the_recent_records() {
     let Some(db) = TestDb::new().await else { return };

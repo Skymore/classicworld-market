@@ -11,6 +11,7 @@ import {
   dayClock,
   deviceActivity,
   duration,
+  runWatches,
   type Device,
   type Run,
   type RunDevice,
@@ -234,7 +235,7 @@ export default function SweepPanel({
       )}
       {running && changed && <RuleChangeNotice />}
       {running ? (
-        <RulesTable watches={run!.plan?.watches || watches} items={items} run={run} onEditGroup={onEditGroup} />
+        <RulesTable watches={run!.plan ? runWatches(run!.plan) : watches} items={items} run={run} onEditGroup={onEditGroup} />
       ) : (
         <RulesTable
           watches={watches}

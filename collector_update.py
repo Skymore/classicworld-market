@@ -14,7 +14,7 @@ import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
-VERSION = '0.6.69'
+VERSION = '0.6.70'
 LATEST = 'https://mxd.ruit.me/web/releases/stable.json'
 DOWNLOAD_BASES = ('https://mxd.ruit.me/web/releases/', 'https://download.ruit.me/collector/')
 EXE = 'ClassicWorldCollector.exe'
@@ -318,6 +318,15 @@ def apply_plan(path, executable=None):
     backup = install.with_name(install.name+'.backup-'+str(time.time_ns()))
     silent = plan.get('silent', False)
     home = Path(plan.get('home', path.parent))
+    if plan.get('home'):
+        # The updated collector always opens stopped; the player presses Start.
+        # This helper is the new release's code, so it also covers a hand-off
+        # made by an older collector that kept the scan running.
+        try:
+            from collector_recovery import ScanIntent
+            ScanIntent(home).stop()
+        except OSError:
+            pass
     argv = list(plan['argv'])
     if silent and '--no-browser' not in argv:
         argv.append('--no-browser')
@@ -390,15 +399,23 @@ def start_checker(home, stop, ready, argv, wakeup=None, endpoint=None, *, interv
         last_check = -float('inf')
         pending = None
         next_idle_check = 0
-        waiting_state = 'waiting_for_safe_restart' if prepare_restart else 'waiting_for_game_exit'
+        waiting_state = 'ready_to_update' if prepare_restart else 'waiting_for_game_exit'
+        def status(state, **fields):
+            # A staged package stays installable while later checks run or fail.
+            if pending:
+                update_status(home, waiting_state, **{**fields, 'available': pending[0]['version']})
+            else:
+                update_status(home, state, **fields)
         while not stop.is_set():
             now = time.monotonic()
             if pending and now >= next_idle_check:
-                next_idle_check = now+5
+                # The desktop gate opens only after the player clicks Update;
+                # poll it often enough that the click feels immediate.
+                next_idle_check = now+(1 if prepare_restart else 5)
                 try:
                     can_restart = prepare_restart() if prepare_restart else not game_running()
                 except Exception as error:
-                    update_status(home, waiting_state, reason=type(error).__name__)
+                    status(waiting_state, reason=type(error).__name__)
                     can_restart = False
                 if can_restart and not stop.is_set():
                     info, path, bundle = pending
@@ -415,13 +432,13 @@ def start_checker(home, stop, ready, argv, wakeup=None, endpoint=None, *, interv
             last_check = now
             next_check = now+interval
             try:
-                update_status(home, 'checking')
+                status('checking')
                 info = read_release()
                 blocked = None
                 try: blocked = json.loads((Path(home)/'update-blocked.json').read_text())['version']
                 except (OSError, ValueError, KeyError): pass
                 if info and info['version'] == blocked:
-                    update_status(home, 'rolled_back', available=blocked)
+                    status('rolled_back', available=blocked)
                     continue
                 if info and not stop.is_set():
                     if pending and version(info['version']) <= version(pending[0]['version']):
@@ -436,9 +453,9 @@ def start_checker(home, stop, ready, argv, wakeup=None, endpoint=None, *, interv
                     pending = (info, path, bundle)
                     next_idle_check = 0
                     continue
-                update_status(home, waiting_state if pending else 'up_to_date')
+                status('up_to_date')
             except Exception as error:
-                update_status(home, 'retry_later', reason=type(error).__name__)
+                status('retry_later', reason=type(error).__name__)
                 try:
                     print(f'暂时无法更新，继续采集 / Update unavailable ({type(error).__name__}).', flush=True)
                 except (OSError, UnicodeError):

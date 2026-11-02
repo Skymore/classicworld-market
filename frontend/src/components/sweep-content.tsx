@@ -27,6 +27,7 @@ export function groupText(group: any) {
   return [
     group.name,
     percentile ? `${isEnglish() ? 'Lowest' : '最低'} ${percentile}%` : null,
+    group.unpriced ? (isEnglish() ? 'No quotes' : '暂无报价') : null,
     (!percentile || group.price_percentile) && group.cap != null ? `≤ ${Number(group.cap).toLocaleString()}` : null,
     ...reminderTokens(group.reminder, isEnglish()).map((t: any) => t.label),
   ]

@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 const source = async name => 'data:text/javascript,' + encodeURIComponent(await readFile(new URL(`../js/lib/${name}.js`, import.meta.url), 'utf8'));
 const filters = await source('item-offer-filters'), groups = await source('quote-groups');
 const code = (await readFile(new URL('../js/lib/watch-reminders.js', import.meta.url), 'utf8'))
-  .replace("'./item-offer-filters.js?v=20261027-watch-groups-1'", JSON.stringify(filters))
+  .replace(/'\.\/item-offer-filters\.js\?v=[^']+'/, JSON.stringify(filters))
   .replace(/'\.\/quote-groups\.js\?v=[^']+'/, JSON.stringify(groups));
 const { normalizeReminder, reminderSelection, matchingReminders, notificationEligibility, watchGroups } = await import('data:text/javascript,' + encodeURIComponent(code));
 const { combinedNotifications, readSettings } = await import(await source('watchlist-core'));

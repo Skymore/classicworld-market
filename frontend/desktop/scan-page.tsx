@@ -48,7 +48,8 @@ export default function ScanPage({ state, connected, busy, error, now, selected,
     {error && <div role="alert" className="error-banner"><AlertCircle size={18} /><span>{error}</span></div>}
     <section className="stall scan-panel" aria-label="采集"><div className="stall-bar"><ScanLine size={18} /><h2>采集</h2>
       <span role="status" title={state.message} className={`phase phase-${state.phase}`}>{phase}</span>
-      <span className={`connection ${live ? 'live' : ''}`}><i />{healthLabel(state)}</span></div>
+      <span className={`connection ${live ? 'live' : ''}`}><i />{healthLabel(state)}</span>
+      {state.capture_warning && <span className="capture-warning" data-capture-warning title={state.capture_warning}>{state.capture_warning}</span>}</div>
       {active ? <div className="scan-body scan-running" data-scan-running>
         <span className="scan-window"><Monitor size={17} />{windowTitle}</span><span className="scan-note">{runningNote}</span>
         <button className="ui-btn primary" disabled={busy || !['scanning', 'paused'].includes(state.phase)} onClick={() => action(paused ? 'resume' : 'pause')}>

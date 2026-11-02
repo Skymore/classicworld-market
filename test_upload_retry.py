@@ -57,18 +57,99 @@ class UploadRetryTests(unittest.TestCase):
         self.assertEqual(path.read_bytes(), original)
         self.assertEqual(self.events[-1]['pending'], 0)
 
+    def rejected(self, ahead=0):
+        return HTTPError('', 400, '', {'Date': formatdate(time.time()-ahead, usegmt=True)},
+                         io.BytesIO(b'{"error":"Invalid observation schema"}'))
+
+    def reject(self, *args, **kwargs):
+        raise self.rejected()
+
+    def age_out(self):
+        """Pretend the hourly back-off has passed, without touching retry budget."""
+        with closing(sqlite3.connect(self.ledger)) as db:
+            db.execute('UPDATE sent SET updated=0'); db.commit()
+
+    def status(self, name):
+        with closing(sqlite3.connect(self.ledger)) as db:
+            return db.execute('SELECT status FROM sent WHERE path=?', (name,)).fetchone()[0]
+
     def test_failures_stay_visible_and_back_off(self):
         self.capture('shop_new.json')
-        error = HTTPError('', 400, '', {'Date': formatdate(time.time()-3600, usegmt=True)},
-                          io.BytesIO(b'{"error":"Invalid observation schema"}'))
-        with patch('shared_client.request_json', side_effect=error) as send:
+        with patch('shared_client.request_json', side_effect=self.reject) as send:
             self.assertEqual(self.run_upload(), 0)
             self.assertEqual(self.run_upload(), 0)
             self.assertEqual(send.call_count, 1)
         self.assertEqual(self.events[-1]['pending'], 1)
         detail = json.loads(self.ledger.with_suffix('.last-error.json').read_text())
-        self.assertEqual(detail['reason'], 'capture_time_ahead')
+        self.assertEqual(detail['reason'], 'Invalid observation schema')
+        self.assertFalse(detail['final'])
         self.assertNotIn('synthetic', json.dumps(detail))
+
+    def test_clock_ahead_rejection_is_final_and_never_retried(self):
+        path = self.capture('shop_ahead.json'); original = path.read_bytes()
+        with patch('shared_client.request_json', side_effect=self.rejected(ahead=3600)) as send:
+            self.assertEqual(self.run_upload(), 0)
+            self.age_out()
+            self.assertEqual(self.run_upload(), 0)
+            self.assertEqual(send.call_count, 1)
+        self.assertEqual(self.status(path.name), 'rejected_clock')
+        rejected = [e for e in self.events if e['type'] == 'upload_rejected']
+        self.assertEqual(rejected[0]['reason'], 'capture_time_ahead')
+        self.assertTrue(rejected[0]['final'])
+        self.assertEqual(self.events[-1]['pending'], 0)
+        self.assertEqual(path.read_bytes(), original)
+
+    def test_rejected_record_is_tried_at_most_three_times(self):
+        path = self.capture('shop_bad.json')
+        with patch('shared_client.request_json', side_effect=self.reject) as send:
+            for _ in range(5):
+                self.run_upload(); self.age_out()
+            self.assertEqual(send.call_count, 3)
+        self.assertEqual(self.status(path.name), 'rejected_final')
+        self.assertEqual(self.events[-1]['pending'], 0)
+        self.assertTrue(path.exists())
+
+    def test_legacy_rejection_counts_as_one_failed_attempt(self):
+        self.capture('shop_legacy.json'); self.seed('shop_legacy.json', 'rejected_400')
+        with patch('shared_client.request_json', side_effect=self.reject) as send:
+            for _ in range(4):
+                self.run_upload(); self.age_out()
+            self.assertEqual(send.call_count, 2)
+        self.assertEqual(self.status('shop_legacy.json'), 'rejected_final')
+
+    def test_out_of_window_record_is_never_retried(self):
+        for name, data in (('shop_old.json', dict(session='test', time=time.time()-31*86400, shop_id=12, title='TEST', items=[])),
+                           ('roster_old.json', dict(observed_at=time.time()-31*86400))):
+            (self.root/name).write_text(json.dumps(data)); self.seed(name, 'rejected_400')
+        with patch('shared_client.request_json') as send:
+            self.run_upload(); self.run_upload()
+            send.assert_not_called()
+        self.assertEqual(self.status('shop_old.json'), 'rejected_final')
+        self.assertEqual(self.status('roster_old.json'), 'rejected_final')
+        self.assertEqual(self.events[-1]['pending'], 0)
+
+    def test_hourly_retry_budget_leaves_quota_for_new_captures(self):
+        import shared_client
+        for n in range(80):
+            name = f'shop_a{n:02}.json'; self.capture(name); self.seed(name, 'rejected_400')
+        sent = []
+        def accept(url, payload, headers, stop=None):
+            sent.append(payload['shop_id']); return {'ok': True}
+        clock = [time.time()]
+        with patch('shared_client.request_json', side_effect=accept), \
+             patch.object(shared_client.time, 'time', side_effect=lambda: clock[0]):
+            for minute in range(10):
+                # One fresh capture each minute is always uploaded first.
+                fresh = self.root/f'shop_z{minute}.json'
+                fresh.write_text(json.dumps(dict(session='test', time=clock[0], shop_id=1000+minute,
+                                                 title='TEST', items=[])))
+                before = len(sent)
+                self.run_upload(); self.run_upload()
+                self.assertEqual(sent[before], 1000+minute)
+                self.assertLessEqual(len(sent)-before-1, shared_client.RETRY_PER_MINUTE)
+                clock[0] += 61
+        self.assertEqual(len([s for s in sent if s < 1000]), shared_client.RETRY_PER_HOUR)
+        self.assertEqual(self.events[-1]['pending'], 20)
 
     def test_retry_batch_is_bounded_and_fresh_capture_goes_first(self):
         for n in range(15):

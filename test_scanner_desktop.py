@@ -292,6 +292,61 @@ class DesktopTests(unittest.TestCase):
             self.controller.sync_sweep()
             start.assert_called_once_with(12)
 
+    def test_handled_sweep_run_is_not_restarted_after_update_or_reopen(self):
+        sweep = Mock(lock=threading.RLock(), run={'id':'run-1'})
+        sweep.buying.return_value = True
+        sweep.scan_mode.return_value = 'recent'
+        self.controller.sweep = sweep
+        with patch.object(self.controller, 'start'), patch('scanner_desktop.release_keys'):
+            self.controller.sync_sweep()  # Accepted on the website: starts once.
+            self.controller.command('stop')  # The player's Stop/F9 during the run.
+        # A new process (after an update or a manual reopen) sees the same run.
+        fresh = DesktopController(self.runtime, modules=self.modules, sweep=sweep,
+            windows=lambda: [{'id': 12, 'title': 'MapleStory', 'pid': 42}], ready=lambda _:True, emergency=lambda:False)
+        with patch.object(fresh, 'start') as start:
+            fresh.sync_sweep()
+            start.assert_not_called()
+            sweep.run = {'id':'run-2'}  # A genuinely new run still starts.
+            fresh.sync_sweep()
+            start.assert_called_once_with(12)
+        reopened = DesktopController(self.runtime, modules=self.modules, sweep=sweep,
+            windows=lambda: [{'id': 12, 'title': 'MapleStory', 'pid': 42}], ready=lambda _:True, emergency=lambda:False)
+        with patch.object(reopened, 'start') as start:
+            reopened.sync_sweep()
+            start.assert_not_called()
+
+    def test_capture_warning_is_shown_only_while_capture_status_is_fresh(self):
+        self.runtime.folder.mkdir(parents=True)
+        status = self.runtime.folder/'passive_status.json'
+        status.write_text(json.dumps({'time': time.time(), 'health_state': 'capturing', 'capture_warning': '加速器连接不可用'}))
+        self.controller.read_local_status()
+        self.assertEqual(self.controller.snapshot()['capture_warning'], '加速器连接不可用')
+        status.write_text(json.dumps({'time': time.time(), 'health_state': 'capturing'}))
+        self.controller.read_local_status()
+        self.assertIsNone(self.controller.snapshot()['capture_warning'])
+        status.write_text(json.dumps({'time': time.time()-60, 'capture_warning': '加速器连接不可用'}))
+        self.controller.read_local_status()
+        self.assertIsNone(self.controller.snapshot()['capture_warning'])
+
+    def test_rejected_upload_message_states_the_retry_limit(self):
+        self.controller._collector_event({'type': 'upload_rejected', 'reason': 'bad_request'})
+        text = self.controller.snapshot()['activities'][0]['text']
+        self.assertIn('最多尝试 3 次', text)
+        self.assertNotIn('自动重试', text)
+
+    def test_watchdog_crash_loop_reason_is_shown_once(self):
+        from collector_watchdog import STOP_NOTICE
+        (self.runtime.home/STOP_NOTICE).write_text(json.dumps({'reason': 'crash_loop', 'exit_code': 7}))
+        self.controller._show_watchdog_stop()
+        state = self.controller.snapshot()
+        self.assertEqual(state['phase'], 'error')
+        self.assertIn('多次异常退出', state['message'])
+        self.assertEqual(state['activities'][0]['kind'], 'error')
+        self.assertFalse((self.runtime.home/STOP_NOTICE).exists())
+        other = DesktopController(self.runtime, modules=self.modules, windows=lambda: [])
+        other._show_watchdog_stop()
+        self.assertEqual(other.snapshot()['phase'], 'idle')
+
     def test_accepted_sweep_preserves_saved_scan_session_on_startup(self):
         sweep = Mock(lock=threading.RLock(), run={'id':'resumed-run'})
         sweep.buying.return_value = True

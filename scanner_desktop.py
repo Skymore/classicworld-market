@@ -14,11 +14,13 @@ from pathlib import Path
 
 from collector_update import VERSION
 from collector_recovery import ScanIntent, RecoveryLog, atomic_json, failure_state, retry_delay, prune_diagnostics, read_json
+from collector_watchdog import STOP_NOTICE as WATCHDOG_STOP
 
 RUNS = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'ClassworldFMBot/screen_scanner'
 ABORT_GRACE = 8
 ACTIVITY_LIMIT = 40  # The activity panel fills the window and scrolls.
 MIN_SIZE = (880, 740)  # Smallest window the layout is designed for.
+SWEEP_HANDLED = 'sweep-handled.json'  # Last web sweep run this device started or served.
 
 
 def scan_shop_callback(sweep):
@@ -240,7 +242,10 @@ class DesktopController:
                            capture='connecting', upload='ready', last_shop_at=None, windows=[],
                            selected=None, theme='system', updates='checking', activities=[], maximized=False,
                            desired=False, last_progress_at=None, retries=0, next_retry_at=None,
-                           pending_uploads=0, failure=None)
+                           pending_uploads=0, failure=None, update_version=None, update_requested=False,
+                           capture_warning=None)
+        # A run handled before an update or reopen is not a newly accepted run.
+        self._observed_sweep = read_json(collector.home/SWEEP_HANDLED).get('run')
         try:
             prefs = json.loads((collector.home/'desktop-settings.json').read_text(encoding='utf-8'))
             if prefs.get('theme') in ('light', 'dark', 'system'):
@@ -262,23 +267,38 @@ class DesktopController:
 
     def _stop_for_update(self):
         # Called between attempts or from the scanner's post-close checkpoint.
-        # Preserve only existing intent; a user's Stop or a purchase halt wins.
+        # The new process starts stopped, whatever state this one was in: no
+        # one watches F9 during the restart, so the player presses Start again.
         with self._lock:
             if self._update_handoff:
                 return
-            if self._state['phase'] == 'needs_attention':
-                self._intent.stop()
-            self._update_health()
             self._update_handoff = True
             self._user_stop(persist=False)
+            self._intent.stop()
+
+    def _request_update(self):
+        """The player's update click; hand-off waits for a saved, closed-shop boundary."""
+        debug = getattr(self.collector, 'remote_debug', None)
+        with self._lock:
+            if debug and debug.view()['active']:
+                raise ValueError('请先终止远程调试，再更新。')
+            status = read_json(self.collector.home/'update-status.json')
+            if status.get('state') != 'ready_to_update':
+                raise ValueError('新版本还没有准备好，请稍后再试。')
+            if self._update_pending:
+                return
+            self._update_pending = True
+            self._change(update_requested=True)
+            self._activity(f"正在更新到 {status.get('available') or '新版本'}，采集器会短暂重启，游戏无需退出。")
+            if not self._attempt_active:
+                self._stop_for_update()
 
     def prepare_update(self):
-        """Keep capture live until input workers reach a saved, closed-shop boundary."""
+        """Polled by the update checker; True once the requested hand-off is safe."""
         with self._lock:
             debug = getattr(self.collector, 'remote_debug', None)
-            if self._closing or self._paused.is_set() or (debug and debug.view()['active']):
+            if not self._update_pending or self._closing or (debug and debug.view()['active']):
                 return False
-            self._update_pending = True
             if not self._attempt_active:
                 self._stop_for_update()
             if self._worker and self._worker.is_alive():
@@ -328,9 +348,9 @@ class DesktopController:
             self._change(pending_uploads=event['pending'])
         elif event['type'] == 'upload_rejected':
             self._change(upload='retrying')
-            message = ('采集时间超前，记录已保留，时间有效后自动补传。'
+            message = ('电脑时间超前，这些记录不会上传，请校准时间。'
                        if event.get('reason') == 'capture_time_ahead' else
-                       '上传被拒收，记录已保留；400 错误会自动重试。')
+                       '上传被拒收；每条记录最多尝试 3 次，之后保留在本机，不再上传。')
             self._activity(message, 'warning')
         elif event['type'] == 'storage_error':
             self._stop.failure = OSError('Capture storage unavailable')
@@ -356,7 +376,7 @@ class DesktopController:
             if name == 'debug_start':
                 with self._lock:
                     if self._update_pending:
-                        raise ValueError('正在自动更新，请稍后再开启远程调试。')
+                        raise ValueError('正在更新，请稍后再开启远程调试。')
                     self._user_stop()
                     debug.start(value)
             else:
@@ -413,7 +433,6 @@ class DesktopController:
                     return self.snapshot()
                 if not self._desired:
                     return self.snapshot()
-                self._update_pending = False
                 self._paused.set()
                 self._modules['request_pause']()
                 self._stop.set()
@@ -430,6 +449,8 @@ class DesktopController:
                 self._change(phase='rebuilding', message='正在重新确认游戏和任务。')
         elif name == 'stop':
             self._user_stop()
+        elif name == 'update':
+            self._request_update()
         elif name == 'mode':
             if value not in ('scan', 'manual'):
                 raise ValueError('无效采集方式')
@@ -479,7 +500,7 @@ class DesktopController:
             raise ValueError('请先终止远程调试，再开始扫描。')
         with self._lock:
             if self._update_pending:
-                raise ValueError('正在自动更新，完成后将恢复扫描。')
+                raise ValueError('正在更新，完成后请再点开始。')
             if self._worker and self._worker.is_alive():
                 return
             if self._guard_thread and self._guard_thread.is_alive():
@@ -663,6 +684,11 @@ class DesktopController:
                 with self._lock:
                     if self._cancel.is_set():
                         break
+                    if self._update_pending:
+                        # The previous attempt already ended and logged its
+                        # result; never open another shop before the restart.
+                        self._stop_for_update()
+                        break
                     if not self._focus_permitted():
                         continue
                     self._stop = self._modules['LeaseStopEvent']()
@@ -674,8 +700,6 @@ class DesktopController:
                 error, clean = self._attempt(stop)
                 with self._lock:
                     self._attempt_active = False
-                    if self._update_pending and clean:
-                        self._stop_for_update()
                 self._step_deadline = None
                 if not clean:
                     self._restart_requested = True
@@ -851,12 +875,15 @@ class DesktopController:
                 health = 'offline'
             elif capture.get('decoding', 0):
                 health = 'connected'
-            self._change(capture=health, last_shop_at=capture.get('last_shop_at'))
-        except (OSError, ValueError, TypeError):
+            # A short capture caveat (e.g. accelerator connection unavailable).
+            warning = capture.get('capture_warning') if fresh else None
+            warning = warning.strip()[:60] if isinstance(warning, str) and warning.strip() else None
+            self._change(capture=health, last_shop_at=capture.get('last_shop_at'), capture_warning=warning)
+        except (OSError, ValueError, TypeError, AttributeError):
             pass
         try:
             update = json.loads((self.collector.home/'update-status.json').read_text(encoding='utf-8'))
-            self._change(updates=update.get('state', 'checking'))
+            self._change(updates=update.get('state', 'checking'), update_version=update.get('available'))
         except (OSError, ValueError):
             pass
 
@@ -871,12 +898,13 @@ class DesktopController:
         with self.sweep.lock:
             run = self.sweep.run['id'] if self.sweep.buying() else None
             mode = self.sweep.scan_mode()
-        previous = getattr(self, '_observed_sweep', None)
+        previous = self._observed_sweep
         if run != previous:
             self._observed_sweep = run
             self._pending_sweep = run
             if run and self._desired and mode == 'market':
                 self._pending_sweep = None
+                self._sweep_handled(run)
             elif self._desired and (run or getattr(self, '_sweep_started', None)):
                 self._user_stop(persist=False)
         if run and getattr(self, '_pending_sweep', None) == run and (not self._worker or not self._worker.is_alive()):
@@ -888,10 +916,30 @@ class DesktopController:
                     self.start(choices[0]['id'])
                 self._pending_sweep = None
                 self._sweep_started = run
+                self._sweep_handled(run)
+
+    def _sweep_handled(self, run):
+        # A later Stop/F9 must hold across an update or reopen of this run.
+        try:
+            atomic_json(self.collector.home/SWEEP_HANDLED, dict(run=run, at=time.time()))
+        except OSError:
+            pass  # Same-process behaviour is unchanged; only a reopen could restart it.
+
+    def _show_watchdog_stop(self):
+        path = self.collector.home/WATCHDOG_STOP
+        if read_json(path).get('reason') == 'crash_loop':
+            message = '采集器短时间内多次异常退出，已停止自动扫描。请点“报 Bug”，然后再开始。'
+            self._change(phase='error', message=message, failure=message)
+            self._activity(message, 'error')
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
     def pump(self, auto_start=False):
         self.refresh()
         self._activity('扫描器已就绪。')
+        self._show_watchdog_stop()
         saved = self._intent.load()
         if auto_start or saved.get('enabled'):
             try:
@@ -925,8 +973,7 @@ class DesktopController:
                 if self._desired and self.snapshot()['phase'] != 'needs_attention':
                     self._restart_requested = True
             if self.collector.stopped() and not self.collector.error:
-                updating = read_json(self.collector.home/'update-status.json').get('state') == 'restarting'
-                self.close(preserve_intent=updating)
+                self.close()  # Also after an update: the new process waits for Start.
             value = json.dumps(self.snapshot(), ensure_ascii=False)
             if value != last and self._window and self._ready:
                 try:
@@ -936,10 +983,10 @@ class DesktopController:
                     pass
             self._closed.wait(.1)
 
-    def close(self, *, preserve_intent=False):
+    def close(self):
         if not self._closing:
             self._closing = True
-            self._user_stop(persist=not preserve_intent)
+            self._user_stop()
             self._modules['clear_pause']()
             self._change(phase='stopping', message='正在保存并退出…')
             def finish():

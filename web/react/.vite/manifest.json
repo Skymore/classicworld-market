@@ -70,8 +70,8 @@
       "_shared-BNSZH_Gw.js"
     ]
   },
-  "_main-CzmrDcvY.js": {
-    "file": "chunks/main-CzmrDcvY.js",
+  "_main-C37VQCWW.js": {
+    "file": "chunks/main-C37VQCWW.js",
     "name": "main",
     "imports": [
       "_shared-BNSZH_Gw.js",
@@ -172,8 +172,8 @@
       "src/pages/agent.tsx"
     ]
   },
-  "_sweep-labels-BNK5Ol3h.js": {
-    "file": "chunks/sweep-labels-BNK5Ol3h.js",
+  "_sweep-labels-DuEyOs4N.js": {
+    "file": "chunks/sweep-labels-DuEyOs4N.js",
     "name": "sweep-labels"
   },
   "_tabs-l4CMFJlJ.js": {
@@ -230,11 +230,11 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CzmrDcvY.js"
+      "_main-C37VQCWW.js"
     ]
   },
   "src/pages/account.tsx": {
-    "file": "chunks/account-DAtaYUQu.js",
+    "file": "chunks/account-CWleE4Tv.js",
     "name": "account",
     "src": "src/pages/account.tsx",
     "isDynamicEntry": true,
@@ -246,7 +246,7 @@
       "_monitor-jwpylxBg.js",
       "_pencil-Bfvyh4aw.js",
       "_push-DWp2jpSH.js",
-      "_sweep-labels-BNK5Ol3h.js"
+      "_sweep-labels-DuEyOs4N.js"
     ]
   },
   "src/pages/agent.tsx": {
@@ -324,7 +324,7 @@
     ]
   },
   "src/pages/download.tsx": {
-    "file": "chunks/download-fCnjw0nO.js",
+    "file": "chunks/download-CTQ5ek9N.js",
     "name": "download",
     "src": "src/pages/download.tsx",
     "isDynamicEntry": true,
@@ -404,7 +404,7 @@
     ]
   },
   "src/pages/watch.tsx": {
-    "file": "chunks/watch-CRf17MVR.js",
+    "file": "chunks/watch-9SxGtWLH.js",
     "name": "watch",
     "src": "src/pages/watch.tsx",
     "isDynamicEntry": true,
@@ -424,7 +424,7 @@
       "_push-DWp2jpSH.js",
       "_list-copy-D6AYz1HH.js",
       "_tabs-l4CMFJlJ.js",
-      "_sweep-labels-BNK5Ol3h.js",
+      "_sweep-labels-DuEyOs4N.js",
       "_offer-filters-D5sm-0xy.js"
     ]
   },
@@ -434,7 +434,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CzmrDcvY.js"
+      "_main-C37VQCWW.js"
     ]
   },
   "style.css": {

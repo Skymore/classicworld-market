@@ -1,4 +1,5 @@
 //! Explicit, ephemeral player consent. Operator control is server-local only.
+#![allow(clippy::result_large_err)]
 use crate::{api::{bearer, error, internal}, auth, unix_now, AppState};
 use axum::{extract::{ConnectInfo, State}, http::{HeaderMap, StatusCode}, response::{IntoResponse, Response}, Json};
 use serde::{Deserialize, Serialize};

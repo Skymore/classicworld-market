@@ -202,6 +202,26 @@ if n==1:
                 self.assertEqual((Path(folder)/'counter').read_text(),'2')
                 self.assertFalse(ScanIntent(folder).load()['enabled'])
 
+    def test_watchdog_stops_crash_loop_releases_input_and_leaves_a_notice(self):
+        from collector_watchdog import run, STOP_NOTICE
+        with tempfile.TemporaryDirectory() as folder:
+            ScanIntent(folder).start(12)
+            code='''
+import os,sys
+from pathlib import Path
+counter=Path(sys.argv[1])/'counter'
+counter.write_text(str(int(counter.read_text())+1 if counter.exists() else 1))
+os._exit(7)
+'''
+            released=[]
+            result=run(Path(folder),[],command=[sys.executable,'-c',code,folder],
+                       emergency=lambda:False,release=lambda:released.append(1),startup_grace=.2)
+            self.assertEqual(result,7)
+            self.assertEqual((Path(folder)/'counter').read_text(),'3')
+            self.assertEqual(len(released),3)
+            self.assertFalse(ScanIntent(folder).load()['enabled'])
+            self.assertEqual(json.loads((Path(folder)/STOP_NOTICE).read_text())['reason'],'crash_loop')
+
     def test_stop_is_durable_even_when_intent_replace_fails(self):
         with tempfile.TemporaryDirectory() as folder:
             intent = ScanIntent(folder)
@@ -369,7 +389,21 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(self.modules['run'].call_count,3)
         self.assertIn('停止重复切频道',self.controller.snapshot()['message'])
 
-    def test_update_waits_for_post_shop_checkpoint_and_preserves_session(self):
+    def offer_update(self):
+        (self.home/'update-status.json').write_text(json.dumps(dict(state='ready_to_update',available='v0.6.57')))
+
+    def replacement_stays_stopped(self):
+        """The post-update process restores nothing; the player presses Start."""
+        replacement=DesktopController(self.runtime,modules=self.modules,
+            windows=lambda:[dict(id=12,pid=42,title='MapleStory')],ready=lambda _:True,emergency=lambda:False)
+        try:
+            self.assertFalse(ScanIntent(self.home).load()['enabled'])
+            replacement.start(None,restore=True)
+            self.assertIsNone(replacement._worker)
+        finally:
+            replacement._journal.close()
+
+    def test_update_waits_for_click_then_post_shop_checkpoint_and_new_process_stays_stopped(self):
         entered=threading.Event();finished_shop=threading.Event()
         def scan(folder,hwnd,start,stop,callback,**kwargs):
             entered.set()
@@ -377,58 +411,71 @@ class RecoveryTests(unittest.TestCase):
             callback(('progress',dict(room=7,channel=2,visited=1)))
             stop.wait(3)
         self.modules['run']=scan
+        self.offer_update()
         self.controller.start(12);self.assertTrue(entered.wait(2))
-        session=ScanIntent(self.home).load()['session']
+        self.assertFalse(self.controller.prepare_update())  # Ready is not consent.
+        self.assertFalse(self.controller._update_pending)
+        self.controller.command('update')
+        self.assertTrue(self.controller.snapshot()['update_requested'])
         self.assertFalse(self.controller.prepare_update())
         self.assertFalse(self.controller._stop.is_set())
         self.assertFalse(self.controller._cancel.is_set())
+        with self.assertRaises(ValueError):self.controller.start(12)
         finished_shop.set()
         self.until(lambda:not self.controller._worker.is_alive())
         self.until(self.controller.prepare_update)
-        saved=ScanIntent(self.home).load()
-        self.assertTrue(saved['enabled']);self.assertEqual(saved['session'],session)
         self.assertTrue(json.loads((self.home/'scan-health.json').read_text())['updating'])
-        replacement=DesktopController(self.runtime,modules=self.modules,
-            windows=lambda:[dict(id=12,pid=42,title='MapleStory')],ready=lambda _:True,emergency=lambda:False)
-        try:
-            replacement.start(None,restore=True)
-            self.assertEqual(replacement._session,session)
-            self.assertTrue(replacement._worker.is_alive())
-        finally:
-            replacement.command('stop')
-            replacement._worker.join(3)
-            replacement._guard_thread.join(3)
-            replacement._journal.close()
-        self.controller.command('stop')
-        self.assertFalse(ScanIntent(self.home).load()['enabled'])
+        self.replacement_stays_stopped()
 
-    def test_update_defers_remote_debug_and_pause_without_cancelling_either(self):
+    def test_update_click_needs_a_staged_release_and_waits_for_remote_debug(self):
+        with self.assertRaises(ValueError):self.controller.command('update')
+        self.offer_update()
         debug=Mock();debug.view.return_value={'active':True}
         self.runtime.remote_debug=debug
-        self.assertFalse(self.controller.prepare_update())
+        with self.assertRaises(ValueError):self.controller.command('update')
         self.assertFalse(self.controller._update_pending)
+        self.assertFalse(self.controller.prepare_update())
         debug.stop.assert_not_called()
-        debug.view.return_value={'active':False}
-        self.controller._paused.set()
-        self.assertFalse(self.controller.prepare_update())
-        self.assertFalse(self.controller._update_pending)
 
     def test_update_of_attention_state_does_not_reenable_input(self):
+        self.offer_update()
         self.controller._intent.start(12)
         self.controller._change(phase='needs_attention')
+        self.controller.command('update')
         self.assertTrue(self.controller.prepare_update())
         self.assertFalse(ScanIntent(self.home).load()['enabled'])
 
-    def test_pause_cancels_pending_handoff_and_stays_paused(self):
+    def test_attention_error_after_update_click_is_logged_and_never_resumed(self):
+        from free_market_route import MapResourceError
+        entered=threading.Event()
+        def scan(folder,hwnd,start,stop,callback,**kw):
+            entered.set()
+            time.sleep(.3)  # The player clicks Update while this shop visit runs.
+            raise MapResourceError(80002000,dict(reason='map_resource_parse_failed'))
+        self.modules['run']=scan
+        self.offer_update()
+        self.controller.start(12)
+        self.assertTrue(entered.wait(2))
+        self.controller.command('update')
+        self.assertFalse(self.controller.prepare_update())
+        self.until(lambda:self.controller.snapshot()['phase']=='needs_attention')
+        self.until(self.controller.prepare_update)
+        rows=[json.loads(row) for row in (self.home/'scan-recovery.jsonl').read_text(encoding='utf-8').splitlines()]
+        self.assertTrue(any(row['event']=='recovery_wait' and row['error']=='MapResourceError' for row in rows))
+        self.assertTrue(any(row['event']=='update_handoff' for row in rows))
+        self.replacement_stays_stopped()
+
+    def test_pause_after_update_click_hands_off_and_new_process_stays_stopped(self):
         self.modules['run']=lambda folder,hwnd,start,stop,callback,**kw:stop.wait(3)
+        self.offer_update()
         self.controller.start(12)
         self.until(lambda:self.controller._attempt_active)
+        self.controller.command('update')
         self.assertFalse(self.controller.prepare_update())
         self.controller.command('pause')
         self.until(lambda:not self.controller._attempt_active)
-        self.assertFalse(self.controller._update_pending)
-        self.assertFalse(self.controller.prepare_update())
-        self.assertEqual(self.controller.snapshot()['phase'],'paused')
+        self.until(self.controller.prepare_update)
+        self.replacement_stays_stopped()
 
     def test_repeated_faults_recover_with_one_scanner_and_same_session(self):
         failures=[TimeoutError(),URLError('DNS'),HTTPError('',502,'',{},None),HTTPError('',503,'',{},None)]

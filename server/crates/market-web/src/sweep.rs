@@ -95,35 +95,72 @@ fn watches(plan: &Value) -> impl Iterator<Item = &Value> {
 fn source_watches(plan: &Value) -> &Value {
     plan.get("source_watches").unwrap_or(&plan["watches"])
 }
-/// Freeze the same server-computed grouped-offer percentiles used by reminders.
-/// Never fall back to a stale manual cap or silently omit an unpriced rule.
-fn freeze_prices(mut plan: Value, caps: &Value) -> Result<Value, Response> {
+/// Caps frozen earlier in this run, by (item, group id).
+type Kept = HashMap<(i64, String), f64>;
+/// Freeze the same server-computed grouped-offer percentiles used by reminders;
+/// `kept` groups reuse their earlier cap. Never fall back to a stale manual cap.
+/// Starting a run fails on an unpriced rule. A live edit (`live`) must not fail
+/// the account write: the group stays out of buying and is listed in `unpriced`.
+fn freeze_prices(mut plan: Value, caps: &Value, kept: &Kept, live: bool) -> Result<Value, Response> {
     let source = plan["watches"].clone();
-    let mut changed = false;
+    let mut percent = false;
+    let mut unpriced = Vec::new();
     for watch in plan["watches"].as_array_mut().into_iter().flatten() {
-        let item = watch["item_id"].to_string();
-        for group in watch["groups"].as_array_mut().into_iter().flatten() {
-            if let Some(percentile) = price_percentile(group).map(str::to_owned) {
-                let cap = caps[&item][&percentile].as_f64()
-                    .filter(|n| n.is_finite() && *n > 0.0 && *n <= 1e15)
-                    .ok_or_else(|| conflict("sweep_price_unavailable"))?;
-                group["cap"] = json!(cap);
-                group["price_percentile"] = json!(percentile);
-                group["reminder"]["percentile"] = json!("all");
-                changed = true;
-            }
-        }
+        let item = watch["item_id"].as_i64().unwrap_or_default();
+        let Some(groups) = watch["groups"].as_array_mut() else { continue };
+        groups.retain_mut(|group| {
+            let Some(percentile) = price_percentile(group).map(str::to_owned) else { return true };
+            percent = true;
+            let id = group["id"].as_str().unwrap_or_default().to_owned();
+            let cap = kept.get(&(item, id.clone())).copied().or_else(|| caps[item.to_string()][&percentile].as_f64()
+                .filter(|n| n.is_finite() && *n > 0.0 && *n <= 1e15));
+            let Some(cap) = cap else {
+                unpriced.push(json!({"item_id":item,"group_id":id}));
+                return false;
+            };
+            group["cap"] = json!(cap);
+            group["price_percentile"] = json!(percentile);
+            group["reminder"]["percentile"] = json!("all");
+            true
+        });
     }
-    if changed { plan["source_watches"] = source; }
+    if !unpriced.is_empty() {
+        if !live { return Err(conflict("sweep_price_unavailable")); }
+        // Collectors reject a watch without groups.
+        if let Some(list) = plan["watches"].as_array_mut() { list.retain(|w| w["groups"].as_array().is_some_and(|g| !g.is_empty())); }
+        plan["unpriced"] = json!(unpriced);
+    }
+    if percent { plan["source_watches"] = source; }
     Ok(plan)
 }
-async fn priced_plan(db: &sqlx::PgPool, plan: Value) -> Result<Value, Response> {
-    let items: Vec<i32> = watches(&plan).filter(|w| w["groups"].as_array().is_some_and(|groups|
-        groups.iter().any(|g| price_percentile(g).is_some())))
-        .filter_map(|w| w["item_id"].as_i64().map(|id| id as i32)).collect();
-    if items.is_empty() { return Ok(plan); }
-    let quotes = crate::views::watch_listings(db, &items, Utc::now().timestamp() as f64).await.map_err(internal)?;
-    freeze_prices(plan, &quotes["percentile_caps"])
+async fn priced_plan(db: &sqlx::PgPool, plan: Value, kept: &Kept, live: bool) -> Result<Value, Response> {
+    let items: Vec<i32> = watches(&plan).filter(|w| {
+        let item = w["item_id"].as_i64().unwrap_or_default();
+        w["groups"].as_array().is_some_and(|groups| groups.iter().any(|g| price_percentile(g).is_some()
+            && !kept.contains_key(&(item, g["id"].as_str().unwrap_or_default().to_owned()))))
+    }).filter_map(|w| w["item_id"].as_i64().map(|id| id as i32)).collect();
+    let quotes = if items.is_empty() { Value::Null }
+        else { crate::views::watch_listings(db, &items, Utc::now().timestamp() as f64).await.map_err(internal)? };
+    freeze_prices(plan, &quotes["percentile_caps"], kept, live)
+}
+fn find_group<'a>(watches: &'a Value, item: i64, id: &str) -> Option<&'a Value> {
+    watches.as_array()?.iter().find(|w| w["item_id"].as_i64() == Some(item))?["groups"].as_array()?.iter().find(|g| g["id"] == id)
+}
+/// Frozen caps of percentile groups whose rule is unchanged since `run` priced
+/// them, so market moves do not raise them. `notify` and `name` do not affect buying.
+fn kept_caps(run: &Value, source: &Value) -> Kept {
+    let rule = |g: &Value| { let mut g = g.clone(); if let Some(o) = g.as_object_mut() { o.remove("notify"); o.remove("name"); } g };
+    let mut kept = Kept::new();
+    for watch in watches(source) {
+        let item = watch["item_id"].as_i64().unwrap_or_default();
+        for g in watch["groups"].as_array().into_iter().flatten().filter(|g| price_percentile(g).is_some()) {
+            let id = g["id"].as_str().unwrap_or_default();
+            let same = find_group(source_watches(run), item, id).is_some_and(|before| rule(before) == rule(g));
+            let cap = find_group(&run["watches"], item, id).filter(|f| f.get("price_percentile").is_some()).and_then(|f| f["cap"].as_f64());
+            if let (true, Some(cap)) = (same, cap) { kept.insert((item, id.to_owned()), cap); }
+        }
+    }
+    kept
 }
 /// (limit in units, highest sweepable cap) of a planned item.
 fn plan_item(plan: &Value, item: i64) -> Option<(i64, f64)> {
@@ -362,6 +399,7 @@ fn valid_limits(budget: i64, minutes: i64) -> Result<(), Response> {
     }
 }
 /// Starts a run of the account (whose row the caller locked) with the given invitees.
+#[allow(clippy::too_many_arguments)]
 async fn begin_run(db: &sqlx::PgPool, tx: &mut PgConnection, account: i64, budget: i64, minutes: i64, started_by: Option<i64>, invitees: &[i64], scan: &ScanMode) -> Result<(), Response> {
     // An overdue run must not block a new one; the notice below covers it.
     sqlx::query("UPDATE sweep_runs SET status='finished',stop_reason='time_up',stopped_at=ends_at WHERE account_id=$1 AND status='running' AND ends_at<=now()")
@@ -375,7 +413,7 @@ async fn begin_run(db: &sqlx::PgPool, tx: &mut PgConnection, account: i64, budge
     if empty(&plan) {
         return Err(conflict("no_sweep_groups"));
     }
-    plan = priced_plan(db, plan).await?;
+    plan = priced_plan(db, plan, &Kept::new(), false).await?;
     plan["scan"] = json!(scan);
     let run: i64 = sqlx::query_scalar("INSERT INTO sweep_runs(public_id,account_id,plan,budget,started_by,ends_at) VALUES($1,$2,$3,$4,$5,now()+make_interval(mins=>$6)) RETURNING id")
         .bind(auth::new_credentials().public_id).bind(account).bind(&plan).bind(budget).bind(started_by).bind(minutes as i32)
@@ -489,13 +527,16 @@ async fn web_apply(State(state): State<AppState>, headers: HeaderMap, Json(input
 
 /// Account row is locked by all watch writers. Only future reservations use
 /// the new version; granted reservations retain their original price/quantity.
+/// Unchanged percentile groups keep this run's cap; unpriced ones are retried.
 pub(crate) async fn sync_plan(db: &sqlx::PgPool, tx: &mut PgConnection, account: i64) -> Result<(), Response> {
     let Some(run) = lock_running(tx, account).await? else { return Ok(()) };
     if run.status != "running" { return Ok(()) }
     let source = current_plan(tx, account).await?;
-    if &source["watches"] == source_watches(&run.plan) { return Ok(()) }
-    let mut next = priced_plan(db, source).await?;
+    if &source["watches"] == source_watches(&run.plan) && run.plan.get("unpriced").is_none() { return Ok(()) }
+    let kept = kept_caps(&run.plan, &source);
+    let mut next = priced_plan(db, source, &kept, true).await?;
     if let Some(scan) = run.plan.get("scan") { next["scan"] = scan.clone(); }
+    if next == run.plan { return Ok(()) }
     sqlx::query("UPDATE sweep_runs SET plan=$2,plan_version=plan_version+1 WHERE id=$1")
         .bind(run.id).bind(next).execute(&mut *tx).await.map_err(internal)?;
     notify(tx, account, "sweep").await.map_err(internal)
@@ -558,7 +599,7 @@ async fn device_plan(State(state): State<AppState>, headers: HeaderMap) -> Reply
     let mut db = state.db.acquire().await.map_err(internal)?;
     let plan = current_plan(&mut db, d.account).await?;
     drop(db);
-    let plan = priced_plan(&state.db, plan).await?;
+    let plan = priced_plan(&state.db, plan, &Kept::new(), false).await?;
     Ok(Json(json!({"plan":plan})).into_response())
 }
 #[derive(Deserialize)]
@@ -929,18 +970,52 @@ mod tests {
             let rule = group("percent", true, json!(999999), json!({"percentile":percentile,"stats":[{"stat":"weapon_attack","min":60}]}));
             let raw = plan(&[("1082002".into(), json!({"buyLimit":0,"groups":[rule]}))]);
             let caps = json!({"1082002":{"10":123.5,"25":200,"50":300}});
-            let frozen = freeze_prices(raw.clone(), &caps).unwrap();
+            let frozen = freeze_prices(raw.clone(), &caps, &Kept::new(), false).unwrap();
             assert_eq!(source_watches(&frozen), &raw["watches"]);
             let g = &frozen["watches"][0]["groups"][0];
             assert_eq!(g["price_percentile"], percentile);
             assert_eq!(g["reminder"]["percentile"], "all");
             assert_eq!(g["reminder"]["stats"], raw["watches"][0]["groups"][0]["reminder"]["stats"]);
             assert_eq!(plan_item(&frozen, 1082002), Some((0, caps["1082002"][percentile].as_f64().unwrap())));
-            assert!(freeze_prices(raw.clone(), &json!({})).is_err());
-            assert!(freeze_prices(raw.clone(), &json!({"1082002":{percentile:0}})).is_err());
+            assert!(freeze_prices(raw.clone(), &json!({}), &Kept::new(), false).is_err());
+            assert!(freeze_prices(raw.clone(), &json!({"1082002":{percentile:0}}), &Kept::new(), false).is_err());
         }
         let fixed = plan(&[("2000000".into(), json!({"groups":[group("fixed", true, json!(130), json!({}))]}))]);
-        assert_eq!(freeze_prices(fixed.clone(), &json!({})).unwrap(), fixed);
+        assert_eq!(freeze_prices(fixed.clone(), &json!({}), &Kept::new(), false).unwrap(), fixed);
+    }
+    #[test]
+    fn live_edits_keep_unchanged_caps_and_skip_unpriced_groups() {
+        let p25 = group("p25", true, json!(999999), json!({"percentile":"25"}));
+        let fixed = group("fixed", true, json!(130), json!({}));
+        let source = |p25: &Value| plan(&[
+            ("1082002".into(), json!({"groups":[p25]})),
+            ("2000000".into(), json!({"groups":[group("p10", true, json!(5), json!({"percentile":"10"})), fixed.clone()]})),
+        ]);
+        let run = freeze_prices(source(&p25), &json!({"1082002":{"25":100},"2000000":{"10":7}}), &Kept::new(), false).unwrap();
+        // Toggling a reminder or renaming keeps the cap even after the market rose.
+        let renamed = json!({"id":"p25","name":"新名","cap":999999,"notify":false,"buy":true,"reminder":{"percentile":"25"}});
+        let kept = kept_caps(&run, &source(&renamed));
+        assert_eq!(kept.get(&(1082002, "p25".to_owned())), Some(&100.0));
+        assert_eq!(kept.get(&(2000000, "p10".to_owned())), Some(&7.0));
+        let rose = json!({"1082002":{"25":140},"2000000":{"10":9}});
+        let next = freeze_prices(source(&renamed), &rose, &kept, true).unwrap();
+        assert_eq!(plan_item(&next, 1082002), Some((1, 100.0)));
+        assert_eq!(next["watches"][0]["groups"][0]["name"], "新名");
+        // A changed rule is re-priced.
+        let changed = group("p25", true, json!(999999), json!({"percentile":"25","minPrice":1}));
+        let kept = kept_caps(&run, &source(&changed));
+        assert!(!kept.contains_key(&(1082002, "p25".to_owned())));
+        assert_eq!(plan_item(&freeze_prices(source(&changed), &rose, &kept, true).unwrap(), 1082002), Some((1, 140.0)));
+        // Without quotes a live edit leaves the group out, an item with no group left drops out, and start still fails.
+        let none = json!({"2000000":{"10":9}});
+        let live = freeze_prices(source(&changed), &none, &kept, true).unwrap();
+        assert_eq!(live["unpriced"], json!([{"item_id":1082002,"group_id":"p25"}]));
+        assert_eq!(plan_item(&live, 1082002), None);
+        assert_eq!(live["watches"].as_array().unwrap().len(), 1);
+        assert_eq!(source_watches(&live), &source(&changed)["watches"]);
+        assert!(freeze_prices(source(&changed), &none, &kept, false).is_err());
+        // An unpriced group has no frozen cap to keep.
+        assert!(!kept_caps(&live, &source(&changed)).contains_key(&(1082002, "p25".to_owned())));
     }
     #[test]
     fn stars_and_bullets_count_per_bundle() {

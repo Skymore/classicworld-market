@@ -203,3 +203,115 @@ class WindowsNativeTests(unittest.TestCase):
             stream.ioctl.assert_called_with(socket.SIO_RCVALL,getattr(socket,'RCVALL_IPLEVEL',3))
             stream.send.assert_not_called();stream.sendto.assert_not_called();stream.connect.assert_not_called()
             sniffer.close();stream.close.assert_called_once();self.assertIsNone(sniffer.handle)
+
+
+class LocalCaptureDegradeTests(unittest.TestCase):
+    """WinDivert problems must leave native receive-only capture running."""
+    def native(self, local, sockets=True):
+        import socket
+        from contextlib import ExitStack
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        import psutil  # Import before faking the platform name.
+        import market_passive
+        stream = Mock()
+        addresses = {'test': [SimpleNamespace(family=socket.AF_INET, address='192.0.2.10')]} if sockets else {}
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(market_passive.sys, 'platform', 'win32'))
+            windll = stack.enter_context(patch.object(market_passive.ctypes, 'windll', create=True))
+            windll.shell32.IsUserAnAdmin.return_value = True
+            stack.enter_context(patch('native_firewall.ensure_capture_firewall', return_value={'state': 'existing'}))
+            stack.enter_context(patch('psutil.net_if_addrs', return_value=addresses))
+            stack.enter_context(patch('psutil.net_if_stats', return_value={'test': SimpleNamespace(isup=True)}))
+            stack.enter_context(patch('socket.socket', return_value=stream))
+            stack.enter_context(patch.object(socket, 'SIO_RCVALL', 1, create=True))
+            stack.enter_context(patch.object(market_passive, 'Sniffer', local))
+            sniffer = market_passive.WindowsSniffer(accept=lambda value: True)
+        self.addCleanup(self.close, sniffer)
+        return sniffer, stream
+
+    def close(self, sniffer):
+        import socket
+        with patch.object(socket, 'SIO_RCVALL', 1, create=True), patch.object(socket, 'RCVALL_OFF', 0, create=True):
+            sniffer.close()
+
+    def native_recv(self, sniffer, stream, packet_bytes):
+        stream.recv.return_value = packet_bytes
+        with patch('select.select', return_value=([stream], [], [])):
+            return sniffer.recv()
+
+    def test_driver_open_failure_keeps_native_capture(self):
+        import market_passive
+        local = unittest.mock.Mock(side_effect=OSError('WinDivert64.sys quarantined'))
+        sniffer, stream = self.native(local)
+        self.assertEqual(sniffer.degraded, market_passive.LOCAL_UNAVAILABLE)
+        self.assertEqual(self.native_recv(sniffer, stream, raw(1)), raw(1))
+        stream.send.assert_not_called(); stream.sendto.assert_not_called()
+
+    def test_driver_open_failure_without_native_interfaces_still_fails(self):
+        local = unittest.mock.Mock(side_effect=OSError('driver missing'))
+        with self.assertRaises(OSError):
+            self.native(local, sockets=False)
+
+    def test_runtime_driver_error_degrades_without_raising(self):
+        import time
+        import market_passive
+        local = unittest.mock.Mock()
+        local.return_value.recv.side_effect = OSError('WinDivertRecv failed')
+        sniffer, stream = self.native(local)
+        sniffer.local_thread.join(timeout=2)
+        self.assertEqual(self.native_recv(sniffer, stream, raw(2)), raw(2))
+        self.assertEqual(sniffer.degraded, market_passive.LOCAL_UNAVAILABLE)
+        local.return_value.close.assert_called()
+        # Later reads keep using native capture without re-raising the old error.
+        self.assertEqual(self.native_recv(sniffer, stream, raw(3)), raw(3))
+
+    def test_local_queue_overflow_drops_copies_without_stopping(self):
+        import threading
+        release = threading.Event()
+        def packets():
+            for _ in range(8192 + 5):
+                yield raw(4)
+            release.wait(5)
+            while True:
+                yield OSError('closed')
+        source = packets()
+        def recv():
+            value = next(source)
+            if isinstance(value, Exception): raise value
+            return value
+        local = unittest.mock.Mock()
+        local.return_value.recv.side_effect = recv
+        sniffer, stream = self.native(local)
+        for _ in range(100):
+            if sniffer.local_dropped == 5: break
+            import time; time.sleep(.02)
+        self.assertEqual(sniffer.local_dropped, 5)
+        self.assertIsNone(sniffer.local_error)
+        self.assertIsNone(sniffer.degraded)
+        self.assertEqual(sniffer.recv(), raw(4))
+        sniffer.handle = None; release.set()
+
+    def test_status_reports_reason_when_local_capture_is_unavailable(self):
+        import threading
+        import market_passive
+        class Fake:
+            mode = 'windows-raw-receive-only'
+            degraded = market_passive.LOCAL_UNAVAILABLE
+            sockets = [object()]; received_datagrams = matched_datagrams = tcp_datagrams = 0
+            game_outbound_datagrams = local_dropped = 0
+            def __init__(self): self.handle = True; self.closed = threading.Event()
+            def recv(self):
+                self.closed.wait(5); raise OSError('Capture closed')
+            def close(self): self.handle = None; self.closed.set()
+        with tempfile.TemporaryDirectory() as folder, \
+             patch.object(market_passive, 'WindowsSniffer', Fake), \
+             patch('game_transport.connected', return_value=True):
+            market_passive.run(folder, seconds=1, backend='windows')
+            status = json.loads((Path(folder)/'passive_status.json').read_text())
+            self.assertEqual(status['capture_warning'], market_passive.LOCAL_UNAVAILABLE)
+            native = json.loads((Path(folder)/'native_health.json').read_text())
+            self.assertEqual(native['local_capture'], market_passive.LOCAL_UNAVAILABLE)
+            events = [json.loads(line) for line in (Path(folder)/'passive_events.jsonl').read_text().splitlines()]
+            self.assertIn(dict(event='capture_degraded', reason=market_passive.LOCAL_UNAVAILABLE),
+                          [dict(event=e['event'], reason=e.get('reason')) for e in events if e['event'] == 'capture_degraded'])

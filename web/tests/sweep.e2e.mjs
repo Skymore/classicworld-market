@@ -434,6 +434,13 @@ try{
  await waitFor(()=>percentPage.locator('[data-sweep-rule="2000000"]').innerText().then(t=>t.includes('≤ 120')),'frozen price shown');
  assert.match(await percentPage.locator('[data-sweep-rule="2000000"]').innerText(),/最低 50%[\s\S]*≤ 120/);
  assert.equal(await percentPage.locator('[data-sweep-stale]').count(),0,'resolved prices do not mark unchanged rules stale');
+ // A live edit without quotes leaves the group out of buying; it is listed, and the rules do not look unsynced.
+ state.run={...state.run,plan_version:2,plan:{...state.run.plan,watches:state.run.plan.watches.filter(w=>w.item_id!==2000000),unpriced:[{item_id:2000000,group_id:'g1'}]}};
+ emit('sweep');
+ await waitFor(()=>percentPage.locator('[data-sweep-rule="2000000"]').innerText().then(t=>t.includes('暂无报价')),'unpriced group shown');
+ assert.match(await percentPage.locator('[data-sweep-rule="2000000"]').innerText(),/最低 50% · 暂无报价/);
+ assert.doesNotMatch(await percentPage.locator('[data-sweep-rule="2000000"]').innerText(),/≤/);
+ assert.equal(await percentPage.locator('[data-sweep-stale]').count(),0,'an unpriced group does not keep the rules syncing');
  assert(await noOverflow(percentPage));await percentPage.close();
  console.log('PASS percentile sweep: selection, sync, frozen price and unchanged-rule status');
  for(const mobile of [false,true]){

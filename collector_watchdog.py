@@ -9,6 +9,9 @@ import uuid
 
 from collector_recovery import ScanIntent, RecoveryLog, atomic_json, read_json
 
+CRASH_LIMIT, CRASH_WINDOW = 3, 180  # Non-zero exits within this many seconds.
+STOP_NOTICE = 'scan-watchdog-stop.json'  # Shown once by the next desktop launch.
+
 
 def should_restart(code, requested, intent):
     return bool(intent.get('enabled') and (requested or code != 0))
@@ -97,6 +100,7 @@ def run(home, argv, *, command=None, emergency=None, release=None, startup_grace
     intent = ScanIntent(home)
     journal = RecoveryLog(home, 'scan-watchdog')
     restarts = 0
+    crashes = []
     base = command or ([sys.executable] if getattr(sys, 'frozen', False) else [sys.executable, str(Path(__file__).with_name('unified_client.py'))])
     try:
         while True:
@@ -147,6 +151,21 @@ def run(home, argv, *, command=None, emergency=None, release=None, startup_grace
                         pass
                 time.sleep(.1)
             code = process.wait(timeout=5)
+            if code != 0 and not emergency_restart:
+                release()  # A crashed child cannot release the keys it held.
+                now = time.monotonic()
+                crashes = [at for at in crashes if now-at < CRASH_WINDOW] + [now]
+                if len(crashes) >= CRASH_LIMIT and intent.load().get('enabled'):
+                    # Each restart would resume input in the game; stop the loop
+                    # and let the player decide after seeing the reason.
+                    intent.stop()
+                    journal.event('crash_loop_stop', exit_code=code, exits=len(crashes))
+                    try:
+                        atomic_json(Path(home)/STOP_NOTICE, dict(at=time.time(), reason='crash_loop',
+                                                                 exit_code=code, exits=len(crashes)))
+                    except OSError:
+                        pass
+                    return code
             if not emergency_restart and not should_restart(code, requested, intent.load()):
                 return code
             restarts += 1
