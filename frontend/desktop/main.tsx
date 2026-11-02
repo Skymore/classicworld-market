@@ -6,6 +6,7 @@ import './style.css';
 import WorkspaceTab, { useWorkspaceStatus, type Shell } from './workspace';
 import ScanPage from './scan-page';
 import BugReport from './bug-report';
+import { RemoteDebugTools, RemoteDebugBanner } from './remote-debug';
 import SitePage, { type WatchSummary } from './site-page';
 import { updateLabel } from './format';
 import { healthLabel, initial, isLive, type State, type Theme } from './state';
@@ -89,6 +90,7 @@ function App() {
         </div>
       </div>
     </header>
+    <RemoteDebugBanner state={state} update={setState} now={now} />
     <main className={'desktop-main ' + (tab === 'scan' ? 'scan-main' : tab === 'watch' || tab === 'prices' ? 'workspace-main site-main' : 'workspace-main')}>
       {tab === 'scan' ? <ScanPage state={state} connected={connected} busy={busy} error={error} now={now} selected={selected} select={setSelected}
           action={action} sweep={sweep} openSweep={() => setTab('sweep')} />
@@ -100,6 +102,7 @@ function App() {
     {connected && !state.maximized && <ResizeGrip />}
     <footer className="app-footer"><span><kbd>F9</kbd> 停止扫描 <b>·</b> 扫描时保持游戏在前台</span>
       <BugReport state={state} connected={connected} update={setState} />
+      <RemoteDebugTools state={state} connected={connected} update={setState} />
       <span>{state.version ? `v${state.version}` : '正在连接'} <b>·</b> {updateLabel(state.updates)}</span></footer>
   </div>;
 }

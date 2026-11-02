@@ -113,6 +113,8 @@ class CollectorRuntime:
         self.thread.start()
         from collector_diagnostics import Diagnostics
         self.diagnostics = Diagnostics(self)
+        from collector_remote_debug import RemoteDebug
+        self.remote_debug = RemoteDebug(self)
 
     def _run(self):
         try:
@@ -179,6 +181,8 @@ class CollectorRuntime:
 
     def close(self):
         self.stop_event.set()
+        if getattr(self, 'remote_debug', None):
+            self.remote_debug.stop()
         if getattr(self, 'diagnostics', None):
             self.diagnostics.cancel_upload.set()
             self.diagnostics.wake.set()

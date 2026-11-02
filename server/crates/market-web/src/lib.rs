@@ -28,6 +28,7 @@ pub mod auth;
 pub mod bestiary;
 pub mod collector_updates;
 pub mod diagnostics;
+pub mod remote_debug;
 pub mod config;
 pub mod contributors;
 mod delivery;
@@ -72,6 +73,7 @@ impl Default for Settings {
 
 #[derive(Clone)]
 pub struct AppState {
+    pub remote_debug: Arc<remote_debug::Hub>,
     pub db: PgPool,
     /// Waiting for the serial market writer must never consume read connections.
     pub write_db: PgPool,
@@ -104,6 +106,7 @@ impl AppState {
             .acquire_timeout(Duration::from_secs(2))
             .connect_lazy_with(db.connect_options().as_ref().clone());
         Self {
+            remote_debug: Arc::default(),
             db,
             uploads: Arc::new(upload_queue::UploadQueue::new(write_db.clone())),
             write_db,

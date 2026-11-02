@@ -33,8 +33,8 @@ try {
         return original(name, value);
       };
     });
-    await page.locator('.diagnostic-tools summary').click();
-    assert.equal(await page.getByRole('checkbox').count(), 0);
+    await page.locator('.diagnostic-tools summary').filter({hasText:'报 Bug'}).click();
+    assert.equal(await page.getByRole('checkbox', {name:'持续上传日志 · 保留 7 天'}).count(), 0);
     assert.equal(await page.getByText('持续上传日志 · 保留 7 天').count(), 0);
     const submit = page.getByRole('button', { name: '提交 Bug', exact: true });
     assert(await submit.isDisabled());
@@ -44,13 +44,30 @@ try {
     const png = await page.evaluate(() => { const c=document.createElement('canvas');c.width=40;c.height=40;c.getContext('2d').fillRect(0,0,40,40);return c.toDataURL().split(',')[1]; });
     await page.getByLabel('选择问题截图', {exact:true}).setInputFiles({name:'bug.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
     await page.getByAltText('待上传的问题截图').waitFor();
-    const bugPanel = await page.locator('.diagnostic-panel').boundingBox();
+    const bugPanel = await page.locator('.diagnostic-tools[open] .diagnostic-panel').boundingBox();
     assert(bugPanel.x >= 0 && bugPanel.y >= 0 && bugPanel.x + bugPanel.width <= width && bugPanel.y + bugPanel.height <= height);
     if(out){await mkdir(out,{recursive:true});await page.screenshot({path:path.join(out,`bug-${label}.png`)});}
     await submit.click();
     await page.getByText('报告编号：0123456789abcdef0123456789abcdef', { exact: true }).waitFor();
     assert(await page.evaluate(() => window.calls.some(c => c.startsWith('report_bug:/9j/'))));
-    await page.locator('.diagnostic-tools summary').click();
+    await page.locator('.diagnostic-tools summary').filter({hasText:'报 Bug'}).click();
+    await page.evaluate(() => {
+      const original=window.pywebview.api.command;
+      window.pywebview.api.command=async(name,value)=>{
+        if(name==='debug_start')window.state.remote_debug={active:true,message:'已授权',session:'abcdef0123456789abcdef01',expires_at:Date.now()/1000+900,command:'Get-Date'};
+        if(name==='debug_stop')window.state.remote_debug={...window.state.remote_debug,active:false,message:'远程调试已终止',command:''};
+        return original(name,value);
+      };
+    });
+    await page.locator('.diagnostic-tools summary').filter({hasText:'远程调试'}).click();
+    const grant=page.getByRole('button',{name:'确认授权',exact:true});assert(await grant.isDisabled());
+    await page.getByRole('checkbox',{name:'允许枫叶市集运维执行管理员 PowerShell 命令，持续 15 分钟'}).check();
+    await grant.click();await page.getByRole('region',{name:'远程调试已授权'}).waitFor();
+    assert(await grant.isDisabled());
+    await page.locator('.diagnostic-tools summary').filter({hasText:'远程调试'}).click();
+    if(out){await page.screenshot({path:path.join(out,`remote-debug-${label}.png`)});}
+    await page.getByRole('button',{name:'立即终止',exact:true}).click();
+    assert.equal(await page.getByRole('region',{name:'远程调试已授权'}).count(),0);
     const tabs=page.getByRole('navigation',{name:'功能'});
     assert.deepEqual(await tabs.getByRole('button').allInnerTexts(),['扫描采集','关注','价格表','扫货','账号']);
     assert.equal(await page.locator('.desktop-tabs,.theme-switch,.page-heading').count(),0,'old second tab row, theme switch and slogan are gone');

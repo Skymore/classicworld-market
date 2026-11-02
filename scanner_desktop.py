@@ -303,6 +303,17 @@ class DesktopController:
         return self.snapshot()
 
     def command(self, name, value=None):
+        if name in ('debug_start', 'debug_stop'):
+            debug = getattr(self.collector, 'remote_debug', None)
+            if debug is None:
+                raise ValueError('远程调试不可用')
+            if name == 'debug_start':
+                self._user_stop()
+                debug.start(value)
+            else:
+                debug.stop()
+            self._change(remote_debug=debug.view())
+            return self.snapshot()
         if name == 'report_bug':
             diagnostics = getattr(self.collector, 'diagnostics', None)
             if diagnostics is None:
@@ -385,6 +396,8 @@ class DesktopController:
         return self.snapshot()
 
     def _user_stop(self, *, persist=True, reason=None):
+        if getattr(self.collector, 'remote_debug', None):
+            self.collector.remote_debug.stop()
         # Close the input gate BEFORE disk I/O or teardown. Never clear a gate
         # that an earlier scanner still holds.
         with self._lock:
@@ -409,6 +422,8 @@ class DesktopController:
                 self._journal.event('user_stop' if persist else 'update_handoff')
 
     def start(self, hwnd, *, restore=False):
+        if getattr(self.collector, 'remote_debug', None) and self.collector.remote_debug.view()['active']:
+            raise ValueError('请先终止远程调试，再开始扫描。')
         with self._lock:
             if self._worker and self._worker.is_alive():
                 return
@@ -741,6 +756,8 @@ class DesktopController:
 
     def read_local_status(self):
         folder = self.collector.folder
+        if getattr(self.collector, 'remote_debug', None):
+            self._change(remote_debug=self.collector.remote_debug.view())
         if getattr(self.collector, 'diagnostics', None):
             self._change(diagnostics=self.collector.diagnostics.view())
         if time.monotonic() - self._last_prune > 60:
@@ -768,6 +785,8 @@ class DesktopController:
 
     def sync_sweep(self):
         """A newly accepted web run starts its route once, never after a manual stop."""
+        if getattr(self.collector, 'remote_debug', None) and self.collector.remote_debug.view()['active']:
+            return
         if not self.sweep:
             return
         with self.sweep.lock:

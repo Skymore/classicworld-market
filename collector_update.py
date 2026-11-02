@@ -14,7 +14,7 @@ import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
-VERSION = '0.6.53'
+VERSION = '0.6.54'
 LATEST = 'https://mxd.ruit.me/web/releases/stable.json'
 DOWNLOAD_BASES = ('https://mxd.ruit.me/web/releases/', 'https://download.ruit.me/collector/')
 EXE = 'ClassicWorldCollector.exe'

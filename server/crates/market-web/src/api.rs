@@ -34,6 +34,8 @@ const SESSION_SECONDS: u32 = 30 * 86400;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/v1/register", post(register))
+        .route("/api/v1/remote-debug/client", post(crate::remote_debug::client))
+        .route("/api/v1/remote-debug/operator", post(crate::remote_debug::operator))
         .route("/api/v1/login", post(login))
         .route("/api/v1/logout", post(logout))
         // The collector posts to /observations; /upload is the plan's name.

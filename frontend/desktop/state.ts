@@ -2,6 +2,7 @@
 export type Theme = 'light' | 'dark' | 'system';
 export interface Activity { at: number; text: string; kind: string }
 export interface State {
+  remote_debug?: { active: boolean; message: string; session: string; expires_at: number; command: string };
   diagnostics?: { message: string; report_id: string };
   version: string; phase: string; mode: string; message: string; room: number | null;
   channel: number | null; visited: number; uploaded: number; started_at: number | null; stopped_at: number | null;
