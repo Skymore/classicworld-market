@@ -49,6 +49,7 @@ async fn main() -> Result<()> {
     let market_items = catalog.items.len();
     let references = ItemReferences::from_dirs(Path::new(mapledex_path), Path::new(niadb_path))?;
     let added = references.extend(&mut catalog);
+    let niadb_stats = references.annotate_records(&mut catalog);
     let mut data = Dataset::from_dir(Path::new(mapledex_path))?;
     let niadb = data.add_niadb_dir(Path::new(niadb_path))?;
     let zh_names = ZhNames::from_file(Path::new(zh_names_path))?;
@@ -93,6 +94,10 @@ async fn main() -> Result<()> {
         "items    {:>5}  upserted ({market_items} from items.sqlite {:?}, {added} more from \
          Mapledex {} / NiaDB {})",
         s.items, catalog.version, references.mapledex_items, references.niadb_items
+    );
+    println!(
+        "records  {:>5}  item records ({niadb_stats} with NiaDB equipment stats)",
+        catalog.records.len()
     );
     println!("mobs     {:>5}", s.mobs);
     println!(

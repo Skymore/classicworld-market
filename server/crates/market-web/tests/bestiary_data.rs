@@ -18,6 +18,7 @@ use market_web::{
             import, import_catalog, ImportSummary, Input, NiaDbSource, Sources, ZhNamesSource,
         },
         mapledex::{Dataset, NiaDbCounts, ZhNameCounts, ZhNames, ZhSourceCounts},
+        queries,
         rows::ItemRow,
         wz,
     },
@@ -280,6 +281,87 @@ async fn items_sqlite_maps_every_row() {
     assert_eq!((resolution.by_name, resolution.unresolved), (15, 1392));
 }
 
+/// `import_catalog` stores NiaDB's equipment stats on the item records; item
+/// pages and quick previews read the base critical rate and the game
+/// tooltip's requirements back from them.
+#[tokio::test]
+async fn niadb_stats_and_equipment_reach_item_pages() {
+    let path = repo_data("fixture/items.sqlite");
+    if !path.exists() {
+        eprintln!("{} missing; skipping", path.display());
+        return;
+    }
+    let Some(db) = common::test_db().await else {
+        return;
+    };
+    let mut catalog = catalog::read_sqlite(&path).await.unwrap();
+    let refs = references();
+    refs.extend(&mut catalog);
+    let annotated = refs.annotate_records(&mut catalog);
+    assert!(
+        annotated > 100 && annotated < catalog.records.len(),
+        "{annotated} of {}",
+        catalog.records.len()
+    );
+    let data = mapledex();
+    let input = Input {
+        catalog: &catalog,
+        references: &refs,
+        data: &data,
+        sources: &SOURCES,
+        niadb: None,
+        zh_names: None,
+    };
+    import(&db.pool, &input).await.unwrap();
+    let with_niadb: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM item_records WHERE record ? 'niadb_reference'")
+            .fetch_one(&db.pool)
+            .await
+            .unwrap();
+    assert_eq!(with_niadb, annotated as i64);
+
+    let now = 1_793_000_000.0;
+    let claw = queries::item_page(&db.pool, 1472009, now)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        claw.market.base_stats,
+        vec![("weapon_attack".into(), 23), ("critical_rate".into(), 1)]
+    );
+    let e = claw.equipment.expect("equipment reference");
+    assert_eq!(
+        e.req.map(|r| (r.level, r.str, r.dex, r.int, r.luk)),
+        Some((30, 0, 30, 0, 65))
+    );
+    assert_eq!(
+        (e.jobs, e.kind, e.attack_speed, e.upgrades),
+        (Some(8), Some("拳套"), Some(4), Some(7))
+    );
+    let preview = queries::item_preview(&db.pool, 1472009, false)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(preview["equipment"]["kind"], "拳套");
+    assert_eq!(preview["equipment"]["req"]["luk"], 65);
+    assert!(preview["market"]["base_stats"]
+        .as_array()
+        .unwrap()
+        .contains(&serde_json::json!(["critical_rate", 1])));
+
+    // A re-import leaves the same records; non-equipment has no reference.
+    import(&db.pool, &input).await.unwrap();
+    let again: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM item_records WHERE record ? 'niadb_reference'")
+            .fetch_one(&db.pool)
+            .await
+            .unwrap();
+    assert_eq!(again, with_niadb);
+    let snail = queries::item_page(&db.pool, 4000019, now).await.unwrap();
+    assert!(snail.is_none_or(|page| page.equipment.is_none()));
+    db.drop_schema().await;
+}
+
 async fn count(pool: &sqlx::PgPool, table: &str) -> i64 {
     sqlx::query_scalar(&format!("SELECT count(*) FROM {table}"))
         .fetch_one(pool)
@@ -369,6 +451,7 @@ fn full(items: Vec<ItemRow>) -> Full {
     let refs = references();
     let mut catalog = catalog_of(items);
     refs.extend(&mut catalog);
+    refs.annotate_records(&mut catalog);
     let mut data = mapledex();
     data.add_niadb_dir(&repo_data("reference/niadb")).unwrap();
     let zh_names = zh_names();

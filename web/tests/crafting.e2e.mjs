@@ -34,7 +34,8 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/v1/catalog/page') {
       const target = new URL(url.searchParams.get('url'), 'http://localhost');
       const id = Number(target.pathname.split('/').at(-1));
-      data = { kind: 'item', page: { item: { id, name_en: catalog.items[id]?.name_en || 'Red Potion', category: '装备' }, stats: null, droppers: [], npc_offers: [], npc_sell: null, market: { as_of: now, base_stats: [], days, sale_points: days.map((_,day)=>({day,price:8000+day*100})), listings: [3000,6000,3000].map((price,index)=>{const i=index===2?0:index;return {shop_key:'fixture-'+i,visit_id:'snapshot-'+i,slot:index,bundle:1,source:'packet',shop:'Fixture shop '+i,channel:24,room:10,unit_price:price,stock:1+i,seen_at:new Date((now-i*60)*1000).toISOString(),variant:{id:'variant-'+i,stats:[{key:'weapon_attack',value:50+i},{key:'dex',value:2}],remaining_upgrades:7,enhancements:1}}}), sales: [] } } };
+      data = { kind: 'item', page: { item: { id, name_en: catalog.items[id]?.name_en || 'Red Potion', category: '装备' }, stats: null, droppers: [], npc_offers: [], npc_sell: null,
+        equipment: id === 1452003 ? { req: { level: 25, str: 0, dex: 65, int: 0, luk: 0 }, jobs: 4, weapon: true, kind: '弓', kind_en: 'Bow', attack_speed: 6, upgrades: 7 } : undefined, market: { as_of: now, base_stats: [], days, sale_points: days.map((_,day)=>({day,price:8000+day*100})), listings: [3000,6000,3000].map((price,index)=>{const i=index===2?0:index;return {shop_key:'fixture-'+i,visit_id:'snapshot-'+i,slot:index,bundle:1,source:'packet',shop:'Fixture shop '+i,channel:24,room:10,unit_price:price,stock:1+i,seen_at:new Date((now-i*60)*1000).toISOString(),variant:{id:'variant-'+i,stats:[{key:'weapon_attack',value:50+i},{key:'dex',value:2}],remaining_upgrades:7,enhancements:1}}}), sales: [] } } };
     }
     res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(data));
   }
@@ -91,7 +92,25 @@ try {
       })),'variant time sits below location without creating a third line or increasing the compact row height');
     }
     await page.setViewportSize({width:mobile?390:1280,height:844});
-    await where.locator('.variant-summary').first().click();assert(await where.locator('.listing-offer').first().evaluate(node=>node.open),'captured full stats still expand');
+    // Captured stats open the piece's game tooltip: hover on desktop, a bottom sheet on a phone tap. No inline expansion.
+    assert.equal(await where.locator('details.listing-offer').count(),0,'listing rows no longer expand inline');
+    const pieceRow=where.locator('.listing-offer .piece-record').first(),pieceCard=page.locator('.item-peek.is-piece [data-equipment-card]');
+    if(!mobile){
+      await pieceRow.hover();await pieceCard.waitFor();
+      assert(!(await page.locator('.item-peek').evaluate(node=>node.classList.contains('is-pinned'))),'hover shows an unpinned tooltip');
+      const [row,card]=await Promise.all([pieceRow.boundingBox(),page.locator('.item-peek').boundingBox()]);
+      assert(card.x>=row.x+row.width||card.x+card.width<=row.x,'the tooltip sits beside the row, not over the rows below');
+    }
+    // Tap the price side: the shop name is its own owner-name toggle button.
+    await pieceRow.click({position:{x:(await pieceRow.boundingBox()).width-24,y:20}});await pieceCard.waitFor();
+    assert(await page.locator('.item-peek').evaluate((node,mobile)=>node.classList.contains(mobile?'is-mobile':'is-pinned'),mobile),'a click pins the tooltip; a phone tap opens the bottom sheet');
+    assert.match(await pieceCard.locator('.eq-title').innerText(),/\(\+1\)$/,'the title carries the enhancement count');
+    assert.match(await pieceCard.locator('.eq-lines dd').first().innerText(),/^(弓|Bow)$/,'the weapon type comes from the catalogue reference');
+    assert.equal(await pieceCard.locator('[data-stat=upgrades] dd').innerText(),'7','the piece keeps its own remaining upgrades');
+    assert.deepEqual(await pieceCard.locator('.eq-jobs span').evaluateAll(spans=>spans.map(span=>span.classList.contains('on'))),[false,false,false,true,false],'only the bowman job is lit');
+    assert.deepEqual(await pieceCard.locator('.eq-req .zero').count(),3,'zero requirements are dimmed');
+    assert.equal(await page.locator('.item-peek .peek-footer').count(),0,'no link back to the page the user is on');
+    await page.keyboard.press('Escape');await page.locator('.item-peek').waitFor({state:'hidden'});
     await page.locator('[data-offer-filter-open]').click();const dialog=page.locator('#offer-filter-dialog');await dialog.locator('[name=maxPrice]').fill('4000');
     await dialog.locator('[data-offer-apply]').click();assert.equal(await where.locator('.variant-record').count(),1);
     await page.locator('[data-offer-clear=all]').click();assert.equal(await where.locator('.variant-record').count(),2);

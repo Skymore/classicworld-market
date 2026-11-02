@@ -106,8 +106,9 @@ pub async fn item_preview(db: &PgPool, id: i32, all: bool) -> sqlx::Result<Optio
             "lowest_ask":low,"sales_24h":fields["sales_window"],
             "listings_count":listings,"shops_count":shops,"as_of":as_of,"change_24h":null})
     });
+    let equipment = super::equipment::equipment_reference(&item, record.as_ref());
     Ok(Some(serde_json::json!({"item":item,"stats":stats,"npc_offers":offers,
-        "npc_sell":record.as_ref().and_then(npc_sell_price),
+        "npc_sell":record.as_ref().and_then(npc_sell_price),"equipment":equipment,
         "market":{"as_of":stats.as_ref().map(|s| &s["as_of"]),
             "base_stats":record.as_ref().map(reference_stats).unwrap_or_default()}})))
 }
@@ -310,6 +311,7 @@ async fn item_page_scoped(
     };
     market.base_stats = record.as_ref().map(reference_stats).unwrap_or_default();
     Ok(Some(ItemPage {
+        equipment: super::equipment::equipment_reference(&item, record.as_ref()),
         item,
         selected_variant: None,
         stats,
@@ -370,8 +372,15 @@ const REFERENCE_KEYS: [(&str, &str); 14] = [
     ("incMMP", "mp"),
 ];
 
+/// NiaDB stat names -> variant keys, for the stats only NiaDB lists.
+const NIADB_KEYS: [(&str, &str); 2] = [
+    ("critRate", "critical_rate"),
+    ("critDamage", "critical_damage"),
+];
+
 /// The item's reference stats in variant keys: Mapledex first (it has weapon
-/// attack), then DVG `base_stats` for keys Mapledex lacks.
+/// attack), then DVG `base_stats` for keys Mapledex lacks, then NiaDB's
+/// critical rate and damage (`import_catalog` stores them as `niadb_reference`).
 pub(crate) fn reference_stats(record: &Value) -> Vec<(String, i64)> {
     let mut out: Vec<(String, i64)> = Vec::new();
     let mut put = |source: &str, value: Option<i64>| {
@@ -398,6 +407,18 @@ pub(crate) fn reference_stats(record: &Value) -> Vec<(String, i64)> {
     {
         if let Some(key) = stat.get("key").and_then(Value::as_str) {
             put(key, stat.get("value").and_then(Value::as_i64));
+        }
+    }
+    if let Some(stats) = record
+        .pointer("/niadb_reference/stats")
+        .and_then(Value::as_object)
+    {
+        for (source, key) in NIADB_KEYS {
+            if let Some(value) = stats.get(source).and_then(Value::as_i64) {
+                if !out.iter().any(|(k, _)| k == key) {
+                    out.push((key.to_string(), value));
+                }
+            }
         }
     }
     out
@@ -1716,6 +1737,22 @@ mod tests {
                 ("weapon_attack".to_string(), 17),
                 ("weapon_defense".to_string(), 20),
                 ("str".to_string(), 1),
+            ]
+        );
+    }
+
+    #[test]
+    fn reference_stats_add_niadb_critical() {
+        let record = json!({
+            "mapledex_reference": {"data": {"incPAD": 23}},
+            "niadb_reference": {"stats": {"watk": 23, "critRate": 1, "critDamage": 2, "slots": 7}},
+        });
+        assert_eq!(
+            reference_stats(&record),
+            vec![
+                ("weapon_attack".to_string(), 23),
+                ("critical_rate".to_string(), 1),
+                ("critical_damage".to_string(), 2),
             ]
         );
     }

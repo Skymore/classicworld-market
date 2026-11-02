@@ -248,6 +248,8 @@ struct NiaDbItem {
     /// The Classic World item id (NiaDB's own `id` is unrelated).
     #[serde(rename = "iconKey")]
     icon_key: String,
+    /// A JSON object in a string: `{"watk":23,"critRate":1,"slots":7,...}`.
+    stats: Option<String>,
 }
 
 /// What the reference lists say about one Classic World item.
@@ -260,6 +262,9 @@ struct Known {
     req_level: Option<i64>,
     req_job: Option<i64>,
     cash: bool,
+    /// NiaDB's stats of an equipment item; the only source of its base
+    /// critical rate and critical damage.
+    niadb_stats: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 impl Known {
@@ -356,6 +361,7 @@ impl ItemReferences {
                 req_level: item.req_level,
                 req_job: item.req_job,
                 cash: item.cash.is_some_and(|v| v != 0),
+                niadb_stats: None,
             },
         );
     }
@@ -377,6 +383,41 @@ impl ItemReferences {
             known.req_level = item.level_req;
         }
         known.cash |= item.tab.as_deref() == Some("Cash");
+        if id / 1_000_000 == 1 && known.niadb_stats.is_none() {
+            match item
+                .stats
+                .as_deref()
+                .map(serde_json::from_str::<serde_json::Value>)
+            {
+                Some(Ok(serde_json::Value::Object(stats))) if !stats.is_empty() => {
+                    known.niadb_stats = Some(stats);
+                }
+                Some(Ok(_)) | None => {}
+                Some(Err(e)) => self
+                    .warnings
+                    .push(format!("NiaDB item {id}: bad stats: {e}")),
+            }
+        }
+    }
+
+    /// Adds NiaDB's stats to the catalogue record of every equipment item
+    /// NiaDB lists, as `niadb_reference.stats`, and returns how many records
+    /// got them. `queries::reference_stats` reads the base critical rate and
+    /// damage from there. Records are replaced on every import, so a re-run
+    /// leaves the same result.
+    pub fn annotate_records(&self, catalog: &mut Catalog) -> usize {
+        let mut annotated = 0;
+        for (id, record) in &mut catalog.records {
+            let stats = self.items.get(id).and_then(|k| k.niadb_stats.as_ref());
+            if let (Some(stats), Some(object)) = (stats, record.as_object_mut()) {
+                object.insert(
+                    "niadb_reference".to_string(),
+                    serde_json::json!({ "stats": stats }),
+                );
+                annotated += 1;
+            }
+        }
+        annotated
     }
 
     pub fn len(&self) -> usize {
@@ -660,6 +701,41 @@ mod tests {
             version: "test".into(),
             warnings: Vec::new(),
         }
+    }
+
+    #[test]
+    fn niadb_stats_go_into_equipment_records() {
+        let niadb = r#"[
+            {"id": 690, "name": "Mithril Guards", "type": "Equip", "iconKey": "1472009",
+             "stats": "{\"reqDex\":30,\"watk\":23,\"critRate\":1,\"slots\":7}"},
+            {"id": 691, "name": "Hat", "type": "Equip", "iconKey": "1002000", "stats": "{not json"},
+            {"id": 692, "name": "Red Potion", "type": "Use", "iconKey": "2000000", "stats": "{\"hp\":50}"}
+        ]"#;
+        let refs = ItemReferences::from_json(MDX_ITEMS, MDX_EQUIPS, niadb).unwrap();
+        assert!(
+            refs.warnings
+                .iter()
+                .any(|w| w.contains("NiaDB item 1002000: bad stats")),
+            "{:?}",
+            refs.warnings
+        );
+        let mut catalog = market_catalog();
+        catalog.records = vec![
+            (1472009, serde_json::json!({"level": 30})),
+            (1002000, serde_json::json!({"level": 5})),
+            (2000000, serde_json::json!({})),
+        ];
+        assert_eq!(refs.annotate_records(&mut catalog), 1);
+        assert_eq!(
+            catalog.records[0].1["niadb_reference"]["stats"]["critRate"],
+            serde_json::json!(1)
+        );
+        assert_eq!(catalog.records[0].1["level"], serde_json::json!(30));
+        assert!(catalog.records[1].1.get("niadb_reference").is_none());
+        assert!(
+            catalog.records[2].1.get("niadb_reference").is_none(),
+            "equipment only"
+        );
     }
 
     #[test]

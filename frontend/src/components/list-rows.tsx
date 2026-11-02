@@ -3,6 +3,7 @@ import { Store, UserRound } from "lucide-react";
 import { useWords } from "../providers";
 import { Slot, ItemNames, Price, RelativeTime } from "./shared";
 import { SiteLink } from "./shell";
+import { pieceData } from "./equipment";
 import { t } from "/web/js/lib/i18n.js";
 import { equipmentSummary } from "/web/js/lib/equipment-summary.js?v=20261029-critical-1";
 import { priceUnit } from "/web/js/lib/market-source.js?v=20261022-external-1";
@@ -181,11 +182,19 @@ export function OfferRow({
       </span>
     </>
   );
+  // Captured equipment: hovering (desktop) or tapping (phone) the row shows
+  // this piece's game tooltip in the quick preview instead of the item's.
+  const piece =
+    Math.floor(Number(row.item_id) / 1000000) === 1 ? pieceData(row.equipment) : undefined;
   const props = {
-    className: "ware market-record" + (hideIdentity ? " variant-record" : "") + (row.invalidated_at ? " expired-record" : ""),
+    className: "ware market-record" + (hideIdentity ? " variant-record" : "") + (row.invalidated_at ? " expired-record" : "") + (piece ? " piece-record" : ""),
     "data-item-row": "",
     "data-id": row.id,
     "data-record-kind": sale ? "sale" : "quote",
+    "data-piece-item": piece ? Number(row.item_id) : undefined,
+    "data-piece": piece,
+    // Rows without their own link take keyboard focus to open the tooltip.
+    tabIndex: piece && plain ? 0 : undefined,
     title: row.shop || undefined,
   };
   return plain ? (

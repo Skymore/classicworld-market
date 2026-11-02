@@ -9,6 +9,7 @@ import { loadCatalog } from "../lib/catalog";
 import { timestamp } from "../lib/item-market";
 import { usePreferences, useWords } from "../providers";
 import { Icon, Slot, RelativeTime } from "./shared";
+import { EquipmentCard, EquipmentPeek } from "./equipment";
 import { ensureStyle } from "../lib/styles";
 type Hit = {
   anchor: HTMLElement;
@@ -16,8 +17,20 @@ type Hit = {
   touch?: boolean;
   pinned?: boolean;
   rect?: DOMRect;
+  // One listed equipment piece (`data-piece`): show its game tooltip.
+  piece?: any;
 };
 export function previewItem(target: Element, origin: string): Hit | null {
+  // A listing row of captured equipment, with or without its own item link.
+  const row = target.closest<HTMLElement>("[data-piece-item]");
+  if (row && !row.closest(".item-peek") && !row.hasAttribute("data-no-preview")) {
+    let piece = null;
+    try {
+      piece = JSON.parse(row.dataset.piece || "null");
+    } catch {}
+    const id = Number(row.dataset.pieceItem);
+    if (piece && Number.isInteger(id) && id > 0) return { anchor: row, id, piece };
+  }
   const anchor = target.closest<HTMLElement>("a[href],tr[data-open]");
   if (
     !anchor ||
@@ -39,12 +52,15 @@ export function previewItem(target: Element, origin: string): Hit | null {
   if (url.searchParams.has("variant")) return null;
   return match ? { anchor, id: Number(match[1]) } : null;
 }
+// Beside the anchor's first `reach` pixels (an item name); a whole listing
+// row passes Infinity so its tooltip never covers the rows below it.
 export function previewPosition(
   anchor: DOMRect | any,
   box: DOMRect | any,
   viewport: { width: number; height: number },
+  reach = 300,
 ) {
-  const right = Math.min(anchor.right, anchor.left + 300) + 12,
+  const right = Math.min(anchor.right, anchor.left + reach) + 12,
     left =
       right + box.width <= viewport.width - 12
         ? right
@@ -122,10 +138,12 @@ export default function ItemPreview() {
       current.rect = current.anchor.getBoundingClientRect();
     if (current.rect)
       setPosition(
-        previewPosition(current.rect, box.getBoundingClientRect(), {
-          width: innerWidth,
-          height: innerHeight,
-        }),
+        previewPosition(
+          current.rect,
+          box.getBoundingClientRect(),
+          { width: innerWidth, height: innerHeight },
+          current.piece ? Infinity : 300,
+        ),
       );
   }
   useEffect(() => {
@@ -135,9 +153,15 @@ export default function ItemPreview() {
     const open = (next: Hit) => {
       clearTimeout(timer);
       clearTimeout(leave);
-      if (active.current?.anchor === next.anchor) {
+      const current = active.current;
+      // Same anchor: keep it, but a click pins a hover card and a tap turns
+      // it into the touch sheet (which needs its own history entry below).
+      if (current?.anchor === next.anchor && !(next.touch && !current.touch)) {
+        if (next.pinned && !current.pinned) setHit({ ...current, pinned: true });
         if (next.pinned)
-          popup.current?.querySelector<HTMLButtonElement>("button")?.focus();
+          requestAnimationFrame(() =>
+            popup.current?.querySelector<HTMLButtonElement>("button")?.focus(),
+          );
         return;
       }
       active.current?.anchor.removeAttribute("aria-controls");
@@ -210,6 +234,12 @@ export default function ItemPreview() {
         open({ ...next, touch: true, pinned: true });
         return;
       }
+      // A listing row without its own link (the item page's): a click pins
+      // its tooltip. Rows that link to the item still follow the link.
+      if (next && next.piece && event.detail > 0 && !target.closest("a[href]")) {
+        open({ ...next, pinned: true });
+        return;
+      }
       close();
     };
     const key = (event: KeyboardEvent) => {
@@ -273,6 +303,9 @@ export default function ItemPreview() {
   const page = query.data?.page,
     item = page?.item,
     stats = page?.stats,
+    piece = hit?.piece,
+    // On the item's own page the tooltip needs no link back to it.
+    here = !!item && route.pathname === `/item/${item.id}`,
     format = (value: number | null | undefined) =>
       value == null
         ? "—"
@@ -306,12 +339,21 @@ export default function ItemPreview() {
       />
       <aside
         id="item-quick-preview"
-        className={"item-peek " + (hit?.touch ? "is-mobile" : "")}
+        className={
+          "item-peek" +
+          (hit?.touch ? " is-mobile" : "") +
+          (piece ? " is-piece" : "") +
+          (hit?.pinned ? " is-pinned" : "")
+        }
         hidden={!hit}
         ref={popup}
         role="dialog"
         aria-modal={!!hit?.touch}
-        aria-label={words("物品快速预览", "Quick item preview")}
+        aria-label={
+          piece
+            ? words("这件装备的属性", "This piece's stats")
+            : words("物品快速预览", "Quick item preview")
+        }
         aria-labelledby="item-preview-name"
         style={
           hit?.touch ? undefined : { left: position.left, top: position.top }
@@ -336,6 +378,23 @@ export default function ItemPreview() {
               <a href={url} onClick={() => close(false, true)}>
                 {words("打开完整详情 →", "Open full details →")}
               </a>
+            )}
+          </div>
+        ) : piece ? (
+          <div className="peek-content peek-piece" data-preview-item={item.id} data-preview-piece>
+            <EquipmentCard
+              item={item}
+              equipment={page.equipment}
+              base={page.market.base_stats || []}
+              piece={piece}
+              headingId="item-preview-name"
+            />
+            {!here && (
+              <footer className="peek-footer">
+                <a href={url} onClick={() => close(false, true)}>
+                  {words("查看物品详情 →", "Open item details →")}
+                </a>
+              </footer>
             )}
           </div>
         ) : (
@@ -394,7 +453,12 @@ export default function ItemPreview() {
                 </span>
               </button>
             </header>
-            {page.market.base_stats?.length ? (
+            {page.equipment ? (
+              <EquipmentPeek
+                equipment={page.equipment}
+                base={page.market.base_stats || []}
+              />
+            ) : page.market.base_stats?.length ? (
               <section className="peek-section">
                 <h3>{words("图鉴基础属性", "Catalogue base stats")}</h3>
                 <dl className="peek-stats">

@@ -100,6 +100,9 @@ pub struct ItemPage {
     pub npc_offers: Vec<NpcOffer>,
     /// What an NPC pays for one (DVG `npc_price`, else Mapledex `price`).
     pub npc_sell: Option<i64>,
+    /// The game tooltip's requirements, jobs and type; equipment only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub equipment: Option<super::equipment::EquipmentReference>,
     pub market: ItemMarket,
 }
 

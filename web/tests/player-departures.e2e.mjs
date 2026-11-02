@@ -36,7 +36,7 @@ try{
   assert.equal(await page.locator('.where-well [data-quote]').first().getAttribute('data-unit-price'),'100','expired quote keeps its price order');
   const toggle=expired.locator('.shop-name-toggle');const url=page.url();
   await toggle.click();assert.equal(await toggle.textContent(),'ExampleHost');assert.equal(page.url(),url);
-  assert.equal(await expired.locator('xpath=ancestor::details[1]').getAttribute('open'),null,'toggle must not expand equipment');
+  assert(await page.locator('.item-peek').isHidden(),'toggle must not open the equipment tooltip');
   await toggle.focus();await page.keyboard.press('Enter');assert.equal(await toggle.textContent(),'Gone shop');
   await toggle.click();revision++;for(const stream of streams)stream.write('event: market\ndata: {}\n\n');
   await page.waitForFunction(v=>Number(document.querySelector('.item-stall')?.dataset.asOf)===v,now+revision);

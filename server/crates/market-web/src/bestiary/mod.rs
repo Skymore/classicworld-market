@@ -8,6 +8,7 @@ pub mod assets;
 pub mod catalog;
 pub mod cli;
 mod dex_api;
+pub mod equipment;
 pub mod format;
 pub mod http;
 pub mod import;

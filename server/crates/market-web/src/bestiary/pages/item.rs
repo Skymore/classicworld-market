@@ -73,6 +73,7 @@ pub fn item_page(page: &ItemPage, ctx: &Ctx) -> Markup {
                         a data-all-attributes href=(format!("/item/{}?hours={}&lang={}", page.item.id, if ctx.here.contains("hours=all") {"all"} else {"72"}, if ctx.lang==Lang::En {"en"} else {"zh"})) { (ctx.t("查看全部属性", "All equipment stats")) }
                     }
                 }
+                @if let Some(strip) = equipment_strip(page, ctx) { (strip) }
                 div.ibox {
                     div.src-box { (sources_well(&v)) }
                     (market::where_well(&v))
@@ -94,6 +95,59 @@ pub fn item_page(page: &ItemPage, ctx: &Ctx) -> Markup {
         },
         body,
     )
+}
+
+/// Requirements, jobs, type and base stats of equipment, under the head.
+/// The React page renders the same strip (`EquipmentStrip`).
+pub fn equipment_strip(page: &ItemPage, ctx: &Ctx) -> Option<Markup> {
+    use crate::bestiary::equipment::{attack_speed_label, job_allowed, JOBS, STATS};
+    let e = page.equipment.as_ref()?;
+    let base: Vec<(&str, i64)> = STATS
+        .iter()
+        .filter_map(|(key, zh, en)| {
+            let (_, value) = page.market.base_stats.iter().find(|(k, _)| k == key)?;
+            (*value != 0).then(|| (ctx.t(zh, en), *value))
+        })
+        .collect();
+    let kind = if ctx.lang == Lang::En {
+        e.kind_en
+    } else {
+        e.kind
+    };
+    Some(html! {
+        dl.eq-strip data-equipment-strip {
+            @if let Some(req) = &e.req {
+                dt { (ctx.t("要求", "Requires")) }
+                dd {
+                    @for (zh, en, value) in [("等级", "Level", req.level), ("力量", "STR", req.str),
+                        ("敏捷", "DEX", req.dex), ("智力", "INT", req.int), ("运气", "LUK", req.luk)] {
+                        span.zero[value == 0] { (ctx.t(zh, en)) " " b { (value) } }
+                    }
+                }
+            }
+            @if let Some(mask) = e.jobs {
+                dt { (ctx.t("职业", "Jobs")) }
+                dd.eq-jobs {
+                    @for (bit, zh, en) in JOBS { span.on[job_allowed(mask, bit)] { (ctx.t(zh, en)) } }
+                }
+            }
+            @if kind.is_some() || e.attack_speed.is_some() || e.upgrades.is_some() {
+                dt { (ctx.t("类型", "Type")) }
+                dd {
+                    @if let Some(kind) = kind { span { (kind) } }
+                    @if let Some(speed) = e.attack_speed {
+                        @let (zh, en) = attack_speed_label(speed);
+                        span { (ctx.t("攻击速度 ", "Attack speed ")) b { (ctx.t(zh, en)) } }
+                    }
+                    @if let Some(n) = e.upgrades { span { (ctx.t("可升级次数 ", "Upgrades ")) b { (n) } } }
+                }
+            }
+            @if !base.is_empty() {
+                dt { (ctx.t("基础", "Base")) }
+                dd { @for (label, value) in &base { span { (label) " " b { "+" (value) } } } }
+            }
+        }
+    })
 }
 
 /// The market sections alone, for `item.js` to swap in after a poll.

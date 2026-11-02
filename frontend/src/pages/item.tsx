@@ -2,7 +2,7 @@ import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261025-presence
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "/web/js/lib/i18n.js";
-import { meso, fullTime } from "/web/js/lib/format.js";
+import { meso } from "/web/js/lib/format.js";
 import { equipmentSummary } from "/web/js/lib/equipment-summary.js?v=20261029-critical-1";
 import {
   normalizeOfferFilters,
@@ -32,6 +32,7 @@ import {
   Search as QuickSearch,
 } from "../components/shared";
 import { Location, OfferRow } from "../components/list-rows";
+import { EquipmentStrip } from "../components/equipment";
 import { SiteLink } from "../components/shell";
 import OfferFilterDialog from "../components/offer-filters";
 import { Well, MobPicture, Secondary, useNames } from "./catalogue";
@@ -93,83 +94,6 @@ function StatValue({ stat, base }: { stat: any; base: number | undefined }) {
         {range && `–${stat.maxValue}`}
       </span>
       {diff !== 0 && <small>({diff > 0 ? "+" : "−"}{Math.abs(diff)})</small>}
-    </>
-  );
-}
-function Variant({ variant, page }: { variant: any; page: any }) {
-  const words = useWords(),
-    base = page.market.base_stats || [];
-  const labels: Record<string, string> = {
-    critical_rate: "Critical Rate",
-    critical_damage: "Critical Damage",
-    weapon_attack: "Weapon ATT",
-    magic_attack: "Magic ATT",
-    weapon_defense: "Weapon DEF",
-    magic_defense: "Magic DEF",
-    accuracy: "Accuracy",
-    avoid: "Avoidability",
-    str: "STR",
-    dex: "DEX",
-    int: "INT",
-    luk: "LUK",
-    pad: "Weapon ATT",
-    mad: "Magic ATT",
-    pdd: "Weapon DEF",
-    mdd: "Magic DEF",
-    acc: "Accuracy",
-    eva: "Avoid",
-    speed: "Speed",
-    jump: "Jump",
-    hp: "HP",
-    mp: "MP",
-  };
-  return (
-    <>
-      <div className="tip-h">
-        <Slot empty url={page.item.icon_url} size={28} />
-        <b>
-          {words(page.item.name_zh || page.item.name_en, page.item.name_en)}
-        </b>
-        {(variant.maxEnhancements ?? variant.enhancements) > 0 && (
-          <span className="tip-up">
-            +{variant.enhancements}
-            {variant.maxEnhancements > variant.enhancements && `–${variant.maxEnhancements}`}
-          </span>
-        )}
-      </div>
-      <ul>
-        {variant.stats.map((stat: any) => {
-          const reference = base.find(
-              ([key]: [string, number]) => key === stat.key,
-            )?.[1],
-            up = stat.value > (reference ?? 0);
-          return (
-            <li className={up ? "up" : ""} key={stat.key}>
-              <span>
-                {words(stat.label || stat.key, labels[stat.key] || stat.key)}
-              </span>
-              <b>
-                +{stat.value}
-                {stat.maxValue > stat.value && `–${stat.maxValue}`}
-              </b>
-              {reference != null &&
-                stat.value > reference &&
-                !(stat.maxValue > stat.value) && (
-                  <i>(+{stat.value - reference})</i>
-                )}
-            </li>
-          );
-        })}
-        {!variant.stats.length && (
-          <li>{words("没有解析到属性", "no stats decoded")}</li>
-        )}
-      </ul>
-      {variant.remaining_upgrades != null && (
-        <div className="tip-s">
-          {words("可升级次数：", "Upgrades available: ")}
-          {variant.remaining_upgrades}
-        </div>
-      )}
     </>
   );
 }
@@ -444,7 +368,6 @@ export default function Item({ page }: { page: any }) {
     [raw, saveFilters] = useUserValue(`item.offerFilters.${item.id}`, "{}");
   const [tab, setTab] = useState("ladder"),
     [more, setMore] = useState<Set<string>>(new Set()),
-    [offersOpen, setOffersOpen] = useState<Set<string>>(new Set()),
     [filterOpen, setFilterOpen] = useState(false),
     [maxDraft, setMaxDraft] = useState(""),
     [, tick] = useState(0);
@@ -685,54 +608,17 @@ export default function Item({ page }: { page: any }) {
           }}
         />
       );
-    return equipment ? (
-      <details
-        key={row.key}
-        className={"listing-offer " + (stale ? "stale" : "")}
-        data-quote={row.key}
-        data-offer={row.key}
-        data-observed={row.observed}
-        data-unit-price={row.unit_price}
-        data-bonus={row.bonus ? "1" : "0"}
-        open={offersOpen.has(row.key)}
-        onToggle={(event) => {
-          const opened = event.currentTarget.open;
-          setOffersOpen((old) => {
-            if (old.has(row.key) === opened) return old;
-            const next = new Set(old);
-            opened ? next.add(row.key) : next.delete(row.key);
-            return next;
-          });
-        }}
-      >
-        <summary className="variant-summary">
-          {content}
-          <span className="variant-chevron" aria-hidden="true">
-            ›
-          </span>
-        </summary>
-        <div className="offer-body">
-          {row.variant ? (
-            <div className="tip">
-              <Variant variant={row.variant} page={page} />
-            </div>
-          ) : (
-            <p className="note">{words("暂无属性", "Stats unavailable")}</p>
-          )}
-          <p className="fnote">
-            {words("最近观察：", "Last observed: ")}
-            <time data-local-time={row.observed}>{fullTime(row.observed)}</time>
-            {stale && " · " + words("已过期", "Outdated")}
-          </p>
-        </div>
-      </details>
-    ) : (
+    // Captured equipment shows its game tooltip on hover (desktop) or as a
+    // bottom sheet on tap (phone); see `ItemPreview`. No inline expansion.
+    return (
       <div
         key={row.key}
-        className={"variant-offer " + (stale ? "stale" : "")}
+        className={(equipment ? "listing-offer " : "variant-offer ") + (stale ? "stale" : "")}
         data-quote={row.key}
+        data-offer={equipment ? row.key : undefined}
         data-observed={row.observed}
         data-unit-price={row.unit_price}
+        data-bonus={equipment ? (row.bonus ? "1" : "0") : undefined}
       >
         {content}
       </div>
@@ -1152,6 +1038,9 @@ export default function Item({ page }: { page: any }) {
             </div>
           )}
         </div>
+        {page.equipment && (
+          <EquipmentStrip equipment={page.equipment} base={page.market.base_stats || []} />
+        )}
         <div className="ibox">
           <div data-market="where">
             <CollapsibleWell

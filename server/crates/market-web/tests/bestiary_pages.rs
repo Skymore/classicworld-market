@@ -188,6 +188,7 @@ fn market() -> ItemMarket {
 fn item_page(stats: Option<MarketStats>, market: ItemMarket) -> ItemPage {
     ItemPage {
         selected_variant: None,
+        equipment: None,
         item: ItemSummary {
             id: 4000019,
             name_zh: Some("蜗牛壳<script>".into()),
@@ -258,6 +259,39 @@ fn item_page_head_sources_and_shell() {
         "language switch"
     );
     assert!(html.contains(r#"data-star="4000019""#));
+}
+
+#[test]
+fn equipment_strip_follows_the_game_tooltip() {
+    use market_web::bestiary::equipment::{EquipmentReference, Requirements};
+    let mut page = item_page(Some(stats()), market());
+    assert!(!pages::item_page(&page, &zh())
+        .into_string()
+        .contains("data-equipment-strip"));
+    page.equipment = Some(EquipmentReference {
+        req: Some(Requirements { level: 30, str: 0, dex: 30, int: 0, luk: 65 }),
+        jobs: Some(8),
+        weapon: true,
+        kind: Some("拳套"),
+        kind_en: Some("Claw"),
+        attack_speed: Some(4),
+        upgrades: Some(7),
+    });
+    page.market.base_stats = vec![("weapon_attack".into(), 23), ("critical_rate".into(), 1)];
+    let html = pages::item_page(&page, &zh()).into_string();
+    assert!(html.contains(r#"<dl class="eq-strip" data-equipment-strip>"#));
+    assert!(html.contains(r#"<span class="zero">力量 <b>0</b></span>"#));
+    assert!(html.contains("运气 <b>65</b>"));
+    assert!(html.contains(">新手</span>") && !html.contains(r#"class="on">新手"#), "beginners cannot wear a thief claw");
+    assert!(html.contains(r#"<span class="on">飞侠</span>"#));
+    assert!(!html.contains("海盗"), "MSCW has no pirates");
+    assert!(html.contains("攻击速度 <b>快</b>"));
+    assert!(html.contains("物理攻击 <b>+23</b>"));
+    assert!(html.contains("暴击率 <b>+1</b>"));
+    assert!(html.find("data-equipment-strip") < html.find(r#"class="ibox""#));
+    let english = pages::item_page(&page, &en()).into_string();
+    assert!(english.contains("Attack speed <b>Fast</b>"));
+    assert!(english.contains("<span>Claw</span>"));
 }
 
 #[test]
