@@ -4,7 +4,7 @@
 // `page.market.base_stats`; `piece` is one listed instance's captured stats.
 // The Rust first paint renders the same strip (`pages/item.rs`).
 import { useWords } from "../providers";
-import { Slot } from "./shared";
+import { RelativeTime, Slot } from "./shared";
 
 type Words = (zh: string, en: string) => string;
 type Base = [string, number][];
@@ -212,6 +212,7 @@ export function EquipmentCard({
       </div>
       {equipment?.jobs != null && <Jobs mask={equipment.jobs} words={words} />}
       <Lines equipment={equipment} base={base} piece={piece} words={words} />
+      {piece?.offer && <Offer offer={piece.offer} words={words} />}
     </div>
   );
 }
@@ -310,8 +311,67 @@ export function EquipmentStrip({ equipment, base }: { equipment: any; base: Base
   );
 }
 
+// Where and for how much this piece was listed (or sold).
+export type PieceOffer = {
+  channel?: number | null;
+  room?: number | null;
+  place?: string | null;
+  shop?: string | null;
+  owner?: string | null;
+  price?: number | null;
+  set?: boolean;
+  stock?: number | null;
+  at?: number | null;
+  expired?: boolean;
+  sale?: boolean;
+};
+
+// Under the stats: the row's location, price, stock and time, so the phone
+// sheet still says where the piece is after it covers the row.
+function Offer({ offer, words }: { offer: PieceOffer; words: Words }) {
+  const where =
+    offer.channel != null
+      ? [words(`${offer.channel}频道`, `CH ${offer.channel}`), offer.room != null ? words(`${offer.room}洞`, `FM${offer.room}`) : offer.place]
+      : [offer.place || words("位置未知", "Unknown location")];
+  return (
+    <div className={"eq-offer" + (offer.expired ? " expired" : "")} data-piece-offer>
+      <div className="eq-offer-loc">
+        {where.filter(Boolean).map((part, i) => (i ? <span key={i}>{part}</span> : <b key={i}>{part}</b>))}
+        {offer.expired && <span className="eq-offer-tag">{words("已失效", "Expired")}</span>}
+      </div>
+      {(offer.shop || offer.owner) && (
+        <div className="eq-offer-shop">
+          {offer.shop && <span>{offer.shop}</span>}
+          {offer.owner && <span>{words("摊主 ", "Owner ")}{offer.owner}</span>}
+        </div>
+      )}
+      <div className="eq-offer-meta">
+        {offer.price != null && (
+          <span>
+            <b>{Math.round(offer.price).toLocaleString()}</b>
+            {words(" 金币", " mesos")}
+            {offer.set && words("/组", "/set")}
+          </span>
+        )}
+        {offer.stock != null && (
+          <span>
+            {offer.expired ? words("当时库存 ", "Previous stock ") : words("库存 ", "Stock ")}
+            {offer.stock}
+          </span>
+        )}
+        {offer.at != null && (
+          <span>
+            {offer.sale && words("卖出 ", "Sold ")}
+            <RelativeTime at={offer.at} />
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // What a listing row hands the quick preview so it can show this piece.
-export function pieceData(equipment: any) {
+export function pieceData(equipment: any, offer?: PieceOffer) {
   if (!equipment || equipment.status !== "candidate") return undefined;
   return JSON.stringify({
     stats: (equipment.stats || []).map((stat: any) => ({
@@ -322,5 +382,6 @@ export function pieceData(equipment: any) {
     })),
     enhancements: equipment.enhancements ?? null,
     remaining_upgrades: equipment.remaining_upgrades ?? null,
+    ...(offer ? { offer } : {}),
   });
 }

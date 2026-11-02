@@ -184,8 +184,26 @@ export function OfferRow({
   );
   // Captured equipment: hovering (desktop) or tapping (phone) the row shows
   // this piece's game tooltip in the quick preview instead of the item's.
+  const stock = Number(row.stock);
   const piece =
-    Math.floor(Number(row.item_id) / 1000000) === 1 ? pieceData(row.equipment) : undefined;
+    Math.floor(Number(row.item_id) / 1000000) === 1
+      ? pieceData(row.equipment, {
+          channel: row.location?.channel ?? null,
+          room: row.location?.room ?? null,
+          place:
+            row.location?.text ||
+            (document.documentElement.lang === "en" ? row.location?.map_name_en : row.location?.map_name_zh) ||
+            null,
+          shop: row.shop || null,
+          owner: row.owner_name || null,
+          price: sale ? row.sale_unit_price : row.unit_price,
+          set: row.unit_basis === "set",
+          stock: Number.isFinite(stock) ? stock : null,
+          at: sale ? row.time : row.observed,
+          expired: !!row.invalidated_at,
+          sale,
+        })
+      : undefined;
   const props = {
     className: "ware market-record" + (hideIdentity ? " variant-record" : "") + (row.invalidated_at ? " expired-record" : "") + (piece ? " piece-record" : ""),
     "data-item-row": "",

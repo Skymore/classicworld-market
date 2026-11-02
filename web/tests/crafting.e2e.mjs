@@ -109,6 +109,10 @@ try {
     assert.equal(await pieceCard.locator('[data-stat=upgrades] dd').innerText(),'7','the piece keeps its own remaining upgrades');
     assert.deepEqual(await pieceCard.locator('.eq-jobs span').evaluateAll(spans=>spans.map(span=>span.classList.contains('on'))),[false,false,false,true,false],'only the bowman job is lit');
     assert.deepEqual(await pieceCard.locator('.eq-req .zero').count(),3,'zero requirements are dimmed');
+    const offer=pieceCard.locator('[data-piece-offer]');
+    assert.match(await offer.locator('.eq-offer-loc').innerText(),/^(24频道\s*10洞|CH 24\s*FM10)$/,'the tooltip says where the piece is listed');
+    assert.match(await offer.locator('.eq-offer-shop').innerText(),/^Fixture shop \d$/,'and in which shop');
+    assert.match(await offer.locator('.eq-offer-meta').innerText(),/3,000 (金币|mesos)\s*(库存|Stock) \d/,'with its price and stock');
     assert.equal(await page.locator('.item-peek .peek-footer').count(),0,'no link back to the page the user is on');
     await page.keyboard.press('Escape');await page.locator('.item-peek').waitFor({state:'hidden'});
     await page.locator('[data-offer-filter-open]').click();const dialog=page.locator('#offer-filter-dialog');await dialog.locator('[name=maxPrice]').fill('4000');
