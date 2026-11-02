@@ -171,6 +171,8 @@ class WindowsNativeTests(unittest.TestCase):
         stream = Mock()
         stream.recv.side_effect = [b'not an IP packet', outgoing]
         sniffer.sockets, sniffer.handle = [stream], True
+        import queue
+        sniffer.local_error, sniffer.local_packets = None, queue.Queue()
         sniffer.accept = lambda value: value == outgoing
         for key in ('received_datagrams', 'matched_datagrams', 'tcp_datagrams', 'game_outbound_datagrams'):
             setattr(sniffer, key, 0)
@@ -188,7 +190,9 @@ class WindowsNativeTests(unittest.TestCase):
         stream=Mock()
         addresses={'test':[SimpleNamespace(family=socket.AF_INET,address='192.0.2.10')]}
         with patch('native_firewall.ensure_capture_firewall',return_value={'state':'existing'}),patch('psutil.net_if_addrs',return_value=addresses),patch('psutil.net_if_stats',return_value={'test':SimpleNamespace(isup=True)}),patch('socket.socket',return_value=stream),patch.object(market_passive.ctypes.windll.shell32,'IsUserAnAdmin',return_value=True):
-            sniffer=market_passive.WindowsSniffer()
+            with patch.object(market_passive, 'Sniffer') as local:
+                local.return_value.recv.side_effect=OSError('test receiver closed')
+                sniffer=market_passive.WindowsSniffer()
             stream.bind.assert_called_once_with(('192.0.2.10',0))
             stream.ioctl.assert_called_with(socket.SIO_RCVALL,getattr(socket,'RCVALL_IPLEVEL',3))
             stream.send.assert_not_called();stream.sendto.assert_not_called();stream.connect.assert_not_called()

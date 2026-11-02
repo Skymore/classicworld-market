@@ -15,7 +15,7 @@ from market_inventory import Inventory
 # Channel connections have also been observed on 8913. Keep a bounded game
 # service range; process ownership is still required before any decoding.
 GAME_PORT_MIN, GAME_PORT_MAX = 8500, 8999
-FILTER = f'inbound and ip and tcp and !loopback and tcp.SrcPort >= {GAME_PORT_MIN} and tcp.SrcPort <= {GAME_PORT_MAX}'
+FILTER = f'ip and tcp and ((inbound and !loopback and tcp.SrcPort >= {GAME_PORT_MIN} and tcp.SrcPort <= {GAME_PORT_MAX}) or loopback)'
 SNIFF_RECV_ONLY = 1 | 4
 LIMIT = 1024 * 1024
 
@@ -27,8 +27,11 @@ def packet(raw):
     tcp=raw[ihl:total];offset=(tcp[12]>>4)*4
     if offset<20 or offset>len(tcp):return None
     sport,dport,seq=struct.unpack_from('!HHI',tcp)
-    if not GAME_PORT_MIN<=sport<=GAME_PORT_MAX:return None
     src='.'.join(map(str,raw[12:16]));dst='.'.join(map(str,raw[16:20]))
+    from game_transport import loopback, proxy_direction
+    if loopback(src) and loopback(dst):
+        if proxy_direction(src,sport,dst,dport,bool(tcp[13]&2))!='server':return None
+    elif not GAME_PORT_MIN<=sport<=GAME_PORT_MAX:return None
     return (src,sport,dst,dport),seq,tcp[13],tcp[offset:]
 
 
@@ -255,7 +258,8 @@ class Sniffer:
         self.dll.WinDivertRecv.restype=ctypes.c_bool
         self.dll.WinDivertShutdown.argtypes=[ctypes.c_void_p,ctypes.c_int]
         self.dll.WinDivertClose.argtypes=[ctypes.c_void_p]
-        self.handle=self.dll.WinDivertOpen(capture_filter.encode(),0,0,SNIFF_RECV_ONLY)
+        from game_transport import capture_priority
+        self.handle=self.dll.WinDivertOpen(capture_filter.encode(),0,capture_priority(),SNIFF_RECV_ONLY)
         if self.handle==ctypes.c_void_p(-1).value:raise ctypes.WinError(ctypes.get_last_error())
         # Intentionally never bind or call WinDivertSend.
     def recv(self):
@@ -300,10 +304,37 @@ class WindowsSniffer:
                 except OSError:
                     if sock:sock.close()
         if not self.sockets:raise OSError('No active IPv4 interface supports Windows receive-only capture')
+        # Winsock raw capture cannot observe localhost accelerator traffic.
+        # Separate receive-only handles have distinct priorities so all three
+        # decoders (market, channel, position) receive their own packet copies.
+        self.local_packets=queue.Queue(maxsize=8192)
+        self.local_error=None
+        try:
+            self.local_sniffer=Sniffer('loopback and ip and tcp')
+        except Exception:
+            self.close()
+            raise
+        def receive_local():
+            try:
+                while self.handle is not None:
+                    raw=self.local_sniffer.recv()
+                    if self.accept(raw):self.local_packets.put_nowait(raw)
+            except Exception as error:
+                if self.handle is not None:self.local_error=error
+        self.local_thread=threading.Thread(target=receive_local,daemon=True)
+        self.local_thread.start()
     def recv(self):
         import select
         while self.handle is not None:
-            ready,_,_=select.select(self.sockets,[],[],0.5)
+            if self.local_error:raise self.local_error
+            try:
+                raw=self.local_packets.get_nowait()
+                self.received_datagrams+=1
+                self.matched_datagrams+=1
+                self.tcp_datagrams+=1
+                return raw
+            except queue.Empty:pass
+            ready,_,_=select.select(self.sockets,[],[],0.05)
             for sock in ready:
                 raw=sock.recv(65535)
                 self.received_datagrams+=1
@@ -320,6 +351,8 @@ class WindowsSniffer:
     def close(self):
         import socket
         self.handle=None
+        if getattr(self,'local_sniffer',None):self.local_sniffer.close()
+        if getattr(self,'local_thread',None):self.local_thread.join(timeout=2)
         for sock in self.sockets:
             try:sock.ioctl(socket.SIO_RCVALL,socket.RCVALL_OFF)
             except OSError:pass
@@ -372,9 +405,8 @@ def run(folder,seconds=0,backend="windivert",stop_event=None,on_event=None):
                 last_health_check=now
                 import psutil
                 try:
-                    game_connected=any(c.pid and c.raddr and GAME_PORT_MIN<=c.raddr.port<=GAME_PORT_MAX
-                        and game_owner((c.raddr.ip,c.raddr.port,c.laddr.ip,c.laddr.port))
-                        for c in psutil.net_connections(kind='tcp4'))
+                    from game_transport import connected
+                    game_connected=connected()
                 except (OSError,psutil.Error):game_connected=None
                 state,message=capture_health(collector,game_connected,now-started)
                 collector.health_state=state
