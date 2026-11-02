@@ -16,6 +16,19 @@ from collector_watchdog import HealthMonitor, should_restart
 
 
 class HealthTests(unittest.TestCase):
+    def test_update_handoff_grace_is_launch_scoped_and_bounded(self):
+        monitor=HealthMonitor('launch')
+        intent=dict(enabled=True,session='session')
+        health=dict(launch_id='launch',session='session',monotonic=100,updating=True)
+        self.assertIsNone(monitor.check(health,intent,100))
+        self.assertIsNone(monitor.check({},intent,180))
+        self.assertIsNone(monitor.check({},intent,221))
+        self.assertEqual(monitor.check({},intent,224),'stale')
+        foreign=HealthMonitor('new',startup_grace=1)
+        self.assertIsNone(foreign.check(health,intent,100))
+        self.assertIsNone(foreign.check(health,intent,102))
+        self.assertEqual(foreign.check(health,intent,105),'stale')
+
     def test_transient_missing_reads_do_not_kill_active_scanner(self):
         monitor = HealthMonitor('launch')
         intent = dict(enabled=True, session='session')
@@ -320,6 +333,67 @@ class RecoveryTests(unittest.TestCase):
         time.sleep(.1)
         self.assertEqual(self.modules['run'].call_count,3)
         self.assertIn('停止重复切频道',self.controller.snapshot()['message'])
+
+    def test_update_waits_for_post_shop_checkpoint_and_preserves_session(self):
+        entered=threading.Event();finished_shop=threading.Event()
+        def scan(folder,hwnd,start,stop,callback,**kwargs):
+            entered.set()
+            finished_shop.wait(3)
+            callback(('progress',dict(room=7,channel=2,visited=1)))
+            stop.wait(3)
+        self.modules['run']=scan
+        self.controller.start(12);self.assertTrue(entered.wait(2))
+        session=ScanIntent(self.home).load()['session']
+        self.assertFalse(self.controller.prepare_update())
+        self.assertFalse(self.controller._stop.is_set())
+        self.assertFalse(self.controller._cancel.is_set())
+        finished_shop.set()
+        self.until(lambda:not self.controller._worker.is_alive())
+        self.until(self.controller.prepare_update)
+        saved=ScanIntent(self.home).load()
+        self.assertTrue(saved['enabled']);self.assertEqual(saved['session'],session)
+        self.assertTrue(json.loads((self.home/'scan-health.json').read_text())['updating'])
+        replacement=DesktopController(self.runtime,modules=self.modules,
+            windows=lambda:[dict(id=12,pid=42,title='MapleStory')],ready=lambda _:True,emergency=lambda:False)
+        try:
+            replacement.start(None,restore=True)
+            self.assertEqual(replacement._session,session)
+            self.assertTrue(replacement._worker.is_alive())
+        finally:
+            replacement.command('stop')
+            replacement._worker.join(3)
+            replacement._guard_thread.join(3)
+            replacement._journal.close()
+        self.controller.command('stop')
+        self.assertFalse(ScanIntent(self.home).load()['enabled'])
+
+    def test_update_defers_remote_debug_and_pause_without_cancelling_either(self):
+        debug=Mock();debug.view.return_value={'active':True}
+        self.runtime.remote_debug=debug
+        self.assertFalse(self.controller.prepare_update())
+        self.assertFalse(self.controller._update_pending)
+        debug.stop.assert_not_called()
+        debug.view.return_value={'active':False}
+        self.controller._paused.set()
+        self.assertFalse(self.controller.prepare_update())
+        self.assertFalse(self.controller._update_pending)
+
+    def test_update_of_attention_state_does_not_reenable_input(self):
+        self.controller._intent.start(12)
+        self.controller._change(phase='needs_attention')
+        self.assertTrue(self.controller.prepare_update())
+        self.assertFalse(ScanIntent(self.home).load()['enabled'])
+
+    def test_pause_cancels_pending_handoff_and_stays_paused(self):
+        self.modules['run']=lambda folder,hwnd,start,stop,callback,**kw:stop.wait(3)
+        self.controller.start(12)
+        self.until(lambda:self.controller._attempt_active)
+        self.assertFalse(self.controller.prepare_update())
+        self.controller.command('pause')
+        self.until(lambda:not self.controller._attempt_active)
+        self.assertFalse(self.controller._update_pending)
+        self.assertFalse(self.controller.prepare_update())
+        self.assertEqual(self.controller.snapshot()['phase'],'paused')
 
     def test_repeated_faults_recover_with_one_scanner_and_same_session(self):
         failures=[TimeoutError(),URLError('DNS'),HTTPError('',502,'',{},None),HTTPError('',503,'',{},None)]

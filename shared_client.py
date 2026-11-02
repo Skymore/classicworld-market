@@ -193,7 +193,7 @@ def stop_dashboard(process):
     except subprocess.TimeoutExpired:process.kill();process.wait(timeout=5)
 
 
-def main(argv=None, stop_event=None, update_argv=None, on_event=None):
+def main(argv=None, stop_event=None, update_argv=None, on_event=None, prepare_update=None):
     default=Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'ClassicWorldMarket'
     parser=argparse.ArgumentParser()
     parser.add_argument('--home',type=Path,default=default)
@@ -362,7 +362,8 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None):
         except Exception as error:print(f'Personal alerts unavailable ({type(error).__name__}); see dashboard.log.',flush=True)
     if getattr(sys,'frozen',False) and os.name=='nt' and not args.no_update and not args.proxy:
         from collector_update import start_checker
-        start_checker(args.home,stopping,update_ready,sys.argv[1:] if update_argv is None else update_argv,capture_changed,endpoint=config['endpoint'])
+        update_options = {'prepare_restart': prepare_update} if prepare_update else {}
+        start_checker(args.home,stopping,update_ready,sys.argv[1:] if update_argv is None else update_argv,capture_changed,endpoint=config['endpoint'],**update_options)
     upload_thread=None
     history_thread=None
     owner_thread=None

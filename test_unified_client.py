@@ -98,6 +98,10 @@ class UnifiedTests(unittest.TestCase):
                 runtime._run()
             identity.assert_called_once_with(options.config)
             self.assertEqual(capture.call_args.kwargs['update_argv'],launch)
+            gate=capture.call_args.kwargs['prepare_update']
+            self.assertFalse(gate())
+            runtime.update_gate=lambda:True
+            self.assertTrue(gate())
             self.assertIs(capture.call_args.kwargs['stop_event'],runtime.stop_event)
             self.assertIn(str(options.folder),capture.call_args.args[0])
             self.assertIn('--no-update',capture.call_args.args[0])

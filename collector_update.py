@@ -14,7 +14,7 @@ import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
-VERSION = '0.6.55'
+VERSION = '0.6.56'
 LATEST = 'https://mxd.ruit.me/web/releases/stable.json'
 DOWNLOAD_BASES = ('https://mxd.ruit.me/web/releases/', 'https://download.ruit.me/collector/')
 EXE = 'ClassicWorldCollector.exe'
@@ -372,7 +372,7 @@ def show_error(message):
 
 
 def start_checker(home, stop, ready, argv, wakeup=None, endpoint=None, *, interval=CHECK_INTERVAL,
-                  cooldown=PUSH_COOLDOWN, game_running=game_active):
+                  cooldown=PUSH_COOLDOWN, game_running=game_active, prepare_restart=None):
     """Only the packaged top-level collector checks; child processes never do."""
     changed = threading.Event()
     hint_lock = threading.Lock()
@@ -390,11 +390,17 @@ def start_checker(home, stop, ready, argv, wakeup=None, endpoint=None, *, interv
         last_check = -float('inf')
         pending = None
         next_idle_check = 0
+        waiting_state = 'waiting_for_safe_restart' if prepare_restart else 'waiting_for_game_exit'
         while not stop.is_set():
             now = time.monotonic()
             if pending and now >= next_idle_check:
                 next_idle_check = now+5
-                if not game_running():
+                try:
+                    can_restart = prepare_restart() if prepare_restart else not game_running()
+                except Exception as error:
+                    update_status(home, waiting_state, reason=type(error).__name__)
+                    can_restart = False
+                if can_restart and not stop.is_set():
                     info, path, bundle = pending
                     ready.append((path, bundle))
                     update_status(home, 'restarting', available=info['version'])
@@ -419,18 +425,18 @@ def start_checker(home, stop, ready, argv, wakeup=None, endpoint=None, *, interv
                     continue
                 if info and not stop.is_set():
                     if pending and version(info['version']) <= version(pending[0]['version']):
-                        update_status(home, 'waiting_for_game_exit', available=pending[0]['version'])
+                        update_status(home, waiting_state, available=pending[0]['version'])
                         continue
                     update_status(home, 'downloading', available=info['version'])
                     path, bundle = write_plan(home, info, Path(sys.executable).parent, argv)
-                    update_status(home, 'waiting_for_game_exit', available=info['version'])
+                    update_status(home, waiting_state, available=info['version'])
                     if stop.is_set(): return
                     # Continue hourly checks and push handling while gaming;
                     # a newer release can replace this staged package.
                     pending = (info, path, bundle)
                     next_idle_check = 0
                     continue
-                update_status(home, 'waiting_for_game_exit' if pending else 'up_to_date')
+                update_status(home, waiting_state if pending else 'up_to_date')
             except Exception as error:
                 update_status(home, 'retry_later', reason=type(error).__name__)
                 try:

@@ -37,5 +37,5 @@ export const itemIcon = (id: number) => `https://mxdgcw.dvg.cn/dbsource/icon/ite
 /** Whole mesos with thousands separators, or "—". */
 export const full = (value: number | null | undefined) => value == null || !Number.isFinite(value) ? '—' : value.toLocaleString('en-US');
 
-export const UPDATE_LABELS: Record<string, string> = { waiting_for_game_exit: '新版本已就绪，退出游戏后更新', retry_later: '稍后重试更新' };
+export const UPDATE_LABELS: Record<string, string> = { waiting_for_game_exit: '新版本已就绪，退出游戏后更新', waiting_for_safe_restart: '新版本已就绪，将自动更新', restarting: '正在自动更新', retry_later: '稍后重试更新' };
 export const updateLabel = (state: string) => UPDATE_LABELS[state] || '自动更新已开启';

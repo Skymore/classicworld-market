@@ -25,6 +25,9 @@ try {
     await page.goto(`http://127.0.0.1:${server.address().port}/`);
     const start=page.getByRole('button',{name:'开始扫描',exact:true});await start.waitFor();
     if(label==='dark'){assert(await start.isDisabled());await page.evaluate(()=>window.finishBridge());}
+    await page.evaluate(()=>{window.state.updates='waiting_for_safe_restart';window.dispatchEvent(new CustomEvent('scanner-state',{detail:structuredClone(window.state)}));});
+    await page.getByText('新版本已就绪，将自动更新',{exact:false}).waitFor();
+    assert.equal(await page.getByText('退出游戏后更新',{exact:false}).count(),0);
     // One header row: brand, five tabs, a single theme button and the window buttons.
     await page.evaluate(() => {
       const original = window.pywebview.api.command;

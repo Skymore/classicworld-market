@@ -110,6 +110,28 @@ class CollectorUpdate(unittest.TestCase):
             game.clear();thread.join(7)
             self.assertFalse(thread.is_alive());self.assertTrue(stop.is_set());self.assertEqual(len(ready),1)
 
+    def test_desktop_updates_while_game_runs_only_after_safe_handoff(self):
+        stop=threading.Event();ready=[];asked=threading.Event();safe=threading.Event()
+        def prepare():asked.set();return safe.is_set()
+        with tempfile.TemporaryDirectory() as folder,patch.object(update,'read_release',return_value={'version':'v0.6.56'}),\
+             patch.object(update,'write_plan',return_value=(Path('plan'),Path('bundle'))) as plan,\
+             patch.object(update,'ask_update',side_effect=AssertionError('no confirmation')):
+            thread=update.start_checker(folder,stop,ready,[],game_running=lambda:True,prepare_restart=prepare)
+            self.assertTrue(asked.wait(2));self.assertFalse(stop.is_set());self.assertFalse(ready)
+            self.assertEqual(json.loads((Path(folder)/'update-status.json').read_text())['state'],'waiting_for_safe_restart')
+            safe.set();thread.join(7)
+            self.assertFalse(thread.is_alive());self.assertTrue(stop.is_set());self.assertEqual(len(ready),1)
+            plan.assert_called_once()
+
+    def test_failed_update_gate_keeps_collector_and_game_running(self):
+        stop=threading.Event();ready=[];failed=threading.Event()
+        def prepare():failed.set();raise OSError('checkpoint write failed')
+        with tempfile.TemporaryDirectory() as folder,patch.object(update,'read_release',return_value={'version':'v0.6.56'}),\
+             patch.object(update,'write_plan',return_value=(Path('plan'),Path('bundle'))):
+            thread=update.start_checker(folder,stop,ready,[],game_running=lambda:True,prepare_restart=prepare)
+            self.assertTrue(failed.wait(2));self.assertFalse(stop.is_set());self.assertFalse(ready)
+            stop.set();thread.join(2)
+
     def test_push_notices_are_bounded_and_only_stable_newer_versions_trigger(self):
         raw=b': keepalive\n\nevent: market\ndata: {}\n\nevent: collector-update\ndata: {"version":"v0.5.7"}\n\nevent: collector-update\ndata: {"version":"v0.5.11","url":"https://evil.example/a.exe"}\n\n'
         with patch.object(update,'VERSION','0.5.10'):

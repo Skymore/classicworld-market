@@ -21,19 +21,28 @@ class HealthMonitor:
         self.startup_grace, self.timeout, self.confirm = startup_grace, timeout, confirm
         self.session = None
         self.started = self.last_seen = self.last_beat = self.suspect = None
+        self.update_started = None
 
     def check(self, health, intent, now):
         if not intent.get('enabled'):
             self.session = None
             self.started = None
+            self.update_started = None
             return None
         session = intent.get('session')
         if self.started is None or session != self.session:
             self.session, self.started = session, now
             self.last_seen = self.last_beat = self.suspect = None
+            self.update_started = None
         beat = health.get('monotonic')
         valid = (health.get('launch_id') == self.launch_id and health.get('session') == session
                  and type(beat) in (int, float) and math.isfinite(beat) and 0 <= now-beat <= self.timeout)
+        if valid and health.get('updating') is True and self.update_started is None:
+            self.update_started = now
+        # Allow the intentional shutdown to drain uploads without killing its
+        # update helper. A stuck handoff still recovers after a bounded grace.
+        if self.update_started is not None and now-self.update_started < 120:
+            return None
         if valid:
             if self.last_beat is None or beat > self.last_beat:
                 self.last_beat, self.last_seen = beat, now

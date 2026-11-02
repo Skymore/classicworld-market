@@ -209,6 +209,8 @@ class DesktopController:
         self._focus_retry_at = 0
         self._focus_deadline = None
         self._attempt_active = False
+        self._update_pending = False
+        self._update_handoff = False
         self._last_prune = 0
         self._lock = threading.RLock()
         self._events = queue.Queue()
@@ -241,6 +243,40 @@ class DesktopController:
         self._read_statistics()
         if getattr(collector, 'diagnostics', None):
             collector.diagnostics.snapshot = self.snapshot
+        collector.update_gate = self.prepare_update
+
+    def _update_health(self):
+        atomic_json(self.collector.home/'scan-health.json', dict(at=time.time(), pid=os.getpid(),
+                    monotonic=time.monotonic(), launch_id=os.environ.get('CW_SCANNER_LAUNCH_ID'),
+                    session=self._session, restart=False, updating=True, phase='updating'))
+
+    def _stop_for_update(self):
+        # Called between attempts or from the scanner's post-close checkpoint.
+        # Preserve only existing intent; a user's Stop or a purchase halt wins.
+        with self._lock:
+            if self._update_handoff:
+                return
+            if self._state['phase'] == 'needs_attention':
+                self._intent.stop()
+            self._update_health()
+            self._update_handoff = True
+            self._user_stop(persist=False)
+
+    def prepare_update(self):
+        """Keep capture live until input workers reach a saved, closed-shop boundary."""
+        with self._lock:
+            debug = getattr(self.collector, 'remote_debug', None)
+            if self._closing or self._paused.is_set() or (debug and debug.view()['active']):
+                return False
+            self._update_pending = True
+            if not self._attempt_active:
+                self._stop_for_update()
+            if self._worker and self._worker.is_alive():
+                return False
+            if self._guard_thread and self._guard_thread.is_alive():
+                return False
+            self._update_health()
+            return True
 
     def _read_statistics(self):
         stats = self.collector.statistics()
@@ -308,8 +344,11 @@ class DesktopController:
             if debug is None:
                 raise ValueError('远程调试不可用')
             if name == 'debug_start':
-                self._user_stop()
-                debug.start(value)
+                with self._lock:
+                    if self._update_pending:
+                        raise ValueError('正在自动更新，请稍后再开启远程调试。')
+                    self._user_stop()
+                    debug.start(value)
             else:
                 debug.stop()
             self._change(remote_debug=debug.view())
@@ -359,8 +398,12 @@ class DesktopController:
             self.start(value)
         elif name == 'pause':
             with self._lock:
+                if self._update_handoff:
+                    self._user_stop()
+                    return self.snapshot()
                 if not self._desired:
                     return self.snapshot()
+                self._update_pending = False
                 self._paused.set()
                 self._modules['request_pause']()
                 self._stop.set()
@@ -425,6 +468,8 @@ class DesktopController:
         if getattr(self.collector, 'remote_debug', None) and self.collector.remote_debug.view()['active']:
             raise ValueError('请先终止远程调试，再开始扫描。')
         with self._lock:
+            if self._update_pending:
+                raise ValueError('正在自动更新，完成后将恢复扫描。')
             if self._worker and self._worker.is_alive():
                 return
             if self._guard_thread and self._guard_thread.is_alive():
@@ -510,6 +555,8 @@ class DesktopController:
                 self._journal.event('recovery_end', outcome='progress', **progress)
             self._change(phase='scanning', last_progress_at=time.time(), next_retry_at=None, failure=None)
             self._journal.event('progress', **progress)
+            if self._update_pending and progress.get('step') in ('scan', 'complete', 'recent_wait'):
+                self._stop_for_update()
 
     def _guard(self, cancel):
         blocked_gate = None
@@ -547,6 +594,7 @@ class DesktopController:
                     atomic_json(self.collector.home/'scan-health.json', dict(at=time.time(), pid=os.getpid(),
                                 monotonic=time.monotonic(), launch_id=os.environ.get('CW_SCANNER_LAUNCH_ID'),
                                 session=self._session, restart=self._restart_requested, desired=self._desired,
+                                updating=self._update_handoff,
                                 **{key:state[key] for key in ('phase','room','channel','last_progress_at','retries','pending_uploads')}))
                     health_error_at = None
                 except OSError as error:
@@ -610,11 +658,14 @@ class DesktopController:
                     self._stop = self._modules['LeaseStopEvent']()
                     stop = self._stop
                     self._step_deadline = time.monotonic() + 120
+                    self._attempt_active = True
                 self._change(phase='rebuilding', message='正在重建扫描任务…', next_retry_at=None)
                 self._journal.event('recovery_begin', attempt=attempts + 1)
-                self._attempt_active = True
                 error, clean = self._attempt(stop)
-                self._attempt_active = False
+                with self._lock:
+                    self._attempt_active = False
+                    if self._update_pending and clean:
+                        self._stop_for_update()
                 self._step_deadline = None
                 if not clean:
                     self._restart_requested = True
@@ -801,6 +852,8 @@ class DesktopController:
 
     def sync_sweep(self):
         """A newly accepted web run starts its route once, never after a manual stop."""
+        if self._update_pending:
+            return
         if getattr(self.collector, 'remote_debug', None) and self.collector.remote_debug.view()['active']:
             return
         if not self.sweep:

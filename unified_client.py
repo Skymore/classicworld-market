@@ -109,6 +109,7 @@ class CollectorRuntime:
         self.ready = threading.Event()
         self.error = None
         self.config = None
+        self.update_gate = None  # Installed after the desktop controller is ready.
         self.thread = threading.Thread(target=self._run, name='market-collector', daemon=True)
         self.thread.start()
         from collector_diagnostics import Diagnostics
@@ -123,7 +124,7 @@ class CollectorRuntime:
             self.config = ensure_identity(self.config_path)
             self.ready.set()
             main(self.capture_args, stop_event=self.stop_event, update_argv=self.launch_argv,
-                 on_event=self._notify)
+                 on_event=self._notify, prepare_update=self.prepare_update)
         except Exception as error:
             import traceback
             self.error = str(error)
@@ -134,6 +135,9 @@ class CollectorRuntime:
 
     def add_listener(self, callback):
         self._listeners.append(callback)
+
+    def prepare_update(self):
+        return bool(self.update_gate and self.update_gate())
 
     def _notify(self, event):
         events = (event,)
