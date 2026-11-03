@@ -1,0 +1,25 @@
+{
+ "note": "Written by tools/niadb_map_assets.py worldmap: each region's picture under web/images/worldmap/ and its size in pixels.",
+ "regions": {
+  "MapleIsland": {
+   "image": "/web/images/worldmap/maple-island.webp",
+   "width": 634,
+   "height": 446
+  },
+  "VictoriaIsland": {
+   "image": "/web/images/worldmap/victoria-island.webp",
+   "width": 636,
+   "height": 466
+  },
+  "OssyriaElNathMts": {
+   "image": "/web/images/worldmap/ossyria-el-nath-mts.webp",
+   "width": 636,
+   "height": 467
+  },
+  "OssyriaDeadMine": {
+   "image": "/web/images/worldmap/ossyria-dead-mine.webp",
+   "width": 637,
+   "height": 468
+  }
+ }
+}

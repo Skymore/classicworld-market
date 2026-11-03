@@ -1,0 +1,17 @@
+{
+ "note": "World map pictures and markers from the client's WorldMap.wz. Game art belongs to NEXON and its affiliates.",
+ "source": "https://meowdb.com/msclassic/worldmap/<name>",
+ "fetched": "2026-11-03",
+ "files": [
+  "maple-island.webp",
+  "victoria-island.webp",
+  "ossyria-el-nath-mts.webp",
+  "ossyria-dead-mine.webp",
+  "marker-town.png",
+  "marker-spot.png",
+  "marker-cluster.png",
+  "marker-field.png",
+  "marker-facility.png",
+  "curpos-0.png"
+ ]
+}
