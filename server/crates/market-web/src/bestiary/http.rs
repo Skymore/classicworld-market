@@ -284,11 +284,10 @@ async fn map_page(state: &AppState, id: i32) -> sqlx::Result<Option<super::model
         return Ok(None);
     };
     if id != HENESYS {
-        // Walking, scrolls and the ship; no paid taxi.
-        let mut edges = queries::load_edges(&state.db).await?;
-        edges.retain(|e| e.kind != EdgeKind::Taxi);
-        let graph = Graph::new(edges);
-        if let Some(path) = graph.shortest_path(HENESYS, id) {
+        // Walking, scrolls and the ship; no paid taxi. Built once per
+        // catalogue import (`catalog_cache`).
+        let routes = state.catalog.routes(&state.db).await?;
+        if let Some(path) = routes.without_taxi.shortest_path(HENESYS, id) {
             let ids: Vec<i32> = std::iter::once(HENESYS)
                 .chain(path.iter().map(|e| e.to))
                 .collect();
