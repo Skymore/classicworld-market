@@ -1,6 +1,18 @@
 {
-  "note": "Game sprites belong to NEXON and its affiliates. Source images matched to Classic World mob IDs; mob 800022 shares 700003.",
+  "note": "Game sprites belong to NEXON and its affiliates. Source images matched to Classic World mob IDs.",
   "images": [
+    {
+      "cw_mob_id": 39,
+      "image": "39.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000039.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=39"
+    },
+    {
+      "cw_mob_id": 42,
+      "image": "42.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000042.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=42"
+    },
     {
       "cw_mob_id": 54,
       "image": "54.png",
@@ -62,16 +74,160 @@
       "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=63"
     },
     {
-      "cw_mob_id": 700003,
-      "image": "700003.png",
-      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0700003.img.stand.0.png",
-      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=700003"
+      "cw_mob_id": 64,
+      "image": "64.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000064.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=64"
+    },
+    {
+      "cw_mob_id": 65,
+      "image": "65.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000065.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=65"
+    },
+    {
+      "cw_mob_id": 66,
+      "image": "66.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000066.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=66"
+    },
+    {
+      "cw_mob_id": 67,
+      "image": "67.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000067.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=67"
+    },
+    {
+      "cw_mob_id": 68,
+      "image": "68.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000068.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=68"
+    },
+    {
+      "cw_mob_id": 69,
+      "image": "69.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000069.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=69"
     },
     {
       "cw_mob_id": 1059,
       "image": "1059.png",
       "source_url": "https://meowdb.com/msclassic/monsters/sprites/mob_1059.png",
       "source_page": "https://meowdb.com/msclassic/monsters/1059"
+    },
+    {
+      "cw_mob_id": 700003,
+      "image": "700003.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0700003.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=700003"
+    },
+    {
+      "cw_mob_id": 700006,
+      "image": "700006.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0700006.img.move.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=700006"
+    },
+    {
+      "cw_mob_id": 700007,
+      "image": "700007.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0700007.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=700007"
+    },
+    {
+      "cw_mob_id": 700008,
+      "image": "700008.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0700008.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=700008"
+    },
+    {
+      "cw_mob_id": 800019,
+      "image": "800019.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0800019.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=800019"
+    },
+    {
+      "cw_mob_id": 800020,
+      "image": "800020.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000017.img.fly.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=800020"
+    },
+    {
+      "cw_mob_id": 800021,
+      "image": "800021.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0000017.img.fly.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=800021"
+    },
+    {
+      "cw_mob_id": 800022,
+      "image": "800022.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0001032.img.fly.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=800022"
+    },
+    {
+      "cw_mob_id": 800023,
+      "image": "800023.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0001032.img.fly.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=800023"
+    },
+    {
+      "cw_mob_id": 800024,
+      "image": "800024.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0800024.img.fly.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=800024"
+    },
+    {
+      "cw_mob_id": 800025,
+      "image": "800025.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0800024.img.fly.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=800025"
+    },
+    {
+      "cw_mob_id": 810000,
+      "image": "810000.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0700004.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=810000"
+    },
+    {
+      "cw_mob_id": 810001,
+      "image": "810001.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0800003.img.move.6.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=810001"
+    },
+    {
+      "cw_mob_id": 810002,
+      "image": "810002.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0700000.img.move.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=810002"
+    },
+    {
+      "cw_mob_id": 810003,
+      "image": "810003.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0700002.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=810003"
+    },
+    {
+      "cw_mob_id": 810004,
+      "image": "810004.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0700003.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=810004"
+    },
+    {
+      "cw_mob_id": 810005,
+      "image": "810005.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0700001.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=810005"
+    },
+    {
+      "cw_mob_id": 900000,
+      "image": "900000.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0900000.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=900000"
+    },
+    {
+      "cw_mob_id": 910000,
+      "image": "910000.png",
+      "source_url": "https://mxdgcw.dvg.cn/dbsource/mobsource/Mob.Mob.0910000.img.stand.0.png",
+      "source_page": "https://mxdgcw.dvg.cn/mob_info.php?id=910000"
     }
   ]
 }

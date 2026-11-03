@@ -34,6 +34,7 @@
 !/assets/sweep/
 !/tools/niadb_portals.py
 !/tools/niadb_bestiary.py
+!/tools/dvg_mobs.py
 !/web/
 !/design/
 !/server/

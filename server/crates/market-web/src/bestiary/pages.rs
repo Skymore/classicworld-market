@@ -33,15 +33,20 @@ pub fn mob_image_url(gms_id: i32) -> String {
     format!("https://maplestory.io/api/GMS/83/mob/{gms_id}/render/stand")
 }
 
-/// Verified Classic World sprites for mobs absent from the GMS v83 renderer.
-/// IDs and animation frames were checked against their source catalogue pages.
+/// Classic World client sprites in `web/images/mobs/` (listed with their
+/// sources in its `sources.json`), for mobs the GMS v83 renderer lacks or shows
+/// as another mob. Keep in step with `LOCAL_SPRITES` in `catalogue.tsx`.
+const LOCAL_SPRITES: &[i32] = &[
+    39, 42, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 1059, 700003, 700006,
+    700007, 700008, 800019, 800020, 800021, 800022, 800023, 800024, 800025, 810000, 810001, 810002,
+    810003, 810004, 810005, 900000, 910000,
+];
+
 fn mob_picture_url(mob_id: i32, image_id: Option<i32>) -> Option<String> {
-    let sprite = match mob_id {
-        54..=63 | 1059 | 700003 => mob_id,
-        800022 => 700003,
-        _ => return image_id.map(mob_image_url),
-    };
-    Some(format!("/web/images/mobs/{sprite}.png"))
+    if LOCAL_SPRITES.contains(&mob_id) {
+        return Some(format!("/web/images/mobs/{mob_id}.png"));
+    }
+    image_id.map(mob_image_url)
 }
 
 /// Item icon in a bevelled slot; `size` is one of the `.s<N>` classes.
@@ -100,15 +105,21 @@ mod tests {
     use super::*;
     #[test]
     fn classic_world_mobs_have_their_own_verified_sprites() {
-        for id in [54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 1059, 700003, 800022] {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../web/images/mobs");
+        for &id in LOCAL_SPRITES {
             assert!(
-                mob_picture_url(id, None).is_some(),
+                dir.join(format!("{id}.png")).is_file(),
                 "missing sprite for {id}"
             );
+            let url = mob_picture_url(id, Some(100100)).unwrap();
+            assert_eq!(
+                url,
+                format!("/web/images/mobs/{id}.png"),
+                "the local sprite wins"
+            );
         }
-        assert!(mob_picture_url(54, None).unwrap().ends_with("/54.png"));
-        assert!(mob_picture_url(56, None).unwrap().ends_with("/56.png"));
-        assert_eq!(mob_picture_url(800022, None), mob_picture_url(700003, None));
+        // 800022 is Flyeye (alt) in Classic World, not Mapledex's Rotten Mushmom copy.
+        assert_ne!(mob_picture_url(800022, None), mob_picture_url(700003, None));
         assert_eq!(
             mob_picture_url(2, Some(100100)),
             Some(mob_image_url(100100))

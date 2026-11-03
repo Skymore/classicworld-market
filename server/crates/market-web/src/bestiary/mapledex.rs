@@ -773,6 +773,9 @@ pub struct NiaBestiaryCounts {
     pub mobs: usize,
     /// Mobs only NiaDB lists.
     pub mobs_added: usize,
+    /// Ids where Mapledex has a different mob (its GMS-era list): NiaDB's
+    /// mob replaces it, without Mapledex's names, GMS id or description.
+    pub mobs_replaced: usize,
     /// Mapledex mobs NiaDB does not list (test and unused copies), dropped.
     pub mobs_removed: usize,
     pub mobs_unreleased: usize,
@@ -858,7 +861,13 @@ impl Dataset {
                 ));
                 continue;
             }
-            let mut row = match mapledex.remove(&nia.id) {
+            let mapledex_row = mapledex.remove(&nia.id);
+            let same = mapledex_row
+                .as_ref()
+                .is_some_and(|row| same_mob_name(&row.name_en, nia.name.as_deref().unwrap_or("")));
+            let existed = mapledex_row.is_some();
+            counts.mobs_replaced += usize::from(existed && !same);
+            let mut row = match mapledex_row.filter(|_| same) {
                 Some(row) => row,
                 None => {
                     let Some(name_en) = clean(nia.name.as_deref()) else {
@@ -866,7 +875,7 @@ impl Dataset {
                             .push(format!("NiaDB monster {} has no name", nia.id));
                         continue;
                     };
-                    counts.mobs_added += 1;
+                    counts.mobs_added += usize::from(!existed);
                     MobRow {
                         id: nia.id,
                         gms_id: None,
@@ -1097,6 +1106,111 @@ impl Dataset {
             });
             counts.mesos += 1;
         }
+    }
+}
+
+/// The same mob under two sources' English names: NiaDB marks variants with
+/// a trailing "(alt)", "(KPQ)", "(GM Event)"...; one or two letters may differ
+/// in a long name (DVG's "Straw Traning Dummy").
+pub(super) fn same_mob_name(a: &str, b: &str) -> bool {
+    let fold = |s: &str| -> Vec<char> {
+        let mut s = s.trim();
+        while let Some(rest) = s
+            .strip_suffix(')')
+            .and_then(|r| r.rfind('(').map(|at| &r[..at]))
+        {
+            s = rest.trim_end();
+        }
+        s.chars()
+            .filter(char::is_ascii_alphanumeric)
+            .map(|c| c.to_ascii_lowercase())
+            .collect()
+    };
+    let (a, b) = (fold(a), fold(b));
+    if a == b {
+        return true;
+    }
+    if a.len().min(b.len()) < 8 || a.len().abs_diff(b.len()) > 2 {
+        return false;
+    }
+    // Levenshtein distance, at most 2.
+    let mut row: Vec<usize> = (0..=b.len()).collect();
+    for (i, ca) in a.iter().enumerate() {
+        let mut prev = row[0];
+        row[0] = i + 1;
+        for (j, cb) in b.iter().enumerate() {
+            let next = (row[j + 1] + 1)
+                .min(row[j] + 1)
+                .min(prev + usize::from(ca != cb));
+            prev = row[j + 1];
+            row[j + 1] = next;
+        }
+    }
+    row[b.len()] <= 2
+}
+
+// ---------- DVG mob-list.json ----------
+
+/// `data/reference/dvg/mob-list.json` (written by `tools/dvg_mobs.py`).
+#[derive(Deserialize)]
+pub struct DvgMobs {
+    pub fetched: String,
+    items: Vec<DvgMob>,
+}
+
+#[derive(Deserialize)]
+struct DvgMob {
+    mobid: i32,
+    mobname: Option<String>,
+    name_en: Option<String>,
+}
+
+/// What `add_dvg_mob_names` changed.
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize)]
+pub struct DvgMobCounts {
+    /// Mobs whose simplified name now comes from DVG.
+    pub named: usize,
+    /// Of those, mobs that had another simplified name (Mapledex's).
+    pub renamed: usize,
+}
+
+impl DvgMobs {
+    pub fn from_file(path: &Path) -> Result<Self> {
+        let text =
+            std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))
+    }
+}
+
+impl Dataset {
+    /// Simplified mob names from DVG, the names Chinese Classic World players
+    /// see (item names come from DVG too). They replace Mapledex's, which are
+    /// GMS-TW era and sometimes wrong ("mush妈妈"). A DVG row is used only when
+    /// its English name is the same mob's.
+    pub fn add_dvg_mob_names(&mut self, dvg: &DvgMobs) -> DvgMobCounts {
+        let rows: HashMap<i32, &DvgMob> = dvg.items.iter().map(|m| (m.mobid, m)).collect();
+        let mut counts = DvgMobCounts::default();
+        for mob in &mut self.mobs {
+            let Some(row) = rows.get(&mob.id) else {
+                continue;
+            };
+            let Some(name) = clean(row.mobname.as_deref()) else {
+                continue;
+            };
+            if !same_mob_name(&mob.name_en, row.name_en.as_deref().unwrap_or("")) {
+                self.warnings.push(format!(
+                    "DVG mob {}: {:?} is not {:?}; name not used",
+                    mob.id, row.name_en, mob.name_en
+                ));
+                continue;
+            }
+            counts.named += 1;
+            if mob.name_zh.as_ref().is_some_and(|old| *old != name) {
+                counts.renamed += 1;
+            }
+            mob.name_zh = Some(name);
+        }
+        counts
     }
 }
 

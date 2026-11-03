@@ -46,6 +46,14 @@ python tools\niadb_portals.py data\reference\niadb\maps.json --output data\refer
 
 文件不存在就跳过这一步，在报告里写明。
 
+再抓 DVG 怪物列表（怪物简体名，几秒钟）：
+
+```powershell
+python tools\dvg_mobs.py --output data\reference\dvg\mob-list.json
+```
+
+预期打印 `mobs 117` 左右。
+
 ### 2. 找到上一次生产导入用的参数
 
 ```powershell
@@ -77,11 +85,12 @@ cargo run --release -p market-web --bin import_catalog -- `
   --mapledex-version "<mapledex 的 version>" `
   --niadb "<niadb 的 source>" `
   --niadb-version "fetched <第 1 步的日期，例如 2026-11-03>" `
-  --zh-names "<zh-names 的 source>"
+  --zh-names "<zh-names 的 source>" `
+  --dvg-mobs "..\data\reference\dvg\mob-list.json"
 ```
 
 - 导入在一个事务里，出错整体回滚。
-- 预期输出（2026-11-02 的数据，新抓的会略多）：`mobs 206 NiaDB (… 52 unreleased)`、`maps 453 NiaDB (… 119 unreleased …)`、`drops 1704 NiaDB: 1655 items … 49 meso ranges`、`items` 与上一次相同。
+- 预期输出（2026-11-02 的数据，新抓的会略多）：`mobs 206 NiaDB (… 7 replace a different Mapledex mob … 52 unreleased; 110 simplified names from DVG …)`、`maps 453 NiaDB (… 119 unreleased …)`、`drops 1704 NiaDB: 1655 items … 49 meso ranges`、`items` 与上一次相同。
 - `mobs`、`maps` 少于 200、`drops` 少于 1000：按第 7 步恢复并报告用户。
 
 第 1 步生成了 `portals.json` 时，接着导入传送口：
@@ -103,6 +112,7 @@ cd ..
 
 - [蓝蜗牛](https://mxd.ruit.me/mob/3)：掉落第一行是铁矿石，右边显示"N 票"，不再有百分比。
 - [蜗牛](https://mxd.ruit.me/mob/2)：掉落最上面是金币 3–4。
+- [古木妖](https://mxd.ruit.me/mob/39)：名字是古木妖（Ghost Stump），不是食人花，有图片。
 - [天空之城](https://mxd.ruit.me/map/20000000)：显示"没有找到"（404）。
 - 图鉴搜索的区域筛选里没有天空之城和冰峰雪域。
 

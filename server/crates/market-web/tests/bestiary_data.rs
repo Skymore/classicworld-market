@@ -15,10 +15,12 @@ use market_web::{
     bestiary::{
         catalog::{self, Catalog, DropResolution, ItemReferences},
         import::{
-            import, import_catalog, ImportSummary, Input, NiaDbSource, Sources, ZhNamesSource,
+            import, import_catalog, DvgMobsSource, ImportSummary, Input, NiaDbSource, Sources,
+            ZhNamesSource,
         },
         mapledex::{
-            Dataset, NiaBestiaryCounts, NiaDbCounts, ZhNameCounts, ZhNames, ZhSourceCounts,
+            Dataset, DvgMobCounts, DvgMobs, NiaBestiaryCounts, NiaDbCounts, ZhNameCounts, ZhNames,
+            ZhSourceCounts,
         },
         model::{DropTarget, SearchKind},
         queries,
@@ -282,6 +284,49 @@ fn fetch_day() -> chrono::NaiveDate {
     chrono::NaiveDate::from_ymd_opt(2026, 11, 2).unwrap()
 }
 
+fn dvg_mobs() -> DvgMobs {
+    DvgMobs::from_file(&repo_data("reference/dvg/mob-list.json")).expect("dvg/mob-list.json")
+}
+
+#[test]
+fn dvg_names_mobs_and_niadb_replaces_reused_ids() {
+    let mut data = mapledex();
+    let (_, counts) = data
+        .add_niadb_bestiary_dir(&repo_data("reference/niadb"), fetch_day())
+        .unwrap();
+    assert_eq!(counts.mobs_replaced, 7, "39, 42 and 800019-800023");
+    let ghost = data.mobs.iter().find(|m| m.id == 39).unwrap();
+    assert_eq!(
+        (
+            ghost.name_en.as_str(),
+            ghost.name_zh.as_deref(),
+            ghost.gms_id
+        ),
+        ("Ghost Stump", None, None),
+        "Mapledex's id 39 is Nependeath, a different mob"
+    );
+    let counts = data.add_dvg_mob_names(&dvg_mobs());
+    assert!(data.warnings.is_empty(), "{:?}", data.warnings);
+    assert_eq!((counts.named, counts.renamed), (110, 11));
+    let zh = |id: i32| {
+        data.mobs
+            .iter()
+            .find(|m| m.id == id)
+            .unwrap()
+            .name_zh
+            .as_deref()
+    };
+    assert_eq!(zh(39), Some("古木妖"));
+    assert_eq!(zh(700000), Some("蘑菇王"), "not Mapledex's mush妈妈");
+    assert_eq!(zh(64), Some("石面怪人"), "a mob only NiaDB lists");
+    assert_eq!(
+        zh(910000),
+        Some("稻草训练假人"),
+        "DVG spells it Straw Traning Dummy"
+    );
+    assert_eq!(zh(3), Some("蓝蜗牛"));
+}
+
 fn zh_names() -> ZhNames {
     ZhNames::from_file(&repo_data("reference/zh-names.json")).expect("zh-names.json")
 }
@@ -307,7 +352,7 @@ fn zh_names_fill_map_and_npc_gaps() {
         counts,
         ZhNameCounts {
             maps: ZhSourceCounts {
-                dvg: 163,
+                dvg: 188,
                 mapledex_tw: 1
             },
             npcs: ZhSourceCounts {
@@ -323,8 +368,8 @@ fn zh_names_fill_map_and_npc_gaps() {
     );
     assert_eq!(
         still_english,
-        (46, 9),
-        "DVG has no names for NiaDB's newer maps yet"
+        (21, 9),
+        "Mapledex-only test maps, DVG placeholders and NiaDB maps DVG lacks"
     );
     for (map, (id, name)) in data.maps.iter().zip(&mapledex_names) {
         assert_eq!(map.id, *id);
@@ -451,6 +496,7 @@ async fn niadb_stats_and_equipment_reach_item_pages() {
         sources: &SOURCES,
         niadb: None,
         zh_names: None,
+        dvg_mobs: None,
     };
     import(&db.pool, &input).await.unwrap();
     let with_niadb: i64 =
@@ -584,6 +630,8 @@ struct Full {
     refs: ItemReferences,
     data: Dataset,
     bestiary: NiaBestiaryCounts,
+    dvg_mobs: DvgMobs,
+    dvg: DvgMobCounts,
     zh_names: ZhNames,
     zh: ZhNameCounts,
 }
@@ -597,6 +645,8 @@ fn full(items: Vec<ItemRow>) -> Full {
     let (_, bestiary) = data
         .add_niadb_bestiary_dir(&repo_data("reference/niadb"), fetch_day())
         .unwrap();
+    let dvg_mobs = dvg_mobs();
+    let dvg = data.add_dvg_mob_names(&dvg_mobs);
     let zh_names = zh_names();
     let zh = data.add_zh_names(&zh_names);
     refs.resolve_drops(&catalog, &mut data.drops);
@@ -605,6 +655,8 @@ fn full(items: Vec<ItemRow>) -> Full {
         refs,
         data,
         bestiary,
+        dvg_mobs,
+        dvg,
         zh_names,
         zh,
     }
@@ -627,6 +679,11 @@ async fn import_full(pool: &sqlx::PgPool, full: &Full) -> ImportSummary {
                 path: "data/reference/zh-names.json",
                 version: &full.zh_names.version,
                 counts: &full.zh,
+            }),
+            dvg_mobs: Some(DvgMobsSource {
+                path: "data/reference/dvg/mob-list.json",
+                version: &full.dvg_mobs.fetched,
+                counts: &full.dvg,
             }),
         },
     )
@@ -694,7 +751,7 @@ async fn full_import_is_idempotent_and_upgrades_an_r3_database() {
         ),
         (2919, 453, 1655, 1636, 1655, 281, 281, 315, 877, 426)
     );
-    assert_eq!((first.maps_zh, first.npcs_zh), (453 - 31, 281 - 9));
+    assert_eq!((first.maps_zh, first.npcs_zh), (453 - 6, 281 - 9));
     assert_eq!(first.drops_meso as usize, input.bestiary.mesos);
     assert_eq!(
         (first.mobs_unreleased, first.maps_unreleased),
@@ -760,7 +817,7 @@ async fn full_import_is_idempotent_and_upgrades_an_r3_database() {
     .fetch_one(&fresh.pool)
     .await
     .unwrap();
-    assert_eq!(zh_counts["maps"]["dvg"], 163);
+    assert_eq!(zh_counts["maps"]["dvg"], 188);
     assert_eq!(zh_counts["npcs"]["dvg"], 51);
     fresh.drop_schema().await;
     upgraded.drop_schema().await;

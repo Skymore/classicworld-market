@@ -8,7 +8,7 @@ use serde_json::json;
 use sqlx::{PgConnection, PgPool};
 
 use super::catalog::{Catalog, ItemReferences};
-use super::mapledex::{Dataset, NiaBestiaryCounts, ZhNameCounts};
+use super::mapledex::{Dataset, DvgMobCounts, NiaBestiaryCounts, ZhNameCounts};
 
 /// Where the data came from, for `catalog_versions`.
 pub struct Sources<'a> {
@@ -32,6 +32,13 @@ pub struct ZhNamesSource<'a> {
     pub counts: &'a ZhNameCounts,
 }
 
+/// DVG's mob list `data` took simplified mob names from, for `catalog_versions`.
+pub struct DvgMobsSource<'a> {
+    pub path: &'a str,
+    pub version: &'a str,
+    pub counts: &'a DvgMobCounts,
+}
+
 /// One full import: `catalog` already extended by `references`, and `data`
 /// with the NiaDB additions, the zh names and resolved drops.
 pub struct Input<'a> {
@@ -41,6 +48,7 @@ pub struct Input<'a> {
     pub sources: &'a Sources<'a>,
     pub niadb: Option<NiaDbSource<'a>>,
     pub zh_names: Option<ZhNamesSource<'a>>,
+    pub dvg_mobs: Option<DvgMobsSource<'a>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -89,6 +97,7 @@ pub async fn import_catalog(
             sources,
             niadb: None,
             zh_names: None,
+            dvg_mobs: None,
         },
     )
     .await
@@ -212,6 +221,16 @@ pub async fn import(pool: &PgPool, input: &Input<'_>) -> Result<ImportSummary> {
                 "npc_shops": npc_shops,
                 "bestiary": niadb.bestiary,
             }),
+        )
+        .await?;
+    }
+    if let Some(dvg) = &input.dvg_mobs {
+        record_version(
+            &mut tx,
+            "dvg-mobs",
+            dvg.version,
+            dvg.path,
+            serde_json::to_value(dvg.counts)?,
         )
         .await?;
     }

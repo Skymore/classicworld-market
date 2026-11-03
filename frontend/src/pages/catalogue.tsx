@@ -30,12 +30,15 @@ export function Secondary({ names }: { names: any }) {
     <span className="name-secondary">{other}</span>
   ) : null;
 }
+// Classic World client sprites in web/images/mobs (see its sources.json) for
+// mobs the GMS v83 renderer lacks; keep in step with LOCAL_SPRITES in pages.rs.
+const LOCAL_SPRITES = new Set([
+  39, 42, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 1059, 700003, 700006, 700007, 700008, 800019, 800020, 800021, 800022, 800023, 800024, 800025, 810000, 810001, 810002, 810003, 810004, 810005, 900000, 910000,
+]);
 export function MobPicture({ mob, big = false }: { mob: any; big?: boolean }) {
   const id = mob.image_id;
-  const local =
-    (mob.id >= 54 && mob.id <= 63) || [1059, 700003, 800022].includes(mob.id);
-  const url = local
-    ? `/web/images/mobs/${mob.id === 800022 ? 700003 : mob.id}.png`
+  const url = LOCAL_SPRITES.has(mob.id)
+    ? `/web/images/mobs/${mob.id}.png`
     : id
       ? `https://maplestory.io/api/GMS/83/mob/${id}/render/stand`
       : null;
