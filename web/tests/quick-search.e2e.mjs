@@ -181,6 +181,8 @@ try {
     await refresh();
     assert(await input.evaluate(node => node === window.savedInput && node === document.activeElement), 'SSE preserves the input and focus');
     assert(await box.locator('.quick-row').first().evaluate(node => node === window.savedRow), 'SSE preserves the suggested row');
+    // Market events reach a page at most every 3 s: wait, so the refresh during the press below goes out at once.
+    await page.waitForTimeout(3100);
     await pressWithoutLinkFocus(box.locator('.quick-row').first());
     assert.equal(await box.isVisible(), true, 'blur must not hide the link before its click');
     await refresh();

@@ -23,7 +23,7 @@ import {
 } from "./providers";
 import { AppShell } from "./components/shell";
 import { ensureStyle } from "./lib/styles";
-import { queryClient } from "./lib/query";
+import { queryClient, prefetchPriceTable } from "./lib/query";
 import { loadCatalog, catalogKey, readCatalogSnapshot } from "./lib/catalog";
 import { WatchAlertsProvider } from "./components/watch-alerts";
 import { ToastHost } from "./components/toasts";
@@ -41,7 +41,10 @@ function priceTablePath(url: URL) {
 }
 const legacyPricePath = priceTablePath(new URL(location.href));
 if (legacyPricePath) history.replaceState(history.state, "", legacyPricePath);
-if (location.pathname === "/") void loadPriceTable();
+if (location.pathname === "/") {
+  void loadPriceTable();
+  prefetchPriceTable();
+}
 
 const Watch = lazy(() => import("./pages/watch"));
 const Alerts = lazy(() => import("./pages/alerts"));

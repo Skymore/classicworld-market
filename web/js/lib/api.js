@@ -1,7 +1,13 @@
 import { subscribeMarket } from './realtime.js?v=20261022-regressions-1';
 // JSON client for /api/v1. Keeps the last ETag per URL and sends
 // If-None-Match so unchanged data costs a 304 (plan v1 搂8.5: <100 KB/min idle).
-const cache = new Map(); // url -> { etag, data }
+// Responses the browser may keep (Cache-Control no-cache/max-age, not no-store)
+// revalidate through the HTTP cache instead, which also serves the next visit.
+const cache = new Map(); // url -> { etag, data, checkedAt, browser }
+const browserCached = (res) => {
+  const control = (res.headers.get('Cache-Control') || '').toLowerCase();
+  return Boolean(res.headers.get('ETag')) && !control.includes('no-store') && /no-cache|max-age/.test(control);
+};
 
 // Public server-rendered snapshots can revalidate on the initial SSE event too.
 export function seedJson(url, data, etag, checkedAt = Date.now()) {
@@ -21,12 +27,15 @@ export async function getJson(url, { signal, maxAgeMs = 0, headers: extraHeaders
   if(signal?.aborted) throw signal.reason || new DOMException('Aborted','AbortError');
   if(hit && maxAgeMs>0 && Date.now()-hit.checkedAt<=maxAgeMs) return {data:hit.data,changed:false};
   const headers = { ...extraHeaders, Accept: 'application/json' };
-  if (hit?.etag) headers['If-None-Match'] = hit.etag;
+  if (hit?.etag && !hit.browser) headers['If-None-Match'] = hit.etag;
   const res = await fetch(url, { headers, signal, credentials: 'same-origin', cache: 'no-cache' });
   if (res.status === 304 && hit) { hit.checkedAt=Date.now(); return { data: hit.data, changed: false }; }
   if (!res.ok) throw new ApiError(res.status, url);
+  const etag = res.headers.get('ETag');
+  // The browser answered its own revalidation from cache: same version, nothing to parse.
+  if (hit?.browser && etag && etag === hit.etag) { hit.checkedAt=Date.now(); res.body?.cancel().catch(() => {}); return { data: hit.data, changed: false }; }
   const data = await res.json();
-  if(!personal)cache.set(url, { etag: res.headers.get('ETag'), data, checkedAt:Date.now() });
+  if(!personal)cache.set(url, { etag, data, checkedAt:Date.now(), browser: browserCached(res) });
   return { data, changed: true };
 }
 
