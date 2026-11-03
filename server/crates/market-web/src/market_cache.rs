@@ -1,12 +1,14 @@
 //! Bounded public response caches. Related commits invalidate prices immediately;
 //! callers waiting for a rebuild do not hold database connections.
 use crate::{
+    encoding::{self, Coding},
     unix_now,
     views::{self, Hours},
 };
+use axum::body::Bytes;
 use sqlx::PgPool;
 use std::{collections::VecDeque, sync::{Arc, Mutex as RegistryMutex, atomic::{AtomicU64, Ordering}}, time::Instant};
-use tokio::sync::{Mutex, Semaphore};
+use tokio::sync::{Mutex, OnceCell, Semaphore};
 
 #[derive(PartialEq)]
 enum Revision {
@@ -213,7 +215,84 @@ impl PublicReadCache {
     }
 }
 
-type Entry = Option<(i64, Vec<u8>)>;
+/// One committed version of `?view=list`. Its br and gzip forms are made
+/// once, on the first request that accepts them, not per response.
+pub struct MarketList {
+    pub version: i64,
+    as_of: Option<f64>,
+    body: Bytes,
+    rows: Vec<(i32, std::ops::Range<usize>)>,
+    br: OnceCell<Bytes>,
+    gzip: OnceCell<Bytes>,
+}
+
+impl MarketList {
+    fn new(list: views::ListBody) -> Self {
+        Self {
+            version: list.version,
+            as_of: list.as_of,
+            body: list.body.into(),
+            rows: list.rows,
+            br: OnceCell::new(),
+            gzip: OnceCell::new(),
+        }
+    }
+
+    pub fn body(&self) -> Bytes {
+        self.body.clone()
+    }
+
+    /// br 6 / gzip 6: about 65 / 77 KB for the 750 KB list in ~15 ms each.
+    pub(crate) async fn encoded(&self, coding: Coding) -> Bytes {
+        let cell = match coding {
+            Coding::Br => &self.br,
+            Coding::Gzip => &self.gzip,
+        };
+        cell.get_or_init(|| {
+            let body = self.body.clone();
+            async move {
+                tokio::task::spawn_blocking(move || {
+                    Bytes::from(match coding {
+                        Coding::Br => encoding::brotli(&body, 6),
+                        Coding::Gzip => encoding::gzip(&body, 6),
+                    })
+                })
+                .await
+                .expect("compression task")
+            }
+        })
+        .await
+        .clone()
+    }
+
+    /// `view=list&ids=`: the rows of `ids` exactly as in the full list, and
+    /// the requested ids the list does not have.
+    pub fn select(&self, ids: &[i32]) -> Vec<u8> {
+        let mut out = b"{\"as_of\":".to_vec();
+        serde_json::to_writer(&mut out, &self.as_of).expect("serialisable");
+        out.extend_from_slice(b",\"products\":[");
+        let mut removed = Vec::new();
+        let mut first = true;
+        for id in ids {
+            match self.rows.binary_search_by_key(id, |(item, _)| *item) {
+                Ok(index) => {
+                    if !first {
+                        out.push(b',');
+                    }
+                    first = false;
+                    out.extend_from_slice(&self.body[self.rows[index].1.clone()]);
+                }
+                Err(_) => removed.push(*id),
+            }
+        }
+        out.extend_from_slice(b"],\"removed\":");
+        serde_json::to_writer(&mut out, &removed).expect("serialisable");
+        out.push(b'}');
+        out
+    }
+}
+
+type Entry = Option<Arc<MarketList>>;
 
 #[cfg(test)]
 mod hint_tests {
@@ -273,10 +352,10 @@ impl MarketListCache {
         if entry.as_ref().is_none_or(|(version,_,_)| *version!=revision) {
             // Decode the full table once per committed version, never once per
             // visitor or watch combination. Only two bounded snapshots remain.
-            let (version,body)=self.get(db,hours,public).await?;
-            let market=serde_json::from_slice(&body).expect("cached market JSON");
+            let list=self.get(db,hours,public).await?;
+            let market=serde_json::from_slice(&list.body).expect("cached market JSON");
             let overview=crate::delivery::overview(&market);
-            *entry=Some((version,market,overview));
+            *entry=Some((list.version,market,overview));
         }
         let (_,market,overview)=entry.as_ref().unwrap();
         Ok(match ids { Some(ids)=>crate::delivery::selected(market,ids), None=>overview.clone() })
@@ -370,28 +449,114 @@ impl MarketListCache {
         Ok((version, body))
     }
 
+    fn list_slot(&self, hours: Hours) -> &Mutex<Entry> {
+        match hours {
+            Hours::Recent => &self.recent,
+            Hours::All => &self.all,
+        }
+    }
+
+    /// The cached list when it is at least `version`, without waiting or
+    /// touching the database; `None` while a rebuild holds the slot.
+    pub fn peek(&self, hours: Hours, version: i64) -> Option<Arc<MarketList>> {
+        let entry = self.list_slot(hours).try_lock().ok()?;
+        entry
+            .as_ref()
+            .filter(|list| list.version >= version)
+            .cloned()
+    }
+
+    /// Overview and selected rows can be answered from memory for `version`.
+    pub fn projection_ready(&self, hours: Hours, version: i64) -> bool {
+        let slot = usize::from(matches!(hours, Hours::All));
+        self.projections[slot].try_lock().is_ok_and(|entry| {
+            entry
+                .as_ref()
+                .is_some_and(|(cached, _, _)| *cached == version)
+        })
+    }
+
     pub async fn get(
         &self,
         db: &PgPool,
         hours: Hours,
         public: bool,
-    ) -> sqlx::Result<(i64, Vec<u8>)> {
-        let mut entry = match hours {
-            Hours::Recent => &self.recent,
-            Hours::All => &self.all,
-        }
-        .lock()
-        .await;
+    ) -> sqlx::Result<Arc<MarketList>> {
+        let mut entry = self.list_slot(hours).lock().await;
         // Read after acquiring the lock so a waiter cannot replace a newer
         // cached response with the version it saw before waiting.
         let version = views::version(db).await?;
-        if let Some((cached_version, body)) = entry.as_ref() {
-            if *cached_version == version {
-                return Ok((version, body.clone()));
+        if let Some(list) = entry.as_ref() {
+            if list.version == version {
+                return Ok(list.clone());
             }
         }
-        let fresh = views::market_list(db, hours, unix_now(), public).await?;
+        let fresh = Arc::new(MarketList::new(
+            views::market_list_rows(db, hours, unix_now(), public).await?,
+        ));
         *entry = Some(fresh.clone());
         Ok(fresh)
+    }
+}
+
+#[cfg(test)]
+mod list_tests {
+    use super::*;
+
+    fn list() -> MarketList {
+        let rows = [
+            (3, r#"{"item_id":3,"low":1}"#),
+            (7, r#"{"item_id":7,"low":null}"#),
+        ];
+        let mut body = br#"{"as_of":12.5,"products":["#.to_vec();
+        let mut positions = Vec::new();
+        for (n, (id, row)) in rows.iter().enumerate() {
+            if n > 0 {
+                body.push(b',');
+            }
+            positions.push((*id, body.len()..body.len() + row.len()));
+            body.extend_from_slice(row.as_bytes());
+        }
+        body.extend_from_slice(b"]}");
+        MarketList::new(views::ListBody {
+            version: 1,
+            as_of: Some(12.5),
+            body,
+            rows: positions,
+        })
+    }
+
+    #[test]
+    fn selected_rows_are_copied_and_missing_ids_listed() {
+        let value: serde_json::Value =
+            serde_json::from_slice(&list().select(&[1, 3, 7, 9])).unwrap();
+        assert_eq!(
+            value,
+            serde_json::json!({"as_of":12.5,
+            "products":[{"item_id":3,"low":1},{"item_id":7,"low":null}],"removed":[1,9]})
+        );
+        let empty: serde_json::Value = serde_json::from_slice(&list().select(&[])).unwrap();
+        assert_eq!(
+            empty,
+            serde_json::json!({"as_of":12.5,"products":[],"removed":[]})
+        );
+    }
+
+    #[tokio::test]
+    async fn encoded_forms_are_made_once() {
+        use std::io::Read as _;
+        let list = list();
+        let br = list.encoded(Coding::Br).await;
+        assert_eq!(br, list.encoded(Coding::Br).await);
+        let mut out = Vec::new();
+        brotli::Decompressor::new(&br[..], 4096)
+            .read_to_end(&mut out)
+            .unwrap();
+        assert_eq!(out, list.body());
+        out.clear();
+        flate2::read::GzDecoder::new(&list.encoded(Coding::Gzip).await[..])
+            .read_to_end(&mut out)
+            .unwrap();
+        assert_eq!(out, list.body());
     }
 }

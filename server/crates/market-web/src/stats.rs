@@ -430,9 +430,8 @@ pub async fn refresh_all(conn: &mut PgConnection, now: f64) -> sqlx::Result<usiz
     .bind(Window::recent(now).cutoff)
     .execute(&mut *conn)
     .await?;
-    sqlx::query("SELECT pg_notify('market_changed', '')")
-        .execute(&mut *conn)
-        .await?;
+    // Every item and the 72-hour window moved: clients reload the whole list.
+    crate::realtime::notify_market(&mut *conn, None).await?;
     Ok(items.len())
 }
 
@@ -502,7 +501,7 @@ pub async fn refresh_if_due(db: &PgPool, now: f64) -> sqlx::Result<bool> {
         sqlx::query("UPDATE market_state SET refreshed_at=to_timestamp($1),
             refreshed_cutoff=to_timestamp($2),refreshed_as_of=as_of")
             .bind(now).bind(cutoff).execute(&mut *tx).await?;
-        sqlx::query("SELECT pg_notify('market_changed','')").execute(&mut *tx).await?;
+        crate::realtime::notify_market(&mut tx, None).await?;
     } else {
         // Nothing left the window; only move the window start.
         sqlx::query("UPDATE market_state SET refreshed_cutoff = to_timestamp($1)")

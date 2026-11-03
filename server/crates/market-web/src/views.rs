@@ -245,15 +245,37 @@ fn summary_product(p: &ProductRow, hours: Hours) -> Map<String, Value> {
     }
 }
 
-/// `?view=list`: `market_views.list_view`. Each entry is the item's
-/// catalogue fields followed by the `list_fields` the write path stored, so
-/// a request decodes eight columns per item and copies the rest as text.
+/// A built `?view=list` answer and where each product sits in it, so a few
+/// rows can be sent without decoding the list (`view=list&ids=`).
+pub struct ListBody {
+    pub version: i64,
+    pub as_of: Option<f64>,
+    pub body: Vec<u8>,
+    /// Item id and the byte range of its product object, in item id order.
+    pub rows: Vec<(i32, std::ops::Range<usize>)>,
+}
+
+/// `?view=list`: `market_views.list_view`.
 pub async fn market_list(
     db: &PgPool,
     hours: Hours,
     now: f64,
     public_read: bool,
 ) -> sqlx::Result<(i64, Vec<u8>)> {
+    market_list_rows(db, hours, now, public_read)
+        .await
+        .map(|list| (list.version, list.body))
+}
+
+/// `market_list` with each product's position. Each entry is the item's
+/// catalogue fields followed by the `list_fields` the write path stored, so
+/// a request decodes eight columns per item and copies the rest as text.
+pub async fn market_list_rows(
+    db: &PgPool,
+    hours: Hours,
+    now: f64,
+    public_read: bool,
+) -> sqlx::Result<ListBody> {
     let head = header(db, hours, now).await?;
     let (fields, join) = match hours {
         Hours::Recent => ("st.list_fields", ""),
@@ -286,6 +308,7 @@ pub async fn market_list(
         jobs: Vec<&'static str>,
         last_seen: Option<f64>,
     }
+    let mut positions = Vec::with_capacity(rows.len());
     for (n, r) in rows.iter().enumerate() {
         let item_id: i32 = r.get(0);
         let mask: Option<i16> = r.get(6);
@@ -303,6 +326,7 @@ pub async fn market_list(
         if n > 0 {
             body.push(b',');
         }
+        let start = body.len();
         serde_json::to_writer(&mut body, &catalogue).expect("serialisable");
         body.pop();
         let fields: &str = r.get(8);
@@ -311,9 +335,15 @@ pub async fn market_list(
             body.extend_from_slice(fields.as_bytes());
         }
         body.push(b'}');
+        positions.push((item_id, start..body.len()));
     }
     body.extend_from_slice(b"]}");
-    Ok((head.version, body))
+    Ok(ListBody {
+        version: head.version,
+        as_of: head.as_of,
+        body,
+        rows: positions,
+    })
 }
 
 /// `?summary=1`; also the answer to a bare `/api/v1/market`.

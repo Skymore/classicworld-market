@@ -88,7 +88,9 @@ pub struct AppState {
     pub started: Instant,
     pub settings: Arc<Settings>,
     pub limiter: Arc<auth::RateLimiter>,
-    pub events: tokio::sync::broadcast::Sender<()>,
+    /// Committed `market_changed` notices: the changed item ids, `None`
+    /// when unknown (see `realtime::notify_market`).
+    pub events: tokio::sync::broadcast::Sender<realtime::MarketChange>,
     /// Committed `account_changed` notices: (account id, topic).
     pub account_events: tokio::sync::broadcast::Sender<(i64, &'static str)>,
     pub collector_updates: tokio::sync::watch::Sender<Option<String>>,

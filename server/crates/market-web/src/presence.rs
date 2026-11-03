@@ -144,9 +144,7 @@ pub async fn ingest(
         .fetch_one(&mut *tx)
         .await?;
         stats::recompute_items(&mut tx, &items, as_of, now, &HashMap::new()).await?;
-        sqlx::query("SELECT pg_notify('market_changed','')")
-            .execute(&mut *tx)
-            .await?;
+        crate::realtime::notify_market(&mut tx, Some(&items[..])).await?;
     }
     timing.mark(Phase::Stats);
     tx.commit().await?;

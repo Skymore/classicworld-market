@@ -93,7 +93,7 @@ async fn list_view_is_slim_and_revalidates() {
     let (client, _) = market(&db).await;
     let first = client.get("/api/v1/market?view=list", &[]).await;
     assert_eq!(first.status(), StatusCode::OK);
-    assert_eq!(first.headers()[header::CACHE_CONTROL], "no-store");
+    assert_eq!(first.headers()[header::CACHE_CONTROL], "private, no-cache");
     let tag = first.headers()[header::ETAG].to_str().unwrap().to_string();
     let body = json_body(first).await;
     let product = &body["products"][0];
@@ -237,9 +237,8 @@ async fn concurrent_lists_share_precomputed_results_without_reading_sales() {
     let first = tokio::time::timeout(std::time::Duration::from_secs(2), async {
         let first = requests.join_next().await.unwrap().unwrap();
         while let Some(answer) = requests.join_next().await {
-            assert_eq!(
-                answer.unwrap(),
-                first,
+            assert!(
+                std::sync::Arc::ptr_eq(&answer.unwrap(), &first),
                 "same-version requests must reuse the exact response"
             );
         }
@@ -249,14 +248,14 @@ async fn concurrent_lists_share_precomputed_results_without_reading_sales() {
             .get(&db.pool, market_web::views::Hours::All, true)
             .await
             .unwrap();
-        let all: Value = serde_json::from_slice(&all.1).unwrap();
+        let all: Value = serde_json::from_slice(&all.body()).unwrap();
         assert_eq!(all["hours"], Value::Null);
         assert_eq!(all["products"][0]["sales_window"], 2);
         first
     })
     .await
     .expect("list reads must not wait for the sales history table");
-    let body: Value = serde_json::from_slice(&first.1).unwrap();
+    let body: Value = serde_json::from_slice(&first.body()).unwrap();
     assert_eq!(body["hours"], 72);
     assert_eq!(body["products"][0]["sales_window"], 2);
     assert_eq!(body["products"][0]["typical_window"], 500.0);
@@ -969,5 +968,205 @@ async fn item_history_keeps_the_cheapest_offer_of_each_newest_observation() {
     assert!(history
         .windows(2)
         .all(|w| w[0]["time"].as_f64() >= w[1]["time"].as_f64()));
+    db.close().await;
+}
+
+#[tokio::test]
+async fn list_answers_are_precompressed_private_and_select_rows_by_id() {
+    use std::io::Read as _;
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let (client, _) = market(&db).await;
+    let plain = client.get("/api/v1/market?view=list&hours=all", &[]).await;
+    assert!(plain.headers().get(header::CONTENT_ENCODING).is_none());
+    let tag = plain.headers()[header::ETAG].to_str().unwrap().to_owned();
+    let plain = plain.into_body().collect().await.unwrap().to_bytes();
+    let list: Value = serde_json::from_slice(&plain).unwrap();
+    for coding in ["br", "gzip"] {
+        let response = client
+            .get(
+                "/api/v1/market?view=list&hours=all",
+                &[("accept-encoding", coding)],
+            )
+            .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let headers = response.headers().clone();
+        assert_eq!(headers[header::CONTENT_ENCODING], coding);
+        assert_eq!(headers[header::CACHE_CONTROL], "private, no-cache");
+        assert_eq!(headers[header::VARY], "accept-encoding");
+        assert_eq!(headers[header::ETAG], tag.as_str());
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let mut decoded = Vec::new();
+        if coding == "br" {
+            brotli::Decompressor::new(&body[..], 4096)
+                .read_to_end(&mut decoded)
+                .unwrap();
+        } else {
+            flate2::read::GzDecoder::new(&body[..])
+                .read_to_end(&mut decoded)
+                .unwrap();
+        }
+        assert_eq!(decoded, plain, "{coding}");
+    }
+    let unchanged = client
+        .get(
+            "/api/v1/market?view=list&hours=all",
+            &[("if-none-match", &tag)],
+        )
+        .await;
+    assert_eq!(unchanged.status(), StatusCode::NOT_MODIFIED);
+    assert_eq!(
+        unchanged.headers()[header::CACHE_CONTROL],
+        "private, no-cache"
+    );
+
+    let rows = json_body(
+        client
+            .get(
+                "/api/v1/market?view=list&hours=all&ids=4999999,4010001",
+                &[],
+            )
+            .await,
+    )
+    .await;
+    assert_eq!(rows["as_of"], list["as_of"]);
+    assert_eq!(rows["products"], json!([list["products"][0].clone()]));
+    assert_eq!(rows["removed"], json!([4999999]));
+    let none = json_body(client.get("/api/v1/market?view=list&ids=", &[]).await).await;
+    assert_eq!(
+        (none["products"].clone(), none["removed"].clone()),
+        (json!([]), json!([]))
+    );
+    let many: Vec<String> = (0..201).map(|n| (4_000_000 + n).to_string()).collect();
+    for bad in [many.join(","), "4010001,x".into(), "4010001,".into()] {
+        let response = client
+            .get(&format!("/api/v1/market?view=list&ids={bad}"), &[])
+            .await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{bad}");
+    }
+    let max = client
+        .get(
+            &format!("/api/v1/market?view=list&ids={}", many[..200].join(",")),
+            &[],
+        )
+        .await;
+    assert_eq!(max.status(), StatusCode::OK);
+    db.close().await;
+}
+
+#[tokio::test]
+async fn cached_market_reads_do_not_spend_the_read_limit() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let (client, _) = market(&db).await;
+    let ip = [("cf-connecting-ip", "203.0.113.9")];
+    let first = client.get("/api/v1/market?view=list", &ip).await;
+    assert_eq!(first.status(), StatusCode::OK);
+    let tag = first.headers()[header::ETAG].to_str().unwrap().to_owned();
+    assert_eq!(
+        client.get("/api/v1/market/overview", &ip).await.status(),
+        StatusCode::OK
+    );
+    // Each market event makes every open page refresh: hits, 304s, rows and
+    // the overview come from memory and have their own, wider budget.
+    for n in 0..100 {
+        let path = [
+            "/api/v1/market?view=list",
+            "/api/v1/market?view=list&ids=4010001",
+            "/api/v1/market/overview",
+        ][n % 3];
+        assert_eq!(
+            client.get(path, &ip).await.status(),
+            StatusCode::OK,
+            "{n} {path}"
+        );
+        let revalidated = client
+            .get(
+                "/api/v1/market?view=list",
+                &[ip[0], ("if-none-match", &tag)],
+            )
+            .await;
+        assert_eq!(revalidated.status(), StatusCode::NOT_MODIFIED, "{n}");
+    }
+    // Uncached reads keep the old limit: two of 60 were spent above.
+    let mut allowed = 0;
+    while client
+        .get("/api/v1/market?item_id=4010001", &ip)
+        .await
+        .status()
+        == StatusCode::OK
+    {
+        allowed += 1;
+        assert!(allowed <= 60);
+    }
+    assert_eq!(allowed, 58);
+    assert_eq!(
+        client
+            .get("/api/v1/market?item_id=4010001", &ip)
+            .await
+            .status(),
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    // The cached budget is bounded too.
+    let mut cached = 200;
+    while client.get("/api/v1/market?view=list", &ip).await.status() == StatusCode::OK {
+        cached += 1;
+        assert!(cached <= 600);
+    }
+    assert_eq!(cached, 600);
+    db.close().await;
+}
+
+#[tokio::test]
+async fn market_events_name_the_uploaded_items() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let (client, token) = market(&db).await;
+    let state = client.state.clone();
+    let mut ready = state.events.subscribe();
+    let listener = tokio::spawn(market_web::realtime::listen(
+        state.db.clone(),
+        state.events.clone(),
+        state.collector_updates.clone(),
+        state.account_events.clone(),
+    ));
+    tokio::time::timeout(std::time::Duration::from_secs(5), ready.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    let mut body = client.get("/api/v1/events", &[]).await.into_body();
+    async fn next(body: &mut Body) -> String {
+        let frame = tokio::time::timeout(std::time::Duration::from_secs(5), body.frame())
+            .await
+            .unwrap();
+        String::from_utf8(frame.unwrap().unwrap().into_data().unwrap().to_vec()).unwrap()
+    }
+    assert!(
+        next(&mut body).await.contains("data: {}"),
+        "connecting revalidates everything"
+    );
+    // Another shop, so the first shop's listings stay as they were.
+    let mut other = observation("live-ids", unix_now() - 5.0, 4);
+    other["shop_id"] = json!(8);
+    other["items"][0]["item_id"] = json!(4010002);
+    let response = client
+        .post(
+            "/api/v1/observations",
+            &other,
+            &[("authorization", &format!("Bearer {token}"))],
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let event = next(&mut body).await;
+    assert!(
+        event.contains("event: market") && event.contains(r#"data: {"ids":[4010002]}"#),
+        "{event}"
+    );
+    state.events.send(None).unwrap();
+    assert!(next(&mut body).await.contains("data: {}"));
+    listener.abort();
     db.close().await;
 }

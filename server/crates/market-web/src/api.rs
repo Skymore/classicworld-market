@@ -141,6 +141,48 @@ async fn member(state: &AppState, headers: &HeaderMap) -> Result<Option<Collecto
     .map_err(internal)
 }
 
+/// Reads per reader and minute that may query or rebuild.
+const READ_LIMIT: usize = 60;
+/// Reads per reader and minute answered from an unchanged in-memory market
+/// snapshot: list hits, 304s, `ids` rows, overview and selected rows. Each
+/// market event makes every open page refresh, so these must not spend
+/// `READ_LIMIT`; a rebuild still does.
+const CACHED_READ_LIMIT: usize = 600;
+
+/// Read access: sign-in unless public. The rate-limit key of this reader.
+async fn read_key(
+    state: &AppState,
+    headers: &HeaderMap,
+    addr: &str,
+    scope: &str,
+) -> Result<String, Response> {
+    let who = member(state, headers).await?;
+    if !state.settings.public_read && who.is_none() {
+        return Err(error(StatusCode::UNAUTHORIZED, "请登录"));
+    }
+    Ok(format!(
+        "{scope}:{}",
+        who.map_or(addr.to_string(), |c| c.public_id)
+    ))
+}
+
+fn spend(state: &AppState, key: &str, limit: usize) -> Result<(), Response> {
+    if state.limiter.allow(key, limit) {
+        Ok(())
+    } else {
+        Err(error(StatusCode::TOO_MANY_REQUESTS, "Rate limited"))
+    }
+}
+
+/// From the cached budget when `cached`, else from the regular one.
+fn spend_read(state: &AppState, key: &str, cached: bool) -> Result<(), Response> {
+    if cached {
+        spend(state, &format!("{key}|cached"), CACHED_READ_LIMIT)
+    } else {
+        spend(state, key, READ_LIMIT)
+    }
+}
+
 /// Read access: sign-in unless public, then a per-reader limit.
 pub(crate) async fn reader(
     state: &AppState,
@@ -148,15 +190,8 @@ pub(crate) async fn reader(
     addr: &str,
     scope: &str,
 ) -> Result<(), Response> {
-    let who = member(state, headers).await?;
-    if !state.settings.public_read && who.is_none() {
-        return Err(error(StatusCode::UNAUTHORIZED, "请登录"));
-    }
-    let key = format!("{scope}:{}", who.map_or(addr.to_string(), |c| c.public_id));
-    if !state.limiter.allow(&key, 60) {
-        return Err(error(StatusCode::TOO_MANY_REQUESTS, "Rate limited"));
-    }
-    Ok(())
+    let key = read_key(state, headers, addr, scope).await?;
+    spend(state, &key, READ_LIMIT)
 }
 
 fn query_param(query: &Option<String>, name: &str) -> Option<String> {
@@ -514,10 +549,14 @@ async fn market_selected(State(state): State<AppState>, ClientAddr(addr): Client
 }
 
 async fn market_projection(state: AppState, addr: String, headers: HeaderMap, query: Option<String>, overview: bool) -> Response {
-    if let Err(response) = reader(&state, &headers, &addr, "read").await { return response; }
+    let key = match read_key(&state, &headers, &addr, "read").await { Ok(key) => key, Err(response) => return response };
     let Some(hours) = Hours::parse(query_param(&query, "hours").as_deref()) else {
         return error(StatusCode::BAD_REQUEST, "hours must be 72 or all");
     };
+    let version = match views::version(&state.db).await { Ok(v) => v, Err(err) => return internal(err) };
+    if let Err(response) = spend_read(&state, &key, state.market_lists.projection_ready(hours, version)) {
+        return response;
+    }
     let Some(ids) = views::parse_item_ids(&query_param(&query, "ids").unwrap_or_default()) else {
         return error(StatusCode::BAD_REQUEST, "Invalid item IDs");
     };
@@ -529,15 +568,117 @@ async fn market_projection(state: AppState, addr: String, headers: HeaderMap, qu
     }
 }
 
+/// `ids=` of `view=list`: at most `MAX_CHANGED_ITEMS` decimal ids, sorted.
+fn list_ids(value: &str) -> Option<Vec<i32>> {
+    if value.is_empty() {
+        return Some(Vec::new());
+    }
+    let mut ids: Vec<i32> = value
+        .split(',')
+        .map(|id| {
+            id.bytes()
+                .all(|b| b.is_ascii_digit())
+                .then(|| id.parse().ok())
+                .flatten()
+        })
+        .collect::<Option<_>>()?;
+    ids.sort_unstable();
+    ids.dedup();
+    (ids.len() <= crate::realtime::MAX_CHANGED_ITEMS).then_some(ids)
+}
+
+/// `view=list`, whole or `ids=` rows. Every committed upload changes the
+/// version, so browsers keep the list and revalidate it (`no-cache`).
+async fn market_list(
+    state: &AppState,
+    key: &str,
+    headers: &HeaderMap,
+    hours: Hours,
+    ids: Option<String>,
+) -> Response {
+    let ids = match ids.as_deref().map(list_ids) {
+        None => None,
+        Some(Some(ids)) => Some(ids),
+        Some(None) => return error(StatusCode::BAD_REQUEST, "ids must be at most 200 item IDs"),
+    };
+    let scope = match &ids {
+        None => format!("market|list|{}", hours.key()),
+        Some(ids) => format!("market|list|{}|ids|{ids:?}", hours.key()),
+    };
+    let private = |mut response: Response, encoded: bool| {
+        let headers = response.headers_mut();
+        headers.insert(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("private, no-cache"),
+        );
+        if encoded {
+            headers.insert(header::VARY, HeaderValue::from_static("accept-encoding"));
+        }
+        response
+    };
+    let version = match views::version(&state.db).await {
+        Ok(version) => version,
+        Err(err) => return internal(err),
+    };
+    let tag = etag(version, &scope);
+    if not_modified(headers, &tag) {
+        if let Err(response) = spend_read(state, key, true) {
+            return response;
+        }
+        return private(unchanged(&tag), ids.is_none());
+    }
+    let list = match state.market_lists.peek(hours, version) {
+        Some(list) => match spend_read(state, key, true) {
+            Ok(()) => list,
+            Err(response) => return response,
+        },
+        None => {
+            if let Err(response) = spend_read(state, key, false) {
+                return response;
+            }
+            match state
+                .market_lists
+                .get(&state.db, hours, state.settings.public_read)
+                .await
+            {
+                Ok(list) => list,
+                Err(err) => return internal(err),
+            }
+        }
+    };
+    let tag = etag(list.version, &scope);
+    if let Some(ids) = ids {
+        // Small: `CompressionLayer` compresses it per response.
+        return private(json_response(Some(&tag), list.select(&ids)), false);
+    }
+    let coding = crate::encoding::Accepted::from_headers(headers).preferred();
+    let body = match coding {
+        Some(coding) => list.encoded(coding).await,
+        None => list.body(),
+    };
+    let mut response = Response::new(Body::from(body));
+    let response_headers = response.headers_mut();
+    response_headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/json; charset=utf-8"),
+    );
+    response_headers.insert(header::ETAG, HeaderValue::from_str(&tag).expect("hex tag"));
+    if let Some(coding) = coding {
+        response_headers.insert(header::CONTENT_ENCODING, coding.header());
+    }
+    private(response, true)
+}
+
 async fn market(
     State(state): State<AppState>,
     ClientAddr(addr): ClientAddr,
     headers: HeaderMap,
     RawQuery(query): RawQuery,
 ) -> Response {
-    if let Err(response) = reader(&state, &headers, &addr, "read").await {
-        return response;
-    }
+    let key = match read_key(&state, &headers, &addr, "read").await {
+        Ok(key) => key,
+        Err(response) => return response,
+    };
     let Some(hours) = Hours::parse(query_param(&query, "hours").as_deref()) else {
         return error(StatusCode::BAD_REQUEST, "hours must be 72 or all");
     };
@@ -555,17 +696,10 @@ async fn market(
     let (db, public, now) = (&state.db, state.settings.public_read, unix_now());
 
     if layout == "list" && item.is_empty() {
-        return match state.market_lists.get(db, hours, public).await {
-            Ok((version, body)) => {
-                let tag = etag(version, &format!("market|list|{}", hours.key()));
-                if not_modified(&headers, &tag) {
-                    unchanged(&tag)
-                } else {
-                    json_response(Some(&tag), body)
-                }
-            }
-            Err(err) => internal(err),
-        };
+        return market_list(&state, &key, &headers, hours, query_param(&query, "ids")).await;
+    }
+    if let Err(response) = spend_read(&state, &key, false) {
+        return response;
     }
 
     let version = match views::version(db).await {
