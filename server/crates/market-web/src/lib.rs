@@ -51,6 +51,8 @@ pub mod upload_queue;
 pub mod views;
 pub mod web;
 mod write_timing;
+mod encoding;
+mod static_files;
 
 /// Behaviour switches of `shared_server.create_app`.
 #[derive(Debug, Clone)]
@@ -172,9 +174,10 @@ pub fn app_with_web(state: AppState, web_dir: Option<&std::path::Path>) -> Route
             header::X_CONTENT_TYPE_OPTIONS,
             HeaderValue::from_static("nosniff"),
         ))
-        // Level 3: the 1001-item list is ~80 KB gzip in ~4 ms; the default
-        // level saves ~10 KB more for twice the time.
-        .layer(CompressionLayer::new().quality(CompressionLevel::Precise(3)))
+        // Per-response compression of everything not already encoded (the
+        // market list and web/ text files are, see `encoding`). Level 4: a
+        // 750 KB JSON answer is 78 KB br in ~8 ms, 90 KB gzip in ~5 ms.
+        .layer(CompressionLayer::new().quality(CompressionLevel::Precise(4)))
         .layer(
             // Microseconds: list answers take a few milliseconds.
             TraceLayer::new_for_http()

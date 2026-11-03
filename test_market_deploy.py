@@ -1,5 +1,6 @@
 """Deployment boundary checks use synthetic artifacts and never contact production."""
 import json
+import os
 import time
 from pathlib import Path
 import tempfile
@@ -113,6 +114,68 @@ class DeploymentTests(unittest.TestCase):
         manifest["files"]["web/uncommitted.js"] = "verified separately"
         with self.assertRaisesRegex(RuntimeError, "not recorded in main"):
             deployment.verify_git_web_sources(self.root, release, commit, manifest)
+
+    def test_package_keeps_chunks_of_the_current_and_three_previous_builds(self):
+        source = self.root / "source"
+
+        def git(*args):
+            return subprocess.check_output(["git", "-c", "user.name=Deployment Test", "-c",
+                "user.email=test@example.invalid", *args], cwd=source).decode().strip()
+        for name in deployment.REQUIRED:
+            path = source / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"synthetic test only")
+        chunks = source / deployment.CHUNKS
+        chunks.mkdir(parents=True)
+        (chunks / "orphan-AAAAAAAA.js").write_text("never referenced")
+        (chunks / "shared-SSSSSSSS.js").write_text("every build")
+        manifest = source / deployment.VITE_MANIFEST
+        manifest.parent.mkdir(parents=True)
+        git("init", "--quiet")
+        for build in range(6):
+            (chunks / f"route-{build:08d}.js").write_text(f"build {build}")
+            manifest.write_text(json.dumps({
+                "app.js": {"file": "app.js", "imports": ["_shared"]},
+                "_shared": {"file": "chunks/shared-SSSSSSSS.js"},
+                "src/route.tsx": {"file": f"chunks/route-{build:08d}.js", "css": [f"chunks/route-{build:08d}.css"]},
+            }))
+            if build < 5:  # the newest build is not committed yet
+                git("add", "-A")
+                git("commit", "--quiet", "-m", f"build {build}")
+        output = self.root / "artifact"
+        deployment.package(source, source / "bin/market-web.exe", output, SHA)
+        kept = sorted(p.name for p in (output / deployment.CHUNKS).iterdir())
+        self.assertEqual(kept, ["route-00000002.js", "route-00000003.js", "route-00000004.js",
+                                "route-00000005.js", "shared-SSSSSSSS.js"])
+        deployment.verify_bundle(output, SHA)
+
+    def test_package_without_a_frontend_manifest_keeps_every_chunk(self):
+        source = self.root / "source"
+        chunk = source / deployment.CHUNKS / "old-AAAAAAAA.js"
+        chunk.parent.mkdir(parents=True)
+        chunk.write_text("kept")
+        for name in deployment.REQUIRED:
+            path = source / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"synthetic test only")
+        deployment.package(source, source / "bin/market-web.exe", self.root / "artifact", SHA)
+        self.assertTrue((self.root / "artifact" / deployment.CHUNKS / "old-AAAAAAAA.js").is_file())
+
+    def test_unchanged_files_keep_the_previous_release_modification_time(self):
+        previous, release = self.root / "previous", self.root / "release"
+        for folder, changed in [(previous, b"old"), (release, b"new")]:
+            (folder / "web").mkdir(parents=True)
+            (folder / "web/same.js").write_bytes(b"same")
+            (folder / "web/changed.js").write_bytes(changed)
+            deployment.write_json(folder / "manifest.json", {"files": {
+                name: deployment.digest(folder / name) for name in ("web/same.js", "web/changed.js")}})
+        old = 1_700_000_000
+        for name in ("web/same.js", "web/changed.js"):
+            os.utime(previous / name, (old, old))
+        self.assertEqual(deployment.keep_modification_times(release, previous), 1)
+        self.assertEqual(int((release / "web/same.js").stat().st_mtime), old)
+        self.assertNotEqual(int((release / "web/changed.js").stat().st_mtime), old)
+        self.assertEqual(deployment.keep_modification_times(release, self.root / "missing"), 0)
 
     def test_failed_activation_restores_previous_release_and_checks_it(self):
         pointer = self.root / "shared_data/deploy/current.json"

@@ -69,18 +69,25 @@ pub fn routes_with_releases(web_dir: &Path, releases: &Path) -> Router<AppState>
     let cache = |value: &'static str| {
         SetResponseHeaderLayer::overriding(header::CACHE_CONTROL, HeaderValue::from_static(value))
     };
-    // Revalidate assets on navigation so HTML, modules and styles stay in
-    // sync after deployment; unchanged files still use conditional responses.
+    // `/web` sets its own policy (`static_files`): hashed and versioned URLs
+    // are immutable, HTML and unversioned entry files revalidate.
+    let site = Router::new()
+        .nest_service("/web", ServeDir::new(web_dir).precompressed_gzip())
+        .layer(axum::middleware::from_fn_with_state(
+            crate::static_files::StaticFiles::new(web_dir),
+            crate::static_files::layer,
+        ));
+    // Revalidate collector downloads and the collector page on every use.
     let assets = Router::new()
         .nest_service("/web/releases", ServeDir::new(releases))
-        .nest_service("/web", ServeDir::new(web_dir).precompressed_gzip())
         .nest_service(
             "/collect",
             ServeDir::new(web_dir.join("collect"))
                 .append_index_html_on_directories(true)
                 .precompressed_gzip(),
         )
-        .layer(cache("no-cache"));
+        .layer(cache("no-cache"))
+        .merge(site);
     let index = web_dir.join("index.html");
     let mut shell = Router::new();
     for route in PAGE_ROUTES {
