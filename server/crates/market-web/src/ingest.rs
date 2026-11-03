@@ -117,9 +117,10 @@ pub async fn ingest_batch(
     timing.items = items.len();
     timing.mark(Phase::Write);
     if let Some((as_of, now)) = latest {
-        recompute_items(&mut tx, &items.into_iter().collect::<Vec<_>>(), as_of, now, &seen_at).await?;
+        let items: Vec<i32> = items.into_iter().collect();
+        recompute_items(&mut tx, &items, as_of, now, &seen_at).await?;
         // One notification after all raw data and statistics commit together.
-        sqlx::query("SELECT pg_notify('market_changed', '')").execute(&mut *tx).await?;
+        crate::realtime::notify_market(&mut tx, Some(&items[..])).await?;
     }
     timing.mark(Phase::Stats);
     tx.commit().await?;
@@ -311,17 +312,9 @@ pub async fn repair_location(db: &PgPool, input: Received<'_>) -> Result<bool, I
         WHERE id=$1 AND a.first_at IS NOT NULL").bind(old_shop).execute(&mut *tx).await?;
     let as_of: f64 = sqlx::query_scalar("UPDATE market_state SET version=version+1,shops=shops+$1 RETURNING extract(epoch FROM as_of)::float8")
         .bind(i64::from(new_shop)-removed as i64).fetch_one(&mut *tx).await?;
-    recompute_items(
-        &mut tx,
-        &touched.into_iter().collect::<Vec<_>>(),
-        as_of,
-        input.now,
-        &HashMap::new(),
-    )
-    .await?;
-    sqlx::query("SELECT pg_notify('market_changed','')")
-        .execute(&mut *tx)
-        .await?;
+    let touched: Vec<i32> = touched.into_iter().collect();
+    recompute_items(&mut tx, &touched, as_of, input.now, &HashMap::new()).await?;
+    crate::realtime::notify_market(&mut tx, Some(&touched[..])).await?;
     tx.commit().await?;
     Ok(true)
 }
@@ -407,17 +400,9 @@ pub async fn repair_owner(db: &PgPool, input: Received<'_>) -> Result<bool, Inge
     )
     .fetch_one(&mut *tx)
     .await?;
-    recompute_items(
-        &mut tx,
-        &touched.into_iter().collect::<Vec<_>>(),
-        as_of,
-        input.now,
-        &HashMap::new(),
-    )
-    .await?;
-    sqlx::query("SELECT pg_notify('market_changed','')")
-        .execute(&mut *tx)
-        .await?;
+    let touched: Vec<i32> = touched.into_iter().collect();
+    recompute_items(&mut tx, &touched, as_of, input.now, &HashMap::new()).await?;
+    crate::realtime::notify_market(&mut tx, Some(&touched[..])).await?;
     tx.commit().await?;
     Ok(true)
 }

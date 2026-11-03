@@ -245,15 +245,37 @@ fn summary_product(p: &ProductRow, hours: Hours) -> Map<String, Value> {
     }
 }
 
-/// `?view=list`: `market_views.list_view`. Each entry is the item's
-/// catalogue fields followed by the `list_fields` the write path stored, so
-/// a request decodes eight columns per item and copies the rest as text.
+/// A built `?view=list` answer and where each product sits in it, so a few
+/// rows can be sent without decoding the list (`view=list&ids=`).
+pub struct ListBody {
+    pub version: i64,
+    pub as_of: Option<f64>,
+    pub body: Vec<u8>,
+    /// Item id and the byte range of its product object, in item id order.
+    pub rows: Vec<(i32, std::ops::Range<usize>)>,
+}
+
+/// `?view=list`: `market_views.list_view`.
 pub async fn market_list(
     db: &PgPool,
     hours: Hours,
     now: f64,
     public_read: bool,
 ) -> sqlx::Result<(i64, Vec<u8>)> {
+    market_list_rows(db, hours, now, public_read)
+        .await
+        .map(|list| (list.version, list.body))
+}
+
+/// `market_list` with each product's position. Each entry is the item's
+/// catalogue fields followed by the `list_fields` the write path stored, so
+/// a request decodes eight columns per item and copies the rest as text.
+pub async fn market_list_rows(
+    db: &PgPool,
+    hours: Hours,
+    now: f64,
+    public_read: bool,
+) -> sqlx::Result<ListBody> {
     let head = header(db, hours, now).await?;
     let (fields, join) = match hours {
         Hours::Recent => ("st.list_fields", ""),
@@ -286,6 +308,7 @@ pub async fn market_list(
         jobs: Vec<&'static str>,
         last_seen: Option<f64>,
     }
+    let mut positions = Vec::with_capacity(rows.len());
     for (n, r) in rows.iter().enumerate() {
         let item_id: i32 = r.get(0);
         let mask: Option<i16> = r.get(6);
@@ -303,6 +326,7 @@ pub async fn market_list(
         if n > 0 {
             body.push(b',');
         }
+        let start = body.len();
         serde_json::to_writer(&mut body, &catalogue).expect("serialisable");
         body.pop();
         let fields: &str = r.get(8);
@@ -311,9 +335,15 @@ pub async fn market_list(
             body.extend_from_slice(fields.as_bytes());
         }
         body.push(b'}');
+        positions.push((item_id, start..body.len()));
     }
     body.extend_from_slice(b"]}");
-    Ok((head.version, body))
+    Ok(ListBody {
+        version: head.version,
+        as_of: head.as_of,
+        body,
+        rows: positions,
+    })
 }
 
 /// `?summary=1`; also the answer to a bare `/api/v1/market`.
@@ -552,16 +582,42 @@ async fn quotes(db: &PgPool, items: &[i32], cutoff: f64) -> sqlx::Result<Vec<Map
     Ok(result)
 }
 
-/// Every observation row of the item, newest first.
+/// Observations of one item in `?item_id=` history.
+pub const HISTORY_LIMIT: i64 = 500;
+
+/// The item's newest `HISTORY_LIMIT` observations, newest first, one row
+/// each: its cheapest in-stock offer, else its cheapest row. The price chart
+/// takes the lowest in-stock unit price per observation time, so it is the
+/// same as with every row; the full history grew without bound (32 MB).
+/// Observations and shops are read by id for this item's rows, never
+/// scanned whole.
 async fn item_history(db: &PgPool, item: i32) -> sqlx::Result<Vec<Value>> {
     let sql = format!(
-        "SELECT {} FROM observation_rows r
-         JOIN observations o ON o.id = r.observation_id JOIN shops sh ON sh.id = o.shop_id
+        "WITH picked AS MATERIALIZED (
+           SELECT DISTINCT ON (observation_id) observation_id, slot FROM observation_rows
+           WHERE item_id = $1
+           ORDER BY observation_id, stock > 0 DESC, market_unit_price(item_id, price, bundle), position DESC
+         ), seen AS MATERIALIZED (
+           SELECT p.observation_id, p.slot FROM picked p
+           JOIN LATERAL (SELECT observed_at, visit_key FROM observations
+                         WHERE id = p.observation_id OFFSET 0) o ON true
+           ORDER BY o.observed_at DESC, o.visit_key DESC LIMIT $2
+         )
+         SELECT {} FROM seen p
+         JOIN observation_rows r ON r.observation_id = p.observation_id AND r.slot = p.slot
+         JOIN LATERAL (SELECT visit_key, observed_at, shop_id, map_channel, map_id, source
+                       FROM observations WHERE id = r.observation_id OFFSET 0) o ON true
+         JOIN LATERAL (SELECT title, owner_name, shop_id, channel, room, public_key
+                       FROM shops WHERE id = o.shop_id OFFSET 0) sh ON true
          JOIN items i ON i.id = r.item_id LEFT JOIN equipment_variants v ON v.id = r.variant_id
-         WHERE r.item_id = $1 ORDER BY o.observed_at DESC, o.visit_key DESC, r.position DESC",
+         ORDER BY o.observed_at DESC, o.visit_key DESC, r.position DESC",
         row_columns("r")
     );
-    let rows = sqlx::query(&sql).bind(item).fetch_all(db).await?;
+    let rows = sqlx::query(&sql)
+        .bind(item)
+        .bind(HISTORY_LIMIT)
+        .fetch_all(db)
+        .await?;
     Ok(rows.iter().map(|r| Value::Object(row_json(r))).collect())
 }
 

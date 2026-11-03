@@ -107,12 +107,12 @@ async fn event_bursts_keep_initial_snapshot_and_one_trailing_invalidation() {
     assert_eq!(response.status(),StatusCode::OK);
     let mut body=response.into_body();
     assert!(std::str::from_utf8(body.frame().await.unwrap().unwrap().data_ref().unwrap()).unwrap().contains("event: market"));
-    for _ in 0..20 { state.events.send(()).unwrap(); }
+    for _ in 0..20 { state.events.send(None).unwrap(); }
     assert!(tokio::time::timeout(Duration::from_millis(100),body.frame()).await.is_err());
     let frame=tokio::time::timeout(Duration::from_secs(2),body.frame()).await.unwrap().unwrap().unwrap();
     assert!(std::str::from_utf8(frame.data_ref().unwrap()).unwrap().contains("event: market"));
     assert!(tokio::time::timeout(Duration::from_millis(100),body.frame()).await.is_err(),"burst was replayed per upload");
-    state.events.send(()).unwrap();
+    state.events.send(None).unwrap();
     assert!(tokio::time::timeout(Duration::from_secs(2),body.frame()).await.unwrap().is_some());
     drop(body);
     db.close().await;

@@ -18,6 +18,14 @@ from urllib.parse import unquote, urlsplit
 COMMIT = re.compile(r"[0-9a-f]{40}")
 REQUIRED = {"bin/market-web.exe", "web/index.html", "web/js/app.js",
             "web/collect/pkg/market_reader_wasm_bg.wasm"}
+CHUNKS = "web/react/chunks"
+VITE_MANIFEST = "web/react/.vite/manifest.json"
+# Builds keep old chunks (emptyOutDir false), so the checkout holds every
+# chunk ever built. A release takes those of the current build and of the
+# KEPT_BUILDS frontend builds before it (the manifest's git history): a page
+# opened before a deploy can still load its lazy routes, and the release
+# does not copy 1000+ dead files.
+KEPT_BUILDS = 3
 
 
 def write_json(path, value):
@@ -67,6 +75,67 @@ def verify_bundle(folder, commit):
     return manifest
 
 
+def manifest_chunks(text):
+    """Chunk file names a Vite manifest references."""
+    files = set()
+    for entry in json.loads(text).values():
+        files.add(entry["file"])
+        files.update(entry.get("css", []))
+        files.update(entry.get("assets", []))
+    return {name.removeprefix("chunks/") for name in files if name.startswith("chunks/")}
+
+
+def kept_chunks(root, builds=KEPT_BUILDS):
+    """Chunks of the current build and the `builds` before it; None keeps all
+    (no manifest, or one that cannot be read). Without git history only the
+    current build's are known."""
+    root = Path(root)
+    try:
+        texts = [(root / VITE_MANIFEST).read_text(encoding="utf-8")]
+    except OSError:
+        return None
+    def git(*args):
+        try:
+            done = subprocess.run(["git", *args], cwd=root, capture_output=True,
+                                  text=True, encoding="utf-8")
+        except OSError:
+            return None
+        return done.stdout if done.returncode == 0 else None
+
+    for revision in (git("log", "--format=%H", "--", VITE_MANIFEST) or "").split():
+        if len(texts) > builds:
+            break
+        shown = git("show", f"{revision}:{VITE_MANIFEST}")
+        # A Windows checkout may have CRLF; the build is the same.
+        if shown is not None and shown.replace("\r\n", "\n") not in [t.replace("\r\n", "\n") for t in texts]:
+            texts.append(shown)
+    try:
+        return set().union(*(manifest_chunks(text) for text in texts))
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
+def keep_modification_times(release, previous):
+    """Files unchanged since the previous release keep its modification time,
+    so their Last-Modified does not move with each deploy. Both manifests
+    record every file's digest. Returns how many were kept."""
+    try:
+        old = json.loads((Path(previous) / "manifest.json").read_text(encoding="utf-8"))["files"]
+        new = json.loads((Path(release) / "manifest.json").read_text(encoding="utf-8"))["files"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return 0
+    kept = 0
+    for name, expected in new.items():
+        if name.startswith("web/") and old.get(name) == expected:
+            try:
+                source = (Path(previous) / name).stat()
+                os.utime(Path(release) / name, ns=(source.st_atime_ns, source.st_mtime_ns))
+            except OSError:
+                continue
+            kept += 1
+    return kept
+
+
 def package(root, binary, output, commit, base_release=None):
     check_commit(commit)
     root, output = Path(root), Path(output)
@@ -74,8 +143,16 @@ def package(root, binary, output, commit, base_release=None):
     output.mkdir(parents=True, exist_ok=False)
     (output / "bin").mkdir()
     shutil.copy2(binary, output / "bin/market-web.exe")
-    shutil.copytree(root / "web", output / "web",
-                    ignore=lambda folder, names: ["releases"] if Path(folder) == root / "web" else [])
+    keep = kept_chunks(root)
+
+    def ignore(folder, names):
+        if Path(folder) == root / "web":
+            return ["releases"]
+        if keep is not None and Path(folder) == root / CHUNKS:
+            return [name for name in names if name.removesuffix(".gz") not in keep]
+        return []
+
+    shutil.copytree(root / "web", output / "web", ignore=ignore)
     files = {p.relative_to(output).as_posix(): digest(p)
              for p in sorted(output.rglob("*")) if p.is_file()}
     manifest = {"schema": 1, "commit": commit, "files": files, "source_branch": "main"}
@@ -253,7 +330,8 @@ def deploy(root, artifact, commit, *, backup_database_before_deploy=False):
     native = json.loads((data / "native-runtime.json").read_text())
     if not native.get("enabled"):
         raise RuntimeError("This deployment requires the native PostgreSQL runtime")
-    if web_runtime(root)[2] == commit:
+    active = web_runtime(root)[2]
+    if active == commit:
         wait_for_release(root, commit)
         print(f"Already deployed {commit}")
         return
@@ -264,6 +342,8 @@ def deploy(root, artifact, commit, *, backup_database_before_deploy=False):
         pending = release.with_name(commit + ".pending-" + str(time.time_ns()))
         shutil.copytree(artifact, pending)
         verify_bundle(pending, commit)
+        if active != "legacy":
+            keep_modification_times(pending, data / "deploy/releases" / active)
         pending.rename(release)
     verify_bundle(release, commit)
     backup = backup_database(root, native, commit) if backup_database_before_deploy else None

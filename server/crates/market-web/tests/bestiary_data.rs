@@ -1387,3 +1387,117 @@ async fn dropped_items_endpoint() {
     );
     db.drop_schema().await;
 }
+
+/// Search reads names normalized at write time (`search_text`, migration
+/// 0043). Over the whole imported catalogue it must hold exactly what the
+/// per-row expression computed, and every keyword query must match the same
+/// rows either way.
+#[tokio::test]
+async fn stored_search_text_matches_the_per_row_expression() {
+    use market_web::search::{normalized_sql, patterns};
+    let Some(db) = common::test_db().await else {
+        return;
+    };
+    import_full(&db.pool, &full(market_items())).await;
+    sqlx::query("UPDATE items SET name_en = 'Ｆｕｌｌ　Ｗｉｄｔｈ Cap' WHERE id = 1002000")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    let tables: [(&str, &[&str]); 3] = [
+        ("items", &["name_zh", "name_en"]),
+        ("mobs", &["name_zh", "name_tw", "name_en"]),
+        ("maps", &["name_zh", "name_tw", "name_en"]),
+    ];
+    let mut queries: Vec<String> = [
+        "",
+        " ",
+        "蘑菇",
+        "绿水灵",
+        "红色",
+        "褐色 皮帽",
+        "皮帽褐色",
+        "移速宠物",
+        "宠物 移动速度",
+        "Snail",
+        "snail shell",
+        "SNAIL",
+        "ｓｎａｉｌ",
+        "full width",
+        "ｆｕｌｌｗｉｄｔｈ",
+        "1002000",
+        "100",
+        "Orbis",
+        "jr. sentinel",
+        "Jr.Sentinel",
+        "50%",
+        "a_b",
+        "\\",
+        "[",
+        ".*",
+        "(",
+        "|",
+        "?",
+        "^",
+        "$",
+        "Henesys 射手村",
+        "射手",
+        "テスト",
+        "ß",
+        "İstanbul",
+        "\u{1f}",
+        "\u{3000}",
+        "　蜗牛　",
+    ]
+    .iter()
+    .map(|q| q.to_string())
+    .collect();
+    for (table, columns) in tables {
+        let names: Vec<(Option<String>, Option<String>)> =
+            sqlx::query_as(&format!("SELECT name_zh, name_en FROM {table} ORDER BY id"))
+                .fetch_all(&db.pool)
+                .await
+                .unwrap();
+        assert!(names.len() > 100, "{table} imported");
+        // Fragments of real names: a Chinese prefix and an English word.
+        for (zh, en) in names.iter().step_by(names.len() / 25) {
+            if let Some(zh) = zh {
+                queries.push(zh.chars().take(2).collect());
+            }
+            if let Some(word) = en.as_deref().and_then(|en| en.split_whitespace().last()) {
+                queries.push(word.to_string());
+            }
+        }
+        let normalized = normalized_sql("id", columns);
+        let differing: i64 = sqlx::query_scalar(&format!(
+            "SELECT count(*) FROM {table} WHERE search_text IS DISTINCT FROM {normalized}"
+        ))
+        .fetch_one(&db.pool)
+        .await
+        .unwrap();
+        assert_eq!(differing, 0, "{table}");
+    }
+    for (table, columns) in tables {
+        let normalized = normalized_sql("id", columns);
+        for query in &queries {
+            let ids = |condition: String| {
+                let pool = db.pool.clone();
+                let bound = patterns(query);
+                async move {
+                    sqlx::query_scalar::<_, i32>(&format!(
+                        "SELECT id FROM {table} WHERE {condition} ~ ALL($1::text[]) ORDER BY id"
+                    ))
+                    .bind(bound)
+                    .fetch_all(&pool)
+                    .await
+                    .unwrap()
+                }
+            };
+            assert_eq!(
+                ids(normalized.clone()).await,
+                ids("search_text".into()).await,
+                "{table} {query:?}"
+            );
+        }
+    }
+    db.drop_schema().await;
+}

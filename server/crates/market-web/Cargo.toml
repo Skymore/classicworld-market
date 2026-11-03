@@ -46,7 +46,10 @@ thiserror = { workspace = true }
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "sqlite", "migrate", "macros", "chrono", "json"] }
 maud = "0.27"
 tokio = { workspace = true }
-tower-http = { version = "0.6", features = ["trace", "compression-gzip", "set-header", "fs"] }
+tower-http = { version = "0.6", features = ["trace", "compression-gzip", "compression-br", "set-header", "fs"] }
+# Compressed copies of the market list and of text files under web/, made once.
+brotli = "8"
+httpdate = "1"
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 

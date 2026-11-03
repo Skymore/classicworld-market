@@ -43,7 +43,7 @@ pub mod legacy;
 pub mod market_cache;
 pub mod realtime;
 pub mod scan_assignments;
-pub(crate) mod search;
+pub mod search;
 pub mod stats;
 pub mod sweep;
 pub mod traffic;
@@ -51,6 +51,9 @@ pub mod upload_queue;
 pub mod views;
 pub mod web;
 mod write_timing;
+mod encoding;
+mod static_files;
+pub mod catalog_cache;
 
 /// Behaviour switches of `shared_server.create_app`.
 #[derive(Debug, Clone)]
@@ -86,7 +89,11 @@ pub struct AppState {
     pub started: Instant,
     pub settings: Arc<Settings>,
     pub limiter: Arc<auth::RateLimiter>,
-    pub events: tokio::sync::broadcast::Sender<()>,
+    /// Committed `market_changed` notices: the changed item ids, `None`
+    /// when unknown (see `realtime::notify_market`).
+    pub events: tokio::sync::broadcast::Sender<realtime::MarketChange>,
+    /// Route graphs and the search area list, per catalogue import.
+    pub catalog: Arc<catalog_cache::CatalogCache>,
     /// Committed `account_changed` notices: (account id, topic).
     pub account_events: tokio::sync::broadcast::Sender<(i64, &'static str)>,
     pub collector_updates: tokio::sync::watch::Sender<Option<String>>,
@@ -118,6 +125,7 @@ impl AppState {
             settings: Arc::new(settings),
             limiter: Arc::default(),
             events: tokio::sync::broadcast::channel(64).0,
+            catalog: Arc::default(),
             account_events: tokio::sync::broadcast::channel(256).0,
             collector_updates: tokio::sync::watch::channel(None).0,
             google: None,
@@ -172,9 +180,10 @@ pub fn app_with_web(state: AppState, web_dir: Option<&std::path::Path>) -> Route
             header::X_CONTENT_TYPE_OPTIONS,
             HeaderValue::from_static("nosniff"),
         ))
-        // Level 3: the 1001-item list is ~80 KB gzip in ~4 ms; the default
-        // level saves ~10 KB more for twice the time.
-        .layer(CompressionLayer::new().quality(CompressionLevel::Precise(3)))
+        // Per-response compression of everything not already encoded (the
+        // market list and web/ text files are, see `encoding`). Level 4: a
+        // 750 KB JSON answer is 78 KB br in ~8 ms, 90 KB gzip in ~5 ms.
+        .layer(CompressionLayer::new().quality(CompressionLevel::Precise(4)))
         .layer(
             // Microseconds: list answers take a few milliseconds.
             TraceLayer::new_for_http()
