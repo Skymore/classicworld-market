@@ -304,7 +304,7 @@ pub async fn supplement(db: &sqlx::PgPool, value: &mut Value) -> sqlx::Result<()
     };
     let drops: Vec<Value> = sqlx::query_scalar(
         "SELECT to_jsonb(x) FROM (SELECT d.item_id,COALESCE(i.name_en,d.name_en) AS name_en,
-         COALESCE(i.name_zh,d.name_zh) AS name_zh,d.upvotes,d.downvotes,d.source
+         COALESCE(i.name_zh,d.name_zh) AS name_zh,d.meso_min,d.meso_max,d.upvotes,d.downvotes,d.source
          FROM drops d LEFT JOIN items i ON i.id=d.item_id
          WHERE d.mob_id=$1 ORDER BY d.ord LIMIT 20) x",
     )
@@ -312,7 +312,7 @@ pub async fn supplement(db: &sqlx::PgPool, value: &mut Value) -> sqlx::Result<()
     .fetch_all(db)
     .await?;
     value["drop_reference"] = json!({"drops":drops,"limit":20,
-        "provenance":"NiaDB community reports of what players saw this monster drop in Classic World, kept only with more up than down votes (weighted), most confirmed first. Classic World publishes no drop rates.",
+        "provenance":"NiaDB community reports of what players saw this monster drop in Classic World, kept only with more up than down votes (weighted), most confirmed first. A row with meso_min/meso_max is NiaDB's median meso amount per pile over its trusted reports. Classic World publishes no drop rates.",
         "note":"Client stats above and player-reported drops below have different provenance. Do not state or estimate drop rates."});
     Ok(())
 }

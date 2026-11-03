@@ -219,7 +219,7 @@ cargo run --release -p market-web --bin reachability        # 从射手村能到
 
 开发库还要市场数据时，在 `import_portals` 之后跑 `replay_uploads`（见上面「旧数据重放与对照」，它只需要物品表已经导入）。`dev` 就是这样播种的：`import_catalog` → `niadb_portals.py` → `import_portals` → `replay_uploads`。
 
-`import_catalog` 的参数和默认值：`--items ../data/fixture/items.sqlite`（市场见过的 1001 个物品，字段原样保留）、`--mapledex ../data/reference/mapledex`（`items.json`、`equips.json`、`monsters.json`、`maps.json`、`npcs.json`）、`--niadb ../data/reference/niadb`（`items.json`、`maps.json`、`npc-shops.json`，以及图鉴用的 `monsters.json`、`drops.json`，见规则 7）、`--zh-names ../data/reference/zh-names.json`（地图和 NPC 的简体名，见规则 6）、`--mapledex-version`、`--niadb-version`（写进 `catalog_versions`；`zh-names` 的版本取文件里的 `version`）。
+`import_catalog` 的参数和默认值：`--items ../data/fixture/items.sqlite`（市场见过的 1001 个物品，字段原样保留）、`--mapledex ../data/reference/mapledex`（`items.json`、`equips.json`、`monsters.json`、`maps.json`、`npcs.json`）、`--niadb ../data/reference/niadb`（`items.json`、`maps.json`、`npc-shops.json`，以及图鉴用的 `monsters.json`、`drops.json`、`mesos.json`，见规则 7）、`--zh-names ../data/reference/zh-names.json`（地图和 NPC 的简体名，见规则 6）、`--mapledex-version`、`--niadb-version`（写进 `catalog_versions`；`zh-names` 的版本取文件里的 `version`）。
 
 导入规则：
 
@@ -232,7 +232,7 @@ cargo run --release -p market-web --bin reachability        # 从射手村能到
 7. 图鉴以 NiaDB 为准（`Dataset::add_niadb_bestiary`，取代规则 2，并在规则 4 之后执行）：Mapledex 的怪物表、掉落表是 GMS 时代的数据，和 Classic World 对不上（2026-11-02 对比：我们的 3025 条有物品号的掉落只有 528 条被 NiaDB 玩家确认）。
    - 怪物：只保留 NiaDB `monsters.json` 里的怪物；Mapledex 有、NiaDB 没有的测试怪和旧副本去掉。等级、HP、MP、经验、攻防、命中、回避用 NiaDB 的上线数值；名字（含简繁中文）、`gms_id`、图片用的 `link_id`、说明和移动速度仍用 Mapledex。NiaDB 才有的怪物只有英文名。
    - 地图和刷怪：只保留 NiaDB `maps.json` 里的地图（Mapledex 有、NiaDB 没有的 Up and Up、White Map 等去掉，连同它们的 NPC 位置和回城边）；刷怪点全部换成 NiaDB 每张地图的怪物列表。
-   - 掉落：整张表换成 NiaDB `drops.json`（玩家报告、投票），只收赞成多于反对的，每只怪每种物品一行，按（赞成 − 反对）从高到低。没有掉率（`rate_pct` 为空，Classic World 不公布），存 `upvotes` / `downvotes`；页面显示"N 票"，不再估算"打多少只出一个"。Mapledex 的金币掉落也不再导入。
+   - 掉落：整张表换成 NiaDB `drops.json`（玩家报告、投票），只收赞成多于反对的，每只怪每种物品一行，按（赞成 − 反对）从高到低。没有掉率（`rate_pct` 为空，Classic World 不公布），存 `upvotes` / `downvotes`；页面显示"N 票"，不再估算"打多少只出一个"。金币：Mapledex 的金币掉落不再导入，改用 NiaDB `mesos.json`（玩家报告的每堆金币数和投票）：NiaDB 有可信报告（`summary.trustedCount > 0`）的怪物加一行金币，范围是它页面上显示的中位数（`medianMin`–`medianMax`），票数是这只怪所有报告的票数之和；没有可信报告的不加。
    - 未开放：NiaDB 区域为 `Ossyria`（天空之城、冰峰雪域，NiaDB 默认隐藏）的地图，以及 `OPENS_LATER` 里开放日之前的区域（遗忘洞穴 10006000–10006999，2026-11-18 开放），标 `unreleased`；所有刷怪地图都未开放的怪物、所有站位都在未开放地图的 NPC 也标 `unreleased`（没有刷怪记录的怪物按 NiaDB `regions` 是否全是 `Ossyria`）。数据留在表里，页面、搜索、区域筛选、掉落来源、NPC 价格、制作成本、路线和 AI 助手都不显示。开放日之后重跑 `import_catalog` 即可显示；天空之城开放时去掉 `UNRELEASED_REGION` 的判断，并在 `regions.rs` 和 `catalogue-search.tsx` 加回区域选项。
 
 2026-11-02 NiaDB 图鉴（规则 7）的结果（2026-11-02 导入；之前 → 之后）：
@@ -242,7 +242,7 @@ cargo run --release -p market-web --bin reachability        # 从射手村能到
 | `mobs` | 195 | 206（NiaDB 才有的 19 个，去掉 Mapledex 的 8 个）；未开放 52（天空之城、冰峰雪域 41，遗忘洞穴 11） |
 | `maps` | 444 | 453（NiaDB 新增 36 张，去掉 Mapledex 的 15 张）；未开放 119（92 + 遗忘洞穴 27） |
 | `mob_spawns` | 896 | 915 |
-| `drops` | 4575（GMS 时代掉落表，带掉率） | 1655（玩家确认，没有掉率；另有 106 条赞成不多于反对的报告没收） |
+| `drops` | 4575（GMS 时代掉落表，带掉率；金币 142 行） | 1704：物品 1655（玩家确认，没有掉率；另有 106 条赞成不多于反对的报告没收），金币 49 行（有报告的怪物只有 49 个，其中 11 个在未开放地图） |
 | `npcs` 未开放 | 0 | 62 |
 
 2026-10-21 数据的结果（之前 → 之后）：
@@ -275,7 +275,7 @@ for f in items equips npcs meta monsters maps; do
   curl -fsS -o ../data/reference/mapledex/$f.json https://kafuffu20.com/classic-world/data/$f.json
 done
 python3 ../tools/niadb_items.py --output ../data/reference/niadb/items.json
-python3 ../tools/niadb_bestiary.py --output ../data/reference/niadb   # monsters.json、maps.json、drops.json，约 15 分钟
+python3 ../tools/niadb_bestiary.py --output ../data/reference/niadb   # monsters.json、maps.json、drops.json、mesos.json，约 25 分钟
 python3 ../tools/niadb_portals.py ../data/reference/niadb/maps.json --output ../data/reference/niadb/portals.json
 ```
 

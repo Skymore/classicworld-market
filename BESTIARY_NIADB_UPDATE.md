@@ -5,7 +5,7 @@
 图鉴的怪物、地图、刷怪和掉落改以 NiaDB 为准（规则见 `server/README.md` 的"导入规则 7"）：
 
 - 怪物只保留 NiaDB 列出的 206 个，属性用上线数值；地图只保留 NiaDB 的 453 张，刷怪点用 NiaDB 的。
-- 掉落整张换成 NiaDB 玩家确认（赞成多于反对）的掉落，没有掉率，页面显示"N 票"。
+- 掉落整张换成 NiaDB 玩家确认（赞成多于反对）的掉落，没有掉率，页面显示"N 票"。金币改用 NiaDB 玩家报告的每堆金币数（NiaDB 页面上的中位数范围）。
 - 天空之城、冰峰雪域，以及 2026-11-18 之前的遗忘洞穴，标为未开放：数据在库里，网站不显示。
 
 需要三样东西：新代码（含迁移 `0038_niadb_bestiary.sql`）、新抓的 NiaDB 参考文件、用新代码重跑 `import_catalog`。
@@ -34,8 +34,8 @@ $pg = "market_data\runtime\pgsql\bin"
 python tools\niadb_bestiary.py --output data\reference\niadb
 ```
 
-- 大约 15 分钟（200 多个怪物，一次一个请求，间隔 3 秒）。全部成功才写文件。
-- 结束时打印 `drops N`。预期 `monsters` 200 以上、`maps` 450 以上、`drops` 1500 以上。
+- 大约 25 分钟（200 多个怪物，每个两次请求，一次一个，间隔 3 秒）。全部成功才写四个文件（`monsters.json`、`maps.json`、`drops.json`、`mesos.json`）。
+- 结束时打印 `drops N, monsters with meso reports M`。预期 `monsters` 200 以上、`maps` 450 以上、`drops` 1500 以上、`M` 40 以上（2026-11-02 是 49）。
 - 中途停下（403、429 或网络错误）：旧文件不变，不要改间隔重试，把输出报告用户。
 
 如果 `tools\niadb_portals.py` 存在，重新生成传送口（新地图的传送口在里面）：
@@ -81,7 +81,7 @@ cargo run --release -p market-web --bin import_catalog -- `
 ```
 
 - 导入在一个事务里，出错整体回滚。
-- 预期输出（2026-11-02 的数据，新抓的会略多）：`mobs 206 NiaDB (… 52 unreleased)`、`maps 453 NiaDB (… 119 unreleased …)`、`drops 1655 NiaDB, more up than down votes`、`items` 与上一次相同。
+- 预期输出（2026-11-02 的数据，新抓的会略多）：`mobs 206 NiaDB (… 52 unreleased)`、`maps 453 NiaDB (… 119 unreleased …)`、`drops 1704 NiaDB: 1655 items … 49 meso ranges`、`items` 与上一次相同。
 - `mobs`、`maps` 少于 200、`drops` 少于 1000：按第 7 步恢复并报告用户。
 
 第 1 步生成了 `portals.json` 时，接着导入传送口：
@@ -102,6 +102,7 @@ cd ..
 网站（首屏 HTML 最多缓存 60 秒，刷新即可）：
 
 - [蓝蜗牛](https://mxd.ruit.me/mob/3)：掉落第一行是铁矿石，右边显示"N 票"，不再有百分比。
+- [蜗牛](https://mxd.ruit.me/mob/2)：掉落最上面是金币 3–4。
 - [天空之城](https://mxd.ruit.me/map/20000000)：显示"没有找到"（404）。
 - 图鉴搜索的区域筛选里没有天空之城和冰峰雪域。
 

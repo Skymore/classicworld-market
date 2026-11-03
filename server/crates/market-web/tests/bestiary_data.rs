@@ -20,7 +20,7 @@ use market_web::{
         mapledex::{
             Dataset, NiaBestiaryCounts, NiaDbCounts, ZhNameCounts, ZhNames, ZhSourceCounts,
         },
-        model::SearchKind,
+        model::{DropTarget, SearchKind},
         queries,
         rows::ItemRow,
         wz,
@@ -183,8 +183,13 @@ fn niadb_bestiary_decides_what_exists() {
         (453, 15, 92 + 27)
     );
     assert_eq!(
-        (counts.drops, counts.drops_unconfirmed),
+        (counts.drops + counts.mesos, counts.drops_unconfirmed),
         (data.drops.len(), 106)
+    );
+    assert_eq!(
+        (counts.mesos, counts.mesos_untrusted),
+        (49, 0),
+        "monsters with meso reports"
     );
     assert_eq!(counts.spawns, data.spawns.len());
 
@@ -212,11 +217,34 @@ fn niadb_bestiary_decides_what_exists() {
     );
     assert!(mob(54).unwrap().unreleased, "Glowshroom only spawns there");
 
-    // Only drops players confirmed; no rates, best-confirmed first.
-    assert!(data.drops.iter().all(|d| d.rate_pct.is_none()
-        && d.source.as_deref() == Some("niadb")
-        && d.upvotes > d.downvotes
-        && d.item_id.is_some()));
+    // Only drops players confirmed and NiaDB's meso ranges; no rates.
+    assert!(data
+        .drops
+        .iter()
+        .all(|d| d.rate_pct.is_none() && d.source.as_deref() == Some("niadb")));
+    let (items, mesos): (Vec<_>, Vec<_>) = data.drops.iter().partition(|d| d.item_id.is_some());
+    assert!(items
+        .iter()
+        .all(|d| d.upvotes > d.downvotes && d.meso_max.is_none()));
+    assert_eq!(mesos.len(), counts.mesos);
+    assert!(mesos.iter().all(|d| d
+        .meso_min
+        .zip(d.meso_max)
+        .is_some_and(|(lo, hi)| 0 <= lo && lo <= hi)));
+    let snail_mesos = mesos.iter().find(|d| d.mob_id == 2).expect("Snail mesos");
+    assert_eq!(
+        (snail_mesos.meso_min, snail_mesos.meso_max),
+        (Some(3), Some(4)),
+        "NiaDB's median of 2-2 and 4-5"
+    );
+    let mut keys: Vec<(i32, i16)> = data.drops.iter().map(|d| (d.mob_id, d.ord)).collect();
+    keys.sort_unstable();
+    keys.dedup();
+    assert_eq!(
+        keys.len(),
+        data.drops.len(),
+        "(mob_id, ord) is the primary key"
+    );
     let blue_snail: Vec<_> = data.drops.iter().filter(|d| d.mob_id == 3).collect();
     assert_eq!(
         (blue_snail[0].item_id, blue_snail[0].upvotes),
@@ -667,6 +695,7 @@ async fn full_import_is_idempotent_and_upgrades_an_r3_database() {
         (2919, 453, 1655, 1636, 1655, 281, 281, 315, 877, 426)
     );
     assert_eq!((first.maps_zh, first.npcs_zh), (453 - 31, 281 - 9));
+    assert_eq!(first.drops_meso as usize, input.bestiary.mesos);
     assert_eq!(
         (first.mobs_unreleased, first.maps_unreleased),
         (52, 119),
@@ -765,6 +794,12 @@ async fn unreleased_content_is_never_shown() {
         input.data.drops.iter().filter(|d| d.mob_id == 3).count()
     });
     assert!(blue_snail.drops.iter().all(|d| d.votes.is_some()));
+    let snail = queries::mob_page(pool, 2).await.unwrap().unwrap();
+    assert_eq!(
+        (&snail.drops[0].what, snail.drops[0].votes),
+        (&DropTarget::Meso { min: 3, max: 4 }, Some(2)),
+        "NiaDB's meso range comes first, with its report votes"
+    );
 
     let hidden: Vec<i32> = sqlx::query_scalar("SELECT id FROM maps WHERE unreleased")
         .fetch_all(pool)

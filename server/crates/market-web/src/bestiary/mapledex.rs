@@ -735,6 +735,38 @@ struct NiaDrop {
     downvotes: f64,
 }
 
+/// NiaDB `mesos.json` (written by `tools/niadb_bestiary.py`).
+#[derive(Deserialize)]
+struct NiaMesos {
+    monsters: BTreeMap<String, NiaMobMesos>,
+}
+
+#[derive(Deserialize)]
+struct NiaMobMesos {
+    summary: Option<NiaMesoSummary>,
+    #[serde(default)]
+    reports: Vec<NiaMesoReport>,
+}
+
+/// NiaDB's median over the reports it trusts, as its monster pages show it.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NiaMesoSummary {
+    #[serde(default)]
+    trusted_count: i64,
+    median_min: Option<i32>,
+    median_max: Option<i32>,
+}
+
+/// One meso amount a player saw per pile, with its votes.
+#[derive(Deserialize)]
+struct NiaMesoReport {
+    #[serde(default)]
+    upvotes: f64,
+    #[serde(default)]
+    downvotes: f64,
+}
+
 /// What `apply_niadb_bestiary` changed.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize)]
 pub struct NiaBestiaryCounts {
@@ -754,13 +786,17 @@ pub struct NiaBestiaryCounts {
     pub drops: usize,
     /// Reported drops left out: no more up than down votes.
     pub drops_unconfirmed: usize,
+    /// Mobs with a meso range (NiaDB's median over its trusted reports).
+    pub mesos: usize,
+    /// Mobs with meso reports NiaDB does not trust yet, left out.
+    pub mesos_untrusted: usize,
 }
 
 impl Dataset {
     /// Everything `import_catalog` takes from a NiaDB directory: `add_niadb`
-    /// (`maps.json`, `npc-shops.json`) and `apply_niadb_bestiary` (`monsters.json`,
-    /// `maps.json`, `drops.json`). `today` decides which areas in `OPENS_LATER`
-    /// are open.
+    /// (`maps.json`, `npc-shops.json`) and the bestiary (`monsters.json`,
+    /// `maps.json`, `drops.json`, `mesos.json`). `today` decides which areas in
+    /// `OPENS_LATER` are open.
     pub fn add_niadb_bestiary_dir(
         &mut self,
         dir: &Path,
@@ -771,15 +807,16 @@ impl Dataset {
             &read(dir, "maps.json")?,
             &read(dir, "npc-shops.json")?,
             &read(dir, "drops.json")?,
+            &read(dir, "mesos.json")?,
             today,
         )
     }
 
     /// Makes NiaDB the source of what exists: its mobs with their launch stats
     /// (Mapledex keeps the names it has; mobs NiaDB does not list are dropped),
-    /// its maps (other Mapledex maps are dropped), its spawns, and only the drops
-    /// players confirmed (more up than down votes; Mapledex's drop table and
-    /// rates are replaced). Content that is not open yet is marked unreleased:
+    /// its maps (other Mapledex maps are dropped), its spawns, only the drops
+    /// players confirmed (more up than down votes), and NiaDB's meso range per
+    /// mob (Mapledex's drop table, rates and mesos are replaced). Content that is not open yet is marked unreleased:
     /// Orbis / El Nath, areas in `OPENS_LATER` before their day, mobs that only
     /// spawn there, and NPCs that only stand there. Runs `add_niadb` in between,
     /// once the mob list is NiaDB's. Call after `add_npc_names`, before `add_zh_names`.
@@ -789,11 +826,13 @@ impl Dataset {
         maps: &str,
         shops: &str,
         drops: &str,
+        mesos: &str,
         today: NaiveDate,
     ) -> Result<(NiaDbCounts, NiaBestiaryCounts)> {
         let monsters: Vec<NiaMonster> =
             serde_json::from_str(monsters).context("parsing NiaDB monsters.json")?;
         let drops: NiaDrops = serde_json::from_str(drops).context("parsing NiaDB drops.json")?;
+        let mesos: NiaMesos = serde_json::from_str(mesos).context("parsing NiaDB mesos.json")?;
         let mut counts = NiaBestiaryCounts::default();
         self.apply_nia_mobs(&monsters, &mut counts);
         let added = self.add_niadb(maps, shops)?;
@@ -804,6 +843,7 @@ impl Dataset {
         self.apply_nia_maps(&maps, today, &mut counts);
         self.mark_mobs_without_open_maps(&mut counts);
         self.apply_nia_drops(&drops, &mut counts);
+        self.apply_nia_mesos(&mesos, &mut counts);
         Ok((added, counts))
     }
 
@@ -1009,6 +1049,54 @@ impl Dataset {
             }
         }
         counts.drops = self.drops.len();
+    }
+
+    /// One meso row per mob NiaDB has a trusted range for: its median min and
+    /// max per pile. The votes are the sums over the mob's reports.
+    fn apply_nia_mesos(&mut self, mesos: &NiaMesos, counts: &mut NiaBestiaryCounts) {
+        let mob_ids: HashSet<i32> = self.mobs.iter().map(|m| m.id).collect();
+        let mut next_ord: HashMap<i32, i16> = HashMap::new();
+        for drop in &self.drops {
+            let next = next_ord.entry(drop.mob_id).or_default();
+            *next = (*next).max(drop.ord.saturating_add(1));
+        }
+        for (mob, list) in &mesos.monsters {
+            let Some(mob_id) = nia_id(mob).filter(|id| mob_ids.contains(id)) else {
+                if !list.reports.is_empty() {
+                    self.warnings
+                        .push(format!("NiaDB meso reports of unknown monster {mob:?}"));
+                }
+                continue;
+            };
+            let range = list
+                .summary
+                .as_ref()
+                .filter(|s| s.trusted_count > 0)
+                .and_then(|s| s.median_min.zip(s.median_max))
+                .filter(|&(min, max)| 0 <= min && min <= max && max > 0);
+            let Some((min, max)) = range else {
+                counts.mesos_untrusted += usize::from(!list.reports.is_empty());
+                continue;
+            };
+            let ord = next_ord.get(&mob_id).copied().unwrap_or(0);
+            self.drops.push(DropRow {
+                mob_id,
+                ord,
+                item_id: None,
+                gms_item_id: None,
+                name_en: None,
+                name_zh: None,
+                name_tw: None,
+                meso_min: Some(min),
+                meso_max: Some(max),
+                rate_pct: None,
+                quest_id: None,
+                source: Some("niadb".into()),
+                upvotes: Some(list.reports.iter().map(|r| r.upvotes).sum()),
+                downvotes: Some(list.reports.iter().map(|r| r.downvotes).sum()),
+            });
+            counts.mesos += 1;
+        }
     }
 }
 

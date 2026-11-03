@@ -121,9 +121,14 @@ async fn main() -> Result<()> {
     );
     println!("spawns   {:>5}  NiaDB", s.spawns);
     println!(
-        "drops    {:>5}  NiaDB, more up than down votes ({} in the catalogue, {} named; {} \
-         reports left out)",
-        s.drops, s.drops_in_catalog, s.drops_named, bestiary.drops_unconfirmed
+        "drops    {:>5}  NiaDB: {} items with more up than down votes ({} in the catalogue; {} \
+         reports left out), {} meso ranges ({} mobs whose reports NiaDB does not trust yet)",
+        s.drops,
+        bestiary.drops,
+        s.drops_in_catalog,
+        bestiary.drops_unconfirmed,
+        s.drops_meso,
+        bestiary.mesos_untrusted
     );
     println!(
         "npcs     {:>5}  ({} unreleased; {} named, {} from NiaDB; {} with a simplified name, {} \
