@@ -349,9 +349,6 @@ pub fn map_page(page: &MapPage, ctx: &Ctx) -> Markup {
                             a.drow href=(ctx.href(&format!("/npc/{}", npc.id))) { span.glyph { "N" } span.t { b { (npc.label(lang)) } @if let Some(names) = &npc.names { (super::secondary_name(names, lang)) } } }
                         }
                         @if page.npcs.is_empty() { (empty(ctx.t("这张地图没有 NPC 记录。", "No NPCs recorded here."))) }
-                        @else if page.npcs.iter().all(|n| n.names.is_none()) {
-                            (empty(ctx.t("NPC 名字还没有导入，暂时只显示编号。", "NPC names are not imported yet; showing ids.")))
-                        }
                     }
                 }
                 div.dcol {
@@ -526,7 +523,7 @@ pub fn route_page(page: &RoutePage, ctx: &Ctx) -> Markup {
                 }
                 label.check {
                     input type="checkbox" name="taxi" value="1" checked[page.taxi];
-                    span { (ctx.t("可以坐出租车（要花金币）", "Allow taxis (cost mesos)")) }
+                    span { (ctx.t("可以坐出租车", "Allow taxis")) }
                 }
                 @if ctx.lang == Lang::En { input type="hidden" name="lang" value="en"; }
                 button.btn.primary type="submit" {
@@ -570,14 +567,7 @@ fn steps_list(ctx: &Ctx, steps: &[Step]) -> Markup {
 fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
     let lang = ctx.lang;
     match &page.outcome {
-        RouteOutcome::Form if page.mob_mode => empty(ctx.t(
-            "输入怪物名（中文或英文）或怪物 ID，找出离出发地最近的刷怪地图。",
-            "Enter a monster name (Chinese or English) or id to find the nearest map where it spawns.",
-        )),
-        RouteOutcome::Form => empty(ctx.t(
-            "输入出发和目的地的地图名（中文或英文）或地图 ID。",
-            "Enter the start and destination map names (Chinese or English) or map ids.",
-        )),
+        RouteOutcome::Form => html! {},
         RouteOutcome::Unresolved {
             end,
             query,
@@ -623,7 +613,12 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
                 (map_row(ctx, to, Some(ctx.t("目的地", "destination").to_string()), None))
             }
         },
-        RouteOutcome::Found { from, to, steps, overview } => html! {
+        RouteOutcome::Found {
+            from,
+            to,
+            steps,
+            overview,
+        } => html! {
             section.well {
                 (well_head(
                     &format!("{} → {}", from.names.get(lang), to.names.get(lang)),
@@ -663,7 +658,14 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
                 (mob_row(ctx, mob, None, None))
             }
         },
-        RouteOutcome::MobFound { from, mob, to, steps, overview, places } => html! {
+        RouteOutcome::MobFound {
+            from,
+            mob,
+            to,
+            steps,
+            overview,
+            places,
+        } => html! {
             section.well {
                 (well_head(
                     &match lang {
@@ -740,12 +742,12 @@ fn step_hint(ctx: &Ctx, step: &Step) -> String {
             .t("走地图上圈出的传送口", "take the circled portal on the map")
             .to_string(),
         (EdgeKind::Ship, _, Some(npc)) => match lang {
-            Lang::Zh => format!("找圈出的{npc}坐船（单程，回不来）"),
-            Lang::En => format!("take the ship with {npc}, circled (one way)"),
+            Lang::Zh => format!("找圈出的{npc}坐船"),
+            Lang::En => format!("take the ship with {npc}, circled"),
         },
         (EdgeKind::Taxi, _, Some(npc)) => match lang {
-            Lang::Zh => format!("找圈出的{npc}坐出租车（要花金币）"),
-            Lang::En => format!("take the taxi with {npc}, circled (costs mesos)"),
+            Lang::Zh => format!("找圈出的{npc}坐出租车"),
+            Lang::En => format!("take the taxi with {npc}, circled"),
         },
         (kind, _, _) => edge_text(kind, step.portal_name.as_deref(), lang),
     }

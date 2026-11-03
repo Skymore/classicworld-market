@@ -32,6 +32,34 @@ export function Icon({ name, size }: { name: string; size?: number }) {
     />
   );
 }
+/** A small "i" button that shows a short explanation (tap on phones, click on desktop). */
+export function InfoTip({ label, children }: { label: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="info-tip">
+      <button
+        type="button"
+        className="info-tip-btn"
+        aria-label={label}
+        title={label}
+        aria-expanded={open}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen(!open);
+        }}
+        onBlur={() => setOpen(false)}
+      >
+        i
+      </button>
+      {open && (
+        <span className="info-tip-pop" role="tooltip">
+          {children}
+        </span>
+      )}
+    </span>
+  );
+}
 export function Stall({
   title,
   children,

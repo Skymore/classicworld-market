@@ -591,15 +591,6 @@ function MapPage({ page }: { page: any }) {
                   {words("这张地图没有 NPC 记录。", "No NPCs recorded here.")}
                 </p>
               )}
-              {page.npcs.length > 0 &&
-                page.npcs.every((npc: any) => !npc.names) && (
-                  <p className="note">
-                    {words(
-                      "NPC 名字还没有导入，暂时只显示编号。",
-                      "NPC names are not imported yet; showing ids.",
-                    )}
-                  </p>
-                )}
             </Well>
           </div>
           <div className="dcol">
@@ -834,9 +825,9 @@ function StepHint({ step }: { step: any }) {
       </>
     );
   if (step.kind === "ship" && npc)
-    return <>{words(`找圈出的${npc}坐船（单程，回不来）`, `take the ship with ${npc}, circled (one way)`)}</>;
+    return <>{words(`找圈出的${npc}坐船`, `take the ship with ${npc}, circled`)}</>;
   if (step.kind === "taxi" && npc)
-    return <>{words(`找圈出的${npc}坐出租车（要花金币）`, `take the taxi with ${npc}, circled (costs mesos)`)}</>;
+    return <>{words(`找圈出的${npc}坐出租车`, `take the taxi with ${npc}, circled`)}</>;
   return <Edge kind={step.kind} portal={step.portal_name} />;
 }
 function Steps({ steps }: { steps: any[] }) {
@@ -909,20 +900,7 @@ function RoutePage({ page }: { page: any }) {
   const route = (from: string, to: string) => withTaxi({ from, to });
   const mobRoute = (from: string, mob: string) => withTaxi({ from, mob });
   let body: ReactNode;
-  if (result === "Form")
-    body = (
-      <p className="note">
-        {mobMode
-          ? words(
-              "输入怪物名（中文或英文）或怪物 ID，找出离出发地最近的刷怪地图。",
-              "Enter a monster name (Chinese or English) or id to find the nearest map where it spawns.",
-            )
-          : words(
-              "输入出发和目的地的地图名（中文或英文）或地图 ID。",
-              "Enter the start and destination map names (Chinese or English) or map ids.",
-            )}
-      </p>
-    );
+  if (result === "Form") body = null;
   else if (found)
     body = (
       <Well
@@ -1130,7 +1108,7 @@ function RoutePage({ page }: { page: any }) {
         )}
         <label className="check">
           <input type="checkbox" name="taxi" value="1" checked={taxi} onChange={(e) => setTaxi(e.target.checked)} />
-          <span>{words("可以坐出租车（要花金币）", "Allow taxis (cost mesos)")}</span>
+          <span>{words("可以坐出租车", "Allow taxis")}</span>
         </label>
         <button className="btn primary" type="submit">
           {mobMode ? words("找最近的地图", "Find the nearest map") : words("查路线", "Find route")}

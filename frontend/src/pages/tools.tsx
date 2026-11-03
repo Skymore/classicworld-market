@@ -3,32 +3,31 @@ import { Icon, usePageReady } from "../components/shared";
 import { SiteLink } from "../components/shell";
 import "./tools.css";
 
-type Entry = [href: string, key: string, icon: string, zh: string, en: string, subZh: string, subEn: string];
+type Entry = [href: string, key: string, icon: string, zh: string, en: string];
 
 const TOOLS: Entry[] = [
-  ["/tools/enhancement", "enhancement", "star", "强化计算器", "Enhancement calculator", "计算成本与最佳强化策略", "Expected cost and the best upgrade strategy"],
+  ["/tools/enhancement", "enhancement", "star", "强化计算器", "Enhancement calculator"],
 ];
 const COLLECT: Entry[] = [
-  ["/collect/", "collect", "search", "浏览器采集", "Browser collector", "在电脑上共享游戏窗口，逛摊时自动上传报价", "Share the game window on a computer; shops upload as you browse"],
-  ["/web/download.html", "download", "tools", "下载采集器", "Download collector", "Windows 程序，手动逛摊和自动扫描都能用", "Windows app for manual browsing and automatic scans"],
-  ["/alerts", "alerts", "tag", "低价提醒", "Deal alerts", "你采集时遇到的低价货", "Cheap offers found while you collect"],
-  ["/contributors", "contributors", "leaf", "采集贡献榜", "Contributors", "谁帮市集采集了最多摊位", "Who collected the most shops"],
+  ["/collect/", "collect", "search", "浏览器采集", "Browser collector"],
+  ["/web/download.html", "download", "tools", "下载采集器", "Download collector"],
+  ["/alerts", "alerts", "tag", "低价提醒", "Deal alerts"],
+  ["/contributors", "contributors", "leaf", "采集贡献榜", "Contributors"],
 ];
 const SITE: Entry[] = [
-  ["/traffic", "traffic", "chart", "网站流量", "Website traffic", "最近 30 天的访问和来源", "Visits and sources over the last 30 days"],
-  ["/privacy", "privacy", "book", "账号隐私说明", "Account privacy", "账号和统计保存了什么", "What accounts and statistics store"],
+  ["/traffic", "traffic", "chart", "网站流量", "Website traffic"],
+  ["/privacy", "privacy", "book", "账号隐私说明", "Account privacy"],
 ];
 
 function Entries({ entries }: { entries: Entry[] }) {
   const words = useWords();
   return (
     <div className="tool-list">
-      {entries.map(([href, key, icon, zh, en, subZh, subEn]) => (
+      {entries.map(([href, key, icon, zh, en]) => (
         <SiteLink className="tool-entry well" href={href} data-tool={key} key={key}>
           <Icon name={icon} />
           <span>
             <b>{words(zh, en)}</b>
-            <small>{words(subZh, subEn)}</small>
           </span>
           <Icon name="chev" />
         </SiteLink>

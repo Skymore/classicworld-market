@@ -28,7 +28,6 @@ export default function Page() {
   return <>
     <section className="stall"><div className="stall-bar"><h1>{en ? "Download collector" : "下载采集器"}</h1></div><div className="download-body">
       <h2>{en ? "One app for manual collection and automatic scanning" : "手动逛摊、自动扫描，一个程序就够"}</h2>
-      <p>{en ? "Capture, uploads, alerts and updates are built in. Signing in is optional." : "内置采集、上传、提醒和自动更新。不登录也能用。"}</p>
       <div className="download-actions"><a className="btn primary" href={release.url}>{en ? "Download for Windows" : "下载 Windows 采集器"}</a><SiteLink href="/collect/">{en ? "Browser collector" : "改用浏览器采集"}</SiteLink></div>
       <p className="download-meta">{release.version} · Windows 10 / 11 64 位 · {en ? `about ${size} MB` : `约 ${size} MB`}</p>
     </div></section>

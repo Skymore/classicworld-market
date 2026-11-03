@@ -46,7 +46,7 @@ export function busyWare(r, wide) {
 }
 
 const whereSold = (s) => (s.location ? loc(s.location.channel, s.location.room, s.location) : loc(null));
-const evidence = (s) => `<span class="evi ${esc(s.kind)}">${esc(t(`evidence.${s.kind}`))}</span>`;
+const evidence = (s) => `<span class="evi ${esc(s.kind)}" title="${esc(t(`evidence.help.${s.kind}`))}">${esc(t(`evidence.${s.kind}`))}</span>`;
 
 // A sale from /api/v1/sales/recent. Ages always use the wall clock.
 export function saleWare(s, wide, now, withEvidence = false) {

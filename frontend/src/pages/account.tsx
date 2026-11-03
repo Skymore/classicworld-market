@@ -52,20 +52,9 @@ function NotificationsPanel() {
       meta={summary}
       attention={wanted}
     >
-      <p>
-        {isLocalGateway
-          ? words(
-              "关注的物品出现符合条件的新报价时，弹出系统通知。需要保持本站任意页面打开。",
-              "When a watched item gets a matching offer, a system notification pops up. Keep any page of this site open.",
-            )
-          : words(
-              "关注的物品出现符合条件的新报价时，推送到这台设备，关掉网页也能收到。",
-              "When a watched item gets a matching offer, it is pushed to this device, even with the site closed.",
-            )}
-      </p>
       <NotificationSettings />
       <SiteLink href="/watch">
-        {words("在「关注」里选择哪些物品提醒", "Choose which items alert you in Watch")} →
+        {words("选择提醒的物品", "Choose items to alert on")} →
       </SiteLink>
     </AccountSetting>
   );

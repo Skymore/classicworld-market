@@ -74,13 +74,6 @@ fn region_svg(ctx: &Ctx, region: &WorldRegion, here: &[String]) -> Markup {
 /// The world map page: every open region, the asked-for map's spot marked.
 pub(crate) fn world_body(ctx: &Ctx, page: &WorldPage) -> Markup {
     html! {
-        @if let Some(map) = &page.here {
-            p.wm-note {
-                (ctx.t("箭头指的是", "The arrow points at "))
-                a href=(ctx.href(&format!("/map/{}", map.id))) { (map.names.get(ctx.lang)) }
-                (ctx.t("所在的位置。", "."))
-            }
-        }
         div.wm-regions {
             @for region in &page.regions { (region_svg(ctx, region, &page.here_spots)) }
         }

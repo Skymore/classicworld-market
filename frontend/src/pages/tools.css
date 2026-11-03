@@ -15,7 +15,7 @@
   padding: 18px;
   color: var(--ink);
   text-decoration: none;
-  min-height: 88px;
+  min-height: 64px;
 }
 .tool-entry > span:not(.contents) {
   display: grid;

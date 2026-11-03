@@ -400,10 +400,6 @@ export default function Alerts() {
                 )}
               </div>
               <p className="deal-help">
-                {words(
-                  "历史和开关仅保存在此浏览器，按采集身份区分。关闭提醒仍会记录历史。",
-                  "History and switches stay in this browser, separated by collector identity. Muting alerts still records history.",
-                )}{" "}
                 {permission === "denied"
                   ? words(
                       "桌面通知被浏览器阻止，可在网站权限中开启。",
@@ -423,12 +419,6 @@ export default function Alerts() {
               </p>
             </div>
             <Status status={state.collectorStatus} />
-            <p className="sale-note">
-              {words(
-                "低价提醒按你的采集器规则筛选非装备价差；想给任意物品设个人价格上限，请用「关注」。",
-                "Deal alerts use your collector’s non-equipment margin rules. To set a personal price cap on any item, use Watch.",
-              )}
-            </p>
             <div className="ltools atools">
               <span className="alabel">{t("alerts.window")}</span>
               <div className="chips">

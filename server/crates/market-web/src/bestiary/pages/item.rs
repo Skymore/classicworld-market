@@ -204,10 +204,9 @@ fn sources_well(v: &View) -> Markup {
         (n, Lang::Zh) => format!("{n} 种怪物"),
         (n, Lang::En) => format!("{n} monsters"),
     };
-    let (verdict, reason) = verdict(v);
     html! {
         section.well.src-well {
-            div.well-h { h3 { (v.ctx.t("来源", "Sources")) } small { (v.ctx.t("怎么拿到", "how to get it")) } }
+            div.well-h { h3 { (v.ctx.t("来源", "Sources")) } }
             div.sub-h { (v.ctx.t("怪物掉落", "Monster drops")) small { (mobs_note) } }
             @for (i, d) in droppers.iter().enumerate() {
                 a.mob.xp[i >= MOBS_PHONE].xd[i >= MOBS_DESKTOP] href=(v.ctx.href(&format!("/mob/{}", d.mob.id))) {
@@ -236,7 +235,7 @@ fn sources_well(v: &View) -> Markup {
                 }
                 @if page.npc_offers.is_empty() { span.no { (v.ctx.t("没有 NPC 出售记录", "No NPC sells it")) } }
                 @if let Some(sell) = page.npc_sell {
-                    span.sell { (v.ctx.t("卖给 NPC 只得 ", "NPCs pay ")) (meso(sell)) (v.ctx.t(" / 个", " each")) }
+                    span.sell { (v.ctx.t("NPC 回收价 ", "NPC buys at ")) (meso(sell)) (v.ctx.t(" / 个", " each")) }
                 }
             }
             @if !page.quest_rewards.is_empty() {
@@ -247,7 +246,6 @@ fn sources_well(v: &View) -> Markup {
                 div.sub-h.ruled { (v.ctx.t("任务要用", "Needed for quests")) small { (quest_count(lang, page.quest_needs.len())) } }
                 (super::quest_needs(lang, &page.quest_needs, false))
             }
-            div.verdict { b { (v.ctx.t("打还是买", "Farm or buy")) } strong { (verdict) } small { (reason) } }
         }
     }
 }
@@ -263,108 +261,5 @@ fn all_mobs(lang: Lang, n: usize) -> String {
     match lang {
         Lang::Zh => format!("查看全部 {n} 种怪物 "),
         Lang::En => format!("All {n} monsters "),
-    }
-}
-
-/// The "farm or buy" outcome (mockup `sourcesWell`).
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum Verdict {
-    /// An NPC sells it cheaper than the market (or the market has no price).
-    Npc {
-        npc: i64,
-        market: Option<i64>,
-    },
-    /// Monsters drop it and the market has no price. Classic World publishes
-    /// no drop rates, so there is no kill count to weigh against a price.
-    Farm {
-        mobs: usize,
-    },
-    /// The market has a price and monsters drop it.
-    MarketOrFarm {
-        market: i64,
-        mobs: usize,
-    },
-    MarketOnly {
-        market: i64,
-    },
-    Unknown,
-}
-
-fn decide(page: &ItemPage) -> Verdict {
-    let market = page.stats.as_ref().and_then(|s| s.typical);
-    let npc = page.npc_offers.iter().map(|o| o.price).min();
-    let mobs = page.droppers.len();
-    match (npc, market, mobs) {
-        (Some(npc), m, _) if m.is_none_or(|m| npc < m) => Verdict::Npc { npc, market: m },
-        (_, Some(market), 0) => Verdict::MarketOnly { market },
-        (_, Some(market), mobs) => Verdict::MarketOrFarm { market, mobs },
-        (_, None, mobs) if mobs > 0 => Verdict::Farm { mobs },
-        _ => Verdict::Unknown,
-    }
-}
-
-fn verdict(v: &View) -> (&'static str, String) {
-    let zh = v.ctx.lang == Lang::Zh;
-    if crate::external::unit(v.page.item.id) == "set" {
-        let text = match v.page.stats.as_ref().and_then(|s| s.typical) {
-            Some(price) if zh => format!("市场 {}/组；不与 NPC 单个报价直接比较", meso(price)),
-            Some(price) => format!(
-                "market {} per set; NPC each-price is not directly comparable",
-                meso(price)
-            ),
-            None if zh => "暂无每组成交价".into(),
-            None => "No per-set sale price yet".into(),
-        };
-        return (v.ctx.t("按组参考", "Per-set reference"), text);
-    }
-    let latest_offer = v.page.market.listings.iter().map(|l| l.seen_at).max();
-    if v.page.stats.as_ref().and_then(|s| s.typical).is_some()
-        && latest_offer.is_none_or(|at| (v.ctx.now - at).num_hours() >= 48)
-    {
-        return (v.ctx.t("历史价格参考", "Historical price only"), v.ctx.t("没有48小时内的在售报价，请先确认最新价格，再决定购买或打怪。", "No offer has been seen within 48 hours. Check current prices before deciding to buy or farm.").to_string());
-    }
-    match decide(v.page) {
-        Verdict::Npc { npc, market } => (
-            v.ctx.lang.t("去 NPC 买", "Buy from an NPC"),
-            match (market, zh) {
-                (Some(m), true) => format!("NPC {}/个，比市场 {}/个 便宜", meso(npc), meso(m)),
-                (Some(m), false) => format!("NPC {} each, market {}", meso(npc), meso(m)),
-                (None, true) => format!("NPC {}/个，市场还没有成交价", meso(npc)),
-                (None, false) => format!("NPC {} each, no market sales yet", meso(npc)),
-            },
-        ),
-        Verdict::Farm { mobs } => (
-            v.ctx.lang.t("可以自己打", "Farm it"),
-            if zh {
-                format!("市场还没有成交价；{mobs} 种怪物会掉")
-            } else {
-                format!("no market sales yet; {mobs} monsters drop it")
-            },
-        ),
-        Verdict::MarketOrFarm { market, mobs } => (
-            v.ctx.lang.t("市场买或自己打", "Buy or farm"),
-            if zh {
-                format!("市场 {}/个；{mobs} 种怪物会掉", meso(market))
-            } else {
-                format!("market {} each; {mobs} monsters drop it", meso(market))
-            },
-        ),
-        Verdict::MarketOnly { market } => (
-            v.ctx.lang.t("只能在市场买", "Market only"),
-            if zh {
-                format!("市场 {}/个", meso(market))
-            } else {
-                format!("market {} each", meso(market))
-            },
-        ),
-        Verdict::Unknown => (
-            v.ctx.lang.t("暂时没有来源", "No known source"),
-            v.ctx
-                .t(
-                    "市场和图鉴里都还没有这件物品的来源",
-                    "Neither the market nor the dex has a source yet",
-                )
-                .to_string(),
-        ),
     }
 }

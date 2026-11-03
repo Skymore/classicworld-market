@@ -114,13 +114,6 @@ export function WorldBody({ page }: { page: any }) {
   ];
   return (
     <>
-      {page.here && (
-        <p className="wm-note">
-          {words("箭头指的是", "The arrow points at ")}
-          <a href={"/map/" + page.here.id}>{name(page.here.names)}</a>
-          {words("所在的位置。", ".")}
-        </p>
-      )}
       <div className="wm-regions">
         {page.regions.map((region: any) => (
           <Region key={region.id} region={region} here={page.here_spots || []} />

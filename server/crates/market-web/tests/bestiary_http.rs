@@ -202,7 +202,7 @@ async fn item_page() {
     assert!(body.contains(r#"<div class="cgroup open" data-ch-key="14">"#));
     assert!(body.contains("Shell Shop"));
     assert!(body.contains(r#"title="8 洞 最低 449""#));
-    assert!(body.contains("发现已售"));
+    assert!(body.contains("卖光") && !body.contains("发现已售"));
     assert!(
         body.contains(r#"data-mark="1|"#),
         "one listing in the mark item.js compares"
@@ -303,10 +303,8 @@ async fn route_page() {
         .await
         .body;
     assert!(unknown.contains("没有找到目的地"));
-    assert!(get(&router, "/route")
-        .await
-        .body
-        .contains("输入出发和目的地"));
+    let form = get(&router, "/route").await.body;
+    assert!(form.contains("出发") && !form.contains("输入出发和目的地"));
     db.drop_schema().await;
 }
 

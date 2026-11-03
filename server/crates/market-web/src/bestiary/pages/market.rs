@@ -824,9 +824,9 @@ fn trend_pane(v: &View) -> Markup {
 
 pub fn evidence(kind: SaleKind, lang: Lang) -> &'static str {
     match kind {
-        SaleKind::Drop => lang.t("看到卖出", "seen sold"),
-        SaleKind::SoldOut => lang.t("看到卖光", "seen sold out"),
-        SaleKind::FoundSold => lang.t("发现已售", "found sold"),
+        SaleKind::Drop => lang.t("卖出", "sold"),
+        // Both mean the whole stack sold; when we first saw it does not matter to a buyer.
+        SaleKind::SoldOut | SaleKind::FoundSold => lang.t("卖光", "sold out"),
     }
 }
 
@@ -931,8 +931,8 @@ pub fn sales_well(v: &View) -> Markup {
                     h3 { (v.t("最近成交", "Recent sales")) }
                     small {
                         @match v.ctx.lang {
-                            Lang::Zh => { (n) " 笔 · 新的在前" },
-                            Lang::En => { (n) " sales · newest first" },
+                            Lang::Zh => { (n) " 笔" },
+                            Lang::En => { (n) " sales" },
                         }
                     }
                 }

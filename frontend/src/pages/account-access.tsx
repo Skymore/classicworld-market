@@ -439,12 +439,6 @@ export function SyncPanel({ message }: Pick<AccessProps, "message">) {
         )
       }
     >
-      <p className="account-hint">
-        {words(
-          "关注、目标价与偏好自动同步。未上传的修改保留在本机。",
-          "Watches, target prices and preferences sync automatically. Pending edits stay on this device.",
-        )}
-      </p>
       <div className="account-actions">
         <button
           type="button"

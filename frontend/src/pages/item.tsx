@@ -31,7 +31,7 @@ import {
   usePeriod,
   Search as QuickSearch,
 } from "../components/shared";
-import { Location, OfferRow } from "../components/list-rows";
+import { Location, OfferRow, SaleKindsHelp } from "../components/list-rows";
 import { EquipmentStrip } from "../components/equipment";
 import { SiteLink } from "../components/shell";
 import OfferFilterDialog from "../components/offer-filters";
@@ -286,75 +286,6 @@ function Ladder({ page, onPrice }: { page: any; onPrice?: (max: number) => void 
         )}
       </div>
     </>
-  );
-}
-function Verdict({ page }: { page: any }) {
-  const words = useWords(),
-    market = page.stats?.typical,
-    npc = page.npc_offers.length
-      ? Math.min(...page.npc_offers.map((offer: any) => offer.price))
-      : null,
-    // Classic World publishes no drop rates, so there is no kill count to weigh.
-    mobs = page.droppers.length;
-  let title = "",
-    reason = "";
-  if (page.unit === "set") {
-    title = words("按组参考", "Per-set reference");
-    reason =
-      market != null
-        ? words(
-            `市场 ${meso(market)}/组`,
-            `market ${meso(market)} per set`,
-          )
-        : words("暂无每组成交价", "No per-set sale price yet");
-  } else if (
-    market != null &&
-    !page.market.listings.some(
-      (row: any) => Date.now() / 1000 - timestamp(row.seen_at) < 48 * 3600,
-    )
-  ) {
-    title = words("历史价格参考", "Historical price only");
-    reason = words("暂无近期报价", "No recent offers");
-  } else if (npc != null && (market == null || npc < market)) {
-    title = words("去 NPC 买", "Buy from an NPC");
-    reason =
-      market != null
-        ? words(
-            `NPC ${meso(npc)}/个，比市场 ${meso(market)}/个 便宜`,
-            `NPC ${meso(npc)} each, market ${meso(market)}`,
-          )
-        : words(
-            `NPC ${meso(npc)}/个，市场还没有成交价`,
-            `NPC ${meso(npc)} each, no market sales yet`,
-          );
-  } else if (market != null && mobs > 0) {
-    title = words("市场买或自己打", "Buy or farm");
-    reason = words(
-      `市场 ${meso(market)}/个；${mobs} 种怪物会掉`,
-      `market ${meso(market)} each; ${mobs} monsters drop it`,
-    );
-  } else if (mobs > 0) {
-    title = words("可以自己打", "Farm it");
-    reason = words(
-      `市场还没有成交价；${mobs} 种怪物会掉`,
-      `no market sales yet; ${mobs} monsters drop it`,
-    );
-  } else if (market != null) {
-    title = words("只能在市场买", "Market only");
-    reason = words(`市场 ${meso(market)}/个`, `market ${meso(market)} each`);
-  } else {
-    title = words("暂时没有来源", "No known source");
-    reason = words(
-      "市场和图鉴里都还没有这件物品的来源",
-      "Neither the market nor the dex has a source yet",
-    );
-  }
-  return (
-    <div className="verdict">
-      <b>{words("打还是买", "Farm or buy")}</b>
-      <strong>{title}</strong>
-      <small>{reason}</small>
-    </div>
   );
 }
 export default function Item({ page }: { page: any }) {
@@ -662,12 +593,13 @@ export default function Item({ page }: { page: any }) {
                   <span
                     className={"evi " + row.kind}
                     title={
-                      row.merged_count > 1
+                      t("evidence.help." + row.kind) +
+                      (row.merged_count > 1
                         ? words(
-                            `同店 ${row.merged_count} 格合计`,
-                            `${row.merged_count} slots in one shop`,
+                            ` · 同店 ${row.merged_count} 格合计`,
+                            ` · ${row.merged_count} slots in one shop`,
                           )
-                        : undefined
+                        : "")
                     }
                   >
                     {t("evidence." + row.kind)}
@@ -1464,7 +1396,6 @@ export default function Item({ page }: { page: any }) {
             <CollapsibleWell
               className={"src-well " + (more.has("mobs") ? "all" : "")}
               title={words("来源", "Sources")}
-              note={words("怎么拿到", "how to get it")}
             >
               <div className="sub-h">
                 {words("怪物掉落", "Monster drops")}
@@ -1559,7 +1490,7 @@ export default function Item({ page }: { page: any }) {
                 )}
                 {page.npc_sell != null && (
                   <span className="sell">
-                    {words("卖给 NPC 只得 ", "NPCs pay ")}
+                    {words("NPC 回收价 ", "NPC buys at ")}
                     <Price value={page.npc_sell} />
                     {words(" / 个", " each")}
                   </span>
@@ -1584,17 +1515,18 @@ export default function Item({ page }: { page: any }) {
                   <QuestRows rows={page.quest_needs} />
                 </>
               )}
-              <Verdict page={page} />
             </CollapsibleWell>
           </div>
           <div className="on-desktop" data-market="sales">
             <Well
               className={"sales-well " + (more.has("sales") ? "all" : "")}
               title={words("最近成交", "Recent sales")}
-              note={words(
-                `${saleCount} 笔 · 新的在前`,
-                `${saleCount} sales · newest first`,
-              )}
+              note={
+                <>
+                  {words(`${saleCount} 笔`, `${saleCount} sales`)}
+                  <SaleKindsHelp />
+                </>
+              }
             >
               {saleList(true)}
             </Well>

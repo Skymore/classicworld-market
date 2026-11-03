@@ -11,7 +11,7 @@ import { readList } from "/web/js/lib/watchlist-core.js";
 import { mergeShopSales } from "/web/js/lib/sale-groups.js?v=20261028-sales-1";
 import { useUserValue } from "../lib/live";
 import { Icon, Empty, Loading, usePageReady } from "../components/shared";
-import { OfferRow } from "../components/list-rows";
+import { OfferRow, SaleKindsHelp } from "../components/list-rows";
 import {
   Dialog,
   DialogTrigger,
@@ -34,7 +34,8 @@ export default function Sales({ embedded = false }: { embedded?: boolean }) {
     navigate = useNavigate(),
     params = new URLSearchParams(route.search);
   const category = params.get("cat") || "",
-    kind = params.get("kind") || "",
+    // found_sold and sold_out show as one kind (卖光); old links may name either.
+    kind = params.get("kind") === "found_sold" ? "sold_out" : params.get("kind") || "",
     range = params.get("range") || readPeriod(),
     watchOnly = params.get("watch") === "1";
   const [raw] = useUserValue("watchlist", "[]");
@@ -77,7 +78,7 @@ export default function Sales({ embedded = false }: { embedded?: boolean }) {
   const cutoff =
     range === "all" ? null : Date.now() / 1000 - Number(range) * 3600;
   const visible = (row: any) =>
-    (!kind || row.kind === kind) &&
+    (!kind || (row.kind === "drop" ? "drop" : "sold_out") === kind) &&
     (!watchOnly || watched.has(row.item_id)) &&
     (!category || row.category === category) &&
     (cutoff === null || row.time >= cutoff);
@@ -219,9 +220,12 @@ export default function Sales({ embedded = false }: { embedded?: boolean }) {
                   {t("sales.range_note")}
                 </DialogDescription>
                 <div className="fsec">
-                  <h4>{t("sales.kind")}</h4>
+                  <h4>
+                    {t("sales.kind")}
+                    <SaleKindsHelp />
+                  </h4>
                   <div className="chips">
-                    {["", "drop", "sold_out", "found_sold"].map((value) =>
+                    {["", "sold_out", "drop"].map((value) =>
                       chip(
                         "kind",
                         value,
@@ -311,7 +315,6 @@ export default function Sales({ embedded = false }: { embedded?: boolean }) {
             )
           )}
         </div>
-        <p className="sale-note">{t("sales.note")}</p>
       </section>
     </div>
   );

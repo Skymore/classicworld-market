@@ -35,12 +35,6 @@ export default function Contributors() {
       }
     >
       <div className="account-body">
-        <h2>
-          {words(
-            "谢谢每一位逛市场的人",
-            "Thanks to everyone exploring the market",
-          )}
-        </h2>
         <div className="contributor-tools">
           <Tabs value={period} onValueChange={setPeriod}>
             <TabsList aria-label={words("排行范围", "Ranking period")}>

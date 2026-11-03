@@ -1,13 +1,26 @@
 import { useState } from "react";
 import { Store, UserRound } from "lucide-react";
 import { useWords } from "../providers";
-import { Slot, ItemNames, Price, RelativeTime } from "./shared";
+import { Slot, ItemNames, Price, RelativeTime, InfoTip } from "./shared";
 import { SiteLink } from "./shell";
 import { pieceData } from "./equipment";
 import { t } from "/web/js/lib/i18n.js";
 import { equipmentSummary } from "/web/js/lib/equipment-summary.js?v=20261029-critical-1";
 import { priceUnit } from "/web/js/lib/market-source.js?v=20261022-external-1";
 
+/** The two kinds of sale and what each means, behind an "i" button. */
+export function SaleKindsHelp() {
+  const words = useWords();
+  return (
+    <InfoTip label={words("成交类型说明", "What the sale kinds mean")}>
+      <b>{t("evidence.sold_out")}</b> {t("evidence.help.sold_out")}
+      <br />
+      <b>{t("evidence.drop")}</b> {t("evidence.help.drop")}
+      <br />
+      {t("evidence.help.time")}
+    </InfoTip>
+  );
+}
 export function Location({
   value,
   shop,
@@ -98,11 +111,7 @@ export function OfferRow({
   const words = useWords();
   const equip = detail ?? equipmentSummary(row, document.documentElement.lang === "en");
   const status =
-    row.kind === "sold_out"
-      ? words("卖光", "Sold out")
-      : row.kind === "drop"
-        ? words("卖出", "Sold")
-        : words("已售", "Sold");
+    row.kind === "drop" ? words("卖出", "Sold") : words("卖光", "Sold out");
   const content = (
     <>
       {!hideIdentity && <Slot url={row.icon_url || item?.icon_url} />}
@@ -117,7 +126,7 @@ export function OfferRow({
                     className={"evi " + (row.kind || "")}
                     title={
                       row.kind
-                        ? t("evidence." + row.kind) +
+                        ? t("evidence.help." + row.kind) +
                           (row.merged_count > 1
                             ? words(
                                 ` · 同店 ${row.merged_count} 格合计`,

@@ -140,7 +140,7 @@ try {
     assert.match(await rows.first().textContent(), /红色药水/);
     assert.match(await rows.last().textContent(), /蓝色头巾/);
     assert.deepEqual(await rows.locator('.ware-price').allTextContents(), ['13.5K', '25K']);
-    assert.match(await rows.first().locator('.name-primary .evi').textContent(), /已售/);
+    assert.match(await rows.first().locator('.name-primary .evi').textContent(), /卖光/);
     assert.equal(await rows.first().locator('.record-value > .record-time [data-relative-time]').getAttribute('data-relative-time'), String(now));
     await sortBy('recent', '最新报价');
     await page.locator('[data-price-records=quotes] .market-record').first().waitFor();

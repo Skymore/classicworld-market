@@ -72,8 +72,7 @@ fn outdated_item_does_not_recommend_buying_now() {
         offer.seen_at = at(17, 0);
     }
     let rendered = pages::item_page(&page, &zh()).into_string();
-    assert!(rendered.contains("历史价格参考"));
-    assert!(!rendered.contains("建议直接买"));
+    assert!(!rendered.contains("打还是买") && !rendered.contains("建议直接买"));
 }
 
 #[test]
@@ -276,11 +275,8 @@ fn item_page_head_sources_and_shell() {
     assert!(!html.contains("60%"));
     assert!(html.contains("射手训练场Ⅰ · 蜗牛猎场Ⅰ"));
     assert!(html.contains("没有 NPC 出售记录"));
-    assert!(html.contains("卖给 NPC 只得 20 / 个"));
-    assert!(
-        html.contains("市场买或自己打") && html.contains("1 种怪物会掉"),
-        "no drop rate, so no kill count to weigh against the price"
-    );
+    assert!(html.contains("NPC 回收价 20 / 个"));
+    assert!(!html.contains("打还是买"), "no farm-or-buy verdict");
     assert!(!html.contains("无等级限制"), "no level tag without a level requirement");
     assert!(html.contains("https://maplestory.io/api/GMS/83/mob/100100/render/stand"));
     assert!(
@@ -367,7 +363,7 @@ fn ladder_trend_and_sales() {
         html.contains(r#"font-size="12""#),
         "chart text stays at 12 px"
     );
-    assert!(html.contains("发现已售"));
+    assert!(html.contains("卖光") && !html.contains("发现已售"));
     assert!(html.contains("数量未知"));
     assert!(!html.contains("时间是发现时间，不是实际成交时间"));
     assert!(html.contains(r#"<span class="loc"><b>4频道</b><span>8洞</span></span>"#));
@@ -389,7 +385,6 @@ fn item_without_market_data_says_so() {
     assert!(html.contains("市场数据暂无"));
     assert!(html.contains("还没有玩家确认的怪物掉落"));
     assert!(html.contains("NPC #212 出售 <b>50</b> / 个"));
-    assert!(html.contains("去 NPC 买"));
     assert!(html.contains("最近 72 小时没有看到在售挂单"));
     assert!(html.contains("画不出价格分布"));
     assert!(
@@ -404,8 +399,8 @@ fn english_page() {
     assert!(html.contains(r#"<html lang="en" data-lang="en""#));
     assert!(html.contains("<h1>Snail Shell</h1>"));
     assert!(html.contains("Where to buy"));
-    assert!(html.contains("found sold"));
-    assert!(html.contains("Buy or farm"));
+    assert!(html.contains("sold out"));
+    assert!(!html.contains("Farm or buy"));
     assert!(
         html.contains(r#"href="/mob/2?lang=en""#),
         "links keep the language"
@@ -602,7 +597,7 @@ fn map_page_shows_links_and_route_entry() {
         "NPC rows open the NPC page"
     );
     assert!(!html.contains("mapvis"), "no view without NiaDB's box");
-    assert!(html.contains("NPC 名字还没有导入"));
+    assert!(!html.contains("NPC 名字还没有导入"));
     assert!(html.contains("用回城卷轴"));
     assert!(html.contains("还没有到这里的连接"));
 }
@@ -889,7 +884,7 @@ fn route_page_outcomes() {
     });
     assert!(missing.contains("没有找到目的地「火星」"));
     assert!(route(RouteOutcome::Same(map(1, "甲"))).contains("同一张地图"));
-    assert!(route(RouteOutcome::Form).contains("输入出发和目的地"));
+    assert!(!route(RouteOutcome::Form).contains("输入出发和目的地"));
 }
 
 #[test]
@@ -1132,7 +1127,7 @@ fn ship_steps_circle_the_npc() {
         overview: None,
     });
     assert!(
-        html.contains("找圈出的桑克斯坐船（单程，回不来）"),
+        html.contains("找圈出的桑克斯坐船") && !html.contains("单程"),
         "{html}"
     );
     assert!(html.contains("<title>找这个 NPC</title>"));
