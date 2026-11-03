@@ -775,15 +775,18 @@ class DesktopController:
                 began = time.monotonic()
                 result = 'ok'
                 status_code = None
+                diagnostic = None
                 try:
                     return scanner_request(config, action, body, stop=stop)
                 except Exception as error:
                     result = type(error).__name__
                     status_code = getattr(error, 'code', None)
+                    diagnostic = getattr(error, 'request_diagnostic', None)
                     raise
                 finally:
                     self._journal.event('request', action=action, result=result,
                                         status_code=status_code,
+                                        diagnostic=diagnostic,
                                         duration_ms=round((time.monotonic()-began)*1000))
             started = threading.Event()
             started.set()
@@ -813,7 +816,8 @@ class DesktopController:
                 progress_type = self._modules.get('AssignedProgress')
                 progress_options = {'progress': progress_type(self.collector.home/'scan-progress.json')} if progress_type else {}
                 assignments = self._modules['CloudScan'](config, stop, self._on_scan,
-                    paused=self._modules['is_paused'], session=self._session, transport=transport, **progress_options)
+                    paused=self._modules['is_paused'], session=self._session, transport=transport,
+                    diagnostic=self._journal.event, **progress_options)
                 outcome = scan(self._folder, self._hwnd, started, stop,
                                               self._on_scan, assignments=assignments, **hooks)
             if outcome and outcome.get('reason') == 'room_scan_incomplete':
