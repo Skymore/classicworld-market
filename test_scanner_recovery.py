@@ -16,6 +16,14 @@ from collector_watchdog import HealthMonitor, should_restart
 
 
 class HealthTests(unittest.TestCase):
+    def test_packet_key_failure_reports_data_reason_without_ui_advice(self):
+        from packet_keybindings import PacketKeyBindingError
+        phase,message=failure_state(PacketKeyBindingError('waiting_for_active_preset'))
+        self.assertEqual(phase,'needs_attention')
+        self.assertIn('当前预设',message)
+        self.assertNotIn('遮挡',message)
+        self.assertNotIn('设置界面',message)
+
     def test_keyboard_menu_failure_is_distinct_from_missing_bindings(self):
         from keyboard_bindings import KeyBindingMenuError
         phase,message=failure_state(KeyBindingMenuError('Game menu was not recognized'))
@@ -149,7 +157,7 @@ class PolicyTests(unittest.TestCase):
         from market_browser_bot import ShopWindowUnconfirmed
         phase,message=failure_state(ShopWindowUnconfirmed('exit button missing'))
         self.assertEqual(phase,'needs_attention')
-        self.assertIn('离店按钮',message)
+        self.assertIn('离店状态',message)
         self.assertNotIn('游戏尚未就绪',message)
 
     def test_full_disk_stop_revokes_existing_permit_without_new_file(self):

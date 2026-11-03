@@ -94,6 +94,18 @@ def retry_delay(attempt, error=None):
 
 def failure_state(error, position_failures=0):
     from keyboard_bindings import KeyBindingError, KeyBindingMenuError
+    from packet_keybindings import PacketKeyBindingError
+    if isinstance(error,PacketKeyBindingError):
+        detail={
+            'connection_unavailable':'收包连接不可用',
+            'waiting_for_keymap':'尚未收到完整键表',
+            'waiting_for_active_preset':'尚未收到当前预设',
+            'unsupported_preset_record':'当前预设格式未支持',
+            'unsupported_keymap_layout':'键表格式未支持',
+            'keymap_edited_waiting_for_snapshot':'改键后尚未收到新键表',
+            'movement_keys_incomplete':'跳跃或方向键数据不完整',
+        }.get(error.reason,'键位数据未就绪')
+        return 'needs_attention','键位同步失败：'+detail+'。请重新登录游戏后再开始扫描。'
     if isinstance(error,KeyBindingMenuError):
         return 'needs_attention','键盘设置界面未能正常打开或关闭，请关闭遮挡窗口后停止并重新开始扫描。'
     if isinstance(error,KeyBindingError):
@@ -104,7 +116,7 @@ def failure_state(error, position_failures=0):
             return "needs_attention", "位置同步连续失败，已停止重复切频道。请报 Bug 或开启远程调试；处理后点击停止再开始。"
         return "rebuilding", "游戏已连接，但位置同步未恢复，正在重建收包。"
     if getattr(error, 'shop_window_unconfirmed', False):
-        return 'needs_attention', '已收到店铺数据，但未能识别离店按钮。请关闭商店后停止并重新开始扫描。'
+        return 'needs_attention', '离店状态未能确认，扫描已暂停。请报 Bug 或开启远程调试。'
     if isinstance(error, MapResourceError):
         return 'needs_attention', '地图导航数据读取失败，请检查地图路径配置或更新扫描器，修复后停止并重新开始。'
     if isinstance(error, HTTPError):

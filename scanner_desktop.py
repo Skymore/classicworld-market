@@ -171,7 +171,7 @@ def status_text(value):
         match = re.fullmatch(pattern, value)
         if match:
             return template.format(*match.groups())
-    labels = {'reading_movement_bindings':'正在读取移动和跳跃键',
+    labels = {'reading_movement_bindings':'正在同步移动和跳跃键',
               'full_preparing_capture': '正在连接游戏', 'waiting_for_game_foreground': '正在恢复游戏前台',
               'loading_keyboard_and_screenshot_backend': '正在准备扫描', 'started': '正在识别摊位',
               'route_calibration_connecting': '正在确认当前频道'}
