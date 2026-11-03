@@ -93,7 +93,9 @@ def retry_delay(attempt, error=None):
 
 
 def failure_state(error, position_failures=0):
-    from keyboard_bindings import KeyBindingError
+    from keyboard_bindings import KeyBindingError, KeyBindingMenuError
+    if isinstance(error,KeyBindingMenuError):
+        return 'needs_attention','键盘设置界面未能正常打开或关闭，请关闭遮挡窗口后停止并重新开始扫描。'
     if isinstance(error,KeyBindingError):
         return 'needs_attention','未能确认移动和跳跃键，请关闭遮挡窗口后停止并重新开始扫描。'
     from free_market_route import MapResourceError, PositionSyncError

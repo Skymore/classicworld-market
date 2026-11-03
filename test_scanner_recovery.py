@@ -16,6 +16,17 @@ from collector_watchdog import HealthMonitor, should_restart
 
 
 class HealthTests(unittest.TestCase):
+    def test_keyboard_menu_failure_is_distinct_from_missing_bindings(self):
+        from keyboard_bindings import KeyBindingMenuError
+        phase,message=failure_state(KeyBindingMenuError('Game menu was not recognized'))
+        self.assertEqual(phase,'needs_attention')
+        self.assertIn('设置界面',message)
+        self.assertNotIn('移动和跳跃键',message)
+
+    def test_keyboard_focus_loss_keeps_recovery_path(self):
+        phase,message=failure_state(RuntimeError('Game lost foreground; stopped'))
+        self.assertEqual(phase,'waiting_game')
+
     def test_unknown_key_bindings_require_attention_without_reconnect(self):
         from keyboard_bindings import KeyBindingError
         phase,message=failure_state(KeyBindingError('up binding missing'))
