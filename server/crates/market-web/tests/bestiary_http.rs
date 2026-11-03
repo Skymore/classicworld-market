@@ -188,7 +188,10 @@ async fn item_page() {
         .find(|part| part.trim_start().starts_with("script-src"))
         .unwrap()
         .contains("unsafe-inline"));
-    assert_eq!(page.vary, "Sec-CH-UA-Mobile");
+    assert!(
+        !page.vary.to_ascii_lowercase().contains("sec-ch-ua"),
+        "one page for every device, so an edge cache can keep it"
+    );
     let body = &page.body;
     assert!(body.contains("<h1>蜗牛壳</h1>"));
     assert!(body.contains("450"), "typical price from item_stats");
@@ -210,7 +213,8 @@ async fn item_page() {
     assert!(body.contains(r#"data-device="phone""#));
 
     let desktop = get_with(&router, "/item/4000019", Some("?0")).await;
-    assert!(desktop.body.contains(r#"data-device="desktop""#));
+    assert!(desktop.body.contains(r#"data-device="phone""#));
+    assert_eq!(desktop.vary, page.vary);
 
     let english = get(&router, "/item/4000019?lang=en").await.body;
     assert!(english.contains("<h1>Snail Shell</h1>"));

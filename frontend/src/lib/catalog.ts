@@ -11,15 +11,18 @@ export const catalogKey = (url: string) => {
   target.searchParams.sort();
   return ["catalog", target.pathname + target.search];
 };
+export const sameCatalog = (a: string, b: string) =>
+  JSON.stringify(catalogKey(a)) === JSON.stringify(catalogKey(b));
+const SNAPSHOT_KINDS = ["item", "mob", "map", "npc", "world", "route", "search"];
+/** Page data a server-rendered page embeds (`page_data_script` in shell.rs). */
 export function readCatalogSnapshot() {
   const element = document.getElementById("catalog-snapshot");
   if (!element) return null;
   try {
     const snapshot = JSON.parse(element.textContent || "null");
-    const valid = snapshot?.data?.kind === "item" &&
+    const valid = SNAPSHOT_KINDS.includes(snapshot?.data?.kind) &&
       Number.isFinite(snapshot.updatedAt) &&
-      JSON.stringify(catalogKey(snapshot.url)) ===
-        JSON.stringify(catalogKey(location.pathname + location.search));
+      sameCatalog(snapshot.url, location.pathname + location.search);
     if (!valid) return null;
     seedJson(catalogUrl(snapshot.url), snapshot.data, snapshot.etag, snapshot.updatedAt);
     return snapshot;

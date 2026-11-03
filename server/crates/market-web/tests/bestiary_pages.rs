@@ -34,7 +34,7 @@ fn item_bootstrap_reuses_public_data_and_escapes_script_delimiters() {
     let mut page = item_page(Some(stats()), market());
     page.item.name_en = "</script><script>alert('shop')</script>&\u{2028}".into();
     let ctx = zh();
-    let rendered = pages::item_page(&page, &ctx).into_string();
+    let rendered = pages::page_data_script(&ctx, "item", pages::item_data(&page)).unwrap();
     let raw = rendered.split("<script id=\"catalog-snapshot\" type=\"application/json\">")
         .nth(1).unwrap().split("</script>").next().unwrap();
     assert!(!raw.contains('<'));
@@ -81,7 +81,8 @@ fn equipment_scrolls_and_etc_offers_all_expose_precise_sort_metadata() {
         let mut page = item_page(Some(stats()), market());
         page.item.id = id;
         let count = page.market.listings.len();
-        let rendered = pages::item_page(&page, &zh()).into_string();
+        // item.js sorts the rows of the market fragment, which lists them all.
+        let rendered = pages::item_market_fragment(&page, &zh()).into_string();
         assert_eq!(rendered.matches("data-quote=").count(), count, "item {id}");
         assert_eq!(
             rendered.matches("data-observed=").count(),
@@ -251,7 +252,7 @@ fn item_page_head_sources_and_shell() {
     assert!(html.contains("蜗牛壳&lt;script&gt;"), "names are escaped");
     assert!(
         html.contains(r#"data-device="phone""#),
-        "phone layout unless the hint says desktop"
+        "boot.js sets the device; the markup is the same for all"
     );
     assert!(html.contains(r#"<script type="module" src="/web/react/shell.js"#));
     assert!(!html.contains(r#"src="/web/js/pages/item.js"#));
@@ -336,6 +337,51 @@ fn where_to_buy_groups_by_channel() {
     );
     assert!(html.contains(r#"<div class="lrow stale" "#));
     assert!(html.contains("3 条挂单 · 3 摊"));
+}
+
+#[test]
+fn first_paint_lists_only_the_open_channels_cheapest_listings() {
+    let mut market = market();
+    // 30 channels with 20 listings each; channel 1 is the cheapest.
+    market.listings = (0..600)
+        .map(|i| {
+            let channel = (i % 30) as i16 + 1;
+            listing(
+                &format!("Shop {i}"),
+                Some(channel),
+                (i % 22) as i16 + 1,
+                1_000.0 + f64::from(i),
+                at(19, 20),
+            )
+        })
+        .collect();
+    let page = item_page(Some(stats()), market);
+    let first = pages::item_page(&page, &zh()).into_string();
+    let full = pages::item_market_fragment(&page, &zh()).into_string();
+    assert_eq!(full.matches(r#"<div class="lrow""#).count(), 600);
+    assert_eq!(first.matches(r#"<div class="lrow""#).count(), 10);
+    assert!(first.contains("还有 10 条挂单"));
+    assert_eq!(
+        first.matches(r#"<span class="hole"#).count(),
+        22,
+        "rooms of the open channel only"
+    );
+    assert!(first.contains(r#"<div class="cgroup open" data-ch-key="1">"#));
+    // Channel heads keep the full counts.
+    assert!(first.contains("600 条挂单"));
+    assert_eq!(first.matches(r#"class="cg-head""#).count(), 30);
+    // Bytes of the "where to buy" section, up to the next market section.
+    let where_well = |html: &str| {
+        let start = html.find(r#"data-market="where""#).unwrap() + 1;
+        html[start..]
+            .find("data-market=")
+            .unwrap_or(html.len() - start)
+    };
+    eprintln!(
+        "where to buy, 600 listings: every listing {} bytes, first paint {} bytes",
+        where_well(&full),
+        where_well(&first)
+    );
 }
 
 #[test]
@@ -461,8 +507,13 @@ fn equipment_tooltips_mark_bonus_stats() {
             && html.contains(r#"data-bonus="1"><summary class="lrow">"#),
         "expandable offers carry the bonus flag for the switch"
     );
+    // The first paint lists the open channel; the market fragment lists all.
+    assert_eq!(html.matches("<summary class=\"lrow\">").count(), 2);
     assert_eq!(
-        html.matches("<summary class=\"lrow\">").count(),
+        pages::item_market_fragment(&page, &zh())
+            .into_string()
+            .matches("<summary class=\"lrow\">")
+            .count(),
         page.market.listings.len()
     );
     assert!(!html.contains("点击查看属性与位置"));

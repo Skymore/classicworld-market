@@ -23,6 +23,8 @@ const CHANNELS_DESKTOP: usize = 8;
 /// Free-market rooms per channel.
 const ROOMS: i16 = 22;
 const SALES_SHOWN: usize = 12;
+/// Listings the first paint shows in the open channel; React renders the rest.
+const LISTINGS_SHOWN: usize = 10;
 const VARIANTS_SHOWN: usize = 8;
 /// Fewer 24-hour sales than this is a thin sample (plan v1 §4.2).
 const FEW_SALES: i32 = 5;
@@ -33,6 +35,9 @@ pub struct View<'a> {
     pub page: &'a ItemPage,
     /// Reference point of relative times: the latest observation.
     pub as_of: DateTime<Utc>,
+    /// The page's first paint: only the open channel's cheapest listings.
+    /// React replaces it with every listing from the embedded page data.
+    pub first_screen: bool,
 }
 
 impl<'a> View<'a> {
@@ -42,7 +47,12 @@ impl<'a> View<'a> {
             .as_of
             .or(page.stats.as_ref().map(|s| s.as_of))
             .unwrap_or(ctx.now);
-        Self { ctx, page, as_of }
+        Self {
+            ctx,
+            page,
+            as_of,
+            first_screen: false,
+        }
     }
 
     fn t(&self, zh: &'a str, en: &'a str) -> &'a str {
@@ -326,12 +336,30 @@ fn channel_group(v: &View, g: &Group, index: usize) -> Markup {
                 span.caret { (PreEscaped(icon(Icon::Caret))) }
             }
             div.cg-body {
-                @if g.channel.is_some() { (holes(v, g)) }
-                div.cg-list {
-                    @for l in &g.listings { (listing_row(v, l)) }
+                @if !v.first_screen {
+                    @if g.channel.is_some() { (holes(v, g)) }
+                    div.cg-list {
+                        @for l in &g.listings { (listing_row(v, l)) }
+                    }
+                } @else if open {
+                    // Closed channels stay closed until React takes over.
+                    @if g.channel.is_some() { (holes(v, g)) }
+                    div.cg-list {
+                        @for l in g.listings.iter().take(LISTINGS_SHOWN) { (listing_row(v, l)) }
+                    }
+                    @if g.listings.len() > LISTINGS_SHOWN {
+                        p.note { (more_listings(v, g.listings.len() - LISTINGS_SHOWN)) }
+                    }
                 }
             }
         }
+    }
+}
+
+fn more_listings(v: &View, n: usize) -> String {
+    match v.ctx.lang {
+        Lang::Zh => format!("还有 {n} 条挂单"),
+        Lang::En => format!("{n} more listings"),
     }
 }
 

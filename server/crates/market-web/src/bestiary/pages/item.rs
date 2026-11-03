@@ -14,29 +14,22 @@ use crate::bestiary::model::*;
 const MOBS_PHONE: usize = 4;
 const MOBS_DESKTOP: usize = 6;
 
+/// The item's `/api/v1/catalog/page` data: the page plus its price unit.
+pub fn item_data(page: &ItemPage) -> serde_json::Value {
+    let mut data = serde_json::to_value(page).expect("catalog item serialize");
+    data["unit"] = serde_json::json!(crate::external::unit(page.item.id));
+    data
+}
+
 pub fn item_page(page: &ItemPage, ctx: &Ctx) -> Markup {
-    let v = View::new(ctx, page);
+    let v = View {
+        first_screen: true,
+        ..View::new(ctx, page)
+    };
     let names = page.item.names();
     let name = names.get(ctx.lang);
     let fresh = page.market.as_of.map(|_| fresh_text(&v));
-    // Reuse the public data already read for this first paint. Escape raw-text
-    // delimiters: item/shop names must never be able to close the JSON script.
-    let mut data = serde_json::json!({"kind":"item", "page":page});
-    data["page"]["unit"] = serde_json::json!(crate::external::unit(page.item.id));
-    let tag = crate::delivery::tag("item", &mut data);
-    let snapshot = serde_json::json!({
-        "url": ctx.here,
-        "updatedAt": ctx.now.timestamp_millis(),
-        "data": data, "etag":tag,
-    })
-    .to_string()
-    .replace('&', "\\u0026")
-    .replace('<', "\\u003c")
-    .replace('>', "\\u003e")
-    .replace('\u{2028}', "\\u2028")
-    .replace('\u{2029}', "\\u2029");
     let body = html! {
-        script id="catalog-snapshot" type="application/json" { (PreEscaped(snapshot)) }
         div.dwrap.ipage {
             nav.crumb.on-desktop aria-label=(ctx.t("位置", "Breadcrumb")) {
                 a href=(ctx.href("/search?kind=item")) { (ctx.t("图鉴", "Catalogue")) }

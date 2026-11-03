@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { assetVersion, versionAssets } from "./build-assets";
+import { CATALOGUE_STYLES } from "./src/lib/route-styles";
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const siteVersion = assetVersion(projectRoot);
 
@@ -20,7 +21,7 @@ export default defineConfig(({ command }) => ({
           return resolve(importer.split("?")[0], "..", source);
       },
     },
-    react(), tailwindcss(), versionAssets(projectRoot, siteVersion),
+    react(), tailwindcss(), versionAssets(projectRoot, siteVersion, CATALOGUE_STYLES),
   ],
   define: { __SITE_ASSET_VERSION__: JSON.stringify(siteVersion) },
   base: command === "serve" ? "/" : "/web/react/",
@@ -35,7 +36,8 @@ export default defineConfig(({ command }) => ({
     outDir: "../web/react",
     // Keep immutable hashed chunks for already-open pages with cached entry modules.
     emptyOutDir: false,
-    cssCodeSplit: false,
+    // Route CSS loads with its route chunk; style.css keeps only what every page uses.
+    cssCodeSplit: true,
     manifest: true,
     rollupOptions: {
       input: {
@@ -46,10 +48,13 @@ export default defineConfig(({ command }) => ({
       output: {
         entryFileNames: "[name].js",
         chunkFileNames: "chunks/[name]-[hash].js",
+        // The entry CSS keeps the URL the pages link; route CSS is hashed like its chunk.
         assetFileNames: (asset) =>
-          asset.names.some((name) => name.endsWith(".css"))
+          asset.names.includes("main.css")
             ? "style.css"
-            : "assets/[name]-[hash][extname]",
+            : asset.names.some((name) => name.endsWith(".css"))
+              ? "chunks/[name]-[hash][extname]"
+              : "assets/[name]-[hash][extname]",
       },
     },
   },
