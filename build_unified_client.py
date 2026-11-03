@@ -41,8 +41,17 @@ def stage(root, scanner, destination):
     for name in ('maple_crypto_constants.cs', 'market_index.html', 'market_ui.js',
                  'market_ui.css', 'market_i18n.js', 'market_watchlist.js'):
         shutil.copy2(root / name, destination / name)
-    shutil.copytree(root / 'web', destination / 'web',
-                    ignore=shutil.ignore_patterns('images', 'releases', 'tests', '*.map'))
+    # A desktop update installs fresh web entry points. Historical website
+    # chunks are only needed by old browser pages, not by this new install.
+    vite = json.loads((root / 'web/react/.vite/manifest.json').read_text(encoding='utf-8'))
+    chunks = {Path(row['file']).name for row in vite.values()
+              if row['file'].startswith('chunks/')}
+    def ignore_web(folder, names):
+        ignored = set(shutil.ignore_patterns('images', 'releases', 'tests', '*.map')(folder, names))
+        if Path(folder) == root / 'web/react/chunks':
+            ignored.update(name for name in names if name not in chunks)
+        return ignored
+    shutil.copytree(root / 'web', destination / 'web', ignore=ignore_web)
     shutil.copytree(scanner / 'tools/market_bot_templates', destination / 'tools/market_bot_templates')
     shutil.copytree(root / 'desktop_ui', destination / 'desktop_ui')
     shutil.copytree(root / 'assets/sweep', destination / 'assets/sweep')
