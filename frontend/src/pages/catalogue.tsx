@@ -941,12 +941,6 @@ function RoutePage({ page }: { page: any }) {
           )}
           {mobFound.overview && <RouteOverview overview={mobFound.overview} />}
           <Steps steps={mobFound.steps} />
-          <p className="note">
-            {words(
-              "最近按换地图的次数算，不代表用时最短；也不考虑地图里怪多不多。",
-              "Nearest means the fewest map changes, not the shortest time, and ignores how crowded a map is.",
-            )}
-          </p>
         </Well>
         <Well
           title={words(`${name(mobFound.mob.names)}的刷怪地图`, `Where ${name(mobFound.mob.names)} spawns`)}

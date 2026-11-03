@@ -661,10 +661,6 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
                 }
                 @if let Some(o) = overview { (route_overview(ctx, o)) }
                 (steps_list(ctx, steps))
-                (empty(ctx.t(
-                    "最近按换地图的次数算，不代表用时最短；也不考虑地图里怪多不多。",
-                    "Nearest means the fewest map changes, not the shortest time, and ignores how crowded a map is.",
-                )))
             }
             section.well {
                 (well_head(
