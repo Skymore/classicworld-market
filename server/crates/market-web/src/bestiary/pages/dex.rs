@@ -474,8 +474,12 @@ fn link_row(ctx: &Ctx, link: &Link) -> Markup {
 // ---------- route ----------
 
 pub fn route_page(page: &RoutePage, ctx: &Ctx) -> Markup {
-    let map_tab = route_href(&page.from_input, &page.to_input);
-    let mob_tab = format!("/route?mode=mob&from={}", url_encode(&page.from_input));
+    let taxi = if page.taxi { "&taxi=1" } else { "" };
+    let map_tab = format!("{}{taxi}", route_href(&page.from_input, &page.to_input));
+    let mob_tab = format!(
+        "/route?mode=mob&from={}{taxi}",
+        url_encode(&page.from_input)
+    );
     let body = html! {
         section.stall {
             (bar(ctx.t("怎么走", "Route"), None))
@@ -500,6 +504,10 @@ pub fn route_page(page: &RoutePage, ctx: &Ctx) -> Markup {
                         span { (ctx.t("目的地", "To")) }
                         input type="text" name="to" value=(page.to_input) placeholder=(ctx.t("地图名或 ID", "map name or id")) autocomplete="off";
                     }
+                }
+                label.check {
+                    input type="checkbox" name="taxi" value="1" checked[page.taxi];
+                    span { (ctx.t("可以坐出租车（要花金币）", "Allow taxis (cost mesos)")) }
                 }
                 @if ctx.lang == Lang::En { input type="hidden" name="lang" value="en"; }
                 button.btn.primary type="submit" {
@@ -531,7 +539,7 @@ fn steps_list(ctx: &Ctx, steps: &[Step]) -> Markup {
                     }
                     @if let (Some(view), true) = (&step.view, step.exit.is_some() || step.kind != EdgeKind::Portal) {
                         figure.mapvis.step-map {
-                            (map_svg(ctx, view, step.from.names.get(lang), &Marks { exit: step.exit, arrival: step.arrival, ..Marks::default() }))
+                            (map_svg(ctx, view, step.from.names.get(lang), &Marks { exit: step.exit, arrival: step.arrival, exit_npc: step.npc.is_some(), ..Marks::default() }))
                         }
                     }
                 }
@@ -653,6 +661,10 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
                 }
                 @if let Some(o) = overview { (route_overview(ctx, o)) }
                 (steps_list(ctx, steps))
+                (empty(ctx.t(
+                    "最近按换地图的次数算，不代表用时最短；也不考虑地图里怪多不多。",
+                    "Nearest means the fewest map changes, not the shortest time, and ignores how crowded a map is.",
+                )))
             }
             section.well {
                 (well_head(
@@ -700,14 +712,27 @@ pub fn world_page(page: &WorldPage, ctx: &Ctx) -> Markup {
 
 /// What to do on this step, pointing at the minimap when the portal is marked.
 fn step_hint(ctx: &Ctx, step: &Step) -> String {
-    match (step.kind, step.exit.is_some()) {
-        (EdgeKind::Portal, true) => ctx
+    let lang = ctx.lang;
+    let npc = step.npc.as_ref().map(|n| n.label(lang));
+    match (step.kind, step.exit.is_some(), npc) {
+        (EdgeKind::Portal, true, _) if step.exit_hidden => ctx
             .t(
-                "走小地图上圈出的传送口",
-                "take the circled portal on the minimap",
+                "走圈出的隐藏传送口（游戏里看不到，站在圈里按↑）",
+                "take the circled hidden portal (not drawn in game; stand in the circle and press up)",
             )
             .to_string(),
-        (kind, _) => edge_text(kind, step.portal_name.as_deref(), ctx.lang),
+        (EdgeKind::Portal, true, _) => ctx
+            .t("走地图上圈出的传送口", "take the circled portal on the map")
+            .to_string(),
+        (EdgeKind::Ship, _, Some(npc)) => match lang {
+            Lang::Zh => format!("找圈出的{npc}坐船（单程，回不来）"),
+            Lang::En => format!("take the ship with {npc}, circled (one way)"),
+        },
+        (EdgeKind::Taxi, _, Some(npc)) => match lang {
+            Lang::Zh => format!("找圈出的{npc}坐出租车（要花金币）"),
+            Lang::En => format!("take the taxi with {npc}, circled (costs mesos)"),
+        },
+        (kind, _, _) => edge_text(kind, step.portal_name.as_deref(), lang),
     }
 }
 

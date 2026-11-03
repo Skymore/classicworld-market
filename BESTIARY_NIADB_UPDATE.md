@@ -10,9 +10,10 @@
 - 任务（迁移 `0039_quests.sql`）：物品页"来源"新增"任务奖励"和"任务要用"，怪物页新增"相关任务"。活动任务只在活动期间显示。
 - 地图视图（迁移 `0040_map_view.sql`）：地图页显示小地图，怪物头像站在刷怪点上，传送口和 NPC 可点；路线页每一步圈出要走的传送口；新增 NPC 页。GM 活动和 alt 副本怪隐藏；Mapledex 写错的 7 张地图中文名改正。
 - AI 助手不再返回遗忘洞穴的地图、任务和怪物（开放日后自动恢复，不用重跑）。
+- 船、出租车和传送口类型（迁移 `0042_portal_types_and_transport.sql`）：南港坐船去明珠港，彩虹岛的地图终于能连上金银岛；路线可以勾选坐出租车；隐藏传送口在地图上画成虚线圈。`portals.json` 带上了传送口类型，所以第 4 步的 `import_portals` 必须重跑。
 - 场景图和世界地图（迁移 `0041_world_map_and_scenes.sql`）：地图视图改画整张场景图（可切回小地图）；新增世界地图页 `/world`；路线页把路线画在世界地图上；新增"找怪物"：输入怪物，给出离出发地最近的刷怪地图和路线。
 
-需要三样东西：新代码（含迁移 `0038_niadb_bestiary.sql`、`0039_quests.sql`、`0040_map_view.sql`、`0041_world_map_and_scenes.sql`）、仓库里的参考数据和图片（`data/reference/`、`web/images/minimaps/`、`web/images/mobs/head/`、`web/images/scenes/`、`web/images/worldmap/`，随网站一起部署）、用新代码重跑 `import_catalog` 和 `import_portals`。
+需要三样东西：新代码（含迁移 `0038_niadb_bestiary.sql`、`0039_quests.sql`、`0040_map_view.sql`、`0041_world_map_and_scenes.sql`、`0042_portal_types_and_transport.sql`）、仓库里的参考数据和图片（`data/reference/`、`web/images/minimaps/`、`web/images/mobs/head/`、`web/images/scenes/`、`web/images/worldmap/`，随网站一起部署）、用新代码重跑 `import_catalog` 和 `import_portals`。
 
 ## 什么时候做
 
@@ -82,7 +83,7 @@ cargo run --release -p market-web --bin import_catalog -- `
 
 - 导入在一个事务里，出错整体回滚。
 - `--niadb-version` 写 `drops.json` 里 `fetched_at` 的日期（第 1 步第一行打印的）。
-- 预期输出（2026-11-02 的数据，新抓的会略多）：`mobs 206 NiaDB (… 7 replace a different Mapledex mob … 63 unreleased; 110 simplified names from DVG …)`、`maps 453 NiaDB (… 120 unreleased; 452 with a simplified name, 200 from DVG …)`、`spawns 915 NiaDB (… spawn points with positions …)`、`world 134 world map spots`、`drops 1704 NiaDB: 1655 items … 49 meso ranges`、`quests 401 NiaDB (…)`、`items` 与上一次相同。
+- 预期输出（2026-11-02 的数据，新抓的会略多）：`mobs 206 NiaDB (… 7 replace a different Mapledex mob … 63 unreleased; 110 simplified names from DVG …)`、`maps 453 NiaDB (… 120 unreleased; 452 with a simplified name, 200 from DVG …)`、`spawns 915 NiaDB (… spawn points with positions …)`、`world 134 world map spots`、`drops 1704 NiaDB: 1655 items … 49 meso ranges`、`portals 447`、`quests 401 NiaDB (…)`、`items` 与上一次相同。
 - `mobs`、`maps` 少于 200、`drops` 少于 1000：按第 7 步恢复并报告用户。
 
 接着导入传送口（新地图的传送口在仓库的 `portals.json` 里）：
@@ -118,6 +119,8 @@ Test-Path web\images\minimaps\1000.png, web\images\mobs\head\4.png, web\images\s
 - [希娜](https://mxd.ruit.me/npc/1)：NPC 页，小地图上金色标出她，任务里有"借来莎丽的镜子"。
 - [射手村 → 遗迹发掘地I](https://mxd.ruit.me/route?from=10001000&to=10004130)：上面是画在世界地图上的路线，每一步下面有地图，紫圈是要走的传送口。
 - [世界地图](https://mxd.ruit.me/world?map=10002000)：彩虹岛和金银岛两张图，箭头指着魔法密林；没有天空之城。
+- [蘑菇镇 → 射手村](https://mxd.ruit.me/route?from=1&to=10001000)：中间有一步"找圈出的桑克斯坐船"。
+- [射手村 → 勇士部落，坐出租车](https://mxd.ruit.me/route?from=10001000&to=10004000&taxi=1)：1 步。
 - [找花蘑菇](https://mxd.ruit.me/route?from=10001000&mob=9)：给出最近的刷怪地图和路线，下面按步数列出所有刷怪地图。
 - 图鉴搜索的区域筛选里没有天空之城和冰峰雪域。
 

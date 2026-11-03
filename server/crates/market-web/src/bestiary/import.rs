@@ -359,7 +359,7 @@ const DROP_COLUMNS: &str = "mob_id, ord, item_id, gms_item_id, name_en, name_zh,
 const QUEST_COLUMNS: &str = "id, name_en, name_zh, name_tw, npc_id, level_min, repeats, \
     starts_at, ends_at, unreleased";
 pub(crate) const PORTAL_COLUMNS: &str =
-    "from_map_id, to_map_id, kind, portal_name, target_portal, x, y, source";
+    "from_map_id, to_map_id, kind, portal_name, target_portal, x, y, portal_type, source";
 
 /// Inserts all rows with one statement. `table` and `columns` are constants
 /// from this module, never user input.

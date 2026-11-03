@@ -438,6 +438,9 @@ pub struct PortalPoint {
     pub y: i32,
     pub to: MapRef,
     pub name: Option<String>,
+    /// 1 hidden (no picture; stand on it and press up), 2 visible, 3 entered
+    /// by walking into it.
+    pub portal_type: Option<i16>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -588,6 +591,8 @@ pub struct RoutePage {
     pub to_input: String,
     /// The monster finder: a monster name or id instead of a destination.
     pub mob_input: String,
+    /// Routes may take the taxi (`taxi=1`).
+    pub taxi: bool,
     /// Show the monster finder's form (`mode=mob` or a monster given).
     pub mob_mode: bool,
     pub known_edges: usize,
@@ -651,8 +656,13 @@ pub struct Step {
     pub portal_name: Option<String>,
     /// `from`'s minimap with its portals (no monsters or NPCs), when known.
     pub view: Option<MapView>,
-    /// The portal to take on `view`, when its position is known.
+    /// The portal to take on `view`, or the NPC to talk to for a ship or
+    /// taxi, when its position is known.
     pub exit: Option<Point>,
+    /// The NPC for a ship or taxi step.
+    pub npc: Option<NpcRef>,
+    /// The exit portal is hidden (no picture in game).
+    pub exit_hidden: bool,
     /// Where the player is when the step starts: the portal they came in by,
     /// or the map's spawn point.
     pub arrival: Option<Point>,

@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useWords } from "../providers";
 import { useNames } from "./catalogue";
+import { Zoomable } from "./zoom";
 
 // The map view: the client minimap as an SVG with each monster's head on its
 // spawn points, portals that link to where they lead, and NPCs. Same markup as
@@ -21,6 +22,28 @@ function respawnNote(seconds: number, words: (zh: string, en: string) => string)
     : words(`约 ${minutes} 分钟重生`, `respawns in ~${minutes} min`);
 }
 
+// "传送口 → 射手村", noting portals the game does not draw.
+function portalTip(p: any, to: string, words: (zh: string, en: string) => string) {
+  if (p.portal_type === 1)
+    return (
+      words("隐藏传送口 → ", "Hidden portal → ") +
+      to +
+      words("（游戏里看不到，站在这里按↑）", " (not drawn in game; stand here and press up)")
+    );
+  if (p.portal_type === 3) return words("传送口 → ", "Portal → ") + to + words("（走进去就传送）", " (walk into it)");
+  return words("传送口 → ", "Portal → ") + to;
+}
+
+// A map view that opens full screen (phones: tap it).
+export function ZoomMap(props: Parameters<typeof MapSvg>[0]) {
+  const v = props.view;
+  return (
+    <Zoomable title={props.title} width={v.width} height={v.height} focus={props.exit || null}>
+      {(zoomed) => <MapSvg {...props} key={zoomed ? "z" : "i"} />}
+    </Zoomable>
+  );
+}
+
 export function MapSvg({
   view,
   title,
@@ -32,6 +55,7 @@ export function MapSvg({
   focus = null,
   layers = { mobs: true, portals: true, npcs: true },
   scene = true,
+  exitNpc = false,
 }: {
   view: any;
   title: string;
@@ -44,6 +68,8 @@ export function MapSvg({
   layers?: { mobs: boolean; portals: boolean; npcs: boolean };
   /** Draw the rendered scene when the map has one (else the minimap). */
   scene?: boolean;
+  /** `exit` is an NPC (ship, taxi), not a portal. */
+  exitNpc?: boolean;
 }) {
   const words = useWords(),
     name = useNames();
@@ -165,8 +191,13 @@ export function MapSvg({
                 {link(
                   "/map/" + p.to.id,
                   <>
-                    <title>{words("传送口 → ", "Portal → ") + name(p.to.names)}</title>
-                    <circle className="mv-portal" cx={p.x} cy={lift(p.y)} r={fmt(u * 0.36)} />
+                    <title>{portalTip(p, name(p.to.names), words)}</title>
+                    <circle
+                      className={"mv-portal" + (p.portal_type === 1 ? " hidden" : "")}
+                      cx={p.x}
+                      cy={lift(p.y)}
+                      r={fmt(u * 0.36)}
+                    />
                     <circle className="mv-portal-core" cx={p.x} cy={lift(p.y)} r={fmt(u * 0.14)} />
                   </>,
                 )}
@@ -200,7 +231,7 @@ export function MapSvg({
             )}
             {exit && (
               <circle className="mv-exit" cx={exit.x} cy={lift(exit.y)} r={fmt(u * 0.7)} strokeWidth={fmt(u * 0.16)}>
-                <title>{words("走这个传送口", "Take this portal")}</title>
+                <title>{exitNpc ? words("找这个 NPC", "Talk to this NPC") : words("走这个传送口", "Take this portal")}</title>
               </circle>
             )}
           </g>
@@ -252,7 +283,7 @@ export function MapViewPanel({ view, title, mobs }: { view: any; title: string; 
           ))}
         </div>
       )}
-      <MapSvg view={view} title={title} mobs={mobs} links focus={focus} layers={layers} scene={scene} />
+      <ZoomMap view={view} title={title} mobs={mobs} links focus={focus} layers={layers} scene={scene} />
       {view.spawns.length > 0 && layers.mobs && (
         <div className="mv-legend">
           {mobs.map((m: any) => (

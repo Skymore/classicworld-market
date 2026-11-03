@@ -1,5 +1,6 @@
 import { useWords } from "../providers";
 import { useNames } from "./catalogue";
+import { Zoomable } from "./zoom";
 
 // The client's world map as SVG: region pictures with the client's marker
 // sprites linking to their maps, and a route drawn over them. Same markup as
@@ -38,6 +39,13 @@ function Region({ region, here }: { region: any; here: string[] }) {
   return (
     <figure className="wm">
       <figcaption>{name(region.names)}</figcaption>
+      <Zoomable
+        title={name(region.names)}
+        width={region.width}
+        height={region.height}
+        focus={region.spots.find((s: any) => here.includes(s.key)) || null}
+      >
+        {() => (
       <div className="mapvis-scroll">
         <svg
           className="wm-svg"
@@ -88,6 +96,8 @@ function Region({ region, here }: { region: any; here: string[] }) {
           })}
         </svg>
       </div>
+        )}
+      </Zoomable>
     </figure>
   );
 }

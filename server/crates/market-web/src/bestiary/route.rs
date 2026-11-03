@@ -13,6 +13,44 @@ pub const HENESYS: i32 = 10001000;
 /// Hops a return-scroll step counts as.
 pub const RETURN_COST: u32 = 3;
 
+/// Travel by NPC that no portal records: (from map, to map, kind, NPC to talk
+/// to). Southperry's Shanks sails one way to Lith Harbor, the only way off
+/// Maple Island. The Regular Cab (Phil in Lith Harbor) drives between the five
+/// Victoria Island towns NiaDB's pathfinder lists; it costs mesos, so routes
+/// use it only when asked (`taxi=1`).
+pub const TRANSPORT: &[(i32, i32, EdgeKind, i32)] = &{
+    const TOWNS: [(i32, i32); 5] = [
+        (10_000_000, 101), // Lith Harbor, Phil
+        (10_001_000, 200), // Henesys
+        (10_002_000, 301), // Ellinia
+        (10_003_000, 400), // Kerning City
+        (10_004_000, 500), // Perion
+    ];
+    let mut out = [(60, 10_000_000, EdgeKind::Ship, 15); 1 + 5 * 4];
+    let mut n = 1;
+    let mut i = 0;
+    while i < TOWNS.len() {
+        let mut j = 0;
+        while j < TOWNS.len() {
+            if i != j {
+                out[n] = (TOWNS[i].0, TOWNS[j].0, EdgeKind::Taxi, TOWNS[i].1);
+                n += 1;
+            }
+            j += 1;
+        }
+        i += 1;
+    }
+    out
+};
+
+/// The NPC to talk to for a ship or taxi step from `from`.
+pub fn transport_npc(from: i32, to: i32, kind: EdgeKind) -> Option<i32> {
+    TRANSPORT
+        .iter()
+        .find(|t| (t.0, t.1, t.2) == (from, to, kind))
+        .map(|t| t.3)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EdgeKind {
@@ -334,6 +372,26 @@ mod tests {
         assert!(g.shortest_path(4, 1).is_none());
         assert!(g.shortest_path(1, 7).is_none(), "unknown map");
         assert_eq!(g.shortest_path(7, 7), Some(vec![]));
+    }
+
+    #[test]
+    fn transport_has_the_ship_and_every_taxi_pair() {
+        assert_eq!(TRANSPORT.len(), 21);
+        assert_eq!(transport_npc(60, 10_000_000, EdgeKind::Ship), Some(15));
+        assert_eq!(
+            transport_npc(10_000_000, 60, EdgeKind::Ship),
+            None,
+            "one way"
+        );
+        assert_eq!(
+            transport_npc(10_001_000, 10_004_000, EdgeKind::Taxi),
+            Some(200)
+        );
+        assert_eq!(
+            transport_npc(10_000_000, 10_002_000, EdgeKind::Taxi),
+            Some(101)
+        );
+        assert!(TRANSPORT.iter().all(|t| t.0 != t.1));
     }
 
     #[test]

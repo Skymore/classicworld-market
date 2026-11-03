@@ -15,7 +15,7 @@ import { catalogKey, loadCatalog } from "../lib/catalog";
 import { useUserValue } from "../lib/live";
 import { useProvidePageContext } from "../lib/assistant";
 import { normalizeOfferFilters } from "/web/js/lib/item-offer-filters.js?v=20261029-critical-1";
-import { MapSvg, MapViewPanel } from "./mapview";
+import { MapViewPanel, ZoomMap } from "./mapview";
 import { RouteOverview, WorldBody } from "./worldmap";
 export function useNames() {
   const { language } = usePreferences();
@@ -756,7 +756,13 @@ function NpcPage({ page }: { page: any }) {
                   <MapRow map={place.map} />
                   {place.view && (
                     <figure className="mapvis compact">
-                      <MapSvg view={place.view} title={name(place.map.names)} npc={npc.id} links />
+                      <ZoomMap
+                      view={place.view}
+                      title={name(place.map.names)}
+                      npc={npc.id}
+                      links
+                      exit={null}
+                    />
                     </figure>
                   )}
                 </div>
@@ -800,6 +806,27 @@ function NpcPage({ page }: { page: any }) {
     </>
   );
 }
+function StepHint({ step }: { step: any }) {
+  const words = useWords(),
+    name = useNames();
+  const npc = step.npc && (name(step.npc.names) || "NPC #" + step.npc.id);
+  if (step.kind === "portal" && step.exit)
+    return (
+      <>
+        {step.exit_hidden
+          ? words(
+              "走圈出的隐藏传送口（游戏里看不到，站在圈里按↑）",
+              "take the circled hidden portal (not drawn in game; stand in the circle and press up)",
+            )
+          : words("走地图上圈出的传送口", "take the circled portal on the map")}
+      </>
+    );
+  if (step.kind === "ship" && npc)
+    return <>{words(`找圈出的${npc}坐船（单程，回不来）`, `take the ship with ${npc}, circled (one way)`)}</>;
+  if (step.kind === "taxi" && npc)
+    return <>{words(`找圈出的${npc}坐出租车（要花金币）`, `take the taxi with ${npc}, circled (costs mesos)`)}</>;
+  return <Edge kind={step.kind} portal={step.portal_name} />;
+}
 function Steps({ steps }: { steps: any[] }) {
   const words = useWords(),
     name = useNames();
@@ -818,18 +845,20 @@ function Steps({ steps }: { steps: any[] }) {
                 {words(step.to.names.en, step.to.names.zh)}
               </span>
               <span className="s">
-                {step.kind === "portal" && step.exit ? (
-                  words("走小地图上圈出的传送口", "take the circled portal on the minimap")
-                ) : (
-                  <Edge kind={step.kind} portal={step.portal_name} />
-                )}
+                <StepHint step={step} />
               </span>
             </span>
             {step.kind === "return" && <span className="kind">{words("回城卷轴", "scroll")}</span>}
           </a>
           {step.view && (step.exit || step.kind !== "portal") && (
             <figure className="mapvis step-map">
-              <MapSvg view={step.view} title={name(step.from.names)} exit={step.exit} arrival={step.arrival} />
+              <ZoomMap
+                view={step.view}
+                title={name(step.from.names)}
+                exit={step.exit}
+                arrival={step.arrival}
+                exitNpc={!!step.npc}
+              />
             </figure>
           )}
         </li>
@@ -855,14 +884,18 @@ function RoutePage({ page }: { page: any }) {
     mobShown = mobFound ? name(mobFound.mob.names) : page.mob_input || "";
   const [from, setFrom] = useState(fromShown),
     [to, setTo] = useState(toShown),
-    [mob, setMob] = useState(mobShown);
+    [mob, setMob] = useState(mobShown),
+    [taxi, setTaxi] = useState(!!page.taxi);
+  useEffect(() => setTaxi(!!page.taxi), [page.taxi]);
   useEffect(() => {
     setFrom(fromShown);
     setTo(toShown);
     setMob(mobShown);
   }, [fromShown, toShown, mobShown]);
-  const route = (from: string, to: string) => "/route?" + new URLSearchParams({ from, to });
-  const mobRoute = (from: string, mob: string) => "/route?" + new URLSearchParams({ from, mob });
+  const withTaxi = (params: Record<string, string>, on = taxi) =>
+    "/route?" + new URLSearchParams(on ? { ...params, taxi: "1" } : params);
+  const route = (from: string, to: string) => withTaxi({ from, to });
+  const mobRoute = (from: string, mob: string) => withTaxi({ from, mob });
   let body: ReactNode;
   if (result === "Form")
     body = (
@@ -908,6 +941,12 @@ function RoutePage({ page }: { page: any }) {
           )}
           {mobFound.overview && <RouteOverview overview={mobFound.overview} />}
           <Steps steps={mobFound.steps} />
+          <p className="note">
+            {words(
+              "最近按换地图的次数算，不代表用时最短；也不考虑地图里怪多不多。",
+              "Nearest means the fewest map changes, not the shortest time, and ignores how crowded a map is.",
+            )}
+          </p>
         </Well>
         <Well
           title={words(`${name(mobFound.mob.names)}的刷怪地图`, `Where ${name(mobFound.mob.names)} spawns`)}
@@ -1029,7 +1068,7 @@ function RoutePage({ page }: { page: any }) {
         <a className={mobMode ? "" : "on"} href={route(page.from_input, page.to_input)}>
           {words("去地图", "To a map")}
         </a>
-        <a className={mobMode ? "on" : ""} href={"/route?" + new URLSearchParams({ mode: "mob", from: page.from_input })}>
+        <a className={mobMode ? "on" : ""} href={withTaxi({ mode: "mob", from: page.from_input })}>
           {words("找怪物", "Find a monster")}
         </a>
         <a href="/world">{words("世界地图", "World map")}</a>
@@ -1083,6 +1122,10 @@ function RoutePage({ page }: { page: any }) {
             />
           </label>
         )}
+        <label className="check">
+          <input type="checkbox" name="taxi" value="1" checked={taxi} onChange={(e) => setTaxi(e.target.checked)} />
+          <span>{words("可以坐出租车（要花金币）", "Allow taxis (cost mesos)")}</span>
+        </label>
         <button className="btn primary" type="submit">
           {mobMode ? words("找最近的地图", "Find the nearest map") : words("查路线", "Find route")}
         </button>

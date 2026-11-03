@@ -627,6 +627,7 @@ fn small_view() -> MapView {
             y: 420,
             to: map(10001000, "射手村"),
             name: Some("east00".into()),
+            portal_type: Some(2),
         }],
         npcs: vec![NpcPoint {
             npc: NpcRef {
@@ -754,11 +755,13 @@ fn route_steps_circle_the_portal_to_take() {
             portal_name: Some("east00".into()),
             view: Some(small_view()),
             exit: Some(Point { x: 950, y: 420 }),
+            npc: None,
+            exit_hidden: false,
             arrival: Some(Point { x: 100, y: 400 }),
         }],
         overview: None,
     });
-    assert!(html.contains("走小地图上圈出的传送口"));
+    assert!(html.contains("走地图上圈出的传送口"));
     assert!(html.contains("mv-exit") && html.contains("mv-arrival"));
 }
 
@@ -811,6 +814,7 @@ fn route(outcome: RouteOutcome) -> String {
             to_input: "射手村".into(),
             mob_input: String::new(),
             mob_mode: false,
+            taxi: false,
             known_edges: 393,
             outcome,
         },
@@ -832,6 +836,8 @@ fn route_page_outcomes() {
                 portal_name: Some("east00".into()),
                 view: None,
                 exit: None,
+                npc: None,
+                exit_hidden: false,
                 arrival: None,
             },
             Step {
@@ -841,6 +847,8 @@ fn route_page_outcomes() {
                 portal_name: None,
                 view: None,
                 exit: None,
+                npc: None,
+                exit_hidden: false,
                 arrival: None,
             },
         ],
@@ -1006,6 +1014,7 @@ fn monster_finder_lists_the_nearest_map_first() {
         to_input: String::new(),
         mob_input: "蜗牛".into(),
         mob_mode: true,
+        taxi: true,
         known_edges: 1,
         outcome: RouteOutcome::MobFound {
             from: map(10001000, "射手村"),
@@ -1018,6 +1027,8 @@ fn monster_finder_lists_the_nearest_map_first() {
                 portal_name: None,
                 view: None,
                 exit: None,
+                npc: None,
+                exit_hidden: false,
                 arrival: None,
             }],
             overview: Some(RouteOverview {
@@ -1097,4 +1108,32 @@ fn world_page_links_every_spot() {
             && html.contains("<title>彩虹村西边草原 · Lv.1–8</title>")
     );
     assert!(html.contains("marker-field.png"));
+}
+
+#[test]
+fn ship_steps_circle_the_npc() {
+    let html = route(RouteOutcome::Found {
+        from: map(60, "南港"),
+        to: map(10000000, "明珠港"),
+        steps: vec![Step {
+            from: map(60, "南港"),
+            to: map(10000000, "明珠港"),
+            kind: EdgeKind::Ship,
+            portal_name: None,
+            view: Some(small_view()),
+            exit: Some(Point { x: 500, y: 300 }),
+            npc: Some(NpcRef {
+                id: 15,
+                names: Some(Names::new("桑克斯", "Shanks")),
+            }),
+            exit_hidden: false,
+            arrival: Some(Point { x: 100, y: 400 }),
+        }],
+        overview: None,
+    });
+    assert!(
+        html.contains("找圈出的桑克斯坐船（单程，回不来）"),
+        "{html}"
+    );
+    assert!(html.contains("<title>找这个 NPC</title>"));
 }

@@ -143,6 +143,8 @@ pub struct PortalRow {
     pub target_portal: Option<String>,
     pub x: Option<i32>,
     pub y: Option<i32>,
+    /// WZ portal type (1 hidden, 2 visible, 3 touch), when known.
+    pub portal_type: Option<i16>,
     pub source: &'static str,
 }
 

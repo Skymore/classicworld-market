@@ -1601,6 +1601,13 @@ impl Layers {
         fit: (560.0, 220.0),
         icon_px: 20.0,
     };
+    /// A ship or taxi step: small, with the NPCs.
+    pub const STEP_NPCS: Self = Self {
+        spawns: false,
+        npcs: true,
+        fit: (560.0, 220.0),
+        icon_px: 20.0,
+    };
     /// Where an NPC stands.
     pub const NPCS: Self = Self {
         spawns: false,
@@ -1711,12 +1718,13 @@ pub async fn map_view(db: &PgPool, map_id: i32, layers: Layers) -> sqlx::Result<
         Option<String>,
         Option<String>,
         Option<String>,
+        Option<i16>,
     )> = sqlx::query_as(concat!(
         "SELECT p.x, p.y, p.to_map_id, ",
         name!("m"),
         ", ",
         name_en!("m"),
-        ", p.portal_name FROM map_portals p JOIN maps m ON m.id = p.to_map_id
+        ", p.portal_name, p.portal_type FROM map_portals p JOIN maps m ON m.id = p.to_map_id
              WHERE p.from_map_id = $1 AND p.kind = 'portal' AND p.x IS NOT NULL AND p.y IS NOT NULL
                AND NOT m.unreleased
              ORDER BY p.id"
@@ -1725,7 +1733,7 @@ pub async fn map_view(db: &PgPool, map_id: i32, layers: Layers) -> sqlx::Result<
     .fetch_all(db)
     .await?;
     let mut portals: Vec<PortalPoint> = Vec::new();
-    for (x, y, to, zh, en, name) in rows {
+    for (x, y, to, zh, en, name, portal_type) in rows {
         let Some(p) = place(x, y) else { continue };
         if portals
             .iter()
@@ -1738,6 +1746,7 @@ pub async fn map_view(db: &PgPool, map_id: i32, layers: Layers) -> sqlx::Result<
             y: p.y,
             to: MapRef::new(to, zh.unwrap_or_default(), en.unwrap_or_default()),
             name,
+            portal_type,
         });
     }
     let mut npcs = Vec::new();

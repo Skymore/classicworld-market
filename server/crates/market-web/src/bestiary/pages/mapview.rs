@@ -8,7 +8,7 @@ use maud::{html, Markup};
 
 use super::shell::Ctx;
 use crate::bestiary::format::Lang;
-use crate::bestiary::model::{MapMob, MapView, Point};
+use crate::bestiary::model::{MapMob, MapView, Point, PortalPoint};
 
 /// A mob's head icon, made by `tools/niadb_map_assets.py heads`.
 pub(crate) fn head_url(mob_id: i32) -> String {
@@ -29,6 +29,8 @@ pub(crate) struct Marks<'a> {
     /// A route step: the portal to take and where the player starts.
     pub exit: Option<Point>,
     pub arrival: Option<Point>,
+    /// `exit` is an NPC (ship, taxi), not a portal.
+    pub exit_npc: bool,
     /// Markers are links (map and NPC pages), not on a route step whose
     /// row is already one.
     pub links: bool,
@@ -112,9 +114,10 @@ pub(crate) fn map_svg(ctx: &Ctx, view: &MapView, title: &str, marks: &Marks) -> 
                 g.mv-portals {
                     @for p in &view.portals {
                         @let cy = fmt(f64::from(p.y) - u * 0.45);
+                        @let hidden = p.portal_type == Some(1);
                         @let body = html! {
-                            title { (ctx.t("传送口 → ", "Portal → ")) (p.to.names.get(lang)) }
-                            circle.mv-portal cx=(p.x) cy=(cy) r=(fmt(u * 0.36)) {}
+                            title { (portal_tip(ctx, p)) }
+                            circle.mv-portal.hidden[hidden] cx=(p.x) cy=(cy) r=(fmt(u * 0.36)) {}
                             circle.mv-portal-core cx=(p.x) cy=(cy) r=(fmt(u * 0.14)) {}
                         };
                         @if marks.links {
@@ -137,13 +140,34 @@ pub(crate) fn map_svg(ctx: &Ctx, view: &MapView, title: &str, marks: &Marks) -> 
                         }
                         @if let Some(e) = marks.exit {
                             circle.mv-exit cx=(e.x) cy=(fmt(f64::from(e.y) - u * 0.45)) r=(fmt(u * 0.7)) stroke-width=(fmt(u * 0.16)) {
-                                title { (ctx.t("走这个传送口", "Take this portal")) }
+                                title { (if marks.exit_npc { ctx.t("找这个 NPC", "Talk to this NPC") } else { ctx.t("走这个传送口", "Take this portal") }) }
                             }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/// "传送口 → 射手村", noting portals the game does not draw.
+pub(crate) fn portal_tip(ctx: &Ctx, p: &PortalPoint) -> String {
+    let to = p.to.names.get(ctx.lang);
+    match p.portal_type {
+        Some(1) => format!(
+            "{}{to}{}",
+            ctx.t("隐藏传送口 → ", "Hidden portal → "),
+            ctx.t(
+                "（游戏里看不到，站在这里按↑）",
+                " (not drawn in game; stand here and press up)"
+            )
+        ),
+        Some(3) => format!(
+            "{}{to}{}",
+            ctx.t("传送口 → ", "Portal → "),
+            ctx.t("（走进去就传送）", " (walk into it)")
+        ),
+        _ => format!("{}{to}", ctx.t("传送口 → ", "Portal → ")),
     }
 }
 
@@ -211,6 +235,7 @@ mod tests {
                 y: 1681,
                 to: MapRef::new(50, "岔路", "A Split Road"),
                 name: Some("west00".into()),
+                portal_type: Some(1),
             }],
             npcs: vec![NpcPoint {
                 npc: NpcRef {
@@ -255,6 +280,10 @@ mod tests {
         );
         assert!(html.contains("<title>蘑菇仔 Lv.3</title>"));
         assert!(html.contains(r#"href="/map/50""#));
+        assert!(
+            html.contains("mv-portal hidden") && html.contains("站在这里按↑"),
+            "hidden portal"
+        );
         assert!(html.contains(r#"href="/npc/7""#));
         assert!(html.contains(r#"href="/mob/4""#));
         assert!(!html.contains("style="), "no inline styles under the CSP");

@@ -27,6 +27,8 @@ pub struct WzMap {
 #[derive(Debug, Deserialize)]
 pub struct WzPortal {
     pub pn: Option<String>,
+    /// WZ portal type: 1 hidden, 2 visible, 3 touch (others: spawn points, scripts).
+    pub pt: Option<i64>,
     pub tm: Option<i64>,
     pub tn: Option<String>,
     pub x: Option<i64>,
@@ -81,6 +83,7 @@ pub fn portals_from(maps: &[WzMap]) -> WzPortals {
                 target_portal: portal.tn.clone().filter(|s| !s.is_empty()),
                 x: portal.x.and_then(|v| i32::try_from(v).ok()),
                 y: portal.y.and_then(|v| i32::try_from(v).ok()),
+                portal_type: portal.pt.and_then(|v| i16::try_from(v).ok()),
                 source: "wz",
             });
         }

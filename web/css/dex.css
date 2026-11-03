@@ -250,3 +250,24 @@ a:hover>.mv-npc{fill:#36c46f}
 .wm-stop.start{fill:#22a559;stroke:#fff}
 .wm-stop.end{fill:#e5484d;stroke:#fff}
 .wm-stop-label{font-size:12px}
+/* Hidden portals (not drawn in game): dashed ring. */
+.mv-portal.hidden{fill:rgba(124,196,255,.15);stroke-dasharray:3 2}
+/* Route form: the taxi option. */
+.route-form .check{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);cursor:pointer}
+.route-form .check input{width:16px;height:16px;margin:0}
+/* Full-screen map (frontend/src/pages/zoom.tsx). */
+.zoomable{position:relative}
+.zoom-open{position:absolute;top:6px;right:6px;display:grid;place-items:center;width:32px;height:32px;padding:0;border:1px solid var(--edge);border-radius:3px;background:rgba(251,244,226,.9);color:var(--ink);cursor:pointer;box-shadow:var(--hard)}
+.zoom-open:hover{background:var(--sheet-hi)}
+@media(max-width:700px){.zoomable-pic{cursor:zoom-in}.zoomable-pic a{pointer-events:none}}
+.zoom-dialog{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;background:#0b1220}
+.zoom-bar{display:flex;align-items:center;gap:6px;height:52px;padding:0 8px 0 12px;background:var(--bar);color:var(--bar-ink)}
+.zoom-bar b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px}
+.zoom-bar button{min-width:40px;height:36px;border:1px solid rgba(255,255,255,.4);border-radius:3px;background:rgba(255,255,255,.12);color:#fff;font:inherit;font-size:20px;line-height:1;cursor:pointer}
+.zoom-bar button:disabled{opacity:.4;cursor:default}
+.zoom-bar .zoom-close{margin-left:6px;font-size:24px}
+.zoom-pct{min-width:48px;text-align:center;font-size:13px;font-variant-numeric:tabular-nums}
+.zoom-body{flex:1;display:grid;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;overscroll-behavior:contain}
+.zoom-stage{margin:auto}
+.zoom-stage svg{display:block;width:100%;height:100%;max-width:none;min-width:0}
+.zoom-stage .mapvis-scroll{overflow:visible;width:100%;height:100%}

@@ -28,6 +28,8 @@ def convert(maps):
                     "tn": None,  # NiaDB does not publish the target portal name
                     "x": p.get("x"),
                     "y": p.get("y"),
+                    # 1 hidden (stand on it and press up), 2 visible, 3 entered by touching it
+                    "pt": p.get("type"),
                 }
             )
         out.append({"map_id": int(m["id"]), "wz_version": None, "source": "niadb", "portals": portals})

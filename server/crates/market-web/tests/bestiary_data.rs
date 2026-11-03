@@ -905,7 +905,7 @@ async fn full_import_is_idempotent_and_upgrades_an_r3_database() {
             first.npc_shops,
             first.portals
         ),
-        (2919, 453, 1655, 1636, 1655, 281, 281, 315, 877, 426)
+        (2919, 453, 1655, 1636, 1655, 281, 281, 315, 877, 426 + 21),
     );
     assert_eq!((first.maps_zh, first.npcs_zh), (453 - 1, 281 - 9));
     assert_eq!(first.drops_meso as usize, input.bestiary.mesos);
@@ -996,6 +996,22 @@ async fn map_views_quests_and_npc_pages_come_from_the_import() {
     market_web::bestiary::wz::import(pool, &portals, "portals.json")
         .await
         .unwrap();
+
+    // Hidden portals keep their WZ type: Henesys's in03 to An Empty House.
+    let henesys_view = queries::map_view(pool, 10001000, queries::Layers::PORTALS).await.unwrap().unwrap();
+    assert!(henesys_view
+        .portals
+        .iter()
+        .any(|p| p.to.id == 10001002 && p.portal_type == Some(1)));
+    // Southperry's ship and the taxis are routes too.
+    let kinds: Vec<(i32, i32, String)> = sqlx::query_as(
+        "SELECT from_map_id, to_map_id, kind FROM map_portals WHERE kind IN ('ship', 'taxi') ORDER BY 1, 2",
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap();
+    assert_eq!(kinds.len(), 21);
+    assert!(kinds.contains(&(60, 10000000, "ship".to_string())));
 
     let field = queries::map_page(pool, 1000).await.unwrap().unwrap();
     let view = field.view.expect("NiaDB has the minimap box");

@@ -275,6 +275,7 @@ impl Dataset {
                     target_portal: None,
                     x: None,
                     y: None,
+                    portal_type: None,
                     source: "mapledex",
                 });
             }
@@ -599,6 +600,7 @@ impl Dataset {
                     target_portal: None,
                     x: None,
                     y: None,
+                    portal_type: None,
                     source: "niadb",
                 });
                 counts.return_links += 1;
@@ -949,6 +951,8 @@ pub struct NiaBestiaryCounts {
     pub mesos_untrusted: usize,
     /// The world map and the map scenes.
     pub pictures: super::worldmap::MapPictureCounts,
+    /// Ship and taxi edges (`route::TRANSPORT`).
+    pub transport: usize,
 }
 
 impl Dataset {
@@ -1116,6 +1120,25 @@ impl Dataset {
         self.place_nia_npcs(maps);
         self.portals
             .retain(|p| listed.contains(&p.from_map_id) && listed.contains(&p.to_map_id));
+        for &(from, to, kind, _) in super::route::TRANSPORT {
+            if listed.contains(&from) && listed.contains(&to) {
+                self.portals.push(PortalRow {
+                    from_map_id: from,
+                    to_map_id: to,
+                    kind: match kind {
+                        super::route::EdgeKind::Ship => "ship",
+                        _ => "taxi",
+                    },
+                    portal_name: None,
+                    target_portal: None,
+                    x: None,
+                    y: None,
+                    portal_type: None,
+                    source: "niadb",
+                });
+                counts.transport += 1;
+            }
+        }
         self.map_npcs.retain(|p| listed.contains(&p.map_id));
         // NPCs whose every placement is on an unreleased map are not reachable.
         let mut placements: HashMap<i32, (usize, usize)> = HashMap::new();

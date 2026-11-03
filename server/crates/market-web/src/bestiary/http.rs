@@ -16,7 +16,7 @@ use super::dex_api;
 use super::model::{MobPlace, RouteEnd, RouteOutcome, RouteOverview, RoutePage, Step};
 use super::pages;
 use super::queries::{self, Resolution};
-use super::route::{EdgeKind, Graph, HENESYS};
+use super::route::{transport_npc, EdgeKind, Graph, HENESYS};
 use crate::AppState;
 
 // Page context: language, device hint, render time.
@@ -284,7 +284,10 @@ async fn map_page(state: &AppState, id: i32) -> sqlx::Result<Option<super::model
         return Ok(None);
     };
     if id != HENESYS {
-        let graph = Graph::new(queries::load_edges(&state.db).await?);
+        // Walking, scrolls and the ship; no paid taxi.
+        let mut edges = queries::load_edges(&state.db).await?;
+        edges.retain(|e| e.kind != EdgeKind::Taxi);
+        let graph = Graph::new(edges);
         if let Some(path) = graph.shortest_path(HENESYS, id) {
             let ids: Vec<i32> = std::iter::once(HENESYS)
                 .chain(path.iter().map(|e| e.to))
@@ -343,6 +346,9 @@ struct RouteParams {
     /// `mob` shows the monster finder's form.
     #[serde(default)]
     mode: String,
+    /// `1`: routes may take the taxi (it costs mesos).
+    #[serde(default)]
+    taxi: String,
 }
 
 async fn route(
@@ -352,7 +358,7 @@ async fn route(
 ) -> Response {
     let from = clip(&params.from);
     let to = clip(&params.to);
-    match route_page(&state, from, to, clip(&params.mob)).await {
+    match route_page(&state, from, to, clip(&params.mob), params.taxi == "1").await {
         Ok(mut page) => {
             page.mob_mode |= params.mode == "mob";
             html(StatusCode::OK, EDGE_CACHE, pages::route_page(&page, &ctx))
@@ -366,13 +372,18 @@ async fn route_page(
     from_input: &str,
     to_input: &str,
     mob_input: &str,
+    taxi: bool,
 ) -> sqlx::Result<RoutePage> {
-    let edges = queries::load_edges(&state.db).await?;
+    let mut edges = queries::load_edges(&state.db).await?;
+    if !taxi {
+        edges.retain(|e| e.kind != EdgeKind::Taxi);
+    }
     let mut page = RoutePage {
         from_input: from_input.to_string(),
         to_input: to_input.to_string(),
         mob_input: mob_input.to_string(),
         mob_mode: !mob_input.is_empty(),
+        taxi,
         known_edges: edges.len(),
         outcome: RouteOutcome::Form,
     };
@@ -495,6 +506,8 @@ async fn steps_of(
             portal_name: e.portal_name.clone(),
             view: None,
             exit: None,
+            npc: None,
+            exit_hidden: false,
             arrival: None,
         })
         .collect();
@@ -510,21 +523,35 @@ async fn steps_of(
 /// when the step starts: the portal back to the previous map, or the map's
 /// spawn point (start, after a scroll, ship or taxi).
 async fn step_views(db: &sqlx::PgPool, steps: &mut [Step]) -> sqlx::Result<()> {
+    use super::model::Point;
     let mut came_from: Option<i32> = None;
     for step in steps.iter_mut() {
-        let view = queries::map_view(db, step.from.id, queries::Layers::PORTALS).await?;
+        let npc = transport_npc(step.from.id, step.to.id, step.kind);
+        let layers = if npc.is_some() {
+            queries::Layers::STEP_NPCS
+        } else {
+            queries::Layers::PORTALS
+        };
+        let view = queries::map_view(db, step.from.id, layers).await?;
         if let Some(view) = &view {
-            let point = |p: &super::model::PortalPoint| super::model::Point { x: p.x, y: p.y };
             if step.kind == EdgeKind::Portal {
                 let to_next = || view.portals.iter().filter(|p| p.to.id == step.to.id);
-                step.exit = to_next()
+                let exit = to_next()
                     .find(|p| p.name.is_some() && p.name == step.portal_name)
-                    .or_else(|| to_next().next())
-                    .map(point);
+                    .or_else(|| to_next().next());
+                step.exit = exit.map(|p| Point { x: p.x, y: p.y });
+                step.exit_hidden = exit.is_some_and(|p| p.portal_type == Some(1));
+            }
+            if let Some(stand) = npc.and_then(|id| view.npcs.iter().find(|n| n.npc.id == id)) {
+                step.exit = Some(Point {
+                    x: stand.x,
+                    y: stand.y,
+                });
+                step.npc = Some(stand.npc.clone());
             }
             step.arrival = came_from
                 .and_then(|prev| view.portals.iter().find(|p| p.to.id == prev))
-                .map(point)
+                .map(|p| Point { x: p.x, y: p.y })
                 .or(view.player_spawn);
         }
         step.view = view;
@@ -747,6 +774,7 @@ async fn catalog_page(
                 clip(&params.from),
                 clip(&params.to),
                 clip(&params.mob),
+                params.taxi == "1",
             )
             .await
             .map(|mut page| {
