@@ -204,12 +204,10 @@ mod tests {
     use crate::bestiary::model::{
         MapRef, MobRef, Names, NpcPoint, NpcRef, PortalPoint, SpawnPoint,
     };
-    use crate::bestiary::pages::shell::Device;
 
     fn ctx() -> Ctx {
         Ctx {
             lang: Lang::Zh,
-            device: Device::Desktop,
             here: "/map/1000".into(),
             now: chrono::Utc::now(),
         }

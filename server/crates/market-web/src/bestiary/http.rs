@@ -19,7 +19,7 @@ use super::queries::{self, Resolution};
 use super::route::{transport_npc, EdgeKind, Graph, HENESYS};
 use crate::AppState;
 
-// Page context: language, device hint, render time.
+// Page context: language and render time.
 use std::convert::Infallible;
 
 use axum::{extract::FromRequestParts, http::request::Parts};
@@ -27,7 +27,7 @@ use sqlx::types::chrono::Utc;
 
 use super::format::Lang;
 use super::model::{ItemFilters, MobFilters, SearchKind, SearchRequest};
-use super::pages::{Ctx, Device};
+use super::pages::Ctx;
 use crate::unix_now;
 
 /// Bestiary data only changes on import, which purges the edge cache.
@@ -63,6 +63,11 @@ pub fn routes() -> Router<AppState> {
 }
 
 fn html(status: StatusCode, cache: &'static str, markup: Markup) -> Response {
+    page_response(status, cache, markup.into_string())
+}
+
+/// The same markup for every device (no `Vary`), so an edge cache can keep one copy.
+fn page_response(status: StatusCode, cache: &'static str, body: String) -> Response {
     (
         status,
         [
@@ -75,16 +80,30 @@ fn html(status: StatusCode, cache: &'static str, markup: Markup) -> Response {
                 header::CONTENT_SECURITY_POLICY,
                 HeaderValue::from_static(CSP),
             ),
-            // The first paint's layout follows the hint (see `Device`).
-            (header::VARY, HeaderValue::from_static("Sec-CH-UA-Mobile")),
         ],
-        markup.into_string(),
+        body,
     )
         .into_response()
 }
 
-/// Language from `?lang=`, layout hint from `Sec-CH-UA-Mobile`, and this
-/// page's own URL for the language switch.
+/// A page with its `/api/v1/catalog/page` data for this URL at the end of the
+/// body, so React starts from it instead of requesting it again (`catalog.ts`).
+fn page_with_data(
+    cache: &'static str,
+    markup: Markup,
+    ctx: &Ctx,
+    kind: &str,
+    page: serde_json::Value,
+) -> Response {
+    let mut body = markup.into_string();
+    if let Some(script) = pages::page_data_script(ctx, kind, page) {
+        let end = body.rfind("</body>").unwrap_or(body.len());
+        body.insert_str(end, &script);
+    }
+    page_response(StatusCode::OK, cache, body)
+}
+
+/// Language from `?lang=` and this page's own URL for the language switch.
 pub struct PageCtx(pub Ctx);
 
 impl<S: Send + Sync> FromRequestParts<S> for PageCtx {
@@ -104,13 +123,8 @@ impl<S: Send + Sync> FromRequestParts<S> for PageCtx {
         if !kept.is_empty() {
             here = format!("{here}?{}", kept.join("&"));
         }
-        let hint = parts
-            .headers
-            .get("sec-ch-ua-mobile")
-            .and_then(|v| v.to_str().ok());
         Ok(Self(Ctx {
             lang,
-            device: Device::from_mobile_hint(hint),
             here,
             now: Utc::now(),
         }))
@@ -159,6 +173,25 @@ fn detail<T>(
 ) -> Response {
     match found {
         Ok(Some(page)) => html(StatusCode::OK, cache, render(&page, ctx)),
+        Ok(None) => not_found(what, ctx),
+        Err(err) => server_error(err, ctx),
+    }
+}
+
+/// A detail page that also carries its data for React (`page_with_data`).
+fn detail_with_data<T: serde::Serialize>(
+    found: sqlx::Result<Option<T>>,
+    ctx: &Ctx,
+    what: What,
+    cache: &'static str,
+    kind: &str,
+    render: fn(&T, &Ctx) -> Markup,
+) -> Response {
+    match found {
+        Ok(Some(page)) => {
+            let data = serde_json::to_value(&page).expect("catalog page serialize");
+            page_with_data(cache, render(&page, ctx), ctx, kind, data)
+        }
         Ok(None) => not_found(what, ctx),
         Err(err) => server_error(err, ctx),
     }
@@ -241,7 +274,20 @@ async fn item(
     if params.part == "preview" {
         return detail(found, &ctx, ITEM, NO_STORE, pages::item_preview);
     }
-    detail(found, &ctx, ITEM, ITEM_CACHE, pages::item_page)
+    match found {
+        Ok(Some(page)) => {
+            let data = pages::item_data(&page);
+            page_with_data(
+                ITEM_CACHE,
+                pages::item_page(&page, &ctx),
+                &ctx,
+                "item",
+                data,
+            )
+        }
+        Ok(None) => not_found(ITEM, &ctx),
+        Err(err) => server_error(err, &ctx),
+    }
 }
 
 async fn mob(
@@ -252,11 +298,12 @@ async fn mob(
     let Some(id) = parse_id(&raw) else {
         return not_found(MOB, &ctx);
     };
-    detail(
+    detail_with_data(
         queries::mob_page(&state.db, id).await,
         &ctx,
         MOB,
         MOB_CACHE,
+        "mob",
         pages::mob_page,
     )
 }
@@ -269,11 +316,12 @@ async fn map(
     let Some(id) = parse_id(&raw) else {
         return not_found(MAP, &ctx);
     };
-    detail(
+    detail_with_data(
         map_page(&state, id).await,
         &ctx,
         MAP,
         EDGE_CACHE,
+        "map",
         pages::map_page,
     )
 }
@@ -312,7 +360,11 @@ async fn world(
     Query(params): Query<WorldParams>,
 ) -> Response {
     match queries::world_page(&state.db, parse_id(&params.map)).await {
-        Ok(page) => html(StatusCode::OK, EDGE_CACHE, pages::world_page(&page, &ctx)),
+        Ok(page) => {
+            let markup = pages::world_page(&page, &ctx);
+            let data = serde_json::to_value(&page).expect("world page serialize");
+            page_with_data(EDGE_CACHE, markup, &ctx, "world", data)
+        }
         Err(err) => server_error(err, &ctx),
     }
 }
@@ -325,11 +377,12 @@ async fn npc(
     let Some(id) = parse_id(&raw) else {
         return not_found(NPC, &ctx);
     };
-    detail(
+    detail_with_data(
         queries::npc_page(&state.db, id).await,
         &ctx,
         NPC,
         EDGE_CACHE,
+        "npc",
         pages::npc_page,
     )
 }
@@ -361,7 +414,9 @@ async fn route(
     match route_page(&state, from, to, clip(&params.mob), params.taxi == "1").await {
         Ok(mut page) => {
             page.mob_mode |= params.mode == "mob";
-            html(StatusCode::OK, EDGE_CACHE, pages::route_page(&page, &ctx))
+            let markup = pages::route_page(&page, &ctx);
+            let data = serde_json::to_value(&page).expect("route page serialize");
+            page_with_data(EDGE_CACHE, markup, &ctx, "route", data)
         }
         Err(err) => server_error(err, &ctx),
     }
@@ -700,7 +755,11 @@ async fn search(
 ) -> Response {
     let page = queries::search_page(&state.db, &params.request()).await;
     match page {
-        Ok(page) => html(StatusCode::OK, NO_STORE, pages::search_page(&page, &ctx)),
+        Ok(page) => {
+            let markup = pages::search_page(&page, &ctx);
+            let data = serde_json::to_value(&page).expect("search page serialize");
+            page_with_data(NO_STORE, markup, &ctx, "search", data)
+        }
         Err(err) => server_error(err, &ctx),
     }
 }
@@ -933,11 +992,8 @@ mod tests {
         assert_eq!(clip(&"字".repeat(100)).chars().count(), MAX_QUERY_CHARS);
     }
 
-    async fn ctx_of(uri: &str, mobile: Option<&str>) -> Ctx {
-        let mut req = axum::http::Request::get(uri);
-        if let Some(m) = mobile {
-            req = req.header("sec-ch-ua-mobile", m);
-        }
+    async fn ctx_of(uri: &str) -> Ctx {
+        let req = axum::http::Request::get(uri).header("sec-ch-ua-mobile", "?0");
         let (mut parts, _) = req.body(()).unwrap().into_parts();
         PageCtx::from_request_parts(&mut parts, &())
             .await
@@ -947,12 +1003,11 @@ mod tests {
 
     #[tokio::test]
     async fn page_context_from_the_request() {
-        let ctx = ctx_of("/route?from=1&lang=en&to=2", Some("?0")).await;
+        let ctx = ctx_of("/route?from=1&lang=en&to=2").await;
         assert_eq!(ctx.lang, Lang::En);
-        assert_eq!(ctx.device, Device::Desktop);
         assert_eq!(ctx.here, "/route?from=1&to=2");
-        let ctx = ctx_of("/item/4?part=market", None).await;
-        assert_eq!((ctx.lang, ctx.device), (Lang::Zh, Device::Phone));
+        let ctx = ctx_of("/item/4?part=market").await;
+        assert_eq!(ctx.lang, Lang::Zh);
         assert_eq!(ctx.here, "/item/4");
     }
 }

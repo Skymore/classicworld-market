@@ -145,12 +145,10 @@ pub(crate) fn route_overview(ctx: &Ctx, overview: &RouteOverview) -> Markup {
 mod tests {
     use super::*;
     use crate::bestiary::model::{MapRef, Names, OverviewStop};
-    use crate::bestiary::pages::shell::Device;
 
     fn ctx() -> Ctx {
         Ctx {
             lang: Lang::Zh,
-            device: Device::Desktop,
             here: "/world".into(),
             now: chrono::Utc::now(),
         }

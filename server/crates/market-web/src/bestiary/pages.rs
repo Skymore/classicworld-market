@@ -24,10 +24,10 @@ use super::model::{MapRef, Names, QuestHunt, QuestNeed, QuestRef, QuestReward};
 pub use dex::{
     error_page, map_page, mob_page, not_found_page, npc_page, route_page, search_page, world_page,
 };
-pub use item::{item_market_fragment, item_page};
+pub use item::{item_data, item_market_fragment, item_page};
 pub use market::{channel_groups, has_bonus, ladder, tier_bounds, Ladder, Tier};
 pub use preview::item_preview;
-pub use shell::{Ctx, Device};
+pub use shell::{page_data_script, Ctx};
 
 fn secondary_name(names: &Names, lang: Lang) -> Markup {
     html! { @if let Some(other) = names.secondary(lang) { span.name-secondary { (other) } } }
