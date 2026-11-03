@@ -227,7 +227,7 @@ fn dock(ctx: &Ctx, active: Nav) -> Markup {
             "dex",
         ),
         ("/watch", ctx.t("关注", "Watch"), Icon::Star, None, "watch"),
-        ("/tools", ctx.t("工具", "Tools"), Icon::Coin, None, "tools"),
+        ("/tools", ctx.t("工具", "Tools"), Icon::Tools, None, "tools"),
         (
             "/selling",
             ctx.t("背包／摆摊", "Bag & shop"),
@@ -269,7 +269,7 @@ pub enum Icon {
     Tag,
     Book,
     Star,
-    Coin,
+    Tools,
     StarSmall,
     StarOutline,
     Search,
@@ -342,20 +342,20 @@ const STAR: &str = "
 ..###..###..
 ..##....##..
 .##......##.";
-/// Coin for the 采集 dock entry (same art as `coin` in web/js/lib/icons.js).
-const COIN: &str = "
+/// Toolbox for the 工具 dock entry (same art as `tools` in web/js/lib/icons.js).
+const TOOLS: &str = "
 ....####....
-..########..
-.####..####.
-.###.##.###.
-####.##.####
-####.##.####
-####.##.####
-####.##.####
-.###.##.###.
-.####..####.
-..########..
-....####....";
+...#....#...
+...#....#...
+############
+#..........#
+#..........#
+#####..#####
+#....##....#
+#..........#
+#..........#
+#..........#
+############";
 const STAR_OUTLINE: &str = "
 .....##.....
 .....##.....
@@ -420,7 +420,7 @@ pub fn icon(which: Icon) -> String {
         Icon::Tag => (TAG, 24),
         Icon::Book => (BOOK, 24),
         Icon::Star => (STAR, 24),
-        Icon::Coin => (COIN, 24),
+        Icon::Tools => (TOOLS, 24),
         Icon::StarSmall => (STAR, 18),
         Icon::StarOutline => (STAR_OUTLINE, 18),
         Icon::Search => (SEARCH, 18),

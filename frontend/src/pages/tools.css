@@ -391,3 +391,17 @@
     font-size: 25px;
   }
 }
+.tool-group {
+  margin: 0;
+  padding: 14px 18px 0;
+  border-top: 1px solid var(--rule);
+  font-size: 14px;
+  color: var(--ink-3);
+}
+.tool-group + .tool-list {
+  padding-top: 10px;
+}
+.tool-entry > .contents:first-child > svg {
+  width: 24px;
+  height: 24px;
+}

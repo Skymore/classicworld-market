@@ -45,16 +45,18 @@ export function decoratePeriod(select,hours) {
   let autoOption=select.querySelector('option[value="auto"]');
   if(!autoOption){autoOption=document.createElement('option');autoOption.value='auto';select.prepend(autoOption);}
   const suggested=hint?.default_hours;
-  autoOption.textContent=suggested?(lang==='en'?`Auto · ${suggested==='all'?'All':'72h'}`:`自动 · ${suggested==='all'?'全部':'72h'}`):(lang==='en'?'Auto':'自动');
+  autoOption.textContent=suggested?(lang==='en'?`Auto (${suggested==='all'?'all':'72 h'})`:`自动（${suggested==='all'?'全部':'近 72 小时'}）`):(lang==='en'?'Auto':'自动');
   select.value=auto?'auto':hours;
   const all=select.querySelector('option[value="all"]');
   if(all)all.textContent=lang==='en'?'All':'全部';
+  const recent=select.querySelector('option[value="72"]');
+  if(recent)recent.textContent=lang==='en'?'72 h':'近 72 小时';
   select.title=auto && hours==='all' && hint?(lang==='en'?`Only ${hint.recent_priced_items} items have sales in 72h (below ${hint.threshold}). Showing all history; you can select 72h manually.`:`近72小时仅 ${hint.recent_priced_items} 件物品有成交价，不足 ${hint.threshold} 件；默认显示全部历史，可手动切回72h。`):(lang==='en'?'Statistics period':'统计范围');
 }
 export function periodControl(hours) {
   const auto=automaticPeriod(), all=lang==='en'?'All':'全部', suggested=cachedHint()?.default_hours;
-  const autoLabel=suggested?(lang==='en'?`Auto · ${suggested==='all'?'All':'72h'}`:`自动 · ${suggested==='all'?'全部':'72h'}`):(lang==='en'?'Auto':'自动');
-  return `<label class="period-control period-inline"><span class="sr">${lang==='en'?'Statistics period':'统计范围'}</span><select data-period aria-label="${lang==='en'?'Statistics period':'统计范围'}"><option value="auto" ${auto?'selected':''}>${autoLabel}</option><option value="72" ${!auto&&hours==='72'?'selected':''}>72h</option><option value="all" ${!auto&&hours==='all'?'selected':''}>${all}</option></select></label>`;
+  const autoLabel=suggested?(lang==='en'?`Auto (${suggested==='all'?'all':'72 h'})`:`自动（${suggested==='all'?'全部':'近 72 小时'}）`):(lang==='en'?'Auto':'自动');
+  return `<label class="period-control period-inline"><span class="sr">${lang==='en'?'Statistics period':'统计范围'}</span><select data-period aria-label="${lang==='en'?'Statistics period':'统计范围'}"><option value="auto" ${auto?'selected':''}>${autoLabel}</option><option value="72" ${!auto&&hours==='72'?'selected':''}>${lang==='en'?'72 h':'近 72 小时'}</option><option value="all" ${!auto&&hours==='all'?'selected':''}>${all}</option></select></label>`;
 }
 export function periodLabel(hours) { return hours==='all' ? (lang==='en'?'All records':'全部记录') : (lang==='en'?'Last 72 hours':'近 72 小时'); }
 export function periodProduct(row) {

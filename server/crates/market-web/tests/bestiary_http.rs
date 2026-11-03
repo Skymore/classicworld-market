@@ -194,7 +194,7 @@ async fn item_page() {
     assert!(body.contains("450"), "typical price from item_stats");
     assert!(body.contains(r#"href="/mob/2""#));
     assert!(
-        body.contains("60 票") && !body.contains("60%"),
+        body.contains("60 人确认") && !body.contains("60%"),
         "votes, not a rate"
     );
     assert!(body.contains("射手训练场Ⅰ"), "dropper's map");
@@ -225,7 +225,7 @@ async fn item_page() {
 
     let no_stats = get(&router, "/item/1002000").await;
     assert!(no_stats.body.contains("还没有成交价"));
-    assert!(no_stats.body.contains("2 票"));
+    assert!(no_stats.body.contains("2 人确认"));
 
     for missing in ["/item/999", "/item/abc"] {
         let page = get(&router, missing).await;
@@ -250,7 +250,7 @@ async fn mob_page() {
     assert!(body.contains("https://maplestory.io/api/GMS/83/mob/100100/render/stand"));
     assert!(body.contains(r#"href="/map/10001010""#));
     assert!(body.contains(r#"href="/item/4000019""#));
-    assert!(body.contains("成交 450 · 在售最低 233"));
+    assert!(body.contains("成交价 450 · 在售最低 233"));
     assert!(body.contains("4–6"), "meso drop");
     assert!(
         body.contains("头盔防御卷轴10%"),

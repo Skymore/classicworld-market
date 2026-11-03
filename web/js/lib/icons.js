@@ -81,6 +81,32 @@ rrrrrrrrrrr
 ..###..###..
 ..##....##..
 .##......##.`,
+  tools: `
+....####....
+...#....#...
+...#....#...
+############
+#..........#
+#..........#
+#####..#####
+#....##....#
+#..........#
+#..........#
+#..........#
+############`,
+  chart: `
+............
+..........##
+..........##
+......##..##
+......##..##
+..##..##..##
+..##..##..##
+..##..##..##
+..##..##..##
+..##..##..##
+############
+............`,
   coin: `
 ....####....
 ..########..
@@ -204,7 +230,7 @@ rrrrrrrrrrr
 ART.map = ART.map.trim().split('\n').map((r) => r.trim().padEnd(13, '.')).join('\n');
 export const I = {
   leaf: (s = 22) => px(ART.leaf, s, { r: 'var(--maple)', k: 'var(--edge)' }),
-  home: px(ART.home, 24), tag: px(ART.tag, 24), book: px(ART.book, 24), star: px(ART.star, 24), coin: px(ART.coin, 24),
+  home: px(ART.home, 24), tag: px(ART.tag, 24), book: px(ART.book, 24), star: px(ART.star, 24), coin: px(ART.coin, 24), tools: px(ART.tools, 24), chart: px(ART.chart, 24),
   starSm: px(ART.star, 18), starO: px(ART.starO, 18), search: px(ART.search, 18), map: px(ART.map, 20), mob: px(ART.mob, 20),
   tagSm: px(ART.tag, 20), sort: px(ART.sort, 14), close: px(ART.close, 14), chev: px(ART.chev, 6), caret: px(ART.caret, 12), funnel: px(ART.funnel, 16),
 };

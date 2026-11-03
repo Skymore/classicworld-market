@@ -25,8 +25,12 @@ try {
     await page.locator('[data-react-catalogue="item"]').waitFor();
     const identity=await page.evaluate(()=>window.documentIdentity);
     await page.locator('[data-nav-key="watch"]:visible').click();
-    await page.locator('[data-notification-state="granted"]').waitFor();
+    await page.locator('[data-watch-collapse]').waitFor();
     assert.equal(await page.locator('#watch-list').isVisible(),false);
+    assert.equal(await page.locator('.watch-page [data-notification-state]').count(),0,'Watch says nothing while notifications work');
+    // The controls live in 我的 → 通知.
+    await page.locator('[data-account-link]:visible').click();
+    await page.locator('[data-setting=notifications] summary').click();
     await page.locator('[data-notification-test]').click();
     assert((await page.evaluate(()=>window.desktopNotifications)).includes('watch-notification-test'));
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));

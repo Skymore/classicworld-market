@@ -140,7 +140,7 @@ function Application() {
     home: words("首页", "Home"),
     prices: words("价格表", "Prices"),
     watch: words("关注", "Watch"),
-    alerts: words("采集", "Collect"),
+    alerts: words("低价提醒", "Deal alerts"),
     tools: route.pathname.startsWith("/tools/enhancement")
       ? words("强化计算器", "Enhancement calculator")
       : words("工具", "Tools"),
@@ -150,9 +150,9 @@ function Application() {
     contributors: words("采集贡献榜", "Contributors"),
     traffic: words("网站流量", "Website traffic"),
     agent: words("AI 助手", "AI assistant"),
-    collect: words("屏幕采集", "Screen collector"),
-    web: words("下载采集器与使用说明", "Download collector"),
-    search: words("搜索", "Search"),
+    collect: words("浏览器采集", "Browser collector"),
+    web: words("下载采集器", "Download collector"),
+    search: words("图鉴", "Catalogue"),
     item: words("物品详情", "Item"),
     mob: words("怪物图鉴", "Monster"),
     map: words("地图", "Map"),

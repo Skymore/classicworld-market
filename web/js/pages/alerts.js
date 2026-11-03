@@ -21,7 +21,7 @@ const BASIS_EN = 'Compared with earlier offers from other shops (this shop exclu
 
 addMessages({
   zh: {
-    'alerts.title': '采集', 'alerts.meta': '{n} 条 · 实时推送', 'alerts.window': '参考报价', 'alerts.window_72': '近 72 小时', 'alerts.window_all': '全部记录',
+    'alerts.title': '低价提醒', 'alerts.meta': '{n} 条 · 实时推送', 'alerts.window': '参考报价', 'alerts.window_72': '近 72 小时', 'alerts.window_all': '全部记录',
     'alerts.rules': '只看你自己的采集器最近 2 分钟逛到的摊位。非装备；至少 8 个其他摊位有报价；买价低于这些摊位中位价的下四分位；按快卖参考价扣 3% 手续费后至少赚 15%。别人的报价参与比较，别人的低价发现不会提醒你。',
     'alerts.buy': '买价 / 件', 'alerts.bundle': '{n} 件一组 {cost}', 'alerts.stock': '库存 {n}', 'alerts.fast': '快卖参考', 'alerts.normal': '正常卖参考',
     'alerts.after_fee': '扣 3% 后 {pct}', 'alerts.found': '发现于 {ago}', 'alerts.counts': '比较 {shops} 个摊位 · {listings} 条挂单 · 共 {qty} 件在售 · 下四分位 {q1}',
@@ -41,7 +41,7 @@ addMessages({
     'alerts.token_clear': '清除当前连接', 'alerts.limited': '请求太频繁，稍后自动重试。', 'alerts.failed': '提醒暂时无法更新，稍后自动重试。',
   },
   en: {
-    'alerts.title': 'Collect', 'alerts.meta': '{n} · live updates', 'alerts.window': 'Reference offers', 'alerts.window_72': 'Last 72 h', 'alerts.window_all': 'All records',
+    'alerts.title': 'Deal alerts', 'alerts.meta': '{n} · live updates', 'alerts.window': 'Reference offers', 'alerts.window_72': 'Last 72 h', 'alerts.window_all': 'All records',
     'alerts.rules': 'Only shops your own collector visited in the last 2 minutes. Not equipment; at least 8 other shops with offers; a buy price under the first quartile of their median prices; at least 15% profit at the quick-sell price after the 3% fee. Other players\' offers are compared, but their finds never alert you.',
     'alerts.buy': 'Buy each', 'alerts.bundle': '{n} per bundle at {cost}', 'alerts.stock': 'stock {n}', 'alerts.fast': 'Quick sell', 'alerts.normal': 'Normal sell',
     'alerts.after_fee': '{pct} after 3% fee', 'alerts.found': 'found {ago}', 'alerts.counts': '{shops} shops · {listings} listings · {qty} on sale · first quartile {q1}',

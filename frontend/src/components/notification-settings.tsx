@@ -14,6 +14,7 @@ import {
   usePushRecord,
   usePushSubscriptions,
 } from "../lib/push";
+import { SiteLink } from "./shell";
 
 type Words = (zh: string, en: string) => string;
 type Permission = NotificationPermission | "unsupported";
@@ -22,10 +23,19 @@ const permissionNow = (): Permission =>
     ? "unsupported"
     : Notification.permission;
 
+// Every mounted reader refreshes together (the 通知 header and its controls).
+const permissionReaders = new Set<() => void>();
+const refreshAll = () => permissionReaders.forEach((read) => read());
+
 /** The notification permission, refreshed when site settings may have changed. */
 function usePermission() {
   const [permission, setPermission] = useState(permissionNow);
-  const refresh = useCallback(() => setPermission(permissionNow()), []);
+  useEffect(() => {
+    const read = () => setPermission(permissionNow());
+    permissionReaders.add(read);
+    return () => void permissionReaders.delete(read);
+  }, []);
+  const refresh = useCallback(refreshAll, []);
   useEffect(() => {
     let active = true;
     let permissions: PermissionStatus | undefined;
@@ -52,9 +62,14 @@ function usePermission() {
   return [permission, refresh] as const;
 }
 
-/** Watch-page notification controls: Web Push, or page notifications on the local gateway. */
+/** Notification controls for 我的 → 通知: Web Push, or page notifications on the local gateway. */
 export function NotificationSettings() {
   return isLocalGateway ? <PageNotificationSettings /> : <PushSettings />;
+}
+
+/** A one-line pointer to 我的 → 通知, shown only while notifications cannot reach you. */
+export function NotificationStatus() {
+  return isLocalGateway ? <PageNotificationStatus /> : <PushStatus />;
 }
 
 type PushState =
@@ -68,10 +83,22 @@ function failure(words: Words, error: unknown, fallback: [string, string]) {
   const code = error instanceof PushRequestError ? error.code : "";
   return words(...(FAILURES[code] || fallback));
 }
+const PUSH_LABELS: Record<PushState, [string, string]> = {
+  "home-screen": [
+    "在 Safari 点分享 → 添加到主屏幕，从主屏幕打开后开启",
+    "In Safari tap Share → Add to Home Screen, then turn on from the Home Screen app",
+  ],
+  unsupported: ["此浏览器不支持推送", "This browser does not support push"],
+  blocked: [
+    "已被阻止，请在浏览器或系统设置里允许",
+    "Blocked. Allow in browser or system settings",
+  ],
+  "signed-out": ["登录后可开启推送", "Sign in to turn on push"],
+  off: ["推送未开启", "Push is off"],
+  on: ["推送已开启", "Push is on"],
+};
 
-function PushSettings() {
-  const words = useWords();
-  const { language } = usePreferences();
+function usePushState() {
   const account = useAccount();
   const support = pushSupport();
   const config = usePushConfig(support === "ok");
@@ -80,8 +107,6 @@ function PushSettings() {
   const signedIn = Boolean(account.data?.signed_in);
   const publicKey = config.data?.enabled ? config.data.public_key : undefined;
   usePushSubscriptions(Boolean(publicKey && signedIn && record));
-  const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState("");
   const state: PushState | null =
     support !== "ok"
       ? support
@@ -98,6 +123,46 @@ function PushSettings() {
                 : record && permission === "granted"
                   ? "on"
                   : "off";
+  return { state, account, publicKey, refreshPermission };
+}
+
+function usePushSummary() {
+  const words = useWords();
+  const { state } = usePushState();
+  return state ? words(...PUSH_LABELS[state]) : "";
+}
+function usePageSummary() {
+  const words = useWords();
+  const [permission] = usePermission();
+  return words(...PAGE_LABELS[permission]);
+}
+/** The short state shown in the 通知 section header. */
+export const useNotificationSummary: () => string = isLocalGateway
+  ? usePageSummary
+  : usePushSummary;
+
+function PushStatus() {
+  const words = useWords();
+  const { state } = usePushState();
+  if (!state || state === "on") return null;
+  return (
+    <p className="watch-notification-bar" data-notification-state={state}>
+      <span className="watch-notification-state">
+        {words(...PUSH_LABELS[state])}
+      </span>
+      <SiteLink href="/account#notifications" data-notification-settings>
+        {words("通知设置", "Notification settings")} →
+      </SiteLink>
+    </p>
+  );
+}
+
+function PushSettings() {
+  const words = useWords();
+  const { language } = usePreferences();
+  const { state, account, publicKey, refreshPermission } = usePushState();
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("");
   if (!state) return null;
   const csrf = account.data?.csrf;
   async function run(
@@ -118,29 +183,9 @@ function PushSettings() {
       void queryClient.invalidateQueries({ queryKey: PUSH_LIST_KEY });
     }
   }
-  const labels: Record<PushState, string> = {
-    "home-screen": words(
-      "通知 · 在 Safari 点分享 → 添加到主屏幕，从主屏幕打开后开启",
-      "Notifications · In Safari tap Share → Add to Home Screen, then turn on from the Home Screen app",
-    ),
-    unsupported: words(
-      "通知 · 此浏览器不支持推送",
-      "Notifications · This browser does not support push",
-    ),
-    blocked: words(
-      "通知 · 已被阻止 · 在浏览器或系统设置里允许",
-      "Notifications · Blocked · Allow in browser or system settings",
-    ),
-    "signed-out": words(
-      "通知 · 登录后可开启推送",
-      "Notifications · Sign in to turn on push",
-    ),
-    off: words("通知 · 未开启", "Notifications · Off"),
-    on: words("推送 · 已开启", "Push · On"),
-  };
   return (
+    // The section header already shows the state; this row holds the controls.
     <div className="watch-notification-bar" data-notification-state={state}>
-      <span className="watch-notification-state">{labels[state]}</span>
       {state === "off" && (
         <button
           type="button"
@@ -196,6 +241,29 @@ function PushSettings() {
   );
 }
 
+const PAGE_LABELS: Record<Permission, [string, string]> = {
+  granted: ["已允许", "Allowed"],
+  denied: ["已被阻止", "Blocked"],
+  unsupported: ["不可用", "Unavailable"],
+  default: ["未开启", "Off"],
+};
+
+function PageNotificationStatus() {
+  const words = useWords();
+  const [permission] = usePermission();
+  if (permission === "granted") return null;
+  return (
+    <p className="watch-notification-bar" data-notification-state={permission}>
+      <span className="watch-notification-state">
+        {words("通知", "Notifications")} · {words(...PAGE_LABELS[permission])}
+      </span>
+      <SiteLink href="/account#notifications" data-notification-settings>
+        {words("通知设置", "Notification settings")} →
+      </SiteLink>
+    </p>
+  );
+}
+
 /** The local gateway has no push: system notifications need this page open. */
 function PageNotificationSettings() {
   const words = useWords();
@@ -241,16 +309,6 @@ function PageNotificationSettings() {
       className="watch-notification-bar"
       data-notification-state={permission}
     >
-      <span className="watch-notification-state">
-        {words("通知", "Notifications")} ·{" "}
-        {permission === "granted"
-          ? words("已允许", "Allowed")
-          : permission === "denied"
-            ? words("已被阻止", "Blocked")
-            : permission === "unsupported"
-              ? words("不可用", "Unavailable")
-              : words("未开启", "Off")}
-      </span>
       {permission === "default" && (
         <button
           type="button"

@@ -139,7 +139,10 @@ function stub({ worker = true, pushManager = true, notification = true, permissi
 let browser;
 const frames = page => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 const log = page => page.evaluate(() => window.pushLog);
-const bar = page => page.locator('.watch-notification-bar');
+// Controls live in 我的 → 通知; its header shows the state. Watch keeps a one-line pointer.
+const bar = page => page.locator('[data-setting=notifications] .watch-notification-bar');
+const meta = page => page.locator('[data-setting=notifications] summary small');
+const pointer = page => page.locator('.watch-page .watch-notification-bar');
 async function fits(page, label) {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${label}: no horizontal overflow`);
 }
@@ -161,8 +164,16 @@ async function open(viewport, capabilities, userAgent) {
   return { page, context, errors };
 }
 async function watchState(page, expected) {
+  await page.goto(origin + '/account?lang=zh#notifications');
+  await page.locator(`[data-setting=notifications][open] [data-notification-state="${expected}"]`).waitFor({ state: "attached" });
+}
+// The watch page names the problem and links to 我的 → 通知, with no controls of its own.
+async function pointsToSettings(page, expected, text) {
   await page.goto(origin + '/watch?lang=zh');
-  await page.locator(`[data-notification-state="${expected}"]`).waitFor();
+  await pointer(page).and(page.locator(`[data-notification-state="${expected}"]`)).waitFor();
+  assert.equal(await pointer(page).locator('.watch-notification-state').innerText(), text);
+  assert.equal(await pointer(page).locator('a[href="/account#notifications"]').count(), 1);
+  assert.equal(await pointer(page).locator('button').count(), 0);
 }
 async function alertOnce(page, id) {
   const before = (await log(page)).toasts;
@@ -186,10 +197,8 @@ try {
     // Signed out: status text only.
     reset({ signedIn: false });
     let { page, context, errors } = await open(viewport, {});
-    await watchState(page, 'signed-out');
+    await pointsToSettings(page, 'signed-out', '登录后可开启推送');
     assert(await page.evaluate(() => isSecureContext), 'market.test is treated as a secure origin');
-    assert.equal(await bar(page).innerText(), '通知 · 登录后可开启推送');
-    assert.equal(await bar(page).locator('button').count(), 0);
     await page.waitForFunction(() => window.pushLog.registered.length);
     assert.deepEqual((await log(page)).registered, [['/sw.js', '/']], 'the worker registers after load');
     await fits(page, 'signed out'); await shot(page, 'signed-out', viewport);
@@ -203,7 +212,7 @@ try {
     reset();
     ({ page, context, errors } = await open(viewport, { worker: true, pushManager: false, notification: false }, viewport === 'phone' ? UA.iphone : UA.ipad));
     await watchState(page, 'home-screen');
-    assert.equal(await bar(page).innerText(), '通知 · 在 Safari 点分享 → 添加到主屏幕，从主屏幕打开后开启');
+    assert.equal(await meta(page).innerText(), '在 Safari 点分享 → 添加到主屏幕，从主屏幕打开后开启');
     assert.equal(await bar(page).locator('button').count(), 0);
     await fits(page, 'iOS'); await shot(page, 'ios-home-screen', viewport);
     assert.deepEqual(errors, []); await context.close();
@@ -212,7 +221,7 @@ try {
     reset();
     ({ page, context, errors } = await open(viewport, { worker: false, pushManager: false, permission: 'granted' }));
     await watchState(page, 'unsupported');
-    assert.equal(await bar(page).innerText(), '通知 · 此浏览器不支持推送');
+    assert.equal(await meta(page).innerText(), '此浏览器不支持推送');
     assert.equal(await bar(page).locator('button').count(), 0);
     await fits(page, 'unsupported'); await shot(page, 'unsupported', viewport);
     let seen = await alertOnce(page, 'fallback-offer');
@@ -223,7 +232,7 @@ try {
     reset({ enabled: false });
     ({ page, context, errors } = await open(viewport, {}));
     await watchState(page, 'unsupported');
-    assert.equal(await bar(page).innerText(), '通知 · 此浏览器不支持推送');
+    assert.equal(await meta(page).innerText(), '此浏览器不支持推送');
     assert.equal(await bar(page).locator('button').count(), 0, 'no button while the server has push off');
     await fits(page, 'server off'); await shot(page, 'server-disabled', viewport);
     assert.deepEqual(errors, []); await context.close();
@@ -232,8 +241,9 @@ try {
     reset();
     ({ page, context, errors } = await open(viewport, { permission: 'denied' }));
     await watchState(page, 'blocked');
-    assert.equal(await bar(page).innerText(), '通知 · 已被阻止 · 在浏览器或系统设置里允许');
+    assert.equal(await meta(page).innerText(), '已被阻止，请在浏览器或系统设置里允许');
     assert.equal(await bar(page).locator('button').count(), 0);
+    await pointsToSettings(page, 'blocked', '已被阻止，请在浏览器或系统设置里允许');
     await fits(page, 'blocked'); await shot(page, 'blocked', viewport);
     assert.deepEqual(errors, []); await context.close();
 
@@ -254,7 +264,7 @@ try {
       label: viewport === 'phone' ? 'Android Chrome' : 'Windows Edge', lang: 'zh',
     } }]);
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('push.subscription')).id), 7);
-    assert.equal(await bar(page).locator('.watch-notification-state').innerText(), '推送 · 已开启');
+    assert.equal(await meta(page).innerText(), '推送已开启');
     await page.locator('[data-push-test]').click();
     await bar(page).getByText('已发送测试推送').waitFor();
     assert.deepEqual(lastPush(), { action: 'push/test', csrf: CSRF, body: { id: 7 } });

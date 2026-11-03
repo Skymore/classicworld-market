@@ -370,7 +370,7 @@ export default function Alerts() {
               </div>
               <div className="deal-switches">
                 {[
-                  ["enabled", "启用采集提醒", "Enable deal alerts"],
+                  ["enabled", "启用低价提醒", "Enable deal alerts"],
                   ["page", "页面弹窗", "Page popups"],
                   ["desktop", "桌面通知", "Desktop notifications"],
                 ].map(([key, zh, en]) => (
@@ -425,8 +425,8 @@ export default function Alerts() {
             <Status status={state.collectorStatus} />
             <p className="sale-note">
               {words(
-                "采集使用你的采集器规则筛选非装备价差；需要为任意物品设置个人价格上限，请使用「关注」。关注设置仅存当前浏览器。",
-                "Collect uses your collector’s non-equipment margin rules. For any item with a personal price cap, use Watch. Watch settings are saved only in this browser.",
+                "低价提醒按你的采集器规则筛选非装备价差；想给任意物品设个人价格上限，请用「关注」。",
+                "Deal alerts use your collector’s non-equipment margin rules. To set a personal price cap on any item, use Watch.",
               )}
             </p>
             <div className="ltools atools">

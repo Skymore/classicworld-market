@@ -17,7 +17,7 @@ async function setup(t,{search='',saved={},failure=false,blocked=false}={}){
 test('sparse recent data defaults to all and reuses its short cached decision',async t=>{
   const p=await setup(t);assert.equal(await p.resolvePeriod(),'all');assert.equal(p.readPeriod(),'all');
   assert.equal(p.automaticPeriod(),true);assert.equal(await p.resolvePeriod(),'all');assert.equal(p.calls(),1);
-  assert.match(p.periodControl('all'),/自动 · 全部/);
+  assert.match(p.periodControl('all'),/自动（全部）/);
 });
 test('an explicit 72-hour URL is never automatically overridden',async t=>{
   const p=await setup(t,{search:'?hours=72'});assert.equal(await p.resolvePeriod(),'72');assert.equal(p.calls(),0);

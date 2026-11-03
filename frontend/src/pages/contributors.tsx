@@ -6,7 +6,7 @@ import {
   Loading,
   ErrorState,
   usePageReady,
-  num,
+  Count,
 } from "../components/shared";
 import { SiteLink } from "../components/shell";
 import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
@@ -101,8 +101,8 @@ export default function Contributors() {
                         )}
                       </small>
                     </span>
-                    <strong>{num(row.shops)}</strong>
-                    <span>{num(row.quotes)}</span>
+                    <strong><Count n={row.shops} /></strong>
+                    <span><Count n={row.quotes} /></span>
                   </li>
                 ))}
               </ol>

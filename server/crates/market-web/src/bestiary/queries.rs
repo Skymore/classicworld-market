@@ -50,17 +50,23 @@ macro_rules! name_en {
     };
 }
 
-/// A map's street ("金银岛") in both languages.
+/// A map's street ("金银岛") in both languages. In Chinese, maps on Maple
+/// Island are always 彩虹岛 (some carry a wrong or missing street_zh), and
+/// Victoria maps without a Chinese street fall back to 金银岛, not English.
 macro_rules! streets {
     ($t:literal) => {
         concat!(
-            "COALESCE(NULLIF(",
+            "CASE WHEN ",
             $t,
-            ".street_zh, ''), NULLIF(",
+            ".id BETWEEN 0 AND 9999999 THEN '彩虹岛' ELSE COALESCE(NULLIF(",
+            $t,
+            ".street_zh, ''), CASE WHEN ",
+            $t,
+            ".id BETWEEN 10000000 AND 19999999 THEN '金银岛' END, NULLIF(",
             $t,
             ".street_tw, ''), ",
             $t,
-            ".street_en) AS street, ",
+            ".street_en) END AS street, ",
             "COALESCE(NULLIF(",
             $t,
             ".street_en, ''), NULLIF(",

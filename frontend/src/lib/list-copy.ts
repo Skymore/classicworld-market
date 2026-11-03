@@ -45,7 +45,7 @@ addMessages({
       "添加想买的物品，设置提醒条件；保持本站任意页面打开，有符合条件的新报价时提醒。",
     "watch.help_title": "提醒如何工作？",
     "watch.help":
-      "共享市场的新报价和自己刚逛到的摊位都能提醒。别人之前扫过的报价，自己第一次扫到且符合条件时也会提醒；同次更新只弹一次，反复开同一报价不刷屏。支持装备等所有物品，按最高单价和有货条件筛选。关注清单和价格上限只保存在当前浏览器，不与别人共享。保持本站任意页面打开，允许浏览器通知后可在后台接收提醒。实际库存与价格请到游戏内核对。采集使用另一套规则。",
+      "共享市场的新报价和自己刚逛到的摊位都能提醒。别人之前扫过的报价，自己第一次扫到且符合条件时也会提醒；同次更新只弹一次，反复开同一报价不刷屏。支持装备等所有物品，按最高单价和有货条件筛选。登录后关注清单和价格上限会同步到账号，未登录时保存在当前浏览器，都不与别人共享。在「我的 → 通知」开启推送后，关掉网页也能收到提醒。实际库存与价格请到游戏内核对。采集使用另一套规则。",
     "watch.truncated": "报价较多，只显示最近 200 条观察。",
     "watch.failed": "关注报价暂时无法更新，显示的是上次的报价。",
     "watch.stock": "库存 {n}",
@@ -100,7 +100,7 @@ addMessages({
       "Add items and set alert conditions. Keep any page of this site open for matching new offers.",
     "watch.help_title": "How do notifications work?",
     "watch.help":
-      "Get alerts for new shared offers and shops you just visited, even if another player saw the offer earlier. One update produces one alert; repeated visits to the same offer do not spam. All items, including equipment, follow your price cap and in-stock rules. Your list and caps stay in this browser. Keep any page of this site open; browser notifications can alert you in the background. Verify prices and stock in game. Collect uses separate rules.",
+      "Get alerts for new shared offers and shops you just visited, even if another player saw the offer earlier. One update produces one alert; repeated visits to the same offer do not spam. All items, including equipment, follow your price cap and in-stock rules. Signed in, your list and caps sync to your account; signed out, they stay in this browser. Neither is shared. Turn on push under My profile → Notifications to get alerts with the site closed. Verify prices and stock in game. Collect uses separate rules.",
     "watch.truncated": "Many offers: showing the latest 200 observations.",
     "watch.failed": "Watch offers could not be updated; showing the last ones.",
     "watch.stock": "stock {n}",
@@ -149,7 +149,7 @@ addMessages({
 });
 addMessages({
   zh: {
-    "alerts.title": "采集",
+    "alerts.title": "低价提醒",
     "alerts.meta": "{n} 条 · 实时推送",
     "alerts.window": "参考报价",
     "alerts.window_72": "近 72 小时",
@@ -165,9 +165,9 @@ addMessages({
       "比较 {shops} 个摊位 · {listings} 条挂单 · 共 {qty} 件在售 · 下四分位 {q1}",
     "alerts.empty": "暂时没有低价提醒。继续逛摊，发现低价时这里会提醒。",
     "alerts.checked": "{time} 检查过",
-    "alerts.toast_title": "采集提醒",
+    "alerts.toast_title": "低价提醒",
     "alerts.toast_line": "{buy} / 件 · 快卖 {sell} · 扣费后 {pct}",
-    "alerts.setup_title": "开始采集，查看自己的低价提醒",
+    "alerts.setup_title": "开始采集，就能看到你遇到的低价货",
     "alerts.setup_browser": "浏览器采集",
     "alerts.setup_browser_text":
       "共享游戏窗口后照常逛摊。",
@@ -190,7 +190,7 @@ addMessages({
     "alerts.failed": "提醒暂时无法更新，稍后自动重试。",
   },
   en: {
-    "alerts.title": "Collect",
+    "alerts.title": "Deal alerts",
     "alerts.meta": "{n} · live updates",
     "alerts.window": "Reference offers",
     "alerts.window_72": "Last 72 h",

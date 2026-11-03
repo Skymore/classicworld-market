@@ -1,9 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { Monitor, Pencil, ArrowUpRight } from "lucide-react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Bell, Monitor, Pencil, ArrowUpRight } from "lucide-react";
 import { useAccount } from "../lib/query";
 import { beforeSignOut } from "/web/js/lib/user-data.js";
-import { releasePushForSignOut } from "../lib/push";
+import { isLocalGateway, releasePushForSignOut } from "../lib/push";
+import { embedded } from "../lib/embed";
+import {
+  NotificationSettings,
+  useNotificationSummary,
+} from "../components/notification-settings";
 import {
   AuthForm,
   RecoveryNotice,
@@ -22,11 +27,49 @@ import {
   Stall,
   Loading,
   ErrorState,
-  num,
+  Count,
   usePageReady,
   Icon,
 } from "../components/shared";
 import { Button } from "../components/ui/button";
+
+/** 我的 → 通知: which device gets watch alerts, and how. */
+function NotificationsPanel() {
+  const words = useWords();
+  const summary = useNotificationSummary();
+  const route = useLocation();
+  const wanted = route.hash === "#notifications";
+  useEffect(() => {
+    if (wanted)
+      document.getElementById("notifications")?.scrollIntoView({ block: "start" });
+  }, [wanted]);
+  return (
+    <AccountSetting
+      name="notifications"
+      id="notifications"
+      icon={<Bell size={20} />}
+      title={words("通知", "Notifications")}
+      meta={summary}
+      attention={wanted}
+    >
+      <p>
+        {isLocalGateway
+          ? words(
+              "关注的物品出现符合条件的新报价时，弹出系统通知。需要保持本站任意页面打开。",
+              "When a watched item gets a matching offer, a system notification pops up. Keep any page of this site open.",
+            )
+          : words(
+              "关注的物品出现符合条件的新报价时，推送到这台设备，关掉网页也能收到。",
+              "When a watched item gets a matching offer, it is pushed to this device, even with the site closed.",
+            )}
+      </p>
+      <NotificationSettings />
+      <SiteLink href="/watch">
+        {words("在「关注」里选择哪些物品提醒", "Choose which items alert you in Watch")} →
+      </SiteLink>
+    </AccountSetting>
+  );
+}
 
 export default function AccountPage() {
   usePageReady();
@@ -151,6 +194,11 @@ export default function AccountPage() {
             {params.has("error") && (
               <p role="alert">{message(params.get("error")!)}</p>
             )}
+            {isLocalGateway && !embedded && (
+              <div className="account-settings">
+                <NotificationsPanel />
+              </div>
+            )}
             <section className="well account-help">
               <h3>{words("只想用昵称？也可以", "Prefer just a nickname?")}</h3>
               <p>
@@ -202,11 +250,11 @@ export default function AccountPage() {
               </div>
               <div className="contributor-stats">
                 <div>
-                  <strong>{num(profile.stats?.shops || 0)}</strong>
+                  <strong><Count n={profile.stats?.shops || 0} /></strong>
                   <span>{words("累计采集摊位", "Shops contributed")}</span>
                 </div>
                 <div>
-                  <strong>{num(profile.stats?.quotes || 0)}</strong>
+                  <strong><Count n={profile.stats?.quotes || 0} /></strong>
                   <span>{words("有效报价条目", "Distinct offers")}</span>
                 </div>
               </div>
@@ -310,6 +358,7 @@ export default function AccountPage() {
             <div className="account-settings">
               {!local && <SyncPanel message={message} />}
               {!local && <DevicesPanel profile={profile} message={message} />}
+              {!embedded && <NotificationsPanel />}
               {/* Collectors on old versions still link through ?link=. */}
               {(local || link || linkStatus) && <AccountSetting
                 name="collectors"

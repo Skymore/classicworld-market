@@ -88,7 +88,7 @@ async function mount() {
     history.replaceState(history.state,'',url);
   }
   const name = pageFor(location.pathname);
-  const titles=lang==='en'?{privacy:'Account privacy',account:'My profile',contributors:'Contributors',home:'Home',prices:'Prices',watch:'Watch',alerts:'Collect',selling:'Bag & shop'}:{privacy:'账号隐私说明',account:'我的',contributors:'采集贡献榜',home:'首页',prices:'价格表',watch:'关注',alerts:'采集',selling:'背包与摆摊'};
+  const titles=lang==='en'?{privacy:'Account privacy',account:'My profile',contributors:'Contributors',home:'Home',prices:'Prices',watch:'Watch',alerts:'Deal alerts',selling:'Bag & shop'}:{privacy:'账号隐私说明',account:'我的',contributors:'采集贡献榜',home:'首页',prices:'价格表',watch:'关注',alerts:'低价提醒',selling:'背包与摆摊'};
   titles.agent=lang==='en'?'Market assistant':'市场助手';
   document.title=`${titles[name]||titles.home} · ${lang==='en'?'Maple Market':'枫叶市集'}`;
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createCollector } from "/web/collect/engine.js";
 import { usePageReady } from "../components/shared";
+import { SiteLink } from "../components/shell";
 function Frame({ frame }: { frame: any }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -34,12 +35,12 @@ export default function Collect() {
     <>
       <section className="stall c-hero" aria-labelledby="h-page">
         <div className="c-hero-text">
-          <h1 id="h-page">屏幕采集</h1>
+          <h1 id="h-page">浏览器采集</h1>
           <p>在电脑上共享游戏窗口，逛摊时读到的商店会自动上传到市集。</p>
           <p>
-            <a className="btn" href="/web/download.html">
-              下载 Windows 采集器与使用说明
-            </a>
+            <SiteLink className="btn" href="/web/download.html">
+              下载 Windows 采集器
+            </SiteLink>
           </p>
           <p className="c-ver">
             <i />

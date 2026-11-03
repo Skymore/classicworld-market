@@ -165,7 +165,7 @@ try{
   const tabs=page.locator('.watch-tabs');await tabs.waitFor();
   await waitFor(()=>accountStreams.size===1,'watch page shares one account event stream');
   const tabText=async key=>(await page.locator(`[data-watch-tab=${key}]`).innerText()).replace(/\s+/g,' ').trim();
-  assert.equal(await tabText('items'),'物品 2');assert.equal(await tabText('sweep'),'扫货 2 件');
+  assert.equal(await tabText('items'),'物品 2 件');assert.equal(await tabText('sweep'),'扫货 2 件');
   assert.equal(await page.locator('[data-watch-tab=items]').getAttribute('aria-selected'),'true');
   assert.equal(await page.locator('[data-card="2000000"] .wg-rule input[type=checkbox]').count(),2,'signed-in web shows the per-group sweep box');
   assert.equal(await page.locator('.wg-footer').count(),0,'cards no longer carry the quantity row');

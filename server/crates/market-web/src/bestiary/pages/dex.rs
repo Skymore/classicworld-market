@@ -16,6 +16,22 @@ const EMPTY_MOB: i32 = 120100;
 /// Drops listed before "show all"; the browser page uses the same count.
 const DROPS_SHOWN: usize = 10;
 
+/// A description line that only repeats the level ("等级：8").
+fn is_level_line(line: &str) -> bool {
+    let rest = line.trim().strip_prefix("等级");
+    rest.and_then(|r| r.strip_prefix('：').or_else(|| r.strip_prefix(':')))
+        .is_some_and(|n| !n.trim().is_empty() && n.trim().chars().all(|c| c.is_ascii_digit()))
+}
+
+/// Rounded unit prices: arrows and other bundle items cost under 1 meso each.
+fn unit_meso(value: i64) -> String {
+    if value < 1 {
+        "<1".to_string()
+    } else {
+        meso(value)
+    }
+}
+
 fn dex_page(ctx: &Ctx, title: &str, query: &str, body: Markup) -> Markup {
     layout(
         ctx,
@@ -167,7 +183,8 @@ pub fn mob_page(page: &MobPage, ctx: &Ctx) -> Markup {
                 @for (zh, en, value) in &stats { div { dt { (lang.t(zh, en)) } dd { (value) } } }
             }
             @if let Some(text) = &mob.description {
-                div.desc { @for line in text.lines().filter(|l| !l.trim().is_empty()) { p { (line) } } }
+                // "等级：8" repeats the Lv. badge above.
+                div.desc { @for line in text.lines().filter(|l| !l.trim().is_empty() && !is_level_line(l)) { p { (line) } } }
             }
             div.dgrid {
                 section.well {
@@ -185,8 +202,14 @@ pub fn mob_page(page: &MobPage, ctx: &Ctx) -> Markup {
                 }
                 section.well {
                     (well_head(ctx.t("出现地图", "Found in"), Some(n_of(ctx, page.spawns.len(), "张", "maps"))))
-                    @for s in &page.spawns {
-                        (map_row(ctx, &s.map, s.street.as_ref().map(|n| n.get(lang).to_string()), Some(spawn_points(lang, s.spawn_count))))
+                    @for (i, s) in page.spawns.iter().enumerate() {
+                        @let row = map_row(ctx, &s.map, s.street.as_ref().map(|n| n.get(lang).to_string()), Some(spawn_points(lang, s.spawn_count)));
+                        @if i < DROPS_SHOWN { (row) } @else { div.extra { (row) } }
+                    }
+                    @if page.spawns.len() > DROPS_SHOWN {
+                        button.more type="button" data-more="spawns" {
+                            (match lang { Lang::Zh => format!("显示全部 {} 张", page.spawns.len()), Lang::En => format!("Show all {}", page.spawns.len()) })
+                        }
                     }
                     @if page.spawns.is_empty() { (empty(ctx.t("图鉴里没有这只怪物的出现地图。", "The dex has no maps for this monster."))) }
                 }
@@ -231,10 +254,10 @@ fn drop_row(ctx: &Ctx, drop: &MobDrop) -> Markup {
                     (super::secondary_name(names, lang))
                     span.s {
                         @match typical {
-                            Some(p) => { (ctx.t("成交 ", "typical ")) (meso(*p)) },
+                            Some(p) => { (ctx.t("成交价 ", "typical ")) (unit_meso(*p)) },
                             None => (ctx.t("暂无成交", "no sales yet")),
                         }
-                        @if let Some(ask) = lowest_ask { (ctx.t(" · 在售最低 ", " · lowest ask ")) (meso(*ask)) }
+                        @if let Some(ask) = lowest_ask { (ctx.t(" · 在售最低 ", " · lowest ask ")) (unit_meso(*ask)) }
                         @if let Some(q) = &quest { (q) }
                     }
                 }
@@ -1072,5 +1095,16 @@ mod tests {
             "internal portal names stay hidden"
         );
         assert!(edge_label(EdgeKind::Return, Lang::Zh).starts_with("用回城卷轴"));
+    }
+
+    #[test]
+    fn level_lines_and_unit_prices() {
+        assert!(is_level_line("等级：8"));
+        assert!(is_level_line(" 等级: 12 "));
+        assert!(!is_level_line("等级：未知"));
+        assert!(!is_level_line("形态：植物型"));
+        assert_eq!(unit_meso(0), "<1");
+        assert_eq!(unit_meso(23), "23");
+        assert_eq!(unit_meso(2_000), "2K");
     }
 }

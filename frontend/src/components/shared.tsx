@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { I } from "/web/js/lib/icons.js";
-import { ago, fullTime, meso, chg, num } from "/web/js/lib/format.js";
+import { ago, fullTime, meso, chg, num, compact } from "/web/js/lib/format.js";
 export { default as Search } from "./quick-search";
 import {
   readPeriod,
@@ -252,7 +252,7 @@ export function PeriodControl({
         onChange={(event) => choose(event.target.value)}
       >
         <option value="auto">{language === "en" ? "Auto" : "自动"}</option>
-        <option value="72">72h</option>
+        <option value="72">{language === "en" ? "72 h" : "近 72 小时"}</option>
         <option value="all">{language === "en" ? "All" : "全部"}</option>
       </select>
     </label>
@@ -264,4 +264,8 @@ export function usePageReady() {
     document.documentElement.dataset.ready = "1";
   }, [route.pathname]);
 }
-export { num };
+export { num, compact };
+/** A count shown as K / M, with the exact number on hover. */
+export function Count({ n }: { n: number | null | undefined }) {
+  return <span title={n == null ? undefined : num(n)}>{compact(n)}</span>;
+}

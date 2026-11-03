@@ -63,10 +63,15 @@ export function TrafficChart({
       ? 0
       : Math.round((index * (daily.length - 1)) / (tickCount - 1)),
   );
-  const average = Math.round(
-    daily.reduce((sum, row) => sum + row.visitors, 0) /
-      Math.max(1, daily.length),
-  );
+  const visitors = daily.reduce((sum, row) => sum + row.visitors, 0);
+  const mean = visitors / Math.max(1, daily.length);
+  // A few visitors over 30 days must not read as 0.
+  const average =
+    visitors > 0 && mean < 0.1
+      ? "<0.1"
+      : mean < 10
+        ? String(Math.round(mean * 10) / 10)
+        : null;
   const unit =
     metric === "pageviews" ? words("次", "views") : words("人", "visitors");
   const exact = (value: number) =>
@@ -114,7 +119,7 @@ export function TrafficChart({
         >
           <span>{words("日均访客", "Daily average visitors")}</span>
           <strong data-traffic-average-uv>
-            {exact(average)}
+            {average ?? exact(Math.round(mean))}
             <small>{words("人", "visitors")}</small>
           </strong>
         </button>

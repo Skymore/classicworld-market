@@ -122,6 +122,10 @@ export function MobRow({ mob, right }: { mob: any; right?: ReactNode }) {
     </a>
   );
 }
+/** Unit prices rounded by the server: bundle items such as arrows cost under 1 meso each. */
+function UnitPrice({ value }: { value?: number | null }) {
+  return value != null && value < 1 ? <>&lt;1</> : <Price value={value} />;
+}
 function Crumb({ text }: { text: string }) {
   const words = useWords();
   return (
@@ -152,6 +156,7 @@ function Mob({ page }: { page: any }) {
   useProvidePageContext({ kind: "mob", id: mob.id, label: title.slice(0, 120) });
   // The server lists mesos and priced drops first; show ten before "show all".
   const [allDrops, setAllDrops] = useState(false);
+  const [allSpawns, setAllSpawns] = useState(false);
   const stats = [
     ["hp", "HP", "HP"],
     ["mp", "MP", "MP"],
@@ -210,7 +215,12 @@ function Mob({ page }: { page: any }) {
             </div>
           ))}
         </dl>
-        <Description text={mob.description} />
+        <Description
+          text={mob.description
+            ?.split("\n")
+            .filter((line: string) => !/^\s*等级[：:]\s*\d+\s*$/.test(line))
+            .join("\n")}
+        />
         <div className="dgrid">
           <Well
             title={words("掉落", "Drops")}
@@ -257,8 +267,8 @@ function Mob({ page }: { page: any }) {
                         <>
                           {item.typical != null ? (
                             <>
-                              {words("成交 ", "typical ")}
-                              <Price value={item.typical} />
+                              {words("成交价 ", "typical ")}
+                              <UnitPrice value={item.typical} />
                             </>
                           ) : (
                             words("暂无成交", "no sales yet")
@@ -267,7 +277,7 @@ function Mob({ page }: { page: any }) {
                             <>
                               {" "}
                               · {words("在售最低 ", "lowest ask ")}
-                              <Price value={item.lowest_ask} />
+                              <UnitPrice value={item.lowest_ask} />
                             </>
                           )}
                         </>
@@ -282,8 +292,8 @@ function Mob({ page }: { page: any }) {
                     </span>
                   </span>
                   {drop.votes != null && (
-                    <span className="r" title={words("NiaDB 玩家确认票数", "NiaDB player confirmations")}>
-                      {words(`${drop.votes} 票`, `${drop.votes} votes`)}
+                    <span className="r" title={words(`NiaDB 上 ${drop.votes} 名玩家确认这只怪会掉`, `${drop.votes} players on NiaDB confirmed this drop`)}>
+                      {words(`${drop.votes} 人确认`, `${drop.votes} confirmed`)}
                     </span>
                   )}
                 </>
@@ -328,7 +338,7 @@ function Mob({ page }: { page: any }) {
               `${page.spawns.length} maps`,
             )}
           >
-            {page.spawns.map((spawn: any, i: number) => (
+            {page.spawns.slice(0, allSpawns ? undefined : 10).map((spawn: any, i: number) => (
               <MapRow
                 key={i}
                 map={spawn.map}
@@ -339,6 +349,20 @@ function Mob({ page }: { page: any }) {
                 )}
               />
             ))}
+            {!allSpawns && page.spawns.length > 10 && (
+              <button
+                type="button"
+                className="more"
+                data-more="spawns"
+                onClick={() => setAllSpawns(true)}
+              >
+                {words(
+                  `显示全部 ${page.spawns.length} 张 `,
+                  `Show all ${page.spawns.length} `,
+                )}
+                <Icon name="chev" />
+              </button>
+            )}
             {!page.spawns.length && (
               <p className="note">
                 {words(

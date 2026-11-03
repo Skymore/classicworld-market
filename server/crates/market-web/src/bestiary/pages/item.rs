@@ -39,9 +39,13 @@ pub fn item_page(page: &ItemPage, ctx: &Ctx) -> Markup {
         script id="catalog-snapshot" type="application/json" { (PreEscaped(snapshot)) }
         div.dwrap.ipage {
             nav.crumb.on-desktop aria-label=(ctx.t("位置", "Breadcrumb")) {
-                a href="/prices" { (ctx.t("价格表", "Price table")) }
+                a href=(ctx.href("/search?kind=item")) { (ctx.t("图鉴", "Catalogue")) }
                 (PreEscaped(icon(Icon::Chev)))
-                span { (market::category_label(&page.item.category, ctx.lang)) }
+                @if let Some(cat) = market::category_key(&page.item.category) {
+                    a href=(ctx.href(&format!("/search?kind=item&cat={cat}"))) { (market::category_label(&page.item.category, ctx.lang)) }
+                } @else {
+                    span { (market::category_label(&page.item.category, ctx.lang)) }
+                }
                 (PreEscaped(icon(Icon::Chev)))
                 span { (name) }
             }
@@ -252,8 +256,8 @@ fn sources_well(v: &View) -> Markup {
 /// NiaDB's confirmations of a drop, as a short label.
 pub(super) fn votes_label(votes: i64, lang: Lang) -> String {
     match lang {
-        Lang::Zh => format!("{votes} 票"),
-        Lang::En => format!("{votes} votes"),
+        Lang::Zh => format!("{votes} 人确认"),
+        Lang::En => format!("{votes} confirmed"),
     }
 }
 

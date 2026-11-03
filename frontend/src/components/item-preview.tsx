@@ -484,7 +484,7 @@ export default function ItemPreview() {
                 {words("市场参考", "Market reference")} ·{" "}
                 {readPeriod() === "all"
                   ? words("全部记录", "All records")
-                  : "72h"}
+                  : words("近 72 小时", "72 h")}
               </h3>
               <div className="peek-price">
                 {format(stats?.typical)}

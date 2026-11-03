@@ -397,7 +397,7 @@ export default function Prices() {
         {craftCosts.has(row.item_id) && (
           <small className="craft-cost">
             {craftCosts.get(row.item_id) == null ? (
-              words("成本缺价", "Cost incomplete")
+              words("缺材料价格", "Missing material prices")
             ) : (
               <>
                 {words("约 ", "~")}

@@ -83,3 +83,6 @@
 .device-stall .device-actions{justify-content:flex-start}
 .device-stall .device-actions .btn{min-width:96px}
 @media(max-width:640px){.device-row{flex-wrap:wrap}.device-stall .device-actions .btn{flex:1}}
+/* 我的 → 通知: the notification row sits inside the section without its own frame. */
+.account-setting-content .watch-notification-bar{padding:0;border:0}
+.account-setting-content>a{justify-self:start;font-size:13px}

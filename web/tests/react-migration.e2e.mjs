@@ -173,9 +173,9 @@ try {
     await page.locator('[data-pane=quotes] .more').click(); await rows.first().waitFor();
     assert.equal(new URL(page.url()).searchParams.get('sort'), 'recent');
     assert.equal(new URL(page.url()).searchParams.get('hours'), 'all');
-    await nav('tools').click(); await page.locator('[data-tool=collection]').click(); await page.locator('.alerts-page h1').waitFor();
-    assert.equal(await page.locator('.alerts-page h1').textContent(), '采集');
-    assert.match(await page.title(), /^采集/);
+    await nav('tools').click(); await page.locator('[data-tool=alerts]').click(); await page.locator('.alerts-page h1').waitFor();
+    assert.equal(await page.locator('.alerts-page h1').textContent(), '低价提醒');
+    assert.match(await page.title(), /^低价提醒/);
     await nav('prices').click(); await rows.first().waitFor();
     price = mobile ? 35000 : 36000; for (const stream of streams) stream.write('event: market\ndata: {}\n\n');
     await page.waitForFunction(expected => [...document.querySelectorAll('.pr')].some(node => node.textContent.includes(expected)), mobile ? '35K' : '36K');

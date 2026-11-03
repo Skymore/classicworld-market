@@ -575,3 +575,5 @@ html[data-live-connection=reconnecting] .fresh i{background:#b47722}
 /* 工具页面包屑：外壳在 /alerts、/collect 等页面也会渲染，所以放在共享样式里 */
 .tool-breadcrumb{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:13px;color:var(--ink-3)}
 .tool-breadcrumb a{display:inline-flex;align-items:center;min-height:36px;color:var(--bar-text);font-weight:600}
+/* Leave room under the last row for the floating AI launcher (56px + 24px from the edge). */
+@media (min-width:641px){.app{padding-bottom:96px}}

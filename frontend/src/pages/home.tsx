@@ -52,11 +52,6 @@ export default function Home() {
     `/api/v1/quotes/recent?limit=8&hours=${period.hours}`,
     period.ready && tab === "quotes",
   );
-  const counts = useMarketQuery<{ mobs: number; maps: number }>(
-    "/api/v1/dex/counts",
-    true,
-    false,
-  );
   const wide = matchMedia("(min-width:641px)").matches;
   const tabs = {
     recent: words("最近成交", "Recent sales"),
@@ -143,9 +138,9 @@ export default function Home() {
             {words("今天想买点什么？", "What are you shopping for today?")}
           </h1>
           <p>
-            <a href="/web/download.html">
-              {words("下载采集器", "Download collector")} ↗
-            </a>
+            <SiteLink href="/web/download.html">
+              {words("下载采集器", "Download collector")} →
+            </SiteLink>
           </p>
         </div>
         <Search />
@@ -176,18 +171,13 @@ export default function Home() {
               {words("物品·怪物·地图", "Items · Mobs · Maps")}
             </small>
           </SiteLink>
-          <SiteLink className="portal" href="/search?kind=map">
+          <SiteLink className="portal" href="/world">
             <span className="p-top">
               <Icon name="map" />
-              {words("地图", "Maps")}
+              {words("世界地图", "Maps")}
             </span>
             <small data-count="maps">
-              {counts.data
-                ? words(
-                    `${num(counts.data.maps)} 张地图`,
-                    `${num(counts.data.maps)} maps`,
-                  )
-                : words("传送和路线", "Portals & routes")}
+              {words("怎么走 · 找怪物", "Routes · monsters")}
             </small>
           </SiteLink>
         </nav>

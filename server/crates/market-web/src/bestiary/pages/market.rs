@@ -164,6 +164,18 @@ fn range_line(v: &View) -> Markup {
 }
 
 /// `items.category` is Chinese; English pages get the game's own names.
+/// The 图鉴 filter value (`/search?kind=item&cat=`) for an item category.
+pub(super) fn category_key(category: &str) -> Option<&'static str> {
+    match category {
+        "装备" => Some("equip"),
+        "消耗" | "消耗品" => Some("use"),
+        "装饰" => Some("setup"),
+        "其他" => Some("etc"),
+        "商城" | "商城物品" => Some("cash"),
+        _ => None,
+    }
+}
+
 pub(super) fn category_label(category: &str, lang: Lang) -> &str {
     if lang == Lang::Zh {
         return category;
@@ -642,7 +654,20 @@ fn bar_class(n: usize, max: usize) -> String {
 
 fn ladder_pane(v: &View) -> Markup {
     let Some(ladder) = ladder(&v.page.market) else {
-        return html! { p.note { (v.t("还没有挂单和成交，画不出价格分布。", "No listings or sales yet, so no price bands.")) } };
+        let days = v.page.market.days.len();
+        let note = match (days, v.ctx.lang) {
+            (0, _) => v
+                .t(
+                    "还没有挂单和成交，画不出价格分布。",
+                    "No listings or sales yet, so no price bands.",
+                )
+                .to_string(),
+            (n, Lang::Zh) => format!("近 {n} 天没有挂单和成交，画不出价格分布。"),
+            (n, Lang::En) => {
+                format!("No listings or sales in the last {n} days, so no price bands.")
+            }
+        };
+        return html! { p.note { (note) } };
     };
     let stats = v.stats();
     let pick = |price: Option<i64>| price.and_then(|p| ladder.index(p as f64));

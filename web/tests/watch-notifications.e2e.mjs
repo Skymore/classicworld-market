@@ -82,7 +82,12 @@ try{
   await navigate(page,'/watch');
   await page.locator('[data-notification-state="default"]').waitFor();
   assert.equal(await page.locator('#watch-list').isVisible(),false);
-  assert(await page.locator('[data-allow]').isVisible(),'permission control remains visible when the watchlist is collapsed');
+  assert(await page.locator('[data-notification-settings]').isVisible(),'the pointer to 我的 → 通知 stays visible when the watchlist is collapsed');
+  assert.equal(await page.locator('.watch-page [data-allow]').count(),0,'notification controls live in 我的, not Watch');
+  // The pointer opens 我的 with the 通知 section expanded.
+  await page.locator('[data-notification-settings]').click();
+  await page.waitForURL(origin+'/account#notifications');
+  await page.locator('[data-setting=notifications][open] [data-allow]').waitFor();
   assert.equal(await page.evaluate(()=>window.permissionRequests),0,'permission is never requested automatically');
   await page.locator('[data-allow]').click();
   await page.locator('[data-notification-test]').click();await tags(page,['watch-notification-test']);
@@ -97,12 +102,15 @@ try{
   await navigate(page,'/account');
   personal=[shared[0],offer('personal-on-account',40)];emit();
   const expected=['watch-notification-test','on-prices','personal-on-account'];await tags(page,expected);
-  await navigate(page,'/watch');await page.locator('[data-notification-state="granted"]').waitFor();
+  await navigate(page,'/watch');await page.locator('[data-watch-collapse]').waitFor();
+  assert.equal(await page.locator('.watch-page [data-notification-state]').count(),0,'Watch says nothing while notifications work');
   await refresh(page);await tags(page,expected);assert.deepEqual(await page.evaluate(()=>window.desktopNotifications),expected,'returning to Watch does not replay offers');
   // Permission changed in browser site settings is reflected without a reload.
   await page.evaluate(()=>{Notification.permission='denied';window.dispatchEvent(new Event('focus'));});
   await page.locator('[data-notification-state="denied"]').waitFor();
-  assert.match(await page.locator('.watch-notification-bar').innerText(),/地址栏/);
+  assert.match(await page.locator('.watch-notification-bar').innerText(),/已被阻止/);
+  await navigate(page,'/account#notifications');await page.locator('[data-setting=notifications] [data-notification-state="denied"]').waitFor();
+  assert.match(await page.locator('[data-setting=notifications] .watch-notification-bar').innerText(),/地址栏/);
   assert.equal(await page.locator('[data-allow]').count(),0,'denied permission offers instructions instead of a useless prompt');
   await page.evaluate(()=>{Notification.permission='granted';window.dispatchEvent(new Event('focus'));});
   await page.locator('[data-notification-test]').waitFor();

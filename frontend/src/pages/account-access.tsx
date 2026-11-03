@@ -157,6 +157,7 @@ export function AccountSetting({
   children,
   attention = false,
   name,
+  id,
 }: {
   icon: ReactNode;
   title: string;
@@ -164,13 +165,14 @@ export function AccountSetting({
   children: ReactNode;
   attention?: boolean;
   name: string;
+  id?: string;
 }) {
   const details = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     if (attention && details.current) details.current.open = true;
   }, [attention]);
   return (
-    <details className="account-setting" ref={details} data-setting={name}>
+    <details className="account-setting" ref={details} data-setting={name} id={id}>
       <summary>
         <span className="account-setting-icon" aria-hidden="true">
           {icon}

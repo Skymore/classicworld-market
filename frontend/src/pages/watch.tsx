@@ -37,7 +37,7 @@ import {
 } from "/web/js/lib/item-offer-filters.js?v=20261029-critical-1";
 import { OfferRow } from "../components/list-rows";
 import { useWatchAlerts } from "../components/watch-alerts";
-import { NotificationSettings } from "../components/notification-settings";
+import { NotificationStatus } from "../components/notification-settings";
 import SweepPanel, { isRecentRun, useSweep } from "../components/sweep-panel";
 import { SweepRuleEditor } from "../components/sweep-rule-editor";
 import { embedded } from "../lib/embed";
@@ -323,7 +323,7 @@ export default function Watch() {
   const alerting = ids.some((id) =>
     watchGroups(settings[id]).some((group: any) => group.notify),
   );
-  const notifications = alerting && !embedded ? <NotificationSettings /> : null;
+  const notifications = alerting && !embedded ? <NotificationStatus /> : null;
   // Grouping by item is its own switch; either sort order applies inside each group.
   const byItem =
     groupPref !== "true" && focusId === null
@@ -358,7 +358,7 @@ export default function Watch() {
           <span className="bar-meta" data-meta>
             {ids.length ? t("watch.meta", { n: ids.length, m: hits }) : ""}
           </span>
-          <button
+          {ids.length > 0 && <button
             type="button"
             className="watch-collapse"
             data-watch-collapse
@@ -374,7 +374,7 @@ export default function Watch() {
             }
           >
             <Icon name="caret" />
-          </button>
+          </button>}
         </div>
         {(!sweepTab || collapsed === "true") && notifications}
         {sweepTab && collapsed !== "true" && (
@@ -388,7 +388,7 @@ export default function Watch() {
               data-watch-tab="items"
               onClick={() => writePanelTab("items")}
             >
-              {words("物品", "Items")} <small>{ids.length}</small>
+              {words("物品", "Items")} <small>{words(`${ids.length} 件`, String(ids.length))}</small>
             </button>
             <button
               type="button"
@@ -436,10 +436,11 @@ export default function Watch() {
           {...(sweepTab ? { role: "tabpanel", "aria-labelledby": "watch-tab-items" } : {})}
         >
           {sweepTab && collapsed !== "true" && notifications}
-          <WatchLists lists={lists} selected={selectedList} ids={ids} settings={settings}
+          {/* Nothing watched yet: only the search box and the empty state. */}
+          {(ids.length > 0 || lists.length > 0) && <WatchLists lists={lists} selected={selectedList} ids={ids} settings={settings}
             name={id=>itemName(items.get(id)||{item_id:id,name_zh:String(id)})}
             onSelect={chooseList} onLists={saveLists} onSettings={next=>writeSettings(JSON.stringify(next))}
-            canSweep={inScanner||embedded||Boolean(profile?.signed_in)} />
+            canSweep={inScanner||embedded||Boolean(profile?.signed_in)} />}
           <div className="wadd">
             <form
               className="finder"

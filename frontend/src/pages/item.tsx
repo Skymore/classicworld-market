@@ -38,6 +38,17 @@ import OfferFilterDialog from "../components/offer-filters";
 import { Well, MobPicture, QuestRows, Secondary, useNames } from "./catalogue";
 import Crafting from "../components/crafting";
 import ItemTrend from "../components/item-trend";
+// Item categories as the 图鉴 filter names them (catalogue-search.tsx).
+const CATEGORY: Record<string, [string, string]> = {
+  装备: ["equip", "Equip"],
+  消耗: ["use", "Use"],
+  消耗品: ["use", "Use"],
+  装饰: ["setup", "Setup"],
+  其他: ["etc", "Etc"],
+  商城: ["cash", "Cash"],
+  商城物品: ["cash", "Cash"],
+};
+
 function CollapsibleWell({
   title,
   note,
@@ -113,10 +124,15 @@ function Ladder({ page, onPrice }: { page: any; onPrice?: (max: number) => void 
   if (!ladder.tiers.length)
     return (
       <p className="note">
-        {words(
-          "还没有挂单和成交，画不出价格分布。",
-          "No listings or sales yet, so no price bands.",
-        )}
+        {page.market.days?.length
+          ? words(
+              `近 ${page.market.days.length} 天没有挂单和成交，画不出价格分布。`,
+              `No listings or sales in the last ${page.market.days.length} days, so no price bands.`,
+            )
+          : words(
+              "还没有挂单和成交，画不出价格分布。",
+              "No listings or sales yet, so no price bands.",
+            )}
       </p>
     );
   const index = Math.min(selected, ladder.tiers.length - 1),
@@ -850,22 +866,15 @@ export default function Item({ page }: { page: any }) {
         className="crumb on-desktop"
         aria-label={words("位置", "Breadcrumb")}
       >
-        <a href="/prices">{words("价格表", "Price table")}</a>
+        <SiteLink href="/search?kind=item">{words("图鉴", "Catalogue")}</SiteLink>
         <Icon name="chev" />
-        <span>
-          {words(
-            item.category,
-            (
-              {
-                装备: "EQUIP",
-                消耗品: "USE",
-                装饰: "SETUP",
-                其他: "ETC",
-                商城物品: "CASH",
-              } as Record<string, string>
-            )[item.category] || item.category,
-          )}
-        </span>
+        {CATEGORY[item.category] ? (
+          <SiteLink href={`/search?kind=item&cat=${CATEGORY[item.category][0]}`}>
+            {words(item.category, CATEGORY[item.category][1])}
+          </SiteLink>
+        ) : (
+          <span>{item.category}</span>
+        )}
         <Icon name="chev" />
         {selectedVariant ? (
           <>
@@ -997,7 +1006,7 @@ export default function Item({ page }: { page: any }) {
               </div>
               <div className="row">
                 {stats?.typical != null
-                  ? words("成交中位", "typical sale")
+                  ? words("金币 · 成交中位", "mesos · typical sale")
                   : words("还没有成交价", "no sales yet")}
                 {page.unit === "set" && words(" · 每组", " · per set")}
                 {stats?.change_24h != null && <Change value={stats.change_24h} />}
@@ -1496,8 +1505,8 @@ export default function Item({ page }: { page: any }) {
                     </div>
                   </span>
                   {drop.votes != null && (
-                    <span className="rate" title={words("NiaDB 玩家确认票数", "NiaDB player confirmations")}>
-                      {words(`${drop.votes} 票`, `${drop.votes} votes`)}
+                    <span className="rate" title={words(`NiaDB 上 ${drop.votes} 名玩家确认这只怪会掉`, `${drop.votes} players on NiaDB confirmed this drop`)}>
+                      {words(`${drop.votes} 人确认`, `${drop.votes} confirmed`)}
                     </span>
                   )}
                 </a>

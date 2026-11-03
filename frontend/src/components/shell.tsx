@@ -15,9 +15,22 @@ const navigation = [
   ["agent", "/agent", "AI 助手", "Ask AI", "search"],
   ["dex", "/search?kind=item", "图鉴", "Catalogue", "book"],
   ["watch", "/watch", "关注", "Watch", "star"],
-  ["tools", "/tools", "工具", "Tools", "coin"],
+  ["tools", "/tools", "工具", "Tools", "tools"],
 ];
+/** The live market connection: connecting, connected or reconnecting. */
+function useLiveConnection() {
+  const [live, setLive] = useState(
+    document.documentElement.dataset.liveConnection || "connecting",
+  );
+  useEffect(() => {
+    const update = (event: Event) => setLive((event as CustomEvent).detail);
+    document.addEventListener("market-stream", update);
+    return () => document.removeEventListener("market-stream", update);
+  }, []);
+  return live;
+}
 export function Freshness() {
+  const live = useLiveConnection();
   const [at, setAt] = useState<number | null>(
     () => Number(document.documentElement.dataset.freshness) || null,
   );
@@ -35,17 +48,24 @@ export function Freshness() {
       clearInterval(timer);
     };
   }, []);
+  // Pages without market data still show the connection, as words.
+  const connection =
+    live === "connected"
+      ? words("实时更新中", "Live")
+      : live === "reconnecting"
+        ? words("正在重连", "Reconnecting")
+        : words("正在连接", "Connecting");
   return (
     <span
       className="fresh"
       data-fresh
       hidden={at === null}
       data-as-of={at ?? undefined}
-      title={at == null ? undefined : fullTime(at)}
+      title={at == null ? connection : fullTime(at)}
     >
       <i />
       <span>
-        {at == null ? "" : words(`数据 ${ago(at)}更新`, `updated ${ago(at)}`)}
+        {at == null ? connection : words(`数据 ${ago(at)}更新`, `updated ${ago(at)}`)}
       </span>
     </span>
   );
@@ -54,14 +74,7 @@ function Preferences() {
   const { toggleTheme, changeLanguage, language, ready } = usePreferences();
   const words = useWords();
   const account = useAccount();
-  const [live, setLive] = useState(
-    document.documentElement.dataset.liveConnection || "connecting",
-  );
-  useEffect(() => {
-    const update = (event: Event) => setLive((event as CustomEvent).detail);
-    document.addEventListener("market-stream", update);
-    return () => document.removeEventListener("market-stream", update);
-  }, []);
+  const live = useLiveConnection();
   const label = account.data?.signed_in
     ? words("我的", "My account")
     : words("登录账号", "Sign in to your account");
@@ -177,7 +190,7 @@ export function Navigation({ dock = false }: { dock?: boolean }) {
       ? "prices"
       : path.startsWith("/watch")
         ? "watch"
-        : ["/tools", "/alerts", "/collect", "/web/download.html"].some(
+        : ["/tools", "/alerts", "/collect", "/web/download.html", "/contributors", "/traffic"].some(
               (prefix) => path === prefix || path.startsWith(prefix + "/"),
             )
           ? "tools"
@@ -280,6 +293,21 @@ function EmbeddedNavigation() {
     <Search />
   </nav>;
 }
+/** Pages that live under 工具, with the name their breadcrumb shows. */
+const TOOL_PAGES: [string, string, string][] = [
+  ["/tools/enhancement", "强化计算器", "Enhancement calculator"],
+  ["/alerts", "低价提醒", "Deal alerts"],
+  ["/collect", "浏览器采集", "Browser collector"],
+  ["/web/download.html", "下载采集器", "Download collector"],
+  ["/contributors", "采集贡献榜", "Contributors"],
+  ["/traffic", "网站流量", "Website traffic"],
+];
+function toolCrumb(path: string): [string, string] | null {
+  const page = TOOL_PAGES.find(
+    ([prefix]) => path === prefix || path.startsWith(prefix + "/"),
+  );
+  return page ? [page[1], page[2]] : null;
+}
 export function AppShell({ children }: { children: React.ReactNode }) {
   const words = useWords();
   const route = useLocation();
@@ -336,21 +364,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }
         id="main"
       >
-        {(["/alerts", "/collect", "/web/download.html"].some(
-          (prefix) =>
-            route.pathname === prefix ||
-            route.pathname.startsWith(prefix + "/"),
-        ) ||
-          route.pathname === "/tools/enhancement") && (
-          <div className="tool-breadcrumb">
+        {toolCrumb(route.pathname) && (
+          <nav className="tool-breadcrumb" aria-label={words("位置", "Breadcrumb")}>
             <SiteLink href="/tools">{words("工具", "Tools")}</SiteLink>
-            <span aria-hidden="true">/</span>
-            <span>
-              {route.pathname === "/tools/enhancement"
-                ? words("强化计算器", "Enhancement calculator")
-                : words("采集", "Collection")}
-            </span>
-          </div>
+            <span aria-hidden="true">›</span>
+            <span aria-current="page">{words(...toolCrumb(route.pathname)!)}</span>
+          </nav>
         )}
         {children}
       </main>

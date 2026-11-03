@@ -55,6 +55,15 @@ export const mobImg = (id, pose) => `https://maplestory.io/api/GMS/83/mob/${id}/
 
 // Counts with thousands separators, the same in both languages ("1,001").
 export const num = (n) => (n == null ? '—' : Number(n).toLocaleString('en-US'));
+// Large counts as K / M ("12.3K"); below 10,000 they keep every digit.
+export function compact(n) {
+  if (n == null) return '—';
+  const v = Number(n), a = Math.abs(v);
+  // 999,960 rounds to 1000K, so switch to M at that point.
+  if (a >= 999950) return oneDecimal(v / 1e6) + 'M';
+  if (a >= 1e4) return oneDecimal(v / 1e3) + 'K';
+  return num(v);
+}
 
 export const slot = (url, size = 28) =>
   `<span class="slot" style="--s:${size}px"><img src="${esc(url)}" alt="" width="${size}" height="${size}" loading="lazy"></span>`;

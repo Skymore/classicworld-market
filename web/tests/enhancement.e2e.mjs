@@ -97,7 +97,7 @@ try{
    const fonts=await page.locator('.enhancement-page input,.enhancement-page select').evaluateAll(nodes=>nodes.map(node=>parseFloat(getComputedStyle(node).fontSize)));assert(fonts.every(size=>size>=16));
    await page.screenshot({path:path.join(output,`enhancement-${width}-${theme}.png`),fullPage:true});
   }
-  await page.locator('.tool-breadcrumb a').click();await page.locator('[data-tool=collection]').click();await page.locator('.alerts-page h1').waitFor();
+  await page.locator('.tool-breadcrumb a').click();await page.locator('[data-tool=alerts]').click();await page.locator('.alerts-page h1').waitFor();
   assert.equal(await page.locator('[data-nav-key=tools]:visible').getAttribute('aria-current'),'page');
   assert.equal(await page.evaluate(()=>window.documentIdentity),identity,'secondary navigation stays in the same document');
   assert.deepEqual(errors,[]);await page.close();console.log(`PASS ${width}px: tools, mixed scrolls, typed targets, 25/50/70 market prices, exact base stats, SSE, equipment switching, themes and collection`);
