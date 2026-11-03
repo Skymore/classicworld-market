@@ -1,0 +1,447 @@
+{
+ "source": "https://mxdgcw.dvg.cn/npc_info.php?id=<id> (h1 name, English name, subtitle)",
+ "fetched": "2026-10-21",
+ "items": [
+  {
+   "id": 1,
+   "found": true,
+   "name": "-",
+   "name_en": null,
+   "subtitle": "国服怀旧服 NPC · 彩虹岛之路"
+  },
+  {
+   "id": 10,
+   "found": true,
+   "name": "-",
+   "name_en": null,
+   "subtitle": "国服怀旧服 NPC · 彩虹岛之路"
+  },
+  {
+   "id": 20,
+   "found": true,
+   "name": "-",
+   "name_en": null,
+   "subtitle": "国服怀旧服 NPC · 彩虹街"
+  },
+  {
+   "id": 21,
+   "found": true,
+   "name": "-",
+   "name_en": null,
+   "subtitle": "国服怀旧服 NPC · 彩虹街"
+  },
+  {
+   "id": 1000,
+   "found": true,
+   "name": "桑艺",
+   "name_en": "Agatha",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1001,
+   "found": true,
+   "name": "月台引导员",
+   "name_en": "Platform Usher",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1002,
+   "found": true,
+   "name": "斯娜",
+   "name_en": "Sunny",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1003,
+   "found": true,
+   "name": "艾琳",
+   "name_en": "Aileen",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1004,
+   "found": true,
+   "name": "田菲",
+   "name_en": "Rini",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1005,
+   "found": true,
+   "name": "贵英",
+   "name_en": "Shuri",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1006,
+   "found": true,
+   "name": "阿霖",
+   "name_en": "Erin",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1007,
+   "found": true,
+   "name": "查里中士",
+   "name_en": "Staff Sergeant Charlie",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1008,
+   "found": true,
+   "name": "瑞撒上等兵",
+   "name_en": "Corporal Wilson",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1009,
+   "found": true,
+   "name": "伊吉上等兵",
+   "name_en": "Corporal Easy",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1010,
+   "found": true,
+   "name": "莉萨",
+   "name_en": "Lisa",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1011,
+   "found": true,
+   "name": "小刘",
+   "name_en": "Trina",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1012,
+   "found": true,
+   "name": "妖精娜丽",
+   "name_en": "Neri the Fairy",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1013,
+   "found": true,
+   "name": "妖精诺丽",
+   "name_en": "Nuri the Fairy",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1014,
+   "found": true,
+   "name": "妖精易多",
+   "name_en": "Edel the Fairy",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1015,
+   "found": true,
+   "name": "妖精珂丽尔",
+   "name_en": "Kriel the Fairy",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1016,
+   "found": true,
+   "name": "保姆珥玛",
+   "name_en": "Elma the Housekeeper",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1017,
+   "found": true,
+   "name": "奈巴",
+   "name_en": "Neve",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1018,
+   "found": true,
+   "name": "弗兰克",
+   "name_en": "Franz the Owner",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1019,
+   "found": true,
+   "name": "利嘉",
+   "name_en": "Riza the Assistant",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1020,
+   "found": true,
+   "name": "米努",
+   "name_en": "Mino the Owner",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1021,
+   "found": true,
+   "name": "利纳斯",
+   "name_en": "Rinz the Assistant",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1022,
+   "found": true,
+   "name": "罗米",
+   "name_en": "Romi",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1023,
+   "found": true,
+   "name": "斯皮罗纳",
+   "name_en": "Spiruna",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1024,
+   "found": true,
+   "name": "????",
+   "name_en": null,
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1025,
+   "found": true,
+   "name": "巴兰",
+   "name_en": "Barun",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1026,
+   "found": true,
+   "name": "哈克尔",
+   "name_en": "Huckle",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1027,
+   "found": true,
+   "name": "雕像",
+   "name_en": "Statue",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1028,
+   "found": true,
+   "name": "天空之城魔法石",
+   "name_en": "Orbis Magic Spot",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1029,
+   "found": true,
+   "name": "冰峰雪域魔法石",
+   "name_en": "El Nath Magic Spot",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1030,
+   "found": true,
+   "name": "哈拉克",
+   "name_en": "Heracle",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1100,
+   "found": true,
+   "name": "珀斯上尉",
+   "name_en": "Master Sergeant Fox",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1101,
+   "found": true,
+   "name": "巴伯下士",
+   "name_en": "Sergeant Bravo",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1102,
+   "found": true,
+   "name": "杰德",
+   "name_en": "Jade",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1103,
+   "found": true,
+   "name": "斯卡德",
+   "name_en": "Scadur",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1104,
+   "found": true,
+   "name": "泰勒斯",
+   "name_en": "Tylus",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1105,
+   "found": true,
+   "name": "鲁碧",
+   "name_en": "Robeira",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1106,
+   "found": true,
+   "name": "蕾妮",
+   "name_en": "Rene",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1107,
+   "found": true,
+   "name": "艾瑞克",
+   "name_en": "Arec",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1108,
+   "found": true,
+   "name": "伯坚",
+   "name_en": "Vogen",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1109,
+   "found": true,
+   "name": "高登",
+   "name_en": "Gordon",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1110,
+   "found": true,
+   "name": "塔尔杰先生",
+   "name_en": "Mr. Thalj",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1111,
+   "found": true,
+   "name": "阿尔卡斯特",
+   "name_en": "Alcaster",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1112,
+   "found": true,
+   "name": "斯考特",
+   "name_en": "Scott",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1113,
+   "found": true,
+   "name": "卢米",
+   "name_en": "Rumi",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1114,
+   "found": true,
+   "name": "哈娜",
+   "name_en": "Hana",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1115,
+   "found": true,
+   "name": "杰夫",
+   "name_en": "Jeff",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1116,
+   "found": true,
+   "name": "格里巴",
+   "name_en": "Glibber",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1117,
+   "found": true,
+   "name": "阿杜比斯",
+   "name_en": "Adobis",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1118,
+   "found": true,
+   "name": "阿们",
+   "name_en": "Amon",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1119,
+   "found": true,
+   "name": "阿里",
+   "name_en": "Ali",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1120,
+   "found": true,
+   "name": "奥拉",
+   "name_en": "Aura",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1121,
+   "found": true,
+   "name": "利拉",
+   "name_en": "Lira",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1122,
+   "found": true,
+   "name": "雪岩",
+   "name_en": "Rock Covered in Snow",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1123,
+   "found": true,
+   "name": "神圣的石头",
+   "name_en": "Holy Stone",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1124,
+   "found": true,
+   "name": "小墓地",
+   "name_en": "Small Tomb",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 1125,
+   "found": true,
+   "name": "石像的碎片",
+   "name_en": "Piece of Statue",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 900000,
+   "found": true,
+   "name": "枫叶运营员",
+   "name_en": "Maple Administrator",
+   "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 900002,
+   "found": true,
+   "name": "枫叶运营员",
+   "name_en": "Maple Administrator",
+   "subtitle": "国服怀旧服 NPC"
+  }
+ ]
+}

@@ -8,7 +8,7 @@
 - 掉落整张换成 NiaDB 玩家确认（赞成多于反对）的掉落，没有掉率，页面显示"N 票"。金币改用 NiaDB 玩家报告的每堆金币数（NiaDB 页面上的中位数范围）。
 - 天空之城、冰峰雪域，以及 2026-11-18 之前的遗忘洞穴，标为未开放：数据在库里，网站不显示。
 
-需要三样东西：新代码（含迁移 `0038_niadb_bestiary.sql`）、新抓的 NiaDB 参考文件、用新代码重跑 `import_catalog`。
+需要三样东西：新代码（含迁移 `0038_niadb_bestiary.sql`）、仓库里的参考数据（`data/reference/`）、用新代码重跑 `import_catalog` 和 `import_portals`。
 
 ## 什么时候做
 
@@ -28,31 +28,18 @@ $env:DATABASE_URL = (Get-Content shared_data\native-runtime.json -Raw | ConvertF
 $pg = "market_data\runtime\pgsql\bin"
 ```
 
-### 1. 抓 NiaDB 数据
+### 1. 核对参考数据
+
+参考数据和生成它们的工具都在仓库里（`data/reference/`、`tools/`），同步到 `gitlab/main` 就有，不需要自己抓：
 
 ```powershell
-python tools\niadb_bestiary.py --output data\reference\niadb
+python -c "import json;d=json.load(open('data/reference/niadb/drops.json',encoding='utf-8'));print(d['fetched_at'],len(d['monsters']))"
+python -c "import json;print(len(json.load(open('data/reference/dvg/mob-list.json',encoding='utf-8'))['items']))"
 ```
 
-- 大约 25 分钟（200 多个怪物，每个两次请求，一次一个，间隔 3 秒）。全部成功才写四个文件（`monsters.json`、`maps.json`、`drops.json`、`mesos.json`）。
-- 结束时打印 `drops N, monsters with meso reports M`。预期 `monsters` 200 以上、`maps` 450 以上、`drops` 1500 以上、`M` 40 以上（2026-11-02 是 49）。
-- 中途停下（403、429 或网络错误）：旧文件不变，不要改间隔重试，把输出报告用户。
+预期：第一行打印 `2026-11-02T…` 和 `206`（或更新的日期和更多怪物），第二行 117 左右。文件不存在：停下，核对共享目录是否在 `gitlab/main`，然后报告用户。
 
-如果 `tools\niadb_portals.py` 存在，重新生成传送口（新地图的传送口在里面）：
-
-```powershell
-python tools\niadb_portals.py data\reference\niadb\maps.json --output data\reference\niadb\portals.json
-```
-
-文件不存在就跳过这一步，在报告里写明。
-
-再抓 DVG 怪物列表（怪物简体名，几秒钟）：
-
-```powershell
-python tools\dvg_mobs.py --output data\reference\dvg\mob-list.json
-```
-
-预期打印 `mobs 117` 左右。
+不要在这一步重新抓数据。数据要更新时，按 `server/README.md` 的"更新参考数据"在开发机上抓、提交，再走这份文档。
 
 ### 2. 找到上一次生产导入用的参数
 
@@ -75,7 +62,7 @@ $backup = "shared_data\backups\catalog-$ts.pgdump"
 
 ### 4. 重跑 import_catalog
 
-路径和 `--mapledex-version` 用第 2 步记下的；`--niadb-version` 写第 1 步抓数据的日期：
+路径和 `--mapledex-version` 用第 2 步记下的：
 
 ```powershell
 cd server
@@ -84,16 +71,17 @@ cargo run --release -p market-web --bin import_catalog -- `
   --mapledex "<mapledex 的 source>" `
   --mapledex-version "<mapledex 的 version>" `
   --niadb "<niadb 的 source>" `
-  --niadb-version "fetched <第 1 步的日期，例如 2026-11-03>" `
+  --niadb-version "fetched <第 1 步 fetched_at 的日期，例如 2026-11-02>" `
   --zh-names "<zh-names 的 source>" `
   --dvg-mobs "..\data\reference\dvg\mob-list.json"
 ```
 
 - 导入在一个事务里，出错整体回滚。
+- `--niadb-version` 写 `drops.json` 里 `fetched_at` 的日期（第 1 步第一行打印的）。
 - 预期输出（2026-11-02 的数据，新抓的会略多）：`mobs 206 NiaDB (… 7 replace a different Mapledex mob … 52 unreleased; 110 simplified names from DVG …)`、`maps 453 NiaDB (… 119 unreleased …)`、`drops 1704 NiaDB: 1655 items … 49 meso ranges`、`items` 与上一次相同。
 - `mobs`、`maps` 少于 200、`drops` 少于 1000：按第 7 步恢复并报告用户。
 
-第 1 步生成了 `portals.json` 时，接着导入传送口：
+接着导入传送口（新地图的传送口在仓库的 `portals.json` 里）：
 
 ```powershell
 cargo run --release -p market-web --bin import_portals -- ..\data\reference\niadb\portals.json
@@ -131,4 +119,4 @@ cd ..
 
 ## 完成后报告
 
-共享目录的提交号、第 1 步打印的数量、是否导入了传送口、第 2 步的四个来源和版本、备份文件名、第 4 步打印的数量、第 5 步查询结果，以及三个页面是否符合预期。
+共享目录的提交号、第 1 步打印的内容、`import_portals` 打印的数量、第 2 步的四个来源和版本、备份文件名、第 4 步打印的数量、第 5 步查询结果，以及三个页面是否符合预期。

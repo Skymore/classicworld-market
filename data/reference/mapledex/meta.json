@@ -1,0 +1,55 @@
+{
+  "version": "CW GMS_COT2_2026-08-11",
+  "sample": false,
+  "generatedAt": "2026-09-17T08:21:07.080Z",
+  "icons": true,
+  "sources": {
+    "en": "Classic World 國際版客戶端 GMS_COT2_2026-08-11",
+    "zh": "TMS v113 String.wz（經 GMS v83 對照）",
+    "cw": "CMS Classic World 客戶端（經 GMS v83 對照）"
+  },
+  "counts": {
+    "monsters": {
+      "total": 195,
+      "zh": 176,
+      "cw": 176,
+      "en": 195
+    },
+    "maps": {
+      "total": 432,
+      "zh": 359,
+      "cw": 258,
+      "en": 432
+    },
+    "items": {
+      "total": 796,
+      "zh": 433,
+      "cw": 422,
+      "en": 796
+    },
+    "equips": {
+      "total": 1759,
+      "zh": 1651,
+      "cw": 1620,
+      "en": 1759
+    },
+    "skills": {
+      "total": 163,
+      "zh": 142,
+      "cw": 142,
+      "en": 163
+    },
+    "quests": {
+      "total": 322,
+      "zh": 120,
+      "cw": 82,
+      "en": 322
+    },
+    "npcs": {
+      "total": 266,
+      "zh": 227,
+      "cw": 221,
+      "en": 266
+    }
+  }
+}

@@ -270,7 +270,7 @@ cargo run --release -p market-web --bin reachability        # 从射手村能到
 
 以后用客户端 Map.wz 自己导出传送口时，`market_map_resources.py --wz Map.wz --map-id <id> --output portals/<id>.json` 的输出和 `niadb_portals.py` 是同一格式，用 `import_portals` 导入后对照。
 
-更新参考数据（然后改 `../THIRD_PARTY_NOTICES.md` 里的日期和 `src/bin/import_catalog.rs` 的 `NIADB_VERSION`）：
+更新参考数据（`data/reference/` 和下面的工具都在仓库里；在开发机上抓，核对后连同 `../THIRD_PARTY_NOTICES.md` 里的日期和 `src/bin/import_catalog.rs` 的 `NIADB_VERSION` 一起提交，生产机只用提交的数据）：
 
 ```sh
 for f in items equips npcs meta monsters maps; do

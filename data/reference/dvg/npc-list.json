@@ -1,0 +1,4137 @@
+{
+ "source": "https://mxdgcw.dvg.cn/api/npc-list.php?lng=CN",
+ "fetched": "2026-10-21",
+ "items": [
+  {
+   "npcid": 2,
+   "npcname": "莎丽",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000002.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 1,
+     "mapName": "蘑菇镇 - 西入口"
+    }
+   ],
+   "questCount": 2,
+   "shopCount": 0
+  },
+  {
+   "npcid": 3,
+   "npcname": "罗杰",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000003.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10,
+     "mapName": "小蘑菇"
+    }
+   ],
+   "questCount": 1,
+   "shopCount": 0
+  },
+  {
+   "npcid": 4,
+   "npcname": "妮娜",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000004.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 20,
+     "mapName": "小蘑菇"
+    }
+   ],
+   "questCount": 2,
+   "shopCount": 0
+  },
+  {
+   "npcid": 5,
+   "npcname": "珊",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000005.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 21,
+     "mapName": "蘑菇村村民家"
+    }
+   ],
+   "questCount": 2,
+   "shopCount": 0
+  },
+  {
+   "npcid": 6,
+   "npcname": "彼得",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000006.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 30,
+     "mapName": "蘑菇镇东入口"
+    }
+   ],
+   "questCount": 1,
+   "shopCount": 0
+  },
+  {
+   "npcid": 7,
+   "npcname": "透德",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000008.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 30,
+     "mapName": "蘑菇镇东入口"
+    }
+   ],
+   "questCount": 1,
+   "shopCount": 0
+  },
+  {
+   "npcid": 8,
+   "npcname": "罗宾",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000008.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 40,
+     "mapName": "蜗牛狩猎场 I"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 9,
+   "npcname": "萨姆",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000008.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 40,
+     "mapName": "蜗牛狩猎场 I"
+    }
+   ],
+   "questCount": 1,
+   "shopCount": 0
+  },
+  {
+   "npcid": 11,
+   "npcname": "麦加",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000011.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 50,
+     "mapName": "岔路"
+    }
+   ],
+   "questCount": 3,
+   "shopCount": 0
+  },
+  {
+   "npcid": 12,
+   "npcname": "比格斯",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000012.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 60,
+     "mapName": "南港"
+    }
+   ],
+   "questCount": 1,
+   "shopCount": 0
+  },
+  {
+   "npcid": 13,
+   "npcname": "尤娜",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000013.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 60,
+     "mapName": "南港"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 14,
+   "npcname": "巴里",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000014.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 60,
+     "mapName": "南港"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 15,
+   "npcname": "申克斯",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000015.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 60,
+     "mapName": "南港"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 16,
+   "npcname": "潘",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000016.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 61,
+     "mapName": "南港防具店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 17,
+   "npcname": "路卡斯",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000017.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 1010,
+     "mapName": "彩虹村"
+    }
+   ],
+   "questCount": 2,
+   "shopCount": 0
+  },
+  {
+   "npcid": 18,
+   "npcname": "皮奥",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000018.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 1010,
+     "mapName": "彩虹村"
+    }
+   ],
+   "questCount": 1,
+   "shopCount": 0
+  },
+  {
+   "npcid": 19,
+   "npcname": "瑞恩",
+   "name_en": "",
+   "npcname_us": "",
+   "icon": "/dbsource/npcsource/0000019.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 1010,
+     "mapName": "彩虹村"
+    }
+   ],
+   "questCount": 7,
+   "shopCount": 0
+  },
+  {
+   "npcid": 100,
+   "npcname": "约翰",
+   "name_en": "John",
+   "npcname_us": "John",
+   "icon": "/dbsource/npcsource/0000100.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10000000,
+     "mapName": "明珠港"
+    }
+   ],
+   "questCount": 3,
+   "shopCount": 0
+  },
+  {
+   "npcid": 101,
+   "npcname": "比尔",
+   "name_en": "Phil",
+   "npcname_us": "Phil",
+   "icon": "/dbsource/npcsource/0000101.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10000000,
+     "mapName": "明珠港"
+    }
+   ],
+   "questCount": 1,
+   "shopCount": 0
+  },
+  {
+   "npcid": 102,
+   "npcname": "特奥",
+   "name_en": "Teo",
+   "npcname_us": "Teo",
+   "icon": "/dbsource/npcsource/0000102.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10000000,
+     "mapName": "明珠港"
+    }
+   ],
+   "questCount": 6,
+   "shopCount": 0
+  },
+  {
+   "npcid": 103,
+   "npcname": "简",
+   "name_en": "Jane",
+   "npcname_us": "Jane",
+   "icon": "/dbsource/npcsource/0000103.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10000000,
+     "mapName": "明珠港"
+    }
+   ],
+   "questCount": 4,
+   "shopCount": 0
+  },
+  {
+   "npcid": 104,
+   "npcname": "高级出租车",
+   "name_en": "VIP Cab",
+   "npcname_us": "VIP Cab",
+   "icon": "/dbsource/npcsource/0000104.stand.png",
+   "roles": [
+    "Transport"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10000000,
+     "mapName": "明珠港"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 105,
+   "npcname": "金先生",
+   "name_en": "Mr. Kim",
+   "npcname_us": "Mr. Kim",
+   "icon": "/dbsource/npcsource/0000105.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10000000,
+     "mapName": "明珠港"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 106,
+   "npcname": "吉夫",
+   "name_en": "Chef",
+   "npcname_us": "Chef",
+   "icon": "/dbsource/npcsource/0000106.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10000000,
+     "mapName": "明珠港"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 107,
+   "npcname": "坤",
+   "name_en": "Olaf",
+   "npcname_us": "Olaf",
+   "icon": "/dbsource/npcsource/0000107.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10000000,
+     "mapName": "明珠港"
+    }
+   ],
+   "questCount": 2,
+   "shopCount": 0
+  },
+  {
+   "npcid": 108,
+   "npcname": "娜塔莎",
+   "name_en": "Natasha",
+   "npcname_us": "Natasha",
+   "icon": "/dbsource/npcsource/0000108.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10000001,
+     "mapName": "明珠港防御武器店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 109,
+   "npcname": "米娜",
+   "name_en": "Mina",
+   "npcname_us": "Mina",
+   "icon": "/dbsource/npcsource/0000109.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10000002,
+     "mapName": "明珠港杂货店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 110,
+   "npcname": "赛尔文",
+   "name_en": "Silver",
+   "npcname_us": "Silver",
+   "icon": "/dbsource/npcsource/0000110.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10000003,
+     "mapName": "明珠港武器店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 111,
+   "npcname": "智慧爷爷",
+   "name_en": "Mr. Goldstein",
+   "npcname_us": "Mr. Goldstein",
+   "icon": "/dbsource/npcsource/0000111.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10000000,
+     "mapName": "明珠港"
+    }
+   ],
+   "questCount": 2,
+   "shopCount": 0
+  },
+  {
+   "npcid": 112,
+   "npcname": "佩森",
+   "name_en": "Pason",
+   "npcname_us": "Pason",
+   "icon": "/dbsource/npcsource/0000112.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10000000,
+     "mapName": "明珠港"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 113,
+   "npcname": "玛丽尔",
+   "name_en": "Mariel",
+   "npcname_us": "Mariel",
+   "icon": "/dbsource/npcsource/0000113.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 114,
+   "npcname": "因基",
+   "name_en": "Inky",
+   "npcname_us": "Inky",
+   "icon": "/dbsource/npcsource/0000114.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 200,
+   "npcname": "普通出租车",
+   "name_en": "Regular Cab",
+   "npcname_us": "Regular Cab",
+   "icon": "/dbsource/npcsource/0000200.stand.png",
+   "roles": [
+    "Transport"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001000,
+     "mapName": "射手村"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 201,
+   "npcname": "丽娜",
+   "name_en": "Rina",
+   "npcname_us": "Rina",
+   "icon": "/dbsource/npcsource/0000201.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001000,
+     "mapName": "射手村"
+    }
+   ],
+   "questCount": 8,
+   "shopCount": 0
+  },
+  {
+   "npcid": 202,
+   "npcname": "长老斯坦",
+   "name_en": "Chief Stan",
+   "npcname_us": "Chief Stan",
+   "icon": "/dbsource/npcsource/0000202.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001000,
+     "mapName": "射手村"
+    }
+   ],
+   "questCount": 11,
+   "shopCount": 0
+  },
+  {
+   "npcid": 203,
+   "npcname": "明明女士",
+   "name_en": "Mrs. Ming Ming",
+   "npcname_us": "Mrs. Ming Ming",
+   "icon": "/dbsource/npcsource/0000203.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001000,
+     "mapName": "射手村"
+    }
+   ],
+   "questCount": 12,
+   "shopCount": 0
+  },
+  {
+   "npcid": 204,
+   "npcname": "卡米拉",
+   "name_en": "Camila",
+   "npcname_us": "Camila",
+   "icon": "/dbsource/npcsource/0000204.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001000,
+     "mapName": "射手村"
+    }
+   ],
+   "questCount": 8,
+   "shopCount": 0
+  },
+  {
+   "npcid": 205,
+   "npcname": "亚华",
+   "name_en": "Jay",
+   "npcname_us": "Jay",
+   "icon": "/dbsource/npcsource/0000205.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001000,
+     "mapName": "射手村"
+    }
+   ],
+   "questCount": 9,
+   "shopCount": 0
+  },
+  {
+   "npcid": 206,
+   "npcname": "布鲁斯",
+   "name_en": "Bruce",
+   "npcname_us": "Bruce",
+   "icon": "/dbsource/npcsource/0000206.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001000,
+     "mapName": "射手村"
+    }
+   ],
+   "questCount": 10,
+   "shopCount": 0
+  },
+  {
+   "npcid": 207,
+   "npcname": "玛亚",
+   "name_en": "Maya",
+   "npcname_us": "Maya",
+   "icon": "/dbsource/npcsource/0000207.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001001,
+     "mapName": "射手村街道"
+    }
+   ],
+   "questCount": 11,
+   "shopCount": 0
+  },
+  {
+   "npcid": 208,
+   "npcname": "比休斯",
+   "name_en": "Vicious",
+   "npcname_us": "Vicious",
+   "icon": "/dbsource/npcsource/0000208.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001040,
+     "mapName": "射手村集市"
+    }
+   ],
+   "questCount": 6,
+   "shopCount": 0
+  },
+  {
+   "npcid": 209,
+   "npcname": "科尔",
+   "name_en": "Doofus",
+   "npcname_us": "Doofus",
+   "icon": "/dbsource/npcsource/0000209.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 2,
+   "locations": [
+    {
+     "mapid": 10001040,
+     "mapName": "射手村集市"
+    },
+    {
+     "mapid": 10001052,
+     "mapName": "宠物公园"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 210,
+   "npcname": "卡尔",
+   "name_en": "Karl",
+   "npcname_us": "Karl",
+   "icon": "/dbsource/npcsource/0000210.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001041,
+     "mapName": "射手村武器店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 211,
+   "npcname": "萨姆",
+   "name_en": "Sam",
+   "npcname_us": "Sam",
+   "icon": "/dbsource/npcsource/0000211.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001041,
+     "mapName": "射手村武器店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 212,
+   "npcname": "卢娜",
+   "name_en": "Luna",
+   "npcname_us": "Luna",
+   "icon": "/dbsource/npcsource/0000212.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001042,
+     "mapName": "射手村杂货店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 213,
+   "npcname": "黛玛院长",
+   "name_en": "Denma the Owner",
+   "npcname_us": "Denma the Owner",
+   "icon": "/dbsource/npcsource/0000213.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001043,
+     "mapName": "射手村整容院"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 214,
+   "npcname": "差不多医生",
+   "name_en": "Dr. Feeble",
+   "npcname_us": "Dr. Feeble",
+   "icon": "/dbsource/npcsource/0000214.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001043,
+     "mapName": "射手村整容院"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 215,
+   "npcname": "娜塔丽",
+   "name_en": "Natalie",
+   "npcname_us": "Natalie",
+   "icon": "/dbsource/npcsource/0000215.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001044,
+     "mapName": "射手村美发店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 216,
+   "npcname": "伯丽特",
+   "name_en": "Brittany",
+   "npcname_us": "Brittany",
+   "icon": "/dbsource/npcsource/0000216.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001044,
+     "mapName": "射手村美发店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 217,
+   "npcname": "沃美妮",
+   "name_en": "Ms. Tan",
+   "npcname_us": "Ms. Tan",
+   "icon": "/dbsource/npcsource/0000217.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001045,
+     "mapName": "射手村护肤中心"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 218,
+   "npcname": "皮亚",
+   "name_en": "Pia",
+   "npcname_us": "Pia",
+   "icon": "/dbsource/npcsource/0000218.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001050,
+     "mapName": "射手村公园"
+    }
+   ],
+   "questCount": 10,
+   "shopCount": 0
+  },
+  {
+   "npcid": 219,
+   "npcname": "科洛伊",
+   "name_en": "Cloy",
+   "npcname_us": "Cloy",
+   "icon": "/dbsource/npcsource/0000219.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001050,
+     "mapName": "射手村公园"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 220,
+   "npcname": "李先生",
+   "name_en": "Mr. Lee",
+   "npcname_us": "Mr. Lee",
+   "icon": "/dbsource/npcsource/0000220.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001050,
+     "mapName": "射手村公园"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 221,
+   "npcname": "赫丽娜",
+   "name_en": "Athena Pierce",
+   "npcname_us": "Athena Pierce",
+   "icon": "/dbsource/npcsource/0000221.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001051,
+     "mapName": "弓箭手培训中心"
+    }
+   ],
+   "questCount": 9,
+   "shopCount": 0
+  },
+  {
+   "npcid": 222,
+   "npcname": "巴特斯",
+   "name_en": "Trainer Bartos",
+   "npcname_us": "Trainer Bartos",
+   "icon": "/dbsource/npcsource/0000222.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001052,
+     "mapName": "宠物公园"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 223,
+   "npcname": "巴罗德",
+   "name_en": "Trainer Frod",
+   "npcname_us": "Trainer Frod",
+   "icon": "/dbsource/npcsource/0000223.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001052,
+     "mapName": "宠物公园"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 224,
+   "npcname": "桉",
+   "name_en": "Anne",
+   "npcname_us": "Anne",
+   "icon": "/dbsource/npcsource/0000224.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001060,
+     "mapName": "射手村东部小山"
+    }
+   ],
+   "questCount": 4,
+   "shopCount": 0
+  },
+  {
+   "npcid": 225,
+   "npcname": "尤塔",
+   "name_en": "Utah",
+   "npcname_us": "Utah",
+   "icon": "/dbsource/npcsource/0000225.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001082,
+     "mapName": "犹他的猪农场"
+    }
+   ],
+   "questCount": 1,
+   "shopCount": 0
+  },
+  {
+   "npcid": 226,
+   "npcname": "鲁克",
+   "name_en": "Luke",
+   "npcname_us": "Luke",
+   "icon": "/dbsource/npcsource/0000226.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001100,
+     "mapName": "射手村迷宫入口"
+    }
+   ],
+   "questCount": 2,
+   "shopCount": 0
+  },
+  {
+   "npcid": 227,
+   "npcname": "弓箭手转职教官",
+   "name_en": "Bowman Job Instructor",
+   "npcname_us": "Bowman Job Instructor",
+   "icon": "/dbsource/npcsource/0000227.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001090,
+     "mapName": "迷宫通道"
+    }
+   ],
+   "questCount": 3,
+   "shopCount": 0
+  },
+  {
+   "npcid": 228,
+   "npcname": "凯茜",
+   "name_en": "Casey",
+   "npcname_us": "Casey",
+   "icon": "/dbsource/npcsource/0000228.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001050,
+     "mapName": "射手村公园"
+    }
+   ],
+   "questCount": 7,
+   "shopCount": 0
+  },
+  {
+   "npcid": 229,
+   "npcname": "亚瑟",
+   "name_en": "Arthur",
+   "npcname_us": "Arthur",
+   "icon": "/dbsource/npcsource/0000229.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001007,
+     "mapName": "射手村市政厅"
+    }
+   ],
+   "questCount": 19,
+   "shopCount": 0
+  },
+  {
+   "npcid": 230,
+   "npcname": "达尔米",
+   "name_en": "Tommy",
+   "npcname_us": "Tommy",
+   "icon": "/dbsource/npcsource/0000230.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001007,
+     "mapName": "射手村市政厅"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 231,
+   "npcname": "比安卡",
+   "name_en": "Bianca",
+   "npcname_us": "Bianca",
+   "icon": "/dbsource/npcsource/0000231.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001000,
+     "mapName": "射手村"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 232,
+   "npcname": "雷蒙德",
+   "name_en": "Raymond",
+   "npcname_us": "Raymond",
+   "icon": "/dbsource/npcsource/0000232.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001007,
+     "mapName": "射手村市政厅"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 233,
+   "npcname": "奥克",
+   "name_en": "Oak",
+   "npcname_us": "Oak",
+   "icon": "/dbsource/npcsource/0000233.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001007,
+     "mapName": "射手村市政厅"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 234,
+   "npcname": "弗林特",
+   "name_en": "Flint",
+   "npcname_us": "Flint",
+   "icon": "/dbsource/npcsource/0000234.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001007,
+     "mapName": "射手村市政厅"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 235,
+   "npcname": "社区公告板",
+   "name_en": "Community Board",
+   "npcname_us": "Community Board",
+   "icon": "/dbsource/npcsource/0000235.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001000,
+     "mapName": "射手村"
+    }
+   ],
+   "questCount": 35,
+   "shopCount": 0
+  },
+  {
+   "npcid": 236,
+   "npcname": "门铃",
+   "name_en": "Doorbell",
+   "npcname_us": "Doorbell",
+   "icon": "/dbsource/npcsource/0000236.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001000,
+     "mapName": "射手村"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 237,
+   "npcname": "信箱",
+   "name_en": "Mailbox",
+   "npcname_us": "Mailbox",
+   "icon": "/dbsource/npcsource/0000237.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 238,
+   "npcname": "破旧的木箱",
+   "name_en": "Worn Wooden Chest",
+   "npcname_us": "Worn Wooden Chest",
+   "icon": "/dbsource/npcsource/0000238.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 239,
+   "npcname": "加固的木箱",
+   "name_en": "Reinforced Wooden Chest",
+   "npcname_us": "Reinforced Wooden Chest",
+   "icon": "/dbsource/npcsource/0000239.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 300,
+   "npcname": "胡小姐",
+   "name_en": "Estelle",
+   "npcname_us": "Estelle",
+   "icon": "/dbsource/npcsource/0000224.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002010,
+     "mapName": "魔法密林南郊"
+    }
+   ],
+   "questCount": 3,
+   "shopCount": 0
+  },
+  {
+   "npcid": 301,
+   "npcname": "普通出租车",
+   "name_en": "Regular Cab",
+   "npcname_us": "Regular Cab",
+   "icon": "/dbsource/npcsource/0000200.stand.png",
+   "roles": [
+    "Transport"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002000,
+     "mapName": "魔法密林"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 302,
+   "npcname": "高级出租车",
+   "name_en": "VIP Cab",
+   "npcname_us": "VIP Cab",
+   "icon": "/dbsource/npcsource/0000302.stand.png",
+   "roles": [
+    "Transport"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002000,
+     "mapName": "魔法密林"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 303,
+   "npcname": "易德",
+   "name_en": "Francois",
+   "npcname_us": "Francois",
+   "icon": "/dbsource/npcsource/0000303.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002000,
+     "mapName": "魔法密林"
+    }
+   ],
+   "questCount": 3,
+   "shopCount": 0
+  },
+  {
+   "npcid": 304,
+   "npcname": "妖精艾温",
+   "name_en": "Arwen the Fairy",
+   "npcname_us": "Arwen the Fairy",
+   "icon": "/dbsource/npcsource/0000304.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002000,
+     "mapName": "魔法密林"
+    }
+   ],
+   "questCount": 3,
+   "shopCount": 0
+  },
+  {
+   "npcid": 305,
+   "npcname": "妖精罗雯",
+   "name_en": "Rowen the Fairy",
+   "npcname_us": "Rowen the Fairy",
+   "icon": "/dbsource/npcsource/0000305.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002000,
+     "mapName": "魔法密林"
+    }
+   ],
+   "questCount": 8,
+   "shopCount": 0
+  },
+  {
+   "npcid": 306,
+   "npcname": "赛恩",
+   "name_en": "Shane",
+   "npcname_us": "Shane",
+   "icon": "/dbsource/npcsource/0000306.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002000,
+     "mapName": "魔法密林"
+    }
+   ],
+   "questCount": 2,
+   "shopCount": 0
+  },
+  {
+   "npcid": 307,
+   "npcname": "朴先生",
+   "name_en": "Mr. Park",
+   "npcname_us": "Mr. Park",
+   "icon": "/dbsource/npcsource/0000307.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002000,
+     "mapName": "魔法密林"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 308,
+   "npcname": "巴缇",
+   "name_en": "Betty",
+   "npcname_us": "Betty",
+   "icon": "/dbsource/npcsource/0000308.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002000,
+     "mapName": "魔法密林"
+    }
+   ],
+   "questCount": 6,
+   "shopCount": 0
+  },
+  {
+   "npcid": 309,
+   "npcname": "妖精维英",
+   "name_en": "Wing the Fairy",
+   "npcname_us": "Wing the Fairy",
+   "icon": "/dbsource/npcsource/0000309.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002000,
+     "mapName": "魔法密林"
+    }
+   ],
+   "questCount": 4,
+   "shopCount": 0
+  },
+  {
+   "npcid": 310,
+   "npcname": "妖精佛罗拉",
+   "name_en": "Flora the Fairy",
+   "npcname_us": "Flora the Fairy",
+   "icon": "/dbsource/npcsource/0000310.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002001,
+     "mapName": "魔法密林武器店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 311,
+   "npcname": "妖精舍拉比",
+   "name_en": "Serabi the Fairy",
+   "npcname_us": "Serabi the Fairy",
+   "icon": "/dbsource/npcsource/0000311.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002001,
+     "mapName": "魔法密林武器店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 312,
+   "npcname": "妖精莲",
+   "name_en": "Len the Fairy",
+   "npcname_us": "Len the Fairy",
+   "icon": "/dbsource/npcsource/0000312.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002002,
+     "mapName": "魔法密林百货商店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 313,
+   "npcname": "汉斯",
+   "name_en": "Grendel the Really Old",
+   "npcname_us": "Grendel the Really Old",
+   "icon": "/dbsource/npcsource/0000313.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002003,
+     "mapName": "魔法图书馆"
+    }
+   ],
+   "questCount": 5,
+   "shopCount": 0
+  },
+  {
+   "npcid": 314,
+   "npcname": "路易斯",
+   "name_en": "Louis",
+   "npcname_us": "Louis",
+   "icon": "/dbsource/npcsource/0000314.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 5,
+   "locations": [
+    {
+     "mapid": 10002040,
+     "mapName": "忍苦树林（一层）"
+    },
+    {
+     "mapid": 10002041,
+     "mapName": "忍苦树林（二层）"
+    },
+    {
+     "mapid": 10002042,
+     "mapName": "忍苦树林（三层）"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 315,
+   "npcname": "花簇",
+   "name_en": "A pile of flowers",
+   "npcname_us": "A pile of flowers",
+   "icon": "/dbsource/npcsource/0000315.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002041,
+     "mapName": "忍苦树林（二层）"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 316,
+   "npcname": "草药丛",
+   "name_en": "A pile of herbs",
+   "npcname_us": "A pile of herbs",
+   "icon": "/dbsource/npcsource/0000316.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002044,
+     "mapName": "忍苦树林（五层）"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 317,
+   "npcname": "妖精玛丽",
+   "name_en": "Mar the Fairy",
+   "npcname_us": "Mar the Fairy",
+   "icon": "/dbsource/npcsource/0000317.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002004,
+     "mapName": "玛尔的森林"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 318,
+   "npcname": "阿尔莫斯",
+   "name_en": "El Moth",
+   "npcname_us": "El Moth",
+   "icon": "/dbsource/npcsource/0000318.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002062,
+     "mapName": "大木林Ⅲ"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 319,
+   "npcname": "魔法师转职教官",
+   "name_en": "Magician Job Instructor",
+   "npcname_us": "Magician Job Instructor",
+   "icon": "/dbsource/npcsource/0000319.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002070,
+     "mapName": "魔法密林北部"
+    }
+   ],
+   "questCount": 3,
+   "shopCount": 0
+  },
+  {
+   "npcid": 320,
+   "npcname": "洛尼",
+   "name_en": "Ronnie",
+   "npcname_us": "Ronnie",
+   "icon": "/dbsource/npcsource/0000320.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002071,
+     "mapName": "北部森林通道"
+    }
+   ],
+   "questCount": 11,
+   "shopCount": 0
+  },
+  {
+   "npcid": 321,
+   "npcname": "盛开的蓝铃花",
+   "name_en": "Fully Bloomed Bluebell",
+   "npcname_us": "Fully Bloomed Bluebell",
+   "icon": "/dbsource/npcsource/0000321.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002050,
+     "mapName": "魔法密林北郊"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 322,
+   "npcname": "售票员",
+   "name_en": "Joel",
+   "npcname_us": "Joel",
+   "icon": "/dbsource/npcsource/0000322.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002090,
+     "mapName": "魔法密林码头"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 323,
+   "npcname": "检票员",
+   "name_en": "Cherry",
+   "npcname_us": "Cherry",
+   "icon": "/dbsource/npcsource/0000323.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002090,
+     "mapName": "魔法密林码头"
+    }
+   ],
+   "questCount": 1,
+   "shopCount": 0
+  },
+  {
+   "npcid": 324,
+   "npcname": "船员普林",
+   "name_en": "Purin",
+   "npcname_us": "Purin",
+   "icon": "/dbsource/npcsource/0000324.stand.png",
+   "roles": [
+    "Transport"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002091,
+     "mapName": "起飞前 <前往天空之城>"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 325,
+   "npcname": "异界之门",
+   "name_en": "Door of Dimension",
+   "npcname_us": "Door of Dimension",
+   "icon": "/dbsource/npcsource/0000325.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 326,
+   "npcname": "图书管理员琳",
+   "name_en": "Lyn the Librarian",
+   "npcname_us": "Lyn the Librarian",
+   "icon": "/dbsource/npcsource/0000326.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002005,
+     "mapName": "借阅台"
+    }
+   ],
+   "questCount": 2,
+   "shopCount": 0
+  },
+  {
+   "npcid": 327,
+   "npcname": "抄写员塞布丽娜",
+   "name_en": "Sabrina the Scribe",
+   "npcname_us": "Sabrina the Scribe",
+   "icon": "/dbsource/npcsource/0000327.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002005,
+     "mapName": "借阅台"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 328,
+   "npcname": "审判官乔恩",
+   "name_en": "Jon the Justicar",
+   "npcname_us": "Jon the Justicar",
+   "icon": "/dbsource/npcsource/0000328.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002005,
+     "mapName": "借阅台"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 400,
+   "npcname": "普通出租车",
+   "name_en": "Regular Cab",
+   "npcname_us": "Regular Cab",
+   "icon": "/dbsource/npcsource/0000200.stand.png",
+   "roles": [
+    "Transport"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 401,
+   "npcname": "后街吉姆",
+   "name_en": "JM From tha Streetz",
+   "npcname_us": "JM From tha Streetz",
+   "icon": "/dbsource/npcsource/0000401.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    }
+   ],
+   "questCount": 5,
+   "shopCount": 0
+  },
+  {
+   "npcid": 402,
+   "npcname": "阿勒斯",
+   "name_en": "Alex",
+   "npcname_us": "Alex",
+   "icon": "/dbsource/npcsource/0000402.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    }
+   ],
+   "questCount": 10,
+   "shopCount": 0
+  },
+  {
+   "npcid": 403,
+   "npcname": "休咪",
+   "name_en": "Shumi",
+   "npcname_us": "Shumi",
+   "icon": "/dbsource/npcsource/0000403.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    }
+   ],
+   "questCount": 5,
+   "shopCount": 0
+  },
+  {
+   "npcid": 404,
+   "npcname": "马龙",
+   "name_en": "Mong from Kong",
+   "npcname_us": "Mong from Kong",
+   "icon": "/dbsource/npcsource/0000404.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    }
+   ],
+   "questCount": 6,
+   "shopCount": 0
+  },
+  {
+   "npcid": 405,
+   "npcname": "洪先生",
+   "name_en": "Mr. Hong",
+   "npcname_us": "Mr. Hong",
+   "icon": "/dbsource/npcsource/0000405.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 406,
+   "npcname": "内拉",
+   "name_en": "Nella",
+   "npcname_us": "Nella",
+   "icon": "/dbsource/npcsource/0000406.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    }
+   ],
+   "questCount": 13,
+   "shopCount": 0
+  },
+  {
+   "npcid": 407,
+   "npcname": "伊卡路斯",
+   "name_en": "Icarus",
+   "npcname_us": "Icarus",
+   "icon": "/dbsource/npcsource/0000407.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    }
+   ],
+   "questCount": 8,
+   "shopCount": 0
+  },
+  {
+   "npcid": 408,
+   "npcname": "曼斯塔",
+   "name_en": "Cutthroat Manny",
+   "npcname_us": "Cutthroat Manny",
+   "icon": "/dbsource/npcsource/0000408.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003001,
+     "mapName": "废都武器店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 409,
+   "npcname": "玛帕",
+   "name_en": "Don Hwang",
+   "npcname_us": "Don Hwang",
+   "icon": "/dbsource/npcsource/0000409.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003001,
+     "mapName": "废都武器店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 410,
+   "npcname": "铭仁",
+   "name_en": "Dr. Faymus",
+   "npcname_us": "Dr. Faymus",
+   "icon": "/dbsource/npcsource/0000410.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003002,
+     "mapName": "废弃都市药店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 411,
+   "npcname": "达克鲁",
+   "name_en": "Dark Lord",
+   "npcname_us": "Dark Lord",
+   "icon": "/dbsource/npcsource/0000411.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003003,
+     "mapName": "盗贼藏身处"
+    }
+   ],
+   "questCount": 10,
+   "shopCount": 0
+  },
+  {
+   "npcid": 412,
+   "npcname": "不认识的女人",
+   "name_en": "Jane Doe",
+   "npcname_us": "Jane Doe",
+   "icon": "/dbsource/npcsource/0000412.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003004,
+     "mapName": "尼奥拉医院"
+    }
+   ],
+   "questCount": 9,
+   "shopCount": 0
+  },
+  {
+   "npcid": 413,
+   "npcname": "钱老板",
+   "name_en": "Don Giovanni",
+   "npcname_us": "Don Giovanni",
+   "icon": "/dbsource/npcsource/0000413.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003005,
+     "mapName": "废都美发店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 414,
+   "npcname": "安德里亚",
+   "name_en": "Andre",
+   "npcname_us": "Andre",
+   "icon": "/dbsource/npcsource/0000414.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003005,
+     "mapName": "废都美发店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 415,
+   "npcname": "克利思",
+   "name_en": "Chris",
+   "npcname_us": "Chris",
+   "icon": "/dbsource/npcsource/0000415.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003006,
+     "mapName": "废都修理店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 416,
+   "npcname": "图里卡斯",
+   "name_en": "Tulcus",
+   "npcname_us": "Tulcus",
+   "icon": "/dbsource/npcsource/0000416.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003091,
+     "mapName": "沼泽地Ⅱ"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 417,
+   "npcname": "冬青",
+   "name_en": "Jake",
+   "npcname_us": "Jake",
+   "icon": "/dbsource/npcsource/0000417.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003060,
+     "mapName": "地铁售票处"
+    }
+   ],
+   "questCount": 4,
+   "shopCount": 0
+  },
+  {
+   "npcid": 418,
+   "npcname": "检票口",
+   "name_en": "The Ticket Gate",
+   "npcname_us": "The Ticket Gate",
+   "icon": "/dbsource/npcsource/0000418.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003060,
+     "mapName": "地铁售票处"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 419,
+   "npcname": "出口",
+   "name_en": "Exit",
+   "npcname_us": "Exit",
+   "icon": "/dbsource/npcsource/0000419.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 7,
+   "locations": [
+    {
+     "mapid": 10003100,
+     "mapName": "三号线一号地区B1"
+    },
+    {
+     "mapid": 10003101,
+     "mapName": "三号线一号地区B2"
+    },
+    {
+     "mapid": 10003103,
+     "mapName": "三号线二号地区B1"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 420,
+   "npcname": "宝箱",
+   "name_en": "Treasure Chest",
+   "npcname_us": "Treasure Chest",
+   "icon": "/dbsource/npcsource/0000420.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003102,
+     "mapName": "三号线1号车库"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 421,
+   "npcname": "宝箱",
+   "name_en": "Treasure Chest",
+   "npcname_us": "Treasure Chest",
+   "icon": "/dbsource/npcsource/0000421.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003105,
+     "mapName": "三号线2号车库"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 422,
+   "npcname": "宝箱",
+   "name_en": "Treasure Chest",
+   "npcname_us": "Treasure Chest",
+   "icon": "/dbsource/npcsource/0000422.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003109,
+     "mapName": "三号线3号车库"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 423,
+   "npcname": "异界之门",
+   "name_en": "Door of Dimension",
+   "npcname_us": "Door of Dimension",
+   "icon": "/dbsource/npcsource/0000423.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 424,
+   "npcname": "飞侠转职教官",
+   "name_en": "Thief Job Instructor",
+   "npcname_us": "Thief Job Instructor",
+   "icon": "/dbsource/npcsource/0000424.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003080,
+     "mapName": "废都北方工地"
+    }
+   ],
+   "questCount": 3,
+   "shopCount": 0
+  },
+  {
+   "npcid": 425,
+   "npcname": "罗克西",
+   "name_en": "Roxy",
+   "npcname_us": "Roxy",
+   "icon": "/dbsource/npcsource/0000425.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003007,
+     "mapName": "废弃都市市政中心"
+    }
+   ],
+   "questCount": 25,
+   "shopCount": 0
+  },
+  {
+   "npcid": 426,
+   "npcname": "捷克",
+   "name_en": "Jack",
+   "npcname_us": "Jack",
+   "icon": "/dbsource/npcsource/0000426.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003007,
+     "mapName": "废弃都市市政中心"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 427,
+   "npcname": "斯嘉丽",
+   "name_en": "Scarlett",
+   "npcname_us": "Scarlett",
+   "icon": "/dbsource/npcsource/0000427.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 428,
+   "npcname": "马克斯",
+   "name_en": "Max",
+   "npcname_us": "Max",
+   "icon": "/dbsource/npcsource/0000428.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003007,
+     "mapName": "废弃都市市政中心"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 429,
+   "npcname": "韦斯顿",
+   "name_en": "Weston",
+   "npcname_us": "Weston",
+   "icon": "/dbsource/npcsource/0000429.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003007,
+     "mapName": "废弃都市市政中心"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 430,
+   "npcname": "本",
+   "name_en": "Ben",
+   "npcname_us": "Ben",
+   "icon": "/dbsource/npcsource/0000430.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003007,
+     "mapName": "废弃都市市政中心"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 431,
+   "npcname": "社区公告板",
+   "name_en": "Community Board",
+   "npcname_us": "Community Board",
+   "icon": "/dbsource/npcsource/0000431.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    }
+   ],
+   "questCount": 36,
+   "shopCount": 0
+  },
+  {
+   "npcid": 432,
+   "npcname": "门铃",
+   "name_en": "Doorbell",
+   "npcname_us": "Doorbell",
+   "icon": "/dbsource/npcsource/0000432.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 433,
+   "npcname": "信箱",
+   "name_en": "Mailbox",
+   "npcname_us": "Mailbox",
+   "icon": "/dbsource/npcsource/0000433.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 434,
+   "npcname": "生锈的保险箱",
+   "name_en": "Rusty Safe",
+   "npcname_us": "Rusty Safe",
+   "icon": "/dbsource/npcsource/0000434.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 435,
+   "npcname": "加固的保险箱",
+   "name_en": "Reinforced Safe",
+   "npcname_us": "Reinforced Safe",
+   "icon": "/dbsource/npcsource/0000435.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 436,
+   "npcname": "斯莱德",
+   "name_en": "Slade",
+   "npcname_us": "Slade",
+   "icon": "/dbsource/npcsource/0000436.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003098,
+     "mapName": "隐士的小屋"
+    }
+   ],
+   "questCount": 3,
+   "shopCount": 0
+  },
+  {
+   "npcid": 500,
+   "npcname": "普通出租车",
+   "name_en": "Regular Cab",
+   "npcname_us": "Regular Cab",
+   "icon": "/dbsource/npcsource/0000200.stand.png",
+   "roles": [
+    "Transport"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004000,
+     "mapName": "勇士部落"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 501,
+   "npcname": "酋长",
+   "name_en": "Blackbull",
+   "npcname_us": "Blackbull",
+   "icon": "/dbsource/npcsource/0000501.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004000,
+     "mapName": "勇士部落"
+    }
+   ],
+   "questCount": 2,
+   "shopCount": 0
+  },
+  {
+   "npcid": 502,
+   "npcname": "麦吉",
+   "name_en": "Manji",
+   "npcname_us": "Manji",
+   "icon": "/dbsource/npcsource/0000502.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004000,
+     "mapName": "勇士部落"
+    }
+   ],
+   "questCount": 10,
+   "shopCount": 0
+  },
+  {
+   "npcid": 503,
+   "npcname": "辛德",
+   "name_en": "Mr. Thunder",
+   "npcname_us": "Mr. Thunder",
+   "icon": "/dbsource/npcsource/0000503.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004000,
+     "mapName": "勇士部落"
+    }
+   ],
+   "questCount": 3,
+   "shopCount": 0
+  },
+  {
+   "npcid": 504,
+   "npcname": "西拉斯·艾恩斯",
+   "name_en": "Silas Irons",
+   "npcname_us": "Silas Irons",
+   "icon": "/dbsource/npcsource/0000504.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004000,
+     "mapName": "勇士部落"
+    }
+   ],
+   "questCount": 3,
+   "shopCount": 0
+  },
+  {
+   "npcid": 505,
+   "npcname": "王先生",
+   "name_en": "Mr. Wang",
+   "npcname_us": "Mr. Wang",
+   "icon": "/dbsource/npcsource/0000505.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004000,
+     "mapName": "勇士部落"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 506,
+   "npcname": "伊安",
+   "name_en": "Ayan",
+   "npcname_us": "Ayan",
+   "icon": "/dbsource/npcsource/0000506.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004000,
+     "mapName": "勇士部落"
+    }
+   ],
+   "questCount": 7,
+   "shopCount": 0
+  },
+  {
+   "npcid": 507,
+   "npcname": "利伯",
+   "name_en": "River",
+   "npcname_us": "River",
+   "icon": "/dbsource/npcsource/0000507.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004001,
+     "mapName": "勇士部落武器店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 508,
+   "npcname": "哈利",
+   "name_en": "Harry",
+   "npcname_us": "Harry",
+   "icon": "/dbsource/npcsource/0000508.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004001,
+     "mapName": "勇士部落武器店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 509,
+   "npcname": "格里高利",
+   "name_en": "Arturo",
+   "npcname_us": "Arturo",
+   "icon": "/dbsource/npcsource/0000509.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004002,
+     "mapName": "勇士部落杂货店"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 510,
+   "npcname": "索非亚",
+   "name_en": "Sophia",
+   "npcname_us": "Sophia",
+   "icon": "/dbsource/npcsource/0000510.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004002,
+     "mapName": "勇士部落杂货店"
+    }
+   ],
+   "questCount": 4,
+   "shopCount": 0
+  },
+  {
+   "npcid": 511,
+   "npcname": "武术教练",
+   "name_en": "Dances with Balrog",
+   "npcname_us": "Dances with Balrog",
+   "icon": "/dbsource/npcsource/0000511.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004003,
+     "mapName": "战士圣殿"
+    }
+   ],
+   "questCount": 5,
+   "shopCount": 0
+  },
+  {
+   "npcid": 512,
+   "npcname": "芳博士",
+   "name_en": "Winston",
+   "npcname_us": "Winston",
+   "icon": "/dbsource/npcsource/0000512.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004051,
+     "mapName": "东部岩山Ⅱ"
+    }
+   ],
+   "questCount": 3,
+   "shopCount": 0
+  },
+  {
+   "npcid": 513,
+   "npcname": "麦克",
+   "name_en": "Mike",
+   "npcname_us": "Mike",
+   "icon": "/dbsource/npcsource/0000513.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004121,
+     "mapName": "勇士部落迷宫入口"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 514,
+   "npcname": "战士转职教官",
+   "name_en": "Warrior Job Instructor",
+   "npcname_us": "Warrior Job Instructor",
+   "icon": "/dbsource/npcsource/0000514.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004023,
+     "mapName": "西部岩山Ⅳ"
+    }
+   ],
+   "questCount": 3,
+   "shopCount": 0
+  },
+  {
+   "npcid": 600,
+   "npcname": "普通出租车",
+   "name_en": "Regular Cab",
+   "npcname_us": "Regular Cab",
+   "icon": "/dbsource/npcsource/0000200.stand.png",
+   "roles": [
+    "Transport"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10005000,
+     "mapName": "林中之城"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 601,
+   "npcname": "高级出租车",
+   "name_en": "VIP Cab",
+   "npcname_us": "VIP Cab",
+   "icon": "/dbsource/npcsource/0000104.stand.png",
+   "roles": [
+    "Transport"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 602,
+   "npcname": "克利斯拉玛",
+   "name_en": "Chrishrama",
+   "npcname_us": "Chrishrama",
+   "icon": "/dbsource/npcsource/0000602.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10005000,
+     "mapName": "林中之城"
+    }
+   ],
+   "questCount": 11,
+   "shopCount": 0
+  },
+  {
+   "npcid": 603,
+   "npcname": "萨比特拉玛",
+   "name_en": "Sabitrama",
+   "npcname_us": "Sabitrama",
+   "icon": "/dbsource/npcsource/0000603.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10005000,
+     "mapName": "林中之城"
+    }
+   ],
+   "questCount": 2,
+   "shopCount": 0
+  },
+  {
+   "npcid": 604,
+   "npcname": "吴先生",
+   "name_en": "Mr. Oh",
+   "npcname_us": "Mr. Oh",
+   "icon": "/dbsource/npcsource/0000604.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10005000,
+     "mapName": "林中之城"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 605,
+   "npcname": "流浪炼金术士",
+   "name_en": "Eurek the Alchemist",
+   "npcname_us": "Eurek the Alchemist",
+   "icon": "/dbsource/npcsource/0000605.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10005000,
+     "mapName": "林中之城"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 606,
+   "npcname": "宾馆服务员",
+   "name_en": "Hotel Receptionist",
+   "npcname_us": "Hotel Receptionist",
+   "icon": "/dbsource/npcsource/0000606.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10005001,
+     "mapName": "林中之城旅馆"
+    }
+   ],
+   "questCount": 1,
+   "shopCount": 0
+  },
+  {
+   "npcid": 607,
+   "npcname": "豪素夫",
+   "name_en": "Mr. Sweatbottom",
+   "npcname_us": "Mr. Sweatbottom",
+   "icon": "/dbsource/npcsource/0000607.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10005002,
+     "mapName": "桑拿房"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 608,
+   "npcname": "泰素夫",
+   "name_en": "Mr. Wetbottom",
+   "npcname_us": "Mr. Wetbottom",
+   "icon": "/dbsource/npcsource/0000608.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10005003,
+     "mapName": "高级桑拿房"
+    }
+   ],
+   "questCount": 2,
+   "shopCount": 0
+  },
+  {
+   "npcid": 609,
+   "npcname": "奇怪的石像",
+   "name_en": "Mysterious Statue",
+   "npcname_us": "Mysterious Statue",
+   "icon": "/dbsource/npcsource/0000609.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10005000,
+     "mapName": "林中之城"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 610,
+   "npcname": "坍塌的石像",
+   "name_en": "Crumbling Statue",
+   "npcname_us": "Crumbling Statue",
+   "icon": "/dbsource/npcsource/0000610.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 7,
+   "locations": [
+    {
+     "mapid": 10005040,
+     "mapName": "沉睡森林（一层）"
+    },
+    {
+     "mapid": 10005041,
+     "mapName": "沉睡森林（二层）"
+    },
+    {
+     "mapid": 10005042,
+     "mapName": "沉睡森林（三层）"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 611,
+   "npcname": "粉红色花簇",
+   "name_en": "A pile of pink flowers",
+   "npcname_us": "A pile of pink flowers",
+   "icon": "/dbsource/npcsource/0000611.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10005041,
+     "mapName": "沉睡森林（二层）"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 612,
+   "npcname": "蓝花簇",
+   "name_en": "A pile of blue flowers",
+   "npcname_us": "A pile of blue flowers",
+   "icon": "/dbsource/npcsource/0000612.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10005043,
+     "mapName": "沉睡森林（四层）"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 613,
+   "npcname": "白花簇",
+   "name_en": "A pile of white flowers",
+   "npcname_us": "A pile of white flowers",
+   "icon": "/dbsource/npcsource/0000613.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10005046,
+     "mapName": "沉睡森林（七层）"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 614,
+   "npcname": "24小时移动商店",
+   "name_en": "24 Hr Mobile Store",
+   "npcname_us": "24 Hr Mobile Store",
+   "icon": "/dbsource/npcsource/0000614.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10005070,
+     "mapName": "蚂蚁广场"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 615,
+   "npcname": "异界之门",
+   "name_en": "Door of Dimension",
+   "npcname_us": "Door of Dimension",
+   "icon": "/dbsource/npcsource/0000615.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 616,
+   "npcname": "蓝铃花苞",
+   "name_en": "Bluebell Bud",
+   "npcname_us": "Bluebell Bud",
+   "icon": "/dbsource/npcsource/0000616.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10005050,
+     "mapName": "森林迷宫I"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 700,
+   "npcname": "露玛",
+   "name_en": "Luma",
+   "npcname_us": "Luma",
+   "icon": "/dbsource/npcsource/0000700.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 701,
+   "npcname": "泽莉娅",
+   "name_en": "Zelya",
+   "npcname_us": "Zelya",
+   "icon": "/dbsource/npcsource/0000701.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 702,
+   "npcname": "米恩",
+   "name_en": "Myen",
+   "npcname_us": "Myen",
+   "icon": "/dbsource/npcsource/0000702.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 703,
+   "npcname": "米拉",
+   "name_en": "Myra",
+   "npcname_us": "Myra",
+   "icon": "/dbsource/npcsource/0000703.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 704,
+   "npcname": "洞穴妖精的仓库",
+   "name_en": "Cave Fairy's Storage",
+   "npcname_us": "Cave Fairy's Storage",
+   "icon": "/dbsource/npcsource/0000704.stand.png",
+   "roles": [
+    "Storage"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 705,
+   "npcname": "盛开的蓝铃花",
+   "name_en": "Fully Bloomed Bluebell",
+   "npcname_us": "Fully Bloomed Bluebell",
+   "icon": "/dbsource/npcsource/0000705.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 706,
+   "npcname": "蓝铃花苞",
+   "name_en": "Bluebell Bud",
+   "npcname_us": "Bluebell Bud",
+   "icon": "/dbsource/npcsource/0000706.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 707,
+   "npcname": "尼洛斯",
+   "name_en": "Nyroth",
+   "npcname_us": "Nyroth",
+   "icon": "/dbsource/npcsource/0000707.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 708,
+   "npcname": "奈拉",
+   "name_en": "Nyra",
+   "npcname_us": "Nyra",
+   "icon": "/dbsource/npcsource/0000708.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 709,
+   "npcname": "托林",
+   "name_en": "Torin",
+   "npcname_us": "Torin",
+   "icon": "/dbsource/npcsource/0000709.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 710,
+   "npcname": "尼洛斯",
+   "name_en": "Nyroth",
+   "npcname_us": "Nyroth",
+   "icon": "/dbsource/npcsource/0000707.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 711,
+   "npcname": "流浪探险家杰米",
+   "name_en": "Jaime the Wandering Explorer",
+   "npcname_us": "Jaime the Wandering Explorer",
+   "icon": "/dbsource/npcsource/0000711.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 712,
+   "npcname": "学者丹尼尔",
+   "name_en": "Daniel the Scholar",
+   "npcname_us": "Daniel the Scholar",
+   "icon": "/dbsource/npcsource/0000712.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 713,
+   "npcname": "盛开的蓝铃花",
+   "name_en": "Fully Bloomed Bluebell",
+   "npcname_us": "Fully Bloomed Bluebell",
+   "icon": "/dbsource/npcsource/0000713.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 714,
+   "npcname": "腐化的蓝铃",
+   "name_en": "Corrupted Bluebell",
+   "npcname_us": "Corrupted Bluebell",
+   "icon": "/dbsource/npcsource/0000714.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800,
+   "npcname": "拜伦",
+   "name_en": "Valen",
+   "npcname_us": "Valen",
+   "icon": "/dbsource/npcsource/0000800.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10007000,
+     "mapName": "黄金海滩"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 801,
+   "npcname": "派申",
+   "name_en": "Pison",
+   "npcname_us": "Pison",
+   "icon": "/dbsource/npcsource/0000801.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10007000,
+     "mapName": "黄金海滩"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 802,
+   "npcname": "丽尔",
+   "name_en": "Riel",
+   "npcname_us": "Riel",
+   "icon": "/dbsource/npcsource/0000802.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10007000,
+     "mapName": "黄金海滩"
+    }
+   ],
+   "questCount": 4,
+   "shopCount": 0
+  },
+  {
+   "npcid": 803,
+   "npcname": "露尔",
+   "name_en": "Roel",
+   "npcname_us": "Roel",
+   "icon": "/dbsource/npcsource/0000803.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10007000,
+     "mapName": "黄金海滩"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 804,
+   "npcname": "拉尔",
+   "name_en": "Rael",
+   "npcname_us": "Rael",
+   "icon": "/dbsource/npcsource/0000804.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10007000,
+     "mapName": "黄金海滩"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800000,
+   "npcname": "拉克里斯",
+   "name_en": "Lakelis",
+   "npcname_us": "Lakelis",
+   "icon": "/dbsource/npcsource/0800000.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    }
+   ],
+   "questCount": 1,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800001,
+   "npcname": "克鲁特",
+   "name_en": "Cloto",
+   "npcname_us": "Cloto",
+   "icon": "/dbsource/npcsource/0800001.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 5,
+   "locations": [
+    {
+     "mapid": 80000000,
+     "mapName": "第一次同行 <第1阶段>"
+    },
+    {
+     "mapid": 80000100,
+     "mapName": "第一次同行 <第2阶段>"
+    },
+    {
+     "mapid": 80000200,
+     "mapName": "第一次同行 <第3阶段>"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800002,
+   "npcname": "内拉",
+   "name_en": "Nella",
+   "npcname_us": "Nella",
+   "icon": "/dbsource/npcsource/0800002.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 7,
+   "locations": [
+    {
+     "mapid": 80000000,
+     "mapName": "第一次同行 <第1阶段>"
+    },
+    {
+     "mapid": 80000100,
+     "mapName": "第一次同行 <第2阶段>"
+    },
+    {
+     "mapid": 80000200,
+     "mapName": "第一次同行 <第3阶段>"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800003,
+   "npcname": "弓箭手转职教官",
+   "name_en": "Bowman Job Instructor",
+   "npcname_us": "Bowman Job Instructor",
+   "icon": "/dbsource/npcsource/0000227.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 80001000,
+     "mapName": "弓箭手2转考验场"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800004,
+   "npcname": "魔法师转职教官",
+   "name_en": "Magician Job Instructor",
+   "npcname_us": "Magician Job Instructor",
+   "icon": "/dbsource/npcsource/0000319.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 80001100,
+     "mapName": "魔法师树洞迷宫"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800005,
+   "npcname": "飞侠转职教官",
+   "name_en": "Thief Job Instructor",
+   "npcname_us": "Thief Job Instructor",
+   "icon": "/dbsource/npcsource/0000424.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 80001200,
+     "mapName": "飞侠施工现场"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800006,
+   "npcname": "战士转职教官",
+   "name_en": "Warrior Job Instructor",
+   "npcname_us": "Warrior Job Instructor",
+   "icon": "/dbsource/npcsource/0000514.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 80001300,
+     "mapName": "战士岩山"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800007,
+   "npcname": "自由市场枫叶TV",
+   "name_en": "Free Market Maple TV",
+   "npcname_us": "Free Market Maple TV",
+   "icon": "/dbsource/npcsource/0800007.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 80002000,
+     "mapName": "自由市场入口"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800008,
+   "npcname": "弗兰德里",
+   "name_en": "Fredrick",
+   "npcname_us": "Fredrick",
+   "icon": "/dbsource/npcsource/0800008.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 80002000,
+     "mapName": "自由市场入口"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800009,
+   "npcname": "斯克鲁吉",
+   "name_en": "Scrooge",
+   "npcname_us": "Scrooge",
+   "icon": "/dbsource/npcsource/0800009.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 80002000,
+     "mapName": "自由市场入口"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800010,
+   "npcname": "铁砧",
+   "name_en": "Anvil",
+   "npcname_us": "Anvil",
+   "icon": "/dbsource/npcsource/0800010.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004000,
+     "mapName": "勇士部落"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800011,
+   "npcname": "武器制作台",
+   "name_en": "Weaponcrafting Station",
+   "npcname_us": "Weaponcrafting Station",
+   "icon": "/dbsource/npcsource/0800011.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 2,
+   "locations": [
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    },
+    {
+     "mapid": 10004000,
+     "mapName": "勇士部落"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800012,
+   "npcname": "缝纫机",
+   "name_en": "Sewing Machine",
+   "npcname_us": "Sewing Machine",
+   "icon": "/dbsource/npcsource/0800012.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10002000,
+     "mapName": "魔法密林"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800013,
+   "npcname": "木工台",
+   "name_en": "Woodcrafting Station",
+   "npcname_us": "Woodcrafting Station",
+   "icon": "/dbsource/npcsource/0800013.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 2,
+   "locations": [
+    {
+     "mapid": 10001040,
+     "mapName": "射手村集市"
+    },
+    {
+     "mapid": 10002000,
+     "mapName": "魔法密林"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800014,
+   "npcname": "皮革制作台",
+   "name_en": "Leatherworking Station",
+   "npcname_us": "Leatherworking Station",
+   "icon": "/dbsource/npcsource/0800014.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 2,
+   "locations": [
+    {
+     "mapid": 10001040,
+     "mapName": "射手村集市"
+    },
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800015,
+   "npcname": "炼金台",
+   "name_en": "Arcane Station",
+   "npcname_us": "Arcane Station",
+   "icon": "/dbsource/npcsource/0800015.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 2,
+   "locations": [
+    {
+     "mapid": 10002000,
+     "mapName": "魔法密林"
+    },
+    {
+     "mapid": 10005000,
+     "mapName": "林中之城"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800016,
+   "npcname": "枫叶运营员",
+   "name_en": "Maple Administrator",
+   "npcname_us": "Maple Administrator",
+   "icon": "/dbsource/npcsource/9010000.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 89000000,
+     "mapName": "真相小屋"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800017,
+   "npcname": "泽莉娅",
+   "name_en": "Zelya",
+   "npcname_us": "Zelya",
+   "icon": "/dbsource/npcsource/0800017.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800018,
+   "npcname": "刘易斯",
+   "name_en": "Lewis",
+   "npcname_us": "Lewis",
+   "icon": "/dbsource/npcsource/0000003.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 80002000,
+     "mapName": "自由市场入口"
+    }
+   ],
+   "questCount": 4,
+   "shopCount": 0
+  },
+  {
+   "npcid": 900001,
+   "npcname": "枫叶运营员",
+   "name_en": "Maple Administrator",
+   "npcname_us": "Maple Administrator",
+   "icon": "/dbsource/npcsource/9010000.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 900000000,
+     "mapName": "测试"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 900003,
+   "npcname": "琳",
+   "name_en": "Lyn",
+   "npcname_us": "Lyn",
+   "icon": "",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 900004,
+   "npcname": "惠特妮",
+   "name_en": "Whitney",
+   "npcname_us": "Whitney",
+   "icon": "",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 900010,
+   "npcname": "保罗",
+   "name_en": "Paul",
+   "npcname_us": "Paul",
+   "icon": "/dbsource/npcsource/0900010.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10000000,
+     "mapName": "明珠港"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 900011,
+   "npcname": "维坤",
+   "name_en": "Vikoon",
+   "npcname_us": "Vikoon",
+   "icon": "/dbsource/npcsource/0900011.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 90050000,
+     "mapName": "离开活动"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 900012,
+   "npcname": "彼得罗",
+   "name_en": "Pietro",
+   "npcname_us": "Pietro",
+   "icon": "/dbsource/npcsource/0900012.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 90050001,
+     "mapName": "领取活动奖励"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 900013,
+   "npcname": "彼得拉",
+   "name_en": "Pietra",
+   "npcname_us": "Pietra",
+   "icon": "/dbsource/npcsource/0900013.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 90050000,
+     "mapName": "离开活动"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 900014,
+   "npcname": "千吉",
+   "name_en": "Chun Ji",
+   "npcname_us": "Chun Ji",
+   "icon": "/dbsource/npcsource/0900014.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003010,
+     "mapName": "废都南方工地"
+    }
+   ],
+   "questCount": 5,
+   "shopCount": 0
+  },
+  {
+   "npcid": 900015,
+   "npcname": "权达开",
+   "name_en": "Mr. Pickall",
+   "npcname_us": "Mr. Pickall",
+   "icon": "/dbsource/npcsource/0900015.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    }
+   ],
+   "questCount": 2,
+   "shopCount": 0
+  },
+  {
+   "npcid": 900016,
+   "npcname": "哈利",
+   "name_en": "Harry",
+   "npcname_us": "Harry",
+   "icon": "/dbsource/npcsource/0900016.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 4,
+   "locations": [
+    {
+     "mapid": 90040200,
+     "mapName": "椰子收获"
+    },
+    {
+     "mapid": 90040201,
+     "mapName": "椰子收获"
+    },
+    {
+     "mapid": 90040202,
+     "mapName": "椰子收获"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 900026,
+   "npcname": "巫婆",
+   "name_en": "Malady",
+   "npcname_us": "Malady",
+   "icon": "/dbsource/npcsource/0900026.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
+    }
+   ],
+   "questCount": 2,
+   "shopCount": 0
+  },
+  {
+   "npcid": 9010000,
+   "npcname": "枫叶运营员",
+   "name_en": "Maple Administrator",
+   "npcname_us": "Maple Administrator",
+   "icon": "/dbsource/npcsource/9010000.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10001000,
+     "mapName": "射手村"
+    }
+   ],
+   "questCount": 6,
+   "shopCount": 0
+  },
+  {
+   "npcid": 9090000,
+   "npcname": "王先生",
+   "name_en": "Mr. Wang",
+   "npcname_us": "Mr. Wang",
+   "icon": "/dbsource/npcsource/9090000.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 0,
+   "shopCount": 0
+  }
+ ]
+}

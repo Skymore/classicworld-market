@@ -1,0 +1,1286 @@
+{
+ "version": "DVG gms-cw fetched 2026-10-21, 2026-11-03; Mapledex tw via OpenCC t2s 0.1.7",
+ "sources": {
+  "dvg": "https://mxdgcw.dvg.cn (data/reference/dvg/)",
+  "mapledex-tw": "Mapledex n.zh (GMS-TW traditional), converted with OpenCC t2s"
+ },
+ "maps": {
+  "1": {
+   "zh": "蘑菇镇 - 西入口",
+   "source": "dvg",
+   "en": "Mushroom Town - West Entrance"
+  },
+  "30": {
+   "zh": "蘑菇镇东入口",
+   "source": "dvg",
+   "en": "East Entrance to Mushroom Town"
+  },
+  "40": {
+   "zh": "蜗牛狩猎场 I",
+   "source": "dvg",
+   "en": "Snail Hunting Ground I"
+  },
+  "50": {
+   "zh": "岔路",
+   "source": "dvg",
+   "en": "A Split Road"
+  },
+  "1000": {
+   "zh": "彩虹村西边草原",
+   "source": "dvg",
+   "en": "The Field West of Amherst"
+  },
+  "1020": {
+   "zh": "彩虹村东边草原",
+   "source": "dvg",
+   "en": "The Field East of Amherst"
+  },
+  "10001007": {
+   "zh": "射手村市政厅",
+   "source": "dvg",
+   "en": "Henesys Town Hall"
+  },
+  "10001008": {
+   "zh": "黄蘑菇屋",
+   "source": "dvg",
+   "en": "Yellow Mushroom House"
+  },
+  "10001082": {
+   "zh": "犹他的猪农场",
+   "source": "dvg",
+   "en": "Utah's Pig Farm"
+  },
+  "10002004": {
+   "zh": "玛尔的森林",
+   "source": "dvg",
+   "en": "Marr's Forest"
+  },
+  "10002005": {
+   "zh": "借阅台",
+   "source": "dvg",
+   "en": "The Circulation Desk"
+  },
+  "10002082": {
+   "zh": "树洞迷宫：北部森林 VIII",
+   "source": "dvg",
+   "en": "Tree Dungeon, Forest Up North VIII"
+  },
+  "10002090": {
+   "zh": "魔法密林码头",
+   "source": "dvg",
+   "en": "Ellinia Station"
+  },
+  "10002091": {
+   "zh": "起飞前 <前往天空之城>",
+   "source": "dvg",
+   "en": "Before Takeoff <To Orbis>"
+  },
+  "10003004": {
+   "zh": "尼奥拉医院",
+   "source": "dvg",
+   "en": "Niora Hospital"
+  },
+  "10003007": {
+   "zh": "废弃都市市政中心",
+   "source": "dvg",
+   "en": "Kerning City Civic Center"
+  },
+  "10003008": {
+   "zh": "后巷半地下室",
+   "source": "dvg",
+   "en": "Backalley Semi-Basement"
+  },
+  "10003098": {
+   "zh": "隐士的小屋",
+   "source": "dvg",
+   "en": "The Hermit's Cabin"
+  },
+  "10003110": {
+   "zh": "浑浊的沼泽 I",
+   "source": "dvg",
+   "en": "The Murky Swamp I"
+  },
+  "10003111": {
+   "zh": "浑浊的沼泽 II",
+   "source": "dvg",
+   "en": "The Murky Swamp II"
+  },
+  "10003112": {
+   "zh": "被遗弃者的小屋",
+   "source": "dvg",
+   "en": "Cabin of the Forsaken"
+  },
+  "10004057": {
+   "zh": "干涸之地",
+   "source": "dvg",
+   "en": "Parched Land"
+  },
+  "10004130": {
+   "zh": "遗迹发掘地Ⅰ",
+   "source": "dvg",
+   "en": "Excavation Site I"
+  },
+  "10004131": {
+   "zh": "遗迹发掘地Ⅱ",
+   "source": "dvg",
+   "en": "Excavation Site II"
+  },
+  "10004132": {
+   "zh": "遗迹发掘地Ⅲ",
+   "source": "dvg",
+   "en": "Excavation Site III"
+  },
+  "10004133": {
+   "zh": "遗迹发掘队营地",
+   "source": "dvg",
+   "en": "Excavation Site <Camp>"
+  },
+  "10004134": {
+   "zh": "遗迹之墓Ⅰ",
+   "source": "dvg",
+   "en": "Remains <Tomb> I"
+  },
+  "10004135": {
+   "zh": "遗迹之墓Ⅱ",
+   "source": "dvg",
+   "en": "Remains <Tomb> II"
+  },
+  "10004136": {
+   "zh": "遗迹之墓Ⅲ",
+   "source": "dvg",
+   "en": "Remains <Tomb> III"
+  },
+  "10004137": {
+   "zh": "遗迹之墓Ⅳ",
+   "source": "dvg",
+   "en": "Remains <Tomb> IV"
+  },
+  "10004138": {
+   "zh": "遗迹之峭壁",
+   "source": "dvg",
+   "en": "Remains <Cliff>"
+  },
+  "10004140": {
+   "zh": "第1军营",
+   "source": "dvg",
+   "en": "Camp 1"
+  },
+  "10004141": {
+   "zh": "第2军营",
+   "source": "dvg",
+   "en": "Camp 2"
+  },
+  "10004142": {
+   "zh": "第3军营",
+   "source": "dvg",
+   "en": "Camp 3"
+  },
+  "10005091": {
+   "zh": "野生卡古的地盘",
+   "source": "dvg",
+   "en": "Wild Kargo's Area"
+  },
+  "10006000": {
+   "zh": "遗忘空洞",
+   "source": "dvg",
+   "en": "Forgotten Hollow"
+  },
+  "10006001": {
+   "zh": "洞穴精灵圣域",
+   "source": "dvg",
+   "en": "Cave Fairy Sanctuary"
+  },
+  "10006002": {
+   "zh": "洞穴精灵百货商店",
+   "source": "dvg",
+   "en": "Cave Fairy Department Store"
+  },
+  "10006010": {
+   "zh": "原始森林 I",
+   "source": "dvg",
+   "en": "Primeval Forest I"
+  },
+  "10006020": {
+   "zh": "原始森林 II",
+   "source": "dvg",
+   "en": "Primeval Forest II"
+  },
+  "10006022": {
+   "zh": "冰与火的碰撞",
+   "source": "dvg",
+   "en": "Collision of Ice and Fire"
+  },
+  "10006030": {
+   "zh": "原始森林 III",
+   "source": "dvg",
+   "en": "Primeval Forest III"
+  },
+  "10006031": {
+   "zh": "死亡峡谷",
+   "source": "dvg",
+   "en": "The Valley of Death"
+  },
+  "10006040": {
+   "zh": "遗忘入口 I",
+   "source": "dvg",
+   "en": "Forgotten Entrance I"
+  },
+  "10006050": {
+   "zh": "遗忘入口 II",
+   "source": "dvg",
+   "en": "Forgotten Entrance II"
+  },
+  "10006060": {
+   "zh": "遗忘入口 III",
+   "source": "dvg",
+   "en": "Forgotten Entrance III"
+  },
+  "10006070": {
+   "zh": "流光尽头",
+   "source": "dvg",
+   "en": "The End of Fleeting Light"
+  },
+  "10006071": {
+   "zh": "遗忘地牢隧道",
+   "source": "dvg",
+   "en": "Forgotten Dungeon Tunnel"
+  },
+  "10006072": {
+   "zh": "褪色的树冠",
+   "source": "dvg",
+   "en": "The Faded Canopy"
+  },
+  "10006080": {
+   "zh": "禁忌入口",
+   "source": "dvg",
+   "en": "Forbidden Entrance"
+  },
+  "10006090": {
+   "zh": "险峻下坡 I",
+   "source": "dvg",
+   "en": "Perilous Descent I"
+  },
+  "10006100": {
+   "zh": "险峻下坡 II",
+   "source": "dvg",
+   "en": "Perilous Descent II"
+  },
+  "10006110": {
+   "zh": "险峻下坡 III",
+   "source": "dvg",
+   "en": "Perilous Descent III"
+  },
+  "10006120": {
+   "zh": "腐朽隧道 I",
+   "source": "dvg",
+   "en": "Decayed Tunnel I"
+  },
+  "10006121": {
+   "zh": "别人的坟墓",
+   "source": "dvg",
+   "en": "Someone Else's Grave"
+  },
+  "10006130": {
+   "zh": "腐烂隧道 II",
+   "source": "dvg",
+   "en": "Decayed Tunnel II"
+  },
+  "10006140": {
+   "zh": "腐烂隧道 III",
+   "source": "dvg",
+   "en": "Decayed Tunnel III"
+  },
+  "10006150": {
+   "zh": "挥之不去的遗憾",
+   "source": "dvg",
+   "en": "Lingering Regret"
+  },
+  "10006152": {
+   "zh": "逝去的日子",
+   "source": "dvg",
+   "en": "Bygone Days"
+  },
+  "10006160": {
+   "zh": "黑暗峭壁",
+   "source": "dvg",
+   "en": "Precipice of Darkness"
+  },
+  "10006161": {
+   "zh": "破败的坟墓",
+   "source": "dvg",
+   "en": "Dilapidated Tomb"
+  },
+  "10006162": {
+   "zh": "另一处避难所",
+   "source": "dvg",
+   "en": "Another Sanctuary"
+  },
+  "20000000": {
+   "zh": "天空之城",
+   "source": "dvg",
+   "en": "Orbis"
+  },
+  "20000001": {
+   "zh": "天空之城武器店",
+   "source": "dvg",
+   "en": "Orbis Weapon Store"
+  },
+  "20000002": {
+   "zh": "天空之城杂货店",
+   "source": "dvg",
+   "en": "Orbis Department Store"
+  },
+  "20000010": {
+   "zh": "天空之城售票处",
+   "source": "dvg",
+   "en": "Orbis Ticketing Booth"
+  },
+  "20000011": {
+   "zh": "港口通道<开往魔法密林>",
+   "source": "dvg",
+   "en": "Station Tunnel <To Ellinia>"
+  },
+  "20000012": {
+   "zh": "码头<开往魔法密林>",
+   "source": "dvg",
+   "en": "Station<To Ellinia>"
+  },
+  "20000013": {
+   "zh": "候船室<开往魔法密林>",
+   "source": "dvg",
+   "en": "Before Takeoff <To Ellinia>"
+  },
+  "20000020": {
+   "zh": "前往魔法密林",
+   "source": "dvg",
+   "en": "To Ellinia"
+  },
+  "20000021": {
+   "zh": "船舱 <前往魔法密林>",
+   "source": "dvg",
+   "en": "Cabin <To Ellinia>"
+  },
+  "20000022": {
+   "zh": "开往天空之城",
+   "source": "dvg",
+   "en": "To Orbis"
+  },
+  "20000023": {
+   "zh": "船仓<开往天空之城>",
+   "source": "dvg",
+   "en": "Cabin <To Orbis>"
+  },
+  "20000030": {
+   "zh": "天空之城公园",
+   "source": "dvg",
+   "en": "Orbis Park"
+  },
+  "20000031": {
+   "zh": "天空之城整形手术",
+   "source": "dvg",
+   "en": "Orbis Plastic Surgery"
+  },
+  "20000032": {
+   "zh": "天空之城美发店",
+   "source": "dvg",
+   "en": "Orbis Hair Salon"
+  },
+  "20000033": {
+   "zh": "天空之城护肤中心",
+   "source": "dvg",
+   "en": "Orbis Skin-Care"
+  },
+  "20000040": {
+   "zh": "遗忘的山丘",
+   "source": "dvg",
+   "en": "Top of the Hill"
+  },
+  "20000041": {
+   "zh": "公会总部<名人堂>",
+   "source": "dvg",
+   "en": "Guild Head Quarters<Hall of Fame>"
+  },
+  "20000050": {
+   "zh": "云彩公园Ⅰ",
+   "source": "dvg",
+   "en": "Cloud Park I"
+  },
+  "20000051": {
+   "zh": "三色庭院的通道",
+   "source": "dvg",
+   "en": "The Road to Garden of 3 Colors"
+  },
+  "20000052": {
+   "zh": "红色庭院Ⅰ",
+   "source": "dvg",
+   "en": "Garden of Red I"
+  },
+  "20000053": {
+   "zh": "红色庭院Ⅱ",
+   "source": "dvg",
+   "en": "Garden of Red II"
+  },
+  "20000054": {
+   "zh": "天空楼梯Ⅰ",
+   "source": "dvg",
+   "en": "Stairway to the Sky I"
+  },
+  "20000055": {
+   "zh": "天空阶梯 II",
+   "source": "mapledex-tw",
+   "en": "Stairway to the Sky II",
+   "tw": "天空階梯 II"
+  },
+  "20000056": {
+   "zh": "黑暗庭院Ⅰ",
+   "source": "dvg",
+   "en": "Garden of Darkness I"
+  },
+  "20000057": {
+   "zh": "黑暗庭院Ⅱ",
+   "source": "dvg",
+   "en": "Garden of Darkness II"
+  },
+  "20000060": {
+   "zh": "黄色庭院Ⅰ",
+   "source": "dvg",
+   "en": "Garden of Yellow I"
+  },
+  "20000061": {
+   "zh": "黄色花园 II",
+   "source": "dvg",
+   "en": "Garden of Yellow II"
+  },
+  "20000070": {
+   "zh": "蓝色庭院Ⅰ",
+   "source": "dvg",
+   "en": "Garden of Green I"
+  },
+  "20000071": {
+   "zh": "蓝色庭院Ⅱ",
+   "source": "dvg",
+   "en": "Garden of Green II"
+  },
+  "20000080": {
+   "zh": "云彩公园Ⅱ",
+   "source": "dvg",
+   "en": "Cloud Park II"
+  },
+  "20000081": {
+   "zh": "散步路Ⅰ",
+   "source": "dvg",
+   "en": "Strolling Path"
+  },
+  "20000082": {
+   "zh": "云彩公园Ⅲ",
+   "source": "dvg",
+   "en": "Cloud Park III"
+  },
+  "20000083": {
+   "zh": "暗影花园",
+   "source": "dvg",
+   "en": "Disposed Flower Garden"
+  },
+  "20000084": {
+   "zh": "云彩公园Ⅳ",
+   "source": "dvg",
+   "en": "Cloud Park IV"
+  },
+  "20000085": {
+   "zh": "老人的家",
+   "source": "dvg",
+   "en": "Old Man's House"
+  },
+  "20000086": {
+   "zh": "散步路Ⅱ",
+   "source": "dvg",
+   "en": "Strolling Path II"
+  },
+  "20000087": {
+   "zh": "云彩公园Ⅴ",
+   "source": "dvg",
+   "en": "Cloud Park V"
+  },
+  "20000088": {
+   "zh": "云彩公园Ⅵ",
+   "source": "dvg",
+   "en": "Cloud Park VI"
+  },
+  "20000090": {
+   "zh": "通天塔门口",
+   "source": "dvg",
+   "en": "Entrance to Orbis Tower"
+  },
+  "20000091": {
+   "zh": "通天塔<15层>",
+   "source": "dvg",
+   "en": "Orbis Tower <15th Floor>"
+  },
+  "20000092": {
+   "zh": "通天塔<14层>",
+   "source": "dvg",
+   "en": "Orbis Tower <14th Floor>"
+  },
+  "20000093": {
+   "zh": "通天塔<13层>",
+   "source": "dvg",
+   "en": "Orbis Tower <13th Floor>"
+  },
+  "20000094": {
+   "zh": "通天塔<12层>",
+   "source": "dvg",
+   "en": "Orbis Tower <12th Floor>"
+  },
+  "20000095": {
+   "zh": "通天塔<11层>",
+   "source": "dvg",
+   "en": "Orbis Tower <11th Floor>"
+  },
+  "20000096": {
+   "zh": "通天塔<10层>",
+   "source": "dvg",
+   "en": "Orbis Tower <10th Floor>"
+  },
+  "20000097": {
+   "zh": "通天塔<9层>",
+   "source": "dvg",
+   "en": "Orbis Tower <9th Floor>"
+  },
+  "20000098": {
+   "zh": "通天塔<8层>",
+   "source": "dvg",
+   "en": "Orbis Tower <8th Floor>"
+  },
+  "20000099": {
+   "zh": "天空之塔 <隐藏房间>",
+   "source": "dvg",
+   "en": "Orbis Tower <Hidden Room>"
+  },
+  "20000100": {
+   "zh": "通天塔<7层>",
+   "source": "dvg",
+   "en": "Orbis Tower <7th Floor>"
+  },
+  "20000101": {
+   "zh": "通天塔<6层>",
+   "source": "dvg",
+   "en": "Orbis Tower <6th Floor>"
+  },
+  "20000102": {
+   "zh": "通天塔<5层>",
+   "source": "dvg",
+   "en": "Orbis Tower <5th Floor>"
+  },
+  "20000103": {
+   "zh": "通天塔<4层>",
+   "source": "dvg",
+   "en": "Orbis Tower <4th Floor>"
+  },
+  "20000104": {
+   "zh": "通天塔<3层>",
+   "source": "dvg",
+   "en": "Orbis Tower <3rd Floor>"
+  },
+  "20000105": {
+   "zh": "通天塔<2层>",
+   "source": "dvg",
+   "en": "Orbis Tower <2nd Floor>"
+  },
+  "20000106": {
+   "zh": "通天塔<1层>",
+   "source": "dvg",
+   "en": "Orbis Tower <1st Floor>"
+  },
+  "20001000": {
+   "zh": "冰峰雪域",
+   "source": "dvg",
+   "en": "El Nath"
+  },
+  "20001001": {
+   "zh": "酋长的住所",
+   "source": "dvg",
+   "en": "Chief's Residence"
+  },
+  "20001010": {
+   "zh": "雪域集市",
+   "source": "dvg",
+   "en": "El Nath Market"
+  },
+  "20001011": {
+   "zh": "雪域武器店",
+   "source": "dvg",
+   "en": "El Nath Weapon Store"
+  },
+  "20001012": {
+   "zh": "雪域杂货店",
+   "source": "dvg",
+   "en": "El Nath Department Store"
+  },
+  "20001020": {
+   "zh": "冰雪山丘",
+   "source": "dvg",
+   "en": "Snowy Hill"
+  },
+  "20001030": {
+   "zh": "冰面Ⅰ",
+   "source": "dvg",
+   "en": "Watch Out for Icy Path I"
+  },
+  "20001031": {
+   "zh": "冰面Ⅱ",
+   "source": "dvg",
+   "en": "Watch Out for Icy Path II"
+  },
+  "20001032": {
+   "zh": "结冰的平原Ⅰ",
+   "source": "dvg",
+   "en": "Cold Field I"
+  },
+  "20001033": {
+   "zh": "雪人谷",
+   "source": "dvg",
+   "en": "Cold Field II"
+  },
+  "20001034": {
+   "zh": "王冠之地",
+   "source": "dvg",
+   "en": "The Crown-Flyer"
+  },
+  "20001035": {
+   "zh": "寒冰平原",
+   "source": "dvg",
+   "en": "Icy Cold Field"
+  },
+  "20001040": {
+   "zh": "冰雪峡谷Ⅰ",
+   "source": "dvg",
+   "en": "Ice Valley I"
+  },
+  "20001041": {
+   "zh": "冰雪峡谷Ⅱ",
+   "source": "dvg",
+   "en": "Ice Valley II"
+  },
+  "20001042": {
+   "zh": "尖锐的绝壁Ⅰ",
+   "source": "dvg",
+   "en": "Sharp Cliff I"
+  },
+  "20001043": {
+   "zh": "尖锐的绝壁Ⅱ",
+   "source": "dvg",
+   "en": "Sharp Cliff II"
+  },
+  "20001044": {
+   "zh": "雪原圣地",
+   "source": "dvg",
+   "en": "Holy Ground at the Snowfield"
+  },
+  "20001050": {
+   "zh": "狼的领土Ⅰ",
+   "source": "dvg",
+   "en": "Wolf Territory I"
+  },
+  "20001051": {
+   "zh": "狼的领土Ⅱ",
+   "source": "dvg",
+   "en": "Wolf Territory II"
+  },
+  "20001052": {
+   "zh": "危险的绝壁",
+   "source": "dvg",
+   "en": "Dangerous Cliff"
+  },
+  "20001053": {
+   "zh": "狼的领土Ⅲ",
+   "source": "dvg",
+   "en": "Wolf Territory III"
+  },
+  "20001054": {
+   "zh": "狼的领土Ⅳ",
+   "source": "dvg",
+   "en": "Wolf Territory IV"
+  },
+  "20001055": {
+   "zh": "狼的领土Ⅴ",
+   "source": "dvg",
+   "en": "Wolf Territory V"
+  },
+  "20001060": {
+   "zh": "死亡之林Ⅰ",
+   "source": "dvg",
+   "en": "Forest of Dead Trees I"
+  },
+  "20001061": {
+   "zh": "死亡之林Ⅱ",
+   "source": "dvg",
+   "en": "Forest of Dead Trees II"
+  },
+  "20001062": {
+   "zh": "死亡之林Ⅲ",
+   "source": "dvg",
+   "en": "Forest of Dead Trees III"
+  },
+  "20001063": {
+   "zh": "死亡之林Ⅳ",
+   "source": "dvg",
+   "en": "Forest of Dead Trees IV"
+  },
+  "20001064": {
+   "zh": "废矿区Ⅰ",
+   "source": "dvg",
+   "en": "Dead Mine I"
+  },
+  "20001065": {
+   "zh": "废矿区Ⅱ",
+   "source": "dvg",
+   "en": "Dead Mine II"
+  },
+  "20001066": {
+   "zh": "废矿区Ⅲ",
+   "source": "dvg",
+   "en": "Dead Mine III"
+  },
+  "20001067": {
+   "zh": "废矿区Ⅳ",
+   "source": "dvg",
+   "en": "Dead Mine IV"
+  },
+  "20001070": {
+   "zh": "通道",
+   "source": "dvg",
+   "en": "The Passage"
+  },
+  "20001071": {
+   "zh": "试炼之洞窟 I",
+   "source": "dvg",
+   "en": "The Cave of Trial I"
+  },
+  "20001072": {
+   "zh": "试炼之洞窟 II",
+   "source": "dvg",
+   "en": "The Cave of Trial II"
+  },
+  "20001073": {
+   "zh": "连环洞穴",
+   "source": "dvg",
+   "en": "Cave Within the Cave"
+  },
+  "20001074": {
+   "zh": "艰苦洞穴Ⅲ",
+   "source": "dvg",
+   "en": "The Cave of Trial III"
+  },
+  "20001075": {
+   "zh": "扎昆入口",
+   "source": "dvg",
+   "en": "The Door to Zakum"
+  },
+  "80002012": {
+   "zh": "自由市场 <12>",
+   "source": "dvg",
+   "en": "Free Market <12>"
+  },
+  "80002013": {
+   "zh": "自由市场 <13>",
+   "source": "dvg",
+   "en": "Free Market <13>"
+  },
+  "80002014": {
+   "zh": "自由市场 <14>",
+   "source": "dvg",
+   "en": "Free Market <14>"
+  },
+  "80002015": {
+   "zh": "自由市场 <15>",
+   "source": "dvg",
+   "en": "Free Market <15>"
+  },
+  "80002016": {
+   "zh": "自由市场 <16>",
+   "source": "dvg",
+   "en": "Free Market <16>"
+  },
+  "80002017": {
+   "zh": "自由市场 <17>",
+   "source": "dvg",
+   "en": "Free Market <17>"
+  },
+  "80002018": {
+   "zh": "自由市场 <18>",
+   "source": "dvg",
+   "en": "Free Market <18>"
+  },
+  "80002019": {
+   "zh": "自由市场 <19>",
+   "source": "dvg",
+   "en": "Free Market <19>"
+  },
+  "80002020": {
+   "zh": "自由市场 <20>",
+   "source": "dvg",
+   "en": "Free Market <20>"
+  },
+  "80003400": {
+   "zh": "捷径 II",
+   "source": "dvg",
+   "en": "Shortcut"
+  },
+  "88001000": {
+   "zh": "后巷半地下室",
+   "source": "dvg",
+   "en": "Backalley Semi-Basement"
+  },
+  "89000000": {
+   "zh": "真相小屋",
+   "source": "dvg",
+   "en": "Truth Booth"
+  },
+  "90000000": {
+   "zh": "彩虹岛山丘",
+   "source": "dvg",
+   "en": "Maple Hill"
+  },
+  "90040000": {
+   "zh": "彩虹岛体能测试 <等候室>",
+   "source": "dvg",
+   "en": "Physical Fitness Test <Waiting Room>"
+  },
+  "90040001": {
+   "zh": "彩虹岛体能挑战 <等级 1>",
+   "source": "dvg",
+   "en": "Physical Fitness Test <Level 1>"
+  },
+  "90040002": {
+   "zh": "彩虹岛体能挑战 <等级 2>",
+   "source": "dvg",
+   "en": "Physical Fitness Test <Level 2>"
+  },
+  "90040003": {
+   "zh": "彩虹岛体能挑战 <等级 3>",
+   "source": "dvg",
+   "en": "Physical Fitness Test <Level 3>"
+  },
+  "90040004": {
+   "zh": "彩虹岛体能挑战 <等级 4>",
+   "source": "dvg",
+   "en": "Physical Fitness Test <Level 4>"
+  },
+  "90040010": {
+   "zh": "彩虹岛体能测试 <简单等候室>",
+   "source": "dvg",
+   "en": "Physical Fitness Test <Easy Waiting Room>"
+  },
+  "90040011": {
+   "zh": "彩虹岛体能挑战 <简单等级 1>",
+   "source": "dvg",
+   "en": "Physical Fitness Test <Easy Level 1>"
+  },
+  "90040012": {
+   "zh": "彩虹岛体能挑战 <简单等级 2>",
+   "source": "dvg",
+   "en": "Physical Fitness Test <Easy Level 2>"
+  },
+  "90040013": {
+   "zh": "彩虹岛体能挑战 <简单等级 3>",
+   "source": "dvg",
+   "en": "Physical Fitness Test <Easy Level 3>"
+  },
+  "90040020": {
+   "zh": "体能测试 <普通等待室>",
+   "source": "dvg",
+   "en": "Physical Fitness Test <Normal Waiting Room>"
+  },
+  "90040021": {
+   "zh": "体能测试 <普通等级1>",
+   "source": "dvg",
+   "en": "Physical Fitness Test <Normal Level 1>"
+  },
+  "90040022": {
+   "zh": "体能测试 <普通等级2>",
+   "source": "dvg",
+   "en": "Physical Fitness Test <Normal Level 2>"
+  },
+  "90040023": {
+   "zh": "体能测试 <普通等级3>",
+   "source": "dvg",
+   "en": "Physical Fitness Test <Normal Level 3>"
+  },
+  "90040101": {
+   "zh": "步步高升 <等级1>",
+   "source": "dvg",
+   "en": "Up and Up <Level 1>"
+  },
+  "90040102": {
+   "zh": "步步高升 <等级2>",
+   "source": "dvg",
+   "en": "Up and Up <Level 2>"
+  },
+  "90040103": {
+   "zh": "步步高升 <等级3>",
+   "source": "dvg",
+   "en": "Up and Up <Level 3>"
+  },
+  "90040200": {
+   "zh": "椰子收获",
+   "source": "dvg",
+   "en": "Coconut Harvest"
+  },
+  "90040201": {
+   "zh": "椰子收获",
+   "source": "dvg",
+   "en": "Coconut Harvest"
+  },
+  "90040202": {
+   "zh": "椰子收获",
+   "source": "dvg",
+   "en": "Coconut Harvest"
+  },
+  "90040203": {
+   "zh": "G*椰子季",
+   "source": "dvg",
+   "en": "G* Coconut Season"
+  },
+  "90050000": {
+   "zh": "离开活动",
+   "source": "dvg",
+   "en": "Leaving the Event"
+  },
+  "90050001": {
+   "zh": "领取活动奖励",
+   "source": "dvg",
+   "en": "Receiving the Reward For the Event"
+  }
+ },
+ "npcs": {
+  "229": {
+   "zh": "亚瑟",
+   "source": "dvg",
+   "en": "Arthur"
+  },
+  "231": {
+   "zh": "比安卡",
+   "source": "dvg",
+   "en": "Bianca"
+  },
+  "232": {
+   "zh": "雷蒙德",
+   "source": "dvg",
+   "en": "Raymond"
+  },
+  "233": {
+   "zh": "奥克",
+   "source": "dvg",
+   "en": "Oak"
+  },
+  "234": {
+   "zh": "弗林特",
+   "source": "dvg",
+   "en": "Flint"
+  },
+  "235": {
+   "zh": "社区公告板",
+   "source": "dvg",
+   "en": "Community Board"
+  },
+  "236": {
+   "zh": "门铃",
+   "source": "dvg",
+   "en": "Doorbell (Henesys)"
+  },
+  "321": {
+   "zh": "盛开的蓝铃花",
+   "source": "dvg",
+   "en": "Fully Bloomed Bluebell"
+  },
+  "325": {
+   "zh": "异界之门",
+   "source": "dvg",
+   "en": "Door of Dimension"
+  },
+  "326": {
+   "zh": "图书管理员琳",
+   "source": "dvg",
+   "en": "Lyn the Librarian"
+  },
+  "327": {
+   "zh": "抄写员塞布丽娜",
+   "source": "dvg",
+   "en": "Sabrina the Scribe"
+  },
+  "328": {
+   "zh": "审判官乔恩",
+   "source": "dvg",
+   "en": "Jon the Justicar"
+  },
+  "404": {
+   "zh": "马龙",
+   "source": "dvg",
+   "en": "Mong from Kong"
+  },
+  "423": {
+   "zh": "异界之门",
+   "source": "dvg",
+   "en": "Door of Dimension"
+  },
+  "425": {
+   "zh": "罗克西",
+   "source": "dvg",
+   "en": "Roxy"
+  },
+  "427": {
+   "zh": "斯嘉丽",
+   "source": "dvg",
+   "en": "Scarlett"
+  },
+  "429": {
+   "zh": "韦斯顿",
+   "source": "dvg",
+   "en": "Weston"
+  },
+  "430": {
+   "zh": "本",
+   "source": "dvg",
+   "en": "Ben"
+  },
+  "431": {
+   "zh": "社区公告板",
+   "source": "dvg",
+   "en": "Community Board"
+  },
+  "432": {
+   "zh": "门铃",
+   "source": "dvg",
+   "en": "Doorbell (Kerning City)"
+  },
+  "436": {
+   "zh": "斯莱德",
+   "source": "dvg",
+   "en": "Slade"
+  },
+  "504": {
+   "zh": "西拉斯·艾恩斯",
+   "source": "dvg",
+   "en": "Silas Irons"
+  },
+  "615": {
+   "zh": "异界之门",
+   "source": "dvg",
+   "en": "Door of Dimension"
+  },
+  "616": {
+   "zh": "蓝铃花苞",
+   "source": "dvg",
+   "en": "Bluebell Bud"
+  },
+  "700": {
+   "zh": "露玛",
+   "source": "dvg",
+   "en": "Luma"
+  },
+  "701": {
+   "zh": "泽莉娅",
+   "source": "dvg",
+   "en": "Zelya"
+  },
+  "702": {
+   "zh": "米恩",
+   "source": "dvg",
+   "en": "Myen"
+  },
+  "703": {
+   "zh": "米拉",
+   "source": "dvg",
+   "en": "Myra"
+  },
+  "704": {
+   "zh": "洞穴妖精的仓库",
+   "source": "dvg",
+   "en": "Cave Fairy's Storage"
+  },
+  "705": {
+   "zh": "盛开的蓝铃花",
+   "source": "dvg",
+   "en": "Fully Bloomed Bluebell"
+  },
+  "706": {
+   "zh": "蓝铃花苞",
+   "source": "dvg",
+   "en": "Bluebell Bud"
+  },
+  "707": {
+   "zh": "尼洛斯",
+   "source": "dvg",
+   "en": "Nyroth"
+  },
+  "710": {
+   "zh": "尼洛斯",
+   "source": "dvg",
+   "en": "Nyroth"
+  },
+  "711": {
+   "zh": "流浪探险家杰米",
+   "source": "dvg",
+   "en": "Jaime the Wandering Explorer"
+  },
+  "712": {
+   "zh": "学者丹尼尔",
+   "source": "dvg",
+   "en": "Daniel the Scholar"
+  },
+  "713": {
+   "zh": "盛开的蓝铃花",
+   "source": "dvg",
+   "en": "Fully Bloomed Bluebell"
+  },
+  "1001": {
+   "zh": "月台引导员",
+   "source": "dvg",
+   "en": "Platform Usher"
+  },
+  "1110": {
+   "zh": "塔尔杰先生",
+   "source": "dvg",
+   "en": "Mr. Thalj"
+  },
+  "800007": {
+   "zh": "自由市场枫叶TV",
+   "source": "dvg",
+   "en": "Free Market Maple TV"
+  },
+  "800010": {
+   "zh": "铁砧",
+   "source": "dvg",
+   "en": "Anvil"
+  },
+  "800011": {
+   "zh": "武器制作台",
+   "source": "dvg",
+   "en": "Weaponcrafting Station"
+  },
+  "800012": {
+   "zh": "缝纫机",
+   "source": "dvg",
+   "en": "Sewing Machine"
+  },
+  "800013": {
+   "zh": "木工台",
+   "source": "dvg",
+   "en": "Woodworking Station"
+  },
+  "800014": {
+   "zh": "皮革制作台",
+   "source": "dvg",
+   "en": "Leatherworking Station"
+  },
+  "800015": {
+   "zh": "炼金台",
+   "source": "dvg",
+   "en": "Arcane Station"
+  },
+  "800017": {
+   "zh": "泽莉娅",
+   "source": "dvg",
+   "en": "Zelya"
+  },
+  "800018": {
+   "zh": "刘易斯",
+   "source": "dvg",
+   "en": "Lewis"
+  },
+  "900003": {
+   "zh": "琳",
+   "source": "dvg",
+   "en": "Lyn"
+  },
+  "900004": {
+   "zh": "惠特妮",
+   "source": "dvg",
+   "en": "Whitney"
+  },
+  "900010": {
+   "zh": "保罗",
+   "source": "dvg",
+   "en": "Paul"
+  },
+  "900026": {
+   "zh": "巫婆",
+   "source": "dvg",
+   "en": "Malady"
+  }
+ },
+ "dvg_not_used": [
+  {
+   "kind": "map",
+   "id": 20000055,
+   "reason": "traditional characters",
+   "en": "Stairway to the Sky II",
+   "dvg": "天空楼梯Ⅱ天空階梯",
+   "dvg_en": "Stairway to the Sky II"
+  },
+  {
+   "kind": "map",
+   "id": 80003000,
+   "reason": "placeholder",
+   "en": "Primrose Hill",
+   "dvg": "地图 80003000",
+   "dvg_en": null
+  },
+  {
+   "kind": "map",
+   "id": 80003100,
+   "reason": "placeholder",
+   "en": "Shortcut",
+   "dvg": "地图 80003100",
+   "dvg_en": null
+  },
+  {
+   "kind": "map",
+   "id": 80003200,
+   "reason": "placeholder",
+   "en": "Pig Town",
+   "dvg": "地图 80003200",
+   "dvg_en": null
+  },
+  {
+   "kind": "map",
+   "id": 80003300,
+   "reason": "placeholder",
+   "en": "Back to Town",
+   "dvg": "地图 80003300",
+   "dvg_en": null
+  },
+  {
+   "kind": "map",
+   "id": 80003500,
+   "reason": "placeholder",
+   "en": "080003500",
+   "dvg": "地图 80003500",
+   "dvg_en": null
+  },
+  {
+   "kind": "map",
+   "id": 900000000,
+   "reason": "English differs",
+   "en": "White Map",
+   "dvg": "测试",
+   "dvg_en": "The Manager's Room"
+  },
+  {
+   "kind": "npc",
+   "id": 237,
+   "reason": "English differs",
+   "en": "Mailbox (Henesys)",
+   "dvg": "信箱",
+   "dvg_en": "Mailbox"
+  },
+  {
+   "kind": "npc",
+   "id": 433,
+   "reason": "English differs",
+   "en": "Mailbox (Kerning City)",
+   "dvg": "信箱",
+   "dvg_en": "Mailbox"
+  }
+ ]
+}

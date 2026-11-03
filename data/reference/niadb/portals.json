@@ -1,0 +1,9260 @@
+[
+ {
+  "map_id": 1,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10,
+    "tn": null,
+    "x": 1116,
+    "y": 365
+   }
+  ]
+ },
+ {
+  "map_id": 10,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 1,
+    "tn": null,
+    "x": -195,
+    "y": 278
+   },
+   {
+    "pn": "out00",
+    "tm": 20,
+    "tn": null,
+    "x": 706,
+    "y": 216
+   }
+  ]
+ },
+ {
+  "map_id": 20,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10,
+    "tn": null,
+    "x": -207,
+    "y": 218
+   },
+   {
+    "pn": "in01",
+    "tm": 21,
+    "tn": null,
+    "x": 557,
+    "y": 94
+   },
+   {
+    "pn": "out00",
+    "tm": 30,
+    "tn": null,
+    "x": 1109,
+    "y": 97
+   }
+  ]
+ },
+ {
+  "map_id": 21,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20,
+    "tn": null,
+    "x": -167,
+    "y": 244
+   }
+  ]
+ },
+ {
+  "map_id": 30,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 20,
+    "tn": null,
+    "x": -218,
+    "y": 217
+   },
+   {
+    "pn": "out00",
+    "tm": 40,
+    "tn": null,
+    "x": 1433,
+    "y": -924
+   }
+  ]
+ },
+ {
+  "map_id": 40,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 41,
+    "tn": null,
+    "x": 2692,
+    "y": 392
+   }
+  ]
+ },
+ {
+  "map_id": 41,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 40,
+    "tn": null,
+    "x": -219,
+    "y": 393
+   },
+   {
+    "pn": "east00",
+    "tm": 42,
+    "tn": null,
+    "x": 2792,
+    "y": 395
+   }
+  ]
+ },
+ {
+  "map_id": 42,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 50,
+    "tn": null,
+    "x": 2753,
+    "y": -685
+   },
+   {
+    "pn": "west00",
+    "tm": 41,
+    "tn": null,
+    "x": -19,
+    "y": 274
+   }
+  ]
+ },
+ {
+  "map_id": 50,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 42,
+    "tn": null,
+    "x": -505,
+    "y": 246
+   },
+   {
+    "pn": "east00",
+    "tm": 1000,
+    "tn": null,
+    "x": 3041,
+    "y": 7
+   },
+   {
+    "pn": "east01",
+    "tm": 60,
+    "tn": null,
+    "x": 3046,
+    "y": 361
+   }
+  ]
+ },
+ {
+  "map_id": 60,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 50,
+    "tn": null,
+    "x": -547,
+    "y": 286
+   },
+   {
+    "pn": "in00",
+    "tm": 61,
+    "tn": null,
+    "x": 699,
+    "y": 527
+   }
+  ]
+ },
+ {
+  "map_id": 61,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 60,
+    "tn": null,
+    "x": -48,
+    "y": 181
+   }
+  ]
+ },
+ {
+  "map_id": 1000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 50,
+    "tn": null,
+    "x": -391,
+    "y": 276
+   },
+   {
+    "pn": "east00",
+    "tm": 1010,
+    "tn": null,
+    "x": 3338,
+    "y": 456
+   },
+   {
+    "pn": "in00",
+    "tm": 1001,
+    "tn": null,
+    "x": -60,
+    "y": -385
+   },
+   {
+    "pn": "in01",
+    "tm": 1002,
+    "tn": null,
+    "x": 2987,
+    "y": -508
+   },
+   {
+    "pn": "in02",
+    "tm": 1003,
+    "tn": null,
+    "x": 1740,
+    "y": 455
+   },
+   {
+    "pn": "in03",
+    "tm": 1004,
+    "tn": null,
+    "x": 1908,
+    "y": 456
+   },
+   {
+    "pn": "in04",
+    "tm": 1005,
+    "tn": null,
+    "x": 389,
+    "y": -688
+   },
+   {
+    "pn": "in05",
+    "tm": 1006,
+    "tn": null,
+    "x": 757,
+    "y": -747
+   }
+  ]
+ },
+ {
+  "map_id": 1001,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 1000,
+    "tn": null,
+    "x": 1153,
+    "y": -56
+   }
+  ]
+ },
+ {
+  "map_id": 1002,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out01",
+    "tm": 1000,
+    "tn": null,
+    "x": -310,
+    "y": -864
+   }
+  ]
+ },
+ {
+  "map_id": 1003,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 1000,
+    "tn": null,
+    "x": 2695,
+    "y": 329
+   }
+  ]
+ },
+ {
+  "map_id": 1004,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 1000,
+    "tn": null,
+    "x": 980,
+    "y": 329
+   }
+  ]
+ },
+ {
+  "map_id": 1005,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 1000,
+    "tn": null,
+    "x": 132,
+    "y": 155
+   }
+  ]
+ },
+ {
+  "map_id": 1006,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 1000,
+    "tn": null,
+    "x": 133,
+    "y": -1346
+   }
+  ]
+ },
+ {
+  "map_id": 1010,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 1000,
+    "tn": null,
+    "x": -291,
+    "y": 276
+   },
+   {
+    "pn": "in00",
+    "tm": 1011,
+    "tn": null,
+    "x": 227,
+    "y": -175
+   },
+   {
+    "pn": "in01",
+    "tm": 1012,
+    "tn": null,
+    "x": 2276,
+    "y": 275
+   },
+   {
+    "pn": "in02",
+    "tm": 1013,
+    "tn": null,
+    "x": 1516,
+    "y": 156
+   },
+   {
+    "pn": "east00",
+    "tm": 1020,
+    "tn": null,
+    "x": 3055,
+    "y": 274
+   }
+  ]
+ },
+ {
+  "map_id": 1011,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 1010,
+    "tn": null,
+    "x": -48,
+    "y": 181
+   }
+  ]
+ },
+ {
+  "map_id": 1012,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 1010,
+    "tn": null,
+    "x": -167,
+    "y": 244
+   },
+   {
+    "pn": "west00",
+    "tm": 1014,
+    "tn": null,
+    "x": -492,
+    "y": 275
+   }
+  ]
+ },
+ {
+  "map_id": 1013,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 1010,
+    "tn": null,
+    "x": 300,
+    "y": 182
+   }
+  ]
+ },
+ {
+  "map_id": 1014,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 1012,
+    "tn": null,
+    "x": 559,
+    "y": -623
+   }
+  ]
+ },
+ {
+  "map_id": 1020,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 1021,
+    "tn": null,
+    "x": 1792,
+    "y": -384
+   },
+   {
+    "pn": "west00",
+    "tm": 1010,
+    "tn": null,
+    "x": -332,
+    "y": 90
+   }
+  ]
+ },
+ {
+  "map_id": 1021,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 1020,
+    "tn": null,
+    "x": -275,
+    "y": 214
+   }
+  ]
+ },
+ {
+  "map_id": 10000000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10000010,
+    "tn": null,
+    "x": 5247,
+    "y": 584
+   },
+   {
+    "pn": "in00",
+    "tm": 10000001,
+    "tn": null,
+    "x": 3805,
+    "y": -228
+   },
+   {
+    "pn": "in01",
+    "tm": 10000002,
+    "tn": null,
+    "x": 4247,
+    "y": 436
+   },
+   {
+    "pn": "in02",
+    "tm": 10000003,
+    "tn": null,
+    "x": 3012,
+    "y": -226
+   }
+  ]
+ },
+ {
+  "map_id": 10000001,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10000000,
+    "tn": null,
+    "x": -48,
+    "y": 181
+   }
+  ]
+ },
+ {
+  "map_id": 10000002,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out01",
+    "tm": 10000000,
+    "tn": null,
+    "x": 300,
+    "y": 182
+   }
+  ]
+ },
+ {
+  "map_id": 10000003,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10000000,
+    "tn": null,
+    "x": -48,
+    "y": 181
+   }
+  ]
+ },
+ {
+  "map_id": 10000010,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10000000,
+    "tn": null,
+    "x": -487,
+    "y": 287
+   },
+   {
+    "pn": "east00",
+    "tm": 10000011,
+    "tn": null,
+    "x": 2457,
+    "y": 398
+   }
+  ]
+ },
+ {
+  "map_id": 10000011,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10000010,
+    "tn": null,
+    "x": -247,
+    "y": 97
+   },
+   {
+    "pn": "east00",
+    "tm": 10000012,
+    "tn": null,
+    "x": 2166,
+    "y": 217
+   }
+  ]
+ },
+ {
+  "map_id": 10000012,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10000011,
+    "tn": null,
+    "x": -314,
+    "y": 394
+   },
+   {
+    "pn": "east00",
+    "tm": 10000013,
+    "tn": null,
+    "x": 1315,
+    "y": 395
+   }
+  ]
+ },
+ {
+  "map_id": 10000013,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10000012,
+    "tn": null,
+    "x": -364,
+    "y": 514
+   },
+   {
+    "pn": "east00",
+    "tm": 10000020,
+    "tn": null,
+    "x": 998,
+    "y": 337
+   }
+  ]
+ },
+ {
+  "map_id": 10000020,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "h_in00",
+    "tm": 10000021,
+    "tn": null,
+    "x": 43,
+    "y": -206
+   },
+   {
+    "pn": "in01",
+    "tm": 10000022,
+    "tn": null,
+    "x": 642,
+    "y": 393
+   },
+   {
+    "pn": "west00",
+    "tm": 10000013,
+    "tn": null,
+    "x": -1553,
+    "y": 332
+   },
+   {
+    "pn": "east00",
+    "tm": 10001030,
+    "tn": null,
+    "x": 3184,
+    "y": 334
+   },
+   {
+    "pn": "top00",
+    "tm": 10003050,
+    "tn": null,
+    "x": -1547,
+    "y": -1409
+   }
+  ]
+ },
+ {
+  "map_id": 10000021,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "h_out00",
+    "tm": 10000020,
+    "tn": null,
+    "x": -1044,
+    "y": -384
+   }
+  ]
+ },
+ {
+  "map_id": 10000022,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10000020,
+    "tn": null,
+    "x": -1682,
+    "y": -239
+   }
+  ]
+ },
+ {
+  "map_id": 10001000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in03",
+    "tm": 10001002,
+    "tn": null,
+    "x": 317,
+    "y": -96
+   },
+   {
+    "pn": "in05",
+    "tm": 88000000,
+    "tn": null,
+    "x": 3919,
+    "y": 453
+   },
+   {
+    "pn": "west00",
+    "tm": 10001010,
+    "tn": null,
+    "x": -434,
+    "y": 275
+   },
+   {
+    "pn": "east00",
+    "tm": 10001060,
+    "tn": null,
+    "x": 5907,
+    "y": 455
+   },
+   {
+    "pn": "east10",
+    "tm": 10001090,
+    "tn": null,
+    "x": 6073,
+    "y": -176
+   },
+   {
+    "pn": "in00",
+    "tm": 10001040,
+    "tn": null,
+    "x": 3026,
+    "y": 335
+   },
+   {
+    "pn": "in01",
+    "tm": 10001050,
+    "tn": null,
+    "x": 3848,
+    "y": 124
+   },
+   {
+    "pn": "in02",
+    "tm": 10001001,
+    "tn": null,
+    "x": 5136,
+    "y": 453
+   },
+   {
+    "pn": "in04",
+    "tm": 10001007,
+    "tn": null,
+    "x": 2282,
+    "y": 330
+   }
+  ]
+ },
+ {
+  "map_id": 10001001,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out02",
+    "tm": 10001000,
+    "tn": null,
+    "x": 202,
+    "y": 242
+   }
+  ]
+ },
+ {
+  "map_id": 10001002,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10001003,
+    "tn": null,
+    "x": -871,
+    "y": -296
+   },
+   {
+    "pn": "out00",
+    "tm": 10001000,
+    "tn": null,
+    "x": -16,
+    "y": -341
+   }
+  ]
+ },
+ {
+  "map_id": 10001003,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10001004,
+    "tn": null,
+    "x": 3581,
+    "y": -326
+   },
+   {
+    "pn": "out00",
+    "tm": 10001002,
+    "tn": null,
+    "x": -6,
+    "y": -146
+   },
+   {
+    "pn": "in01",
+    "tm": 10001006,
+    "tn": null,
+    "x": 2299,
+    "y": -4
+   },
+   {
+    "pn": "in02",
+    "tm": 10001006,
+    "tn": null,
+    "x": 1212,
+    "y": -10
+   }
+  ]
+ },
+ {
+  "map_id": 10001004,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10001005,
+    "tn": null,
+    "x": 2787,
+    "y": -1344
+   },
+   {
+    "pn": "out00",
+    "tm": 10001003,
+    "tn": null,
+    "x": 1927,
+    "y": -27
+   }
+  ]
+ },
+ {
+  "map_id": 10001005,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001004,
+    "tn": null,
+    "x": -784,
+    "y": -446
+   }
+  ]
+ },
+ {
+  "map_id": 10001006,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001003,
+    "tn": null,
+    "x": -830,
+    "y": -446
+   }
+  ]
+ },
+ {
+  "map_id": 10001007,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001000,
+    "tn": null,
+    "x": 491,
+    "y": 203
+   }
+  ]
+ },
+ {
+  "map_id": 10001008,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001000,
+    "tn": null,
+    "x": 208,
+    "y": 243
+   }
+  ]
+ },
+ {
+  "map_id": 10001010,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10001020,
+    "tn": null,
+    "x": -322,
+    "y": 215
+   },
+   {
+    "pn": "east00",
+    "tm": 10001000,
+    "tn": null,
+    "x": 1625,
+    "y": 216
+   },
+   {
+    "pn": "in00",
+    "tm": 10001011,
+    "tn": null,
+    "x": 958,
+    "y": -851
+   }
+  ]
+ },
+ {
+  "map_id": 10001011,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001010,
+    "tn": null,
+    "x": 1330,
+    "y": -28
+   },
+   {
+    "pn": "in00",
+    "tm": 10001012,
+    "tn": null,
+    "x": 854,
+    "y": -1231
+   }
+  ]
+ },
+ {
+  "map_id": 10001012,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001011,
+    "tn": null,
+    "x": 1330,
+    "y": -28
+   }
+  ]
+ },
+ {
+  "map_id": 10001020,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10001021,
+    "tn": null,
+    "x": -928,
+    "y": -1286
+   },
+   {
+    "pn": "east00",
+    "tm": 10001010,
+    "tn": null,
+    "x": 100,
+    "y": -355
+   },
+   {
+    "pn": "west00",
+    "tm": 10001030,
+    "tn": null,
+    "x": -3115,
+    "y": 35
+   }
+  ]
+ },
+ {
+  "map_id": 10001021,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001020,
+    "tn": null,
+    "x": 1145,
+    "y": 992
+   }
+  ]
+ },
+ {
+  "map_id": 10001030,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10000020,
+    "tn": null,
+    "x": -2258,
+    "y": -144
+   },
+   {
+    "pn": "east00",
+    "tm": 10001020,
+    "tn": null,
+    "x": 1508,
+    "y": -145
+   }
+  ]
+ },
+ {
+  "map_id": 10001040,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001000,
+    "tn": null,
+    "x": -288,
+    "y": 155
+   },
+   {
+    "pn": "out01",
+    "tm": 10001050,
+    "tn": null,
+    "x": 4847,
+    "y": 95
+   },
+   {
+    "pn": "in00",
+    "tm": 10001041,
+    "tn": null,
+    "x": 1889,
+    "y": 212
+   },
+   {
+    "pn": "in01",
+    "tm": 10001042,
+    "tn": null,
+    "x": 2913,
+    "y": -117
+   },
+   {
+    "pn": "in04",
+    "tm": 10001043,
+    "tn": null,
+    "x": 4191,
+    "y": -180
+   },
+   {
+    "pn": "in05",
+    "tm": 10001044,
+    "tn": null,
+    "x": 4165,
+    "y": 94
+   },
+   {
+    "pn": "in06",
+    "tm": 10001045,
+    "tn": null,
+    "x": 3653,
+    "y": 91
+   }
+  ]
+ },
+ {
+  "map_id": 10001041,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001040,
+    "tn": null,
+    "x": 244,
+    "y": 180
+   }
+  ]
+ },
+ {
+  "map_id": 10001042,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out01",
+    "tm": 10001040,
+    "tn": null,
+    "x": 300,
+    "y": 182
+   }
+  ]
+ },
+ {
+  "map_id": 10001043,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001040,
+    "tn": null,
+    "x": -288,
+    "y": 179
+   }
+  ]
+ },
+ {
+  "map_id": 10001044,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001040,
+    "tn": null,
+    "x": 340,
+    "y": 179
+   }
+  ]
+ },
+ {
+  "map_id": 10001045,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001040,
+    "tn": null,
+    "x": 340,
+    "y": 179
+   }
+  ]
+ },
+ {
+  "map_id": 10001050,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in01",
+    "tm": 10001052,
+    "tn": null,
+    "x": 1731,
+    "y": 302
+   },
+   {
+    "pn": "out00",
+    "tm": 10001000,
+    "tn": null,
+    "x": 41,
+    "y": 454
+   },
+   {
+    "pn": "out01",
+    "tm": 10001040,
+    "tn": null,
+    "x": 910,
+    "y": 424
+   },
+   {
+    "pn": "in02",
+    "tm": 10001051,
+    "tn": null,
+    "x": 3941,
+    "y": 693
+   }
+  ]
+ },
+ {
+  "map_id": 10001051,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out02",
+    "tm": 10001050,
+    "tn": null,
+    "x": 270,
+    "y": 180
+   }
+  ]
+ },
+ {
+  "map_id": 10001052,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001050,
+    "tn": null,
+    "x": 43,
+    "y": -147
+   }
+  ]
+ },
+ {
+  "map_id": 10001060,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10001000,
+    "tn": null,
+    "x": -542,
+    "y": 457
+   },
+   {
+    "pn": "east00",
+    "tm": 10001070,
+    "tn": null,
+    "x": 1855,
+    "y": 456
+   }
+  ]
+ },
+ {
+  "map_id": 10001070,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10001060,
+    "tn": null,
+    "x": -580,
+    "y": 210
+   },
+   {
+    "pn": "east00",
+    "tm": 10001080,
+    "tn": null,
+    "x": 1444,
+    "y": 215
+   }
+  ]
+ },
+ {
+  "map_id": 10001080,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "farm00",
+    "tm": 10001082,
+    "tn": null,
+    "x": -4428,
+    "y": -1285
+   },
+   {
+    "pn": "west00",
+    "tm": 10001070,
+    "tn": null,
+    "x": -4326,
+    "y": 154
+   },
+   {
+    "pn": "east00",
+    "tm": 10002030,
+    "tn": null,
+    "x": -26,
+    "y": -864
+   },
+   {
+    "pn": "in00",
+    "tm": 10001081,
+    "tn": null,
+    "x": -3368,
+    "y": -1463
+   }
+  ]
+ },
+ {
+  "map_id": 10001081,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001080,
+    "tn": null,
+    "x": -2476,
+    "y": -1226
+   }
+  ]
+ },
+ {
+  "map_id": 10001082,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001080,
+    "tn": null,
+    "x": 1469,
+    "y": -808
+   },
+   {
+    "pn": "out01",
+    "tm": 10001080,
+    "tn": null,
+    "x": -1466,
+    "y": 152
+   }
+  ]
+ },
+ {
+  "map_id": 10001090,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10001000,
+    "tn": null,
+    "x": -169,
+    "y": 211
+   },
+   {
+    "pn": "east00",
+    "tm": 10001100,
+    "tn": null,
+    "x": 2828,
+    "y": 277
+   }
+  ]
+ },
+ {
+  "map_id": 10001100,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10001101,
+    "tn": null,
+    "x": 970,
+    "y": 480
+   },
+   {
+    "pn": "west00",
+    "tm": 10001090,
+    "tn": null,
+    "x": -109,
+    "y": 7
+   },
+   {
+    "pn": "dun00",
+    "tm": 10005010,
+    "tn": null,
+    "x": 3109,
+    "y": 128
+   }
+  ]
+ },
+ {
+  "map_id": 10001101,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10001102,
+    "tn": null,
+    "x": 92,
+    "y": -535
+   },
+   {
+    "pn": "out00",
+    "tm": 10001100,
+    "tn": null,
+    "x": -390,
+    "y": 274
+   }
+  ]
+ },
+ {
+  "map_id": 10001102,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in03",
+    "tm": 10001103,
+    "tn": null,
+    "x": 69,
+    "y": 204
+   },
+   {
+    "pn": "in04",
+    "tm": 10001104,
+    "tn": null,
+    "x": 405,
+    "y": 208
+   },
+   {
+    "pn": "in05",
+    "tm": 10001105,
+    "tn": null,
+    "x": 87,
+    "y": -76
+   },
+   {
+    "pn": "in06",
+    "tm": 10001106,
+    "tn": null,
+    "x": 88,
+    "y": -250
+   },
+   {
+    "pn": "out00",
+    "tm": 10001101,
+    "tn": null,
+    "x": -363,
+    "y": 304
+   }
+  ]
+ },
+ {
+  "map_id": 10001103,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001102,
+    "tn": null,
+    "x": -249,
+    "y": 301
+   }
+  ]
+ },
+ {
+  "map_id": 10001104,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001102,
+    "tn": null,
+    "x": -249,
+    "y": 301
+   }
+  ]
+ },
+ {
+  "map_id": 10001105,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001102,
+    "tn": null,
+    "x": -75,
+    "y": 186
+   }
+  ]
+ },
+ {
+  "map_id": 10001106,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001102,
+    "tn": null,
+    "x": 256,
+    "y": 184
+   }
+  ]
+ },
+ {
+  "map_id": 10002000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in02",
+    "tm": 10002004,
+    "tn": null,
+    "x": 1349,
+    "y": 242
+   },
+   {
+    "pn": "west00",
+    "tm": 10002010,
+    "tn": null,
+    "x": -1012,
+    "y": 298
+   },
+   {
+    "pn": "top00",
+    "tm": 10002050,
+    "tn": null,
+    "x": -1091,
+    "y": -2809
+   },
+   {
+    "pn": "in00",
+    "tm": 10002001,
+    "tn": null,
+    "x": 786,
+    "y": -2281
+   },
+   {
+    "pn": "in01",
+    "tm": 10002002,
+    "tn": null,
+    "x": -123,
+    "y": -1940
+   },
+   {
+    "pn": "jobin00",
+    "tm": 10002003,
+    "tn": null,
+    "x": 334,
+    "y": -3987
+   }
+  ]
+ },
+ {
+  "map_id": 10002001,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002000,
+    "tn": null,
+    "x": -48,
+    "y": 181
+   }
+  ]
+ },
+ {
+  "map_id": 10002002,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out01",
+    "tm": 10002000,
+    "tn": null,
+    "x": 300,
+    "y": 182
+   }
+  ]
+ },
+ {
+  "map_id": 10002003,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "jobout00",
+    "tm": 10002000,
+    "tn": null,
+    "x": 253,
+    "y": 184
+   },
+   {
+    "pn": "out00",
+    "tm": 10002005,
+    "tn": null,
+    "x": -194,
+    "y": -431
+   }
+  ]
+ },
+ {
+  "map_id": 10002004,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002000,
+    "tn": null,
+    "x": 479,
+    "y": -536
+   }
+  ]
+ },
+ {
+  "map_id": 10002005,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10002003,
+    "tn": null,
+    "x": 255,
+    "y": 183
+   }
+  ]
+ },
+ {
+  "map_id": 10002010,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10002020,
+    "tn": null,
+    "x": -1569,
+    "y": 2083
+   },
+   {
+    "pn": "east00",
+    "tm": 10002000,
+    "tn": null,
+    "x": -261,
+    "y": 1081
+   }
+  ]
+ },
+ {
+  "map_id": 10002020,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in01",
+    "tm": 10002027,
+    "tn": null,
+    "x": 1040,
+    "y": 1007
+   },
+   {
+    "pn": "in00",
+    "tm": 10002021,
+    "tn": null,
+    "x": -22,
+    "y": -1591
+   },
+   {
+    "pn": "west00",
+    "tm": 10002030,
+    "tn": null,
+    "x": -445,
+    "y": 211
+   },
+   {
+    "pn": "east00",
+    "tm": 10002010,
+    "tn": null,
+    "x": 1340,
+    "y": 225
+   }
+  ]
+ },
+ {
+  "map_id": 10002021,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in01",
+    "tm": 10002022,
+    "tn": null,
+    "x": 471,
+    "y": 208
+   },
+   {
+    "pn": "in02",
+    "tm": 10002022,
+    "tn": null,
+    "x": 538,
+    "y": -1007
+   },
+   {
+    "pn": "out00",
+    "tm": 10002020,
+    "tn": null,
+    "x": -16,
+    "y": -1593
+   },
+   {
+    "pn": "in00",
+    "tm": 10002023,
+    "tn": null,
+    "x": 1041,
+    "y": -1396
+   }
+  ]
+ },
+ {
+  "map_id": 10002022,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002021,
+    "tn": null,
+    "x": -181,
+    "y": 188
+   },
+   {
+    "pn": "out01",
+    "tm": 10002021,
+    "tn": null,
+    "x": 272,
+    "y": -1440
+   }
+  ]
+ },
+ {
+  "map_id": 10002023,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10002024,
+    "tn": null,
+    "x": 1009,
+    "y": 218
+   },
+   {
+    "pn": "in01",
+    "tm": 10002024,
+    "tn": null,
+    "x": 1019,
+    "y": -178
+   },
+   {
+    "pn": "in02",
+    "tm": 10002024,
+    "tn": null,
+    "x": 1022,
+    "y": -581
+   },
+   {
+    "pn": "out00",
+    "tm": 10002021,
+    "tn": null,
+    "x": 25,
+    "y": -1391
+   },
+   {
+    "pn": "in03",
+    "tm": 10002025,
+    "tn": null,
+    "x": 1082,
+    "y": -1409
+   }
+  ]
+ },
+ {
+  "map_id": 10002024,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002023,
+    "tn": null,
+    "x": -182,
+    "y": -135
+   },
+   {
+    "pn": "out01",
+    "tm": 10002023,
+    "tn": null,
+    "x": -206,
+    "y": -771
+   },
+   {
+    "pn": "out02",
+    "tm": 10002023,
+    "tn": null,
+    "x": -185,
+    "y": -1556
+   }
+  ]
+ },
+ {
+  "map_id": 10002025,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10002026,
+    "tn": null,
+    "x": 1030,
+    "y": -1379
+   },
+   {
+    "pn": "out00",
+    "tm": 10002023,
+    "tn": null,
+    "x": 25,
+    "y": -1391
+   }
+  ]
+ },
+ {
+  "map_id": 10002026,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002025,
+    "tn": null,
+    "x": 25,
+    "y": -1391
+   }
+  ]
+ },
+ {
+  "map_id": 10002027,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out01",
+    "tm": 10002020,
+    "tn": null,
+    "x": 1039,
+    "y": -1394
+   }
+  ]
+ },
+ {
+  "map_id": 10002030,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in01",
+    "tm": 10002031,
+    "tn": null,
+    "x": -1736,
+    "y": 1560
+   },
+   {
+    "pn": "in01_1",
+    "tm": 10002031,
+    "tn": null,
+    "x": -1690,
+    "y": 964
+   },
+   {
+    "pn": "in02",
+    "tm": 10002032,
+    "tn": null,
+    "x": -1088,
+    "y": 902
+   },
+   {
+    "pn": "in02_1",
+    "tm": 10002032,
+    "tn": null,
+    "x": -1153,
+    "y": 295
+   },
+   {
+    "pn": "in03",
+    "tm": 10002033,
+    "tn": null,
+    "x": 569,
+    "y": -92
+   },
+   {
+    "pn": "in04",
+    "tm": 10002034,
+    "tn": null,
+    "x": 1031,
+    "y": 608
+   },
+   {
+    "pn": "in04_1",
+    "tm": 10002034,
+    "tn": null,
+    "x": 969,
+    "y": 1
+   },
+   {
+    "pn": "east00",
+    "tm": 10002020,
+    "tn": null,
+    "x": 1120,
+    "y": -174
+   },
+   {
+    "pn": "west00",
+    "tm": 10001080,
+    "tn": null,
+    "x": -1861,
+    "y": 2077
+   }
+  ]
+ },
+ {
+  "map_id": 10002031,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002030,
+    "tn": null,
+    "x": -189,
+    "y": 277
+   },
+   {
+    "pn": "out01",
+    "tm": 10002030,
+    "tn": null,
+    "x": 275,
+    "y": -1090
+   }
+  ]
+ },
+ {
+  "map_id": 10002032,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002030,
+    "tn": null,
+    "x": 280,
+    "y": -154
+   },
+   {
+    "pn": "out01",
+    "tm": 10002030,
+    "tn": null,
+    "x": -195,
+    "y": -1572
+   }
+  ]
+ },
+ {
+  "map_id": 10002033,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002030,
+    "tn": null,
+    "x": 278,
+    "y": -1482
+   }
+  ]
+ },
+ {
+  "map_id": 10002034,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out01",
+    "tm": 10002030,
+    "tn": null,
+    "x": -152,
+    "y": -1561
+   },
+   {
+    "pn": "out00",
+    "tm": 10002030,
+    "tn": null,
+    "x": 278,
+    "y": -116
+   }
+  ]
+ },
+ {
+  "map_id": 10002040,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10002041,
+    "tn": null,
+    "x": 94,
+    "y": -3022
+   }
+  ]
+ },
+ {
+  "map_id": 10002041,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 10002042,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10002043,
+    "tn": null,
+    "x": 265,
+    "y": -2410
+   }
+  ]
+ },
+ {
+  "map_id": 10002043,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10002044,
+    "tn": null,
+    "x": -452,
+    "y": -1513
+   }
+  ]
+ },
+ {
+  "map_id": 10002044,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 10002050,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10002060,
+    "tn": null,
+    "x": -1642,
+    "y": 1561
+   },
+   {
+    "pn": "east00",
+    "tm": 10002000,
+    "tn": null,
+    "x": -96,
+    "y": 2020
+   }
+  ]
+ },
+ {
+  "map_id": 10002060,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10002070,
+    "tn": null,
+    "x": -1569,
+    "y": 2083
+   },
+   {
+    "pn": "east00",
+    "tm": 10002050,
+    "tn": null,
+    "x": -71,
+    "y": 2023
+   },
+   {
+    "pn": "up03",
+    "tm": 10002061,
+    "tn": null,
+    "x": -1334,
+    "y": 821
+   }
+  ]
+ },
+ {
+  "map_id": 10002061,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "up05",
+    "tm": 10002062,
+    "tn": null,
+    "x": -1338,
+    "y": 24
+   },
+   {
+    "pn": "dw05",
+    "tm": 10002060,
+    "tn": null,
+    "x": -356,
+    "y": 2028
+   }
+  ]
+ },
+ {
+  "map_id": 10002062,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "dw04",
+    "tm": 10002061,
+    "tn": null,
+    "x": -351,
+    "y": 2028
+   }
+  ]
+ },
+ {
+  "map_id": 10002070,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in01",
+    "tm": 10002071,
+    "tn": null,
+    "x": 38,
+    "y": 2097
+   },
+   {
+    "pn": "in01_1",
+    "tm": 10002071,
+    "tn": null,
+    "x": -22,
+    "y": 1089
+   },
+   {
+    "pn": "in01_2",
+    "tm": 10002071,
+    "tn": null,
+    "x": 41,
+    "y": 97
+   },
+   {
+    "pn": "in01_3",
+    "tm": 10002071,
+    "tn": null,
+    "x": 46,
+    "y": -1908
+   },
+   {
+    "pn": "in02",
+    "tm": 10002072,
+    "tn": null,
+    "x": 536,
+    "y": 1552
+   },
+   {
+    "pn": "in02_1",
+    "tm": 10002072,
+    "tn": null,
+    "x": 520,
+    "y": 1147
+   },
+   {
+    "pn": "in03",
+    "tm": 10002073,
+    "tn": null,
+    "x": -732,
+    "y": 1487
+   },
+   {
+    "pn": "in03_1",
+    "tm": 10002073,
+    "tn": null,
+    "x": -734,
+    "y": 1080
+   },
+   {
+    "pn": "in04",
+    "tm": 10002080,
+    "tn": null,
+    "x": 610,
+    "y": -875
+   },
+   {
+    "pn": "in04_1",
+    "tm": 10002080,
+    "tn": null,
+    "x": 522,
+    "y": -1652
+   },
+   {
+    "pn": "in05",
+    "tm": 10002081,
+    "tn": null,
+    "x": -796,
+    "y": -2324
+   },
+   {
+    "pn": "in06",
+    "tm": 10002074,
+    "tn": null,
+    "x": -19,
+    "y": -2520
+   },
+   {
+    "pn": "in07",
+    "tm": 10002075,
+    "tn": null,
+    "x": -391,
+    "y": -2413
+   },
+   {
+    "pn": "in07_1",
+    "tm": 10002075,
+    "tn": null,
+    "x": -468,
+    "y": -3189
+   },
+   {
+    "pn": "in08",
+    "tm": 10002076,
+    "tn": null,
+    "x": 539,
+    "y": -2456
+   },
+   {
+    "pn": "in08_1",
+    "tm": 10002076,
+    "tn": null,
+    "x": 537,
+    "y": -3255
+   },
+   {
+    "pn": "in09",
+    "tm": 10002082,
+    "tn": null,
+    "x": -733,
+    "y": -3323
+   },
+   {
+    "pn": "in09_1",
+    "tm": 10002082,
+    "tn": null,
+    "x": -737,
+    "y": -3720
+   },
+   {
+    "pn": "in10",
+    "tm": 10002083,
+    "tn": null,
+    "x": -402,
+    "y": -4013
+   },
+   {
+    "pn": "east00",
+    "tm": 10002060,
+    "tn": null,
+    "x": 853,
+    "y": 2096
+   },
+   {
+    "pn": "top00",
+    "tm": 10004090,
+    "tn": null,
+    "x": -957,
+    "y": 1247
+   }
+  ]
+ },
+ {
+  "map_id": 10002071,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002070,
+    "tn": null,
+    "x": 258,
+    "y": 271
+   },
+   {
+    "pn": "out01",
+    "tm": 10002070,
+    "tn": null,
+    "x": -186,
+    "y": -472
+   },
+   {
+    "pn": "out02",
+    "tm": 10002070,
+    "tn": null,
+    "x": 276,
+    "y": -1141
+   },
+   {
+    "pn": "out03",
+    "tm": 10002070,
+    "tn": null,
+    "x": 279,
+    "y": -2182
+   }
+  ]
+ },
+ {
+  "map_id": 10002072,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002070,
+    "tn": null,
+    "x": -189,
+    "y": 310
+   },
+   {
+    "pn": "out01",
+    "tm": 10002070,
+    "tn": null,
+    "x": -186,
+    "y": -472
+   }
+  ]
+ },
+ {
+  "map_id": 10002073,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002070,
+    "tn": null,
+    "x": 282,
+    "y": -49
+   },
+   {
+    "pn": "out01",
+    "tm": 10002070,
+    "tn": null,
+    "x": 281,
+    "y": -1183
+   }
+  ]
+ },
+ {
+  "map_id": 10002074,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002070,
+    "tn": null,
+    "x": -184,
+    "y": 56
+   }
+  ]
+ },
+ {
+  "map_id": 10002075,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002070,
+    "tn": null,
+    "x": 272,
+    "y": -33
+   },
+   {
+    "pn": "out01",
+    "tm": 10002070,
+    "tn": null,
+    "x": -184,
+    "y": -1272
+   }
+  ]
+ },
+ {
+  "map_id": 10002076,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002070,
+    "tn": null,
+    "x": -182,
+    "y": -20
+   },
+   {
+    "pn": "out01",
+    "tm": 10002070,
+    "tn": null,
+    "x": -185,
+    "y": -1039
+   }
+  ]
+ },
+ {
+  "map_id": 10002080,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002070,
+    "tn": null,
+    "x": 282,
+    "y": 348
+   },
+   {
+    "pn": "out01",
+    "tm": 10002070,
+    "tn": null,
+    "x": -189,
+    "y": -1077
+   }
+  ]
+ },
+ {
+  "map_id": 10002081,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002070,
+    "tn": null,
+    "x": -186,
+    "y": -305
+   }
+  ]
+ },
+ {
+  "map_id": 10002082,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002070,
+    "tn": null,
+    "x": 260,
+    "y": 293
+   },
+   {
+    "pn": "out01",
+    "tm": 10002070,
+    "tn": null,
+    "x": 260,
+    "y": -1255
+   }
+  ]
+ },
+ {
+  "map_id": 10002083,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002070,
+    "tn": null,
+    "x": 262,
+    "y": 269
+   }
+  ]
+ },
+ {
+  "map_id": 10002090,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10002000,
+    "tn": null,
+    "x": -221,
+    "y": 82
+   }
+  ]
+ },
+ {
+  "map_id": 10002091,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 10003000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in01_1",
+    "tm": 10003001,
+    "tn": null,
+    "x": -1406,
+    "y": 7
+   },
+   {
+    "pn": "in01_2",
+    "tm": 10003001,
+    "tn": null,
+    "x": -1631,
+    "y": -249
+   },
+   {
+    "pn": "in04_1",
+    "tm": 10003004,
+    "tn": null,
+    "x": -731,
+    "y": -13
+   },
+   {
+    "pn": "in01",
+    "tm": 10003001,
+    "tn": null,
+    "x": -1725,
+    "y": 6
+   },
+   {
+    "pn": "in02",
+    "tm": 10003002,
+    "tn": null,
+    "x": 1008,
+    "y": 0
+   },
+   {
+    "pn": "in03",
+    "tm": 10003003,
+    "tn": null,
+    "x": 1404,
+    "y": 156
+   },
+   {
+    "pn": "in04",
+    "tm": 10003004,
+    "tn": null,
+    "x": -761,
+    "y": 115
+   },
+   {
+    "pn": "in05",
+    "tm": 10003005,
+    "tn": null,
+    "x": 192,
+    "y": -100
+   },
+   {
+    "pn": "in06",
+    "tm": 10003006,
+    "tn": null,
+    "x": 255,
+    "y": -334
+   },
+   {
+    "pn": "in06_1",
+    "tm": 10003006,
+    "tn": null,
+    "x": 444,
+    "y": -492
+   },
+   {
+    "pn": "mid00",
+    "tm": 10003090,
+    "tn": null,
+    "x": -849,
+    "y": 373
+   },
+   {
+    "pn": "sub00",
+    "tm": 10003060,
+    "tn": null,
+    "x": 652,
+    "y": 425
+   },
+   {
+    "pn": "in08",
+    "tm": 10003007,
+    "tn": null,
+    "x": 2276,
+    "y": -205
+   },
+   {
+    "pn": "in09",
+    "tm": 10003007,
+    "tn": null,
+    "x": 1967,
+    "y": -452
+   },
+   {
+    "pn": "in10",
+    "tm": 88001000,
+    "tn": null,
+    "x": 1149,
+    "y": 156
+   },
+   {
+    "pn": "east00",
+    "tm": 10003070,
+    "tn": null,
+    "x": 2512,
+    "y": -204
+   },
+   {
+    "pn": "west00",
+    "tm": 10003010,
+    "tn": null,
+    "x": -2279,
+    "y": 153
+   },
+   {
+    "pn": "in07",
+    "tm": 10003007,
+    "tn": null,
+    "x": 1953,
+    "y": -206
+   }
+  ]
+ },
+ {
+  "map_id": 10003001,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out01",
+    "tm": 10003000,
+    "tn": null,
+    "x": -298,
+    "y": 184
+   },
+   {
+    "pn": "out02",
+    "tm": 10003000,
+    "tn": null,
+    "x": -31,
+    "y": -293
+   },
+   {
+    "pn": "out00",
+    "tm": 10003000,
+    "tn": null,
+    "x": 279,
+    "y": 180
+   }
+  ]
+ },
+ {
+  "map_id": 10003002,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003000,
+    "tn": null,
+    "x": 287,
+    "y": -67
+   }
+  ]
+ },
+ {
+  "map_id": 10003003,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003000,
+    "tn": null,
+    "x": 201,
+    "y": -266
+   }
+  ]
+ },
+ {
+  "map_id": 10003004,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003000,
+    "tn": null,
+    "x": 297,
+    "y": 179
+   },
+   {
+    "pn": "out01",
+    "tm": 10003000,
+    "tn": null,
+    "x": 310,
+    "y": -46
+   },
+   {
+    "pn": "out02",
+    "tm": 10003110,
+    "tn": null,
+    "x": -138,
+    "y": 218
+   }
+  ]
+ },
+ {
+  "map_id": 10003005,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003000,
+    "tn": null,
+    "x": -197,
+    "y": 185
+   }
+  ]
+ },
+ {
+  "map_id": 10003006,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003000,
+    "tn": null,
+    "x": 278,
+    "y": -248
+   },
+   {
+    "pn": "out01",
+    "tm": 10003000,
+    "tn": null,
+    "x": 60,
+    "y": -202
+   }
+  ]
+ },
+ {
+  "map_id": 10003007,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out01",
+    "tm": 10003000,
+    "tn": null,
+    "x": 361,
+    "y": 216
+   },
+   {
+    "pn": "out02",
+    "tm": 10003000,
+    "tn": null,
+    "x": -9,
+    "y": -327
+   },
+   {
+    "pn": "out00",
+    "tm": 10003000,
+    "tn": null,
+    "x": -617,
+    "y": 214
+   }
+  ]
+ },
+ {
+  "map_id": 10003008,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003000,
+    "tn": null,
+    "x": 432,
+    "y": 133
+   }
+  ]
+ },
+ {
+  "map_id": 10003010,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "hiden00",
+    "tm": 10003011,
+    "tn": null,
+    "x": -1736,
+    "y": 171
+   },
+   {
+    "pn": "east00",
+    "tm": 10003020,
+    "tn": null,
+    "x": 1552,
+    "y": 1625
+   },
+   {
+    "pn": "top00",
+    "tm": 10003000,
+    "tn": null,
+    "x": 1556,
+    "y": 307
+   }
+  ]
+ },
+ {
+  "map_id": 10003011,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003010,
+    "tn": null,
+    "x": -881,
+    "y": -95
+   }
+  ]
+ },
+ {
+  "map_id": 10003020,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10003030,
+    "tn": null,
+    "x": 5063,
+    "y": 755
+   },
+   {
+    "pn": "west00",
+    "tm": 10003010,
+    "tn": null,
+    "x": 2412,
+    "y": 575
+   }
+  ]
+ },
+ {
+  "map_id": 10003030,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10003040,
+    "tn": null,
+    "x": 4479,
+    "y": 511
+   },
+   {
+    "pn": "west00",
+    "tm": 10003020,
+    "tn": null,
+    "x": 2233,
+    "y": 753
+   }
+  ]
+ },
+ {
+  "map_id": 10003040,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10003050,
+    "tn": null,
+    "x": 4802,
+    "y": 452
+   },
+   {
+    "pn": "west00",
+    "tm": 10003030,
+    "tn": null,
+    "x": 1459,
+    "y": 513
+   }
+  ]
+ },
+ {
+  "map_id": 10003050,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10000020,
+    "tn": null,
+    "x": 2439,
+    "y": 124
+   },
+   {
+    "pn": "west00",
+    "tm": 10003040,
+    "tn": null,
+    "x": -207,
+    "y": 186
+   },
+   {
+    "pn": "in00",
+    "tm": 10003051,
+    "tn": null,
+    "x": 1087,
+    "y": -1076
+   }
+  ]
+ },
+ {
+  "map_id": 10003051,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10003052,
+    "tn": null,
+    "x": 1352,
+    "y": -1074
+   },
+   {
+    "pn": "out00",
+    "tm": 10003050,
+    "tn": null,
+    "x": 1582,
+    "y": 183
+   }
+  ]
+ },
+ {
+  "map_id": 10003052,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003051,
+    "tn": null,
+    "x": 1542,
+    "y": 185
+   }
+  ]
+ },
+ {
+  "map_id": 10003060,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003000,
+    "tn": null,
+    "x": -212,
+    "y": -165
+   },
+   {
+    "pn": "in00",
+    "tm": 10003061,
+    "tn": null,
+    "x": 187,
+    "y": 185
+   }
+  ]
+ },
+ {
+  "map_id": 10003061,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10003062,
+    "tn": null,
+    "x": 3120,
+    "y": 155
+   },
+   {
+    "pn": "out00",
+    "tm": 10003060,
+    "tn": null,
+    "x": -230,
+    "y": 194
+   }
+  ]
+ },
+ {
+  "map_id": 10003062,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10003063,
+    "tn": null,
+    "x": 1042,
+    "y": 158
+   },
+   {
+    "pn": "in01",
+    "tm": 10003066,
+    "tn": null,
+    "x": 1034,
+    "y": 1054
+   },
+   {
+    "pn": "out00",
+    "tm": 10003061,
+    "tn": null,
+    "x": -230,
+    "y": 194
+   }
+  ]
+ },
+ {
+  "map_id": 10003063,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10003064,
+    "tn": null,
+    "x": 3120,
+    "y": 155
+   },
+   {
+    "pn": "out00",
+    "tm": 10003062,
+    "tn": null,
+    "x": -230,
+    "y": 194
+   }
+  ]
+ },
+ {
+  "map_id": 10003064,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10003065,
+    "tn": null,
+    "x": 2936,
+    "y": 156
+   },
+   {
+    "pn": "out00",
+    "tm": 10003063,
+    "tn": null,
+    "x": -215,
+    "y": 195
+   }
+  ]
+ },
+ {
+  "map_id": 10003065,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003064,
+    "tn": null,
+    "x": -215,
+    "y": 195
+   }
+  ]
+ },
+ {
+  "map_id": 10003066,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10003067,
+    "tn": null,
+    "x": 3096,
+    "y": 158
+   },
+   {
+    "pn": "out00",
+    "tm": 10003062,
+    "tn": null,
+    "x": -264,
+    "y": 197
+   }
+  ]
+ },
+ {
+  "map_id": 10003067,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003066,
+    "tn": null,
+    "x": -255,
+    "y": 196
+   },
+   {
+    "pn": "in00",
+    "tm": 10003068,
+    "tn": null,
+    "x": 2937,
+    "y": 155
+   }
+  ]
+ },
+ {
+  "map_id": 10003068,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003067,
+    "tn": null,
+    "x": -255,
+    "y": 196
+   }
+  ]
+ },
+ {
+  "map_id": 10003070,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10003080,
+    "tn": null,
+    "x": 2231,
+    "y": -235
+   },
+   {
+    "pn": "west00",
+    "tm": 10003000,
+    "tn": null,
+    "x": -274,
+    "y": -118
+   }
+  ]
+ },
+ {
+  "map_id": 10003080,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10003070,
+    "tn": null,
+    "x": -5465,
+    "y": 183
+   },
+   {
+    "pn": "east00",
+    "tm": 10004030,
+    "tn": null,
+    "x": -2691,
+    "y": 335
+   },
+   {
+    "pn": "hiden00",
+    "tm": 10003081,
+    "tn": null,
+    "x": -3415,
+    "y": -733
+   }
+  ]
+ },
+ {
+  "map_id": 10003081,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003080,
+    "tn": null,
+    "x": -1599,
+    "y": -95
+   }
+  ]
+ },
+ {
+  "map_id": 10003090,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10003000,
+    "tn": null,
+    "x": -1561,
+    "y": 80
+   },
+   {
+    "pn": "east00",
+    "tm": 10003091,
+    "tn": null,
+    "x": 1327,
+    "y": 128
+   }
+  ]
+ },
+ {
+  "map_id": 10003091,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10003090,
+    "tn": null,
+    "x": -1786,
+    "y": 115
+   },
+   {
+    "pn": "east00",
+    "tm": 10003092,
+    "tn": null,
+    "x": 1438,
+    "y": 57
+   }
+  ]
+ },
+ {
+  "map_id": 10003092,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10003091,
+    "tn": null,
+    "x": -1340,
+    "y": 132
+   },
+   {
+    "pn": "east00",
+    "tm": 10003093,
+    "tn": null,
+    "x": 1396,
+    "y": 157
+   }
+  ]
+ },
+ {
+  "map_id": 10003093,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10003092,
+    "tn": null,
+    "x": -1659,
+    "y": 149
+   },
+   {
+    "pn": "east00",
+    "tm": 10003094,
+    "tn": null,
+    "x": 1738,
+    "y": 116
+   }
+  ]
+ },
+ {
+  "map_id": 10003094,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10003093,
+    "tn": null,
+    "x": -1504,
+    "y": 115
+   },
+   {
+    "pn": "east00",
+    "tm": 10005030,
+    "tn": null,
+    "x": 1569,
+    "y": 100
+   },
+   {
+    "pn": "in00",
+    "tm": 10003095,
+    "tn": null,
+    "x": -1232,
+    "y": -1513
+   }
+  ]
+ },
+ {
+  "map_id": 10003095,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003094,
+    "tn": null,
+    "x": -1050,
+    "y": 98
+   },
+   {
+    "pn": "in00",
+    "tm": 10003096,
+    "tn": null,
+    "x": -418,
+    "y": 118
+   }
+  ]
+ },
+ {
+  "map_id": 10003096,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003095,
+    "tn": null,
+    "x": -425,
+    "y": 116
+   },
+   {
+    "pn": "in00",
+    "tm": 10003097,
+    "tn": null,
+    "x": -1053,
+    "y": 94
+   }
+  ]
+ },
+ {
+  "map_id": 10003097,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003096,
+    "tn": null,
+    "x": -1326,
+    "y": 103
+   },
+   {
+    "pn": "in00",
+    "tm": 10003098,
+    "tn": null,
+    "x": -199,
+    "y": 106
+   }
+  ]
+ },
+ {
+  "map_id": 10003098,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003097,
+    "tn": null,
+    "x": -343,
+    "y": 187
+   }
+  ]
+ },
+ {
+  "map_id": 10003100,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "end00",
+    "tm": 10003101,
+    "tn": null,
+    "x": 3284,
+    "y": 40
+   }
+  ]
+ },
+ {
+  "map_id": 10003101,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out01",
+    "tm": 10003102,
+    "tn": null,
+    "x": 153,
+    "y": -1069
+   }
+  ]
+ },
+ {
+  "map_id": 10003102,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 10003103,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10003104,
+    "tn": null,
+    "x": -371,
+    "y": -1669
+   }
+  ]
+ },
+ {
+  "map_id": 10003104,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10003105,
+    "tn": null,
+    "x": 35,
+    "y": -710
+   }
+  ]
+ },
+ {
+  "map_id": 10003105,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 10003106,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10003107,
+    "tn": null,
+    "x": -221,
+    "y": -1968
+   }
+  ]
+ },
+ {
+  "map_id": 10003107,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003108,
+    "tn": null,
+    "x": 2871,
+    "y": 732
+   }
+  ]
+ },
+ {
+  "map_id": 10003108,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10003109,
+    "tn": null,
+    "x": -641,
+    "y": -1609
+   }
+  ]
+ },
+ {
+  "map_id": 10003109,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 10003110,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10003004,
+    "tn": null,
+    "x": 1241,
+    "y": 58
+   },
+   {
+    "pn": "west00",
+    "tm": 10003111,
+    "tn": null,
+    "x": -1078,
+    "y": 121
+   }
+  ]
+ },
+ {
+  "map_id": 10003111,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10003110,
+    "tn": null,
+    "x": 1644,
+    "y": 117
+   },
+   {
+    "pn": "in00",
+    "tm": 10003112,
+    "tn": null,
+    "x": -691,
+    "y": 122
+   }
+  ]
+ },
+ {
+  "map_id": 10003112,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003111,
+    "tn": null,
+    "x": 345,
+    "y": 188
+   }
+  ]
+ },
+ {
+  "map_id": 10004000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10004040,
+    "tn": null,
+    "x": 2597,
+    "y": 1244
+   },
+   {
+    "pn": "west00",
+    "tm": 10004010,
+    "tn": null,
+    "x": 67,
+    "y": 1686
+   },
+   {
+    "pn": "under00",
+    "tm": 10004100,
+    "tn": null,
+    "x": 2824,
+    "y": 1931
+   },
+   {
+    "pn": "in01",
+    "tm": 10004002,
+    "tn": null,
+    "x": 1015,
+    "y": 967
+   },
+   {
+    "pn": "in00",
+    "tm": 10004001,
+    "tn": null,
+    "x": 2255,
+    "y": 650
+   },
+   {
+    "pn": "in02",
+    "tm": 10004003,
+    "tn": null,
+    "x": 1984,
+    "y": -107
+   }
+  ]
+ },
+ {
+  "map_id": 10004001,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004000,
+    "tn": null,
+    "x": -48,
+    "y": 181
+   }
+  ]
+ },
+ {
+  "map_id": 10004002,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out01",
+    "tm": 10004000,
+    "tn": null,
+    "x": 302,
+    "y": 144
+   }
+  ]
+ },
+ {
+  "map_id": 10004003,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out02",
+    "tm": 10004000,
+    "tn": null,
+    "x": 248,
+    "y": 121
+   }
+  ]
+ },
+ {
+  "map_id": 10004010,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10004000,
+    "tn": null,
+    "x": 2123,
+    "y": 1933
+   },
+   {
+    "pn": "west00",
+    "tm": 10004020,
+    "tn": null,
+    "x": -1224,
+    "y": 1992
+   }
+  ]
+ },
+ {
+  "map_id": 10004020,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10004030,
+    "tn": null,
+    "x": -1163,
+    "y": 1672
+   },
+   {
+    "pn": "east00",
+    "tm": 10004010,
+    "tn": null,
+    "x": 1123,
+    "y": 1547
+   },
+   {
+    "pn": "in00",
+    "tm": 10004021,
+    "tn": null,
+    "x": -280,
+    "y": 1048
+   }
+  ]
+ },
+ {
+  "map_id": 10004021,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10004022,
+    "tn": null,
+    "x": -705,
+    "y": 1337
+   },
+   {
+    "pn": "out00",
+    "tm": 10004020,
+    "tn": null,
+    "x": -764,
+    "y": 2106
+   }
+  ]
+ },
+ {
+  "map_id": 10004022,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10004023,
+    "tn": null,
+    "x": -661,
+    "y": 1065
+   },
+   {
+    "pn": "out00",
+    "tm": 10004021,
+    "tn": null,
+    "x": -1376,
+    "y": 2395
+   }
+  ]
+ },
+ {
+  "map_id": 10004023,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004022,
+    "tn": null,
+    "x": -1294,
+    "y": 2110
+   }
+  ]
+ },
+ {
+  "map_id": 10004030,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10003080,
+    "tn": null,
+    "x": -42,
+    "y": 272
+   },
+   {
+    "pn": "top00",
+    "tm": 10004020,
+    "tn": null,
+    "x": 2686,
+    "y": -941
+   }
+  ]
+ },
+ {
+  "map_id": 10004040,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10004041,
+    "tn": null,
+    "x": -397,
+    "y": 2147
+   },
+   {
+    "pn": "east00",
+    "tm": 10004050,
+    "tn": null,
+    "x": 2263,
+    "y": 1327
+   },
+   {
+    "pn": "west00",
+    "tm": 10004000,
+    "tn": null,
+    "x": -1002,
+    "y": 1453
+   }
+  ]
+ },
+ {
+  "map_id": 10004041,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10004042,
+    "tn": null,
+    "x": 943,
+    "y": 2263
+   },
+   {
+    "pn": "out00",
+    "tm": 10004040,
+    "tn": null,
+    "x": -400,
+    "y": 1881
+   }
+  ]
+ },
+ {
+  "map_id": 10004042,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004041,
+    "tn": null,
+    "x": 944,
+    "y": 2203
+   }
+  ]
+ },
+ {
+  "map_id": 10004050,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10004060,
+    "tn": null,
+    "x": 1438,
+    "y": 1555
+   },
+   {
+    "pn": "west00",
+    "tm": 10004040,
+    "tn": null,
+    "x": 119,
+    "y": 1587
+   },
+   {
+    "pn": "in00",
+    "tm": 10004051,
+    "tn": null,
+    "x": 215,
+    "y": 699
+   }
+  ]
+ },
+ {
+  "map_id": 10004051,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004050,
+    "tn": null,
+    "x": 1438,
+    "y": 1555
+   },
+   {
+    "pn": "in00",
+    "tm": 10004052,
+    "tn": null,
+    "x": 266,
+    "y": 969
+   }
+  ]
+ },
+ {
+  "map_id": 10004052,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004051,
+    "tn": null,
+    "x": 1438,
+    "y": 1555
+   },
+   {
+    "pn": "in00",
+    "tm": 10004053,
+    "tn": null,
+    "x": 263,
+    "y": 960
+   }
+  ]
+ },
+ {
+  "map_id": 10004053,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10004054,
+    "tn": null,
+    "x": 213,
+    "y": 697
+   },
+   {
+    "pn": "out00",
+    "tm": 10004052,
+    "tn": null,
+    "x": 1417,
+    "y": 1557
+   }
+  ]
+ },
+ {
+  "map_id": 10004054,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in01",
+    "tm": 10004057,
+    "tn": null,
+    "x": 58,
+    "y": 2144
+   },
+   {
+    "pn": "in00",
+    "tm": 10004055,
+    "tn": null,
+    "x": 1213,
+    "y": 1288
+   },
+   {
+    "pn": "out00",
+    "tm": 10004053,
+    "tn": null,
+    "x": 1037,
+    "y": 2022
+   }
+  ]
+ },
+ {
+  "map_id": 10004055,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10004056,
+    "tn": null,
+    "x": 1544,
+    "y": 1506
+   },
+   {
+    "pn": "out00",
+    "tm": 10004054,
+    "tn": null,
+    "x": 200,
+    "y": 2145
+   }
+  ]
+ },
+ {
+  "map_id": 10004056,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004055,
+    "tn": null,
+    "x": 200,
+    "y": 2145
+   }
+  ]
+ },
+ {
+  "map_id": 10004057,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004054,
+    "tn": null,
+    "x": 1368,
+    "y": 1487
+   }
+  ]
+ },
+ {
+  "map_id": 10004060,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10004070,
+    "tn": null,
+    "x": 1501,
+    "y": 1558
+   },
+   {
+    "pn": "west00",
+    "tm": 10004050,
+    "tn": null,
+    "x": 165,
+    "y": 1586
+   }
+  ]
+ },
+ {
+  "map_id": 10004070,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10004080,
+    "tn": null,
+    "x": 1501,
+    "y": 1558
+   },
+   {
+    "pn": "west00",
+    "tm": 10004060,
+    "tn": null,
+    "x": 165,
+    "y": 1586
+   }
+  ]
+ },
+ {
+  "map_id": 10004080,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10004090,
+    "tn": null,
+    "x": 1533,
+    "y": 1549
+   },
+   {
+    "pn": "west00",
+    "tm": 10004070,
+    "tn": null,
+    "x": 171,
+    "y": 1586
+   },
+   {
+    "pn": "east01",
+    "tm": 10004130,
+    "tn": null,
+    "x": 1058,
+    "y": 918
+   }
+  ]
+ },
+ {
+  "map_id": 10004090,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10004091,
+    "tn": null,
+    "x": 1896,
+    "y": -346
+   },
+   {
+    "pn": "east00",
+    "tm": 10002070,
+    "tn": null,
+    "x": 2021,
+    "y": 2923
+   },
+   {
+    "pn": "west00",
+    "tm": 10004080,
+    "tn": null,
+    "x": 154,
+    "y": 50
+   }
+  ]
+ },
+ {
+  "map_id": 10004091,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004090,
+    "tn": null,
+    "x": 1153,
+    "y": 1898
+   }
+  ]
+ },
+ {
+  "map_id": 10004100,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10004101,
+    "tn": null,
+    "x": -318,
+    "y": 665
+   },
+   {
+    "pn": "east00",
+    "tm": 10004000,
+    "tn": null,
+    "x": 1183,
+    "y": 821
+   },
+   {
+    "pn": "west00",
+    "tm": 10004110,
+    "tn": null,
+    "x": 758,
+    "y": 2023
+   }
+  ]
+ },
+ {
+  "map_id": 10004101,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004100,
+    "tn": null,
+    "x": -221,
+    "y": 2024
+   },
+   {
+    "pn": "in00",
+    "tm": 10004102,
+    "tn": null,
+    "x": 354,
+    "y": 988
+   }
+  ]
+ },
+ {
+  "map_id": 10004102,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004101,
+    "tn": null,
+    "x": 1196,
+    "y": 2743
+   }
+  ]
+ },
+ {
+  "map_id": 10004110,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10004111,
+    "tn": null,
+    "x": -116,
+    "y": 1377
+   },
+   {
+    "pn": "east00",
+    "tm": 10004100,
+    "tn": null,
+    "x": 713,
+    "y": 895
+   },
+   {
+    "pn": "under00",
+    "tm": 10004120,
+    "tn": null,
+    "x": -437,
+    "y": 2021
+   }
+  ]
+ },
+ {
+  "map_id": 10004111,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10004112,
+    "tn": null,
+    "x": 547,
+    "y": 918
+   },
+   {
+    "pn": "out00",
+    "tm": 10004110,
+    "tn": null,
+    "x": -1300,
+    "y": 1482
+   }
+  ]
+ },
+ {
+  "map_id": 10004112,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004111,
+    "tn": null,
+    "x": 584,
+    "y": 921
+   },
+   {
+    "pn": "in00",
+    "tm": 10004113,
+    "tn": null,
+    "x": 1869,
+    "y": 1245
+   }
+  ]
+ },
+ {
+  "map_id": 10004113,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004112,
+    "tn": null,
+    "x": 150,
+    "y": 1500
+   },
+   {
+    "pn": "in00",
+    "tm": 10004114,
+    "tn": null,
+    "x": 602,
+    "y": 924
+   }
+  ]
+ },
+ {
+  "map_id": 10004114,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004113,
+    "tn": null,
+    "x": 150,
+    "y": 1500
+   },
+   {
+    "pn": "in00",
+    "tm": 10004115,
+    "tn": null,
+    "x": 602,
+    "y": 924
+   }
+  ]
+ },
+ {
+  "map_id": 10004115,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004114,
+    "tn": null,
+    "x": 584,
+    "y": 921
+   }
+  ]
+ },
+ {
+  "map_id": 10004120,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 10004110,
+    "tn": null,
+    "x": -341,
+    "y": 1381
+   },
+   {
+    "pn": "under00",
+    "tm": 10004121,
+    "tn": null,
+    "x": 1372,
+    "y": 2141
+   }
+  ]
+ },
+ {
+  "map_id": 10004121,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 10004120,
+    "tn": null,
+    "x": 1117,
+    "y": 643
+   },
+   {
+    "pn": "under00",
+    "tm": 10005020,
+    "tn": null,
+    "x": -416,
+    "y": 2023
+   }
+  ]
+ },
+ {
+  "map_id": 10004130,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10004131,
+    "tn": null,
+    "x": 840,
+    "y": -68
+   },
+   {
+    "pn": "west00",
+    "tm": 10004080,
+    "tn": null,
+    "x": -641,
+    "y": 764
+   }
+  ]
+ },
+ {
+  "map_id": 10004131,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10004130,
+    "tn": null,
+    "x": -164,
+    "y": 523
+   },
+   {
+    "pn": "east00",
+    "tm": 10004132,
+    "tn": null,
+    "x": 1445,
+    "y": -839
+   }
+  ]
+ },
+ {
+  "map_id": 10004132,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10004131,
+    "tn": null,
+    "x": -718,
+    "y": 378
+   },
+   {
+    "pn": "guild00",
+    "tm": 10004133,
+    "tn": null,
+    "x": 735,
+    "y": -513
+   }
+  ]
+ },
+ {
+  "map_id": 10004133,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004132,
+    "tn": null,
+    "x": -1996,
+    "y": 703
+   },
+   {
+    "pn": "east00",
+    "tm": 10004134,
+    "tn": null,
+    "x": -115,
+    "y": 800
+   }
+  ]
+ },
+ {
+  "map_id": 10004134,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10004133,
+    "tn": null,
+    "x": -668,
+    "y": -21
+   },
+   {
+    "pn": "east00",
+    "tm": 10004135,
+    "tn": null,
+    "x": 708,
+    "y": -360
+   }
+  ]
+ },
+ {
+  "map_id": 10004135,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in01",
+    "tm": 10004140,
+    "tn": null,
+    "x": -49,
+    "y": -317
+   },
+   {
+    "pn": "in00",
+    "tm": 10004140,
+    "tn": null,
+    "x": -270,
+    "y": 161
+   },
+   {
+    "pn": "west00",
+    "tm": 10004134,
+    "tn": null,
+    "x": -980,
+    "y": 162
+   },
+   {
+    "pn": "east00",
+    "tm": 10004136,
+    "tn": null,
+    "x": 639,
+    "y": 162
+   }
+  ]
+ },
+ {
+  "map_id": 10004136,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in01",
+    "tm": 10004141,
+    "tn": null,
+    "x": 455,
+    "y": 112
+   },
+   {
+    "pn": "in00",
+    "tm": 10004141,
+    "tn": null,
+    "x": 417,
+    "y": 402
+   },
+   {
+    "pn": "west00",
+    "tm": 10004135,
+    "tn": null,
+    "x": -668,
+    "y": 401
+   },
+   {
+    "pn": "east00",
+    "tm": 10004137,
+    "tn": null,
+    "x": 157,
+    "y": -262
+   }
+  ]
+ },
+ {
+  "map_id": 10004137,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in01",
+    "tm": 10004142,
+    "tn": null,
+    "x": 164,
+    "y": -162
+   },
+   {
+    "pn": "in00",
+    "tm": 10004142,
+    "tn": null,
+    "x": 78,
+    "y": 222
+   },
+   {
+    "pn": "west00",
+    "tm": 10004136,
+    "tn": null,
+    "x": -356,
+    "y": 221
+   },
+   {
+    "pn": "top00",
+    "tm": 10004138,
+    "tn": null,
+    "x": 609,
+    "y": -1052
+   }
+  ]
+ },
+ {
+  "map_id": 10004138,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10004137,
+    "tn": null,
+    "x": -855,
+    "y": -475
+   },
+   {
+    "pn": "under00",
+    "tm": 10004137,
+    "tn": null,
+    "x": -666,
+    "y": 209
+   },
+   {
+    "pn": "under01",
+    "tm": 10004137,
+    "tn": null,
+    "x": -567,
+    "y": 209
+   },
+   {
+    "pn": "under02",
+    "tm": 10004137,
+    "tn": null,
+    "x": -468,
+    "y": 209
+   },
+   {
+    "pn": "under03",
+    "tm": 10004137,
+    "tn": null,
+    "x": -370,
+    "y": 209
+   },
+   {
+    "pn": "under04",
+    "tm": 10004137,
+    "tn": null,
+    "x": -271,
+    "y": 209
+   },
+   {
+    "pn": "under05",
+    "tm": 10004137,
+    "tn": null,
+    "x": -171,
+    "y": 210
+   },
+   {
+    "pn": "under06",
+    "tm": 10004137,
+    "tn": null,
+    "x": -72,
+    "y": 209
+   },
+   {
+    "pn": "under07",
+    "tm": 10004137,
+    "tn": null,
+    "x": 27,
+    "y": 210
+   },
+   {
+    "pn": "under08",
+    "tm": 10004137,
+    "tn": null,
+    "x": 127,
+    "y": 211
+   },
+   {
+    "pn": "under09",
+    "tm": 10004137,
+    "tn": null,
+    "x": -766,
+    "y": 209
+   },
+   {
+    "pn": "under10",
+    "tm": 10004137,
+    "tn": null,
+    "x": -864,
+    "y": 208
+   },
+   {
+    "pn": "under11",
+    "tm": 10004137,
+    "tn": null,
+    "x": -963,
+    "y": 208
+   },
+   {
+    "pn": "under12",
+    "tm": 10004137,
+    "tn": null,
+    "x": -1031,
+    "y": 208
+   },
+   {
+    "pn": "under13",
+    "tm": 10004137,
+    "tn": null,
+    "x": 226,
+    "y": 211
+   },
+   {
+    "pn": "under14",
+    "tm": 10004137,
+    "tn": null,
+    "x": 325,
+    "y": 211
+   },
+   {
+    "pn": "under15",
+    "tm": 10004137,
+    "tn": null,
+    "x": 424,
+    "y": 211
+   },
+   {
+    "pn": "under16",
+    "tm": 10004137,
+    "tn": null,
+    "x": 622,
+    "y": 211
+   },
+   {
+    "pn": "under17",
+    "tm": 10004137,
+    "tn": null,
+    "x": 524,
+    "y": 211
+   },
+   {
+    "pn": "under18",
+    "tm": 10004137,
+    "tn": null,
+    "x": 722,
+    "y": 211
+   },
+   {
+    "pn": "under19",
+    "tm": 10004137,
+    "tn": null,
+    "x": 821,
+    "y": 211
+   },
+   {
+    "pn": "under20",
+    "tm": 10004137,
+    "tn": null,
+    "x": 851,
+    "y": 212
+   }
+  ]
+ },
+ {
+  "map_id": 10004140,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004135,
+    "tn": null,
+    "x": 297,
+    "y": 215
+   },
+   {
+    "pn": "out01",
+    "tm": 10004135,
+    "tn": null,
+    "x": -199,
+    "y": -1139
+   }
+  ]
+ },
+ {
+  "map_id": 10004141,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004136,
+    "tn": null,
+    "x": 297,
+    "y": 215
+   },
+   {
+    "pn": "out01",
+    "tm": 10004136,
+    "tn": null,
+    "x": -213,
+    "y": -794
+   }
+  ]
+ },
+ {
+  "map_id": 10004142,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10004137,
+    "tn": null,
+    "x": 297,
+    "y": 215
+   },
+   {
+    "pn": "out01",
+    "tm": 10004137,
+    "tn": null,
+    "x": -198,
+    "y": -1075
+   }
+  ]
+ },
+ {
+  "map_id": 10005000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10005050,
+    "tn": null,
+    "x": 1238,
+    "y": 253
+   },
+   {
+    "pn": "west00",
+    "tm": 10005010,
+    "tn": null,
+    "x": -85,
+    "y": 74
+   },
+   {
+    "pn": "east00",
+    "tm": 10005060,
+    "tn": null,
+    "x": 1768,
+    "y": 376
+   },
+   {
+    "pn": "in01",
+    "tm": 10005001,
+    "tn": null,
+    "x": 657,
+    "y": -375
+   }
+  ]
+ },
+ {
+  "map_id": 10005001,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10005000,
+    "tn": null,
+    "x": 274,
+    "y": 107
+   }
+  ]
+ },
+ {
+  "map_id": 10005002,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10005001,
+    "tn": null,
+    "x": 242,
+    "y": 157
+   }
+  ]
+ },
+ {
+  "map_id": 10005003,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10005001,
+    "tn": null,
+    "x": 242,
+    "y": 158
+   }
+  ]
+ },
+ {
+  "map_id": 10005010,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 10005020,
+    "tn": null,
+    "x": 90,
+    "y": -2343
+   },
+   {
+    "pn": "under00",
+    "tm": 10005000,
+    "tn": null,
+    "x": 28,
+    "y": 105
+   },
+   {
+    "pn": "under01",
+    "tm": 10005011,
+    "tn": null,
+    "x": 238,
+    "y": 578
+   },
+   {
+    "pn": "west00",
+    "tm": 10001100,
+    "tn": null,
+    "x": -1035,
+    "y": -1579
+   }
+  ]
+ },
+ {
+  "map_id": 10005011,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west10",
+    "tm": 10005010,
+    "tn": null,
+    "x": -548,
+    "y": -618
+   },
+   {
+    "pn": "east00",
+    "tm": 10005012,
+    "tn": null,
+    "x": 893,
+    "y": -1390
+   }
+  ]
+ },
+ {
+  "map_id": 10005012,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10005011,
+    "tn": null,
+    "x": 985,
+    "y": -12
+   }
+  ]
+ },
+ {
+  "map_id": 10005020,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 10005010,
+    "tn": null,
+    "x": 121,
+    "y": 164
+   },
+   {
+    "pn": "east00",
+    "tm": 10004121,
+    "tn": null,
+    "x": 58,
+    "y": -2586
+   },
+   {
+    "pn": "west00",
+    "tm": 10005030,
+    "tn": null,
+    "x": -1363,
+    "y": -1816
+   }
+  ]
+ },
+ {
+  "map_id": 10005030,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10005031,
+    "tn": null,
+    "x": 343,
+    "y": -1399
+   },
+   {
+    "pn": "west00",
+    "tm": 10003094,
+    "tn": null,
+    "x": -297,
+    "y": -857
+   },
+   {
+    "pn": "east00",
+    "tm": 10005020,
+    "tn": null,
+    "x": 1477,
+    "y": 103
+   }
+  ]
+ },
+ {
+  "map_id": 10005031,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10005030,
+    "tn": null,
+    "x": 343,
+    "y": -1399
+   }
+  ]
+ },
+ {
+  "map_id": 10005040,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10005041,
+    "tn": null,
+    "x": -75,
+    "y": -2687
+   }
+  ]
+ },
+ {
+  "map_id": 10005041,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 10005042,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10005043,
+    "tn": null,
+    "x": 1259,
+    "y": -2569
+   }
+  ]
+ },
+ {
+  "map_id": 10005043,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 10005044,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10005045,
+    "tn": null,
+    "x": 1523,
+    "y": -1907
+   }
+  ]
+ },
+ {
+  "map_id": 10005045,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10005046,
+    "tn": null,
+    "x": 255,
+    "y": -1552
+   }
+  ]
+ },
+ {
+  "map_id": 10005046,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 10005050,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10005000,
+    "tn": null,
+    "x": 443,
+    "y": 15
+   },
+   {
+    "pn": "in00",
+    "tm": 10005051,
+    "tn": null,
+    "x": -214,
+    "y": 2046
+   }
+  ]
+ },
+ {
+  "map_id": 10005051,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10005052,
+    "tn": null,
+    "x": -213,
+    "y": 2046
+   },
+   {
+    "pn": "out00",
+    "tm": 10005050,
+    "tn": null,
+    "x": -562,
+    "y": -125
+   }
+  ]
+ },
+ {
+  "map_id": 10005052,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10005053,
+    "tn": null,
+    "x": 449,
+    "y": 2046
+   },
+   {
+    "pn": "out00",
+    "tm": 10005051,
+    "tn": null,
+    "x": -180,
+    "y": -660
+   }
+  ]
+ },
+ {
+  "map_id": 10005053,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10005054,
+    "tn": null,
+    "x": -216,
+    "y": 2046
+   },
+   {
+    "pn": "out00",
+    "tm": 10005052,
+    "tn": null,
+    "x": 615,
+    "y": 74
+   }
+  ]
+ },
+ {
+  "map_id": 10005054,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10005053,
+    "tn": null,
+    "x": -448,
+    "y": -258
+   }
+  ]
+ },
+ {
+  "map_id": 10005060,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10005061,
+    "tn": null,
+    "x": 2410,
+    "y": 1681
+   },
+   {
+    "pn": "west00",
+    "tm": 10005000,
+    "tn": null,
+    "x": -137,
+    "y": 137
+   }
+  ]
+ },
+ {
+  "map_id": 10005061,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10005060,
+    "tn": null,
+    "x": -254,
+    "y": 57
+   },
+   {
+    "pn": "east00",
+    "tm": 10005062,
+    "tn": null,
+    "x": 2230,
+    "y": 227
+   }
+  ]
+ },
+ {
+  "map_id": 10005062,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10005061,
+    "tn": null,
+    "x": -222,
+    "y": 318
+   },
+   {
+    "pn": "east00",
+    "tm": 10005063,
+    "tn": null,
+    "x": 3013,
+    "y": 138
+   }
+  ]
+ },
+ {
+  "map_id": 10005063,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10005064,
+    "tn": null,
+    "x": 2410,
+    "y": 1681
+   },
+   {
+    "pn": "west00",
+    "tm": 10005062,
+    "tn": null,
+    "x": -678,
+    "y": -253
+   }
+  ]
+ },
+ {
+  "map_id": 10005064,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10005063,
+    "tn": null,
+    "x": -272,
+    "y": 166
+   },
+   {
+    "pn": "east00",
+    "tm": 10005065,
+    "tn": null,
+    "x": 2881,
+    "y": 167
+   }
+  ]
+ },
+ {
+  "map_id": 10005065,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10005064,
+    "tn": null,
+    "x": -351,
+    "y": 233
+   },
+   {
+    "pn": "east00",
+    "tm": 10005066,
+    "tn": null,
+    "x": 2457,
+    "y": 2390
+   }
+  ]
+ },
+ {
+  "map_id": 10005066,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10005067,
+    "tn": null,
+    "x": 2421,
+    "y": 1688
+   },
+   {
+    "pn": "west00",
+    "tm": 10005065,
+    "tn": null,
+    "x": -137,
+    "y": 137
+   }
+  ]
+ },
+ {
+  "map_id": 10005067,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10005070,
+    "tn": null,
+    "x": 2549,
+    "y": 708
+   },
+   {
+    "pn": "west00",
+    "tm": 10005066,
+    "tn": null,
+    "x": -269,
+    "y": 132
+   }
+  ]
+ },
+ {
+  "map_id": 10005070,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10005078,
+    "tn": null,
+    "x": 2246,
+    "y": -552
+   },
+   {
+    "pn": "top00",
+    "tm": 10005067,
+    "tn": null,
+    "x": 65,
+    "y": -63
+   },
+   {
+    "pn": "under00",
+    "tm": 10005071,
+    "tn": null,
+    "x": -70,
+    "y": 951
+   }
+  ]
+ },
+ {
+  "map_id": 10005071,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 10005070,
+    "tn": null,
+    "x": -284,
+    "y": 290
+   },
+   {
+    "pn": "under00",
+    "tm": 10005072,
+    "tn": null,
+    "x": 375,
+    "y": 2210
+   }
+  ]
+ },
+ {
+  "map_id": 10005072,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 10005071,
+    "tn": null,
+    "x": -284,
+    "y": -127
+   },
+   {
+    "pn": "under00",
+    "tm": 10005073,
+    "tn": null,
+    "x": -448,
+    "y": 1667
+   }
+  ]
+ },
+ {
+  "map_id": 10005073,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 10005072,
+    "tn": null,
+    "x": 194,
+    "y": -26
+   },
+   {
+    "pn": "under00",
+    "tm": 10005074,
+    "tn": null,
+    "x": 361,
+    "y": 1665
+   }
+  ]
+ },
+ {
+  "map_id": 10005074,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 10005073,
+    "tn": null,
+    "x": -215,
+    "y": -130
+   },
+   {
+    "pn": "east00",
+    "tm": 10005075,
+    "tn": null,
+    "x": 563,
+    "y": 1668
+   }
+  ]
+ },
+ {
+  "map_id": 10005075,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10005074,
+    "tn": null,
+    "x": -268,
+    "y": 350
+   },
+   {
+    "pn": "east01",
+    "tm": 10005076,
+    "tn": null,
+    "x": 1798,
+    "y": 289
+   }
+  ]
+ },
+ {
+  "map_id": 10005076,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10005075,
+    "tn": null,
+    "x": -324,
+    "y": 17
+   },
+   {
+    "pn": "east00",
+    "tm": 10005077,
+    "tn": null,
+    "x": 2199,
+    "y": 3369
+   }
+  ]
+ },
+ {
+  "map_id": 10005077,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east01",
+    "tm": 10005080,
+    "tn": null,
+    "x": 1873,
+    "y": 2213
+   },
+   {
+    "pn": "east00",
+    "tm": 10005080,
+    "tn": null,
+    "x": 1980,
+    "y": 529
+   },
+   {
+    "pn": "west00",
+    "tm": 10005076,
+    "tn": null,
+    "x": -540,
+    "y": 110
+   }
+  ]
+ },
+ {
+  "map_id": 10005078,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10005070,
+    "tn": null,
+    "x": 422,
+    "y": -601
+   }
+  ]
+ },
+ {
+  "map_id": 10005080,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10005090,
+    "tn": null,
+    "x": 173,
+    "y": 196
+   },
+   {
+    "pn": "east01",
+    "tm": 10005100,
+    "tn": null,
+    "x": 146,
+    "y": 983
+   },
+   {
+    "pn": "west00",
+    "tm": 10005077,
+    "tn": null,
+    "x": -345,
+    "y": 187
+   },
+   {
+    "pn": "west01",
+    "tm": 10005077,
+    "tn": null,
+    "x": -299,
+    "y": 1022
+   }
+  ]
+ },
+ {
+  "map_id": 10005090,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10005080,
+    "tn": null,
+    "x": -269,
+    "y": 349
+   },
+   {
+    "pn": "east00",
+    "tm": 10005091,
+    "tn": null,
+    "x": 1716,
+    "y": -1992
+   }
+  ]
+ },
+ {
+  "map_id": 10005091,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10005090,
+    "tn": null,
+    "x": -347,
+    "y": -212
+   }
+  ]
+ },
+ {
+  "map_id": 10005100,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10005080,
+    "tn": null,
+    "x": -495,
+    "y": -527
+   },
+   {
+    "pn": "east00",
+    "tm": 10005101,
+    "tn": null,
+    "x": 943,
+    "y": 1933
+   }
+  ]
+ },
+ {
+  "map_id": 10005101,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10005100,
+    "tn": null,
+    "x": -522,
+    "y": 88
+   },
+   {
+    "pn": "east00",
+    "tm": 10005102,
+    "tn": null,
+    "x": 1518,
+    "y": 144
+   }
+  ]
+ },
+ {
+  "map_id": 10005102,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10005101,
+    "tn": null,
+    "x": -283,
+    "y": -215
+   },
+   {
+    "pn": "east00",
+    "tm": 10005103,
+    "tn": null,
+    "x": 1619,
+    "y": -135
+   }
+  ]
+ },
+ {
+  "map_id": 10005103,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10005102,
+    "tn": null,
+    "x": -314,
+    "y": -233
+   },
+   {
+    "pn": "east00",
+    "tm": 10005104,
+    "tn": null,
+    "x": 2040,
+    "y": -444
+   }
+  ]
+ },
+ {
+  "map_id": 10005104,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10005103,
+    "tn": null,
+    "x": -403,
+    "y": -365
+   },
+   {
+    "pn": "east00",
+    "tm": 10005105,
+    "tn": null,
+    "x": 1558,
+    "y": -302
+   }
+  ]
+ },
+ {
+  "map_id": 10005105,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10005104,
+    "tn": null,
+    "x": -387,
+    "y": -685
+   }
+  ]
+ },
+ {
+  "map_id": 10006000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10006070,
+    "tn": null,
+    "x": -67,
+    "y": 154
+   },
+   {
+    "pn": "east00",
+    "tm": 10006010,
+    "tn": null,
+    "x": 1951,
+    "y": 154
+   },
+   {
+    "pn": "in01",
+    "tm": 10006002,
+    "tn": null,
+    "x": 1056,
+    "y": 393
+   },
+   {
+    "pn": "in02",
+    "tm": 10006001,
+    "tn": null,
+    "x": 379,
+    "y": 213
+   }
+  ]
+ },
+ {
+  "map_id": 10006001,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10006000,
+    "tn": null,
+    "x": 319,
+    "y": 197
+   }
+  ]
+ },
+ {
+  "map_id": 10006002,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10006000,
+    "tn": null,
+    "x": 319,
+    "y": 197
+   }
+  ]
+ },
+ {
+  "map_id": 10006010,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10006000,
+    "tn": null,
+    "x": 1238,
+    "y": 92
+   },
+   {
+    "pn": "east00",
+    "tm": 10006020,
+    "tn": null,
+    "x": 4104,
+    "y": -446
+   }
+  ]
+ },
+ {
+  "map_id": 10006020,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west01",
+    "tm": 10006022,
+    "tn": null,
+    "x": 2615,
+    "y": -2424
+   },
+   {
+    "pn": "east00",
+    "tm": 10006030,
+    "tn": null,
+    "x": 3622,
+    "y": -2788
+   },
+   {
+    "pn": "west00",
+    "tm": 10006010,
+    "tn": null,
+    "x": 2398,
+    "y": -1767
+   }
+  ]
+ },
+ {
+  "map_id": 10006022,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in_00",
+    "tm": 10006020,
+    "tn": null,
+    "x": 3166,
+    "y": -1405
+   },
+   {
+    "pn": "out00",
+    "tm": 10006071,
+    "tn": null,
+    "x": 571,
+    "y": -2373
+   }
+  ]
+ },
+ {
+  "map_id": 10006030,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 10006031,
+    "tn": null,
+    "x": 1735,
+    "y": -120
+   },
+   {
+    "pn": "east00",
+    "tm": 10006040,
+    "tn": null,
+    "x": 3923,
+    "y": 512
+   },
+   {
+    "pn": "west00",
+    "tm": 10006020,
+    "tn": null,
+    "x": 1710,
+    "y": 813
+   }
+  ]
+ },
+ {
+  "map_id": 10006031,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10006030,
+    "tn": null,
+    "x": 3892,
+    "y": 326
+   }
+  ]
+ },
+ {
+  "map_id": 10006040,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10006030,
+    "tn": null,
+    "x": -950,
+    "y": 753
+   },
+   {
+    "pn": "east00",
+    "tm": 10006050,
+    "tn": null,
+    "x": 2150,
+    "y": -507
+   }
+  ]
+ },
+ {
+  "map_id": 10006050,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10006040,
+    "tn": null,
+    "x": 137,
+    "y": -927
+   },
+   {
+    "pn": "east00",
+    "tm": 10006060,
+    "tn": null,
+    "x": 3156,
+    "y": -1407
+   }
+  ]
+ },
+ {
+  "map_id": 10006060,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10006050,
+    "tn": null,
+    "x": -1076,
+    "y": -716
+   },
+   {
+    "pn": "east00",
+    "tm": 10002071,
+    "tn": null,
+    "x": 2877,
+    "y": -1266
+   }
+  ]
+ },
+ {
+  "map_id": 10006070,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 10006072,
+    "tn": null,
+    "x": 1745,
+    "y": -87
+   },
+   {
+    "pn": "west00",
+    "tm": 10006080,
+    "tn": null,
+    "x": -297,
+    "y": 753
+   },
+   {
+    "pn": "east00",
+    "tm": 10006000,
+    "tn": null,
+    "x": 4040,
+    "y": 273
+   }
+  ]
+ },
+ {
+  "map_id": 10006071,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 10006072,
+    "tn": null,
+    "x": 1929,
+    "y": -148
+   },
+   {
+    "pn": "top00",
+    "tm": 10005054,
+    "tn": null,
+    "x": 2025,
+    "y": -2656
+   },
+   {
+    "pn": "east00",
+    "tm": 10006022,
+    "tn": null,
+    "x": 2358,
+    "y": -1521
+   }
+  ]
+ },
+ {
+  "map_id": 10006072,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 10006071,
+    "tn": null,
+    "x": 1890,
+    "y": -2659
+   },
+   {
+    "pn": "bottom00",
+    "tm": 10006070,
+    "tn": null,
+    "x": 1926,
+    "y": -147
+   }
+  ]
+ },
+ {
+  "map_id": 10006080,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10006090,
+    "tn": null,
+    "x": 81,
+    "y": 514
+   },
+   {
+    "pn": "east00",
+    "tm": 10006070,
+    "tn": null,
+    "x": 4139,
+    "y": 215
+   }
+  ]
+ },
+ {
+  "map_id": 10006090,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10006080,
+    "tn": null,
+    "x": 2882,
+    "y": -492
+   },
+   {
+    "pn": "west00",
+    "tm": 10006100,
+    "tn": null,
+    "x": 1543,
+    "y": 1426
+   }
+  ]
+ },
+ {
+  "map_id": 10006100,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "bottom00",
+    "tm": 10006110,
+    "tn": null,
+    "x": 291,
+    "y": 1036
+   },
+   {
+    "pn": "top00",
+    "tm": 10006090,
+    "tn": null,
+    "x": 367,
+    "y": -1002
+   }
+  ]
+ },
+ {
+  "map_id": 10006110,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 10006100,
+    "tn": null,
+    "x": -872,
+    "y": 346
+   },
+   {
+    "pn": "bottom00",
+    "tm": 10006120,
+    "tn": null,
+    "x": -864,
+    "y": 1725
+   }
+  ]
+ },
+ {
+  "map_id": 10006120,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10006121,
+    "tn": null,
+    "x": -1495,
+    "y": 449
+   },
+   {
+    "pn": "east00",
+    "tm": 10006110,
+    "tn": null,
+    "x": 1178,
+    "y": 646
+   },
+   {
+    "pn": "west00",
+    "tm": 10006130,
+    "tn": null,
+    "x": -1544,
+    "y": 703
+   }
+  ]
+ },
+ {
+  "map_id": 10006121,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10006120,
+    "tn": null,
+    "x": -772,
+    "y": 425
+   },
+   {
+    "pn": "in00",
+    "tm": 10006152,
+    "tn": null,
+    "x": 123,
+    "y": 767
+   }
+  ]
+ },
+ {
+  "map_id": 10006130,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10006140,
+    "tn": null,
+    "x": -1500,
+    "y": 445
+   },
+   {
+    "pn": "in00",
+    "tm": 10006120,
+    "tn": null,
+    "x": 1222,
+    "y": 646
+   }
+  ]
+ },
+ {
+  "map_id": 10006140,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10006130,
+    "tn": null,
+    "x": -872,
+    "y": 346
+   },
+   {
+    "pn": "out00",
+    "tm": 10006150,
+    "tn": null,
+    "x": 266,
+    "y": 1667
+   }
+  ]
+ },
+ {
+  "map_id": 10006150,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10006140,
+    "tn": null,
+    "x": 367,
+    "y": -1002
+   },
+   {
+    "pn": "out00",
+    "tm": 10006160,
+    "tn": null,
+    "x": -801,
+    "y": 1038
+   }
+  ]
+ },
+ {
+  "map_id": 10006152,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10006121,
+    "tn": null,
+    "x": 306,
+    "y": 190
+   }
+  ]
+ },
+ {
+  "map_id": 10006160,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10006161,
+    "tn": null,
+    "x": 1543,
+    "y": 1426
+   },
+   {
+    "pn": "in00",
+    "tm": 10006150,
+    "tn": null,
+    "x": 2882,
+    "y": -492
+   }
+  ]
+ },
+ {
+  "map_id": 10006161,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10006162,
+    "tn": null,
+    "x": -1170,
+    "y": 404
+   },
+   {
+    "pn": "in00",
+    "tm": 10006160,
+    "tn": null,
+    "x": 459,
+    "y": 525
+   }
+  ]
+ },
+ {
+  "map_id": 10006162,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10006161,
+    "tn": null,
+    "x": -1610,
+    "y": 706
+   }
+  ]
+ },
+ {
+  "map_id": 10007000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 10007010,
+    "tn": null,
+    "x": 1860,
+    "y": 179
+   }
+  ]
+ },
+ {
+  "map_id": 10007010,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10007000,
+    "tn": null,
+    "x": -1921,
+    "y": 177
+   },
+   {
+    "pn": "east00",
+    "tm": 10007020,
+    "tn": null,
+    "x": 1882,
+    "y": 181
+   }
+  ]
+ },
+ {
+  "map_id": 10007020,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10007021,
+    "tn": null,
+    "x": 162,
+    "y": -1254
+   },
+   {
+    "pn": "west00",
+    "tm": 10007010,
+    "tn": null,
+    "x": -1914,
+    "y": 175
+   },
+   {
+    "pn": "east00",
+    "tm": 10007030,
+    "tn": null,
+    "x": 1915,
+    "y": 182
+   }
+  ]
+ },
+ {
+  "map_id": 10007021,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10007020,
+    "tn": null,
+    "x": 95,
+    "y": -955
+   }
+  ]
+ },
+ {
+  "map_id": 10007030,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 10007031,
+    "tn": null,
+    "x": 765,
+    "y": 66
+   },
+   {
+    "pn": "west00",
+    "tm": 10007020,
+    "tn": null,
+    "x": -1916,
+    "y": 178
+   },
+   {
+    "pn": "east00",
+    "tm": 10007040,
+    "tn": null,
+    "x": 1034,
+    "y": 179
+   }
+  ]
+ },
+ {
+  "map_id": 10007031,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10007030,
+    "tn": null,
+    "x": -182,
+    "y": -594
+   }
+  ]
+ },
+ {
+  "map_id": 10007040,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 10007030,
+    "tn": null,
+    "x": -1916,
+    "y": 178
+   }
+  ]
+ },
+ {
+  "map_id": 20000000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 20000001,
+    "tn": null,
+    "x": -626,
+    "y": -63
+   },
+   {
+    "pn": "in01",
+    "tm": 20000002,
+    "tn": null,
+    "x": 1631,
+    "y": -38
+   },
+   {
+    "pn": "guild00",
+    "tm": 20000040,
+    "tn": null,
+    "x": -763,
+    "y": -1182
+   },
+   {
+    "pn": "tower00",
+    "tm": 20000090,
+    "tn": null,
+    "x": 3393,
+    "y": 60
+   },
+   {
+    "pn": "top00",
+    "tm": 20000010,
+    "tn": null,
+    "x": 3452,
+    "y": -1179
+   },
+   {
+    "pn": "east00",
+    "tm": 20000050,
+    "tn": null,
+    "x": 3281,
+    "y": -398
+   },
+   {
+    "pn": "west00",
+    "tm": 20000030,
+    "tn": null,
+    "x": -1509,
+    "y": 142
+   }
+  ]
+ },
+ {
+  "map_id": 20000001,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20000000,
+    "tn": null,
+    "x": 308,
+    "y": 185
+   }
+  ]
+ },
+ {
+  "map_id": 20000002,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20000000,
+    "tn": null,
+    "x": -290,
+    "y": 186
+   }
+  ]
+ },
+ {
+  "map_id": 20000010,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 20000000,
+    "tn": null,
+    "x": -1557,
+    "y": 82
+   }
+  ]
+ },
+ {
+  "map_id": 20000011,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 20000010,
+    "tn": null,
+    "x": -268,
+    "y": 139
+   },
+   {
+    "pn": "east00",
+    "tm": 20000012,
+    "tn": null,
+    "x": 1605,
+    "y": 139
+   }
+  ]
+ },
+ {
+  "map_id": 20000012,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 20000011,
+    "tn": null,
+    "x": -944,
+    "y": 140
+   }
+  ]
+ },
+ {
+  "map_id": 20000013,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 20000020,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 20000021,
+    "tn": null,
+    "x": -127,
+    "y": 165
+   },
+   {
+    "pn": "under00",
+    "tm": 20000021,
+    "tn": null,
+    "x": -116,
+    "y": 477
+   }
+  ]
+ },
+ {
+  "map_id": 20000021,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20000020,
+    "tn": null,
+    "x": -292,
+    "y": -130
+   },
+   {
+    "pn": "out01",
+    "tm": 20000020,
+    "tn": null,
+    "x": 60,
+    "y": 203
+   }
+  ]
+ },
+ {
+  "map_id": 20000022,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 20000023,
+    "tn": null,
+    "x": 21,
+    "y": 165
+   },
+   {
+    "pn": "under00",
+    "tm": 20000023,
+    "tn": null,
+    "x": 12,
+    "y": 477
+   }
+  ]
+ },
+ {
+  "map_id": 20000023,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20000022,
+    "tn": null,
+    "x": -292,
+    "y": -130
+   },
+   {
+    "pn": "out01",
+    "tm": 20000022,
+    "tn": null,
+    "x": 60,
+    "y": 203
+   }
+  ]
+ },
+ {
+  "map_id": 20000030,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in01",
+    "tm": 20000032,
+    "tn": null,
+    "x": -1645,
+    "y": -188
+   },
+   {
+    "pn": "in02",
+    "tm": 20000033,
+    "tn": null,
+    "x": -205,
+    "y": -750
+   },
+   {
+    "pn": "in00",
+    "tm": 20000031,
+    "tn": null,
+    "x": -171,
+    "y": -69
+   },
+   {
+    "pn": "east00",
+    "tm": 20000000,
+    "tn": null,
+    "x": 317,
+    "y": 141
+   }
+  ]
+ },
+ {
+  "map_id": 20000031,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20000030,
+    "tn": null,
+    "x": -17,
+    "y": 139
+   }
+  ]
+ },
+ {
+  "map_id": 20000032,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20000030,
+    "tn": null,
+    "x": -288,
+    "y": 191
+   }
+  ]
+ },
+ {
+  "map_id": 20000033,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20000030,
+    "tn": null,
+    "x": -12,
+    "y": 155
+   }
+  ]
+ },
+ {
+  "map_id": 20000040,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20000000,
+    "tn": null,
+    "x": -1170,
+    "y": 100
+   },
+   {
+    "pn": "in00",
+    "tm": 20000041,
+    "tn": null,
+    "x": 91,
+    "y": 20
+   }
+  ]
+ },
+ {
+  "map_id": 20000041,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20000040,
+    "tn": null,
+    "x": 576,
+    "y": 145
+   }
+  ]
+ },
+ {
+  "map_id": 20000050,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top01",
+    "tm": 20000051,
+    "tn": null,
+    "x": -542,
+    "y": -1882
+   },
+   {
+    "pn": "top00",
+    "tm": 20000000,
+    "tn": null,
+    "x": 797,
+    "y": -1778
+   },
+   {
+    "pn": "under00",
+    "tm": 20000080,
+    "tn": null,
+    "x": 799,
+    "y": 82
+   }
+  ]
+ },
+ {
+  "map_id": 20000051,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000052,
+    "tn": null,
+    "x": -321,
+    "y": -986
+   },
+   {
+    "pn": "top01",
+    "tm": 20000060,
+    "tn": null,
+    "x": 40,
+    "y": -1113
+   },
+   {
+    "pn": "top02",
+    "tm": 20000070,
+    "tn": null,
+    "x": 400,
+    "y": -1220
+   },
+   {
+    "pn": "under00",
+    "tm": 20000050,
+    "tn": null,
+    "x": 873,
+    "y": 38
+   }
+  ]
+ },
+ {
+  "map_id": 20000052,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20000051,
+    "tn": null,
+    "x": 769,
+    "y": -158
+   },
+   {
+    "pn": "top00",
+    "tm": 20000053,
+    "tn": null,
+    "x": 181,
+    "y": -1240
+   }
+  ]
+ },
+ {
+  "map_id": 20000053,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20000052,
+    "tn": null,
+    "x": 865,
+    "y": 38
+   },
+   {
+    "pn": "top00",
+    "tm": 20000054,
+    "tn": null,
+    "x": 93,
+    "y": -860
+   }
+  ]
+ },
+ {
+  "map_id": 20000054,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20000053,
+    "tn": null,
+    "x": 850,
+    "y": -1048
+   },
+   {
+    "pn": "under01",
+    "tm": 20000061,
+    "tn": null,
+    "x": -680,
+    "y": -209
+   },
+   {
+    "pn": "under02",
+    "tm": 20000071,
+    "tn": null,
+    "x": 849,
+    "y": -279
+   },
+   {
+    "pn": "in00",
+    "tm": 20000055,
+    "tn": null,
+    "x": -648,
+    "y": -1581
+   }
+  ]
+ },
+ {
+  "map_id": 20000055,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 20000056,
+    "tn": null,
+    "x": -139,
+    "y": -219
+   },
+   {
+    "pn": "in01",
+    "tm": 20000057,
+    "tn": null,
+    "x": 672,
+    "y": -220
+   },
+   {
+    "pn": "out00",
+    "tm": 20000054,
+    "tn": null,
+    "x": 269,
+    "y": -1282
+   }
+  ]
+ },
+ {
+  "map_id": 20000056,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20000055,
+    "tn": null,
+    "x": 195,
+    "y": -1238
+   }
+  ]
+ },
+ {
+  "map_id": 20000057,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20000055,
+    "tn": null,
+    "x": 221,
+    "y": -1239
+   }
+  ]
+ },
+ {
+  "map_id": 20000060,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20000051,
+    "tn": null,
+    "x": 769,
+    "y": -159
+   },
+   {
+    "pn": "top00",
+    "tm": 20000061,
+    "tn": null,
+    "x": 181,
+    "y": -1240
+   }
+  ]
+ },
+ {
+  "map_id": 20000061,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20000060,
+    "tn": null,
+    "x": -728,
+    "y": 37
+   },
+   {
+    "pn": "top00",
+    "tm": 20000054,
+    "tn": null,
+    "x": 92,
+    "y": -861
+   }
+  ]
+ },
+ {
+  "map_id": 20000070,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20000051,
+    "tn": null,
+    "x": 769,
+    "y": -159
+   },
+   {
+    "pn": "top00",
+    "tm": 20000071,
+    "tn": null,
+    "x": 182,
+    "y": -1240
+   }
+  ]
+ },
+ {
+  "map_id": 20000071,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20000070,
+    "tn": null,
+    "x": 864,
+    "y": 38
+   },
+   {
+    "pn": "top00",
+    "tm": 20000054,
+    "tn": null,
+    "x": 93,
+    "y": -861
+   }
+  ]
+ },
+ {
+  "map_id": 20000080,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000050,
+    "tn": null,
+    "x": 892,
+    "y": -1238
+   },
+   {
+    "pn": "under00",
+    "tm": 20000081,
+    "tn": null,
+    "x": 1095,
+    "y": 141
+   }
+  ]
+ },
+ {
+  "map_id": 20000081,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 20000080,
+    "tn": null,
+    "x": -972,
+    "y": 83
+   },
+   {
+    "pn": "east00",
+    "tm": 20000082,
+    "tn": null,
+    "x": 1283,
+    "y": 139
+   }
+  ]
+ },
+ {
+  "map_id": 20000082,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 20000083,
+    "tn": null,
+    "x": -81,
+    "y": -398
+   },
+   {
+    "pn": "top00",
+    "tm": 20000081,
+    "tn": null,
+    "x": -435,
+    "y": -1660
+   },
+   {
+    "pn": "under00",
+    "tm": 20000084,
+    "tn": null,
+    "x": 1622,
+    "y": 20
+   }
+  ]
+ },
+ {
+  "map_id": 20000083,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20000082,
+    "tn": null,
+    "x": 1337,
+    "y": -396
+   }
+  ]
+ },
+ {
+  "map_id": 20000084,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000082,
+    "tn": null,
+    "x": -1156,
+    "y": -1659
+   },
+   {
+    "pn": "under00",
+    "tm": 20000086,
+    "tn": null,
+    "x": 694,
+    "y": 19
+   },
+   {
+    "pn": "house00",
+    "tm": 20000085,
+    "tn": null,
+    "x": -99,
+    "y": 8
+   }
+  ]
+ },
+ {
+  "map_id": 20000085,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20000084,
+    "tn": null,
+    "x": -295,
+    "y": 187
+   }
+  ]
+ },
+ {
+  "map_id": 20000086,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 20000084,
+    "tn": null,
+    "x": -1275,
+    "y": -42
+   },
+   {
+    "pn": "east00",
+    "tm": 20000087,
+    "tn": null,
+    "x": 1286,
+    "y": 202
+   }
+  ]
+ },
+ {
+  "map_id": 20000087,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000086,
+    "tn": null,
+    "x": -911,
+    "y": -1779
+   },
+   {
+    "pn": "under00",
+    "tm": 20000088,
+    "tn": null,
+    "x": 698,
+    "y": 22
+   }
+  ]
+ },
+ {
+  "map_id": 20000088,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000087,
+    "tn": null,
+    "x": -993,
+    "y": -1778
+   }
+  ]
+ },
+ {
+  "map_id": 20000090,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000000,
+    "tn": null,
+    "x": -181,
+    "y": -350
+   },
+   {
+    "pn": "under00",
+    "tm": 20000091,
+    "tn": null,
+    "x": -1,
+    "y": 91
+   }
+  ]
+ },
+ {
+  "map_id": 20000091,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000090,
+    "tn": null,
+    "x": -255,
+    "y": -1225
+   },
+   {
+    "pn": "under00",
+    "tm": 20000092,
+    "tn": null,
+    "x": 158,
+    "y": 599
+   }
+  ]
+ },
+ {
+  "map_id": 20000092,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000091,
+    "tn": null,
+    "x": 147,
+    "y": -1980
+   },
+   {
+    "pn": "under00",
+    "tm": 20000093,
+    "tn": null,
+    "x": -237,
+    "y": -23
+   }
+  ]
+ },
+ {
+  "map_id": 20000093,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20000094,
+    "tn": null,
+    "x": -243,
+    "y": 287
+   },
+   {
+    "pn": "top00",
+    "tm": 20000092,
+    "tn": null,
+    "x": -246,
+    "y": -1249
+   }
+  ]
+ },
+ {
+  "map_id": 20000094,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20000095,
+    "tn": null,
+    "x": 166,
+    "y": 1079
+   },
+   {
+    "pn": "top00",
+    "tm": 20000093,
+    "tn": null,
+    "x": -250,
+    "y": -813
+   }
+  ]
+ },
+ {
+  "map_id": 20000095,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000094,
+    "tn": null,
+    "x": 174,
+    "y": -1842
+   },
+   {
+    "pn": "under00",
+    "tm": 20000096,
+    "tn": null,
+    "x": 167,
+    "y": -214
+   }
+  ]
+ },
+ {
+  "map_id": 20000096,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000095,
+    "tn": null,
+    "x": 175,
+    "y": -1354
+   },
+   {
+    "pn": "under00",
+    "tm": 20000097,
+    "tn": null,
+    "x": 156,
+    "y": 296
+   }
+  ]
+ },
+ {
+  "map_id": 20000097,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000096,
+    "tn": null,
+    "x": 167,
+    "y": -1565
+   },
+   {
+    "pn": "under00",
+    "tm": 20000098,
+    "tn": null,
+    "x": -267,
+    "y": -27
+   }
+  ]
+ },
+ {
+  "map_id": 20000098,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 20000099,
+    "tn": null,
+    "x": -42,
+    "y": -270
+   },
+   {
+    "pn": "top00",
+    "tm": 20000097,
+    "tn": null,
+    "x": -244,
+    "y": -1729
+   },
+   {
+    "pn": "under00",
+    "tm": 20000100,
+    "tn": null,
+    "x": 163,
+    "y": 633
+   }
+  ]
+ },
+ {
+  "map_id": 20000099,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20000098,
+    "tn": null,
+    "x": 5,
+    "y": 42
+   }
+  ]
+ },
+ {
+  "map_id": 20000100,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000098,
+    "tn": null,
+    "x": 192,
+    "y": -584
+   },
+   {
+    "pn": "under00",
+    "tm": 20000101,
+    "tn": null,
+    "x": 165,
+    "y": 540
+   }
+  ]
+ },
+ {
+  "map_id": 20000101,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20000102,
+    "tn": null,
+    "x": -260,
+    "y": 1046
+   },
+   {
+    "pn": "top00",
+    "tm": 20000100,
+    "tn": null,
+    "x": 180,
+    "y": -613
+   }
+  ]
+ },
+ {
+  "map_id": 20000102,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000101,
+    "tn": null,
+    "x": -245,
+    "y": -1499
+   },
+   {
+    "pn": "under00",
+    "tm": 20000103,
+    "tn": null,
+    "x": -253,
+    "y": 480
+   }
+  ]
+ },
+ {
+  "map_id": 20000103,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000102,
+    "tn": null,
+    "x": -251,
+    "y": -497
+   },
+   {
+    "pn": "under00",
+    "tm": 20000104,
+    "tn": null,
+    "x": 166,
+    "y": 1508
+   }
+  ]
+ },
+ {
+  "map_id": 20000104,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000103,
+    "tn": null,
+    "x": 145,
+    "y": -693
+   },
+   {
+    "pn": "under00",
+    "tm": 20000105,
+    "tn": null,
+    "x": -239,
+    "y": 1140
+   }
+  ]
+ },
+ {
+  "map_id": 20000105,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000104,
+    "tn": null,
+    "x": -245,
+    "y": -880
+   },
+   {
+    "pn": "under00",
+    "tm": 20000106,
+    "tn": null,
+    "x": 171,
+    "y": 1061
+   }
+  ]
+ },
+ {
+  "map_id": 20000106,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20000105,
+    "tn": null,
+    "x": 173,
+    "y": -167
+   },
+   {
+    "pn": "under00",
+    "tm": 20001020,
+    "tn": null,
+    "x": 156,
+    "y": 2299
+   }
+  ]
+ },
+ {
+  "map_id": 20001000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 20001010,
+    "tn": null,
+    "x": -1071,
+    "y": 90
+   },
+   {
+    "pn": "east00",
+    "tm": 20001030,
+    "tn": null,
+    "x": 1588,
+    "y": -28
+   },
+   {
+    "pn": "in01",
+    "tm": 20001001,
+    "tn": null,
+    "x": 84,
+    "y": -596
+   },
+   {
+    "pn": "west00",
+    "tm": 20001020,
+    "tn": null,
+    "x": -3871,
+    "y": 89
+   }
+  ]
+ },
+ {
+  "map_id": 20001001,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20001000,
+    "tn": null,
+    "x": 301,
+    "y": -162
+   }
+  ]
+ },
+ {
+  "map_id": 20001010,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in01",
+    "tm": 20001011,
+    "tn": null,
+    "x": 660,
+    "y": 4
+   },
+   {
+    "pn": "in02",
+    "tm": 20001012,
+    "tn": null,
+    "x": 1679,
+    "y": -98
+   },
+   {
+    "pn": "out00",
+    "tm": 20001000,
+    "tn": null,
+    "x": -948,
+    "y": 88
+   }
+  ]
+ },
+ {
+  "map_id": 20001011,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20001010,
+    "tn": null,
+    "x": -250,
+    "y": 185
+   }
+  ]
+ },
+ {
+  "map_id": 20001012,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20001010,
+    "tn": null,
+    "x": -274,
+    "y": 110
+   }
+  ]
+ },
+ {
+  "map_id": 20001020,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 20001000,
+    "tn": null,
+    "x": 2149,
+    "y": 153
+   },
+   {
+    "pn": "west00",
+    "tm": 20000106,
+    "tn": null,
+    "x": -1584,
+    "y": 33
+   }
+  ]
+ },
+ {
+  "map_id": 20001030,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 20001000,
+    "tn": null,
+    "x": -926,
+    "y": 32
+   },
+   {
+    "pn": "east00",
+    "tm": 20001031,
+    "tn": null,
+    "x": 2372,
+    "y": -327
+   }
+  ]
+ },
+ {
+  "map_id": 20001031,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 20001030,
+    "tn": null,
+    "x": 88,
+    "y": -329
+   },
+   {
+    "pn": "east00",
+    "tm": 20001032,
+    "tn": null,
+    "x": 3589,
+    "y": 32
+   }
+  ]
+ },
+ {
+  "map_id": 20001032,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 20001031,
+    "tn": null,
+    "x": -715,
+    "y": 32
+   },
+   {
+    "pn": "east00",
+    "tm": 20001033,
+    "tn": null,
+    "x": 1902,
+    "y": -28
+   }
+  ]
+ },
+ {
+  "map_id": 20001033,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 20001034,
+    "tn": null,
+    "x": 187,
+    "y": -760
+   },
+   {
+    "pn": "west00",
+    "tm": 20001032,
+    "tn": null,
+    "x": -901,
+    "y": 31
+   },
+   {
+    "pn": "top00",
+    "tm": 20001040,
+    "tn": null,
+    "x": 1752,
+    "y": -757
+   },
+   {
+    "pn": "east00",
+    "tm": 20001035,
+    "tn": null,
+    "x": 1973,
+    "y": -86
+   }
+  ]
+ },
+ {
+  "map_id": 20001034,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20001033,
+    "tn": null,
+    "x": -863,
+    "y": -29
+   }
+  ]
+ },
+ {
+  "map_id": 20001035,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 20001033,
+    "tn": null,
+    "x": -901,
+    "y": 31
+   }
+  ]
+ },
+ {
+  "map_id": 20001040,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20001041,
+    "tn": null,
+    "x": 576,
+    "y": -2061
+   },
+   {
+    "pn": "under00",
+    "tm": 20001033,
+    "tn": null,
+    "x": -281,
+    "y": 274
+   }
+  ]
+ },
+ {
+  "map_id": 20001041,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20001040,
+    "tn": null,
+    "x": 567,
+    "y": 139
+   }
+  ]
+ },
+ {
+  "map_id": 20001042,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20001041,
+    "tn": null,
+    "x": -349,
+    "y": 453
+   },
+   {
+    "pn": "top00",
+    "tm": 20001043,
+    "tn": null,
+    "x": 506,
+    "y": -1752
+   }
+  ]
+ },
+ {
+  "map_id": 20001043,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 20001044,
+    "tn": null,
+    "x": 533,
+    "y": -1172
+   },
+   {
+    "pn": "top00",
+    "tm": 20001050,
+    "tn": null,
+    "x": -337,
+    "y": -1366
+   },
+   {
+    "pn": "under00",
+    "tm": 20001042,
+    "tn": null,
+    "x": 545,
+    "y": 283
+   }
+  ]
+ },
+ {
+  "map_id": 20001044,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20001043,
+    "tn": null,
+    "x": -344,
+    "y": -982
+   }
+  ]
+ },
+ {
+  "map_id": 20001050,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20001043,
+    "tn": null,
+    "x": -226,
+    "y": 235
+   },
+   {
+    "pn": "top00",
+    "tm": 20001051,
+    "tn": null,
+    "x": 524,
+    "y": -1556
+   }
+  ]
+ },
+ {
+  "map_id": 20001051,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20001050,
+    "tn": null,
+    "x": 482,
+    "y": 181
+   },
+   {
+    "pn": "top00",
+    "tm": 20001052,
+    "tn": null,
+    "x": 515,
+    "y": -1538
+   }
+  ]
+ },
+ {
+  "map_id": 20001052,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20001051,
+    "tn": null,
+    "x": 504,
+    "y": 205
+   },
+   {
+    "pn": "top00",
+    "tm": 20001053,
+    "tn": null,
+    "x": -336,
+    "y": -1508
+   }
+  ]
+ },
+ {
+  "map_id": 20001053,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20001052,
+    "tn": null,
+    "x": -330,
+    "y": 231
+   },
+   {
+    "pn": "top00",
+    "tm": 20001054,
+    "tn": null,
+    "x": 423,
+    "y": -1529
+   }
+  ]
+ },
+ {
+  "map_id": 20001054,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20001053,
+    "tn": null,
+    "x": 430,
+    "y": 208
+   },
+   {
+    "pn": "top00",
+    "tm": 20001055,
+    "tn": null,
+    "x": -273,
+    "y": -1464
+   }
+  ]
+ },
+ {
+  "map_id": 20001055,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "under00",
+    "tm": 20001054,
+    "tn": null,
+    "x": -322,
+    "y": 211
+   },
+   {
+    "pn": "top00",
+    "tm": 20001060,
+    "tn": null,
+    "x": 439,
+    "y": -1484
+   }
+  ]
+ },
+ {
+  "map_id": 20001060,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 20001055,
+    "tn": null,
+    "x": -29,
+    "y": 154
+   },
+   {
+    "pn": "east00",
+    "tm": 20001061,
+    "tn": null,
+    "x": 2387,
+    "y": -86
+   }
+  ]
+ },
+ {
+  "map_id": 20001061,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 20001060,
+    "tn": null,
+    "x": -56,
+    "y": 153
+   },
+   {
+    "pn": "east00",
+    "tm": 20001062,
+    "tn": null,
+    "x": 2420,
+    "y": 154
+   }
+  ]
+ },
+ {
+  "map_id": 20001062,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 20001061,
+    "tn": null,
+    "x": -79,
+    "y": 94
+   },
+   {
+    "pn": "east00",
+    "tm": 20001063,
+    "tn": null,
+    "x": 2516,
+    "y": 95
+   }
+  ]
+ },
+ {
+  "map_id": 20001063,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 20001064,
+    "tn": null,
+    "x": 2225,
+    "y": 93
+   },
+   {
+    "pn": "west00",
+    "tm": 20001062,
+    "tn": null,
+    "x": -46,
+    "y": -26
+   }
+  ]
+ },
+ {
+  "map_id": 20001064,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20001063,
+    "tn": null,
+    "x": -396,
+    "y": 77
+   },
+   {
+    "pn": "under00",
+    "tm": 20001065,
+    "tn": null,
+    "x": 1187,
+    "y": 1096
+   }
+  ]
+ },
+ {
+  "map_id": 20001065,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20001064,
+    "tn": null,
+    "x": -583,
+    "y": 75
+   },
+   {
+    "pn": "under00",
+    "tm": 20001066,
+    "tn": null,
+    "x": 1100,
+    "y": 1156
+   }
+  ]
+ },
+ {
+  "map_id": 20001066,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20001065,
+    "tn": null,
+    "x": -1343,
+    "y": -1124
+   },
+   {
+    "pn": "under00",
+    "tm": 20001067,
+    "tn": null,
+    "x": 261,
+    "y": 198
+   }
+  ]
+ },
+ {
+  "map_id": 20001067,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20001066,
+    "tn": null,
+    "x": -1397,
+    "y": -1122
+   },
+   {
+    "pn": "under00",
+    "tm": 20001070,
+    "tn": null,
+    "x": 250,
+    "y": 197
+   }
+  ]
+ },
+ {
+  "map_id": 20001070,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "top00",
+    "tm": 20001067,
+    "tn": null,
+    "x": -507,
+    "y": -162
+   },
+   {
+    "pn": "under00",
+    "tm": 20001071,
+    "tn": null,
+    "x": 394,
+    "y": 3688
+   }
+  ]
+ },
+ {
+  "map_id": 20001071,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "east00",
+    "tm": 20001072,
+    "tn": null,
+    "x": 2829,
+    "y": -512
+   },
+   {
+    "pn": "west00",
+    "tm": 20001070,
+    "tn": null,
+    "x": -898,
+    "y": -514
+   }
+  ]
+ },
+ {
+  "map_id": 20001072,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 20001071,
+    "tn": null,
+    "x": -835,
+    "y": -512
+   },
+   {
+    "pn": "east00",
+    "tm": 20001074,
+    "tn": null,
+    "x": 3261,
+    "y": -275
+   },
+   {
+    "pn": "in00",
+    "tm": 20001073,
+    "tn": null,
+    "x": 1159,
+    "y": -144
+   },
+   {
+    "pn": "in01",
+    "tm": 20001073,
+    "tn": null,
+    "x": 1259,
+    "y": -123
+   },
+   {
+    "pn": "in02",
+    "tm": 20001073,
+    "tn": null,
+    "x": 1359,
+    "y": -128
+   }
+  ]
+ },
+ {
+  "map_id": 20001073,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 20001072,
+    "tn": null,
+    "x": -2808,
+    "y": -512
+   },
+   {
+    "pn": "out01",
+    "tm": 20001072,
+    "tn": null,
+    "x": 855,
+    "y": -512
+   }
+  ]
+ },
+ {
+  "map_id": 20001074,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 20001072,
+    "tn": null,
+    "x": -1212,
+    "y": -456
+   },
+   {
+    "pn": "east00",
+    "tm": 20001075,
+    "tn": null,
+    "x": 3823,
+    "y": -271
+   }
+  ]
+ },
+ {
+  "map_id": 20001075,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "west00",
+    "tm": 20001074,
+    "tn": null,
+    "x": -2867,
+    "y": -216
+   }
+  ]
+ },
+ {
+  "map_id": 80000000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80000100,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80000200,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80000300,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80000400,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80000500,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80000600,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80001000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80001100,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80001200,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80001300,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80002000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in01",
+    "tm": 80002001,
+    "tn": null,
+    "x": 524,
+    "y": 3
+   },
+   {
+    "pn": "in02",
+    "tm": 80002002,
+    "tn": null,
+    "x": 674,
+    "y": 3
+   },
+   {
+    "pn": "in03",
+    "tm": 80002003,
+    "tn": null,
+    "x": 827,
+    "y": 3
+   },
+   {
+    "pn": "in04",
+    "tm": 80002004,
+    "tn": null,
+    "x": 1028,
+    "y": 3
+   },
+   {
+    "pn": "in05",
+    "tm": 80002005,
+    "tn": null,
+    "x": 1189,
+    "y": 3
+   },
+   {
+    "pn": "in06",
+    "tm": 80002006,
+    "tn": null,
+    "x": 1344,
+    "y": 3
+   },
+   {
+    "pn": "in07",
+    "tm": 80002007,
+    "tn": null,
+    "x": 525,
+    "y": -237
+   },
+   {
+    "pn": "in08",
+    "tm": 80002008,
+    "tn": null,
+    "x": 671,
+    "y": -237
+   },
+   {
+    "pn": "in09",
+    "tm": 80002009,
+    "tn": null,
+    "x": 827,
+    "y": -236
+   },
+   {
+    "pn": "in10",
+    "tm": 80002010,
+    "tn": null,
+    "x": 1029,
+    "y": -237
+   },
+   {
+    "pn": "in11",
+    "tm": 80002011,
+    "tn": null,
+    "x": 1193,
+    "y": -237
+   },
+   {
+    "pn": "in12",
+    "tm": 80002012,
+    "tn": null,
+    "x": 1346,
+    "y": -237
+   },
+   {
+    "pn": "in13",
+    "tm": 80002013,
+    "tn": null,
+    "x": 707,
+    "y": -477
+   },
+   {
+    "pn": "in14",
+    "tm": 80002014,
+    "tn": null,
+    "x": 854,
+    "y": -477
+   },
+   {
+    "pn": "in15",
+    "tm": 80002015,
+    "tn": null,
+    "x": 1019,
+    "y": -477
+   },
+   {
+    "pn": "in16",
+    "tm": 80002016,
+    "tn": null,
+    "x": 1174,
+    "y": -477
+   },
+   {
+    "pn": "in17",
+    "tm": 80002017,
+    "tn": null,
+    "x": 706,
+    "y": -717
+   },
+   {
+    "pn": "in18",
+    "tm": 80002018,
+    "tn": null,
+    "x": 853,
+    "y": -717
+   },
+   {
+    "pn": "in19",
+    "tm": 80002019,
+    "tn": null,
+    "x": 1021,
+    "y": -717
+   },
+   {
+    "pn": "in20",
+    "tm": 80002020,
+    "tn": null,
+    "x": 1173,
+    "y": -717
+   }
+  ]
+ },
+ {
+  "map_id": 80002001,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 793,
+    "y": 33
+   }
+  ]
+ },
+ {
+  "map_id": 80002002,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 793,
+    "y": 33
+   }
+  ]
+ },
+ {
+  "map_id": 80002003,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 793,
+    "y": 33
+   }
+  ]
+ },
+ {
+  "map_id": 80002004,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 793,
+    "y": 33
+   }
+  ]
+ },
+ {
+  "map_id": 80002005,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 793,
+    "y": 33
+   }
+  ]
+ },
+ {
+  "map_id": 80002006,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 793,
+    "y": 33
+   }
+  ]
+ },
+ {
+  "map_id": 80002007,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 50,
+    "y": 1421
+   }
+  ]
+ },
+ {
+  "map_id": 80002008,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 50,
+    "y": 1421
+   }
+  ]
+ },
+ {
+  "map_id": 80002009,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 50,
+    "y": 1421
+   }
+  ]
+ },
+ {
+  "map_id": 80002010,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 50,
+    "y": 1421
+   }
+  ]
+ },
+ {
+  "map_id": 80002011,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 50,
+    "y": 1421
+   }
+  ]
+ },
+ {
+  "map_id": 80002012,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 50,
+    "y": 1421
+   }
+  ]
+ },
+ {
+  "map_id": 80002013,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 793,
+    "y": 33
+   }
+  ]
+ },
+ {
+  "map_id": 80002014,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 793,
+    "y": 33
+   }
+  ]
+ },
+ {
+  "map_id": 80002015,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 793,
+    "y": 33
+   }
+  ]
+ },
+ {
+  "map_id": 80002016,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 793,
+    "y": 33
+   }
+  ]
+ },
+ {
+  "map_id": 80002017,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 50,
+    "y": 1421
+   }
+  ]
+ },
+ {
+  "map_id": 80002018,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 50,
+    "y": 1421
+   }
+  ]
+ },
+ {
+  "map_id": 80002019,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 50,
+    "y": 1421
+   }
+  ]
+ },
+ {
+  "map_id": 80002020,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 80002000,
+    "tn": null,
+    "x": 50,
+    "y": 1421
+   }
+  ]
+ },
+ {
+  "map_id": 80003000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80003100,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80003200,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80003300,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80003400,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 80003500,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 88000000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10001000,
+    "tn": null,
+    "x": 208,
+    "y": 243
+   }
+  ]
+ },
+ {
+  "map_id": 88001000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "out00",
+    "tm": 10003000,
+    "tn": null,
+    "x": 432,
+    "y": 133
+   }
+  ]
+ },
+ {
+  "map_id": 89000000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 90000000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 90040000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 90040001,
+    "tn": null,
+    "x": 693,
+    "y": -139
+   }
+  ]
+ },
+ {
+  "map_id": 90040001,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 90040002,
+    "tn": null,
+    "x": 8,
+    "y": -2044
+   }
+  ]
+ },
+ {
+  "map_id": 90040002,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 90040003,
+    "tn": null,
+    "x": 2096,
+    "y": -783
+   }
+  ]
+ },
+ {
+  "map_id": 90040003,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 90040004,
+    "tn": null,
+    "x": 1328,
+    "y": -1941
+   }
+  ]
+ },
+ {
+  "map_id": 90040004,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 90050001,
+    "tn": null,
+    "x": 943,
+    "y": -1851
+   }
+  ]
+ },
+ {
+  "map_id": 90040010,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 90040011,
+    "tn": null,
+    "x": 487,
+    "y": -449
+   }
+  ]
+ },
+ {
+  "map_id": 90040011,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 90040012,
+    "tn": null,
+    "x": -127,
+    "y": -1589
+   }
+  ]
+ },
+ {
+  "map_id": 90040012,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 90040013,
+    "tn": null,
+    "x": -915,
+    "y": -1768
+   }
+  ]
+ },
+ {
+  "map_id": 90040013,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 90050001,
+    "tn": null,
+    "x": -1079,
+    "y": -1827
+   }
+  ]
+ },
+ {
+  "map_id": 90040020,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 90040021,
+    "tn": null,
+    "x": -432,
+    "y": -690
+   }
+  ]
+ },
+ {
+  "map_id": 90040021,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 90040022,
+    "tn": null,
+    "x": -37,
+    "y": -1551
+   }
+  ]
+ },
+ {
+  "map_id": 90040022,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 90040023,
+    "tn": null,
+    "x": 1871,
+    "y": -2042
+   }
+  ]
+ },
+ {
+  "map_id": 90040023,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": [
+   {
+    "pn": "in00",
+    "tm": 90050001,
+    "tn": null,
+    "x": 316,
+    "y": -1940
+   }
+  ]
+ },
+ {
+  "map_id": 90040101,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 90040102,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 90040103,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 90040200,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 90040201,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 90040202,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 90040203,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 90050000,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ },
+ {
+  "map_id": 90050001,
+  "wz_version": null,
+  "source": "niadb",
+  "portals": []
+ }
+]
