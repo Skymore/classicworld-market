@@ -57,12 +57,12 @@ function sceneSizes(view: any) {
 
 // The scene as an <img> in a <foreignObject>, so the browser picks the phone
 // copy through srcset. `full` asks for the full-size picture (the zoomed view).
-function ScenePicture({ view, full = false, onLoad }: { view: any; full?: boolean; onLoad?: () => void }) {
+function ScenePicture({ view, full = false }: { view: any; full?: boolean }) {
   const s = view.scene;
   const srcSet = !full && s.small_url ? `${s.small_url} ${s.small_px}w, ${s.url} ${s.px}w` : undefined;
   return (
     <foreignObject className="mv-scene" x={s.x} y={s.y} width={s.width} height={s.height}>
-      <img sizes={srcSet && sceneSizes(view)} srcSet={srcSet} src={s.url} alt="" onLoad={onLoad} />
+      <img sizes={srcSet && sceneSizes(view)} srcSet={srcSet} src={s.url} alt="" />
     </foreignObject>
   );
 }
@@ -95,7 +95,6 @@ export function MapSvg({
   links = false,
   focus = null,
   layers = { mobs: true, portals: true, npcs: true },
-  scene = true,
   exitNpc = false,
   deferScene = false,
   zoomed = false,
@@ -109,12 +108,10 @@ export function MapSvg({
   links?: boolean;
   focus?: number | null;
   layers?: { mobs: boolean; portals: boolean; npcs: boolean };
-  /** Draw the rendered scene when the map has one (else the minimap). */
-  scene?: boolean;
   /** `exit` is an NPC (ship, taxi), not a portal. */
   exitNpc?: boolean;
-  /** Show the minimap until the view nears the screen, then the scene
-   * (route steps after the first; the server draws them with the minimap). */
+  /** Load the scene only as the view nears the screen (route steps after
+   * the first); until then the view is its empty background. */
   deferScene?: boolean;
   /** The full-screen copy: the full-size scene over the copy already shown. */
   zoomed?: boolean;
@@ -123,10 +120,9 @@ export function MapSvg({
     name = useNames();
   const box = useRef<HTMLDivElement>(null);
   const near = useNear(box, deferScene && !zoomed);
-  const [loaded, setLoaded] = useState<string | null>(null);
-  const showScene = scene && view.scene && near;
-  // A deferred view keeps the minimap under its scene until the scene loads.
-  const showMinimap = !showScene || (deferScene && !zoomed && loaded !== view.scene.url);
+  // A map with a scene always shows it; the minimap is the picture of maps without one.
+  const showScene = view.scene && near;
+  const showMinimap = !view.scene && view.image_url;
   const u = view.icon;
   const mobLabel = (id: number) => {
     const row = mobs.find((m: any) => m.mob.id === id);
@@ -154,7 +150,7 @@ export function MapSvg({
         aria-label={words("小地图：", "Minimap: ") + title}
       >
         <rect className="mv-bg" width={view.width} height={view.height} />
-        {showMinimap && view.image_url && (
+        {showMinimap && (
           <image
             className="mv-img"
             href={view.image_url}
@@ -163,7 +159,7 @@ export function MapSvg({
             preserveAspectRatio="none"
           />
         )}
-        {showScene && <ScenePicture view={view} onLoad={() => setLoaded(view.scene.url)} />}
+        {showScene && <ScenePicture view={view} />}
         {showScene && zoomed && <ScenePicture view={view} full />}
         {layers.mobs && (
           <g className={"mv-mobs" + (focus != null ? " focused" : "")}>
@@ -292,7 +288,6 @@ export function MapViewPanel({ view, title, mobs }: { view: any; title: string; 
     name = useNames();
   const [focus, setFocus] = useState<number | null>(null);
   const [layers, setLayers] = useState({ mobs: true, portals: true, npcs: true });
-  const [scene, setScene] = useState(true);
   const toggle = (key: "mobs" | "portals" | "npcs") => setLayers((l) => ({ ...l, [key]: !l[key] }));
   const toggles: ["mobs" | "portals" | "npcs", string, string, number][] = [
     ["mobs", "怪物", "Monsters", view.spawns.length],
@@ -302,19 +297,9 @@ export function MapViewPanel({ view, title, mobs }: { view: any; title: string; 
   const shown = toggles.filter(([, , , n]) => n > 0);
   return (
     <figure className="mapvis">
-      {(shown.length > 1 || (view.scene && view.image_url)) && (
+      {shown.length > 1 && (
         <div className="mv-tools" role="group" aria-label={words("显示", "Show")}>
-          {view.scene && view.image_url && (
-            <span className="mv-seg">
-              <button type="button" aria-pressed={scene} onClick={() => setScene(true)}>
-                {words("场景", "Scene")}
-              </button>
-              <button type="button" aria-pressed={!scene} onClick={() => setScene(false)}>
-                {words("小地图", "Minimap")}
-              </button>
-            </span>
-          )}
-          {shown.length > 1 && shown.map(([key, zh, en, n]) => (
+          {shown.map(([key, zh, en, n]) => (
             <button
               type="button"
               key={key}
@@ -327,7 +312,7 @@ export function MapViewPanel({ view, title, mobs }: { view: any; title: string; 
           ))}
         </div>
       )}
-      <ZoomMap view={view} title={title} mobs={mobs} links focus={focus} layers={layers} scene={scene} />
+      <ZoomMap view={view} title={title} mobs={mobs} links focus={focus} layers={layers} />
       {view.spawns.length > 0 && layers.mobs && (
         <div className="mv-legend">
           {mobs.map((m: any) => (

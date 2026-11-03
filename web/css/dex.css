@@ -52,6 +52,21 @@ html[data-device=desktop] .stats{grid-template-columns:repeat(5,minmax(0,1fr))}
 html[data-device=desktop] .dgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:16px;align-items:start}
 .actions{display:flex;flex-wrap:wrap;gap:8px;padding:0 12px 12px}
 .actions .btn{white-space:normal;text-align:center}
+/* Map page links stay on one row: phones take the shorter labels, and a long return town gives way first. */
+.map-actions{flex-wrap:nowrap}
+.map-actions .btn{flex:0 1 auto;min-width:0;white-space:nowrap}
+.map-actions .btn>:is(span,small){min-width:0;overflow:hidden;text-overflow:ellipsis}
+.map-actions .rtown{flex-shrink:100;flex-direction:column;align-items:stretch;gap:0;line-height:1.2}
+.map-actions .rtown small{font-size:11px;font-weight:400;color:var(--ink-3)}
+.map-actions .short{display:none}
+@media(max-width:640px){
+  .map-actions{gap:6px}
+  .map-actions .btn{padding:0 8px;font-size:14px}
+  .map-actions .rtown small{font-size:10px}
+  .map-actions .long{display:none}
+  .map-actions .short{display:inline}
+}
+@media(max-width:359px){.map-actions .btn{padding:0 6px;font-size:13px}}
 .minimap{display:block;max-width:calc(100% - 24px);margin:0 12px 12px;border:2px solid var(--edge);background:var(--sheet-lo)}
 .dcol{display:grid;gap:12px;align-content:start;min-width:0}
 html[data-device=desktop] .dcol{gap:16px}
@@ -65,6 +80,12 @@ html[data-device=desktop] .route-form{grid-template-columns:minmax(0,1fr) minmax
 .field{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 10px;background:var(--sheet-hi);border:2px solid var(--edge);border-radius:2px;box-shadow:inset 2px 2px 0 var(--bevel-lo)}
 .field span{flex:none;font-size:13px;color:var(--ink-3)}
 .field input{flex:1;min-width:0;height:44px;border:0;background:none;font:inherit;font-size:15px;color:var(--ink);outline:none}
+/* Route fields suggest maps and monsters in the quick search's list (base.css .quick-search). */
+.place-field{min-width:0}
+.place-options>ul{list-style:none;margin:0;padding:0}
+.place-options [role=option]{cursor:pointer}
+.place-options [role=option][aria-selected=true]{background:var(--bar-soft)}
+@media(max-width:640px){.field input{font-size:16px}}
 .steps{list-style:none;margin:0;padding:0}
 .step a{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;align-items:center;min-height:56px;padding:6px 10px;border-top:1px solid var(--rule)}
 .step:first-child a{border-top:0}
@@ -202,11 +223,6 @@ a:hover>.mv-npc{fill:#36c46f}
 .rs-stop.last{font-weight:700;color:var(--bar-text)}
 .step .mapvis.step-map{margin:2px 10px 10px 52px;border-width:1px;max-width:calc(100% - 62px)}
 @media(max-width:700px){.step .mapvis.step-map{margin-left:10px}}
-/* Scene / minimap switch in the map view's toolbar. */
-.mv-seg{display:inline-flex;border:1px solid var(--rule);border-radius:999px;overflow:hidden}
-.mv-seg button{min-height:28px;padding:2px 10px;border:0;background:var(--sheet);color:var(--ink-2);font:inherit;font-size:13px;cursor:pointer}
-.mv-seg button+button{border-left:1px solid var(--rule)}
-.mv-seg button[aria-pressed=true]{background:var(--bar);color:var(--bar-ink)}
 /* Route page modes. */
 .route-tabs{display:flex;gap:4px;padding:10px 12px 0;border-bottom:1px solid var(--rule)}
 .route-tabs a{padding:6px 14px;border:1px solid var(--rule);border-bottom:0;border-radius:3px 3px 0 0;background:var(--sheet-lo);color:var(--ink-2);font-size:14px;font-weight:700;text-decoration:none;margin-bottom:-1px}

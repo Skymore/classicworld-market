@@ -313,15 +313,16 @@ pub fn map_page(page: &MapPage, ctx: &Ctx) -> Markup {
                     }
                 }
             }
-            div.actions {
+            div.actions.map-actions {
                 a.btn.primary href=(ctx.href(&route_href)) {
-                    @if map.id == HENESYS { (ctx.t("从这里出发去哪", "Where to from here")) } @else { (ctx.t("从射手村怎么走", "How to get here from Henesys")) }
+                    @if map.id == HENESYS { span { (ctx.t("从这里出发去哪", "Where to from here")) } }
+                    @else { (fit_label(ctx.t("从射手村怎么走", "How to get here from Henesys"), ctx.t("从射手村怎么走", "Route here"))) }
                 }
                 @if let Some(r) = &page.return_map {
-                    a.btn href=(ctx.href(&format!("/map/{}", r.id))) { span { (ctx.t("回城点：", "Return town: ")) (r.names.get(lang)) (super::secondary_name(&r.names, lang)) } }
+                    a.btn.rtown href=(ctx.href(&format!("/map/{}", r.id))) { small { (ctx.t("回城点", "Return town")) } span { (r.names.get(lang)) } }
                 }
                 @if page.on_world_map {
-                    a.btn href=(ctx.href(&format!("/world?map={}", map.id))) { (ctx.t("在世界地图上看", "On the world map")) }
+                    a.btn href=(ctx.href(&format!("/world?map={}", map.id))) { (fit_label(ctx.t("在世界地图上看", "On the world map"), ctx.t("世界地图", "World map"))) }
                 }
             }
             @if let Some(path) = &page.from_henesys { (henesys_strip(ctx, path, &route_href)) }
@@ -371,6 +372,14 @@ pub fn map_page(page: &MapPage, ctx: &Ctx) -> Markup {
         }
     };
     dex_page(ctx, name, "", body)
+}
+
+/// A link label with a shorter wording for phones (dex.css `.map-actions`);
+/// one span when the two are the same.
+fn fit_label(long: &str, short: &str) -> Markup {
+    html! {
+        @if long == short { span { (long) } } @else { span.long { (long) } span.short { (short) } }
+    }
 }
 
 /// "射手村 → … → here · 5 步", linking to the route page.
@@ -505,20 +514,26 @@ pub fn route_page(page: &RoutePage, ctx: &Ctx) -> Markup {
                 a href=(ctx.href("/world")) { (ctx.t("世界地图", "World map")) }
             }
             form.route-form action="/route" method="get" {
-                label.field {
-                    span { (ctx.t("出发", "From")) }
-                    input type="text" name="from" value=(page.from_input) placeholder=(ctx.t("地图名或 ID（默认射手村）", "map name or id (Henesys)")) autocomplete="off";
+                div.place-field {
+                    label.field {
+                        span { (ctx.t("出发", "From")) }
+                        input type="text" name="from" value=(page.from_input) placeholder=(ctx.t("地图名或 ID（默认射手村）", "map name or id (Henesys)")) autocomplete="off";
+                    }
                 }
                 @if page.mob_mode {
-                    label.field {
-                        span { (ctx.t("怪物", "Monster")) }
-                        input type="text" name="mob" value=(page.mob_input) placeholder=(ctx.t("怪物名或 ID", "monster name or id")) autocomplete="off";
+                    div.place-field {
+                        label.field {
+                            span { (ctx.t("怪物", "Monster")) }
+                            input type="text" name="mob" value=(page.mob_input) placeholder=(ctx.t("怪物名或 ID", "monster name or id")) autocomplete="off";
+                        }
                     }
                     input type="hidden" name="mode" value="mob";
                 } @else {
-                    label.field {
-                        span { (ctx.t("目的地", "To")) }
-                        input type="text" name="to" value=(page.to_input) placeholder=(ctx.t("地图名或 ID", "map name or id")) autocomplete="off";
+                    div.place-field {
+                        label.field {
+                            span { (ctx.t("目的地", "To")) }
+                            input type="text" name="to" value=(page.to_input) placeholder=(ctx.t("地图名或 ID", "map name or id")) autocomplete="off";
+                        }
                     }
                 }
                 label.check {
@@ -543,8 +558,8 @@ fn step_shows_map(step: &Step) -> bool {
 
 fn steps_list(ctx: &Ctx, steps: &[Step]) -> Markup {
     let lang = ctx.lang;
-    // Only the first map loads its scene with the page; the rest wait with
-    // the minimap until they scroll into view (`Steps` in catalogue.tsx).
+    // Only the first map loads its scene with the page; the rest show their
+    // empty background until they near the screen (`Steps` in catalogue.tsx).
     let first_map = steps.iter().position(step_shows_map);
     html! {
         ol.steps {

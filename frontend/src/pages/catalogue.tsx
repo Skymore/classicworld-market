@@ -16,6 +16,7 @@ import { useUserValue } from "../lib/live";
 import { useProvidePageContext } from "../lib/assistant";
 import { normalizeOfferFilters } from "/web/js/lib/item-offer-filters.js?v=20261029-critical-1";
 import { MapViewPanel, ZoomMap } from "./mapview";
+import { PlaceField, type Choice } from "./route-field";
 import { RouteOverview, WorldBody } from "./worldmap";
 export function useNames() {
   const { language } = usePreferences();
@@ -37,13 +38,15 @@ export function Secondary({ names }: { names: any }) {
 const LOCAL_SPRITES = new Set([
   39, 42, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 1059, 700003, 700006, 700007, 700008, 800019, 800020, 800021, 800022, 800023, 800024, 800025, 810000, 810001, 810002, 810003, 810004, 810005, 900000, 910000,
 ]);
-export function MobPicture({ mob, big = false }: { mob: any; big?: boolean }) {
-  const id = mob.image_id;
-  const url = LOCAL_SPRITES.has(mob.id)
+/** The picture of a mob row (search hits and route suggestions carry `id` and `image_id`). */
+export const mobImageUrl = (mob: any) =>
+  LOCAL_SPRITES.has(mob.id)
     ? `/web/images/mobs/${mob.id}.png`
-    : id
-      ? `https://maplestory.io/api/GMS/83/mob/${id}/render/stand`
+    : mob.image_id
+      ? `https://maplestory.io/api/GMS/83/mob/${mob.image_id}/render/stand`
       : null;
+export function MobPicture({ mob, big = false }: { mob: any; big?: boolean }) {
+  const url = mobImageUrl(mob);
   return (
     <span className={"mobpic " + (big ? "big" : "")}>
       {url && (
@@ -441,6 +444,18 @@ function Edge({ kind }: { kind: string; portal?: string }) {
   };
   return <>{words(...(labels[kind] || [kind, kind]))}</>;
 }
+// A link label with a shorter wording for phones (dex.css `.map-actions`;
+// `fit_label` in pages/dex.rs).
+function FitLabel({ long, short }: { long: string; short: string }) {
+  return long === short ? (
+    <span>{long}</span>
+  ) : (
+    <>
+      <span className="long">{long}</span>
+      <span className="short">{short}</span>
+    </>
+  );
+}
 function MapPage({ page }: { page: any }) {
   const words = useWords(),
     name = useNames(),
@@ -482,7 +497,7 @@ function MapPage({ page }: { page: any }) {
             </div>
           </div>
         </div>
-        <div className="actions">
+        <div className="actions map-actions">
           <a
             className="btn primary"
             href={
@@ -490,22 +505,27 @@ function MapPage({ page }: { page: any }) {
               (map.id === 10001000 ? "" : "&to=" + map.id)
             }
           >
-            {map.id === 10001000
-              ? words("从这里出发去哪", "Where to from here")
-              : words("从射手村怎么走", "How to get here from Henesys")}
+            {map.id === 10001000 ? (
+              <span>{words("从这里出发去哪", "Where to from here")}</span>
+            ) : (
+              <FitLabel
+                long={words("从射手村怎么走", "How to get here from Henesys")}
+                short={words("从射手村怎么走", "Route here")}
+              />
+            )}
           </a>
           {page.return_map && (
-            <a className="btn" href={"/map/" + page.return_map.id}>
-              <span>
-                {words("回城点：", "Return town: ")}
-                {name(page.return_map.names)}
-                <Secondary names={page.return_map.names} />
-              </span>
+            <a className="btn rtown" href={"/map/" + page.return_map.id}>
+              <small>{words("回城点", "Return town")}</small>
+              <span>{name(page.return_map.names)}</span>
             </a>
           )}
           {page.on_world_map && (
             <a className="btn" href={"/world?map=" + map.id}>
-              {words("在世界地图上看", "On the world map")}
+              <FitLabel
+                long={words("在世界地图上看", "On the world map")}
+                short={words("世界地图", "World map")}
+              />
             </a>
           )}
         </div>
@@ -834,8 +854,8 @@ const stepShowsMap = (step: any) => step.view && (step.exit || step.kind !== "po
 function Steps({ steps }: { steps: any[] }) {
   const words = useWords(),
     name = useNames();
-  // Only the first map loads its scene with the page; the rest wait with the
-  // minimap until they scroll into view (steps_list in pages/dex.rs).
+  // Only the first map loads its scene with the page; the rest show their
+  // empty background until they near the screen (steps_list in pages/dex.rs).
   const firstMap = steps.findIndex(stepShowsMap);
   return (
     <ol className="steps">
@@ -894,13 +914,22 @@ function RoutePage({ page }: { page: any }) {
   const [from, setFrom] = useState(fromShown),
     [to, setTo] = useState(toShown),
     [mob, setMob] = useState(mobShown),
-    [taxi, setTaxi] = useState(!!page.taxi);
+    [taxi, setTaxi] = useState(!!page.taxi),
+    // Suggestions the user chose: the query uses their ids while the text is unchanged.
+    [chosen, setChosen] = useState<Record<string, Choice>>({});
   useEffect(() => setTaxi(!!page.taxi), [page.taxi]);
   useEffect(() => {
     setFrom(fromShown);
     setTo(toShown);
     setMob(mobShown);
+    setChosen({});
   }, [fromShown, toShown, mobShown]);
+  const choose = (key: string, set: (text: string) => void) => (choice: Choice) => {
+    set(choice.text);
+    setChosen((all) => ({ ...all, [key]: choice }));
+  };
+  const chosenId = (key: string, text: string) =>
+    chosen[key] && chosen[key].text === text ? String(chosen[key].id) : null;
   const withTaxi = (params: Record<string, string>, on = taxi) =>
     "/route?" + new URLSearchParams(on ? { ...params, taxi: "1" } : params);
   const route = (from: string, to: string) => withTaxi({ from, to });
@@ -1048,7 +1077,7 @@ function RoutePage({ page }: { page: any }) {
       </Well>
     );
   }
-  const fromValue = from === fromShown ? page.from_input : from;
+  const fromValue = chosenId("from", from) ?? (from === fromShown ? page.from_input : from);
   return (
     <section className="stall">
       <div className="stall-bar">
@@ -1071,46 +1100,43 @@ function RoutePage({ page }: { page: any }) {
           event.preventDefault();
           navigate(
             mobMode
-              ? mobRoute(fromValue, mob === mobShown && mobFound ? String(mobFound.mob.id) : mob)
-              : route(fromValue, to === toShown ? page.to_input : to),
+              ? mobRoute(
+                  fromValue,
+                  chosenId("mob", mob) ?? (mob === mobShown && mobFound ? String(mobFound.mob.id) : mob),
+                )
+              : route(fromValue, chosenId("to", to) ?? (to === toShown ? page.to_input : to)),
           );
         }}
       >
-        <label className="field">
-          <span>{words("出发", "From")}</span>
-          <input
-            type="text"
-            name="from"
-            value={from}
-            placeholder={words("地图名或 ID（默认射手村）", "map name or id (Henesys)")}
-            autoComplete="off"
-            onChange={(event) => setFrom(event.target.value)}
-          />
-        </label>
+        <PlaceField
+          kind="map"
+          name="from"
+          label={words("出发", "From")}
+          placeholder={words("地图名或 ID（默认射手村）", "map name or id (Henesys)")}
+          value={from}
+          onChange={setFrom}
+          onChoose={choose("from", setFrom)}
+        />
         {mobMode ? (
-          <label className="field">
-            <span>{words("怪物", "Monster")}</span>
-            <input
-              type="text"
-              name="mob"
-              value={mob}
-              placeholder={words("怪物名或 ID", "monster name or id")}
-              autoComplete="off"
-              onChange={(event) => setMob(event.target.value)}
-            />
-          </label>
+          <PlaceField
+            kind="mob"
+            name="mob"
+            label={words("怪物", "Monster")}
+            placeholder={words("怪物名或 ID", "monster name or id")}
+            value={mob}
+            onChange={setMob}
+            onChoose={choose("mob", setMob)}
+          />
         ) : (
-          <label className="field">
-            <span>{words("目的地", "To")}</span>
-            <input
-              type="text"
-              name="to"
-              value={to}
-              placeholder={words("地图名或 ID", "map name or id")}
-              autoComplete="off"
-              onChange={(event) => setTo(event.target.value)}
-            />
-          </label>
+          <PlaceField
+            kind="map"
+            name="to"
+            label={words("目的地", "To")}
+            placeholder={words("地图名或 ID", "map name or id")}
+            value={to}
+            onChange={setTo}
+            onChoose={choose("to", setTo)}
+          />
         )}
         <label className="check">
           <input type="checkbox" name="taxi" value="1" checked={taxi} onChange={(e) => setTaxi(e.target.checked)} />

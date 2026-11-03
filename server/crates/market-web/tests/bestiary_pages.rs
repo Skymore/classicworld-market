@@ -640,7 +640,7 @@ fn map_page_shows_links_and_route_entry() {
     };
     let html = pages::map_page(&page, &zh()).into_string();
     assert!(html.contains(r#"href="/route?from=10001000&amp;to=10001010""#));
-    assert!(html.contains("回城点：射手村"));
+    assert!(html.contains("<small>回城点</small><span>射手村</span>"));
     assert!(html.contains(r#"href="/mob/2""#));
     assert!(html.contains("NPC #200"));
     assert!(
@@ -746,6 +746,13 @@ fn map_page_draws_the_view_route_strip_and_quests() {
     assert!(
         html.contains(r#"href="/world?map=10001010""#),
         "world map button"
+    );
+    assert!(
+        html.contains(r#"<div class="actions map-actions">"#)
+            && html.contains(
+                r#"<span class="long">在世界地图上看</span><span class="short">世界地图</span>"#
+            ),
+        "one row of links, the world map one shorter on phones"
     );
     assert!(html.contains("1 步"));
     assert!(html.contains("在这里接") && html.contains("弓箭手的考验"));

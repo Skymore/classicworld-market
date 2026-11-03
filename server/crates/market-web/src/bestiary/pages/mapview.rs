@@ -34,8 +34,9 @@ pub(crate) struct Marks<'a> {
     /// Markers are links (map and NPC pages), not on a route step whose
     /// row is already one.
     pub links: bool,
-    /// Draw the minimap instead of the scene: route steps after the first,
-    /// whose scenes the browser side loads as they scroll into view.
+    /// Load the scene only as it nears the screen (route steps after the
+    /// first); until then the view is its empty background. Without scripts
+    /// the scene loads with the page.
     pub defer_scene: bool,
 }
 
@@ -61,16 +62,21 @@ pub(crate) fn scene_sizes(view: &MapView) -> String {
 
 /// The scene as an `<img>`, so the browser picks the phone copy through
 /// `srcset`; the `<foreignObject>` places it in the view's units like an
-/// `<image>` would.
-fn scene_picture(view: &MapView, scene: &SceneImage) -> Markup {
+/// `<image>` would. A deferred scene is left to the browser page, which
+/// loads it as it nears the screen (`loading="lazy"` does nothing inside a
+/// `<foreignObject>` in Chromium), so only pages read without scripts get it here.
+fn scene_picture(view: &MapView, scene: &SceneImage, defer: bool) -> Markup {
     let srcset = scene
         .small_url
         .as_ref()
         .zip(scene.small_px)
         .map(|(small, small_px)| format!("{small} {small_px}w, {} {}w", scene.url, scene.px));
+    let img = html! {
+        img src=(scene.url) srcset=[srcset.as_ref()] sizes=[srcset.as_ref().map(|_| scene_sizes(view))] alt="";
+    };
     html! {
         foreignObject.mv-scene x=(scene.x) y=(scene.y) width=(scene.width) height=(scene.height) {
-            img src=(scene.url) srcset=[srcset.as_ref()] sizes=[srcset.as_ref().map(|_| scene_sizes(view))] alt="";
+            @if defer { noscript { (img) } } @else { (img) }
         }
     }
 }
@@ -106,8 +112,8 @@ pub(crate) fn map_svg(ctx: &Ctx, view: &MapView, title: &str, marks: &Marks) -> 
                 viewBox={"0 0 " (view.width) " " (view.height)}
                 width=(view.shown_width) height=(view.shown_height) role="img" aria-label=(label) {
                 rect.mv-bg width=(view.width) height=(view.height) {}
-                @if let Some(scene) = view.scene.as_ref().filter(|_| !marks.defer_scene) {
-                    (scene_picture(view, scene))
+                @if let Some(scene) = &view.scene {
+                    (scene_picture(view, scene, marks.defer_scene))
                 } @else if let Some(url) = &view.image_url {
                     image.mv-img href=(url) width=(view.width) height=(view.height) preserveAspectRatio="none" {}
                 }
@@ -338,8 +344,9 @@ mod tests {
             html.contains(r#"<foreignObject class="mv-scene" x="0" y="0" width="3928" height="2050"><img src="/web/images/scenes/1000.webp" srcset="/web/images/scenes/small/1000.webp 1100w, /web/images/scenes/1000.webp 1760w" sizes="(max-width: 944px) calc(100vw - 64px), 880px" alt=""></foreignObject>"#),
             "{html}"
         );
-        assert!(!html.contains("mv-img"));
-        // A later route step waits with the minimap.
+        assert!(!html.contains("mv-img") && !html.contains("noscript"));
+        // A later route step leaves its scene to the browser page (and to
+        // readers without scripts), never drawing the minimap first.
         let html = map_svg(
             &ctx,
             &with_scene,
@@ -351,9 +358,22 @@ mod tests {
         )
         .into_string();
         assert!(
-            html.contains("mv-img") && !html.contains("scenes/"),
+            html.contains(r#"<foreignObject class="mv-scene" x="0" y="0" width="3928" height="2050"><noscript><img src="/web/images/scenes/1000.webp""#)
+                && !html.contains("mv-img"),
             "{html}"
         );
+        // Without a scene the minimap is the picture, deferred or not.
+        let html = map_svg(
+            &ctx,
+            &view(),
+            "x",
+            &Marks {
+                defer_scene: true,
+                ..Marks::default()
+            },
+        )
+        .into_string();
+        assert!(html.contains("mv-img") && !html.contains("mv-scene"));
     }
 
     #[test]

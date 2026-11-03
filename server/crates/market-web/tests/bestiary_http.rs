@@ -274,7 +274,7 @@ async fn map_page() {
     let body = &page.body;
     assert!(body.contains("<h1>射手训练场Ⅰ</h1>"));
     assert!(body.contains(r#"href="/mob/8""#));
-    assert!(body.contains("回城点：射手村"));
+    assert!(body.contains("<small>回城点</small><span>射手村</span>"));
     assert!(body.contains("走传送口"), "entrance from Henesys");
 
     let town = get(&router, "/map/10001000").await.body;
