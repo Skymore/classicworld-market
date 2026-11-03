@@ -1,4 +1,16 @@
-import { Fragment, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { compileSearch, searchText } from "/web/js/lib/search.js";
 import { watchIds, toggleWatch } from "/web/js/lib/watch-ids.js";
@@ -80,6 +92,354 @@ const DESKTOP_COLUMNS = 8;
 // Rows rendered at first and added each time the list end comes near.
 const PAGE_ROWS = 20;
 
+// Phones get the list and wider screens the table, at the same 640px break as the CSS.
+const PHONE_QUERY = "(max-width: 640px)";
+function subscribePhone(change: () => void) {
+  if (typeof matchMedia !== "function") return () => {};
+  const query = matchMedia(PHONE_QUERY);
+  if ("addEventListener" in query) query.addEventListener("change", change);
+  else (query as MediaQueryList).addListener(change);
+  return () => {
+    if ("removeEventListener" in query)
+      query.removeEventListener("change", change);
+    else (query as MediaQueryList).removeListener(change);
+  };
+}
+const phoneNow = () =>
+  typeof matchMedia === "function" && matchMedia(PHONE_QUERY).matches;
+const usePhoneLayout = () =>
+  useSyncExternalStore(subscribePhone, phoneNow, () => false);
+
+// periodProduct copies each row; one copy per server row keeps unchanged rows
+// identical across refreshes, so their memoized components skip rendering.
+const periodRows = new WeakMap<Product, Product>();
+function periodRow(row: Product) {
+  let value = periodRows.get(row);
+  if (!value) periodRows.set(row, (value = periodProduct(row) as Product));
+  return value;
+}
+
+// Long lists keep only the blocks of rows near the viewport; the others become
+// spacers of the same height, so the page stays small however deep it scrolls.
+const WINDOW_FROM = 4; // blocks: shorter lists render every row
+const KEEP = 1.5; // viewport heights: blocks this close render their rows
+const DROP = 3; // viewport heights: blocks this far away become spacers
+const NO_SPACERS: ReadonlyMap<number, number> = new Map();
+// One or two spacers keep the parity of the rows below, so the striping stays put.
+const spacerCount = (size: number) => (size % 2 ? 1 : 2);
+/**
+ * `sizes[i]` is how many elements block i renders in `list` (its rows plus a
+ * heading); the result maps collapsed blocks to their height.
+ */
+function useRowWindow(
+  list: RefObject<HTMLElement | null>,
+  sizes: number[],
+  key: string,
+  beforeCollapse?: () => void,
+) {
+  const [state, setState] = useState({ key, spacers: NO_SPACERS });
+  const spacers = state.key === key ? state.spacers : NO_SPACERS;
+  const current = useRef({ sizes, spacers, key, beforeCollapse });
+  const frame = useRef(0);
+  const check = useCallback(() => {
+    frame.current = 0;
+    const node = list.current;
+    const { sizes, spacers, key, beforeCollapse } = current.current;
+    if (!node) return;
+    if (sizes.length <= WINDOW_FROM) {
+      if (spacers.size) setState({ key, spacers: NO_SPACERS });
+      return;
+    }
+    const view = innerHeight;
+    const children = node.children;
+    // Never remove the row that holds keyboard focus.
+    let holder = document.activeElement;
+    while (holder && holder.parentElement !== node) holder = holder.parentElement;
+    const focused = holder ? Array.prototype.indexOf.call(children, holder) : -1;
+    let next: Map<number, number> | null = null;
+    let collapsing = false;
+    let index = 0;
+    for (let block = 0; block < sizes.length; block++) {
+      const collapsed = spacers.has(block);
+      const start = index;
+      index += collapsed ? spacerCount(sizes[block]) : sizes[block];
+      const first = children[start];
+      const last = children[index - 1];
+      if (!first || !last) break;
+      const top = first.getBoundingClientRect().top;
+      const bottom = last.getBoundingClientRect().bottom;
+      if (collapsed) {
+        if (bottom > -KEEP * view && top < (1 + KEEP) * view)
+          (next ??= new Map(spacers)).delete(block);
+      } else if (
+        (bottom < -DROP * view || top > (1 + DROP) * view) &&
+        !(focused >= start && focused < index)
+      ) {
+        (next ??= new Map(spacers)).set(block, bottom - top);
+        collapsing = true;
+      }
+    }
+    if (collapsing) beforeCollapse?.();
+    if (next) setState({ key, spacers: next });
+  }, [list]);
+  const schedule = useCallback(() => {
+    if (!frame.current) frame.current = requestAnimationFrame(check);
+  }, [check]);
+  useLayoutEffect(() => {
+    current.current = { sizes, spacers, key, beforeCollapse };
+  });
+  useEffect(schedule);
+  useEffect(() => {
+    addEventListener("scroll", schedule, { passive: true });
+    addEventListener("resize", schedule);
+    return () => {
+      removeEventListener("scroll", schedule);
+      removeEventListener("resize", schedule);
+      cancelAnimationFrame(frame.current);
+      frame.current = 0;
+    };
+  }, [schedule]);
+  return spacers;
+}
+function spacerRows(
+  desktop: boolean,
+  block: number,
+  size: number,
+  rows: number,
+  height: number,
+) {
+  const count = spacerCount(size);
+  return Array.from({ length: count }, (_, part) => {
+    const props = {
+      key: `spacer-${block}-${part}`,
+      className: "price-spacer",
+      "aria-hidden": true,
+      "data-rows": part ? undefined : rows,
+    };
+    return desktop ? (
+      <tr {...props}>
+        <td colSpan={DESKTOP_COLUMNS} style={{ height: height / count }} />
+      </tr>
+    ) : (
+      <div {...props} style={{ height: height / count }} />
+    );
+  });
+}
+
+type PriceShown = "low" | "last" | "typical";
+function Unit({ row }: { row: Product }) {
+  const words = useWords();
+  return row.unit_basis === "set" ? (
+    <small className="unit">{words("/组", "/set")}</small>
+  ) : null;
+}
+/** "可制作" with the estimated cost; `cost` is undefined until it is known, null without prices. */
+function CraftBadge({ cost }: { cost?: number | null }) {
+  const words = useWords();
+  return (
+    <span
+      className="craft-label"
+      title={words(
+        "按购买配方材料加手续费估算；详情可查看配方和原料加工方案。",
+        "Estimated ingredient purchases plus crafting fee. Item details include recipes and a raw-material route.",
+      )}
+    >
+      <span className="craft-tag">{words("可制作", "CRAFTABLE")}</span>
+      {cost !== undefined && (
+        <small className="craft-cost">
+          {cost == null ? (
+            words("缺材料价格", "Missing material prices")
+          ) : (
+            <>
+              {words("约 ", "~")}
+              <Price value={cost} />
+            </>
+          )}
+        </small>
+      )}
+    </span>
+  );
+}
+function WatchButton({ row, on }: { row: Product; on: boolean }) {
+  const words = useWords();
+  return (
+    <button
+      type="button"
+      className={"star " + (on ? "on" : "")}
+      data-star={row.item_id}
+      aria-pressed={on}
+      aria-label={words(
+        `关注 ${row.name_zh || row.name_en}`,
+        `Watch ${row.name_en || row.name_zh}`,
+      )}
+      onClick={() => toggleWatch(row.item_id)}
+    >
+      <Icon name={on ? "starSm" : "starO"} />
+    </button>
+  );
+}
+type RowProps = {
+  row: Product;
+  href: string;
+  craftable: boolean;
+  cost?: number | null;
+};
+const MobilePriceRow = memo(function MobilePriceRow({
+  row,
+  href,
+  craftable,
+  cost,
+  price,
+  sales,
+  seen,
+  sold,
+}: RowProps & {
+  price: PriceShown;
+  sales: boolean;
+  seen: boolean;
+  sold: boolean;
+}) {
+  const words = useWords();
+  return (
+    <SiteLink className="prow" href={href} data-item-row>
+      <Slot url={row.icon_url} />
+      <span className="nm">
+        <ItemNames row={row} />
+        {craftable && <CraftBadge cost={cost} />}
+        {/* Phones have one price column: the other price (usually the lowest ask) goes here. */}
+        <small className="mobile-sort-value">
+          {[
+            price === "low"
+              ? row.typical != null && (
+                  <span key="price">
+                    {words("成交价 ", "Sale ")}
+                    <Price value={row.typical} />
+                  </span>
+                )
+              : row.low != null && (
+                  <span key="price">
+                    {words("在售最低 ", "Lowest ")}
+                    <Price value={row.low} />
+                  </span>
+                ),
+            sales && (
+              <span key="sales">
+                {words(
+                  `成交 ${num(row.sales_window ?? 0)} 笔`,
+                  `${num(row.sales_window ?? 0)} sales`,
+                )}
+              </span>
+            ),
+            seen && row.last_seen && (
+              <RelativeTime key="seen" at={row.last_seen} />
+            ),
+            sold && row.last_sale_at != null && (
+              <RelativeTime key="sold" at={row.last_sale_at} />
+            ),
+          ]
+            .filter(Boolean)
+            .flatMap((part, index) => (index ? [" · ", part] : [part]))}
+        </small>
+      </span>
+      <span className="pr quote-value">
+        <span className="quote-main">
+          <Price
+            value={
+              price === "low"
+                ? row.low
+                : price === "last"
+                  ? row.last_sale_price
+                  : row.typical
+            }
+          />
+          <Unit row={row} />
+        </span>
+        {price === "typical" && <SampleBadge row={row} />}
+      </span>
+      <WindowChange row={row} />
+    </SiteLink>
+  );
+});
+const DesktopPriceRow = memo(function DesktopPriceRow({
+  row,
+  href,
+  craftable,
+  cost,
+  watched,
+  sold,
+  seen,
+}: RowProps & { watched: boolean; sold: boolean; seen: boolean }) {
+  return (
+    <tr data-open={row.item_id} data-item-row>
+      <td className="star-c l">
+        <WatchButton row={row} on={watched} />
+      </td>
+      <td className="l">
+        <SiteLink className="it" href={href}>
+          <Slot url={row.icon_url} />
+          <ItemNames row={row} />
+          {craftable && <CraftBadge cost={cost} />}
+        </SiteLink>
+      </td>
+      <td>
+        <span className="pr quote-value">
+          <span className="quote-main">
+            <Price value={sold ? row.last_sale_price : row.typical} />
+            <Unit row={row} />
+          </span>
+          {!sold && <SampleBadge row={row} />}
+        </span>
+        {!sold && row.typical_low != null && row.typical_high != null && (
+          <span className="rg">
+            <Price value={row.typical_low} /> –{" "}
+            <Price value={row.typical_high} />
+          </span>
+        )}
+      </td>
+      <td>
+        <WindowChange row={row} />
+      </td>
+      <td>
+        <Price value={row.low} />
+      </td>
+      <td>{row.sales_window ?? 0}</td>
+      <td className="c-spark">
+        <span
+          className="contents"
+          dangerouslySetInnerHTML={{
+            __html: spark(row.trend),
+          }}
+        />
+      </td>
+      <td className="c-last">
+        <RelativeTime at={seen ? row.last_seen : row.last_sale_at} />
+      </td>
+    </tr>
+  );
+});
+const RecordEntry = memo(function RecordEntry({
+  row,
+  record,
+  sale,
+  href,
+  watched,
+}: {
+  row: Product;
+  record: any;
+  sale: boolean;
+  href: string;
+  watched: boolean;
+}) {
+  return (
+    <div className="price-record-entry">
+      <OfferRow row={record} item={row} sale={sale} href={href} />
+      <span className="price-record-actions">
+        <WatchButton row={row} on={watched} />
+      </span>
+    </div>
+  );
+});
+
 /** The price table under the home page hero; its state lives in the URL. */
 export default function PriceTable() {
   const words = useWords();
@@ -88,6 +448,7 @@ export default function PriceTable() {
   const route = useLocation();
   const navigate = useNavigate();
   const period = usePeriod();
+  const phone = usePhoneLayout();
   const state = useMemo(() => readPriceState(route.search), [route.search]);
   const [queryDraft, setQueryDraft] = useState(state.q);
   const composing = useRef(false);
@@ -179,7 +540,7 @@ export default function PriceTable() {
     });
   }
   const products = useMemo<Product[]>(
-    () => market.data?.products.map(periodProduct) || [],
+    () => market.data?.products.map(periodRow) || [],
     [market.data],
   );
   const search = useMemo(
@@ -329,27 +690,77 @@ export default function PriceTable() {
       </div>
     );
   };
-  useEffect(
-    () => setLimit(PAGE_ROWS),
+  // A new search, filter, order or period starts the list over at the top.
+  const listKey = [
+    state.q,
+    state.cat,
+    state.job,
+    state.type,
+    state.sort,
+    state.dir,
+    state.tab,
+    state.lmin,
+    state.lmax,
+    state.few,
+    state.cash,
+    state.sold,
+    state.drop,
+    state.watch,
+    state.craft,
+    period.hours,
+  ].join("|");
+  useEffect(() => setLimit(PAGE_ROWS), [listKey]);
+  // Blocks of PAGE_ROWS rows; the "for every job" heading counts in its block.
+  const listed = Math.min(recordMode ? limit : shown, rows.length);
+  const blockSizes: number[] = [];
+  for (let start = 0; start < listed; start += PAGE_ROWS) {
+    const end = Math.min(start + PAGE_ROWS, listed);
+    blockSizes.push(
+      end - start + (sharedFrom >= start && sharedFrom < end ? 1 : 0),
+    );
+  }
+  const list = useRef<HTMLElement>(null);
+  const windowKey = `${listKey}|${phone}`;
+  // The table sizes its columns from the rows it holds. Before rows give way to
+  // spacers, the number columns keep at least their current width, so the
+  // columns do not shift; the name column takes the rest.
+  const tableColumns = () =>
     [
-      state.q,
-      state.cat,
-      state.job,
-      state.type,
-      state.sort,
-      state.dir,
-      state.tab,
-      state.lmin,
-      state.lmax,
-      state.few,
-      state.cash,
-      state.sold,
-      state.drop,
-      state.watch,
-      state.craft,
-      period.hours,
-    ],
-  );
+      ...((list.current?.parentElement as HTMLTableElement | null)?.tHead
+        ?.rows[0]?.cells || []),
+    ].slice(2);
+  const lockColumns = () => {
+    if (phone || recordMode) return;
+    for (const cell of tableColumns()) {
+      const width = cell.getBoundingClientRect().width;
+      if (width > (parseFloat(cell.style.width) || 0))
+        cell.style.width = `${width}px`;
+    }
+  };
+  useEffect(() => {
+    const unlock = () => {
+      for (const cell of tableColumns()) cell.style.width = "";
+    };
+    unlock();
+    addEventListener("resize", unlock);
+    return () => removeEventListener("resize", unlock);
+  }, [windowKey]);
+  const spacers = useRowWindow(list, blockSizes, windowKey, lockColumns);
+  /** The listed rows, block by block, with far-away blocks as spacers. */
+  const listRows = (desktop: boolean, render: (row: Product) => ReactNode) =>
+    blockSizes.flatMap<ReactNode>((size, block) => {
+      const start = block * PAGE_ROWS;
+      const end = Math.min(start + PAGE_ROWS, listed);
+      const height = spacers.get(block);
+      if (height != null)
+        return spacerRows(desktop, block, size, end - start, height);
+      const items: ReactNode[] = [];
+      for (let index = start; index < end; index++) {
+        if (index === sharedFrom) items.push(sharedHead(desktop));
+        items.push(render(rows[index]));
+      }
+      return items;
+    });
   useEffect(() => {
     const node = sentinel.current;
     if (!node || !("IntersectionObserver" in window)) return;
@@ -385,53 +796,50 @@ export default function PriceTable() {
   const sortLabel = words(sortLabels[state.sort][0], sortLabels[state.sort][1]);
   const itemHref = (row: Product) =>
     `/item/${row.item_id}?hours=${period.hours}`;
-  const craftBadge = (row: Product) =>
-    craftable.has(row.item_id) ? (
-      <span
-        className="craft-label"
-        title={words(
-          "按购买配方材料加手续费估算；详情可查看配方和原料加工方案。",
-          "Estimated ingredient purchases plus crafting fee. Item details include recipes and a raw-material route.",
-        )}
-      >
-        <span className="craft-tag">{words("可制作", "CRAFTABLE")}</span>
-        {craftCosts.has(row.item_id) && (
-          <small className="craft-cost">
-            {craftCosts.get(row.item_id) == null ? (
-              words("缺材料价格", "Missing material prices")
-            ) : (
-              <>
-                {words("约 ", "~")}
-                <Price value={craftCosts.get(row.item_id)} />
-              </>
-            )}
-          </small>
-        )}
-      </span>
-    ) : null;
-  const unit = (row: Product) =>
-    row.unit_basis === "set" ? (
-      <small className="unit">{words("/组", "/set")}</small>
-    ) : null;
-  const watchButton = (row: Product) => (
-    <button
-      type="button"
-      className={"star " + (watched.includes(row.item_id) ? "on" : "")}
-      data-star={row.item_id}
-      aria-pressed={watched.includes(row.item_id)}
-      aria-label={words(
-        `关注 ${row.name_zh || row.name_en}`,
-        `Watch ${row.name_en || row.name_zh}`,
-      )}
-      onClick={() => toggleWatch(row.item_id)}
-    >
-      <Icon name={watched.includes(row.item_id) ? "starSm" : "starO"} />
-    </button>
-  );
+  const watchSet = useMemo(() => new Set(watched), [watched]);
+  // Props every row shares; rows re-render only when theirs change.
+  const rowProps = (row: Product) => ({
+    row,
+    href: itemHref(row),
+    craftable: craftable.has(row.item_id),
+    cost: craftCosts.has(row.item_id) ? craftCosts.get(row.item_id) : undefined,
+  });
+  // A click on a table row outside its links opens the item like its name link:
+  // in the app, or in a new tab with a modifier key or the middle button.
+  function openRow(event: React.MouseEvent<HTMLElement>) {
+    const target = event.target as Element;
+    const row = target.closest<HTMLElement>("tr[data-open]");
+    if (!row || target.closest("a,button")) return;
+    const href =
+      `/item/${row.dataset.open}?hours=${period.hours}` + (en ? "&lang=en" : "");
+    if (event.button === 1 || event.ctrlKey || event.metaKey || event.shiftKey) {
+      event.preventDefault();
+      window.open(href, "_blank", "noopener");
+    } else navigate(href);
+  }
   const direction = state.dir === "asc" ? "↑" : "↓";
   const showLowestAsk =
     state.tab === "all" && ["low", "recent"].includes(state.sort);
   const showLastSale = state.tab === "all" && state.sort === "lastsale";
+  const priceShown: PriceShown = showLowestAsk
+    ? "low"
+    : showLastSale
+      ? "last"
+      : "typical";
+  const categoryCounts = useMemo(
+    () =>
+      categories.map(
+        ([, category]) =>
+          base.filter(
+            (row) =>
+              (!category || row.category === category) &&
+              (state.tab !== "changes" ||
+                (row.change_window != null &&
+                  Math.abs(row.change_window) >= 0.5)),
+          ).length,
+      ),
+    [base, state.tab],
+  );
   const mobilePriceLabel = showLowestAsk
     ? words("最低报价", "Lowest ask")
     : showLastSale
@@ -521,7 +929,7 @@ export default function PriceTable() {
                   role="group"
                   aria-label={words("分类", "Categories")}
                 >
-                  {categories.map(([key, category, zh, english]) => (
+                  {categories.map(([key, , zh, english], index) => (
                     <button
                       type="button"
                       key={key}
@@ -538,17 +946,7 @@ export default function PriceTable() {
                       }
                     >
                       {words(zh, english)}
-                      <small>
-                        {num(
-                          base.filter(
-                            (row) =>
-                              (!category || row.category === category) &&
-                              (state.tab !== "changes" ||
-                                (row.change_window != null &&
-                                  Math.abs(row.change_window) >= 0.5)),
-                          ).length,
-                        )}
-                      </small>
+                      <small>{num(categoryCounts[index])}</small>
                     </button>
                   ))}
                 </div>
@@ -838,7 +1236,9 @@ export default function PriceTable() {
             ) : !market.data ||
               (recordMode && !records.data) ||
               (state.craft && !crafting.data) ? (
-              <Loading />
+              <div className="price-pending">
+                <Loading />
+              </div>
             ) : rows.length === 0 ? (
               <>
                 <Empty />
@@ -858,212 +1258,96 @@ export default function PriceTable() {
                     className="price-record-list"
                     data-list={tab}
                     data-price-records={recordKind}
+                    ref={list as RefObject<HTMLDivElement>}
                   >
-                    {rows.slice(0, limit).map((row) => (
-                      <div className="price-record-entry" key={row.item_id}>
-                        <OfferRow
-                          row={recordMap.get(row.item_id)}
-                          item={row}
-                          sale={state.sort === "lastsale"}
-                          href={itemHref(row)}
-                        />
-                        <span className="price-record-actions">
-                          {watchButton(row)}
-                        </span>
-                      </div>
+                    {listRows(false, (row) => (
+                      <RecordEntry
+                        key={row.item_id}
+                        row={row}
+                        record={recordMap.get(row.item_id)}
+                        sale={state.sort === "lastsale"}
+                        href={itemHref(row)}
+                        watched={watchSet.has(row.item_id)}
+                      />
                     ))}
                   </div>
+                ) : phone ? (
+                  <div
+                    className="react-price-mobile"
+                    data-list={tab}
+                    ref={list as RefObject<HTMLDivElement>}
+                  >
+                    {listRows(false, (row) => (
+                      <MobilePriceRow
+                        key={row.item_id}
+                        {...rowProps(row)}
+                        price={priceShown}
+                        sales={state.tab === "all" && state.sort === "sales"}
+                        seen={state.sort === "recent"}
+                        sold={showLastSale}
+                      />
+                    ))}
+                    {collapsed && !hasMore && sharedHead(false)}
+                  </div>
                 ) : (
-                  <>
-                    <div className="react-price-mobile" data-list={tab}>
-                      {rows.slice(0, shown).map((row, index) => (
-                        <Fragment key={row.item_id}>
-                        {index === sharedFrom && sharedHead(false)}
-                        <SiteLink
-                          className="prow"
-                          href={itemHref(row)}
-                          key={row.item_id}
-                          data-item-row
-                        >
-                          <Slot url={row.icon_url} />
-                          <span className="nm">
-                            <ItemNames row={row} />
-                            {craftBadge(row)}
-                            {/* Phones have one price column: the other price (usually the lowest ask) goes here. */}
-                            <small className="mobile-sort-value">
-                              {[
-                                showLowestAsk
-                                  ? row.typical != null && (
-                                      <span key="price">
-                                        {words("成交价 ", "Sale ")}
-                                        <Price value={row.typical} />
-                                      </span>
-                                    )
-                                  : row.low != null && (
-                                      <span key="price">
-                                        {words("在售最低 ", "Lowest ")}
-                                        <Price value={row.low} />
-                                      </span>
-                                    ),
-                                state.tab === "all" && state.sort === "sales" && (
-                                  <span key="sales">
-                                    {words(
-                                      `成交 ${num(row.sales_window ?? 0)} 笔`,
-                                      `${num(row.sales_window ?? 0)} sales`,
-                                    )}
-                                  </span>
-                                ),
-                                state.sort === "recent" && row.last_seen && (
-                                  <RelativeTime key="seen" at={row.last_seen} />
-                                ),
-                                showLastSale && row.last_sale_at != null && (
-                                  <RelativeTime key="sold" at={row.last_sale_at} />
-                                ),
-                              ]
-                                .filter(Boolean)
-                                .flatMap((part, index) => (index ? [" · ", part] : [part]))}
-                            </small>
-                          </span>
-                          <span className="pr quote-value">
-                            <span className="quote-main">
-                              <Price
-                                value={
-                                  showLowestAsk
-                                    ? row.low
-                                    : showLastSale
-                                      ? row.last_sale_price
-                                      : row.typical
-                                }
-                              />
-                              {unit(row)}
+                  <div className="react-price-desktop">
+                    <table className="ptable">
+                      <thead>
+                        <tr>
+                          <th className="l c-star">
+                            <span className="sr">
+                              {words("关注", "Watch")}
                             </span>
-                            {!showLowestAsk && !showLastSale && (
-                              <SampleBadge row={row} />
-                            )}
-                          </span>
-                          <WindowChange row={row} />
-                        </SiteLink>
-                        </Fragment>
-                      ))}
-                      {collapsed && !hasMore && sharedHead(false)}
-                    </div>
-                    <div className="react-price-desktop">
-                      <table className="ptable">
-                        <thead>
-                          <tr>
-                            <th className="l c-star">
-                              <span className="sr">
-                                {words("关注", "Watch")}
-                              </span>
-                            </th>
-                            {heading("name", words("物品", "Item"), "l")}
-                            {heading(
-                              showLastSale ? null : "price",
-                              showLastSale
-                                ? words("最新成交价", "Last sale price")
-                                : words("成交价", "Typical sale"),
-                            )}
-                            {heading("change", words("区间涨跌", "Change"))}
-                            {heading("low", words("最低报价", "Lowest ask"))}
-                            {heading("sales", words("成交笔数", "Sales"))}
-                            {heading(
-                              null,
-                              words("7 日走势", "7-day trend"),
-                              "c-spark",
-                            )}
-                            {heading(
-                              state.sort === "recent"
-                                ? "recent"
-                                : showLastSale
-                                  ? "lastsale"
-                                  : null,
-                              state.sort === "recent"
-                                ? words("最近采集", "Last observed")
-                                : words("最近成交", "Last sale"),
-                              "c-last",
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody data-list={tab}>
-                          {rows.slice(0, shown).map((row, index) => (
-                            <Fragment key={row.item_id}>
-                            {index === sharedFrom && sharedHead(true)}
-                            <tr
-                              key={row.item_id}
-                              data-open={row.item_id}
-                              data-item-row
-                              onClick={(event) => {
-                                if (
-                                  !(event.target as Element).closest("a,button")
-                                )
-                                  location.assign(
-                                    itemHref(row) + (en ? "&lang=en" : ""),
-                                  );
-                              }}
-                            >
-                              <td className="star-c l">{watchButton(row)}</td>
-                              <td className="l">
-                                <SiteLink className="it" href={itemHref(row)}>
-                                  <Slot url={row.icon_url} />
-                                  <ItemNames row={row} />
-                                  {craftBadge(row)}
-                                </SiteLink>
-                              </td>
-                              <td>
-                                <span className="pr quote-value">
-                                  <span className="quote-main">
-                                    <Price
-                                      value={
-                                        showLastSale
-                                          ? row.last_sale_price
-                                          : row.typical
-                                      }
-                                    />
-                                    {unit(row)}
-                                  </span>
-                                  {!showLastSale && <SampleBadge row={row} />}
-                                </span>
-                                {!showLastSale &&
-                                  row.typical_low != null &&
-                                  row.typical_high != null && (
-                                    <span className="rg">
-                                      <Price value={row.typical_low} /> –{" "}
-                                      <Price value={row.typical_high} />
-                                    </span>
-                                  )}
-                              </td>
-                              <td>
-                                <WindowChange row={row} />
-                              </td>
-                              <td>
-                                <Price value={row.low} />
-                              </td>
-                              <td>{row.sales_window ?? 0}</td>
-                              <td className="c-spark">
-                                <span
-                                  className="contents"
-                                  dangerouslySetInnerHTML={{
-                                    __html: spark(row.trend),
-                                  }}
-                                />
-                              </td>
-                              <td className="c-last">
-                                <RelativeTime
-                                  at={
-                                    state.sort === "recent"
-                                      ? row.last_seen
-                                      : row.last_sale_at
-                                  }
-                                />
-                              </td>
-                            </tr>
-                            </Fragment>
-                          ))}
-                          {collapsed && !hasMore && sharedHead(true)}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
+                          </th>
+                          {heading("name", words("物品", "Item"), "l")}
+                          {heading(
+                            showLastSale ? null : "price",
+                            showLastSale
+                              ? words("最新成交价", "Last sale price")
+                              : words("成交价", "Typical sale"),
+                          )}
+                          {heading("change", words("区间涨跌", "Change"))}
+                          {heading("low", words("最低报价", "Lowest ask"))}
+                          {heading("sales", words("成交笔数", "Sales"))}
+                          {heading(
+                            null,
+                            words("7 日走势", "7-day trend"),
+                            "c-spark",
+                          )}
+                          {heading(
+                            state.sort === "recent"
+                              ? "recent"
+                              : showLastSale
+                                ? "lastsale"
+                                : null,
+                            state.sort === "recent"
+                              ? words("最近采集", "Last observed")
+                              : words("最近成交", "Last sale"),
+                            "c-last",
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody
+                        data-list={tab}
+                        ref={list as RefObject<HTMLTableSectionElement>}
+                        onClick={openRow}
+                        onAuxClick={(event) => {
+                          if (event.button === 1) openRow(event);
+                        }}
+                      >
+                        {listRows(true, (row) => (
+                          <DesktopPriceRow
+                            key={row.item_id}
+                            {...rowProps(row)}
+                            watched={watchSet.has(row.item_id)}
+                            sold={showLastSale}
+                            seen={state.sort === "recent"}
+                          />
+                        ))}
+                        {collapsed && !hasMore && sharedHead(true)}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
                 {(recordMode ? limit < rows.length : hasMore) && (
                   <div ref={sentinel}>
