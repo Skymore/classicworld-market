@@ -140,6 +140,51 @@ Cloudflare 隧道凭据放在用户 `.cloudflared`，项目的 `shared_data/tunn
 此为小范围朋友使用的 MVP，报表短时缓存，数据库单机 WAL。大量用户需分页/增量接口、异步聚合和 PostgreSQL；外部成员上传的数据并非可信成交证明，仍应通过成员管理与异常样本审查控制质量。
 
 
+## Cloudflare 缓存图鉴页面（需在 Cloudflare 后台设置）
+
+图鉴页面由服务器渲染（Rust），对所有设备输出同一份 HTML，不再返回 `Vary: Sec-CH-UA-Mobile`；手机和桌面布局由 `boot.js` 在首次绘制前按窗口宽度设置。页面内嵌的数据只含公开图鉴和市场信息，不含账号内容。源站已经给这些页面发送缓存时间，但 Cloudflare 默认不缓存 HTML（`cf-cache-status: DYNAMIC`），所以要加一条缓存规则，这一步需要 Rui 在 Cloudflare 后台操作。
+
+| 路径 | 源站 `Cache-Control` |
+|---|---|
+| `/item/<id>` | `public, max-age=0, s-maxage=60` |
+| `/mob/<id>` | `public, s-maxage=600` |
+| `/map/<id>`、`/npc/<id>`、`/world`、`/route` | `public, s-maxage=86400` |
+| 不存在的页面（404） | `public, s-maxage=600` |
+| `/search`、出错页面、`/item/<id>?part=market`、`?part=preview` | `no-store`（不缓存） |
+
+设置步骤（mxd.ruit.me 所在的 zone → Caching → Cache Rules → Create rule）：
+
+1. 规则名：`SSR pages`。
+2. 表达式（Edit expression）：
+
+   ```
+   (http.host eq "mxd.ruit.me")
+   and (starts_with(http.request.uri.path, "/item/") or starts_with(http.request.uri.path, "/mob/")
+        or starts_with(http.request.uri.path, "/map/") or starts_with(http.request.uri.path, "/npc/")
+        or http.request.uri.path in {"/world" "/route"})
+   and not http.cookie contains "fm_session="
+   and not http.cookie contains "cwm_account="
+   ```
+
+   带账号 cookie 的请求（已登录网页账号或采集器账号）直接回源。
+3. Cache eligibility：Eligible for cache。
+4. Edge TTL：Use cache-control header if present, bypass cache if not（遵守源站的 `s-maxage`）。
+5. Browser TTL：Respect origin TTL（浏览器仍按 `max-age` 处理，物品页每次重新验证）。
+6. Cache key：保持默认，包含完整查询字符串（`?lang=en`、`?hours=all`、路线的 `from`/`to` 都是不同页面）。不要开启 “Cache by device type”。
+7. 保存并部署。
+
+验证（每条请求两次，第二次应命中）：
+
+```
+curl -sI https://mxd.ruit.me/mob/9 | grep -iE 'cf-cache-status|age|cache-control'
+curl -sI https://mxd.ruit.me/mob/9 | grep -iE 'cf-cache-status|age|cache-control'   # cf-cache-status: HIT，age 递增
+curl -sI 'https://mxd.ruit.me/item/2000000?lang=en' | grep -i cf-cache-status        # 60 秒内第二次为 HIT
+curl -sI -H 'Cookie: cwm_account=x' https://mxd.ruit.me/mob/9 | grep -i cf-cache-status   # 不应为 HIT（BYPASS 或 DYNAMIC）
+curl -sI 'https://mxd.ruit.me/search?q=x' | grep -i cf-cache-status                  # DYNAMIC
+```
+
+React 接管页面后会按自己的时效重新读取数据（物品 15 秒、其他图鉴 60 秒），所以边缘缓存的物品页最多显示 60 秒前的首屏，随后自动更新。部署新前端后，缓存中的旧 HTML 最长 24 小时仍引用旧版资源（旧哈希文件保留，页面仍可用）；如需立即生效，部署后在 Caching → Configuration 里 Purge Everything，或只清除上表路径。
+
 ## 网站改动合并与发布校验
 
 本机共享目录可能包含多个任务的未提交草稿。网站发布以最新 `gitlab/main` 为起点，并确认它包含 `shared_data/deploy/current.json` 对应的线上提交，在独立目录中合并改动；不要从较旧工作目录直接重新构建并覆盖当前前端。
