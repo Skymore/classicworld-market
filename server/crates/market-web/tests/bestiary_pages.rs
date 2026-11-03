@@ -208,7 +208,32 @@ fn item_page(stats: Option<MarketStats>, market: ItemMarket) -> ItemPage {
         }],
         npc_offers: vec![],
         npc_sell: Some(20),
+        quest_rewards: vec![QuestReward {
+            quest: quest(1019, "瑞恩的问答 7", "Rain's Maple Quiz 7"),
+            quantity: 10,
+            kind: "random".into(),
+            job: Some("Warrior".into()),
+            chance_pct: Some(14.3),
+        }],
+        quest_needs: vec![QuestNeed {
+            quest: quest(1035, "小石球的石片", "Jr. Sentinel Shellpiece"),
+            quantity: 3,
+        }],
         market,
+    }
+}
+
+fn quest(id: i32, zh: &str, en: &str) -> QuestRef {
+    QuestRef {
+        id,
+        names: Names::new(zh, en),
+        npc: Some(NpcRef {
+            id: 2100,
+            names: Some(Names::new("瑞恩", "Rain")),
+        }),
+        level_min: Some(5),
+        repeats: Some("daily".into()),
+        ends_at: None,
     }
 }
 
@@ -245,6 +270,9 @@ fn item_page_head_sources_and_shell() {
     assert!(html.contains("数据 1小时前更新"), "freshness from as_of");
     assert!(html.contains(r#"href="/mob/2""#));
     assert!(html.contains("60 票"), "NiaDB confirmations, not a rate");
+    assert!(html.contains("任务奖励") && html.contains("瑞恩的问答 7") && html.contains("×10"));
+    assert!(html.contains("瑞恩 · Lv.5 · 每日 · 战士 随机 14.3%"), "NPC, level, repeat and how it is given");
+    assert!(html.contains("任务要用") && html.contains("×3"));
     assert!(!html.contains("60%"));
     assert!(html.contains("射手训练场Ⅰ · 蜗牛猎场Ⅰ"));
     assert!(html.contains("没有 NPC 出售记录"));
@@ -505,8 +533,14 @@ fn mob_page_lists_maps_and_every_drop_kind() {
                 quest_id: Some(1035),
             },
         ],
+        quests: vec![QuestNeed {
+            quest: quest(1036, "小石球的威胁", "Jr. Sentinel threat"),
+            quantity: 10,
+        }],
     };
     let html = pages::mob_page(&page, &zh()).into_string();
+    assert!(html.contains("相关任务") && html.contains("击败 10"));
+    assert!(html.contains(r#"href="https://meowdb.com/msclassic/quest-tracker/1036""#));
     assert_csp_clean(&html);
     assert!(html.contains(r#"href="/web/css/dex.css?v="#));
     assert!(html.contains("2,100,000,000"));

@@ -17,7 +17,7 @@ mod shell;
 use maud::{html, Markup};
 
 use super::format::Lang;
-use super::model::{MapRef, Names};
+use super::model::{MapRef, Names, QuestNeed, QuestRef, QuestReward};
 
 pub use dex::{error_page, map_page, mob_page, not_found_page, route_page, search_page};
 pub use item::{item_market_fragment, item_page};
@@ -98,6 +98,112 @@ fn map_list(maps: &[MapRef], lang: Lang) -> String {
         });
     }
     text
+}
+
+/// NiaDB's page for a quest; quest rows credit and link it.
+pub(crate) fn quest_url(id: i32) -> String {
+    format!("https://meowdb.com/msclassic/quest-tracker/{id}")
+}
+
+/// NiaDB's job (or gender) names in the reader's language.
+fn job_label(job: &str, lang: Lang) -> String {
+    let zh = match job {
+        "Beginner" => "新手",
+        "Warrior" => "战士",
+        "Magician" => "魔法师",
+        "Bowman" => "弓箭手",
+        "Thief" => "飞侠",
+        "Male" => "男",
+        "Female" => "女",
+        other => other,
+    };
+    lang.t(zh, job).to_string()
+}
+
+/// "NPC · Lv.10 · 每日 · 活动至 11-12".
+fn quest_meta(q: &QuestRef, lang: Lang) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    if let Some(npc) = &q.npc {
+        parts.push(npc.label(lang));
+    }
+    if let Some(level) = q.level_min {
+        parts.push(format!("Lv.{level}"));
+    }
+    match q.repeats.as_deref() {
+        Some("daily") => parts.push(lang.t("每日", "daily").into()),
+        Some("weekly") => parts.push(lang.t("每周", "weekly").into()),
+        _ => {}
+    }
+    if let Some(end) = q.ends_at {
+        let day = end.format("%m-%d");
+        parts.push(match lang {
+            Lang::Zh => format!("活动至 {day}"),
+            Lang::En => format!("event until {day}"),
+        });
+    }
+    parts.join(" · ")
+}
+
+/// How a reward is given, when not simply to everyone.
+fn reward_note(r: &QuestReward, lang: Lang) -> Option<String> {
+    let job = r.job.as_deref().map(|j| job_label(j, lang));
+    match (r.kind.as_str(), job, lang) {
+        ("choice", Some(job), Lang::Zh) => Some(format!("{job}可选其一")),
+        ("choice", Some(job), Lang::En) => Some(format!("{job} pick one")),
+        ("choice", None, _) => Some(lang.t("可选其一", "pick one").into()),
+        ("random", job, _) => {
+            let chance = r
+                .chance_pct
+                .map(|c| format!(" {}%", (c * 10.0).round() / 10.0))
+                .unwrap_or_default();
+            let who = job.map(|j| format!("{j} ")).unwrap_or_default();
+            Some(match lang {
+                Lang::Zh => format!("{who}随机{chance}"),
+                Lang::En => format!("{who}random{chance}"),
+            })
+        }
+        (_, Some(job), Lang::Zh) => Some(format!("仅{job}")),
+        (_, Some(job), Lang::En) => Some(format!("{job} only")),
+        _ => None,
+    }
+}
+
+fn quest_line(lang: Lang, q: &QuestRef, note: Option<String>, amount: String) -> Markup {
+    let meta = quest_meta(q, lang);
+    html! {
+        a.quest href=(quest_url(q.id)) target="_blank" rel="noopener noreferrer" {
+            b { (q.names.get(lang)) }
+            span.qn { (amount) }
+            span.qm {
+                (meta)
+                @if let Some(note) = note { @if !meta.is_empty() { " · " } (note) }
+            }
+        }
+    }
+}
+
+/// Quests that give an item.
+pub fn quest_rewards(lang: Lang, rewards: &[QuestReward]) -> Markup {
+    html! {
+        div.quests {
+            @for r in rewards { (quest_line(lang, &r.quest, reward_note(r, lang), format!("×{}", r.quantity))) }
+        }
+    }
+}
+
+/// Quests that ask for an item, or (`defeat`) to defeat a monster.
+pub fn quest_needs(lang: Lang, needs: &[QuestNeed], defeat: bool) -> Markup {
+    html! {
+        div.quests {
+            @for n in needs {
+                (quest_line(lang, &n.quest, None, match (defeat, lang) {
+                    (true, Lang::Zh) => format!("击败 {}", n.quantity),
+                    (true, Lang::En) => format!("defeat {}", n.quantity),
+                    (false, _) => format!("×{}", n.quantity),
+                }))
+            }
+        }
+    }
 }
 
 #[cfg(test)]

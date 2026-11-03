@@ -236,6 +236,14 @@ fn sources_well(v: &View) -> Markup {
                     span.sell { (v.ctx.t("卖给 NPC 只得 ", "NPCs pay ")) (meso(sell)) (v.ctx.t(" / 个", " each")) }
                 }
             }
+            @if !page.quest_rewards.is_empty() {
+                div.sub-h.ruled { (v.ctx.t("任务奖励", "Quest rewards")) small { (quest_count(lang, page.quest_rewards.len())) } }
+                (super::quest_rewards(lang, &page.quest_rewards))
+            }
+            @if !page.quest_needs.is_empty() {
+                div.sub-h.ruled { (v.ctx.t("任务要用", "Needed for quests")) small { (quest_count(lang, page.quest_needs.len())) } }
+                (super::quest_needs(lang, &page.quest_needs, false))
+            }
             div.verdict { b { (v.ctx.t("打还是买", "Farm or buy")) } strong { (verdict) } small { (reason) } }
         }
     }
@@ -246,6 +254,13 @@ pub(super) fn votes_label(votes: i64, lang: Lang) -> String {
     match lang {
         Lang::Zh => format!("{votes} 票"),
         Lang::En => format!("{votes} votes"),
+    }
+}
+
+pub(super) fn quest_count(lang: Lang, n: usize) -> String {
+    match lang {
+        Lang::Zh => format!("{n} 个任务 · NiaDB"),
+        Lang::En => format!("{n} quests · NiaDB"),
     }
 }
 

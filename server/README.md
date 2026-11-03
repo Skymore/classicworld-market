@@ -231,7 +231,8 @@ cargo run --release -p market-web --bin reachability        # 从射手村能到
 6. 地图和 NPC 的简体名：Mapledex 有简体名（`cw`）的照用，从不覆盖。没有的按 `zh-names.json` 填 `name_zh`，这个文件由 `tools/zh_names.py` 离线生成，`import_catalog` 只读它：先用 DVG 的名字（物品中文名也来自 DVG，和本服中文玩家看到的一致），条件是同一 ID 的 DVG 英文名和我们的一致（只比字母和数字；三个 NPC 拼法不同但地图位置相同，人工核过）；DVG 没有、但 Mapledex 有繁体名（`zh`）的，用 OpenCC t2s（`opencc-python-reimplemented==0.1.7`）转简体。两边都没有的保持英文，不自己翻译。DVG 的名字不用的情况写在 `zh-names.json` 的 `dvg_not_used`：占位名（`地图 80003000`）、名字里有繁体字（20000055 `天空楼梯Ⅱ天空階梯`，改用 Mapledex 繁体名转换）、英文对不上（900000000 我们是 White Map，DVG 是 The Manager's Room「测试」）。10001008 的名字和街道在 NiaDB 与 DVG 里是反的，用 DVG 的街道名「黄蘑菇屋」。
 7. 图鉴以 NiaDB 为准（`Dataset::add_niadb_bestiary`，取代规则 2，并在规则 4 之后执行）：Mapledex 的怪物表、掉落表是 GMS 时代的数据，和 Classic World 对不上（2026-11-02 对比：我们的 3025 条有物品号的掉落只有 528 条被 NiaDB 玩家确认）。
    - 怪物：只保留 NiaDB `monsters.json` 里的怪物；Mapledex 有、NiaDB 没有的测试怪和旧副本去掉。等级、HP、MP、经验、攻防、命中、回避用 NiaDB 的上线数值；名字、`gms_id`、图片用的 `link_id`、说明和移动速度仍用 Mapledex。同一编号在 Mapledex 是另一只怪时（英文名去掉 NiaDB 的"(alt)""(GM Event)"等后缀仍不同：39、42、800019–800023，例如 39 在 Mapledex 是 Nependeath，在 Classic World 是 Ghost Stump），不用 Mapledex 的任何字段。
-   - 怪物简体名：用 DVG 怪物列表（`data/reference/dvg/mob-list.json`，`tools/dvg_mobs.py` 抓取，`--dvg-mobs`）的 `mobname`，这是中文玩家在游戏里看到的名字，替换 Mapledex 的（Mapledex 有错字，例如 700000 写作"mush妈妈"）。只在 DVG 的英文名是同一只怪时用（同上去后缀，长名允许 2 个字母不同）。2026-11-03：110 只用了 DVG 的名字，其中 11 只改了名。
+   - 怪物简体名：用 DVG 怪物列表（`data/reference/dvg/mob-list.json`，`tools/dvg_lists.py` 抓取，`--dvg ../data/reference/dvg`）的 `mobname`，这是中文玩家在游戏里看到的名字，替换 Mapledex 的（Mapledex 有错字，例如 700000 写作"mush妈妈"）。只在 DVG 的英文名是同一只怪时用（同上去后缀，长名允许 2 个字母不同）。2026-11-03：110 只用了 DVG 的名字，其中 11 只改了名。
+   - 任务（`bestiary::quests`，迁移 0039）：NiaDB `quests.json` 的每个任务一行，简体名和发任务 NPC 的编号用 DVG `quest-list.json`（同一编号、英文名是同一个任务时）；DVG 没有的按 NiaDB 写的 NPC 英文名找，同名多个时取开放的那个。奖励写进 `quest_rewards`（`fixed` 人人有，`job` 是只给某职业/性别的；`choice` 按职业选其一；`random` 抽一个，带 `chance_pct`），要交的物品和要打的怪写进 `quest_needs`。`OPENS_LATER` 里区域的任务（遗忘洞穴是 NiaDB `area` 17）在开放日前、NPC 只站在未开放地图上的任务标 `unreleased`；活动任务存 `starts_at` / `ends_at`，页面只在这段时间内显示，不用重跑导入。物品页"来源"列出给这个物品的任务（任务奖励）和要这个物品的任务（任务要用），怪物页列出要打它的任务，都链接到 NiaDB 的任务页。2026-11-03：401 个任务。
    - 怪物图片：GMS v83 渲染器没有或画的是另一只怪的，用 `web/images/mobs/` 里的 DVG 客户端贴图（来源见 `sources.json`）；清单在 `bestiary/pages.rs` 的 `LOCAL_SPRITES` 和 `catalogue.tsx`，两边一致。
    - 地图和刷怪：只保留 NiaDB `maps.json` 里的地图（Mapledex 有、NiaDB 没有的 Up and Up、White Map 等去掉，连同它们的 NPC 位置和回城边）；刷怪点全部换成 NiaDB 每张地图的怪物列表。
    - 掉落：整张表换成 NiaDB `drops.json`（玩家报告、投票），只收赞成多于反对的，每只怪每种物品一行，按（赞成 − 反对）从高到低。没有掉率（`rate_pct` 为空，Classic World 不公布），存 `upvotes` / `downvotes`；页面显示"N 票"，不再估算"打多少只出一个"。金币：Mapledex 的金币掉落不再导入，改用 NiaDB `mesos.json`（玩家报告的每堆金币数和投票）：NiaDB 有可信报告（`summary.trustedCount > 0`）的怪物加一行金币，范围是它页面上显示的中位数（`medianMin`–`medianMax`），票数是这只怪所有报告的票数之和；没有可信报告的不加。
@@ -279,7 +280,7 @@ done
 python3 ../tools/niadb_items.py --output ../data/reference/niadb/items.json
 python3 ../tools/niadb_bestiary.py --output ../data/reference/niadb   # monsters.json、maps.json、drops.json、mesos.json，约 25 分钟
 python3 ../tools/niadb_portals.py ../data/reference/niadb/maps.json --output ../data/reference/niadb/portals.json
-python3 ../tools/dvg_mobs.py --output ../data/reference/dvg/mob-list.json
+python3 ../tools/dvg_lists.py --output ../data/reference/dvg   # mob-list.json、quest-list.json
 ```
 
 `niadb_bestiary.py` 一次只发一个请求（默认间隔 3 秒），全部成功才写文件，中途被拒（403/429）就停下、旧文件不变。新地图的传送口要重新生成 `portals.json` 并跑 `import_portals`。

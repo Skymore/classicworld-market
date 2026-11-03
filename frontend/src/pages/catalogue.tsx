@@ -339,9 +339,71 @@ function Mob({ page }: { page: any }) {
               </p>
             )}
           </Well>
+          {page.quests?.length > 0 && (
+            <Well
+              title={words("相关任务", "Quests")}
+              note={words(`${page.quests.length} 个任务 · NiaDB`, `${page.quests.length} quests · NiaDB`)}
+            >
+              <QuestRows rows={page.quests} defeat />
+            </Well>
+          )}
         </div>
       </section>
     </>
+  );
+}
+// NiaDB's job and gender names, as the quest rows show them.
+const JOBS: Record<string, [string, string]> = {
+  Beginner: ["新手", "Beginner"],
+  Warrior: ["战士", "Warrior"],
+  Magician: ["魔法师", "Magician"],
+  Bowman: ["弓箭手", "Bowman"],
+  Thief: ["飞侠", "Thief"],
+  Male: ["男", "Male"],
+  Female: ["女", "Female"],
+};
+// Quests that give an item, ask for one, or (defeat) ask to defeat a monster.
+// The same rows as the server's first paint (bestiary/pages.rs).
+export function QuestRows({ rows, defeat = false }: { rows: any[]; defeat?: boolean }) {
+  const words = useWords(),
+    name = useNames();
+  const job = (j: string) => words(...(JOBS[j] || [j, j]));
+  const note = (r: any) => {
+    const who = r.job ? job(r.job) : null;
+    if (r.kind === "choice") return who ? words(`${who}可选其一`, `${who} pick one`) : words("可选其一", "pick one");
+    if (r.kind === "random") {
+      const chance = r.chance_pct != null ? ` ${Math.round(r.chance_pct * 10) / 10}%` : "";
+      return words(`${who ? who + " " : ""}随机${chance}`, `${who ? who + " " : ""}random${chance}`);
+    }
+    return who ? words(`仅${who}`, `${who} only`) : null;
+  };
+  return (
+    <div className="quests">
+      {rows.map((r: any) => {
+        const q = r.quest;
+        const meta = [
+          q.npc && (name(q.npc.names) || "NPC #" + q.npc.id),
+          q.level_min != null && `Lv.${q.level_min}`,
+          q.repeats === "daily" && words("每日", "daily"),
+          q.repeats === "weekly" && words("每周", "weekly"),
+          q.ends_at && words(`活动至 ${q.ends_at.slice(5, 10)}`, `event until ${q.ends_at.slice(5, 10)}`),
+          !defeat && r.kind && note(r),
+        ].filter(Boolean);
+        return (
+          <a
+            className="quest"
+            key={q.id}
+            href={`https://meowdb.com/msclassic/quest-tracker/${q.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <b>{name(q.names)}</b>
+            <span className="qn">{defeat ? words(`击败 ${r.quantity}`, `defeat ${r.quantity}`) : `×${r.quantity}`}</span>
+            <span className="qm">{meta.join(" · ")}</span>
+          </a>
+        );
+      })}
+    </div>
   );
 }
 // Portal names (east00, dun00) are internal map data, so only the way of travel is shown.

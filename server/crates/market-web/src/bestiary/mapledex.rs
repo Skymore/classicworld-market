@@ -14,7 +14,10 @@ use anyhow::{Context, Result};
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
-use super::rows::{DropRow, MapNpcRow, MapRow, MobRow, NpcRow, PortalRow, SpawnRow};
+use super::rows::{
+    DropRow, MapNpcRow, MapRow, MobRow, NpcRow, PortalRow, QuestNeedRow, QuestRewardRow, QuestRow,
+    SpawnRow,
+};
 
 pub const DEFAULT_VERSION: &str = "CW GMS_COT2_2026-08-11";
 
@@ -121,6 +124,9 @@ pub struct Dataset {
     pub npc_shops: Vec<NpcShopRow>,
     /// Return-map links; Mapledex has no walking portals.
     pub portals: Vec<PortalRow>,
+    pub quests: Vec<QuestRow>,
+    pub quest_rewards: Vec<QuestRewardRow>,
+    pub quest_needs: Vec<QuestNeedRow>,
     pub warnings: Vec<String>,
 }
 
@@ -468,7 +474,7 @@ pub struct NiaDbCounts {
     pub shop_rows: usize,
 }
 
-fn nia_id(raw: &str) -> Option<i32> {
+pub(super) fn nia_id(raw: &str) -> Option<i32> {
     raw.trim().parse().ok()
 }
 
@@ -673,19 +679,39 @@ impl Dataset {
 /// NiaDB hides it by default on its map and monster lists.
 const UNRELEASED_REGION: &str = "Ossyria";
 
-/// Areas NiaDB lists that open on a known day: (first map id, last map id,
-/// opening day). Their maps stay unreleased when imported before that day;
-/// re-run `import_catalog` after it.
-const OPENS_LATER: &[(i32, i32, (i32, u32, u32))] = &[
+/// An area NiaDB lists that opens on a known day. Its maps and quests stay
+/// unreleased when imported before that day; re-run `import_catalog` after it.
+struct OpensLater {
+    maps: std::ops::RangeInclusive<i32>,
+    /// NiaDB `quests.json` `area` of its quests.
+    quest_area: i32,
+    day: (i32, u32, u32),
+}
+
+const OPENS_LATER: &[OpensLater] = &[
     // Forgotten Hollow (NiaDB: opens November 18).
-    (10_006_000, 10_006_999, (2026, 11, 18)),
+    OpensLater {
+        maps: 10_006_000..=10_006_999,
+        quest_area: 17,
+        day: (2026, 11, 18),
+    },
 ];
 
+fn before(day: (i32, u32, u32), today: NaiveDate) -> bool {
+    NaiveDate::from_ymd_opt(day.0, day.1, day.2).is_some_and(|day| today < day)
+}
+
 fn opens_later(map_id: i32, today: NaiveDate) -> bool {
-    OPENS_LATER.iter().any(|&(first, last, (y, m, d))| {
-        (first..=last).contains(&map_id)
-            && NaiveDate::from_ymd_opt(y, m, d).is_some_and(|day| today < day)
-    })
+    OPENS_LATER
+        .iter()
+        .any(|a| a.maps.contains(&map_id) && before(a.day, today))
+}
+
+/// A quest of an area that is not open yet.
+pub(super) fn quest_area_opens_later(area: i32, today: NaiveDate) -> bool {
+    OPENS_LATER
+        .iter()
+        .any(|a| a.quest_area == area && before(a.day, today))
 }
 
 /// An entry of NiaDB `monsters.json`: launch stats and the regions it spawns in.
@@ -1151,7 +1177,7 @@ pub(super) fn same_mob_name(a: &str, b: &str) -> bool {
 
 // ---------- DVG mob-list.json ----------
 
-/// `data/reference/dvg/mob-list.json` (written by `tools/dvg_mobs.py`).
+/// `data/reference/dvg/mob-list.json` (written by `tools/dvg_lists.py`).
 #[derive(Deserialize)]
 pub struct DvgMobs {
     pub fetched: String,

@@ -8,7 +8,7 @@ use serde_json::json;
 use sqlx::{PgConnection, PgPool};
 
 use super::catalog::{Catalog, ItemReferences};
-use super::mapledex::{Dataset, DvgMobCounts, NiaBestiaryCounts, ZhNameCounts};
+use super::mapledex::{Dataset, NiaBestiaryCounts, ZhNameCounts};
 
 /// Where the data came from, for `catalog_versions`.
 pub struct Sources<'a> {
@@ -32,11 +32,11 @@ pub struct ZhNamesSource<'a> {
     pub counts: &'a ZhNameCounts,
 }
 
-/// DVG's mob list `data` took simplified mob names from, for `catalog_versions`.
-pub struct DvgMobsSource<'a> {
+/// DVG's mob and quest lists `data` took simplified names from, for `catalog_versions`.
+pub struct DvgSource<'a> {
     pub path: &'a str,
     pub version: &'a str,
-    pub counts: &'a DvgMobCounts,
+    pub counts: serde_json::Value,
 }
 
 /// One full import: `catalog` already extended by `references`, and `data`
@@ -48,7 +48,7 @@ pub struct Input<'a> {
     pub sources: &'a Sources<'a>,
     pub niadb: Option<NiaDbSource<'a>>,
     pub zh_names: Option<ZhNamesSource<'a>>,
-    pub dvg_mobs: Option<DvgMobsSource<'a>>,
+    pub dvg: Option<DvgSource<'a>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -78,6 +78,10 @@ pub struct ImportSummary {
     pub npc_placements: u64,
     pub npc_shops: u64,
     pub portals: u64,
+    pub quests: u64,
+    pub quests_unreleased: i64,
+    pub quest_rewards: u64,
+    pub quest_needs: u64,
 }
 
 /// items.sqlite plus the Mapledex bestiary, as R3 imported it.
@@ -97,7 +101,7 @@ pub async fn import_catalog(
             sources,
             niadb: None,
             zh_names: None,
-            dvg_mobs: None,
+            dvg: None,
         },
     )
     .await
@@ -112,6 +116,7 @@ pub async fn import(pool: &PgPool, input: &Input<'_>) -> Result<ImportSummary> {
     // deleted: market rows reference them.
     for sql in [
         "DELETE FROM map_portals WHERE source IN ('mapledex', 'niadb')",
+        "DELETE FROM quests",
         "DELETE FROM npcs",
         "DELETE FROM mobs",
         "DELETE FROM maps",
@@ -145,6 +150,24 @@ pub async fn import(pool: &PgPool, input: &Input<'_>) -> Result<ImportSummary> {
     )
     .await?;
     let portals = insert_json(&mut tx, "map_portals", PORTAL_COLUMNS, &data.portals).await?;
+    let quests = insert_json(&mut tx, "quests", QUEST_COLUMNS, &data.quests).await?;
+    let quest_rewards = insert_json(
+        &mut tx,
+        "quest_rewards",
+        "quest_id, item_id, quantity, kind, job, chance_pct",
+        &data.quest_rewards,
+    )
+    .await?;
+    let quest_needs = insert_json(
+        &mut tx,
+        "quest_needs",
+        "quest_id, ord, item_id, mob_id, quantity",
+        &data.quest_needs,
+    )
+    .await?;
+    let quests_unreleased: i64 = sqlx::query_scalar("SELECT count(*) FROM quests WHERE unreleased")
+        .fetch_one(&mut *tx)
+        .await?;
 
     let (drops_in_catalog, drops_meso, drops_with_item_id, drops_named): (i64, i64, i64, i64) =
         sqlx::query_as(
@@ -192,6 +215,10 @@ pub async fn import(pool: &PgPool, input: &Input<'_>) -> Result<ImportSummary> {
         npc_placements,
         npc_shops,
         portals,
+        quests,
+        quests_unreleased,
+        quest_rewards,
+        quest_needs,
     };
     let sources = input.sources;
     record_version(
@@ -224,15 +251,8 @@ pub async fn import(pool: &PgPool, input: &Input<'_>) -> Result<ImportSummary> {
         )
         .await?;
     }
-    if let Some(dvg) = &input.dvg_mobs {
-        record_version(
-            &mut tx,
-            "dvg-mobs",
-            dvg.version,
-            dvg.path,
-            serde_json::to_value(dvg.counts)?,
-        )
-        .await?;
+    if let Some(dvg) = &input.dvg {
+        record_version(&mut tx, "dvg", dvg.version, dvg.path, dvg.counts.clone()).await?;
     }
     if let Some(zh) = &input.zh_names {
         record_version(
@@ -298,6 +318,8 @@ const MAP_COLUMNS: &str =
     description, is_town, return_map_id, mob_rate, bgm, minimap_url, unreleased";
 const DROP_COLUMNS: &str = "mob_id, ord, item_id, gms_item_id, name_en, name_zh, name_tw, \
     meso_min, meso_max, rate_pct, quest_id, source, upvotes, downvotes";
+const QUEST_COLUMNS: &str = "id, name_en, name_zh, name_tw, npc_id, level_min, repeats, \
+    starts_at, ends_at, unreleased";
 pub(crate) const PORTAL_COLUMNS: &str =
     "from_map_id, to_map_id, kind, portal_name, target_portal, x, y, source";
 

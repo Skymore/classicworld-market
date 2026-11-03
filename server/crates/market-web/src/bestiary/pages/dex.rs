@@ -181,6 +181,12 @@ pub fn mob_page(page: &MobPage, ctx: &Ctx) -> Markup {
                     }
                     @if page.spawns.is_empty() { (empty(ctx.t("图鉴里没有这只怪物的出现地图。", "The dex has no maps for this monster."))) }
                 }
+                @if !page.quests.is_empty() {
+                    section.well {
+                        (well_head(ctx.t("相关任务", "Quests"), Some(super::item::quest_count(lang, page.quests.len()))))
+                        (super::quest_needs(lang, &page.quests, true))
+                    }
+                }
             }
         }
     };

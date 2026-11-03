@@ -276,6 +276,14 @@ h1,h2,h3,p{margin:0}
 .npc{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;padding:4px 10px 10px;font-size:14px}
 .npc .no{color:var(--ink-2)}
 .npc .sell{color:var(--ink-3);font-size:13px}
+/* Quest rows (item sources, monster pages): name and amount, then NPC, level and how it is given. */
+.quests{display:grid;padding:0 0 8px}
+.quest{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;align-items:baseline;padding:5px 10px;color:var(--ink);text-decoration:none;font-size:14px}
+.quest+.quest{border-top:1px dashed var(--rule)}
+.quest:hover{background:var(--bar-soft)}
+.quest b{min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quest .qn{font-weight:700;white-space:nowrap}
+.quest .qm{grid-column:1/-1;font-size:12px;line-height:1.4;color:var(--ink-3)}
 .verdict{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;align-items:center;margin:0 10px 10px;padding:8px 10px;background:var(--bar-soft);border-left:4px solid var(--bar)}
 .verdict>b{grid-row:1/3;padding:0 6px;background:var(--bar);color:#fff;font-size:13px;line-height:22px}
 .verdict strong{font-size:15px}

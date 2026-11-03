@@ -15,7 +15,7 @@ use market_web::{
     bestiary::{
         catalog::{self, Catalog, DropResolution, ItemReferences},
         import::{
-            import, import_catalog, DvgMobsSource, ImportSummary, Input, NiaDbSource, Sources,
+            import, import_catalog, DvgSource, ImportSummary, Input, NiaDbSource, Sources,
             ZhNamesSource,
         },
         mapledex::{
@@ -24,6 +24,7 @@ use market_web::{
         },
         model::{DropTarget, SearchKind},
         queries,
+        quests::{DvgQuests, QuestCounts},
         rows::ItemRow,
         wz,
     },
@@ -327,6 +328,66 @@ fn dvg_names_mobs_and_niadb_replaces_reused_ids() {
     assert_eq!(zh(3), Some("蓝蜗牛"));
 }
 
+fn dvg_quests() -> DvgQuests {
+    DvgQuests::from_file(&repo_data("reference/dvg/quest-list.json")).expect("dvg/quest-list.json")
+}
+
+#[test]
+fn quests_give_and_ask_for_items() {
+    let mut data = mapledex();
+    data.add_niadb_bestiary_dir(&repo_data("reference/niadb"), fetch_day())
+        .unwrap();
+    data.warnings.clear();
+    let counts = data
+        .add_quests_from(&repo_data("reference/niadb"), &dvg_quests(), fetch_day())
+        .unwrap();
+    assert!(data.warnings.is_empty(), "{:?}", data.warnings);
+    assert_eq!(counts.quests, 401);
+    assert!(counts.named_zh > 300 && counts.with_npc > 390, "{counts:?}");
+    let quest = |id: i32| data.quests.iter().find(|q| q.id == id).unwrap();
+    let quiz = quest(1019);
+    assert_eq!(
+        (quiz.name_zh.as_deref(), quiz.level_min, quiz.unreleased),
+        (Some("瑞恩的枫叶问答7"), Some(5), false)
+    );
+    assert!(data.quest_rewards.iter().any(|r| r.quest_id == 1019
+        && r.item_id == 2010004
+        && r.quantity == 10
+        && r.kind == "fixed"));
+    // Forgotten Hollow's quests wait for the area to open.
+    assert!(quest(10600).unreleased && quest(10621).unreleased);
+    let opening = chrono::NaiveDate::from_ymd_opt(2026, 11, 18).unwrap();
+    let mut later = mapledex();
+    later
+        .add_niadb_bestiary_dir(&repo_data("reference/niadb"), opening)
+        .unwrap();
+    later
+        .add_quests_from(&repo_data("reference/niadb"), &dvg_quests(), opening)
+        .unwrap();
+    assert!(
+        !later
+            .quests
+            .iter()
+            .find(|q| q.id == 10600)
+            .unwrap()
+            .unreleased
+    );
+    // Event quests keep their window; pages show them only inside it.
+    let event = data
+        .quests
+        .iter()
+        .find(|q| q.ends_at.is_some())
+        .expect("an event quest");
+    assert!(event.starts_at.is_some());
+    let kinds: std::collections::HashSet<&str> =
+        data.quest_rewards.iter().map(|r| r.kind).collect();
+    assert_eq!(kinds, ["fixed", "choice", "random"].into_iter().collect());
+    assert!(
+        data.quest_needs.iter().any(|n| n.mob_id.is_some())
+            && data.quest_needs.iter().any(|n| n.item_id.is_some())
+    );
+}
+
 fn zh_names() -> ZhNames {
     ZhNames::from_file(&repo_data("reference/zh-names.json")).expect("zh-names.json")
 }
@@ -496,7 +557,7 @@ async fn niadb_stats_and_equipment_reach_item_pages() {
         sources: &SOURCES,
         niadb: None,
         zh_names: None,
-        dvg_mobs: None,
+        dvg: None,
     };
     import(&db.pool, &input).await.unwrap();
     let with_niadb: i64 =
@@ -632,6 +693,7 @@ struct Full {
     bestiary: NiaBestiaryCounts,
     dvg_mobs: DvgMobs,
     dvg: DvgMobCounts,
+    quests: QuestCounts,
     zh_names: ZhNames,
     zh: ZhNameCounts,
 }
@@ -647,6 +709,9 @@ fn full(items: Vec<ItemRow>) -> Full {
         .unwrap();
     let dvg_mobs = dvg_mobs();
     let dvg = data.add_dvg_mob_names(&dvg_mobs);
+    let quests = data
+        .add_quests_from(&repo_data("reference/niadb"), &dvg_quests(), fetch_day())
+        .unwrap();
     let zh_names = zh_names();
     let zh = data.add_zh_names(&zh_names);
     refs.resolve_drops(&catalog, &mut data.drops);
@@ -657,6 +722,7 @@ fn full(items: Vec<ItemRow>) -> Full {
         bestiary,
         dvg_mobs,
         dvg,
+        quests,
         zh_names,
         zh,
     }
@@ -680,10 +746,10 @@ async fn import_full(pool: &sqlx::PgPool, full: &Full) -> ImportSummary {
                 version: &full.zh_names.version,
                 counts: &full.zh,
             }),
-            dvg_mobs: Some(DvgMobsSource {
-                path: "data/reference/dvg/mob-list.json",
+            dvg: Some(DvgSource {
+                path: "data/reference/dvg",
                 version: &full.dvg_mobs.fetched,
-                counts: &full.dvg,
+                counts: serde_json::json!({ "mobs": &full.dvg, "quests": full.quests.named_zh }),
             }),
         },
     )
@@ -893,6 +959,34 @@ async fn unreleased_content_is_never_shown() {
             .flat_map(|d| &d.maps)
             .all(|m| m.id != orbis));
     }
+    // Quests: open ones show on their items; Forgotten Hollow's and ended events' do not.
+    let orange = queries::item_page(pool, 2010004, now)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(orange.quest_rewards.iter().any(|r| r.quest.id == 1019));
+    let hidden_quests: Vec<i32> = sqlx::query_scalar(
+        "SELECT id FROM quests WHERE unreleased OR ends_at < now() OR starts_at > now()",
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap();
+    assert!(hidden_quests.contains(&10601) && hidden_quests.len() > 20);
+    for item in [2030007, 2000003, 2000006] {
+        if let Some(page) = queries::item_page(pool, item, now).await.unwrap() {
+            let shown = page.quest_rewards.iter().map(|r| r.quest.id);
+            let shown: Vec<i32> = shown
+                .chain(page.quest_needs.iter().map(|n| n.quest.id))
+                .collect();
+            assert!(
+                shown.iter().all(|id| !hidden_quests.contains(id)),
+                "item {item}: {shown:?}"
+            );
+        }
+    }
+    // Jr. Sentinel's tutorial quest asks to defeat it.
+    let sentinel = queries::mob_page(pool, 1).await.unwrap();
+    assert!(sentinel.is_none_or(|p| p.quests.iter().all(|q| q.quantity > 0)));
     let (npc, sold): (i32, i32) = sqlx::query_as(
         "SELECT s.npc_id, s.item_id FROM npc_shops s JOIN npcs n ON n.id = s.npc_id
          WHERE n.unreleased ORDER BY s.npc_id, s.item_id LIMIT 1",

@@ -117,3 +117,40 @@ pub struct PortalRow {
     pub y: Option<i32>,
     pub source: &'static str,
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct QuestRow {
+    pub id: i32,
+    pub name_en: Option<String>,
+    pub name_zh: Option<String>,
+    pub name_tw: Option<String>,
+    pub npc_id: Option<i32>,
+    pub level_min: Option<i16>,
+    /// `daily` or `weekly`.
+    pub repeats: Option<&'static str>,
+    /// RFC 3339; the event's window.
+    pub starts_at: Option<String>,
+    pub ends_at: Option<String>,
+    pub unreleased: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct QuestRewardRow {
+    pub quest_id: i32,
+    pub item_id: i32,
+    pub quantity: i32,
+    /// `fixed`, `choice` or `random`.
+    pub kind: &'static str,
+    /// The job (or gender) the reward is for, when not everyone's.
+    pub job: Option<String>,
+    pub chance_pct: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct QuestNeedRow {
+    pub quest_id: i32,
+    pub ord: i16,
+    pub item_id: Option<i32>,
+    pub mob_id: Option<i32>,
+    pub quantity: i32,
+}

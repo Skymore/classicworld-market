@@ -35,7 +35,7 @@ import { Location, OfferRow } from "../components/list-rows";
 import { EquipmentStrip } from "../components/equipment";
 import { SiteLink } from "../components/shell";
 import OfferFilterDialog from "../components/offer-filters";
-import { Well, MobPicture, Secondary, useNames } from "./catalogue";
+import { Well, MobPicture, QuestRows, Secondary, useNames } from "./catalogue";
 import Crafting from "../components/crafting";
 import ItemTrend from "../components/item-trend";
 function CollapsibleWell({
@@ -1557,6 +1557,24 @@ export default function Item({ page }: { page: any }) {
                 )}
               </div>
               <Crafting key={page.item.id} itemId={page.item.id} />
+              {page.quest_rewards?.length > 0 && (
+                <>
+                  <div className="sub-h ruled">
+                    {words("任务奖励", "Quest rewards")}
+                    <small>{words(`${page.quest_rewards.length} 个任务 · NiaDB`, `${page.quest_rewards.length} quests · NiaDB`)}</small>
+                  </div>
+                  <QuestRows rows={page.quest_rewards} />
+                </>
+              )}
+              {page.quest_needs?.length > 0 && (
+                <>
+                  <div className="sub-h ruled">
+                    {words("任务要用", "Needed for quests")}
+                    <small>{words(`${page.quest_needs.length} 个任务 · NiaDB`, `${page.quest_needs.length} quests · NiaDB`)}</small>
+                  </div>
+                  <QuestRows rows={page.quest_needs} />
+                </>
+              )}
               <Verdict page={page} />
             </CollapsibleWell>
           </div>

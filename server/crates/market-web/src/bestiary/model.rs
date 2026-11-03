@@ -103,7 +103,42 @@ pub struct ItemPage {
     /// The game tooltip's requirements, jobs and type; equipment only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub equipment: Option<super::equipment::EquipmentReference>,
+    /// Quests that give the item (open, inside their event window).
+    pub quest_rewards: Vec<QuestReward>,
+    /// Quests that ask for it.
+    pub quest_needs: Vec<QuestNeed>,
     pub market: ItemMarket,
+}
+
+/// A quest as item and monster pages list it (NiaDB, DVG's simplified name).
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct QuestRef {
+    pub id: i32,
+    pub names: Names,
+    pub npc: Option<NpcRef>,
+    pub level_min: Option<i16>,
+    /// `daily` or `weekly`.
+    pub repeats: Option<String>,
+    /// When an event quest ends.
+    pub ends_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct QuestReward {
+    pub quest: QuestRef,
+    pub quantity: i32,
+    /// `fixed`, `choice` (pick one) or `random` (one is drawn).
+    pub kind: String,
+    /// The job or gender the reward is for.
+    pub job: Option<String>,
+    pub chance_pct: Option<f32>,
+}
+
+/// How many of an item to bring, or of a monster to defeat.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct QuestNeed {
+    pub quest: QuestRef,
+    pub quantity: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, sqlx::FromRow, serde::Serialize)]
@@ -256,6 +291,8 @@ pub struct MobPage {
     pub mob: MobDetail,
     pub spawns: Vec<Spawn>,
     pub drops: Vec<MobDrop>,
+    /// Quests that ask to defeat it.
+    pub quests: Vec<QuestNeed>,
 }
 
 #[derive(Debug, Clone, PartialEq, sqlx::FromRow, serde::Serialize)]

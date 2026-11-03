@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Fetch NiaDB's (meowdb.com) MapleStory Classic World monsters, maps, drops and mesos.
+"""Fetch NiaDB's (meowdb.com) MapleStory Classic World monsters, maps, quests, drops and mesos.
 
     python3 tools/niadb_bestiary.py --output data/reference/niadb
 
-Writes four files into the NiaDB reference directory, which `import_catalog`
+Writes five files into the NiaDB reference directory, which `import_catalog`
 reads (`--niadb`):
 
 - `monsters.json`: the monster list embedded in https://meowdb.com/msclassic/monsters
   (launch stats and `regions`), objects unchanged.
 - `maps.json`: https://meowdb.com/_data/maps.json, unchanged (spawns, NPCs,
   portals, `region`).
+- `quests.json`: https://meowdb.com/_data/quests.json, unchanged (rewards,
+  required items, NPC, level, event dates).
 - `drops.json`: per monster, `/msclassic/api/drops?monsterId=<id>`, the items
   players have seen drop in Classic World with up/down votes. Per-viewer fields
   (`userVote`, `canEdit`, `isLoggedIn`, `userRole`) are left out.
@@ -104,6 +106,9 @@ def main():
     time.sleep(args.pause)
     maps = json.loads(get("/_data/maps.json"))
     print(f"maps {len(maps)}", flush=True)
+    time.sleep(args.pause)
+    quests = json.loads(get("/_data/quests.json"))
+    print(f"quests {len(quests)}", flush=True)
     per_mob, per_mob_mesos = {}, {}
     for n, mob in enumerate(mobs, 1):
         key = str(mob["id"])
@@ -116,6 +121,7 @@ def main():
     # Write only after every request succeeded, so a stopped run leaves the old files.
     write(os.path.join(args.output, "monsters.json"), mobs)
     write(os.path.join(args.output, "maps.json"), maps)
+    write(os.path.join(args.output, "quests.json"), quests)
     write(os.path.join(args.output, "drops.json"), dated("/msclassic/api/drops?monsterId=<id>", per_mob))
     write(os.path.join(args.output, "mesos.json"),
           dated("/msclassic/api/mesos-reports?monsterId=<id>", per_mob_mesos))

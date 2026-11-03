@@ -16,6 +16,7 @@ pub mod mapledex;
 pub mod model;
 pub mod pages;
 pub mod queries;
+pub mod quests;
 pub mod regions;
 pub mod route;
 pub mod rows;

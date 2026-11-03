@@ -11,7 +11,7 @@
 //!     [--items ../data/fixture/items.sqlite] [--mapledex ../data/reference/mapledex] \
 //!     [--mapledex-version "CW GMS_COT2_2026-08-11"] [--niadb ../data/reference/niadb] \
 //!     [--niadb-version "fetched 2026-11-02"] [--zh-names ../data/reference/zh-names.json] \
-//!     [--dvg-mobs ../data/reference/dvg/mob-list.json]
+//!     [--dvg ../data/reference/dvg]
 //! ```
 
 use std::path::Path;
@@ -20,8 +20,9 @@ use anyhow::Result;
 use market_web::bestiary::{
     catalog::{self, ItemReferences},
     cli::{self, Args},
-    import::{import, DvgMobsSource, Input, NiaDbSource, Sources, ZhNamesSource},
+    import::{import, DvgSource, Input, NiaDbSource, Sources, ZhNamesSource},
     mapledex::{Dataset, DvgMobs, ZhNames, DEFAULT_VERSION},
+    quests::DvgQuests,
 };
 
 /// Date the files in data/reference/niadb were fetched; update on refetch.
@@ -39,7 +40,7 @@ async fn main() -> Result<()> {
             "niadb",
             "niadb-version",
             "zh-names",
-            "dvg-mobs",
+            "dvg",
         ],
     )?;
     let items_path = args.get_or("items", "../data/fixture/items.sqlite");
@@ -48,7 +49,7 @@ async fn main() -> Result<()> {
     let niadb_path = args.get_or("niadb", "../data/reference/niadb");
     let niadb_version = args.get_or("niadb-version", NIADB_VERSION);
     let zh_names_path = args.get_or("zh-names", "../data/reference/zh-names.json");
-    let dvg_mobs_path = args.get_or("dvg-mobs", "../data/reference/dvg/mob-list.json");
+    let dvg_path = args.get_or("dvg", "../data/reference/dvg");
 
     let mut catalog = catalog::read_sqlite(Path::new(items_path)).await?;
     let market_items = catalog.items.len();
@@ -58,8 +59,11 @@ async fn main() -> Result<()> {
     let mut data = Dataset::from_dir(Path::new(mapledex_path))?;
     let (niadb, bestiary) =
         data.add_niadb_bestiary_dir(Path::new(niadb_path), chrono::Utc::now().date_naive())?;
-    let dvg_mobs = DvgMobs::from_file(Path::new(dvg_mobs_path))?;
+    let today = chrono::Utc::now().date_naive();
+    let dvg_mobs = DvgMobs::from_file(&Path::new(dvg_path).join("mob-list.json"))?;
     let dvg = data.add_dvg_mob_names(&dvg_mobs);
+    let dvg_quests = DvgQuests::from_file(&Path::new(dvg_path).join("quest-list.json"))?;
+    let quests = data.add_quests_from(Path::new(niadb_path), &dvg_quests, today)?;
     let zh_names = ZhNames::from_file(Path::new(zh_names_path))?;
     let zh = data.add_zh_names(&zh_names);
     // NiaDB drops carry Classic World ids; this fills their names from the items.
@@ -97,10 +101,10 @@ async fn main() -> Result<()> {
                 version: &zh_names.version,
                 counts: &zh,
             }),
-            dvg_mobs: Some(DvgMobsSource {
-                path: dvg_mobs_path,
+            dvg: Some(DvgSource {
+                path: dvg_path,
                 version: &dvg_mobs.fetched,
-                counts: &dvg,
+                counts: serde_json::json!({ "mobs": &dvg, "quests": quests.named_zh }),
             }),
         },
     )
@@ -160,6 +164,16 @@ async fn main() -> Result<()> {
         s.npc_placements
     );
     println!("shops    {:>5}  NPC shop rows from NiaDB", s.npc_shops);
+    println!(
+        "quests   {:>5}  NiaDB ({} unreleased; {} with a simplified name from DVG, {} with an NPC; \
+         {} rewards, {} needs)",
+        s.quests,
+        s.quests_unreleased,
+        quests.named_zh,
+        quests.with_npc,
+        s.quest_rewards,
+        s.quest_needs
+    );
     println!(
         "portals  {:>5}  (return links: Mapledex, {} from NiaDB)",
         s.portals, niadb.return_links

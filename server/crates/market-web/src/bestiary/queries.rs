@@ -306,6 +306,8 @@ async fn item_page_scoped(
         record,
         item_market(db, id, now, variant_ids),
     )?;
+    let (quest_rewards, quest_needs) =
+        tokio::try_join!(quest_rewards(db, id), quest_needs(db, id, true))?;
     let Some(item) = item else {
         return Ok(None);
     };
@@ -318,8 +320,121 @@ async fn item_page_scoped(
         droppers,
         npc_offers,
         npc_sell: record.as_ref().and_then(npc_sell_price),
+        quest_rewards,
+        quest_needs,
         market,
     }))
+}
+
+/// Quests a player can do now: open, and inside their event window.
+macro_rules! visible_quest {
+    () => {
+        "NOT q.unreleased AND (q.starts_at IS NULL OR q.starts_at <= now())
+         AND (q.ends_at IS NULL OR q.ends_at > now())"
+    };
+}
+
+#[derive(FromRow)]
+struct QuestColumns {
+    quest_id: i32,
+    quest_name: String,
+    quest_name_en: String,
+    level_min: Option<i16>,
+    repeats: Option<String>,
+    ends_at: Option<DateTime<Utc>>,
+    npc_id: Option<i32>,
+    npc_name: Option<String>,
+    npc_name_en: Option<String>,
+}
+
+impl QuestColumns {
+    fn quest(self) -> QuestRef {
+        QuestRef {
+            id: self.quest_id,
+            names: Names::new(self.quest_name, self.quest_name_en),
+            npc: self.npc_id.map(|id| NpcRef {
+                id,
+                names: optional_names(self.npc_name, self.npc_name_en),
+            }),
+            level_min: self.level_min,
+            repeats: self.repeats,
+            ends_at: self.ends_at,
+        }
+    }
+}
+
+const QUEST_COLUMNS: &str = concat!(
+    "q.id AS quest_id, COALESCE(NULLIF(q.name_zh, ''), q.name_en, '') AS quest_name,
+     COALESCE(NULLIF(q.name_en, ''), q.name_zh, '') AS quest_name_en, q.level_min, q.repeats,
+     q.ends_at, n.id AS npc_id, ",
+    name!("n"),
+    " AS npc_name, ",
+    name_en!("n"),
+    " AS npc_name_en"
+);
+
+/// Shown quests per item or monster.
+const QUESTS_SHOWN: i64 = 60;
+
+async fn quest_rewards(db: &PgPool, item_id: i32) -> sqlx::Result<Vec<QuestReward>> {
+    #[derive(FromRow)]
+    struct Row {
+        #[sqlx(flatten)]
+        quest: QuestColumns,
+        quantity: i32,
+        kind: String,
+        job: Option<String>,
+        chance_pct: Option<f32>,
+    }
+    let rows: Vec<Row> = sqlx::query_as(&format!(
+        "SELECT {QUEST_COLUMNS}, r.quantity, r.kind, r.job, r.chance_pct
+         FROM quest_rewards r JOIN quests q ON q.id = r.quest_id LEFT JOIN npcs n ON n.id = q.npc_id
+         WHERE r.item_id = $1 AND {visible}
+         ORDER BY q.level_min NULLS FIRST, q.id LIMIT {QUESTS_SHOWN}",
+        visible = visible_quest!()
+    ))
+    .bind(item_id)
+    .fetch_all(db)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| QuestReward {
+            quest: r.quest.quest(),
+            quantity: r.quantity,
+            kind: r.kind,
+            job: r.job,
+            chance_pct: r.chance_pct,
+        })
+        .collect())
+}
+
+/// Quests that ask for an item (`item = true`) or to defeat a monster.
+async fn quest_needs(db: &PgPool, id: i32, item: bool) -> sqlx::Result<Vec<QuestNeed>> {
+    #[derive(FromRow)]
+    struct Row {
+        #[sqlx(flatten)]
+        quest: QuestColumns,
+        quantity: i64,
+    }
+    let column = if item { "item_id" } else { "mob_id" };
+    let rows: Vec<Row> = sqlx::query_as(&format!(
+        "SELECT {QUEST_COLUMNS}, sum(x.quantity) AS quantity
+         FROM quest_needs x JOIN quests q ON q.id = x.quest_id LEFT JOIN npcs n ON n.id = q.npc_id
+         WHERE x.{column} = $1 AND {visible}
+         GROUP BY q.id, n.id
+         ORDER BY q.level_min NULLS FIRST, q.id LIMIT {QUESTS_SHOWN}",
+        visible = visible_quest!()
+    ))
+    .bind(id)
+    .fetch_all(db)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| QuestNeed {
+            quest: r.quest.quest(),
+            quantity: i32::try_from(r.quantity).unwrap_or(i32::MAX),
+        })
+        .collect())
 }
 
 async fn npc_offers(db: &PgPool, item_id: i32) -> sqlx::Result<Vec<NpcOffer>> {
@@ -965,6 +1080,7 @@ pub async fn mob_page(db: &PgPool, id: i32) -> sqlx::Result<Option<MobPage>> {
         mob,
         spawns,
         drops: mob_drops(db, id).await?,
+        quests: quest_needs(db, id, false).await?,
     }))
 }
 

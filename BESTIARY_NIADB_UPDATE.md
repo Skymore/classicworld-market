@@ -7,8 +7,9 @@
 - 怪物只保留 NiaDB 列出的 206 个，属性用上线数值；地图只保留 NiaDB 的 453 张，刷怪点用 NiaDB 的。
 - 掉落整张换成 NiaDB 玩家确认（赞成多于反对）的掉落，没有掉率，页面显示"N 票"。金币改用 NiaDB 玩家报告的每堆金币数（NiaDB 页面上的中位数范围）。
 - 天空之城、冰峰雪域，以及 2026-11-18 之前的遗忘洞穴，标为未开放：数据在库里，网站不显示。
+- 任务（迁移 `0039_quests.sql`）：物品页"来源"新增"任务奖励"和"任务要用"，怪物页新增"相关任务"。活动任务只在活动期间显示。
 
-需要三样东西：新代码（含迁移 `0038_niadb_bestiary.sql`）、仓库里的参考数据（`data/reference/`）、用新代码重跑 `import_catalog` 和 `import_portals`。
+需要三样东西：新代码（含迁移 `0038_niadb_bestiary.sql`、`0039_quests.sql`）、仓库里的参考数据（`data/reference/`）、用新代码重跑 `import_catalog` 和 `import_portals`。
 
 ## 什么时候做
 
@@ -73,12 +74,12 @@ cargo run --release -p market-web --bin import_catalog -- `
   --niadb "<niadb 的 source>" `
   --niadb-version "fetched <第 1 步 fetched_at 的日期，例如 2026-11-02>" `
   --zh-names "<zh-names 的 source>" `
-  --dvg-mobs "..\data\reference\dvg\mob-list.json"
+  --dvg "..\data\reference\dvg"
 ```
 
 - 导入在一个事务里，出错整体回滚。
 - `--niadb-version` 写 `drops.json` 里 `fetched_at` 的日期（第 1 步第一行打印的）。
-- 预期输出（2026-11-02 的数据，新抓的会略多）：`mobs 206 NiaDB (… 7 replace a different Mapledex mob … 52 unreleased; 110 simplified names from DVG …)`、`maps 453 NiaDB (… 119 unreleased …)`、`drops 1704 NiaDB: 1655 items … 49 meso ranges`、`items` 与上一次相同。
+- 预期输出（2026-11-02 的数据，新抓的会略多）：`mobs 206 NiaDB (… 7 replace a different Mapledex mob … 52 unreleased; 110 simplified names from DVG …)`、`maps 453 NiaDB (… 119 unreleased …)`、`drops 1704 NiaDB: 1655 items … 49 meso ranges`、`quests 401 NiaDB (…)`、`items` 与上一次相同。
 - `mobs`、`maps` 少于 200、`drops` 少于 1000：按第 7 步恢复并报告用户。
 
 接着导入传送口（新地图的传送口在仓库的 `portals.json` 里）：
