@@ -471,31 +471,20 @@ export default function PriceTable() {
     <section className="stall tabs-well react-prices">
       <Tabs value={state.tab} onValueChange={(tab) => update({ tab })}>
         <div className="react-price-sticky">
-          <div className="stall-bar">
-            <h2>{words("价格表", "Prices")}</h2>
-            {state.tab !== "sales" && (
-              <>
-                <span className="bar-meta" data-meta>
-                  {market.data &&
-                    (rows.length === products.length
-                      ? `${num(products.length)} ${words("件", "items")}`
-                      : `${num(rows.length)} / ${num(products.length)} ${words("件", "items")}`)}
-                </span>
-                <PeriodControl {...period} />
-              </>
-            )}
+          <div className="stall-bar price-tabs-bar">
+            <TabsList className="price-title-tabs" aria-label={words("价格表", "Prices")}>
+              {[
+                ["all", "全部", "All"],
+                ["changes", "涨跌榜", "Movers"],
+                ["sales", "成交", "Sales"],
+              ].map(([key, zh, english]) => (
+                <TabsTrigger value={key} key={key} data-tab={key}>
+                  {words(zh, english)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {state.tab !== "sales" && <PeriodControl {...period} />}
           </div>
-          <TabsList aria-label={words("价格表", "Prices")}>
-            {[
-              ["all", "全部", "All"],
-              ["changes", "涨跌榜", "Movers"],
-              ["sales", "成交", "Sales"],
-            ].map(([key, zh, english]) => (
-              <TabsTrigger value={key} key={key} data-tab={key}>
-                {words(zh, english)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
           {state.tab !== "sales" && (
             <>
               <div className="react-price-tools" data-price-tools>

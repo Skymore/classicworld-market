@@ -51,7 +51,9 @@
   }
 }
 .dock {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
 }
 [data-slot="button"]:disabled {
   opacity: 0.55;
@@ -143,6 +145,35 @@
   padding: 10px 12px;
   color: var(--ink-3);
   font-size: 13px;
+}
+.hero .portals {
+  align-self: center;
+}
+.hero .portal {
+  min-height: 44px;
+  padding: 8px 10px;
+  align-items: center;
+  justify-content: center;
+}
+.price-tabs-bar {
+  padding-left: 0;
+}
+.price-title-tabs {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  border-bottom: 0;
+}
+.price-tabs-bar .tab {
+  min-width: 0;
+  padding-inline: 8px;
+  color: var(--bar-ink);
+  opacity: 0.8;
+}
+.price-tabs-bar .tab[data-state="active"] {
+  color: var(--bar-ink);
+  border-bottom-color: currentColor;
+  opacity: 1;
 }
 .react-price-tools {
   display: flex;

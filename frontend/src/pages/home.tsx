@@ -1,9 +1,8 @@
 import { Suspense, lazy } from "react";
 import { mobImg } from "/web/js/lib/format.js";
 import { useWords } from "../providers";
-import { useUserValue } from "../lib/live";
 import { embedded } from "../lib/embed";
-import { Search, Icon, Loading, usePageReady, num } from "../components/shared";
+import { Search, Icon, Loading, usePageReady } from "../components/shared";
 import { SiteLink } from "../components/shell";
 
 // main.tsx starts this download at boot on the home page, so the hero never
@@ -11,20 +10,9 @@ import { SiteLink } from "../components/shell";
 export const loadPriceTable = () => import("./prices");
 const PriceTable = lazy(loadPriceTable);
 
-function watchedCount(raw: string) {
-  try {
-    const ids = JSON.parse(raw);
-    return Array.isArray(ids) ? ids.length : 0;
-  } catch {
-    return 0;
-  }
-}
-
 export default function Home() {
   usePageReady();
   const words = useWords();
-  const [watchlist] = useUserValue("watchlist", "[]");
-  const watched = watchedCount(watchlist);
   const table = (
     <Suspense
       fallback={
@@ -58,11 +46,6 @@ export default function Home() {
               <Icon name="starSm" />
               {words("关注", "Watch")}
             </span>
-            <small data-count="watch">
-              {watched
-                ? words(`${num(watched)} 件物品`, `${num(watched)} items`)
-                : words("低价提醒", "Deal alerts")}
-            </small>
           </SiteLink>
           <SiteLink className="portal" href="/search?kind=item">
             <span className="p-top">
