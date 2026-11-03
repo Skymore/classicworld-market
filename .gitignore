@@ -37,6 +37,7 @@
 !/tools/zh_names.py
 !/tools/niadb_bestiary.py
 !/tools/dvg_lists.py
+!/tools/niadb_map_assets.py
 !/web/
 !/design/
 !/server/
