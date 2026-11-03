@@ -111,6 +111,11 @@ def failure_state(error, position_failures=0):
     if isinstance(error,KeyBindingError):
         return 'needs_attention','未能确认移动和跳跃键，请关闭遮挡窗口后停止并重新开始扫描。'
     from free_market_route import MapResourceError, PositionSyncError
+    from channel_packet_state import PacketChannelConfirmationError
+    if isinstance(error,PacketChannelConfirmationError):
+        if position_failures>=3:
+            return 'needs_attention','频道收包连续失败，已停止重复切频道。请报 Bug 或开启远程调试。'
+        return 'rebuilding','未收到目标频道确认，正在重建收包。'
     if isinstance(error, PositionSyncError):
         if position_failures >= 3:
             return "needs_attention", "位置同步连续失败，已停止重复切频道。请报 Bug 或开启远程调试；处理后点击停止再开始。"

@@ -16,6 +16,17 @@ from collector_watchdog import HealthMonitor, should_restart
 
 
 class HealthTests(unittest.TestCase):
+    def test_packet_channel_failure_has_bounded_capture_recovery(self):
+        from channel_packet_state import PacketChannelConfirmationError
+        from free_market_route import PositionSyncError
+        error=PacketChannelConfirmationError(12,'map_entry_missing')
+        self.assertIsInstance(error,PositionSyncError)
+        self.assertEqual(failure_state(error,1)[0],'rebuilding')
+        phase,message=failure_state(error,3)
+        self.assertEqual(phase,'needs_attention')
+        self.assertIn('频道收包',message)
+        self.assertNotIn('前台',message)
+
     def test_packet_key_failure_reports_data_reason_without_ui_advice(self):
         from packet_keybindings import PacketKeyBindingError
         phase,message=failure_state(PacketKeyBindingError('waiting_for_active_preset'))
