@@ -3,8 +3,9 @@
 
     python3 tools/niadb_map_assets.py fetch      # stdlib only, ~10 min
     python3 tools/niadb_map_assets.py heads      # needs Pillow
-    python3 tools/niadb_map_assets.py worldmap   # stdlib only, ~1 min
+    python3 tools/niadb_map_assets.py worldmap   # needs Pillow, ~1 min
     python3 tools/niadb_map_assets.py scenes     # needs Pillow, ~20 min
+    python3 tools/niadb_map_assets.py scene-copies  # needs Pillow, offline
 
 `fetch` saves, for every map in data/reference/niadb/maps.json with
 `hasMinimapImage`, https://meowdb.com/msclassic/maps/minimaps/<id>.png as
@@ -22,18 +23,27 @@ frame, transparent borders trimmed, the top of tall mobs kept, fitted into
 region's spots, from the client's WorldMap.wz: position, marker type, main
 map) and /_data/worldmap-previews.json (the maps each spot covers) into
 data/reference/niadb/, and the region pictures and marker sprites from
-/msclassic/worldmap/ into web/images/worldmap/. data/reference/niadb/
-worldmap-images.json records each region's picture and size.
+/msclassic/worldmap/ into web/images/worldmap/. NiaDB's region pictures are
+lossless WebP (about 500 KB each); they are saved as lossy WebP at quality 80
+(about 100 KB). data/reference/niadb/worldmap-images.json records each
+region's picture and size.
 
 `scenes` saves NiaDB's rendered map scenes (the whole map drawn from the
 client: background, tiles, objects; no monsters or NPCs), the "bare" variant
 of /msclassic/api/assets/maps/<key>?v=12, as web/images/scenes/<id>.webp,
-scaled to fit 1760x1040 (twice the map view's size) at WebP quality 75. The
-scene index (map id -> key) is read from the map page's script, as NiaDB's
-own pages do. A scene covers the terrain's view rectangle, which is the
-minimap box for every map checked; when the picture's size differs from the
-box, /_data/map-terrain/<id>.json gives the rectangle. data/reference/niadb/
-scenes.json records each scene's world rectangle.
+scaled to fit 1760x1040 (twice the map view's size) at WebP quality 75, and a
+copy for phones as web/images/scenes/small/<id>.webp, scaled to fit 1100x650.
+The map view offers both through `srcset`; the server works out their widths
+from the scene's rectangle with the same two boxes (SCENE_FIT and
+SCENE_SMALL_FIT in server/crates/market-web/src/bestiary/model.rs), so keep
+them in step. The scene index (map id -> key) is read from the map page's
+script, as NiaDB's own pages do. A scene covers the terrain's view rectangle,
+which is the minimap box for every map checked; when the picture's size
+differs from the box, /_data/map-terrain/<id>.json gives the rectangle.
+data/reference/niadb/scenes.json records each scene's world rectangle.
+
+`scene-copies` makes the phone copies from the scene pictures already in
+web/images/scenes/, without downloading anything.
 
 Each writes a `sources.json` next to the files with the URL and date.
 """
@@ -68,6 +78,7 @@ REGION_IMAGES = {
 # and the "you are here" arrow.
 MARKERS = ["marker-town.png", "marker-spot.png", "marker-cluster.png", "marker-field.png",
            "marker-facility.png", "curpos-0.png"]
+REGION_QUALITY = 80
 
 
 def read_json(path):
@@ -180,8 +191,21 @@ def heads():
     print(f"{len(made)} heads in {HEADS}")
 
 
+def lossy_webp(body, quality):
+    """A picture (any format Pillow reads) as lossy WebP bytes."""
+    import io
+    from PIL import Image
+
+    with Image.open(io.BytesIO(body)) as image:
+        image = image.convert("RGBA" if "A" in image.getbands() else "RGB")
+        out = io.BytesIO()
+        image.save(out, "WEBP", quality=quality, method=6)
+    return out.getvalue()
+
+
 def worldmap(pause):
     today = datetime.date.today().isoformat()
+    regions = {image for image, _, _ in REGION_IMAGES.values()}
     for name in ("worldmap-spots.json", "worldmap-previews.json"):
         body = get(f"/_data/{name}")
         if body is None:
@@ -196,8 +220,11 @@ def worldmap(pause):
         body = get(f"/msclassic/worldmap/{name}")
         if body is None:
             sys.exit(f"/msclassic/worldmap/{name}: 404")
+        size = len(body)
+        if name in regions:
+            body = lossy_webp(body, REGION_QUALITY)
         (WORLDMAP / name).write_bytes(body)
-        print(f"worldmap {name} {len(body)}")
+        print(f"worldmap {name} {size} -> {len(body)}")
         time.sleep(pause)
     write_json(WORLDMAP / "sources.json", {
         "note": "World map pictures and markers from the client's WorldMap.wz. Game art belongs to NEXON and its affiliates.",
@@ -215,7 +242,12 @@ def worldmap(pause):
 
 
 SCENES = ROOT / "web" / "images" / "scenes"
+SCENES_SMALL = SCENES / "small"
 SCENE_FIT = (1760, 1040)
+# Phones show a map view about 300-370 CSS px wide at 2.6-3x, so they ask
+# for roughly 900-1100 pixels.
+SCENE_SMALL_FIT = (1100, 650)
+SCENE_QUALITY = 75
 SCENE_INDEX = re.compile(r'"(\d{9})":\{key:"([^"]+)",variants:\[([^\]]*)\]\}')
 
 
@@ -232,6 +264,44 @@ def scene_index():
     sys.exit("no scene index in the map page's scripts")
 
 
+def fitted(size, fit):
+    """`size` scaled to fit the `fit` box, never up."""
+    w, h = size
+    scale = min(fit[0] / w, fit[1] / h, 1.0)
+    return max(1, round(w * scale)), max(1, round(h * scale))
+
+
+def save_scene(image, size, target):
+    from PIL import Image
+
+    image.convert("RGB").resize(size, Image.LANCZOS).save(target, "WEBP", quality=SCENE_QUALITY, method=6)
+
+
+def save_small_scene(image, source_size, map_id):
+    """The phone copy, from the source picture or the full-size one; none when
+    it would be no smaller than the full-size picture."""
+    size = fitted(source_size, SCENE_SMALL_FIT)
+    if size == fitted(source_size, SCENE_FIT):
+        return None
+    SCENES_SMALL.mkdir(parents=True, exist_ok=True)
+    save_scene(image, size, SCENES_SMALL / f"{map_id}.webp")
+    return size
+
+
+def scene_copies():
+    from PIL import Image
+
+    made = 0
+    for key, scene in read_json(NIADB / "scenes.json")["maps"].items():
+        source = SCENES / f"{key}.webp"
+        if not source.exists() or (SCENES_SMALL / f"{key}.webp").exists():
+            continue
+        with Image.open(source) as image:
+            if save_small_scene(image, scene["source_size"], key):
+                made += 1
+    print(f"{made} phone copies in {SCENES_SMALL}")
+
+
 def scenes(pause):
     import io
     from PIL import Image
@@ -246,7 +316,7 @@ def scenes(pause):
         map_id = int(nine)
         target = SCENES / f"{map_id}.webp"
         if str(map_id) in done and target.exists():
-            continue
+            continue  # `scene-copies` makes a missing phone copy
         body = get(f"/msclassic/api/assets/maps/{key}?v=12")
         if body is None:
             print(f"scene {n}/{len(index)}: {nine} 404")
@@ -264,11 +334,11 @@ def scenes(pause):
                 print(f"scene {n}/{len(index)}: {nine} {w}x{h} has no view rectangle; skipped")
                 continue
             rect = [vr[0], vr[1], vr[2] - vr[0], vr[3] - vr[1]]
-        scale = min(SCENE_FIT[0] / w, SCENE_FIT[1] / h, 1.0)
-        small = image.convert("RGB").resize((max(1, round(w * scale)), max(1, round(h * scale))), Image.LANCZOS)
-        small.save(target, "WEBP", quality=75, method=6)
+        size = fitted((w, h), SCENE_FIT)
+        save_scene(image, size, target)
+        phone = save_small_scene(image, (w, h), map_id)
         done[str(map_id)] = {"key": key, "x": rect[0], "y": rect[1], "w": rect[2], "h": rect[3],
-                             "source_size": [w, h], "size": list(small.size)}
+                             "source_size": [w, h], "size": list(size)}
         write_json(out_path, {
             "note": "Written by tools/niadb_map_assets.py scenes: each map's scene picture "
                     "(web/images/scenes/<id>.webp) and the world rectangle it covers (x, y, w, h).",
@@ -276,10 +346,12 @@ def scenes(pause):
             "fetched": today,
             "maps": dict(sorted(done.items(), key=lambda kv: int(kv[0]))),
         })
-        print(f"scene {n}/{len(index)}: {nine} {w}x{h} -> {small.size[0]}x{small.size[1]} {target.stat().st_size // 1024} KB")
+        print(f"scene {n}/{len(index)}: {nine} {w}x{h} -> {size[0]}x{size[1]} {target.stat().st_size // 1024} KB"
+              + (f", phone {phone[0]}x{phone[1]}" if phone else ""))
         time.sleep(pause)
     write_json(SCENES / "sources.json", {
-        "note": "Rendered map scenes (NiaDB, from the client's Map.wz), scaled to fit 1760x1040. "
+        "note": "Rendered map scenes (NiaDB, from the client's Map.wz), scaled to fit 1760x1040; "
+                "small/ has the phone copies, scaled to fit 1100x650. "
                 "Game art belongs to NEXON and its affiliates.",
         "source": f"{SITE}/msclassic/api/assets/maps/<key>?v=12",
         "fetched": today,
@@ -297,9 +369,12 @@ def main():
     w.add_argument("--pause", type=float, default=2.0, help="seconds between requests")
     c = sub.add_parser("scenes", help="download and scale the rendered map scenes")
     c.add_argument("--pause", type=float, default=1.5, help="seconds between requests")
+    sub.add_parser("scene-copies", help="make the missing phone copies of the scenes on disk")
     args = ap.parse_args()
     if args.command == "scenes":
         scenes(args.pause)
+    elif args.command == "scene-copies":
+        scene_copies()
     elif args.command == "fetch":
         fetch(args.pause)
     elif args.command == "worldmap":
