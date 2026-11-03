@@ -276,9 +276,12 @@ h1,h2,h3,p{margin:0}
 .npc{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:4px 10px 10px;font-size:14px}
 .npc-col{display:grid;align-content:start;gap:4px;min-width:0}
 .npc-col h4{margin:0;font-size:12px;font-weight:700;color:var(--ink-3)}
-.npc-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}
-.npc-row>span{min-width:0;overflow-wrap:anywhere}
-.npc-row b{flex:none;font-variant-numeric:tabular-nums}
+.npc-row{display:flex;align-items:baseline;gap:10px;min-width:0}
+.npc-price{flex:none;display:inline-flex;align-items:center;gap:4px;min-width:56px;color:#b8861f;font-variant-numeric:tabular-nums}
+.npc-price b{color:var(--ink)}
+.npc-price svg{align-self:center}
+.npc-names{min-width:0;overflow-wrap:anywhere;color:var(--ink-2)}
+.npc-more{margin-left:6px;padding:0;border:0;background:none;color:var(--bar-text);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer}
 .npc .no{color:var(--ink-3)}
 /* Quest rows (item sources, monster pages): name and amount, then NPC, level and how it is given. */
 .quests{display:grid;padding:0 0 8px}

@@ -275,7 +275,7 @@ fn item_page_head_sources_and_shell() {
     assert!(!html.contains("60%"));
     assert!(html.contains("射手训练场Ⅰ · 蜗牛猎场Ⅰ"));
     assert!(html.contains("NPC 不卖"));
-    assert!(html.contains("回收价") && html.contains("<b>20</b>"));
+    assert!(html.contains("回收") && html.contains("<b>20</b>") && !html.contains("回收价"));
     assert!(!html.contains("打还是买"), "no farm-or-buy verdict");
     assert!(!html.contains("无等级限制"), "no level tag without a level requirement");
     assert!(html.contains("https://maplestory.io/api/GMS/83/mob/100100/render/stand"));

@@ -226,23 +226,23 @@ fn sources_well(v: &View) -> Markup {
                 button.more.on-desktop type="button" data-more="mobs" { (all_mobs(lang, droppers.len())) (PreEscaped(icon(Icon::Chev))) }
             }
             div.sub-h.ruled { (v.ctx.t("NPC 商店", "NPC shops")) }
-            // 买: which NPCs sell it and for how much; 卖: what an NPC pays for one.
+            // 购买: which NPCs sell it and for how much; 回收: what an NPC pays for one.
             div.npc {
                 div.npc-col {
-                    h4 { (v.ctx.t("买", "Buy")) }
+                    h4 { (v.ctx.t("购买", "Buy")) }
                     // One row per price: most NPCs sell at the same price.
                     @for (price, npcs) in npc_prices(&page.npc_offers) {
                         span.npc-row {
-                            span { (npc_names(&npcs, lang)) }
-                            b { (meso(price, lang)) }
+                            (mesos(price, lang))
+                            span.npc-names { (npc_names(&npcs, lang)) }
                         }
                     }
                     @if page.npc_offers.is_empty() { span.no { (v.ctx.t("NPC 不卖", "No NPC sells it")) } }
                 }
                 div.npc-col {
-                    h4 { (v.ctx.t("卖", "Sell")) }
+                    h4 { (v.ctx.t("回收", "NPC buys")) }
                     @if let Some(sell) = page.npc_sell {
-                        span.npc-row { span { (v.ctx.t("回收价", "NPCs pay")) } b { (meso(sell, lang)) } }
+                        span.npc-row { (mesos(sell, lang)) }
                     } @else {
                         span.no { (v.ctx.t("NPC 不收", "NPCs do not buy it")) }
                     }
@@ -258,6 +258,11 @@ fn sources_well(v: &View) -> Markup {
             }
         }
     }
+}
+
+/// A meso amount with the coin icon, so it reads as money.
+fn mesos(value: i64, lang: Lang) -> Markup {
+    html! { span.npc-price { (PreEscaped(icon(Icon::Coin))) b { (meso(value, lang)) } } }
 }
 
 /// NPC shop offers grouped by price, cheapest first.

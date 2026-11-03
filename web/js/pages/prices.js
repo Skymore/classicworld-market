@@ -87,7 +87,7 @@ const SORTS = {
   low: { dir: 'asc', key: (r) => r.low },
   name: { dir: 'asc', key: (r) => itemName(r), text: true },
 };
-const JOBS = [['all', null], ['warrior', '战士'], ['magician', '魔法师'], ['bowman', '弓箭手'], ['thief', '飞侠'], ['pirate', '海盗']];
+const JOBS = [['all', null], ['warrior', '战士'], ['magician', '魔法师'], ['bowman', '弓箭手'], ['thief', '飞侠']];
 const LEVELS = [[0, 10], [10, 20], [20, 30], [30, 40], [40, 50], [50, 70]];
 const FIRST_ROWS = 60;
 const CHUNK_ROWS = 200;

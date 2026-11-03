@@ -270,6 +270,8 @@ pub enum Icon {
     Book,
     Star,
     Tools,
+    /// A small coin for meso amounts.
+    Coin,
     StarSmall,
     StarOutline,
     Search,
@@ -356,6 +358,20 @@ const TOOLS: &str = "
 #..........#
 #..........#
 ############";
+/// Coin for meso amounts (same art as `coin` in web/js/lib/icons.js).
+const COIN: &str = "
+....####....
+..########..
+.####..####.
+.###.##.###.
+####.##.####
+####.##.####
+####.##.####
+####.##.####
+.###.##.###.
+.####..####.
+..########..
+....####....";
 const STAR_OUTLINE: &str = "
 .....##.....
 .....##.....
@@ -421,6 +437,7 @@ pub fn icon(which: Icon) -> String {
         Icon::Book => (BOOK, 24),
         Icon::Star => (STAR, 24),
         Icon::Tools => (TOOLS, 24),
+        Icon::Coin => (COIN, 14),
         Icon::StarSmall => (STAR, 18),
         Icon::StarOutline => (STAR_OUTLINE, 18),
         Icon::Search => (SEARCH, 18),

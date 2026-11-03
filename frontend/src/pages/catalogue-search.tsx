@@ -180,7 +180,6 @@ export default function Search({ page }: { page: any }) {
                 ["2", "魔法师", "Magician"],
                 ["4", "弓箭手", "Bowman"],
                 ["8", "飞侠", "Thief"],
-                ["16", "海盗", "Pirate"],
               ].map(([value, zh, en]) => (
                 <option key={value} value={value}>
                   {words(zh, en)}

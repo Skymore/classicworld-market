@@ -38,6 +38,45 @@ import OfferFilterDialog from "../components/offer-filters";
 import { Well, MobPicture, QuestRows, Secondary, useNames } from "./catalogue";
 import Crafting from "../components/crafting";
 import ItemTrend from "../components/item-trend";
+/** A meso amount with the coin icon, so it reads as money. */
+function Mesos({ value }: { value: number }) {
+  return (
+    <span className="npc-price">
+      <Icon name="coinSm" />
+      <b>
+        <Price value={value} />
+      </b>
+    </span>
+  );
+}
+/** One NPC shop price and who sells at it; long lists fold after three names. */
+function NpcPrice({ price, npcs }: { price: number; npcs: any[] }) {
+  const words = useWords(),
+    name = useNames();
+  const [open, setOpen] = useState(false);
+  const label = (npc: any) => name(npc.names) || "NPC #" + npc.id;
+  const shown = open ? npcs : npcs.slice(0, 3);
+  return (
+    <span className="npc-row">
+      <Mesos value={price} />
+      <span className="npc-names">
+        {shown.map(label).join(words("、", ", "))}
+        {npcs.length > 3 && (
+          <button
+            type="button"
+            className="npc-more"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+          >
+            {open
+              ? words("收起", "Less")
+              : words(`等 ${npcs.length} 个`, `+${npcs.length - 3} more`)}
+          </button>
+        )}
+      </span>
+    </span>
+  );
+}
 /** NPC shop offers grouped by price, cheapest first. */
 function npcPrices(offers: any[]): [number, any[]][] {
   const byPrice = new Map<number, any[]>();
@@ -312,7 +351,7 @@ export default function Item({ page }: { page: any }) {
     [showExpired, saveShowExpired] = useUserValue(`item.showExpired.${item.id}`, "true"),
     [offerView, saveOfferView] = useUserValue("item.offerView", "groups"),
     [raw, saveFilters] = useUserValue(`item.offerFilters.${item.id}`, "{}");
-  const [tab, setTab] = useState("ladder"),
+  const [tab, setTab] = useState("trend"),
     [more, setMore] = useState<Set<string>>(new Set()),
     [filterOpen, setFilterOpen] = useState(false),
     [maxDraft, setMaxDraft] = useState(""),
@@ -946,18 +985,22 @@ export default function Item({ page }: { page: any }) {
               <div>
                 <span className="big">
                   <Price value={stats?.typical} />
+                  {stats?.typical != null && page.unit === "set" && (
+                    <small className="per-set">{words("/组", "/set")}</small>
+                  )}
                 </span>
               </div>
-              <div className="row">
-                {stats?.typical != null
-                  ? words("金币 · 成交中位", "mesos · typical sale")
-                  : words("还没有成交价", "no sales yet")}
-                {page.unit === "set" && words(" · 每组", " · per set")}
-                {stats?.change_24h != null && <Change value={stats.change_24h} />}
-                {stats?.typical != null && stats.sales_24h < 5 && (
-                  <span className="few">{words("样本少", "few sales")}</span>
-                )}
-              </div>
+              {(stats?.typical == null ||
+                stats?.change_24h != null ||
+                stats.sales_24h < 5) && (
+                <div className="row">
+                  {stats?.typical == null && words("还没有成交价", "no sales yet")}
+                  {stats?.change_24h != null && <Change value={stats.change_24h} />}
+                  {stats?.typical != null && stats.sales_24h < 5 && (
+                    <span className="few">{words("样本少", "few sales")}</span>
+                  )}
+                </div>
+              )}
               <div className="row">
                 {range}
               </div>
@@ -966,13 +1009,13 @@ export default function Item({ page }: { page: any }) {
           <div className="iprice">
             <span className="big">
               <Price value={stats?.typical} />
+              {stats?.typical != null && page.unit === "set" && (
+                <small className="per-set">{words("/组", "/set")}</small>
+              )}
             </span>
-            <span className="unit">
-              {stats?.typical != null
-                ? words("金币 · 成交中位", "mesos · typical sale")
-                : words("还没有成交价", "no sales yet")}
-              {page.unit === "set" && words(" · 每组", " · per set")}
-            </span>
+            {stats?.typical == null && (
+              <span className="unit">{words("还没有成交价", "no sales yet")}</span>
+            )}
             {stats?.change_24h != null && <Change value={stats.change_24h} />}
             {stats?.typical != null && stats.sales_24h < 5 && (
               <span className="few">{words("样本少", "few sales")}</span>
@@ -1354,8 +1397,8 @@ export default function Item({ page }: { page: any }) {
             >
               <div className="tabs" role="tablist">
                 {[
-                  ["ladder", "价格分布", "Price bands"],
                   ["trend", "走势", "Trend"],
+                  ["ladder", "价格分布", "Price bands"],
                   ["sales", "最近成交", "Sales"],
                 ].map(([key, zh, en]) => (
                   <button
@@ -1481,35 +1524,20 @@ export default function Item({ page }: { page: any }) {
               {/* 买: which NPCs sell it and for how much; 卖: what an NPC pays for one. */}
               <div className="npc">
                 <div className="npc-col">
-                  <h4>{words("买", "Buy")}</h4>
+                  <h4>{words("购买", "Buy")}</h4>
                   {/* One row per price: most NPCs sell at the same price. */}
                   {npcPrices(page.npc_offers).map(([price, npcs]) => (
-                    <span className="npc-row" key={price}>
-                      <span>
-                        {npcs
-                          .slice(0, 3)
-                          .map((npc: any) => name(npc.names) || "NPC #" + npc.id)
-                          .join(words("、", ", "))}
-                        {npcs.length > 3 &&
-                          words(` 等 ${npcs.length} 个`, ` and ${npcs.length - 3} more`)}
-                      </span>
-                      <b>
-                        <Price value={price} />
-                      </b>
-                    </span>
+                    <NpcPrice key={price} price={price} npcs={npcs} />
                   ))}
                   {!page.npc_offers.length && (
                     <span className="no">{words("NPC 不卖", "No NPC sells it")}</span>
                   )}
                 </div>
                 <div className="npc-col">
-                  <h4>{words("卖", "Sell")}</h4>
+                  <h4>{words("回收", "NPC buys")}</h4>
                   {page.npc_sell != null ? (
                     <span className="npc-row">
-                      <span>{words("回收价", "NPCs pay")}</span>
-                      <b>
-                        <Price value={page.npc_sell} />
-                      </b>
+                      <Mesos value={page.npc_sell} />
                     </span>
                   ) : (
                     <span className="no">{words("NPC 不收", "NPCs do not buy it")}</span>

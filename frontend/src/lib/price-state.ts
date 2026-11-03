@@ -22,7 +22,6 @@ export const jobs = [
   ["magician", "魔法师", "法师", "Magician"],
   ["bowman", "弓箭手", "弓箭手", "Bowman"],
   ["thief", "飞侠", "飞侠", "Thief"],
-  ["pirate", "海盗", "海盗", "Pirate"],
 ];
 export const sortLabels = {
   sales: ["成交笔数", "Sales"],

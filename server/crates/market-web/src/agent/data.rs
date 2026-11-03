@@ -32,7 +32,7 @@ pub fn definitions() -> Value {
         def("search_items", "Search item names/IDs OR recommend equipment using structured filters. Put ONLY item name keywords in query, not job/level requirements. Example: 40-50级弓手披风 -> query:'', subcategory:'披风', job:'archer', min_level:40, max_level:50. Universal equipment is included for each job. Returns at most 12 candidates, requirements and observed market prices; compare these candidates instead of asking users to choose just because several valid options exist.",
             json!({"query":{"type":"string","maxLength":100,"default":"","description":"Item name keywords or item ID only. For a named material such as 铁矿石, set query and leave ALL equipment filters null."},
                 "subcategory":{"type":"string","maxLength":30,"description":"Equipment slot in Chinese, e.g. 披风, 手套, 鞋子, 弓, 弩"},
-                "job":{"type":"string","enum":["beginner","warrior","magician","archer","thief","pirate"]},
+                "job":{"type":"string","enum":["beginner","warrior","magician","archer","thief"]},
                 "min_level":{"type":"integer","minimum":0,"maximum":250},
                 "max_level":{"type":"integer","minimum":0,"maximum":250}}), json!([])),
         def("get_item", "Item identity, requirements, NPC purchase offers with maps, and NPC resale reference. NPC buy/sell prices are different.",
@@ -236,7 +236,6 @@ fn job_mask(job: &str) -> Option<i16> {
         "magician" => Some(2),
         "archer" => Some(4),
         "thief" => Some(8),
-        "pirate" => Some(16),
         _ => None,
     }
 }

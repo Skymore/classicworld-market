@@ -947,7 +947,6 @@ fn catalog_filters(page: &SearchPage, ctx: &Ctx) -> Markup {
         (2, ctx.t("魔法师", "Magician")),
         (4, ctx.t("弓箭手", "Bowman")),
         (8, ctx.t("飞侠", "Thief")),
-        (16, ctx.t("海盗", "Pirate")),
     ];
     let active = f.job != 0 || f.min_level.is_some() || f.max_level.is_some();
     html! {

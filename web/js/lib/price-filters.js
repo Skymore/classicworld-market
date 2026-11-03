@@ -26,7 +26,7 @@ export function matchesEquipmentType(row, type = 'all') {
 }
 export function priceFilterTokens(s, en=false, dropOk=true) {
   const tokens=[];
-  const jobs=en?{warrior:'Warrior',magician:'Magician',bowman:'Bowman',thief:'Thief',pirate:'Pirate'}:{warrior:'战士',magician:'魔法师',bowman:'弓箭手',thief:'飞侠',pirate:'海盗'};
+  const jobs=en?{warrior:'Warrior',magician:'Magician',bowman:'Bowman',thief:'Thief'}:{warrior:'战士',magician:'魔法师',bowman:'弓箭手',thief:'飞侠'};
   if(s.job!=='all' && jobs[s.job])tokens.push({key:'job',label:jobs[s.job]});
   const type=equipmentTypes.find(([key])=>key===s.type && key!=='all');
   if(type)tokens.push({key:'type',label:type[en?2:1]});

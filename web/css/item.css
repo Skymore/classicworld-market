@@ -104,7 +104,7 @@ html[data-device=desktop] .well:not(.all) .xd,
 .trend .lg .k-count{background:var(--ink-3);opacity:.3}
 .trend-hit{cursor:crosshair}
 .trend{position:relative}
-.trend svg{max-height:260px}
+.trend svg{width:100%;max-height:260px}
 .trend-tooltip{position:absolute;top:8px;right:8px;z-index:2;max-width:calc(100% - 16px);padding:8px 10px;background:var(--sheet-hi);color:var(--ink);border:1px solid var(--edge);box-shadow:var(--hard);font-size:12px;line-height:1.6;font-variant-numeric:tabular-nums;white-space:pre-line;pointer-events:none}
 .trend-tooltip[hidden]{display:none}
 [data-trend-marker]{display:none;pointer-events:none}
@@ -247,3 +247,8 @@ html[lang=en] .salegrid .sale-with-stats{grid-template-columns:96px max-content 
   .ladder .rung,.ladder .rung-h{grid-template-columns:minmax(0,1fr) 80px calc(var(--cell) * var(--days))}
   .ladder .rung-p{font-size:12px}
 }
+/* Bundle items: the price is for one set. */
+.big .per-set{margin-left:4px;font-size:14px;font-weight:600;color:var(--ink-3)}
+/* The trend pane now opens first; its day buttons scroll instead of widening the page. */
+[data-market=tabs],.tabs-well,.tabs-well .pane,.trend{min-width:0}
+.trend-days{max-width:100%}

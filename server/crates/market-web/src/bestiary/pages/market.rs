@@ -108,8 +108,12 @@ pub fn head(v: &View) -> Markup {
         }
         @if few { span.few { (v.t("样本少", "few sales")) } }
     };
+    let per_set = crate::external::unit(item.id) == "set";
     let big = html! {
-        span.big { @match typical { Some(p) => (meso(p, v.ctx.lang)), None => "—" } }
+        span.big {
+            @match typical { Some(p) => (meso(p, v.ctx.lang)), None => "—" }
+            @if typical.is_some() && per_set { small.per-set { (v.t("/组", "/set")) } }
+        }
     };
     html! {
         div data-market="head" {
@@ -128,8 +132,7 @@ pub fn head(v: &View) -> Markup {
                 div.iprice-d {
                     div { (big) }
                     div.row {
-                        @if typical.is_some() { (v.t("成交中位", "typical sale")) } @else { (v.t("还没有成交价", "no sales yet")) }
-                        @if crate::external::unit(item.id)=="set" { (v.t(" · 每组", " · per set")) }
+                        @if typical.is_none() { (v.t("还没有成交价", "no sales yet")) }
                         (change)
                     }
                     div.row { (range_line(v)) }
@@ -137,11 +140,7 @@ pub fn head(v: &View) -> Markup {
             }
             div.iprice {
                 (big)
-                span.unit {
-                    @if typical.is_some() { (v.t("金币 · 成交中位", "mesos · typical sale")) }
-                    @else { (v.t("还没有成交价", "no sales yet")) }
-                    @if crate::external::unit(item.id)=="set" { (v.t(" · 每组", " · per set")) }
-                }
+                @if typical.is_none() { span.unit { (v.t("还没有成交价", "no sales yet")) } }
                 (change)
                 span.range { (range_line(v)) }
             }
@@ -906,14 +905,14 @@ pub fn tabs_well(v: &View) -> Markup {
         div data-market="tabs" {
             section.well.tabs-well {
                 div.tabs role="tablist" {
-                    button.tab.on type="button" role="tab" aria-selected="true" data-tab="ladder" { (v.t("价格分布", "Price bands")) }
-                    button.tab type="button" role="tab" aria-selected="false" data-tab="trend" { (v.t("走势", "Trend")) }
+                    button.tab.on type="button" role="tab" aria-selected="true" data-tab="trend" { (v.t("走势", "Trend")) }
+                    button.tab type="button" role="tab" aria-selected="false" data-tab="ladder" { (v.t("价格分布", "Price bands")) }
                     button.tab.on-phone type="button" role="tab" aria-selected="false" data-tab="sales" {
                         (v.t("最近成交", "Sales")) " " (n)
                     }
                 }
-                div.pane data-pane="ladder" { (ladder_pane(v)) }
-                div.pane data-pane="trend" hidden { (trend_pane(v)) }
+                div.pane data-pane="trend" { (trend_pane(v)) }
+                div.pane data-pane="ladder" hidden { (ladder_pane(v)) }
                 div.pane data-pane="sales" hidden { (sales_list(v, false)) }
             }
         }
