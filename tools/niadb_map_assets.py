@@ -24,8 +24,9 @@ region's spots, from the client's WorldMap.wz: position, marker type, main
 map) and /_data/worldmap-previews.json (the maps each spot covers) into
 data/reference/niadb/, and the region pictures and marker sprites from
 /msclassic/worldmap/ into web/images/worldmap/. NiaDB's region pictures are
-lossless WebP (about 500 KB each); they are saved as lossy WebP at quality 80
-(about 100 KB). data/reference/niadb/worldmap-images.json records each
+lossless WebP (about 500 KB each); they are re-encoded as near-lossless WebP
+(`cwebp -near_lossless 60`, about 30% smaller, edges and text stay sharp). Without
+`cwebp` on PATH (or in $CWEBP) the pictures are kept as fetched. data/reference/niadb/worldmap-images.json records each
 region's picture and size.
 
 `scenes` saves NiaDB's rendered map scenes (the whole map drawn from the
@@ -50,8 +51,12 @@ Each writes a `sources.json` next to the files with the URL and date.
 import argparse
 import datetime
 import json
+import os
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -78,7 +83,10 @@ REGION_IMAGES = {
 # and the "you are here" arrow.
 MARKERS = ["marker-town.png", "marker-spot.png", "marker-cluster.png", "marker-field.png",
            "marker-facility.png", "curpos-0.png"]
-REGION_QUALITY = 80
+# cwebp's near-lossless level: 100 is lossless, lower values let it adjust
+# pixel values slightly before lossless coding. 60 keeps every picture above
+# 48 dB PSNR against NiaDB's original.
+REGION_NEAR_LOSSLESS = 60
 
 
 def read_json(path):
@@ -191,16 +199,20 @@ def heads():
     print(f"{len(made)} heads in {HEADS}")
 
 
-def lossy_webp(body, quality):
-    """A picture (any format Pillow reads) as lossy WebP bytes."""
-    import io
-    from PIL import Image
-
-    with Image.open(io.BytesIO(body)) as image:
-        image = image.convert("RGBA" if "A" in image.getbands() else "RGB")
-        out = io.BytesIO()
-        image.save(out, "WEBP", quality=quality, method=6)
-    return out.getvalue()
+def near_lossless_webp(body, level):
+    """A WebP picture re-encoded near-lossless with cwebp; unchanged when cwebp
+    is missing or the result is not smaller."""
+    cwebp = os.environ.get("CWEBP") or shutil.which("cwebp")
+    if not cwebp:
+        print("cwebp not found; region picture kept as fetched")
+        return body
+    with tempfile.TemporaryDirectory() as folder:
+        source, target = Path(folder, "in.webp"), Path(folder, "out.webp")
+        source.write_bytes(body)
+        subprocess.run([cwebp, "-quiet", "-near_lossless", str(level), "-z", "9", str(source), "-o", str(target)],
+                       check=True)
+        out = target.read_bytes()
+    return out if len(out) < len(body) else body
 
 
 def worldmap(pause):
@@ -222,7 +234,7 @@ def worldmap(pause):
             sys.exit(f"/msclassic/worldmap/{name}: 404")
         size = len(body)
         if name in regions:
-            body = lossy_webp(body, REGION_QUALITY)
+            body = near_lossless_webp(body, REGION_NEAR_LOSSLESS)
         (WORLDMAP / name).write_bytes(body)
         print(f"worldmap {name} {size} -> {len(body)}")
         time.sleep(pause)
