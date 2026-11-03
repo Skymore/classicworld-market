@@ -31,6 +31,7 @@ export function MapSvg({
   links = false,
   focus = null,
   layers = { mobs: true, portals: true, npcs: true },
+  scene = true,
 }: {
   view: any;
   title: string;
@@ -41,6 +42,8 @@ export function MapSvg({
   links?: boolean;
   focus?: number | null;
   layers?: { mobs: boolean; portals: boolean; npcs: boolean };
+  /** Draw the rendered scene when the map has one (else the minimap). */
+  scene?: boolean;
 }) {
   const words = useWords(),
     name = useNames();
@@ -71,14 +74,26 @@ export function MapSvg({
         aria-label={words("小地图：", "Minimap: ") + title}
       >
         <rect className="mv-bg" width={view.width} height={view.height} />
-        {view.image_url && (
+        {scene && view.scene ? (
           <image
-            className="mv-img"
-            href={view.image_url}
-            width={view.width}
-            height={view.height}
+            className="mv-scene"
+            href={view.scene.url}
+            x={view.scene.x}
+            y={view.scene.y}
+            width={view.scene.width}
+            height={view.scene.height}
             preserveAspectRatio="none"
           />
+        ) : (
+          view.image_url && (
+            <image
+              className="mv-img"
+              href={view.image_url}
+              width={view.width}
+              height={view.height}
+              preserveAspectRatio="none"
+            />
+          )
         )}
         {layers.mobs && (
           <g className={"mv-mobs" + (focus != null ? " focused" : "")}>
@@ -202,6 +217,7 @@ export function MapViewPanel({ view, title, mobs }: { view: any; title: string; 
     name = useNames();
   const [focus, setFocus] = useState<number | null>(null);
   const [layers, setLayers] = useState({ mobs: true, portals: true, npcs: true });
+  const [scene, setScene] = useState(true);
   const toggle = (key: "mobs" | "portals" | "npcs") => setLayers((l) => ({ ...l, [key]: !l[key] }));
   const toggles: ["mobs" | "portals" | "npcs", string, string, number][] = [
     ["mobs", "怪物", "Monsters", view.spawns.length],
@@ -211,9 +227,19 @@ export function MapViewPanel({ view, title, mobs }: { view: any; title: string; 
   const shown = toggles.filter(([, , , n]) => n > 0);
   return (
     <figure className="mapvis">
-      {shown.length > 1 && (
+      {(shown.length > 1 || (view.scene && view.image_url)) && (
         <div className="mv-tools" role="group" aria-label={words("显示", "Show")}>
-          {shown.map(([key, zh, en, n]) => (
+          {view.scene && view.image_url && (
+            <span className="mv-seg">
+              <button type="button" aria-pressed={scene} onClick={() => setScene(true)}>
+                {words("场景", "Scene")}
+              </button>
+              <button type="button" aria-pressed={!scene} onClick={() => setScene(false)}>
+                {words("小地图", "Minimap")}
+              </button>
+            </span>
+          )}
+          {shown.length > 1 && shown.map(([key, zh, en, n]) => (
             <button
               type="button"
               key={key}
@@ -226,7 +252,7 @@ export function MapViewPanel({ view, title, mobs }: { view: any; title: string; 
           ))}
         </div>
       )}
-      <MapSvg view={view} title={title} mobs={mobs} links focus={focus} layers={layers} />
+      <MapSvg view={view} title={title} mobs={mobs} links focus={focus} layers={layers} scene={scene} />
       {view.spawns.length > 0 && layers.mobs && (
         <div className="mv-legend">
           {mobs.map((m: any) => (

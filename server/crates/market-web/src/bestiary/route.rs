@@ -122,6 +122,34 @@ impl Graph {
         None
     }
 
+    /// Cheapest routes from `from` to every map it reaches, for picking the
+    /// nearest of several targets.
+    pub fn paths_from(&self, from: i32) -> Paths<'_> {
+        let mut best: HashMap<i32, Cost> = HashMap::from([(from, (0, 0))]);
+        let mut came_by: HashMap<i32, &Edge> = HashMap::new();
+        let mut done = HashSet::new();
+        let mut heap = BinaryHeap::from([Reverse(((0, 0), from))]);
+        while let Some(Reverse((cost, at))) = heap.pop() {
+            if !done.insert(at) {
+                continue;
+            }
+            for edge in self.out.get(&at).into_iter().flatten() {
+                let (hops, other) = edge.kind.cost();
+                let next = (cost.0 + hops, cost.1 + other);
+                if best.get(&edge.to).is_none_or(|&known| next < known) {
+                    best.insert(edge.to, next);
+                    came_by.insert(edge.to, edge);
+                    heap.push(Reverse((next, edge.to)));
+                }
+            }
+        }
+        Paths {
+            from,
+            best,
+            came_by,
+        }
+    }
+
     fn unwind<'a>(came_by: &HashMap<i32, &'a Edge>, from: i32, to: i32) -> Vec<&'a Edge> {
         let mut steps = Vec::new();
         let mut at = to;
@@ -178,6 +206,31 @@ impl Graph {
             }
         }
         seen
+    }
+}
+
+/// Every cheapest route from one map (`Graph::paths_from`).
+pub struct Paths<'a> {
+    from: i32,
+    best: HashMap<i32, Cost>,
+    came_by: HashMap<i32, &'a Edge>,
+}
+
+impl<'a> Paths<'a> {
+    /// The steps to `to`, `None` when it is not reached.
+    pub fn to(&self, to: i32) -> Option<Vec<&'a Edge>> {
+        self.best
+            .contains_key(&to)
+            .then(|| Graph::unwind(&self.came_by, self.from, to))
+    }
+
+    /// Of `targets`, the one reached most cheaply (ties: lower map id).
+    pub fn nearest(&self, targets: impl IntoIterator<Item = i32>) -> Option<i32> {
+        targets
+            .into_iter()
+            .filter_map(|t| self.best.get(&t).map(|&cost| (cost, t)))
+            .min()
+            .map(|(_, t)| t)
     }
 }
 
@@ -281,6 +334,22 @@ mod tests {
         assert!(g.shortest_path(4, 1).is_none());
         assert!(g.shortest_path(1, 7).is_none(), "unknown map");
         assert_eq!(g.shortest_path(7, 7), Some(vec![]));
+    }
+
+    #[test]
+    fn nearest_target_and_its_route() {
+        let g = graph();
+        let paths = g.paths_from(1);
+        assert_eq!(
+            paths.nearest([3, 4, 7]),
+            Some(3),
+            "1-2-3 walks; 1-5-4 needs the ship"
+        );
+        assert_eq!(paths.nearest([4, 5]), Some(5));
+        assert_eq!(paths.nearest([6, 7]), None, "unreachable");
+        assert_eq!(hops(&paths.to(3).unwrap()), vec![(1, 2), (2, 3)]);
+        assert_eq!(paths.to(1), Some(vec![]));
+        assert_eq!(paths.to(6), None);
     }
 
     #[test]

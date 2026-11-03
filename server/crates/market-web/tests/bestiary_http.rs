@@ -311,6 +311,28 @@ async fn route_page() {
 }
 
 #[tokio::test]
+async fn monster_finder_and_world_map() {
+    let Some((db, router)) = seeded().await else {
+        return;
+    };
+    let found = get(&router, "/route?from=10001000&mob=8").await;
+    assert_eq!((found.status, found.cache.as_str()), (StatusCode::OK, EDGE));
+    assert!(found.body.contains("1 步"), "{}", found.body);
+    assert!(found.body.contains(r#"<a class="on" href="/route?mode=mob"#), "finder tab is on");
+    assert!(found.body.contains("的刷怪地图"));
+    let unknown = get(&router, "/route?from=10001000&mob=%E7%81%AB%E6%98%9F").await.body;
+    assert!(unknown.contains("没有找到怪物"));
+    let form = get(&router, "/route?mode=mob").await.body;
+    assert!(form.contains(r#"name="mob""#) && form.contains("找最近的地图"));
+    let mob = get(&router, "/mob/8").await.body;
+    assert!(mob.contains("&amp;mob=8"), "the mob page links the finder");
+    let world = get(&router, "/world").await;
+    assert_eq!(world.status, StatusCode::OK);
+    assert!(world.body.contains("世界地图"));
+    db.drop_schema().await;
+}
+
+#[tokio::test]
 async fn search_page() {
     let Some((db, router)) = seeded().await else {
         return;

@@ -1269,7 +1269,256 @@ pub async fn map_page(db: &PgPool, id: i32) -> sqlx::Result<Option<MapPage>> {
         quests_given: quests_given_on(db, id).await?,
         quests_hunted: quests_hunted_on(db, id).await?,
         from_henesys: None,
+        on_world_map: !world_spots_of(db, &[id]).await?.is_empty(),
     }))
+}
+
+// ---------- world map ----------
+
+/// A shown spot: its main map is open.
+#[derive(FromRow)]
+struct SpotRow {
+    key: String,
+    region_id: String,
+    x: i32,
+    y: i32,
+    kind: i16,
+    #[sqlx(flatten)]
+    map: MapRef,
+    map_count: i64,
+    level_min: Option<i16>,
+    level_max: Option<i16>,
+}
+
+pub async fn world_page(db: &PgPool, here: Option<i32>) -> sqlx::Result<WorldPage> {
+    let regions: Vec<(String, String, i32, i32)> =
+        sqlx::query_as("SELECT id, image_url, width, height FROM world_regions ORDER BY ord, id")
+            .fetch_all(db)
+            .await?;
+    let spots: Vec<SpotRow> = sqlx::query_as(&format!(
+        "SELECT s.key, s.region_id, s.x, s.y, s.kind, mp.id, {name} AS name, {name_en} AS name_en,
+                (SELECT count(*) FROM world_spot_maps w JOIN maps o ON o.id = w.map_id AND NOT o.unreleased
+                 WHERE w.spot_key = s.key) AS map_count,
+                l.level_min, l.level_max
+         FROM world_spots s JOIN maps mp ON mp.id = s.map_id AND NOT mp.unreleased
+         LEFT JOIN LATERAL (
+             SELECT min(m.level) AS level_min, max(m.level) AS level_max
+             FROM world_spot_maps w JOIN maps o ON o.id = w.map_id AND NOT o.unreleased
+             JOIN mob_spawns sp ON sp.map_id = w.map_id JOIN mobs m ON m.id = sp.mob_id
+             WHERE w.spot_key = s.key AND {public}) l ON true
+         ORDER BY s.region_id, s.ord",
+        name = name!("mp"),
+        name_en = name_en!("mp"),
+        public = public_mob!(),
+    ))
+    .fetch_all(db)
+    .await?;
+    let mut out: Vec<WorldRegion> = regions
+        .into_iter()
+        .map(|(id, image_url, width, height)| WorldRegion {
+            names: region_names(&id),
+            id,
+            image_url,
+            width,
+            height,
+            spots: Vec::new(),
+        })
+        .collect();
+    for spot in spots {
+        if let Some(region) = out.iter_mut().find(|r| r.id == spot.region_id) {
+            region.spots.push(WorldSpot {
+                key: spot.key,
+                x: spot.x,
+                y: spot.y,
+                kind: spot.kind,
+                map: spot.map,
+                map_count: spot.map_count,
+                level_min: spot.level_min,
+                level_max: spot.level_max,
+            });
+        }
+    }
+    // Regions with nothing open (Ossyria) are not shown.
+    out.retain(|r| !r.spots.is_empty());
+    let (here, here_spots) = match here {
+        Some(id) => {
+            let spots: Vec<String> = world_spots_of(db, &[id])
+                .await?
+                .into_iter()
+                .map(|s| s.key)
+                .collect();
+            let refs = map_refs(db, &[id]).await?;
+            (refs.get(&id).cloned().filter(|_| !spots.is_empty()), spots)
+        }
+        None => (None, Vec::new()),
+    };
+    Ok(WorldPage {
+        regions: out,
+        here,
+        here_spots,
+    })
+}
+
+/// A map's place on the world map.
+#[derive(Debug, Clone, FromRow)]
+pub struct MapSpot {
+    pub map_id: i32,
+    pub key: String,
+    pub region_id: String,
+    pub x: i32,
+    pub y: i32,
+}
+
+/// The shown spots covering each of `map_ids` (a map can be on two).
+pub async fn world_spots_of(db: &PgPool, map_ids: &[i32]) -> sqlx::Result<Vec<MapSpot>> {
+    sqlx::query_as(
+        "SELECT w.map_id, s.key, s.region_id, s.x, s.y
+         FROM world_spot_maps w JOIN world_spots s ON s.key = w.spot_key
+         JOIN maps mp ON mp.id = s.map_id AND NOT mp.unreleased
+         WHERE w.map_id = ANY($1) ORDER BY w.map_id, s.key",
+    )
+    .bind(map_ids)
+    .fetch_all(db)
+    .await
+}
+
+/// The route's maps in order (start first) over the world map: each map's
+/// spot, consecutive repeats merged, split where the route changes region.
+/// `None` when fewer than two spots are passed.
+pub async fn route_overview(db: &PgPool, path: &[MapRef]) -> sqlx::Result<Option<RouteOverview>> {
+    let ids: Vec<i32> = path.iter().map(|m| m.id).collect();
+    let spots = world_spots_of(db, &ids).await?;
+    let regions: Vec<(String, String, i32, i32)> =
+        sqlx::query_as("SELECT id, image_url, width, height FROM world_regions")
+            .fetch_all(db)
+            .await?;
+    let mut out: Vec<OverviewRegion> = Vec::new();
+    let mut last_key: Option<String> = None;
+    for map in path {
+        // Stay on the current region when the map is on two.
+        let mine: Vec<&MapSpot> = spots.iter().filter(|s| s.map_id == map.id).collect();
+        let current = out.last().map(|r| r.id.clone());
+        let Some(spot) = mine
+            .iter()
+            .find(|s| Some(&s.region_id) == current.as_ref())
+            .or(mine.first())
+        else {
+            continue; // not on the world map (a hidden street, an instance)
+        };
+        if last_key.as_deref() == Some(spot.key.as_str()) {
+            continue;
+        }
+        last_key = Some(spot.key.clone());
+        let stop = OverviewStop {
+            x: spot.x,
+            y: spot.y,
+            map: map.clone(),
+        };
+        match out.last_mut() {
+            Some(region) if region.id == spot.region_id => region.stops.push(stop),
+            _ => {
+                let Some((id, image_url, width, height)) =
+                    regions.iter().find(|r| r.0 == spot.region_id).cloned()
+                else {
+                    continue;
+                };
+                out.push(OverviewRegion {
+                    names: region_names(&id),
+                    id,
+                    image_url,
+                    width,
+                    height,
+                    stops: vec![stop],
+                });
+            }
+        }
+    }
+    let stops: usize = out.iter().map(|r| r.stops.len()).sum();
+    Ok((stops >= 2).then_some(RouteOverview { regions: out }))
+}
+
+// ---------- monster finder ----------
+
+pub enum MobResolution {
+    One(MobRef),
+    /// Zero or several candidates.
+    Many(Vec<MobRef>),
+}
+
+/// Mob id, exact name (either language), or a unique name fragment. Only
+/// shown monsters; ones that spawn on an open map come first.
+pub async fn resolve_mob(db: &PgPool, input: &str) -> sqlx::Result<MobResolution> {
+    let input = input.trim();
+    let select = |filter: &str| {
+        format!(
+            "SELECT m.id, {name} AS name, {name_en} AS name_en, m.level,
+                    COALESCE(m.gms_id, l.gms_id) AS image_id
+             FROM mobs m LEFT JOIN mobs l ON l.id = m.link_id
+             WHERE ({filter}) AND {public}
+             ORDER BY NOT EXISTS (SELECT 1 FROM mob_spawns sp JOIN maps mp ON mp.id = sp.map_id
+                                  WHERE sp.mob_id = m.id AND NOT mp.unreleased),
+                      m.level NULLS LAST, m.id
+             LIMIT 12",
+            name = name!("m"),
+            name_en = name_en!("m"),
+            public = public_mob!(),
+        )
+    };
+    if let Ok(id) = input.parse::<i32>() {
+        let found: Vec<MobRef> = sqlx::query_as(&select("m.id = $1"))
+            .bind(id)
+            .fetch_all(db)
+            .await?;
+        if let [one] = found.as_slice() {
+            return Ok(MobResolution::One(one.clone()));
+        }
+    }
+    let exact: Vec<MobRef> = sqlx::query_as(&select(
+        "lower(m.name_en) = lower($1) OR m.name_zh = $1 OR m.name_tw = $1",
+    ))
+    .bind(input)
+    .fetch_all(db)
+    .await?;
+    if let Some(first) = exact.first() {
+        // Party-quest copies share a name; the one on an open map comes first.
+        return Ok(MobResolution::One(first.clone()));
+    }
+    let escaped = input
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_");
+    let fuzzy: Vec<MobRef> = sqlx::query_as(&select(
+        "m.name_en ILIKE $1 OR m.name_zh LIKE $1 OR m.name_tw LIKE $1",
+    ))
+    .bind(format!("%{escaped}%"))
+    .fetch_all(db)
+    .await?;
+    Ok(match fuzzy.as_slice() {
+        [one] => MobResolution::One(one.clone()),
+        _ => MobResolution::Many(fuzzy),
+    })
+}
+
+/// Open maps a monster spawns on, with its spawn points there.
+pub async fn mob_spawn_maps(db: &PgPool, mob_id: i32) -> sqlx::Result<Vec<(MapRef, i16)>> {
+    #[derive(FromRow)]
+    struct Row {
+        #[sqlx(flatten)]
+        map: MapRef,
+        spawn_count: i16,
+    }
+    let rows: Vec<Row> = sqlx::query_as(concat!(
+        "SELECT mp.id, ",
+        name!("mp"),
+        " AS name, ",
+        name_en!("mp"),
+        " AS name_en, s.spawn_count FROM mob_spawns s JOIN maps mp ON mp.id = s.map_id
+         WHERE s.mob_id = $1 AND NOT mp.unreleased ORDER BY mp.id"
+    ))
+    .bind(mob_id)
+    .fetch_all(db)
+    .await?;
+    Ok(rows.into_iter().map(|r| (r.map, r.spawn_count)).collect())
 }
 
 /// Quests the NPCs on a map give.
@@ -1385,18 +1634,50 @@ fn in_box(x: i32, y: i32, cx: i32, cy: i32, w: i32, h: i32, margin: i32) -> Opti
 
 /// The map's minimap with the chosen layers, `None` when NiaDB gives no box.
 pub async fn map_view(db: &PgPool, map_id: i32, layers: Layers) -> sqlx::Result<Option<MapView>> {
-    #[allow(clippy::type_complexity)]
-    let row: Option<(i32, i32, i32, i32, Option<String>, Option<i32>, Option<i32>)> =
-        sqlx::query_as(
-            "SELECT minimap_w, minimap_h, minimap_cx, minimap_cy, minimap_url, spawn_x, spawn_y
+    #[derive(FromRow)]
+    struct Box {
+        minimap_w: i32,
+        minimap_h: i32,
+        minimap_cx: i32,
+        minimap_cy: i32,
+        minimap_url: Option<String>,
+        spawn_x: Option<i32>,
+        spawn_y: Option<i32>,
+        scene_url: Option<String>,
+        scene_x: Option<i32>,
+        scene_y: Option<i32>,
+        scene_w: Option<i32>,
+        scene_h: Option<i32>,
+    }
+    let row: Option<Box> = sqlx::query_as(
+        "SELECT minimap_w, minimap_h, minimap_cx, minimap_cy, minimap_url, spawn_x, spawn_y,
+                scene_url, scene_x, scene_y, scene_w, scene_h
          FROM maps WHERE id = $1 AND NOT unreleased AND minimap_w IS NOT NULL
            AND minimap_h IS NOT NULL AND minimap_cx IS NOT NULL AND minimap_cy IS NOT NULL",
-        )
-        .bind(map_id)
-        .fetch_optional(db)
-        .await?;
-    let Some((w, h, cx, cy, image_url, spawn_x, spawn_y)) = row else {
+    )
+    .bind(map_id)
+    .fetch_optional(db)
+    .await?;
+    let Some(row) = row else {
         return Ok(None);
+    };
+    let (w, h, cx, cy) = (row.minimap_w, row.minimap_h, row.minimap_cx, row.minimap_cy);
+    let (image_url, spawn_x, spawn_y) = (row.minimap_url, row.spawn_x, row.spawn_y);
+    let scene = match (
+        row.scene_url,
+        row.scene_x,
+        row.scene_y,
+        row.scene_w,
+        row.scene_h,
+    ) {
+        (Some(url), Some(x), Some(y), Some(width), Some(height)) => Some(SceneImage {
+            url,
+            x: x + cx,
+            y: y + cy,
+            width,
+            height,
+        }),
+        _ => None,
     };
     let (shown_width, shown_height, icon) = view_size(w, h, layers);
     let place = |x: i32, y: i32| in_box(x, y, cx, cy, w, h, icon);
@@ -1494,6 +1775,7 @@ pub async fn map_view(db: &PgPool, map_id: i32, layers: Layers) -> sqlx::Result<
         shown_height,
         icon,
         image_url,
+        scene,
         spawns,
         portals,
         npcs,

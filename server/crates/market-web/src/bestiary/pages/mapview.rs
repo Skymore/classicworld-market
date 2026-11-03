@@ -65,7 +65,9 @@ pub(crate) fn map_svg(ctx: &Ctx, view: &MapView, title: &str, marks: &Marks) -> 
                 viewBox={"0 0 " (view.width) " " (view.height)}
                 width=(view.shown_width) height=(view.shown_height) role="img" aria-label=(label) {
                 rect.mv-bg width=(view.width) height=(view.height) {}
-                @if let Some(url) = &view.image_url {
+                @if let Some(scene) = &view.scene {
+                    image.mv-scene href=(scene.url) x=(scene.x) y=(scene.y) width=(scene.width) height=(scene.height) preserveAspectRatio="none" {}
+                } @else if let Some(url) = &view.image_url {
                     image.mv-img href=(url) width=(view.width) height=(view.height) preserveAspectRatio="none" {}
                 }
                 g.mv-mobs {
@@ -197,6 +199,7 @@ mod tests {
             shown_height: 459,
             icon: 107,
             image_url: Some("/web/images/minimaps/1000.png".into()),
+            scene: None,
             spawns: vec![SpawnPoint {
                 mob_id: 4,
                 x: 2721,
@@ -255,6 +258,19 @@ mod tests {
         assert!(html.contains(r#"href="/npc/7""#));
         assert!(html.contains(r#"href="/mob/4""#));
         assert!(!html.contains("style="), "no inline styles under the CSP");
+        assert!(html.contains("mv-img"), "the minimap without a scene");
+        let mut with_scene = view();
+        with_scene.scene = Some(crate::bestiary::model::SceneImage {
+            url: "/web/images/scenes/1000.webp".into(),
+            x: 0,
+            y: 0,
+            width: 3928,
+            height: 2050,
+        });
+        let html = map_svg(&ctx, &with_scene, "x", &Marks::default()).into_string();
+        assert!(
+            html.contains(r#"href="/web/images/scenes/1000.webp""#) && !html.contains("mv-img")
+        );
     }
 
     #[test]

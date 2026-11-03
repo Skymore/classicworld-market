@@ -590,6 +590,7 @@ fn map_page_shows_links_and_route_entry() {
         quests_given: vec![],
         quests_hunted: vec![],
         from_henesys: None,
+        on_world_map: false,
     };
     let html = pages::map_page(&page, &zh()).into_string();
     assert!(html.contains(r#"href="/route?from=10001000&amp;to=10001010""#));
@@ -614,6 +615,7 @@ fn small_view() -> MapView {
         shown_height: 440,
         icon: 27,
         image_url: Some("/web/images/minimaps/10001010.png".into()),
+        scene: None,
         spawns: vec![SpawnPoint {
             mob_id: 2,
             x: 300,
@@ -680,6 +682,7 @@ fn map_page_draws_the_view_route_strip_and_quests() {
             quantity: 10,
         }],
         from_henesys: Some(vec![map(10001000, "射手村"), map(10001010, "射手训练场Ⅰ")]),
+        on_world_map: true,
     };
     let html = pages::map_page(&page, &zh()).into_string();
     assert!(html.contains(r#"<figure class="mapvis">"#));
@@ -693,6 +696,10 @@ fn map_page_draws_the_view_route_strip_and_quests() {
         "legend chip per monster"
     );
     assert!(html.contains("从射手村过来"));
+    assert!(
+        html.contains(r#"href="/world?map=10001010""#),
+        "world map button"
+    );
     assert!(html.contains("1 步"));
     assert!(html.contains("在这里接") && html.contains("弓箭手的考验"));
     assert!(html.contains("要打这里的怪") && html.contains("蜗牛 ×10"));
@@ -749,6 +756,7 @@ fn route_steps_circle_the_portal_to_take() {
             exit: Some(Point { x: 950, y: 420 }),
             arrival: Some(Point { x: 100, y: 400 }),
         }],
+        overview: None,
     });
     assert!(html.contains("走小地图上圈出的传送口"));
     assert!(html.contains("mv-exit") && html.contains("mv-arrival"));
@@ -784,6 +792,7 @@ fn town_lists_return_scroll_entrances_on_one_line() {
         quests_given: vec![],
         quests_hunted: vec![],
         from_henesys: None,
+        on_world_map: false,
     };
     let html = pages::map_page(&page, &zh()).into_string();
     assert!(html.contains("用回城卷轴回到这里<small>2 张地图</small>"));
@@ -800,6 +809,8 @@ fn route(outcome: RouteOutcome) -> String {
         &RoutePage {
             from_input: "射手训练场".into(),
             to_input: "射手村".into(),
+            mob_input: String::new(),
+            mob_mode: false,
             known_edges: 393,
             outcome,
         },
@@ -833,6 +844,7 @@ fn route_page_outcomes() {
                 arrival: None,
             },
         ],
+        overview: None,
     });
     assert!(found.contains("甲 → 丙"));
     assert!(found.contains("2 步"));
@@ -985,4 +997,104 @@ fn region_controls_survive_empty_results_and_keep_url_state() {
     let english = pages::search_page(&page, &en()).into_string();
     assert!(english.contains("Victoria Island"));
     assert!(english.contains("Deep Passage"));
+}
+
+#[test]
+fn monster_finder_lists_the_nearest_map_first() {
+    let page = RoutePage {
+        from_input: "10001000".into(),
+        to_input: String::new(),
+        mob_input: "蜗牛".into(),
+        mob_mode: true,
+        known_edges: 1,
+        outcome: RouteOutcome::MobFound {
+            from: map(10001000, "射手村"),
+            mob: mob(2, "蜗牛"),
+            to: map(10001010, "射手训练场Ⅰ"),
+            steps: vec![Step {
+                from: map(10001000, "射手村"),
+                to: map(10001010, "射手训练场Ⅰ"),
+                kind: EdgeKind::Portal,
+                portal_name: None,
+                view: None,
+                exit: None,
+                arrival: None,
+            }],
+            overview: Some(RouteOverview {
+                regions: vec![OverviewRegion {
+                    id: "VictoriaIsland".into(),
+                    names: Names::new("金银岛", "Victoria Island"),
+                    image_url: "/web/images/worldmap/victoria-island.webp".into(),
+                    width: 636,
+                    height: 466,
+                    stops: vec![
+                        OverviewStop {
+                            x: 300,
+                            y: 200,
+                            map: map(10001000, "射手村"),
+                        },
+                        OverviewStop {
+                            x: 320,
+                            y: 230,
+                            map: map(10001010, "射手训练场Ⅰ"),
+                        },
+                    ],
+                }],
+            }),
+            places: vec![
+                MobPlace {
+                    map: map(10001010, "射手训练场Ⅰ"),
+                    spawn_count: 4,
+                    steps: Some(1),
+                },
+                MobPlace {
+                    map: map(1, "远方"),
+                    spawn_count: 2,
+                    steps: None,
+                },
+            ],
+        },
+    };
+    let html = pages::route_page(&page, &zh()).into_string();
+    assert!(html.contains("射手村 → 最近的蜗牛：射手训练场Ⅰ"));
+    assert!(html.contains(r#"name="mob" value="蜗牛""#));
+    assert!(html.contains("polyline"), "the route over the world map");
+    assert!(html.contains("1 步 · 4 个刷怪点"));
+    assert!(html.contains("到不了 · 2 个刷怪点"));
+    assert!(
+        html.contains(r#"<a class="drow here""#),
+        "the nearest map stands out"
+    );
+}
+
+#[test]
+fn world_page_links_every_spot() {
+    let page = WorldPage {
+        regions: vec![WorldRegion {
+            id: "MapleIsland".into(),
+            names: Names::new("彩虹岛", "Maple Island"),
+            image_url: "/web/images/worldmap/maple-island.webp".into(),
+            width: 634,
+            height: 446,
+            spots: vec![WorldSpot {
+                key: "WorldMap000.img:7".into(),
+                x: 385,
+                y: 234,
+                kind: 3,
+                map: map(1000, "彩虹村西边草原"),
+                map_count: 1,
+                level_min: Some(1),
+                level_max: Some(8),
+            }],
+        }],
+        here: None,
+        here_spots: vec![],
+    };
+    let html = pages::world_page(&page, &zh()).into_string();
+    assert!(html.contains("<figcaption>彩虹岛</figcaption>"));
+    assert!(
+        html.contains(r#"href="/map/1000""#)
+            && html.contains("<title>彩虹村西边草原 · Lv.1–8</title>")
+    );
+    assert!(html.contains("marker-field.png"));
 }

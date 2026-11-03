@@ -64,6 +64,8 @@ pub struct ImportSummary {
     pub spawns: u64,
     /// Spawn points with positions (the map view).
     pub spawn_points: u64,
+    /// Spots on the world map.
+    pub world_spots: u64,
     pub drops: u64,
     /// Drops whose item is in `items` (and so gets a page).
     pub drops_in_catalog: i64,
@@ -118,6 +120,7 @@ pub async fn import(pool: &PgPool, input: &Input<'_>) -> Result<ImportSummary> {
     // deleted: market rows reference them.
     for sql in [
         "DELETE FROM map_portals WHERE source IN ('mapledex', 'niadb')",
+        "DELETE FROM world_regions",
         "DELETE FROM quests",
         "DELETE FROM npcs",
         "DELETE FROM mobs",
@@ -175,6 +178,27 @@ pub async fn import(pool: &PgPool, input: &Input<'_>) -> Result<ImportSummary> {
         &data.quest_needs,
     )
     .await?;
+    insert_json(
+        &mut tx,
+        "world_regions",
+        "id, ord, image_url, width, height",
+        &data.world_regions,
+    )
+    .await?;
+    let world_spots = insert_json(
+        &mut tx,
+        "world_spots",
+        "key, region_id, ord, x, y, kind, title_en, map_id",
+        &data.world_spots,
+    )
+    .await?;
+    insert_json(
+        &mut tx,
+        "world_spot_maps",
+        "spot_key, map_id",
+        &data.world_spot_maps,
+    )
+    .await?;
     let quests_unreleased: i64 = sqlx::query_scalar("SELECT count(*) FROM quests WHERE unreleased")
         .fetch_one(&mut *tx)
         .await?;
@@ -214,6 +238,7 @@ pub async fn import(pool: &PgPool, input: &Input<'_>) -> Result<ImportSummary> {
         maps_zh,
         spawns,
         spawn_points,
+        world_spots,
         drops,
         drops_in_catalog,
         drops_meso,
@@ -327,7 +352,8 @@ const MOB_COLUMNS: &str = "id, gms_id, link_id, name_en, name_zh, name_tw, level
 const MAP_COLUMNS: &str =
     "id, gms_id, name_en, name_zh, name_tw, street_en, street_zh, street_tw, \
     description, is_town, return_map_id, mob_rate, bgm, minimap_url, unreleased, \
-    minimap_w, minimap_h, minimap_cx, minimap_cy, spawn_x, spawn_y";
+    minimap_w, minimap_h, minimap_cx, minimap_cy, spawn_x, spawn_y, \
+    scene_url, scene_x, scene_y, scene_w, scene_h";
 const DROP_COLUMNS: &str = "mob_id, ord, item_id, gms_item_id, name_en, name_zh, name_tw, \
     meso_min, meso_max, rate_pct, quest_id, source, upvotes, downvotes";
 const QUEST_COLUMNS: &str = "id, name_en, name_zh, name_tw, npc_id, level_min, repeats, \

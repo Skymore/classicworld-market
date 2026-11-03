@@ -13,7 +13,7 @@ use serde::Deserialize;
 
 use super::assets::CSS;
 use super::dex_api;
-use super::model::{RouteEnd, RouteOutcome, RoutePage, Step};
+use super::model::{MobPlace, RouteEnd, RouteOutcome, RouteOverview, RoutePage, Step};
 use super::pages;
 use super::queries::{self, Resolution};
 use super::route::{EdgeKind, Graph, HENESYS};
@@ -50,6 +50,7 @@ pub fn routes() -> Router<AppState> {
         .route("/mob/{id}", get(mob))
         .route("/map/{id}", get(map))
         .route("/npc/{id}", get(npc))
+        .route("/world", get(world))
         .route("/route", get(route))
         .route("/search", get(search))
         .route("/static/bestiary.css", get(css))
@@ -295,6 +296,24 @@ async fn map_page(state: &AppState, id: i32) -> sqlx::Result<Option<super::model
     Ok(Some(page))
 }
 
+#[derive(Deserialize)]
+struct WorldParams {
+    /// A map to point at.
+    #[serde(default)]
+    map: String,
+}
+
+async fn world(
+    State(state): State<AppState>,
+    PageCtx(ctx): PageCtx,
+    Query(params): Query<WorldParams>,
+) -> Response {
+    match queries::world_page(&state.db, parse_id(&params.map)).await {
+        Ok(page) => html(StatusCode::OK, EDGE_CACHE, pages::world_page(&page, &ctx)),
+        Err(err) => server_error(err, &ctx),
+    }
+}
+
 async fn npc(
     State(state): State<AppState>,
     Path(raw): Path<String>,
@@ -318,6 +337,12 @@ struct RouteParams {
     from: String,
     #[serde(default)]
     to: String,
+    /// The monster finder: a monster name or id instead of `to`.
+    #[serde(default)]
+    mob: String,
+    /// `mob` shows the monster finder's form.
+    #[serde(default)]
+    mode: String,
 }
 
 async fn route(
@@ -327,20 +352,34 @@ async fn route(
 ) -> Response {
     let from = clip(&params.from);
     let to = clip(&params.to);
-    match route_page(&state, from, to).await {
-        Ok(page) => html(StatusCode::OK, EDGE_CACHE, pages::route_page(&page, &ctx)),
+    match route_page(&state, from, to, clip(&params.mob)).await {
+        Ok(mut page) => {
+            page.mob_mode |= params.mode == "mob";
+            html(StatusCode::OK, EDGE_CACHE, pages::route_page(&page, &ctx))
+        }
         Err(err) => server_error(err, &ctx),
     }
 }
 
-async fn route_page(state: &AppState, from_input: &str, to_input: &str) -> sqlx::Result<RoutePage> {
+async fn route_page(
+    state: &AppState,
+    from_input: &str,
+    to_input: &str,
+    mob_input: &str,
+) -> sqlx::Result<RoutePage> {
     let edges = queries::load_edges(&state.db).await?;
     let mut page = RoutePage {
         from_input: from_input.to_string(),
         to_input: to_input.to_string(),
+        mob_input: mob_input.to_string(),
+        mob_mode: !mob_input.is_empty(),
         known_edges: edges.len(),
         outcome: RouteOutcome::Form,
     };
+    if !mob_input.is_empty() {
+        page.outcome = mob_route(state, edges, from_input, mob_input).await?;
+        return Ok(page);
+    }
     if from_input.is_empty() && to_input.is_empty() {
         return Ok(page);
     }
@@ -366,27 +405,105 @@ async fn route_page(state: &AppState, from_input: &str, to_input: &str) -> sqlx:
     page.outcome = match graph.shortest_path(from.id, to.id) {
         None => RouteOutcome::NoPath { from, to },
         Some(path) => {
-            let mut ids: Vec<i32> = path.iter().flat_map(|e| [e.from, e.to]).collect();
-            ids.sort_unstable();
-            ids.dedup();
-            let names = queries::map_refs(&state.db, &ids).await?;
-            let mut steps: Vec<Step> = path
-                .iter()
-                .map(|e| Step {
-                    from: names[&e.from].clone(),
-                    to: names[&e.to].clone(),
-                    kind: e.kind,
-                    portal_name: e.portal_name.clone(),
-                    view: None,
-                    exit: None,
-                    arrival: None,
-                })
-                .collect();
-            step_views(&state.db, &mut steps).await?;
-            RouteOutcome::Found { from, to, steps }
+            let (steps, overview) = steps_of(&state.db, &from, &path).await?;
+            RouteOutcome::Found {
+                from,
+                to,
+                steps,
+                overview,
+            }
         }
     };
     Ok(page)
+}
+
+/// The monster finder: from the start (Henesys when empty) to the nearest
+/// open map where the monster spawns.
+async fn mob_route(
+    state: &AppState,
+    edges: Vec<super::route::Edge>,
+    from_input: &str,
+    mob_input: &str,
+) -> sqlx::Result<RouteOutcome> {
+    let from_input = if from_input.is_empty() {
+        HENESYS.to_string()
+    } else {
+        from_input.to_string()
+    };
+    let from = match resolve(state, &from_input, RouteEnd::From).await? {
+        Ok(map) => map,
+        Err(outcome) => return Ok(outcome),
+    };
+    let mob = match queries::resolve_mob(&state.db, mob_input).await? {
+        queries::MobResolution::One(mob) => mob,
+        queries::MobResolution::Many(candidates) => {
+            return Ok(RouteOutcome::MobUnresolved {
+                query: mob_input.to_string(),
+                candidates,
+            })
+        }
+    };
+    let spawn_maps = queries::mob_spawn_maps(&state.db, mob.id).await?;
+    let graph = Graph::new(edges);
+    let paths = graph.paths_from(from.id);
+    let Some(nearest) = paths.nearest(spawn_maps.iter().map(|(m, _)| m.id)) else {
+        return Ok(RouteOutcome::MobNoPath { from, mob });
+    };
+    let mut places: Vec<MobPlace> = spawn_maps
+        .into_iter()
+        .map(|(map, spawn_count)| MobPlace {
+            steps: paths.to(map.id).map(|p| p.len()),
+            map,
+            spawn_count,
+        })
+        .collect();
+    places.sort_by_key(|p| (p.steps.is_none(), p.steps, p.map.id));
+    let to = places
+        .iter()
+        .find(|p| p.map.id == nearest)
+        .map(|p| p.map.clone())
+        .expect("the nearest map is a spawn map");
+    let path = paths.to(nearest).unwrap_or_default();
+    let (steps, overview) = steps_of(&state.db, &from, &path).await?;
+    Ok(RouteOutcome::MobFound {
+        from,
+        mob,
+        to,
+        steps,
+        overview,
+        places,
+    })
+}
+
+/// The route's steps with their maps drawn, and the route over the world map.
+async fn steps_of(
+    db: &sqlx::PgPool,
+    from: &super::model::MapRef,
+    path: &[&super::route::Edge],
+) -> sqlx::Result<(Vec<Step>, Option<RouteOverview>)> {
+    let mut ids: Vec<i32> = path.iter().flat_map(|e| [e.from, e.to]).collect();
+    ids.push(from.id);
+    ids.sort_unstable();
+    ids.dedup();
+    let names = queries::map_refs(db, &ids).await?;
+    let mut steps: Vec<Step> = path
+        .iter()
+        .map(|e| Step {
+            from: names[&e.from].clone(),
+            to: names[&e.to].clone(),
+            kind: e.kind,
+            portal_name: e.portal_name.clone(),
+            view: None,
+            exit: None,
+            arrival: None,
+        })
+        .collect();
+    step_views(db, &mut steps).await?;
+    let stops: Vec<super::model::MapRef> = std::iter::once(from.clone())
+        .chain(steps.iter().map(|s| s.to.clone()))
+        .collect();
+    let overview = queries::route_overview(db, &stops).await?;
+    Ok((steps, overview))
 }
 
 /// Each step's map with the portal to take and where the player stands
@@ -608,14 +725,34 @@ async fn catalog_page(
             "search", &headers,
         );
     }
+    if path == "/world" {
+        let Ok(Query(params)) = Query::<WorldParams>::try_from_uri(&uri) else {
+            return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_query"}));
+        };
+        return loaded(
+            queries::world_page(&state.db, parse_id(&params.map))
+                .await
+                .map(Some),
+            "world",
+            &headers,
+        );
+    }
     if path == "/route" {
         let Ok(Query(params)) = Query::<RouteParams>::try_from_uri(&uri) else {
             return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_query"}));
         };
         return loaded(
-            route_page(&state, clip(&params.from), clip(&params.to))
-                .await
-                .map(Some),
+            route_page(
+                &state,
+                clip(&params.from),
+                clip(&params.to),
+                clip(&params.mob),
+            )
+            .await
+            .map(|mut page| {
+                page.mob_mode |= params.mode == "mob";
+                Some(page)
+            }),
             "route", &headers,
         );
     }

@@ -5,6 +5,7 @@ use maud::{html, Markup, PreEscaped};
 
 use super::mapview::{map_svg, mob_legend, Marks};
 use super::shell::{icon, layout, Ctx, Icon, Nav, Page};
+use super::worldmap::{route_overview, world_body};
 use super::{mob_image_url, mob_pic, mob_picture_url, slot};
 use crate::bestiary::format::{grouped, meso, Lang};
 use crate::bestiary::model::*;
@@ -155,6 +156,13 @@ pub fn mob_page(page: &MobPage, ctx: &Ctx) -> Markup {
                     }
                 }
             }
+            @if !page.spawns.is_empty() {
+                div.actions {
+                    a.btn.primary href=(ctx.href(&format!("/route?from={HENESYS}&mob={}", mob.id))) {
+                        (ctx.t("从射手村去最近的刷怪地图", "Nearest spawn map from Henesys"))
+                    }
+                }
+            }
             dl.stats {
                 @for (zh, en, value) in &stats { div { dt { (lang.t(zh, en)) } dd { (value) } } }
             }
@@ -292,6 +300,9 @@ pub fn map_page(page: &MapPage, ctx: &Ctx) -> Markup {
                 }
                 @if let Some(r) = &page.return_map {
                     a.btn href=(ctx.href(&format!("/map/{}", r.id))) { span { (ctx.t("回城点：", "Return town: ")) (r.names.get(lang)) (super::secondary_name(&r.names, lang)) } }
+                }
+                @if page.on_world_map {
+                    a.btn href=(ctx.href(&format!("/world?map={}", map.id))) { (ctx.t("在世界地图上看", "On the world map")) }
                 }
             }
             @if let Some(path) = &page.from_henesys { (henesys_strip(ctx, path, &route_href)) }
@@ -463,20 +474,37 @@ fn link_row(ctx: &Ctx, link: &Link) -> Markup {
 // ---------- route ----------
 
 pub fn route_page(page: &RoutePage, ctx: &Ctx) -> Markup {
+    let map_tab = route_href(&page.from_input, &page.to_input);
+    let mob_tab = format!("/route?mode=mob&from={}", url_encode(&page.from_input));
     let body = html! {
         section.stall {
             (bar(ctx.t("怎么走", "Route"), None))
+            nav.route-tabs aria-label=(ctx.t("寻路方式", "Route mode")) {
+                a.on[!page.mob_mode] href=(ctx.href(&map_tab)) { (ctx.t("去地图", "To a map")) }
+                a.on[page.mob_mode] href=(ctx.href(&mob_tab)) { (ctx.t("找怪物", "Find a monster")) }
+                a href=(ctx.href("/world")) { (ctx.t("世界地图", "World map")) }
+            }
             form.route-form action="/route" method="get" {
                 label.field {
                     span { (ctx.t("出发", "From")) }
-                    input type="text" name="from" value=(page.from_input) placeholder=(ctx.t("地图名或 ID", "map name or id")) autocomplete="off";
+                    input type="text" name="from" value=(page.from_input) placeholder=(ctx.t("地图名或 ID（默认射手村）", "map name or id (Henesys)")) autocomplete="off";
                 }
-                label.field {
-                    span { (ctx.t("目的地", "To")) }
-                    input type="text" name="to" value=(page.to_input) placeholder=(ctx.t("地图名或 ID", "map name or id")) autocomplete="off";
+                @if page.mob_mode {
+                    label.field {
+                        span { (ctx.t("怪物", "Monster")) }
+                        input type="text" name="mob" value=(page.mob_input) placeholder=(ctx.t("怪物名或 ID", "monster name or id")) autocomplete="off";
+                    }
+                    input type="hidden" name="mode" value="mob";
+                } @else {
+                    label.field {
+                        span { (ctx.t("目的地", "To")) }
+                        input type="text" name="to" value=(page.to_input) placeholder=(ctx.t("地图名或 ID", "map name or id")) autocomplete="off";
+                    }
                 }
                 @if ctx.lang == Lang::En { input type="hidden" name="lang" value="en"; }
-                button.btn.primary type="submit" { (ctx.t("查路线", "Find route")) }
+                button.btn.primary type="submit" {
+                    @if page.mob_mode { (ctx.t("找最近的地图", "Find the nearest map")) } @else { (ctx.t("查路线", "Find route")) }
+                }
             }
             div.dbody { (route_outcome(page, ctx)) }
         }
@@ -484,9 +512,41 @@ pub fn route_page(page: &RoutePage, ctx: &Ctx) -> Markup {
     dex_page(ctx, ctx.t("怎么走", "Route"), "", body)
 }
 
+fn steps_list(ctx: &Ctx, steps: &[Step]) -> Markup {
+    let lang = ctx.lang;
+    html! {
+        ol.steps {
+            @for (i, step) in steps.iter().enumerate() {
+                li.step.scroll[step.kind == EdgeKind::Return] {
+                    a href=(ctx.href(&format!("/map/{}", step.to.id))) {
+                        span.no { (i + 1) }
+                        span.t {
+                            b { (step.from.names.get(lang)) " → " (step.to.names.get(lang)) }
+                            @if step.from.names.secondary(lang).is_some() || step.to.names.secondary(lang).is_some() {
+                                span.name-secondary { (step.from.names.get(lang.other())) " → " (step.to.names.get(lang.other())) }
+                            }
+                            span.s { (step_hint(ctx, step)) }
+                        }
+                        @if step.kind == EdgeKind::Return { span.kind { (ctx.t("回城卷轴", "scroll")) } }
+                    }
+                    @if let (Some(view), true) = (&step.view, step.exit.is_some() || step.kind != EdgeKind::Portal) {
+                        figure.mapvis.step-map {
+                            (map_svg(ctx, view, step.from.names.get(lang), &Marks { exit: step.exit, arrival: step.arrival, ..Marks::default() }))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
     let lang = ctx.lang;
     match &page.outcome {
+        RouteOutcome::Form if page.mob_mode => empty(ctx.t(
+            "输入怪物名（中文或英文）或怪物 ID，找出离出发地最近的刷怪地图。",
+            "Enter a monster name (Chinese or English) or id to find the nearest map where it spawns.",
+        )),
         RouteOutcome::Form => empty(ctx.t(
             "输入出发和目的地的地图名（中文或英文）或地图 ID。",
             "Enter the start and destination map names (Chinese or English) or map ids.",
@@ -512,9 +572,10 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
                 section.well {
                     (well_head(&title, None))
                     @for c in candidates {
-                        @let href = match end {
-                            RouteEnd::From => route_href(&c.id.to_string(), &page.to_input),
-                            RouteEnd::To => route_href(&page.from_input, &c.id.to_string()),
+                        @let href = match (end, page.mob_mode) {
+                            (RouteEnd::From, true) => format!("/route?from={}&mob={}", c.id, url_encode(&page.mob_input)),
+                            (RouteEnd::From, false) => route_href(&c.id.to_string(), &page.to_input),
+                            (RouteEnd::To, _) => route_href(&page.from_input, &c.id.to_string()),
                         };
                         a.drow href=(ctx.href(&href)) { (map_glyph()) span.t { b { (c.names.get(lang)) } (super::secondary_name(&c.names, lang)) span.s { "ID " (c.id) } } }
                     }
@@ -535,37 +596,106 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
                 (map_row(ctx, to, Some(ctx.t("目的地", "destination").to_string()), None))
             }
         },
-        RouteOutcome::Found { from, to, steps } => html! {
+        RouteOutcome::Found { from, to, steps, overview } => html! {
             section.well {
                 (well_head(
                     &format!("{} → {}", from.names.get(lang), to.names.get(lang)),
                     Some(n_of(ctx, steps.len(), "步", "steps")),
                 ))
-                ol.steps {
-                    @for (i, step) in steps.iter().enumerate() {
-                        li.step.scroll[step.kind == EdgeKind::Return] {
-                            a href=(ctx.href(&format!("/map/{}", step.to.id))) {
-                                span.no { (i + 1) }
-                                span.t {
-                                    b { (step.from.names.get(lang)) " → " (step.to.names.get(lang)) }
-                                    @if step.from.names.secondary(lang).is_some() || step.to.names.secondary(lang).is_some() {
-                                        span.name-secondary { (step.from.names.get(lang.other())) " → " (step.to.names.get(lang.other())) }
-                                    }
-                                    span.s { (step_hint(ctx, step)) }
-                                }
-                                @if step.kind == EdgeKind::Return { span.kind { (ctx.t("回城卷轴", "scroll")) } }
-                            }
-                            @if let (Some(view), true) = (&step.view, step.exit.is_some() || step.kind != EdgeKind::Portal) {
-                                figure.mapvis.step-map {
-                                    (map_svg(ctx, view, step.from.names.get(lang), &Marks { exit: step.exit, arrival: step.arrival, ..Marks::default() }))
-                                }
-                            }
+                @if let Some(o) = overview { (route_overview(ctx, o)) }
+                (steps_list(ctx, steps))
+            }
+        },
+        RouteOutcome::MobUnresolved { query, candidates } => {
+            let title = match (candidates.is_empty(), lang) {
+                (true, Lang::Zh) => format!("没有找到怪物「{query}」"),
+                (true, Lang::En) => format!("No monster matches “{query}”"),
+                (false, Lang::Zh) => format!("「{query}」有多只怪物，选一只"),
+                (false, Lang::En) => format!("Several monsters match “{query}”; pick one"),
+            };
+            html! {
+                section.well {
+                    (well_head(&title, None))
+                    @for mob in candidates {
+                        @let href = format!("/route?from={}&mob={}", url_encode(&page.from_input), mob.id);
+                        a.drow href=(ctx.href(&href)) {
+                            (super::mob_pic(mob.id, mob.image_id))
+                            span.t { b { (mob.names.get(lang)) } (level(mob.level)) (super::secondary_name(&mob.names, lang)) }
                         }
+                    }
+                }
+            }
+        }
+        RouteOutcome::MobNoPath { from, mob } => html! {
+            section.well {
+                (well_head(ctx.t("暂时查不到路线", "No route found yet"), None))
+                (empty(&match lang {
+                    Lang::Zh => format!("从{}到不了有{}的开放地图。", from.names.get(lang), mob.names.get(lang)),
+                    Lang::En => format!("No open map with {} can be reached from {}.", mob.names.get(lang), from.names.get(lang)),
+                }))
+                (mob_row(ctx, mob, None, None))
+            }
+        },
+        RouteOutcome::MobFound { from, mob, to, steps, overview, places } => html! {
+            section.well {
+                (well_head(
+                    &match lang {
+                        Lang::Zh => format!("{} → 最近的{}：{}", from.names.get(lang), mob.names.get(lang), to.names.get(lang)),
+                        Lang::En => format!("{} → nearest {}: {}", from.names.get(lang), mob.names.get(lang), to.names.get(lang)),
+                    },
+                    Some(n_of(ctx, steps.len(), "步", "steps")),
+                ))
+                @if steps.is_empty() {
+                    (empty(&match lang {
+                        Lang::Zh => format!("{}就在出发地图上。", mob.names.get(lang)),
+                        Lang::En => format!("{} spawns right on the start map.", mob.names.get(lang)),
+                    }))
+                }
+                @if let Some(o) = overview { (route_overview(ctx, o)) }
+                (steps_list(ctx, steps))
+            }
+            section.well {
+                (well_head(
+                    &match lang {
+                        Lang::Zh => format!("{}的刷怪地图", mob.names.get(lang)),
+                        Lang::En => format!("Where {} spawns", mob.names.get(lang)),
+                    },
+                    Some(n_of(ctx, places.len(), "张", "maps")),
+                ))
+                @for place in places {
+                    @let right = match (place.steps, lang) {
+                        (Some(n), Lang::Zh) => format!("{n} 步 · {}", spawn_points(lang, place.spawn_count)),
+                        (Some(n), Lang::En) => format!("{n} steps · {}", spawn_points(lang, place.spawn_count)),
+                        (None, _) => format!("{} · {}", ctx.t("到不了", "unreachable"), spawn_points(lang, place.spawn_count)),
+                    };
+                    a.drow.here[place.map.id == to.id] href=(ctx.href(&route_href(&from.id.to_string(), &place.map.id.to_string()))) {
+                        (map_glyph())
+                        span.t { b { (place.map.names.get(lang)) } (super::secondary_name(&place.map.names, lang)) }
+                        span.r { (right) }
                     }
                 }
             }
         },
     }
+}
+
+// ---------- world map ----------
+
+pub fn world_page(page: &WorldPage, ctx: &Ctx) -> Markup {
+    let title = ctx.t("世界地图", "World map");
+    let body = html! {
+        (crumb(ctx, title))
+        section.stall {
+            (bar(title, None))
+            nav.route-tabs aria-label=(ctx.t("寻路方式", "Route mode")) {
+                a href=(ctx.href("/route")) { (ctx.t("去地图", "To a map")) }
+                a href=(ctx.href("/route?mode=mob")) { (ctx.t("找怪物", "Find a monster")) }
+                a.on href=(ctx.href("/world")) { (ctx.t("世界地图", "World map")) }
+            }
+            (world_body(ctx, page))
+        }
+    };
+    dex_page(ctx, title, "", body)
 }
 
 /// What to do on this step, pointing at the minimap when the portal is marked.

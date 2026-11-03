@@ -20,6 +20,7 @@ pub mod quests;
 pub mod regions;
 pub mod route;
 pub mod rows;
+pub mod worldmap;
 pub mod wz;
 
 pub use http::routes;

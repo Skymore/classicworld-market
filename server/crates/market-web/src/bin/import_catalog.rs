@@ -144,6 +144,7 @@ async fn main() -> Result<()> {
         "spawns   {:>5}  NiaDB ({} spawn points with positions, for the map view)",
         s.spawns, s.spawn_points
     );
+    println!("world    {:>5}  world map spots (NiaDB)", s.world_spots);
     println!(
         "drops    {:>5}  NiaDB: {} items with more up than down votes ({} in the catalogue; {} \
          reports left out), {} meso ranges ({} mobs whose reports NiaDB does not trust yet)",

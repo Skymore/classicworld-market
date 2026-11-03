@@ -75,6 +75,7 @@ fn page_path(value: &str) -> Option<String> {
         "/agent",
         "/search",
         "/route",
+        "/world",
         "/collect",
         "/web/download.html",
     ]

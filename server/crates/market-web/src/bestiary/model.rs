@@ -371,6 +371,8 @@ pub struct MapPage {
     pub quests_hunted: Vec<QuestHunt>,
     /// The maps from Henesys to here (both ends included), when there is a way.
     pub from_henesys: Option<Vec<MapRef>>,
+    /// The map has a spot on the world map (`/world?map=<id>`).
+    pub on_world_map: bool,
 }
 
 /// A quest that asks to defeat a monster found on the map.
@@ -394,11 +396,23 @@ pub struct MapView {
     /// A mob icon's side in box units (24 px when shown at full size).
     pub icon: i32,
     pub image_url: Option<String>,
+    /// The rendered scene, drawn instead of the minimap when present.
+    pub scene: Option<SceneImage>,
     pub spawns: Vec<SpawnPoint>,
     pub portals: Vec<PortalPoint>,
     pub npcs: Vec<NpcPoint>,
     /// Where a player arrives without a portal.
     pub player_spawn: Option<Point>,
+}
+
+/// A scene picture and where it sits in the view's box (it may reach past it).
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SceneImage {
+    pub url: String,
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
@@ -431,6 +445,86 @@ pub struct NpcPoint {
     pub npc: NpcRef,
     pub x: i32,
     pub y: i32,
+}
+
+// ---------- world map ----------
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WorldPage {
+    pub regions: Vec<WorldRegion>,
+    /// The map asked for (`?map=`) and the spots that cover it.
+    pub here: Option<MapRef>,
+    pub here_spots: Vec<String>,
+}
+
+/// A region picture of the client's world map, in its own pixels.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WorldRegion {
+    pub id: String,
+    pub names: Names,
+    pub image_url: String,
+    pub width: i32,
+    pub height: i32,
+    pub spots: Vec<WorldSpot>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WorldSpot {
+    pub key: String,
+    pub x: i32,
+    pub y: i32,
+    /// 0 town, 1 spot, 2 cluster, 3 field, 4 facility (the marker sprite).
+    pub kind: i16,
+    /// The map the spot is named after and links to.
+    pub map: MapRef,
+    /// Open maps the spot covers.
+    pub map_count: i64,
+    /// Levels of the monsters on those maps.
+    pub level_min: Option<i16>,
+    pub level_max: Option<i16>,
+}
+
+/// A route drawn over the world map: per region, the spots it passes in order.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RouteOverview {
+    pub regions: Vec<OverviewRegion>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OverviewRegion {
+    pub id: String,
+    pub names: Names,
+    pub image_url: String,
+    pub width: i32,
+    pub height: i32,
+    pub stops: Vec<OverviewStop>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OverviewStop {
+    pub x: i32,
+    pub y: i32,
+    pub map: MapRef,
+}
+
+/// One map a monster spawns on, for the monster finder.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MobPlace {
+    pub map: MapRef,
+    pub spawn_count: i16,
+    /// Steps from the start; `None` when no known route reaches it.
+    pub steps: Option<usize>,
+}
+
+/// The world map region's name in both languages.
+pub fn region_names(id: &str) -> Names {
+    match id {
+        "MapleIsland" => Names::new("彩虹岛", "Maple Island"),
+        "VictoriaIsland" => Names::new("金银岛", "Victoria Island"),
+        "OssyriaElNathMts" => Names::new("冰峰雪域山脉", "El Nath Mountains"),
+        "OssyriaDeadMine" => Names::new("废矿区", "Dead Mine"),
+        other => Names::new(other, other),
+    }
 }
 
 // ---------- NPC ----------
@@ -492,6 +586,10 @@ pub struct Link {
 pub struct RoutePage {
     pub from_input: String,
     pub to_input: String,
+    /// The monster finder: a monster name or id instead of a destination.
+    pub mob_input: String,
+    /// Show the monster finder's form (`mode=mob` or a monster given).
+    pub mob_mode: bool,
     pub known_edges: usize,
     pub outcome: RouteOutcome,
 }
@@ -521,6 +619,27 @@ pub enum RouteOutcome {
         from: MapRef,
         to: MapRef,
         steps: Vec<Step>,
+        overview: Option<RouteOverview>,
+    },
+    /// The monster finder could not name exactly one monster.
+    MobUnresolved {
+        query: String,
+        candidates: Vec<MobRef>,
+    },
+    /// No open map with this monster can be reached from the start.
+    MobNoPath {
+        from: MapRef,
+        mob: MobRef,
+    },
+    /// The way to the nearest map where the monster spawns (`steps` is empty
+    /// when the start is one), and every map it spawns on by distance.
+    MobFound {
+        from: MapRef,
+        mob: MobRef,
+        to: MapRef,
+        steps: Vec<Step>,
+        overview: Option<RouteOverview>,
+        places: Vec<MobPlace>,
     },
 }
 

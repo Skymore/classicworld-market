@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use super::rows::{
     DropRow, MapNpcRow, MapRow, MobRow, NpcRow, PortalRow, QuestNeedRow, QuestRewardRow, QuestRow,
-    SpawnPointRow, SpawnRow,
+    SpawnPointRow, SpawnRow, WorldRegionRow, WorldSpotMapRow, WorldSpotRow,
 };
 
 pub const DEFAULT_VERSION: &str = "CW GMS_COT2_2026-08-11";
@@ -129,6 +129,10 @@ pub struct Dataset {
     pub quests: Vec<QuestRow>,
     pub quest_rewards: Vec<QuestRewardRow>,
     pub quest_needs: Vec<QuestNeedRow>,
+    /// The world map (`worldmap::add_map_pictures_dir`).
+    pub world_regions: Vec<WorldRegionRow>,
+    pub world_spots: Vec<WorldSpotRow>,
+    pub world_spot_maps: Vec<WorldSpotMapRow>,
     pub warnings: Vec<String>,
 }
 
@@ -300,6 +304,11 @@ impl Dataset {
                 minimap_cy: None,
                 spawn_x: None,
                 spawn_y: None,
+                scene_url: None,
+                scene_x: None,
+                scene_y: None,
+                scene_w: None,
+                scene_h: None,
             });
             self.add_spawns(map, &mob_ids);
             for npc_id in map.npcs.iter().copied().collect::<BTreeSet<_>>() {
@@ -616,6 +625,11 @@ impl Dataset {
                 minimap_cy: None,
                 spawn_x: None,
                 spawn_y: None,
+                scene_url: None,
+                scene_x: None,
+                scene_y: None,
+                scene_w: None,
+                scene_h: None,
             });
             counts.maps += 1;
             counts.spawns += self.add_nia_spawns(id, &map.monsters, &mob_ids);
@@ -933,26 +947,31 @@ pub struct NiaBestiaryCounts {
     pub mesos: usize,
     /// Mobs with meso reports NiaDB does not trust yet, left out.
     pub mesos_untrusted: usize,
+    /// The world map and the map scenes.
+    pub pictures: super::worldmap::MapPictureCounts,
 }
 
 impl Dataset {
     /// Everything `import_catalog` takes from a NiaDB directory: `add_niadb`
     /// (`maps.json`, `npc-shops.json`) and the bestiary (`monsters.json`,
     /// `maps.json`, `drops.json`, `mesos.json`). `today` decides which areas in
-    /// `OPENS_LATER` are open.
+    /// `OPENS_LATER` are open. Adds the world map and map scenes too
+    /// (`add_map_pictures_dir`).
     pub fn add_niadb_bestiary_dir(
         &mut self,
         dir: &Path,
         today: NaiveDate,
     ) -> Result<(NiaDbCounts, NiaBestiaryCounts)> {
-        self.add_niadb_bestiary(
+        let (added, mut counts) = self.add_niadb_bestiary(
             &read(dir, "monsters.json")?,
             &read(dir, "maps.json")?,
             &read(dir, "npc-shops.json")?,
             &read(dir, "drops.json")?,
             &read(dir, "mesos.json")?,
             today,
-        )
+        )?;
+        counts.pictures = self.add_map_pictures_dir(dir)?;
+        Ok((added, counts))
     }
 
     /// Makes NiaDB the source of what exists: its mobs with their launch stats

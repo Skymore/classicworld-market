@@ -22,7 +22,7 @@ use market_web::{
             Dataset, DvgMobCounts, DvgMobs, NiaBestiaryCounts, NiaDbCounts, ZhNameCounts, ZhNames,
             ZhSourceCounts,
         },
-        model::{DropTarget, SearchKind},
+        model::{DropTarget, MapRef, SceneImage, SearchKind},
         queries,
         quests::{DvgQuests, QuestCounts},
         rows::ItemRow,
@@ -1043,6 +1043,55 @@ async fn map_views_quests_and_npc_pages_come_from_the_import() {
     assert!(queries::map_page(pool, 80003500).await.unwrap().is_none());
     assert!(queries::mob_page(pool, 810000).await.unwrap().is_none());
     assert!(queries::npc_page(pool, 999_999).await.unwrap().is_none());
+
+    // Scenes: the picture covers the minimap box (NiaDB's terrain view).
+    let scene = view_scene(pool, 1000).await;
+    if let Some(scene) = scene {
+        assert_eq!((scene.x, scene.y, scene.width, scene.height), (0, 0, 3928, 2050));
+    }
+
+    // The world map: Maple Island and Victoria Island; Ossyria and
+    // Forgotten Hollow are not open.
+    let world = queries::world_page(pool, Some(10001001)).await.unwrap();
+    let ids: Vec<&str> = world.regions.iter().map(|r| r.id.as_str()).collect();
+    assert_eq!(ids, ["MapleIsland", "VictoriaIsland"]);
+    let victoria = &world.regions[1];
+    assert!(victoria.spots.iter().all(|s| s.map.id != 10006000), "Forgotten Hollow");
+    let henesys = victoria.spots.iter().find(|s| s.map.id == 10001000).unwrap();
+    assert_eq!(henesys.kind, 0, "a town marker");
+    assert_eq!(henesys.map.names.zh, "射手村");
+    assert!(henesys.map_count > 10, "Henesys and its shops and houses");
+    assert_eq!(world.here.as_ref().map(|m| m.id), Some(10001001));
+    assert_eq!(world.here_spots, vec![henesys.key.clone()], "Henesys Townstreet is on Henesys's spot");
+    assert!(queries::map_page(pool, 10001000).await.unwrap().unwrap().on_world_map);
+
+    let path = vec![
+        MapRef::new(10001000, "射手村", "Henesys"),
+        MapRef::new(10001010, "射手训练场Ⅰ", "Henesys Hunting Ground I"),
+        MapRef::new(10001011, "x", "x"),
+    ];
+    let overview = queries::route_overview(pool, &path).await.unwrap().unwrap();
+    assert_eq!(overview.regions.len(), 1);
+    assert!(overview.regions[0].stops.len() >= 2);
+
+    // The monster finder's lookups.
+    let one = |r: queries::MobResolution| match r {
+        queries::MobResolution::One(m) => Some(m.id),
+        queries::MobResolution::Many(_) => None,
+    };
+    assert_eq!(one(queries::resolve_mob(pool, "4").await.unwrap()), Some(4));
+    assert_eq!(one(queries::resolve_mob(pool, "蓝蜗牛").await.unwrap()), Some(3));
+    assert_eq!(one(queries::resolve_mob(pool, "orange mushroom").await.unwrap()), Some(9));
+    assert!(one(queries::resolve_mob(pool, "蜗").await.unwrap()).is_none(), "several snails");
+    assert!(!queries::mob_spawn_maps(pool, 4).await.unwrap().is_empty());
+}
+
+async fn view_scene(pool: &sqlx::PgPool, map: i32) -> Option<SceneImage> {
+    queries::map_view(pool, map, queries::Layers::ALL)
+        .await
+        .unwrap()
+        .unwrap()
+        .scene
 }
 
 #[tokio::test]

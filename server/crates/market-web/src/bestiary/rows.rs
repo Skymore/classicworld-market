@@ -69,6 +69,12 @@ pub struct MapRow {
     /// Where a player arrives without a portal.
     pub spawn_x: Option<i32>,
     pub spawn_y: Option<i32>,
+    /// The rendered scene and the world rectangle it covers (migration 0041).
+    pub scene_url: Option<String>,
+    pub scene_x: Option<i32>,
+    pub scene_y: Option<i32>,
+    pub scene_w: Option<i32>,
+    pub scene_h: Option<i32>,
 }
 
 /// One monster spawn point (`map_spawn_points`).
@@ -175,4 +181,34 @@ pub struct QuestNeedRow {
     pub item_id: Option<i32>,
     pub mob_id: Option<i32>,
     pub quantity: i32,
+}
+
+/// A world map region (`world_regions`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct WorldRegionRow {
+    pub id: String,
+    pub ord: i16,
+    pub image_url: String,
+    pub width: i32,
+    pub height: i32,
+}
+
+/// A spot on a region's picture (`world_spots`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct WorldSpotRow {
+    pub key: String,
+    pub region_id: String,
+    pub ord: i16,
+    pub x: i32,
+    pub y: i32,
+    pub kind: i16,
+    pub title_en: String,
+    pub map_id: i32,
+}
+
+/// A map a world map spot covers (`world_spot_maps`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct WorldSpotMapRow {
+    pub spot_key: String,
+    pub map_id: i32,
 }

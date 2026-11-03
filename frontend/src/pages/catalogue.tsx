@@ -16,6 +16,7 @@ import { useUserValue } from "../lib/live";
 import { useProvidePageContext } from "../lib/assistant";
 import { normalizeOfferFilters } from "/web/js/lib/item-offer-filters.js?v=20261029-critical-1";
 import { MapSvg, MapViewPanel } from "./mapview";
+import { RouteOverview, WorldBody } from "./worldmap";
 export function useNames() {
   const { language } = usePreferences();
   return (names: any) =>
@@ -192,6 +193,13 @@ function Mob({ page }: { page: any }) {
             </div>
           </div>
         </div>
+        {page.spawns.length > 0 && (
+          <div className="actions">
+            <a className="btn primary" href={"/route?from=10001000&mob=" + mob.id}>
+              {words("从射手村去最近的刷怪地图", "Nearest spawn map from Henesys")}
+            </a>
+          </div>
+        )}
         <dl className="stats">
           {stats.map(([key, zh, en]) => (
             <div key={key}>
@@ -481,6 +489,11 @@ function MapPage({ page }: { page: any }) {
                 {name(page.return_map.names)}
                 <Secondary names={page.return_map.names} />
               </span>
+            </a>
+          )}
+          {page.on_world_map && (
+            <a className="btn" href={"/world?map=" + map.id}>
+              {words("在世界地图上看", "On the world map")}
             </a>
           )}
         </div>
@@ -787,35 +800,82 @@ function NpcPage({ page }: { page: any }) {
     </>
   );
 }
+function Steps({ steps }: { steps: any[] }) {
+  const words = useWords(),
+    name = useNames();
+  return (
+    <ol className="steps">
+      {steps.map((step: any, i: number) => (
+        <li className={"step " + (step.kind === "return" ? "scroll" : "")} key={i}>
+          <a href={"/map/" + step.to.id}>
+            <span className="no">{i + 1}</span>
+            <span className="t">
+              <b>
+                {name(step.from.names)} → {name(step.to.names)}
+              </b>
+              <span className="name-secondary">
+                {words(step.from.names.en, step.from.names.zh)} →{" "}
+                {words(step.to.names.en, step.to.names.zh)}
+              </span>
+              <span className="s">
+                {step.kind === "portal" && step.exit ? (
+                  words("走小地图上圈出的传送口", "take the circled portal on the minimap")
+                ) : (
+                  <Edge kind={step.kind} portal={step.portal_name} />
+                )}
+              </span>
+            </span>
+            {step.kind === "return" && <span className="kind">{words("回城卷轴", "scroll")}</span>}
+          </a>
+          {step.view && (step.exit || step.kind !== "portal") && (
+            <figure className="mapvis step-map">
+              <MapSvg view={step.view} title={name(step.from.names)} exit={step.exit} arrival={step.arrival} />
+            </figure>
+          )}
+        </li>
+      ))}
+    </ol>
+  );
+}
 function RoutePage({ page }: { page: any }) {
   const words = useWords(),
     name = useNames(),
     navigate = useNavigate();
   const result = page.outcome;
+  const mobMode = !!page.mob_mode;
   // Show the found maps by name, not by the ids in the address; an unchanged
   // field still submits the original input so the same maps are used.
   const shown = (input: string, map: any) => (map ? name(map.names) : input);
-  const fromShown = shown(page.from_input, result.Found?.from),
-    toShown = shown(page.to_input, result.Found?.to);
+  const found = result.Found,
+    mobFound = result.MobFound,
+    unresolved = result.Unresolved,
+    noPath = result.NoPath;
+  const fromShown = shown(page.from_input, found?.from || mobFound?.from),
+    toShown = shown(page.to_input, found?.to),
+    mobShown = mobFound ? name(mobFound.mob.names) : page.mob_input || "";
   const [from, setFrom] = useState(fromShown),
-    [to, setTo] = useState(toShown);
+    [to, setTo] = useState(toShown),
+    [mob, setMob] = useState(mobShown);
   useEffect(() => {
     setFrom(fromShown);
     setTo(toShown);
-  }, [fromShown, toShown]);
+    setMob(mobShown);
+  }, [fromShown, toShown, mobShown]);
+  const route = (from: string, to: string) => "/route?" + new URLSearchParams({ from, to });
+  const mobRoute = (from: string, mob: string) => "/route?" + new URLSearchParams({ from, mob });
   let body: ReactNode;
-  const found = result.Found,
-    unresolved = result.Unresolved,
-    noPath = result.NoPath;
-  const route = (from: string, to: string) =>
-    "/route?" + new URLSearchParams({ from, to });
   if (result === "Form")
     body = (
       <p className="note">
-        {words(
-          "输入出发和目的地的地图名（中文或英文）或地图 ID。",
-          "Enter the start and destination map names (Chinese or English) or map ids.",
-        )}
+        {mobMode
+          ? words(
+              "输入怪物名（中文或英文）或怪物 ID，找出离出发地最近的刷怪地图。",
+              "Enter a monster name (Chinese or English) or id to find the nearest map where it spawns.",
+            )
+          : words(
+              "输入出发和目的地的地图名（中文或英文）或地图 ID。",
+              "Enter the start and destination map names (Chinese or English) or map ids.",
+            )}
       </p>
     );
   else if (found)
@@ -824,60 +884,98 @@ function RoutePage({ page }: { page: any }) {
         title={`${name(found.from.names)} → ${name(found.to.names)}`}
         note={words(`${found.steps.length} 步`, `${found.steps.length} steps`)}
       >
-        <ol className="steps">
-          {found.steps.map((step: any, i: number) => (
-            <li
-              className={"step " + (step.kind === "return" ? "scroll" : "")}
-              key={i}
-            >
-              <a href={"/map/" + step.to.id}>
-                <span className="no">{i + 1}</span>
-                <span className="t">
-                  <b>
-                    {name(step.from.names)} → {name(step.to.names)}
-                  </b>
-                  <span className="name-secondary">
-                    {words(step.from.names.en, step.from.names.zh)} →{" "}
-                    {words(step.to.names.en, step.to.names.zh)}
-                  </span>
-                  <span className="s">
-                    {step.kind === "portal" && step.exit ? (
-                      words(
-                        "走小地图上圈出的传送口",
-                        "take the circled portal on the minimap",
-                      )
-                    ) : (
-                      <Edge kind={step.kind} portal={step.portal_name} />
-                    )}
-                  </span>
-                </span>
-                {step.kind === "return" && (
-                  <span className="kind">{words("回城卷轴", "scroll")}</span>
-                )}
-              </a>
-              {step.view && (step.exit || step.kind !== "portal") && (
-                <figure className="mapvis step-map">
-                  <MapSvg
-                    view={step.view}
-                    title={name(step.from.names)}
-                    exit={step.exit}
-                    arrival={step.arrival}
-                  />
-                </figure>
-              )}
-            </li>
-          ))}
-        </ol>
+        {found.overview && <RouteOverview overview={found.overview} />}
+        <Steps steps={found.steps} />
       </Well>
     );
-  else if (result.Same)
+  else if (mobFound)
+    body = (
+      <>
+        <Well
+          title={words(
+            `${name(mobFound.from.names)} → 最近的${name(mobFound.mob.names)}：${name(mobFound.to.names)}`,
+            `${name(mobFound.from.names)} → nearest ${name(mobFound.mob.names)}: ${name(mobFound.to.names)}`,
+          )}
+          note={words(`${mobFound.steps.length} 步`, `${mobFound.steps.length} steps`)}
+        >
+          {!mobFound.steps.length && (
+            <p className="note">
+              {words(
+                `${name(mobFound.mob.names)}就在出发地图上。`,
+                `${name(mobFound.mob.names)} spawns right on the start map.`,
+              )}
+            </p>
+          )}
+          {mobFound.overview && <RouteOverview overview={mobFound.overview} />}
+          <Steps steps={mobFound.steps} />
+        </Well>
+        <Well
+          title={words(`${name(mobFound.mob.names)}的刷怪地图`, `Where ${name(mobFound.mob.names)} spawns`)}
+          note={words(`${mobFound.places.length} 张`, `${mobFound.places.length} maps`)}
+        >
+          {mobFound.places.map((place: any) => (
+            <a
+              key={place.map.id}
+              className={"drow" + (place.map.id === mobFound.to.id ? " here" : "")}
+              href={route(String(mobFound.from.id), String(place.map.id))}
+            >
+              <span className="glyph">
+                <Icon name="map" />
+              </span>
+              <span className="t">
+                <b>{name(place.map.names)}</b>
+                <Secondary names={place.map.names} />
+              </span>
+              <span className="r">
+                {place.steps != null
+                  ? words(`${place.steps} 步`, `${place.steps} steps`)
+                  : words("到不了", "unreachable")}
+                {" · "}
+                {words(`${place.spawn_count} 个刷怪点`, `${place.spawn_count} spawns`)}
+              </span>
+            </a>
+          ))}
+        </Well>
+      </>
+    );
+  else if (result.MobUnresolved) {
+    const u = result.MobUnresolved;
     body = (
       <Well
-        title={words(
-          "出发地和目的地是同一张地图",
-          "Start and destination are the same map",
-        )}
+        title={
+          u.candidates.length
+            ? words(`「${u.query}」有多只怪物，选一只`, `Several monsters match “${u.query}”; pick one`)
+            : words(`没有找到怪物「${u.query}」`, `No monster matches “${u.query}”`)
+        }
       >
+        {u.candidates.map((m: any) => (
+          <a className="drow" key={m.id} href={mobRoute(page.from_input, String(m.id))}>
+            <MobPicture mob={m} />
+            <span className="t">
+              <b>{name(m.names)}</b>
+              {m.level != null && <span className="lv">Lv.{m.level}</span>}
+              <Secondary names={m.names} />
+            </span>
+          </a>
+        ))}
+      </Well>
+    );
+  } else if (result.MobNoPath) {
+    const n = result.MobNoPath;
+    body = (
+      <Well title={words("暂时查不到路线", "No route found yet")}>
+        <p className="note">
+          {words(
+            `从${name(n.from.names)}到不了有${name(n.mob.names)}的开放地图。`,
+            `No open map with ${name(n.mob.names)} can be reached from ${name(n.from.names)}.`,
+          )}
+        </p>
+        <MobRow mob={n.mob} />
+      </Well>
+    );
+  } else if (result.Same)
+    body = (
+      <Well title={words("出发地和目的地是同一张地图", "Start and destination are the same map")}>
         <MapRow map={result.Same} sub={"ID " + result.Same.id} />
       </Well>
     );
@@ -885,27 +983,18 @@ function RoutePage({ page }: { page: any }) {
     body = (
       <Well title={words("暂时查不到路线", "No route found yet")}>
         <p className="note">
-          {words(
-            "已知连接里没有从出发地到目的地的路。",
-            "The known links do not connect these maps.",
-          )}
+          {words("已知连接里没有从出发地到目的地的路。", "The known links do not connect these maps.")}
         </p>
         <MapRow map={noPath.from} sub={words("出发", "start")} />
         <MapRow map={noPath.to} sub={words("目的地", "destination")} />
       </Well>
     );
   else if (unresolved) {
-    const which =
-      unresolved.end === "From"
-        ? words("出发地", "start")
-        : words("目的地", "destination");
+    const which = unresolved.end === "From" ? words("出发地", "start") : words("目的地", "destination");
     const title = !unresolved.query
       ? words(`请填写${which}`, `Enter a ${which}`)
       : !unresolved.candidates.length
-        ? words(
-            `没有找到${which}「${unresolved.query}」`,
-            `No ${which} matches “${unresolved.query}”`,
-          )
+        ? words(`没有找到${which}「${unresolved.query}」`, `No ${which} matches “${unresolved.query}”`)
         : words(
             `${which}「${unresolved.query}」有多个地图，选一个`,
             `Several maps match “${unresolved.query}”; pick one`,
@@ -917,20 +1006,34 @@ function RoutePage({ page }: { page: any }) {
             key={map.id}
             map={map}
             sub={"ID " + map.id}
-            href={route(
-              unresolved.end === "From" ? String(map.id) : page.from_input,
-              unresolved.end === "To" ? String(map.id) : page.to_input,
-            )}
+            href={
+              mobMode && unresolved.end === "From"
+                ? mobRoute(String(map.id), page.mob_input)
+                : route(
+                    unresolved.end === "From" ? String(map.id) : page.from_input,
+                    unresolved.end === "To" ? String(map.id) : page.to_input,
+                  )
+            }
           />
         ))}
       </Well>
     );
   }
+  const fromValue = from === fromShown ? page.from_input : from;
   return (
     <section className="stall">
       <div className="stall-bar">
         <h2>{words("怎么走", "Route")}</h2>
       </div>
+      <nav className="route-tabs" aria-label={words("寻路方式", "Route mode")}>
+        <a className={mobMode ? "" : "on"} href={route(page.from_input, page.to_input)}>
+          {words("去地图", "To a map")}
+        </a>
+        <a className={mobMode ? "on" : ""} href={"/route?" + new URLSearchParams({ mode: "mob", from: page.from_input })}>
+          {words("找怪物", "Find a monster")}
+        </a>
+        <a href="/world">{words("世界地图", "World map")}</a>
+      </nav>
       <form
         className="route-form"
         action="/route"
@@ -938,10 +1041,9 @@ function RoutePage({ page }: { page: any }) {
         onSubmit={(event) => {
           event.preventDefault();
           navigate(
-            route(
-              from === fromShown ? page.from_input : from,
-              to === toShown ? page.to_input : to,
-            ),
+            mobMode
+              ? mobRoute(fromValue, mob === mobShown && mobFound ? String(mobFound.mob.id) : mob)
+              : route(fromValue, to === toShown ? page.to_input : to),
           );
         }}
       >
@@ -951,28 +1053,64 @@ function RoutePage({ page }: { page: any }) {
             type="text"
             name="from"
             value={from}
-            placeholder={words("地图名或 ID", "map name or id")}
+            placeholder={words("地图名或 ID（默认射手村）", "map name or id (Henesys)")}
             autoComplete="off"
             onChange={(event) => setFrom(event.target.value)}
           />
         </label>
-        <label className="field">
-          <span>{words("目的地", "To")}</span>
-          <input
-            type="text"
-            name="to"
-            value={to}
-            placeholder={words("地图名或 ID", "map name or id")}
-            autoComplete="off"
-            onChange={(event) => setTo(event.target.value)}
-          />
-        </label>
+        {mobMode ? (
+          <label className="field">
+            <span>{words("怪物", "Monster")}</span>
+            <input
+              type="text"
+              name="mob"
+              value={mob}
+              placeholder={words("怪物名或 ID", "monster name or id")}
+              autoComplete="off"
+              onChange={(event) => setMob(event.target.value)}
+            />
+          </label>
+        ) : (
+          <label className="field">
+            <span>{words("目的地", "To")}</span>
+            <input
+              type="text"
+              name="to"
+              value={to}
+              placeholder={words("地图名或 ID", "map name or id")}
+              autoComplete="off"
+              onChange={(event) => setTo(event.target.value)}
+            />
+          </label>
+        )}
         <button className="btn primary" type="submit">
-          {words("查路线", "Find route")}
+          {mobMode ? words("找最近的地图", "Find the nearest map") : words("查路线", "Find route")}
         </button>
       </form>
       <div className="dbody">{body}</div>
     </section>
+  );
+}
+function WorldPage({ page }: { page: any }) {
+  const words = useWords();
+  useProvidePageContext(null);
+  return (
+    <>
+      <Crumb text={words("世界地图", "World map")} />
+      <section className="stall">
+        <div className="stall-bar">
+          <h2>{words("世界地图", "World map")}</h2>
+        </div>
+        <nav className="route-tabs" aria-label={words("寻路方式", "Route mode")}>
+          <a href="/route">{words("去地图", "To a map")}</a>
+          <a href="/route?mode=mob">{words("找怪物", "Find a monster")}</a>
+          <a className="on" href="/world">
+            {words("世界地图", "World map")}
+          </a>
+        </nav>
+        <WorldBody page={page} />
+      </section>
+    </>
   );
 }
 export default function Catalogue() {
@@ -1027,6 +1165,8 @@ export default function Catalogue() {
               ? words(page.map.names?.zh, page.map.names?.en)
               : data.kind === "npc"
                 ? words(page.npc.names?.zh, page.npc.names?.en) || "NPC #" + page.npc.id
+              : data.kind === "world"
+                ? words("世界地图", "World map")
               : data.kind === "route"
                 ? words("怎么走", "Route")
                 : words("搜索", "Search");
@@ -1083,6 +1223,8 @@ export default function Catalogue() {
         <MapPage page={data.page} />
       ) : data.kind === "npc" ? (
         <NpcPage page={data.page} />
+      ) : data.kind === "world" ? (
+        <WorldPage page={data.page} />
       ) : data.kind === "route" ? (
         <RoutePage page={data.page} />
       ) : (
