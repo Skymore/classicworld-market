@@ -79,7 +79,8 @@ fn with_param(path: &str, param: &str) -> String {
 /// Which navigation entry is current.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Nav {
-    Prices,
+    /// The home page, which holds the price table.
+    Home,
     Dex,
 }
 
@@ -188,8 +189,8 @@ fn prefs(ctx: &Ctx) -> Markup {
 
 fn desk_nav(ctx: &Ctx, active: Nav) -> Markup {
     let entries = [
-        ("/", ctx.t("首页", "Home"), None),
-        ("/prices", ctx.t("价格表", "Prices"), Some(Nav::Prices)),
+        ("/", ctx.t("首页", "Home"), Some(Nav::Home)),
+        ("/agent", ctx.t("AI 助手", "Ask AI"), None),
         (
             "/search?kind=item",
             ctx.t("图鉴", "Catalogue"),
@@ -211,13 +212,19 @@ fn desk_nav(ctx: &Ctx, active: Nav) -> Markup {
 
 fn dock(ctx: &Ctx, active: Nav) -> Markup {
     let entries = [
-        ("/", ctx.t("首页", "Home"), Icon::Home, None, "home"),
         (
-            "/prices",
-            ctx.t("价格表", "Prices"),
-            Icon::Tag,
-            Some(Nav::Prices),
-            "prices",
+            "/",
+            ctx.t("首页", "Home"),
+            Icon::Home,
+            Some(Nav::Home),
+            "home",
+        ),
+        (
+            "/agent",
+            ctx.t("AI 助手", "Ask AI"),
+            Icon::Search,
+            None,
+            "agent",
         ),
         (
             "/search?kind=item",
@@ -527,6 +534,25 @@ mod tests {
         ] {
             assert!(rendered.contains(&format!("/web/{asset}?v={version}")));
         }
+    }
+
+    #[test]
+    fn navigation_matches_the_site() {
+        let ctx = Ctx::default();
+        for nav in [desk_nav(&ctx, Nav::Dex), dock(&ctx, Nav::Dex)] {
+            let html = nav.into_string();
+            let labels = ["首页", "AI 助手", "图鉴", "关注", "工具"]
+                .map(|label| html.find(&format!("{label}</")).expect(label));
+            assert!(labels.windows(2).all(|pair| pair[0] < pair[1]), "{html}");
+            assert!(
+                !html.contains("/prices") && !html.contains("价格表"),
+                "{html}"
+            );
+            assert!(html.contains(r#"href="/agent""#));
+        }
+        assert!(desk_nav(&ctx, Nav::Home)
+            .into_string()
+            .contains(r#"<a href="/" class="on" aria-current="page">"#));
     }
 
     #[test]

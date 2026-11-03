@@ -1,5 +1,6 @@
 export function evidenceUrl(value: string): boolean {
-  if (/^\/(?:item\/\d+|mob\/\d+|map\/\d+|prices)$/.test(value)) return true;
+  // "/" is the price table; older answers still name /prices, which redirects there.
+  if (value === "/" || /^\/(?:item\/\d+|mob\/\d+|map\/\d+|prices)$/.test(value)) return true;
   if (/^https:\/\/github\.com\/ohmi69\/osms_datamine_dashboard\/blob\/63db09449642c4bf3414276223e4cb7d72af02d9\/data\/current\/(?:skills|quests|maps|monsters)\.json$/.test(value)) return true;
   try {
     const url = new URL(value);
@@ -14,7 +15,7 @@ export function evidenceUrl(value: string): boolean {
 }
 
 export function sourceLabel(value: string, en: boolean): string {
-  if (value === "/prices") return en ? "Market" : "市场行情";
+  if (value === "/" || value === "/prices") return en ? "Market" : "市场行情";
   if (value.startsWith("/")) return (value.startsWith("/map/") ? (en ? "Map " : "地图 ") : value.startsWith("/mob/") ? (en ? "Monster " : "怪物 ") : (en ? "Item " : "物品 ")) + value.split("/").at(-1);
   try {
     const host = new URL(value).hostname.replace(/^www\./, "");

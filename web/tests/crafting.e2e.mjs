@@ -154,7 +154,7 @@ try {
     assert(!/Verify stats|属性是采集器|报价来自摊位快照/.test(await page.locator('main').textContent()));
     if(mobile){
       const nav=await page.locator('.dock .dock-icon svg').evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {top:r.top,width:r.width,height:r.height};}));
-      assert.equal(nav.length,6);assert(nav.every(r=>r.width===24&&r.height===24&&Math.abs(r.top-nav[0].top)<1),'six dock icons share one size and baseline');
+      assert.equal(nav.length,5);assert(nav.every(r=>r.width===24&&r.height===24&&Math.abs(r.top-nav[0].top)<1),'five dock icons share one size and baseline');
     }
     if(output){await craft.scrollIntoViewIfNeeded();await page.screenshot({path:path.join(output,`crafting-${mobile?'phone':'desktop'}.png`)});}
     missing=true;

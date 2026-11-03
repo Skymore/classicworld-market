@@ -8,9 +8,9 @@ import path from 'node:path';
 
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
-const streams = new Set(), identities = new Set(), syncs = new Set();
+const streams = new Set(), identities = new Set(), syncs = new Set(), markets = new Set();
 const requests = [], now = Date.now() / 1000;
-let holdIdentity = true, holdSync = true;
+let holdIdentity = true, holdSync = true, holdMarket = true;
 const profile = { signed_in: true, public_id: 'startup-account', csrf: 'fixture', nickname: '测试账号', stats: {} };
 const records = [
   { kind: 'pref', key: 'theme', value: 'dark', version: 1 },
@@ -34,10 +34,13 @@ const server = createServer(async (req, res) => {
     return json(res, { records });
   }
   if (url.pathname === '/api/v1/market/period-default') return json(res, { default_hours: '72' });
-  if (url.pathname === '/api/v1/market/overview') return json(res, { product_count: 1, as_of: now, changes: [], busy: [] });
-  if (url.pathname === '/api/v1/sales/recent') return json(res, { generated_at: now, sales: [
-    { id: 'sale', item_id: 2000000, name_zh: '红色药水', name_en: 'Red Potion', time: now, sale_unit_price: 50, quantity: 2, kind: 'drop', location: { channel: 1, room: 1 } },
-  ] });
+  if (url.pathname === '/api/v1/market') {
+    const reply = () => json(res, { as_of: now, products: [
+      { item_id: 2000000, name_zh: '红色药水', name_en: 'Red Potion', category: '消耗品', sales_window: 2, sales_10d: 2, typical: 50, low: 45, last_seen: now, last_sale_at: now, trend: [] },
+    ] });
+    if (holdMarket) { markets.add(reply); return; }
+    return reply();
+  }
   if (url.pathname === '/api/v1/dex/counts') return json(res, { mobs: 1, maps: 1 });
   if (url.pathname === '/api/v1/catalog/page') return json(res, { kind: 'search', page: {
     query: '药水', kind: null, offset: 0, areas: [], filters: {}, region: '', area: '',
@@ -67,9 +70,14 @@ try {
     localStorage.setItem('cwm.user-data.v1.startup-account', JSON.stringify({ values: { theme: 'dark', lang: 'zh', watchlist: '[4010001]' }, records: [], pending: {}, conflicts: {} }));
   });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
-  await page.locator('.hero').waitFor({ timeout: 3000 });
+  await page.locator('.hero input[name=q]').waitFor({ timeout: 3000 });
+  await page.locator('main .react-status').first().waitFor({ timeout: 3000 });
+  assert.equal(await page.locator('main [data-item-row]').count(), 0, 'the hero paints while the market payload is still loading');
+  holdMarket = false;
+  for (const reply of markets) reply();
+  markets.clear();
   await page.locator('main a[href^="/item/2000000"]').first().waitFor({ timeout: 3000 });
-  assert.equal(holdIdentity, true, 'home and sales render before the account response');
+  assert.equal(holdIdentity, true, 'home and its price table render before the account response');
   assert(identities.size > 0);
   assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
   assert.equal(await page.evaluate(() => document.documentElement.lang), 'zh-CN', 'cached account language wins over guest language');
@@ -111,10 +119,11 @@ try {
   await page.locator('[data-react-catalogue=search]').waitFor();
   assert.equal(new URL(page.url()).searchParams.get('q'), '药水');
   assert.deepEqual(errors, []);
-  console.log('PASS home startup: held identity/sync do not block search or sales; cached preferences, isolated watches, one account request, stable input and unique styles');
+  console.log('PASS home startup: the hero paints before the market payload; held identity/sync do not block search or the price table; cached preferences, isolated watches, one account request, stable input and unique styles');
 } finally {
   await browser.close();
   for (const response of [...streams, ...identities, ...syncs]) response.end();
+  for (const reply of markets) reply();
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));
 }

@@ -21,7 +21,7 @@ Use the provided read-only tools for ALL market facts in the current turn, even 
 Equipment requests: extract slot, job and level into search_items filters. Explicit 买/购买/哪里买/去哪买 means the user wants an ITEM or shop, not a training map, even when they also mention a level or class. A compact item phrase like '25弓去哪买' means a level-25 bow: search_items with query:'', subcategory:'弓', job:'archer', min_level:25, max_level:25; then check get_listings and get_item for candidates. If exact-level results are empty, broaden the level range and explain that. 弓手/弓箭手 means archer; 披风 means subcategory 披风, not an archer-only item name. Universal equipment is usable by archers. For '40-50弓手披风买什么', call search_items with subcategory='披风', job='archer', min_level:40, max_level:50 and empty query, then get_listings for 2-3 promising candidates. Respect a single character level as max_level. Explain which observed candidate to buy now, which to use later, price and where. Missing budget or attributes need not block an initial recommendation; label unknown attributes and ask one optional follow-up after giving evidence. Do not assume all capes add DEX or attack: actual equipment attributes must come from tools.
 Some catalogue items have no recorded job restriction. search_items includes them as unknown_verify_in_game: they are candidates to compare, not proof of universal eligibility. Mention the missing restriction once and ask the player to check it in game; do not discard all candidates or say no equipment exists. If a filtered search is empty, try removing the job filter or broadening the level range yourself before concluding there is no observed option; explain any relaxed requirement.
 Optional filters must be null or omitted unless requested. Never invent channel=1, max_unit_price=0, job=beginner, empty subcategory or full-range level filters. For a named material use search_items with query only and all equipment filters null. For listings, use item_id and limit with channel/max_unit_price null unless the user specified them. Compare prices numerically before claiming cheapest; if a higher price is preferred because of level, explicitly explain that tradeoff.
-Buying: query get_listings and get_item (NPC offers). Compare the requested quantity/budget, observed unit price, stock, equipment attributes and freshness. Give known channel/room/shop or NPC/map; missing location/stock stays unknown. Link evidence with /item/ID, /map/ID or /prices. Do not promise availability.
+Buying: query get_listings and get_item (NPC offers). Compare the requested quantity/budget, observed unit price, stock, equipment attributes and freshness. Give known channel/room/shop or NPC/map; missing location/stock stays unknown. Link evidence with /item/ID, /map/ID or the price table at /. Do not promise availability.
 Selling: query get_price_advice and get_listings; use get_recent_sales as needed. Explain quick sale vs normal price using the site's recommendation and evidence; ask for actual equipment stats when needed. The agent cannot access the user's bag; ask what they own before advising which of THEIR items to sell. For general ideas use get_market_overview. Never claim to list, buy or sell anything.
 Data only covers observed sources, not the entire market. In user-facing answers, call sale records 成交 and their prices 成交价 (sales and sale prices in English); do not add 推定、推测、inferred or estimated qualifiers. Include observation time and say when data is stale or missing; do not call old data real-time. Keep per-item vs per-set prices explicit; throwing stars are per set. NPC purchase and resale reference are different. Do not invent prices, NPC names, map names, stock or equipment stats. No evidence means say so.
 Quantities: listing stock counts purchases/bundles, NOT individual items. Prefer the tool's purchase_details for items per purchase, remaining purchases and remaining comparable units. Sale quantity counts individual items; sale_price is the price of ONE purchase, NOT total transaction value. Prefer sale_details for purchases and total mesos; leave unknown values unknown. Never describe three bundles of two items as three items.
@@ -402,8 +402,8 @@ impl OpenRouter {
                         links.insert(format!("/item/{id}"));
                     }
                     if name == "get_market_overview" {
-                        sources.insert("/prices".to_owned());
-                        links.insert("/prices".to_owned());
+                        sources.insert("/".to_owned());
+                        links.insert("/".to_owned());
                     }
                 }
                 trace
@@ -422,7 +422,7 @@ impl OpenRouter {
 }
 
 fn local_evidence_url(url: &str) -> bool {
-    url == "/prices"
+    url == "/"
         || ["/item/", "/mob/", "/map/"].iter().any(|prefix| {
             url.strip_prefix(prefix)
                 .is_some_and(|id| !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()))
@@ -567,6 +567,16 @@ mod tests {
         assert_eq!(
             grounded_links("普通中文 **说明**", &links),
             "普通中文 **说明**"
+        );
+    }
+    #[test]
+    fn market_overview_links_the_home_price_table() {
+        let mut links = std::collections::BTreeSet::new();
+        collect_links(&json!({"page": "/", "old": "/prices"}), &mut links);
+        assert_eq!(links, std::collections::BTreeSet::from(["/".to_owned()]));
+        assert_eq!(
+            grounded_links("看[价格表](/)或[旧页](/prices)", &links),
+            "看[价格表](/)或旧页"
         );
     }
     use super::*;

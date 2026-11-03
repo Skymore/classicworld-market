@@ -1,135 +1,43 @@
-import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261025-presence-1";
-import { mergeShopSales } from "/web/js/lib/sale-groups.js?v=20261028-sales-1";
-import { useState } from "react";
-import {
-  byChange,
-  byBusy,
-  changeWare,
-  busyWare,
-} from "/web/js/lib/rows.js?v=20261022-regressions-1";
-import {
-  periodProduct,
-  inPeriod,
-} from "/web/js/lib/period.js?v=20261022-regressions-1";
+import { Suspense, lazy } from "react";
 import { mobImg } from "/web/js/lib/format.js";
 import { useWords } from "../providers";
-import { useMarketQuery } from "../lib/query";
-import { OfferRow } from "../components/list-rows";
-import type { Product, Sale } from "../lib/types";
-import {
-  Search,
-  Icon,
-  Loading,
-  ErrorState,
-  Empty,
-  PeriodControl,
-  usePeriod,
-  usePageReady,
-  num,
-} from "../components/shared";
+import { useUserValue } from "../lib/live";
+import { embedded } from "../lib/embed";
+import { Search, Icon, Loading, usePageReady, num } from "../components/shared";
 import { SiteLink } from "../components/shell";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "../components/ui/tabs";
+
+// main.tsx starts this download at boot on the home page, so the hero never
+// waits for the price table's code or its market payload.
+export const loadPriceTable = () => import("./prices");
+const PriceTable = lazy(loadPriceTable);
+
+function watchedCount(raw: string) {
+  try {
+    const ids = JSON.parse(raw);
+    return Array.isArray(ids) ? ids.length : 0;
+  } catch {
+    return 0;
+  }
+}
 
 export default function Home() {
   usePageReady();
   const words = useWords();
-  const period = usePeriod();
-  const [tab, setTab] = useState("recent");
-  const market = useMarketQuery<{ product_count: number; changes: Product[]; busy: Product[] }>(
-    `/api/v1/market/overview?hours=${period.hours}`,
-    period.ready,
+  const [watchlist] = useUserValue("watchlist", "[]");
+  const watched = watchedCount(watchlist);
+  const table = (
+    <Suspense
+      fallback={
+        <section className="stall">
+          <Loading />
+        </section>
+      }
+    >
+      <PriceTable />
+    </Suspense>
   );
-  // Extra rows so eight remain after slots of one shop merge into one sale.
-  const sales = useMarketQuery<{ sales: Sale[]; generated_at: number }>(
-    "/api/v1/sales/recent?limit=32",
-  );
-  const quotes = useMarketQuery<{ listings: any[]; grouped_listings?: any[] }>(
-    `/api/v1/quotes/recent?limit=8&hours=${period.hours}`,
-    period.ready && tab === "quotes",
-  );
-  const wide = matchMedia("(min-width:641px)").matches;
-  const tabs = {
-    recent: words("最近成交", "Recent sales"),
-    quotes: words("最新报价", "Latest offers"),
-    changes: words("涨跌榜", "Movers"),
-    busy: words("成交最多", "Most sold"),
-  };
-  function content(key: string) {
-    if (key === "recent") {
-      if (sales.isError)
-        return <ErrorState retry={() => void sales.refetch()} />;
-      if (!sales.data) return <Loading />;
-      const rows = mergeShopSales(
-        sales.data.sales.filter((row) => inPeriod(row.time, period.hours)),
-      ).slice(0, 8);
-      return rows.length ? (
-        rows.map((row: any) => (
-          <OfferRow
-            key={row.id}
-            row={row}
-            sale
-            href={`/item/${row.item_id}?hours=${period.hours}`}
-          />
-        ))
-      ) : (
-        <Empty text={words("还没有成交记录。", "No sales recorded yet.")} />
-      );
-    }
-    if (key === "quotes") {
-      if (quotes.isError)
-        return <ErrorState retry={() => void quotes.refetch()} />;
-      if (!quotes.data) return <Loading />;
-      const rows = (quotes.data.grouped_listings ?? mergeShopOffers(quotes.data.listings || []))
-        .filter(
-          (row: any) =>
-            row.observed > 0 &&
-            inPeriod(row.observed, period.hours) &&
-            (row.stock == null || row.stock > 0),
-        )
-        .slice(0, 8);
-      return rows.length ? (
-        rows.map((row: any) => (
-          <OfferRow
-            key={row.id}
-            row={row}
-            href={`/item/${row.item_id}?hours=${period.hours}`}
-          />
-        ))
-      ) : (
-        <Empty
-          text={words(
-            "所选时段暂无在售报价。",
-            "No active offers in this period.",
-          )}
-        />
-      );
-    }
-    if (market.isError)
-      return <ErrorState retry={() => void market.refetch()} />;
-    if (!market.data) return <Loading />;
-    const rows = (
-      key === "changes" ? byChange((market.data.changes || []).map(periodProduct)) : byBusy((market.data.busy || []).map(periodProduct))
-    ).slice(0, 8);
-    return rows.length ? (
-      <div
-        className="contents"
-        dangerouslySetInnerHTML={{
-          __html: rows
-            .map((row: unknown) =>
-              key === "changes" ? changeWare(row, wide) : busyWare(row, wide),
-            )
-            .join(""),
-        }}
-      />
-    ) : (
-      <Empty />
-    );
-  }
+  // The collector's 价格表 tab embeds this page: only the table belongs there.
+  if (embedded) return table;
   return (
     <>
       <section className="stall hero">
@@ -145,18 +53,15 @@ export default function Home() {
         </div>
         <Search />
         <nav className="portals" aria-label={words("快捷入口", "Shortcuts")}>
-          <SiteLink className="portal" href="/prices">
+          <SiteLink className="portal" href="/watch">
             <span className="p-top">
-              <Icon name="tagSm" />
-              {words("价格表", "Prices")}
+              <Icon name="starSm" />
+              {words("关注", "Watch")}
             </span>
-            <small data-count="prices">
-              {market.data
-                ? words(
-                    `${num(market.data.product_count)} 件物品`,
-                    `${num(market.data.product_count)} items`,
-                  )
-                : "—"}
+            <small data-count="watch">
+              {watched
+                ? words(`${num(watched)} 件物品`, `${num(watched)} items`)
+                : words("低价提醒", "Deal alerts")}
             </small>
           </SiteLink>
           <SiteLink className="portal" href="/search?kind=item">
@@ -183,47 +88,7 @@ export default function Home() {
           alt=""
         />
       </section>
-      <section className="stall tabs-well home-market">
-        <div className="stall-bar">
-          <h2>{words("市场概览", "Market overview")}</h2>
-          <PeriodControl {...period} />
-        </div>
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList aria-label={words("市场概览", "Market overview")}>
-            {Object.entries(tabs).map(([key, label]) => (
-              <TabsTrigger key={key} value={key} data-tab={key}>
-                {label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          {Object.keys(tabs).map((key) => (
-            <TabsContent
-              key={key}
-              value={key}
-              className="react-home-tab"
-              data-pane={key}
-            >
-              {content(key)}
-              <SiteLink
-                className="more"
-                href={`/prices?${key === "recent" ? "tab=sales" : key === "quotes" ? "sort=recent" : key === "changes" ? "tab=changes" : "sort=sales"}&hours=${period.hours}`}
-              >
-                {words(
-                  key === "recent"
-                    ? "全部成交记录"
-                    : key === "quotes"
-                      ? "查看全部报价"
-                      : key === "changes"
-                        ? "完整涨跌榜"
-                        : "按成交量看价格表",
-                  "View all",
-                )}{" "}
-                →
-              </SiteLink>
-            </TabsContent>
-          ))}
-        </Tabs>
-      </section>
+      {table}
       <p className="foot home-foot">
         <img src={mobImg(100100)} alt="" width={32} height={32} />
         <SiteLink href="/contributors">

@@ -624,7 +624,7 @@ export default function Watch() {
             ) : (
               <div className="watch-empty">
                 <Empty text={t("watch.empty")} />
-                <SiteLink className="btn" href="/prices">
+                <SiteLink className="btn" href="/">
                   {words("去价格表挑选", "Browse prices")}
                 </SiteLink>
               </div>

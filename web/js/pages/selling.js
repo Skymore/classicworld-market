@@ -20,7 +20,7 @@ export function propose(row, item) {
 }
 
 export async function mount(root) {
-  root.innerHTML=`<section class="stall"><div class="stall-bar"><h1>${lang==='en'?'Bag & shop':'背包／摆摊'}</h1></div><div class="selling-body"><p>${lang==='en'?'This unfinished feature is temporarily disabled. Your saved inventory has not been deleted.':'此功能尚未完成，已暂时停用。已保存的背包数据未删除。'}</p><a class="btn" href="/prices">${lang==='en'?'Back to prices':'返回价格表'}</a></div></section>`;
+  root.innerHTML=`<section class="stall"><div class="stall-bar"><h1>${lang==='en'?'Bag & shop':'背包／摆摊'}</h1></div><div class="selling-body"><p>${lang==='en'?'This unfinished feature is temporarily disabled. Your saved inventory has not been deleted.':'此功能尚未完成，已暂时停用。已保存的背包数据未删除。'}</p><a class="btn" href="/">${lang==='en'?'Back to prices':'返回价格表'}</a></div></section>`;
   return ()=>{};
 
   const s = (zh, en) => lang === 'en' ? en : zh;

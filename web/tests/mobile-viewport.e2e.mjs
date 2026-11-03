@@ -9,7 +9,7 @@ const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODUL
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const assetVersion = (await readFile(path.join(root, 'react/asset-version.txt'), 'utf8')).trim();
 const now = Date.now() / 1000, streams = new Set();
-let generation = 0, saleReads = 0;
+let generation = 0, marketReads = 0;
 const product = { item_id: 1452003, name_zh: '战斗弓', name_en: 'Battle Bow', category: '装备', sales_window: 20, typical: 8000, low: 7000, last_seen: now, trend: [] };
 const names = { zh: '宠物装备移动速度卷轴', en: 'Pet Equip Speed Scroll' };
 const server = createServer(async (req, res) => {
@@ -22,13 +22,9 @@ const server = createServer(async (req, res) => {
     let data = {};
     if (url.pathname === '/api/v1/account') data = { signed_in: false };
     if (url.pathname === '/api/v1/crafting/prices') data = { prices: [] };
-    if (url.pathname === '/api/v1/market') data = { as_of: now + generation, products: [product] };
-    if (url.pathname === '/api/v1/market/overview') data = { as_of: now + generation, product_count: 1, changes: [], busy: [product] };
+    // One page of the price table (20 rows): the home page scrolls and its end stays put.
+    if (url.pathname === '/api/v1/market') { marketReads++; data = { as_of: now + generation, products: Array.from({ length: 20 }, (_, i) => ({ ...product, item_id: i ? 2000100 + i : product.item_id, sales_window: 20 - i, typical: 8000 + generation })) }; }
     if (url.pathname === '/api/v1/market/period-default') data = { default_hours: 'all' };
-    if (url.pathname === '/api/v1/sales/recent') {
-      saleReads++;
-      data = { generated_at: now + generation, sales: Array.from({ length: 8 }, (_, i) => ({ ...product, id: i, sale_unit_price: 8000 + generation, time: now - i, location: { channel: 16, room: 9 } })) };
-    }
     if (url.pathname === '/api/v1/dex/counts') data = { mobs: 1, maps: 1 };
     if (url.pathname === '/api/v1/catalog/page') {
       const target = new URL(url.searchParams.get('url'), 'http://localhost');
@@ -72,7 +68,7 @@ try {
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { bottom: 0 } });
     await page.goto(origin + '/?lang=zh&hours=all');
-    await page.locator('[data-pane="recent"] [data-item-row]').first().waitFor();
+    await page.locator('.react-price-mobile [data-item-row]').first().waitFor();
     const input = page.locator('.hero input[name=q]');
     assert.equal(await input.evaluate(node => getComputedStyle(node).fontSize), '16px', 'search cannot trigger the iOS small-input focus zoom');
     const viewport = await page.locator('meta[name=viewport]').getAttribute('content');
@@ -158,13 +154,13 @@ try {
     await page.setViewportSize({ width: 390, height: 844 });
     await frames(page);
     await footerClear();
-    const reads = saleReads;
-    const refreshed = page.waitForResponse(response => response.url().includes('/api/v1/sales/recent'));
+    const reads = marketReads;
+    const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/market');
     generation++;
     for (const stream of streams) stream.write('event: market\ndata: {}\n\n');
     await (await refreshed).finished();
     await frames(page);
-    assert(saleReads > reads);
+    assert(marketReads > reads);
     await footerClear();
     await input.fill('Speed pet');
     const rows = page.locator('.hero .quick-search .quick-row');
@@ -190,7 +186,7 @@ try {
     await itemRows.first().tap();await preview.locator('.peek-footer a').waitFor();await preview.locator('.peek-close').click();
     await itemInput.fill('Speed pets');await page.locator('.mobile-item-search .quick-more').tap();await page.waitForURL(url=>url.pathname==='/search'&&url.searchParams.get('q')==='Speed pets');
     const icons=await page.locator('.dock .dock-icon svg').evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {top:r.top,width:r.width,height:r.height};}));
-    assert.equal(icons.length,6);assert(icons.every(r=>r.width===24&&r.height===24&&r.top===icons[0].top));
+    assert.equal(icons.length,5);assert(icons.every(r=>r.width===24&&r.height===24&&r.top===icons[0].top));
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     if (stale) assert(oldStyles > 0, 'actually exercise cached legacy styles');
     assert.deepEqual(errors, []);

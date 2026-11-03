@@ -16,7 +16,7 @@ export default function Selling() {
             "This unfinished feature is temporarily disabled. Your saved inventory has not been deleted.",
           )}
         </p>
-        <SiteLink className="btn" href="/prices">
+        <SiteLink className="btn" href="/">
           {words("返回价格表", "Back to prices")}
         </SiteLink>
       </div>

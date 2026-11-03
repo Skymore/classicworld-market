@@ -44,7 +44,7 @@ const server = createServer(async (req, res) => {
     let body = {};
     if (url.pathname === '/api/v1/account') body = { signed_in: false };
     if (url.pathname === '/api/v1/market/period-default') body = { default_hours: 'all' };
-    if (['/api/v1/market','/api/v1/market/overview'].includes(url.pathname)) {
+    if (['/api/v1/market','/api/v1/market/overview','/api/v1/market/selected'].includes(url.pathname)) {
       marketReads++;
       body = { as_of: now + generation, products: [], product_count: 0, changes: [], busy: [] };
     }
@@ -119,7 +119,7 @@ try {
     await input.fill('');
     await page.waitForURL(url => !url.searchParams.has('q'));
     await page.evaluate(() => {
-      history.pushState(null, '', '/prices?hours=all&lang=zh&q=蜗牛');
+      history.pushState(null, '', '/?hours=all&lang=zh&q=蜗牛');
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
     await page.waitForFunction(() => document.querySelector('[data-q]').value === '蜗牛');
@@ -129,9 +129,11 @@ try {
     await page.close();
     console.log(`PASS ${mobile ? 'phone' : 'desktop'} prices: native IME replacement/commit, repeated Chinese composition, SSE, plain typing, clear and history`);
   }
-  for (const [mobile, route] of [[true, '/'], [false, '/'], [false, '/prices']]) {
+  for (const [mobile, route] of [[true, '/'], [false, '/'], [false, '/watch']]) {
     const page = await browser.newPage({ viewport: { width: mobile ? 390 : 1280, height: 844 }, isMobile: mobile, hasTouch: mobile });
     const errors = []; page.on('pageerror', error => errors.push(error.message));
+    // The header search box, on a page with market data that refreshes from SSE.
+    if (route === '/watch') await page.addInitScript(() => localStorage.setItem('watchlist', '[2048000]'));
     const finder = page.locator(route === '/' ? '.hero form.finder' : '.dhead form.finder');
     const input = finder.locator('input[name=q]');
     const box = finder.locator('.quick-search');

@@ -38,7 +38,7 @@ addMessages({
 
 const ROWS = 8;
 const TABS = ['recent', 'changes', 'busy'];
-const MORE = { recent: ['home.more_recent', '/prices?tab=sales'], changes: ['home.more_changes', '/prices?tab=changes'], busy: ['home.more_busy', '/prices?tab=busy'] };
+const MORE = { recent: ['home.more_recent', '/?tab=sales'], changes: ['home.more_changes', '/?tab=changes'], busy: ['home.more_busy', '/?sort=sales'] };
 const wideQuery = matchMedia('(min-width: 641px)');
 const desktopQuery = matchMedia('(min-width: 1101px)');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -150,7 +150,7 @@ function hero() {
       ${desktopQuery.matches ? '<kbd>/</kbd>' : ''}
       </form>`;
   const portals = `<nav class="portals" aria-label="${esc(t('home.portals'))}">
-      <a class="portal" href="/prices"><span class="p-top">${I.tagSm}${esc(t('home.p_prices'))}</span><small data-count="prices">—</small></a>
+      <a class="portal" href="/"><span class="p-top">${I.tagSm}${esc(t('home.p_prices'))}</span><small data-count="prices">—</small></a>
       <a class="portal" href="/search?kind=item"><span class="p-top">${I.mob}${esc(t('home.p_mobs'))}</span><small data-count="mobs">${esc(t('home.p_mobs_sub'))}</small></a>
       <a class="portal" href="/search?kind=map"><span class="p-top">${I.map}${esc(t('home.p_maps'))}</span><small data-count="maps">${esc(t('home.p_maps_sub'))}</small></a></nav>`;
   const lead = `<div class="hero-lead"><h1>${esc(t('home.title'))}</h1><p>${esc(t('home.lead'))} <a href="/web/download.html">${esc(t('home.collector'))} ↗</a></p></div>`;

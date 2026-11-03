@@ -358,11 +358,6 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
   min-width: 36px;
   min-height: 44px;
 }
-.react-home-tab .more {
-  display: flex;
-  justify-content: center;
-  padding: 12px;
-}
 .account-opt input {
   accent-color: var(--maple);
 }
@@ -848,24 +843,6 @@ a.offer-group-head[aria-current]{box-shadow:inset 3px 0 0 var(--maple)}
     grid-template-columns: minmax(0, 1fr);
   }
 }
-/* Desktop home: 8 records in two columns instead of 8 full-width rows with an empty middle. */
-@media (min-width: 1101px) {
-  .home-market .react-home-tab {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .home-market .react-home-tab > :not(.ware):not(.contents) {
-    grid-column: 1 / -1;
-  }
-  .home-market .react-home-tab > .contents {
-    display: contents;
-  }
-  .home-market .react-home-tab > .ware:nth-child(even),
-  .home-market .react-home-tab > .contents > .ware:nth-child(even) {
-    border-left: 1px solid var(--rule);
-  }
-}
-
 /* Price table with a job chosen: "for every job" equipment under its own heading. */
 .price-group-head td,
 div.price-group-head {

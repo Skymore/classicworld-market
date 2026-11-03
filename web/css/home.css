@@ -10,6 +10,7 @@ html[data-page=home] .dhead .fresh{margin-left:auto}
   .hero .deco-snail{display:none}
 }
 .hero .finder{position:relative}
+.hero+.stall{margin-top:var(--gap)}
 @media (min-width:641px) and (max-width:1100px){.hero .portal{min-height:72px}}
 
 /* 类型提示：挂在搜索框下方，每行 44px 以上 */

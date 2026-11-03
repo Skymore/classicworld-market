@@ -40,7 +40,6 @@ import {
   thinChange,
   PeriodControl,
   usePeriod,
-  usePageReady,
   Loading,
   ErrorState,
   Empty,
@@ -78,9 +77,11 @@ const sharedEquipment = (row: Product) =>
   (!(row.jobs || []).length || (row.jobs || []).includes("通用"));
 // Columns of the desktop table, for full-width heading rows.
 const DESKTOP_COLUMNS = 8;
+// Rows rendered at first and added each time the list end comes near.
+const PAGE_ROWS = 20;
 
-export default function Prices() {
-  usePageReady();
+/** The price table under the home page hero; its state lives in the URL. */
+export default function PriceTable() {
   const words = useWords();
   const { language } = usePreferences();
   const en = language === "en";
@@ -153,7 +154,7 @@ export default function Prices() {
     }
     return costs;
   }, [crafting.data, craftPrices.data]);
-  const [limit, setLimit] = useState(100);
+  const [limit, setLimit] = useState(PAGE_ROWS);
   const sentinel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const update = () => setWatched(watchIds());
@@ -329,7 +330,7 @@ export default function Prices() {
     );
   };
   useEffect(
-    () => setLimit(100),
+    () => setLimit(PAGE_ROWS),
     [
       state.q,
       state.cat,
@@ -355,9 +356,9 @@ export default function Prices() {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting))
-          setLimit((value) => value + 100);
+          setLimit((value) => value + PAGE_ROWS);
       },
-      { rootMargin: "400px" },
+      { rootMargin: "200px" },
     );
     observer.observe(node);
     return () => observer.disconnect();
@@ -471,7 +472,7 @@ export default function Prices() {
       <Tabs value={state.tab} onValueChange={(tab) => update({ tab })}>
         <div className="react-price-sticky">
           <div className="stall-bar">
-            <h1>{words("价格表", "Prices")}</h1>
+            <h2>{words("价格表", "Prices")}</h2>
             {state.tab !== "sales" && (
               <>
                 <span className="bar-meta" data-meta>
@@ -1081,7 +1082,7 @@ export default function Prices() {
                     <button
                       type="button"
                       className="react-price-more"
-                      onClick={() => setLimit((value) => value + 100)}
+                      onClick={() => setLimit((value) => value + PAGE_ROWS)}
                     >
                       {words("加载更多", "Load more")}
                     </button>

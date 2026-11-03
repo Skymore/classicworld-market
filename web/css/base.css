@@ -522,7 +522,7 @@ h1,h2,h3,p{margin:0}
 .period-control select{font:inherit;color:var(--ink);background:var(--sheet);border:1px solid var(--edge);padding:6px;min-height:40px}
 
 /* Shared, fixed navigation geometry across SPA, catalogue and local planner. */
-.dock{grid-template-columns:repeat(6,minmax(0,1fr))}
+.dock{grid-template-columns:repeat(5,minmax(0,1fr))}
 .dock a>span:not(.badge){white-space:nowrap;font-size:11px}
 @media(min-width:641px){
   .dhead .brand{flex-shrink:0}

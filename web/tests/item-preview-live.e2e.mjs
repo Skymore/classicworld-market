@@ -32,15 +32,17 @@ const server = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' });
     res.write(': connected\n\n'); streams.add(res); req.on('close', () => streams.delete(res)); return;
   }
-  if (url.pathname === '/api/v1/market') return json(res, { as_of: Date.now() / 1000, products: [] });
   if (url.pathname === '/api/v1/dex/counts') return json(res, { items: 1, mobs: 1, maps: 1 });
-  if (url.pathname === '/api/v1/sales/recent') {
+  // The home price table; the second phase drops Eagle Crow from the list.
+  if (url.pathname === '/api/v1/market') {
     salesReads++;
-    return json(res, { generated_at: Date.now() / 1000, sales: Array.from({ length: 8 }, (_, i) => ({
-      item_id: !phase && !i ? 1462004 : 4010001, name_en: !phase && !i ? 'Eagle Crow' : 'Bronze Ore',
-      name_zh: !phase && !i ? '鹰弩' : '青铜母矿', sale_unit_price: 10000 + phase * 1000 + i,
-      time: Date.now() / 1000 - 60 * i, kind: 'sold', location: { channel: 12, room: 3 }, icon_url: '',
-    })) });
+    const at = Date.now() / 1000;
+    return json(res, { as_of: at, products: Array.from({ length: 8 }, (_, i) => {
+      const eagle = !phase && !i;
+      return { item_id: eagle ? 1462004 : 4010001 + i, name_en: eagle ? 'Eagle Crow' : 'Bronze Ore', name_zh: eagle ? '鹰弩' : '青铜母矿',
+        category: eagle ? '装备' : '其他', sales_window: 20 - i, sales_10d: 20 - i, typical: 10000 + phase * 1000 + i, low: 9000 + i,
+        last_seen: at - 60 * i, last_sale_at: at - 60 * i, trend: [], icon_url: '' };
+    }) });
   }
   if (url.pathname === '/api/v1/catalog/page') {
     if (url.searchParams.get('preview') === 'true') previewReads++;
@@ -76,8 +78,8 @@ try {
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.clock.install();
     await page.goto(`${origin}/?hours=all&lang=${mobile ? 'en' : 'zh'}`);
-    await page.locator('.home-market [data-item-row]').first().waitFor();
-    const row = page.locator('.home-market a[href*="/item/1462004"]');
+    await page.locator('.react-prices [data-item-row]:visible').first().waitFor();
+    const row = page.locator('.react-prices a[href*="/item/1462004"]:visible');
     if (mobile) await row.tap(); else { await row.focus(); await page.keyboard.press('Alt+ArrowDown'); }
     const popup = page.locator('#item-quick-preview');
     await popup.locator('[data-preview-item="1462004"]').waitFor();
@@ -125,9 +127,9 @@ try {
     // SSE changes the actual recent-sales list, including removing this item.
     const reads = salesReads; phase = 1;
     for (const stream of streams) stream.write('event: market\ndata: {"version":2}\n\n');
-    await page.waitForFunction(() => !document.querySelector('.home-market a[href*="/item/1462004"]'));
+    await page.waitForFunction(() => !document.querySelector('.react-prices a[href*="/item/1462004"]'));
     assert(salesReads > reads, 'the background list must still refresh from SSE');
-    assert.equal(await popup.isVisible(), true, 'SSE must not close an item that leaves recent sales');
+    assert.equal(await popup.isVisible(), true, 'SSE must not close an item that leaves the price table');
     assert.equal(await watch.getAttribute('aria-pressed'), 'true', 'SSE preserves the watch state');
     assert.deepEqual(await popup.evaluate(el => ({ same: window.savedPreview === el.firstElementChild.nextElementSibling, scroll: el.scrollTop })), { same: true, scroll: before.scroll });
     assert.equal(await page.evaluate(() => window.savedFocus === document.activeElement), true, 'list refresh must not steal preview focus');
@@ -151,7 +153,7 @@ try {
     await page.keyboard.press('Escape');
     assert.equal(await popup.isVisible(), false, 'Escape closes the preview');
     assert.equal(await page.locator('.peek-scrim').isVisible(), false);
-    const next = page.locator('.home-market [data-item-row] a.record-open').first();
+    const next = page.locator('.react-prices a[href^="/item/4010"]:visible').first();
     if (mobile) await next.tap(); else { await next.focus(); await page.keyboard.press('Alt+ArrowDown'); }
     await popup.locator('[data-preview-item]').waitFor();
     assert.equal(await popup.locator('[data-preview-watch]').getAttribute('aria-pressed'), 'false', 'another item gets its own watch state');
@@ -170,10 +172,10 @@ try {
     }
     // A refresh while the preview request is in flight must not abort it.
     phase = 0; previewDelay = 300;
-    await page.reload(); await page.locator('.home-market [data-item-row]').first().waitFor();
+    await page.reload(); await page.locator('.react-prices [data-item-row]:visible').first().waitFor();
     if (mobile) await row.tap(); else { await row.focus(); await page.keyboard.press('Alt+ArrowDown'); }
     phase = 1; for (const stream of streams) stream.write('event: market\ndata: {"version":3}\n\n');
-    await page.waitForFunction(() => !document.querySelector('.home-market a[href*="/item/1462004"]'));
+    await page.waitForFunction(() => !document.querySelector('.react-prices a[href*="/item/1462004"]'));
     await popup.locator('[data-preview-item="1462004"]').waitFor();
     assert.equal(await popup.isVisible(), true, 'in-flight preview survives a replaced list');
     assert.equal(await popup.locator('[data-preview-watch]').getAttribute('aria-pressed'), 'true', 'watch state survives reload');

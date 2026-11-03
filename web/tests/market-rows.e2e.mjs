@@ -202,7 +202,7 @@ try {
           const before=await star.getAttribute('aria-pressed');
           await star.click();
           await page.waitForFunction(before=>document.querySelector('.price-record-actions [data-star]')?.getAttribute('aria-pressed')!==before,before);
-          assert.equal(new URL(page.url()).pathname,'/prices','watching a record does not navigate');
+          assert.equal(new URL(page.url()).pathname,'/','watching a record does not navigate');
         }
 
         if(screenshots) await page.screenshot({path:path.join(screenshots,`prices-${mode}-${width}-${lang}.png`)});

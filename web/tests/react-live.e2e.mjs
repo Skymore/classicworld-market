@@ -15,14 +15,13 @@ try {
     await page.goto(origin + '/prices?hours=all&lang=zh');
     await page.locator('[data-item-row]:visible').first().waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.dataset.reactApp), '1');
-    if (mobile) assert(await page.locator('.dock a').evaluateAll(links => { const boxes=links.map(link=>link.getBoundingClientRect()); return boxes.length===6&&boxes.every(box=>Math.abs(box.top-boxes[0].top)<1&&box.right<=innerWidth&&box.bottom<=innerHeight); }), 'six mobile navigation entries fit on one row');
+    if (mobile) assert(await page.locator('.dock a').evaluateAll(links => { const boxes=links.map(link=>link.getBoundingClientRect()); return boxes.length===5&&boxes.every(box=>Math.abs(box.top-boxes[0].top)<1&&box.right<=innerWidth&&box.bottom<=innerHeight); }), 'five mobile navigation entries fit on one row');
     const identity = await page.evaluate(() => { window.savedHeader = document.querySelector('.ptop'); return window.reactDocumentId; });
     const color = theme === 'dark' ? '#232b38' : '#f3e7c9';
     assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--sheet').trim()), color);
     if (screenshots) await page.screenshot({ path: path.join(screenshots, `prices-${mobile ? 'phone' : 'desktop'}-${theme}.png`) });
     await page.locator('[data-nav-key=home]:visible').click(); await page.locator('.hero h1').waitFor();
-    await page.waitForFunction(() => document.querySelector('[data-count=prices]')?.textContent !== '—');
-    await page.locator('.home-market [role=status]').waitFor({ state: 'detached' });
+    await page.locator('.react-prices [data-item-row]:visible').first().waitFor();
     assert.equal(await page.evaluate(() => window.reactDocumentId), identity);
     assert(await page.evaluate(() => window.savedHeader === document.querySelector('.ptop')));
     if (screenshots) await page.screenshot({ path: path.join(screenshots, `home-${mobile ? 'phone' : 'desktop'}-${theme}.png`) });

@@ -2,7 +2,6 @@ import { lang } from './i18n.js';
 import { I } from './icons.js';
 export const NAVIGATION = [
   ['home','/','首页','Home',I.home],
-  ['prices','/prices','价格表','Prices',I.tag],
   ['agent','/agent','AI 助手','Ask AI',I.search],
   ['dex','/search?kind=item','图鉴','Catalogue',I.book],
   ['watch','/watch','关注','Watch',I.star],
@@ -28,7 +27,7 @@ export function renderSiteNavigation(root, active) {
   if(!accountRequest)accountRequest=fetch('/api/v1/account',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(data=>{if(data)accountState=data;accountLabels();}).catch(()=>{});
   const path=location.pathname;
   if(active==='alerts')active='tools';
-  active=active || (path.startsWith('/agent')?'agent':path.startsWith('/selling')?'selling':path.startsWith('/prices')||path.startsWith('/sales')?'prices':path.startsWith('/watch')?'watch':['/tools','/alerts','/collect','/web/download.html'].some(prefix=>path===prefix||path.startsWith(prefix+'/'))?'tools':path==='/'?'home':'dex');
+  active=active || (path.startsWith('/agent')?'agent':path.startsWith('/selling')?'selling':path.startsWith('/watch')?'watch':['/tools','/alerts','/collect','/web/download.html'].some(prefix=>path===prefix||path.startsWith(prefix+'/'))?'tools':path==='/'||path.startsWith('/prices')||path.startsWith('/sales')?'home':'dex');
   for(const nav of root.querySelectorAll('.dnav,.dock')) {
     const dock=nav.classList.contains('dock');
     nav.innerHTML=NAVIGATION.map(([key,href,zh,en,icon])=>{

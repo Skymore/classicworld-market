@@ -112,7 +112,7 @@ try{
  assert(await prices.locator('[data-item-row]').count()>=3,'entire price page renders its data rows');
  await page.screenshot({path:path.join(out,'website-prices.png')});
  const nav=prices.getByRole('navigation',{name:'页面导航'});
- await nav.waitFor();assert.equal(await prices.locator('.dhead,.ptop,.dock').count(),0);
+ await nav.waitFor();assert.equal(await prices.locator('.dhead,.ptop,.dock').count(),0);assert.equal(await prices.locator('.hero').count(),0,'the collector tab shows only the price table');
  await prices.locator('[data-item-row]:visible').first().locator('a[href^="/item/"]').first().click();
  await prices.locator('html[data-page="item"]').waitFor();
  await nav.getByRole('button',{name:'返回',exact:true}).click();
@@ -131,7 +131,7 @@ try{
  await prices.locator('html[data-page="search"]').waitFor();await nav.waitFor();
  await nav.getByRole('link',{name:'价格表',exact:true}).click();
  await prices.locator('[data-item-row]:visible').first().waitFor();
- const priceFrame=page.frames().find(f=>f.url().includes('/prices?'));
+ const priceFrame=page.frames().find(f=>{const url=new URL(f.url());return url.pathname==='/'&&url.searchParams.get('embed')==='1';});
  await priceFrame.goto(origin+'/item/2000000?embed=1&lang=zh');
  await nav.waitFor();
  await nav.getByRole('button',{name:'返回',exact:true}).click();

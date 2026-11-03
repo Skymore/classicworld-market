@@ -86,7 +86,7 @@ try {
     assert.equal(await page.locator('[data-traffic-average-uv]').textContent(), '15人');
     assert.equal(await page.locator('[data-traffic-day]').first().getAttribute('data-value'), '0', 'missing dates remain visible as zero');
     assert(await page.evaluate(() => window.trafficHeader === document.querySelector('.ptop')), 'traffic shares the persistent site shell');
-    assert.equal(await page.locator('.dock a').count(), 6);
+    assert.equal(await page.locator('.dock a').count(), 5);
     assert.equal(await page.locator('[data-traffic-page] .stall').count(), 4);
     assert.equal(await page.locator('[data-traffic-page] p').count(), 0, 'no explanatory paragraphs');
     assert.equal(await page.locator('.traffic-world [data-country=US][data-visited]').count(), 1);

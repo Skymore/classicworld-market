@@ -34,7 +34,7 @@ try {
     await page.locator('[data-notification-test]').click();
     assert((await page.evaluate(()=>window.desktopNotifications)).includes('watch-notification-test'));
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-    await page.locator('[data-nav-key="prices"]:visible').click();
+    await page.locator('[data-nav-key="home"]:visible').click();
     await page.locator('[data-item-row]:visible').first().waitFor();
     await Promise.all([
       page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/watchlist/listings'),

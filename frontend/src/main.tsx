@@ -30,7 +30,18 @@ import { ToastHost } from "./components/toasts";
 import { Loading, ErrorState } from "./components/shared";
 import "./styles.css";
 import { trackPage } from "/web/js/lib/traffic.js";
-import Home from "./pages/home";
+import Home, { loadPriceTable } from "./pages/home";
+
+/** The price table lives on the home page: old /prices and /sales links keep their query. */
+function priceTablePath(url: URL) {
+  if (/^\/sales\/?$/.test(url.pathname)) url.searchParams.set("tab", "sales");
+  else if (!/^\/prices(\/|$)/.test(url.pathname)) return null;
+  url.pathname = "/";
+  return url.pathname + url.search + url.hash;
+}
+const legacyPricePath = priceTablePath(new URL(location.href));
+if (legacyPricePath) history.replaceState(history.state, "", legacyPricePath);
+if (location.pathname === "/") void loadPriceTable();
 
 const Watch = lazy(() => import("./pages/watch"));
 const Alerts = lazy(() => import("./pages/alerts"));
@@ -58,7 +69,6 @@ const Collect = lazy(async () => {
   await ensureStyle("collect");
   return import("./pages/collect");
 });
-const Prices = lazy(() => import("./pages/prices"));
 const Account = lazy(() => import("./pages/account"));
 const Device = lazy(() => import("./pages/device"));
 const Contributors = lazy(() => import("./pages/contributors"));
@@ -105,14 +115,13 @@ class PageErrorBoundary extends Component<
     );
   }
 }
-function SalesRedirect() {
+function PriceTableRedirect() {
   const navigate = useNavigate();
+  const route = useLocation();
   useEffect(() => {
-    const url = new URL(location.href);
-    url.pathname = "/prices";
-    url.searchParams.set("tab", "sales");
-    navigate(url.pathname + url.search, { replace: true });
-  }, [navigate]);
+    const url = new URL(route.pathname + route.search + route.hash, location.origin);
+    navigate(priceTablePath(url) || "/", { replace: true });
+  }, [navigate, route.pathname, route.search, route.hash]);
   return <Loading />;
 }
 function LegacyRedirect() {
@@ -138,7 +147,6 @@ function Application() {
   const page = route.pathname.split("/")[1] || "home";
   const titles: Record<string, string> = {
     home: words("首页", "Home"),
-    prices: words("价格表", "Prices"),
     watch: words("关注", "Watch"),
     alerts: words("低价提醒", "Deal alerts"),
     tools: route.pathname.startsWith("/tools/enhancement")
@@ -243,7 +251,7 @@ function Application() {
           ) : (
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/prices/*" element={<Prices />} />
+              <Route path="/prices/*" element={<PriceTableRedirect />} />
               <Route path="/account" element={<Account />} />
               <Route path="/device" element={<Device />} />
               <Route path="/contributors" element={<Contributors />} />
@@ -264,7 +272,7 @@ function Application() {
                 />
               ))}
               <Route path="/collect/*" element={<Collect />} />
-              <Route path="/sales" element={<SalesRedirect />} />
+              <Route path="/sales" element={<PriceTableRedirect />} />
               <Route path="/v2/*" element={<LegacyRedirect />} />
               <Route path="*" element={<Home />} />
             </Routes>

@@ -11,7 +11,6 @@ import { Icon, Search } from "./shared";
 
 const navigation = [
   ["home", "/", "首页", "Home", "home"],
-  ["prices", "/prices", "价格表", "Prices", "tag"],
   ["agent", "/agent", "AI 助手", "Ask AI", "search"],
   ["dex", "/search?kind=item", "图鉴", "Catalogue", "book"],
   ["watch", "/watch", "关注", "Watch", "star"],
@@ -186,21 +185,19 @@ export function Navigation({ dock = false }: { dock?: boolean }) {
   };
   const active = path.startsWith("/agent")
     ? "agent"
-    : path.startsWith("/prices") || path.startsWith("/sales")
-      ? "prices"
-      : path.startsWith("/watch")
-        ? "watch"
-        : ["/tools", "/alerts", "/collect", "/web/download.html", "/contributors", "/traffic"].some(
-              (prefix) => path === prefix || path.startsWith(prefix + "/"),
-            )
-          ? "tools"
-          : path === "/" || path === "/v2"
-            ? "home"
-            : ["/search", "/item", "/mob", "/map", "/npc", "/route", "/world"].some(
-                  (prefix) => path === prefix || path.startsWith(prefix + "/"),
-                )
-              ? "dex"
-              : null;
+    : path.startsWith("/watch")
+      ? "watch"
+      : ["/tools", "/alerts", "/collect", "/web/download.html", "/contributors", "/traffic"].some(
+            (prefix) => path === prefix || path.startsWith(prefix + "/"),
+          )
+        ? "tools"
+        : path === "/" || path === "/v2" || path.startsWith("/prices") || path.startsWith("/sales")
+          ? "home"
+          : ["/search", "/item", "/mob", "/map", "/npc", "/route", "/world"].some(
+                (prefix) => path === prefix || path.startsWith(prefix + "/"),
+              )
+            ? "dex"
+            : null;
   const [hits, setHits] = useState(() => {
     try {
       return Number(localStorage.getItem("watch_hits")) || 0;
@@ -287,9 +284,9 @@ function EmbeddedNavigation() {
   return <nav className="embed-nav" aria-label={words("页面导航", "Page navigation")}>
     <button className="btn" type="button" onClick={() => {
       if (Number(window.history.state?.idx) > 0) navigate(-1);
-      else navigate("/prices?embed=1", {replace:true});
-    }} disabled={route.pathname === "/prices" && !(Number(window.history.state?.idx) > 0)}>{words("返回", "Back")}</button>
-    <SiteLink className="btn" href="/prices?embed=1">{words("价格表", "Prices")}</SiteLink>
+      else navigate("/?embed=1", {replace:true});
+    }} disabled={route.pathname === "/" && !(Number(window.history.state?.idx) > 0)}>{words("返回", "Back")}</button>
+    <SiteLink className="btn" href="/?embed=1">{words("价格表", "Prices")}</SiteLink>
     <Search />
   </nav>;
 }
