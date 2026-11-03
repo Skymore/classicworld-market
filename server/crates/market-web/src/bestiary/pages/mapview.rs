@@ -8,7 +8,7 @@ use maud::{html, Markup};
 
 use super::shell::Ctx;
 use crate::bestiary::format::Lang;
-use crate::bestiary::model::{MapMob, MapView, Point, PortalPoint};
+use crate::bestiary::model::{MapMob, MapView, Point, PortalPoint, SceneImage};
 
 /// A mob's head icon, made by `tools/niadb_map_assets.py heads`.
 pub(crate) fn head_url(mob_id: i32) -> String {
@@ -34,6 +34,45 @@ pub(crate) struct Marks<'a> {
     /// Markers are links (map and NPC pages), not on a route step whose
     /// row is already one.
     pub links: bool,
+    /// Draw the minimap instead of the scene: route steps after the first,
+    /// whose scenes the browser side loads as they scroll into view.
+    pub defer_scene: bool,
+}
+
+/// What the page around a map view takes from the screen width on phones: a
+/// map page's margins (route steps sit further in, so for them `sizes` says a
+/// little more than they show). Keep in step with `frontend/src/pages/mapview.tsx`.
+const PHONE_MARGIN: i32 = 64;
+
+/// `sizes` for the scene picture: about the svg's width on screen. Phones
+/// show it at the page's width, and wide maps at least 640 px (dex.css).
+pub(crate) fn scene_sizes(view: &MapView) -> String {
+    let w = view.shown_width;
+    let fit = format!(
+        "(max-width: {}px) calc(100vw - {PHONE_MARGIN}px), {w}px",
+        w + PHONE_MARGIN
+    );
+    if wide(view) {
+        format!("(max-width: 700px) 640px, {fit}")
+    } else {
+        fit
+    }
+}
+
+/// The scene as an `<img>`, so the browser picks the phone copy through
+/// `srcset`; the `<foreignObject>` places it in the view's units like an
+/// `<image>` would.
+fn scene_picture(view: &MapView, scene: &SceneImage) -> Markup {
+    let srcset = scene
+        .small_url
+        .as_ref()
+        .zip(scene.small_px)
+        .map(|(small, small_px)| format!("{small} {small_px}w, {} {}w", scene.url, scene.px));
+    html! {
+        foreignObject.mv-scene x=(scene.x) y=(scene.y) width=(scene.width) height=(scene.height) {
+            img src=(scene.url) srcset=[srcset.as_ref()] sizes=[srcset.as_ref().map(|_| scene_sizes(view))] alt="";
+        }
+    }
 }
 
 fn respawn_note(seconds: i32, lang: Lang) -> Option<String> {
@@ -67,8 +106,8 @@ pub(crate) fn map_svg(ctx: &Ctx, view: &MapView, title: &str, marks: &Marks) -> 
                 viewBox={"0 0 " (view.width) " " (view.height)}
                 width=(view.shown_width) height=(view.shown_height) role="img" aria-label=(label) {
                 rect.mv-bg width=(view.width) height=(view.height) {}
-                @if let Some(scene) = &view.scene {
-                    image.mv-scene href=(scene.url) x=(scene.x) y=(scene.y) width=(scene.width) height=(scene.height) preserveAspectRatio="none" {}
+                @if let Some(scene) = view.scene.as_ref().filter(|_| !marks.defer_scene) {
+                    (scene_picture(view, scene))
                 } @else if let Some(url) = &view.image_url {
                     image.mv-img href=(url) width=(view.width) height=(view.height) preserveAspectRatio="none" {}
                 }
@@ -289,16 +328,55 @@ mod tests {
         assert!(!html.contains("style="), "no inline styles under the CSP");
         assert!(html.contains("mv-img"), "the minimap without a scene");
         let mut with_scene = view();
-        with_scene.scene = Some(crate::bestiary::model::SceneImage {
-            url: "/web/images/scenes/1000.webp".into(),
-            x: 0,
-            y: 0,
-            width: 3928,
-            height: 2050,
-        });
+        with_scene.scene = Some(SceneImage::new(
+            "/web/images/scenes/1000.webp".into(),
+            0,
+            0,
+            3928,
+            2050,
+        ));
         let html = map_svg(&ctx, &with_scene, "x", &Marks::default()).into_string();
         assert!(
-            html.contains(r#"href="/web/images/scenes/1000.webp""#) && !html.contains("mv-img")
+            html.contains(r#"<foreignObject class="mv-scene" x="0" y="0" width="3928" height="2050"><img src="/web/images/scenes/1000.webp" srcset="/web/images/scenes/small/1000.webp 1100w, /web/images/scenes/1000.webp 1760w" sizes="(max-width: 944px) calc(100vw - 64px), 880px" alt=""></foreignObject>"#),
+            "{html}"
+        );
+        assert!(!html.contains("mv-img"));
+        // A later route step waits with the minimap.
+        let html = map_svg(
+            &ctx,
+            &with_scene,
+            "x",
+            &Marks {
+                defer_scene: true,
+                ..Marks::default()
+            },
+        )
+        .into_string();
+        assert!(
+            html.contains("mv-img") && !html.contains("scenes/"),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn scene_widths_follow_the_tool() {
+        // Wide: both copies limited by width.
+        let s = SceneImage::new("/s/1.webp".into(), 0, 0, 3928, 2050);
+        assert_eq!((s.px, s.small_px), (1760, Some(1100)));
+        assert_eq!(s.small_url.as_deref(), Some("/s/small/1.webp"));
+        // Tall: limited by height.
+        let s = SceneImage::new("/s/2.webp".into(), 0, 0, 1082, 4498);
+        assert_eq!((s.px, s.small_px), (250, Some(156)));
+        // Small enough already: no phone copy.
+        let s = SceneImage::new("/s/3.webp".into(), 0, 0, 900, 600);
+        assert_eq!((s.px, s.small_px, s.small_url), (900, None, None));
+        let mut wide = view();
+        wide.width = 6000;
+        wide.height = 1000;
+        wide.shown_width = 560;
+        assert_eq!(
+            scene_sizes(&wide),
+            "(max-width: 700px) 640px, (max-width: 624px) calc(100vw - 64px), 560px"
         );
     }
 

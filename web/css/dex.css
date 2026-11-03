@@ -159,6 +159,7 @@ html[data-device=desktop] .route-form{grid-template-columns:minmax(0,1fr) minmax
 @media(max-width:700px){.mapvis-svg.wide{min-width:640px}}
 .mv-bg{fill:var(--sheet-lo)}
 .mv-img{image-rendering:pixelated}
+.mv-scene img{display:block;width:100%;height:100%}
 .mv-shadow{fill:rgba(0,0,0,.3)}
 .mv-mob{cursor:pointer}
 .mv-mob:hover image,.mv-mob.on image{filter:drop-shadow(0 0 3px #fff)}

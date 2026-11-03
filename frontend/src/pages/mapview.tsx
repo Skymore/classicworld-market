@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useWords } from "../providers";
 import { useNames } from "./catalogue";
 import { Zoomable } from "./zoom";
@@ -39,9 +39,50 @@ export function ZoomMap(props: Parameters<typeof MapSvg>[0]) {
   const v = props.view;
   return (
     <Zoomable title={props.title} width={v.width} height={v.height} focus={props.exit || null}>
-      {(zoomed) => <MapSvg {...props} key={zoomed ? "z" : "i"} />}
+      {(zoomed) => <MapSvg {...props} zoomed={zoomed} key={zoomed ? "z" : "i"} />}
     </Zoomable>
   );
+}
+
+const isWide = (view: any) => view.width > (view.height * 5) / 2;
+
+// What the page takes from the screen width on phones. Keep in step with
+// PHONE_MARGIN and scene_sizes in pages/mapview.rs.
+const PHONE_MARGIN = 64;
+function sceneSizes(view: any) {
+  const w = view.shown_width;
+  const fit = `(max-width: ${w + PHONE_MARGIN}px) calc(100vw - ${PHONE_MARGIN}px), ${w}px`;
+  return isWide(view) ? `(max-width: 700px) 640px, ${fit}` : fit;
+}
+
+// The scene as an <img> in a <foreignObject>, so the browser picks the phone
+// copy through srcset. `full` asks for the full-size picture (the zoomed view).
+function ScenePicture({ view, full = false, onLoad }: { view: any; full?: boolean; onLoad?: () => void }) {
+  const s = view.scene;
+  const srcSet = !full && s.small_url ? `${s.small_url} ${s.small_px}w, ${s.url} ${s.px}w` : undefined;
+  return (
+    <foreignObject className="mv-scene" x={s.x} y={s.y} width={s.width} height={s.height}>
+      <img sizes={srcSet && sceneSizes(view)} srcSet={srcSet} src={s.url} alt="" onLoad={onLoad} />
+    </foreignObject>
+  );
+}
+
+// True once the element comes within 200 px of the viewport; at once when
+// not deferred.
+function useNear(ref: RefObject<Element | null>, defer: boolean) {
+  const [near, setNear] = useState(() => !defer || typeof IntersectionObserver === "undefined");
+  useEffect(() => {
+    if (near || !ref.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setNear(true);
+      },
+      { rootMargin: "200px 0px" },
+    );
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [near, ref]);
+  return near;
 }
 
 export function MapSvg({
@@ -56,6 +97,8 @@ export function MapSvg({
   layers = { mobs: true, portals: true, npcs: true },
   scene = true,
   exitNpc = false,
+  deferScene = false,
+  zoomed = false,
 }: {
   view: any;
   title: string;
@@ -70,9 +113,20 @@ export function MapSvg({
   scene?: boolean;
   /** `exit` is an NPC (ship, taxi), not a portal. */
   exitNpc?: boolean;
+  /** Show the minimap until the view nears the screen, then the scene
+   * (route steps after the first; the server draws them with the minimap). */
+  deferScene?: boolean;
+  /** The full-screen copy: the full-size scene over the copy already shown. */
+  zoomed?: boolean;
 }) {
   const words = useWords(),
     name = useNames();
+  const box = useRef<HTMLDivElement>(null);
+  const near = useNear(box, deferScene && !zoomed);
+  const [loaded, setLoaded] = useState<string | null>(null);
+  const showScene = scene && view.scene && near;
+  // A deferred view keeps the minimap under its scene until the scene loads.
+  const showMinimap = !showScene || (deferScene && !zoomed && loaded !== view.scene.url);
   const u = view.icon;
   const mobLabel = (id: number) => {
     const row = mobs.find((m: any) => m.mob.id === id);
@@ -89,9 +143,9 @@ export function MapSvg({
     );
   const lift = (y: number) => fmt(y - u * 0.45);
   return (
-    <div className="mapvis-scroll">
+    <div className="mapvis-scroll" ref={box}>
       <svg
-        className={"mapvis-svg" + (view.width > (view.height * 5) / 2 ? " wide" : "")}
+        className={"mapvis-svg" + (isWide(view) ? " wide" : "")}
         xmlns="http://www.w3.org/2000/svg"
         viewBox={`0 0 ${view.width} ${view.height}`}
         width={view.shown_width}
@@ -100,27 +154,17 @@ export function MapSvg({
         aria-label={words("小地图：", "Minimap: ") + title}
       >
         <rect className="mv-bg" width={view.width} height={view.height} />
-        {scene && view.scene ? (
+        {showMinimap && view.image_url && (
           <image
-            className="mv-scene"
-            href={view.scene.url}
-            x={view.scene.x}
-            y={view.scene.y}
-            width={view.scene.width}
-            height={view.scene.height}
+            className="mv-img"
+            href={view.image_url}
+            width={view.width}
+            height={view.height}
             preserveAspectRatio="none"
           />
-        ) : (
-          view.image_url && (
-            <image
-              className="mv-img"
-              href={view.image_url}
-              width={view.width}
-              height={view.height}
-              preserveAspectRatio="none"
-            />
-          )
         )}
+        {showScene && <ScenePicture view={view} onLoad={() => setLoaded(view.scene.url)} />}
+        {showScene && zoomed && <ScenePicture view={view} full />}
         {layers.mobs && (
           <g className={"mv-mobs" + (focus != null ? " focused" : "")}>
             {view.spawns.map((s: any, i: number) => {

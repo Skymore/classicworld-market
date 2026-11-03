@@ -830,9 +830,13 @@ function StepHint({ step }: { step: any }) {
     return <>{words(`找圈出的${npc}坐出租车`, `take the taxi with ${npc}, circled`)}</>;
   return <Edge kind={step.kind} portal={step.portal_name} />;
 }
+const stepShowsMap = (step: any) => step.view && (step.exit || step.kind !== "portal");
 function Steps({ steps }: { steps: any[] }) {
   const words = useWords(),
     name = useNames();
+  // Only the first map loads its scene with the page; the rest wait with the
+  // minimap until they scroll into view (steps_list in pages/dex.rs).
+  const firstMap = steps.findIndex(stepShowsMap);
   return (
     <ol className="steps">
       {steps.map((step: any, i: number) => (
@@ -853,14 +857,16 @@ function Steps({ steps }: { steps: any[] }) {
             </span>
             {step.kind === "return" && <span className="kind">{words("回城卷轴", "scroll")}</span>}
           </a>
-          {step.view && (step.exit || step.kind !== "portal") && (
+          {stepShowsMap(step) && (
             <figure className="mapvis step-map">
               <ZoomMap
+                key={step.from.id}
                 view={step.view}
                 title={name(step.from.names)}
                 exit={step.exit}
                 arrival={step.arrival}
                 exitNpc={!!step.npc}
+                deferScene={i !== firstMap}
               />
             </figure>
           )}

@@ -1683,13 +1683,9 @@ pub async fn map_view(db: &PgPool, map_id: i32, layers: Layers) -> sqlx::Result<
         row.scene_w,
         row.scene_h,
     ) {
-        (Some(url), Some(x), Some(y), Some(width), Some(height)) => Some(SceneImage {
-            url,
-            x: x + cx,
-            y: y + cy,
-            width,
-            height,
-        }),
+        (Some(url), Some(x), Some(y), Some(width), Some(height)) => {
+            Some(SceneImage::new(url, x + cx, y + cy, width, height))
+        }
         _ => None,
     };
     let (shown_width, shown_height, icon) = view_size(w, h, layers);
