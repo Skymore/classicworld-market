@@ -70,8 +70,8 @@
       "_shared-VLsF6lrB.js"
     ]
   },
-  "_main-BvoKfJkv.js": {
-    "file": "chunks/main-BvoKfJkv.js",
+  "_main-DqLgqNT7.js": {
+    "file": "chunks/main-DqLgqNT7.js",
     "name": "main",
     "imports": [
       "_shared-VLsF6lrB.js",
@@ -235,7 +235,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BvoKfJkv.js"
+      "_main-DqLgqNT7.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -283,7 +283,7 @@
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-Ba7e43Q1.js",
+    "file": "chunks/catalogue-XpR51KYC.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
@@ -352,7 +352,7 @@
     ]
   },
   "src/pages/prices.tsx": {
-    "file": "chunks/prices-CWJl3bO_.js",
+    "file": "chunks/prices-CH0o288c.js",
     "name": "prices",
     "src": "src/pages/prices.tsx",
     "isDynamicEntry": true,
@@ -443,7 +443,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BvoKfJkv.js"
+      "_main-DqLgqNT7.js"
     ]
   },
   "style.css": {

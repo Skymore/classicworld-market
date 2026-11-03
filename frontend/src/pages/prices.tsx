@@ -389,8 +389,8 @@ export default function Prices() {
       <span
         className="craft-label"
         title={words(
-          "按购买配方材料加手续费估算；详情可查看配方和原料加工方案。配方为 NiaDB 参考。",
-          "Estimated ingredient purchases plus crafting fee. Item details include recipes and a raw-material route. NiaDB recipe reference.",
+          "按购买配方材料加手续费估算；详情可查看配方和原料加工方案。",
+          "Estimated ingredient purchases plus crafting fee. Item details include recipes and a raw-material route.",
         )}
       >
         <span className="craft-tag">{words("可制作", "CRAFTABLE")}</span>

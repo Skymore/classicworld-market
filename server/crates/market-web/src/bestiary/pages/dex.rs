@@ -238,7 +238,6 @@ fn drop_row(ctx: &Ctx, drop: &MobDrop) -> Markup {
         Lang::Zh => format!(" · 任务 #{q} 期间"),
         Lang::En => format!(" · during quest #{q}"),
     });
-    let rate = html! { @if let Some(votes) = drop.votes { span.r { (super::item::votes_label(votes, lang)) } } };
     match &drop.what {
         DropTarget::Item {
             id,
@@ -261,14 +260,12 @@ fn drop_row(ctx: &Ctx, drop: &MobDrop) -> Markup {
                         @if let Some(q) = &quest { (q) }
                     }
                 }
-                (rate)
             }
         },
         DropTarget::Meso { min, max } => html! {
             div.drow {
                 span.slot.s28.coin { (ctx.t("金", "$")) }
                 span.t { b { (ctx.t("金币", "Mesos")) } span.s { (min) "–" (max) } }
-                (rate)
             }
         },
         DropTarget::Unlisted { id, names } => html! {
@@ -285,7 +282,6 @@ fn drop_row(ctx: &Ctx, drop: &MobDrop) -> Markup {
                     @if let Some(names) = names { (super::secondary_name(names, lang)) }
                     span.s { (ctx.t("不在市场目录", "not in the market catalogue")) @if let Some(q) = &quest { (q) } }
                 }
-                (rate)
             }
         },
     }

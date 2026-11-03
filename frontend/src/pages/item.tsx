@@ -479,6 +479,11 @@ export default function Item({ page }: { page: any }) {
     sort,
     { ...filters, stock: "all", minStock: null },
   ).rows;
+  // Identical slots of one shop visit share a row, so count sales, not rows.
+  const saleCount = sales.reduce(
+    (n: number, row: any) => n + (row.merged_count || 1),
+    0,
+  );
   const selectedVariant = page.selected_variant;
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -575,7 +580,7 @@ export default function Item({ page }: { page: any }) {
               ·{" "}
             </>
           )}
-          {period.hours === "all" ? words("全部 ", "All time ") : "72h "}
+          {period.hours === "all" ? words("全部 ", "All time ") : words("近 72 小时 ", "72 h ")}
           <b>{stats.sales_24h}</b>
           {words(" 笔", " sales")}
           {stats.lowest_ask != null && (
@@ -1466,8 +1471,8 @@ export default function Item({ page }: { page: any }) {
                 <small>
                   {page.droppers.length
                     ? words(
-                        `${page.droppers.length} 种怪物 · NiaDB 玩家确认`,
-                        `${page.droppers.length} monsters · confirmed by NiaDB players`,
+                        `${page.droppers.length} 种怪物`,
+                        `${page.droppers.length} monsters`,
                       )
                     : words(
                         "还没有玩家确认的怪物掉落",
@@ -1504,11 +1509,6 @@ export default function Item({ page }: { page: any }) {
                         words("没有出现地图记录", "no maps recorded")}
                     </div>
                   </span>
-                  {drop.votes != null && (
-                    <span className="rate" title={words(`NiaDB 上 ${drop.votes} 名玩家确认这只怪会掉`, `${drop.votes} players on NiaDB confirmed this drop`)}>
-                      {words(`${drop.votes} 人确认`, `${drop.votes} confirmed`)}
-                    </span>
-                  )}
                 </a>
               ))}
               {page.droppers.length > 4 && (
@@ -1570,7 +1570,7 @@ export default function Item({ page }: { page: any }) {
                 <>
                   <div className="sub-h ruled">
                     {words("任务奖励", "Quest rewards")}
-                    <small>{words(`${page.quest_rewards.length} 个任务 · NiaDB`, `${page.quest_rewards.length} quests · NiaDB`)}</small>
+                    <small>{words(`${page.quest_rewards.length} 个任务`, `${page.quest_rewards.length} quests`)}</small>
                   </div>
                   <QuestRows rows={page.quest_rewards} />
                 </>
@@ -1579,7 +1579,7 @@ export default function Item({ page }: { page: any }) {
                 <>
                   <div className="sub-h ruled">
                     {words("任务要用", "Needed for quests")}
-                    <small>{words(`${page.quest_needs.length} 个任务 · NiaDB`, `${page.quest_needs.length} quests · NiaDB`)}</small>
+                    <small>{words(`${page.quest_needs.length} 个任务`, `${page.quest_needs.length} quests`)}</small>
                   </div>
                   <QuestRows rows={page.quest_needs} />
                 </>
@@ -1592,8 +1592,8 @@ export default function Item({ page }: { page: any }) {
               className={"sales-well " + (more.has("sales") ? "all" : "")}
               title={words("最近成交", "Recent sales")}
               note={words(
-                `${sales.length} 条 · 新的在前`,
-                `${sales.length} · newest first`,
+                `${saleCount} 笔 · 新的在前`,
+                `${saleCount} sales · newest first`,
               )}
             >
               {saleList(true)}

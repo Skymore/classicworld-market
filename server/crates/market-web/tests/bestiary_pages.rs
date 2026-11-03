@@ -269,7 +269,7 @@ fn item_page_head_sources_and_shell() {
     assert!(html.contains("▼ 6.1%"));
     assert!(html.contains("数据 1小时前更新"), "freshness from as_of");
     assert!(html.contains(r#"href="/mob/2""#));
-    assert!(html.contains("60 人确认"), "NiaDB confirmations, not a rate");
+    assert!(!html.contains("人确认") && !html.contains("60%"), "neither confirmations nor a rate");
     assert!(html.contains("任务奖励") && html.contains("瑞恩的问答 7") && html.contains("×10"));
     assert!(html.contains("瑞恩 · Lv.5 · 每日 · 战士 随机 14.3%"), "NPC, level, repeat and how it is given");
     assert!(html.contains("任务要用") && html.contains("×3"));
@@ -552,7 +552,7 @@ fn mob_page_lists_maps_and_every_drop_kind() {
     assert!(html.contains("成交价 450 · 在售最低 233"));
     assert!(html.contains("物品 #2040002"));
     assert!(html.contains("任务 #1035 期间"));
-    assert!(html.contains("3 人确认") && html.contains("60 人确认"));
+    assert!(!html.contains("人确认") && !html.contains("NiaDB"));
     assert!(html.contains("<p>第二行</p>"));
     let english = pages::mob_page(&page, &en()).into_string();
     assert!(english.contains("<h1>Snail</h1>") && english.contains("Maple Island"));

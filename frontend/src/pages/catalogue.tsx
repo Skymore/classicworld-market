@@ -224,14 +224,7 @@ function Mob({ page }: { page: any }) {
         <div className="dgrid">
           <Well
             title={words("掉落", "Drops")}
-            note={
-              <>
-                {words(`${page.drops.length} 种 · 玩家确认 `, `${page.drops.length} kinds · player-confirmed `)}
-                <a href={`https://meowdb.com/msclassic/monsters/${mob.id}`} target="_blank" rel="noopener noreferrer">
-                  NiaDB
-                </a>
-              </>
-            }
+            note={words(`${page.drops.length} 种`, `${page.drops.length} kinds`)}
           >
             {page.drops.slice(0, allDrops ? undefined : 10).map((drop: any, i: number) => {
               const item = drop.what.Item,
@@ -291,11 +284,6 @@ function Mob({ page }: { page: any }) {
                         )}
                     </span>
                   </span>
-                  {drop.votes != null && (
-                    <span className="r" title={words(`NiaDB 上 ${drop.votes} 名玩家确认这只怪会掉`, `${drop.votes} players on NiaDB confirmed this drop`)}>
-                      {words(`${drop.votes} 人确认`, `${drop.votes} confirmed`)}
-                    </span>
-                  )}
                 </>
               );
               return item ? (
@@ -375,7 +363,7 @@ function Mob({ page }: { page: any }) {
           {page.quests?.length > 0 && (
             <Well
               title={words("相关任务", "Quests")}
-              note={words(`${page.quests.length} 个任务 · NiaDB`, `${page.quests.length} quests · NiaDB`)}
+              note={words(`${page.quests.length} 个任务`, `${page.quests.length} quests`)}
             >
               <QuestRows rows={page.quests} defeat />
             </Well>
@@ -385,7 +373,7 @@ function Mob({ page }: { page: any }) {
     </>
   );
 }
-// NiaDB's job and gender names, as the quest rows show them.
+// Job and gender names, as the quest rows show them.
 const JOBS: Record<string, [string, string]> = {
   Beginner: ["新手", "Beginner"],
   Warrior: ["战士", "Warrior"],

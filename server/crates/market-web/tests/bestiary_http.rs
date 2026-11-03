@@ -194,8 +194,8 @@ async fn item_page() {
     assert!(body.contains("450"), "typical price from item_stats");
     assert!(body.contains(r#"href="/mob/2""#));
     assert!(
-        body.contains("60 人确认") && !body.contains("60%"),
-        "votes, not a rate"
+        !body.contains("人确认") && !body.contains("60%") && !body.contains("NiaDB"),
+        "no vote counts, no drop rates and no source name"
     );
     assert!(body.contains("射手训练场Ⅰ"), "dropper's map");
     // The cheapest channel is in the first paint, from the same rows as /api/v1/item.
@@ -225,7 +225,7 @@ async fn item_page() {
 
     let no_stats = get(&router, "/item/1002000").await;
     assert!(no_stats.body.contains("还没有成交价"));
-    assert!(no_stats.body.contains("2 人确认"));
+    assert!(!no_stats.body.contains("人确认"));
 
     for missing in ["/item/999", "/item/abc"] {
         let page = get(&router, missing).await;

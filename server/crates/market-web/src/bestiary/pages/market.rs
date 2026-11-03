@@ -916,7 +916,14 @@ pub fn tabs_well(v: &View) -> Markup {
 
 /// Desktop: recent sales in their own panel, two columns.
 pub fn sales_well(v: &View) -> Markup {
-    let n = v.page.market.sales.len();
+    // Identical slots of one shop visit share a row, so count sales, not rows.
+    let n: i64 = v
+        .page
+        .market
+        .sales
+        .iter()
+        .map(|s| s.merged_count.max(1))
+        .sum();
     html! {
         div.on-desktop data-market="sales" {
             section.well.sales-well {
@@ -924,8 +931,8 @@ pub fn sales_well(v: &View) -> Markup {
                     h3 { (v.t("最近成交", "Recent sales")) }
                     small {
                         @match v.ctx.lang {
-                            Lang::Zh => { (n) " 条 · 新的在前" },
-                            Lang::En => { (n) " · newest first" },
+                            Lang::Zh => { (n) " 笔 · 新的在前" },
+                            Lang::En => { (n) " sales · newest first" },
                         }
                     }
                 }

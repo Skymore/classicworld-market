@@ -201,8 +201,8 @@ fn sources_well(v: &View) -> Markup {
                 "no player-confirmed monster drops yet",
             )
             .to_string(),
-        (n, Lang::Zh) => format!("{n} 种怪物 · 玩家确认"),
-        (n, Lang::En) => format!("{n} monsters · player-confirmed"),
+        (n, Lang::Zh) => format!("{n} 种怪物"),
+        (n, Lang::En) => format!("{n} monsters"),
     };
     let (verdict, reason) = verdict(v);
     html! {
@@ -218,7 +218,6 @@ fn sources_well(v: &View) -> Markup {
                         (super::secondary_name(&d.mob.names, lang))
                         div.maps { (map_list(&d.maps, lang)) }
                     }
-                    @if let Some(votes) = d.votes { span.rate { (votes_label(votes, lang)) } }
                 }
             }
             @if droppers.len() > MOBS_PHONE {
@@ -253,18 +252,10 @@ fn sources_well(v: &View) -> Markup {
     }
 }
 
-/// NiaDB's confirmations of a drop, as a short label.
-pub(super) fn votes_label(votes: i64, lang: Lang) -> String {
-    match lang {
-        Lang::Zh => format!("{votes} 人确认"),
-        Lang::En => format!("{votes} confirmed"),
-    }
-}
-
 pub(super) fn quest_count(lang: Lang, n: usize) -> String {
     match lang {
-        Lang::Zh => format!("{n} 个任务 · NiaDB"),
-        Lang::En => format!("{n} quests · NiaDB"),
+        Lang::Zh => format!("{n} 个任务"),
+        Lang::En => format!("{n} quests"),
     }
 }
 

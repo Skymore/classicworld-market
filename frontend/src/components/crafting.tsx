@@ -162,14 +162,6 @@ export default function Crafting({ itemId }: { itemId: number }) {
             )}
           </section>
         ))}
-        <a
-          className="craft-credit"
-          href={catalog.data.source}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          NiaDB
-        </a>
       </div>
     </details>
   );
