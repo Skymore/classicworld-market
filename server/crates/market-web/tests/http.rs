@@ -897,3 +897,77 @@ async fn recent_quotes_keep_the_observation_price_location_and_stock_together() 
     }
     db.close().await;
 }
+
+#[tokio::test]
+async fn item_history_keeps_the_cheapest_offer_of_each_newest_observation() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let (client, token) = market(&db).await;
+    let auth = format!("Bearer {token}");
+    let now = unix_now();
+    let mut several = observation("several", now - 30.0, 0);
+    several["items"] = json!([
+        {"item_id": 4010001, "category": 4, "slot": 1, "price": 900, "bundle": 1, "stock": 0},
+        {"item_id": 4010001, "category": 4, "slot": 2, "price": 1400, "bundle": 2, "stock": 2},
+        {"item_id": 4010001, "category": 4, "slot": 3, "price": 650, "bundle": 1, "stock": 1},
+    ]);
+    let mut sold_out = observation("sold-out", now - 20.0, 0);
+    sold_out["items"] = json!([
+        {"item_id": 4010001, "category": 4, "slot": 1, "price": 300, "bundle": 1, "stock": 0},
+        {"item_id": 4010001, "category": 4, "slot": 2, "price": 200, "bundle": 1, "stock": 0},
+    ]);
+    for body in [several, sold_out] {
+        let response = client
+            .post("/api/v1/observations", &body, &[("authorization", &auth)])
+            .await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+    }
+    let detail = json_body(client.get("/api/v1/market?item_id=4010001", &[]).await).await;
+    let rows: Vec<(f64, i64)> = detail["history"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| {
+            (
+                r["unit_price"].as_f64().unwrap(),
+                r["stock"].as_i64().unwrap(),
+            )
+        })
+        .collect();
+    // Newest first; one row per observation; in-stock offers before cheaper sold-out rows.
+    assert_eq!(rows[..2], [(200.0, 0), (650.0, 1)]);
+    assert_eq!(rows.len(), 5);
+
+    sqlx::query(
+        "INSERT INTO observations (observation_id, collector_id, shop_id, source, observed_at, received_at, fingerprint, visit_key)
+         SELECT 'cap-'||n, o.collector_id, o.shop_id, 'packet', now() - interval '1 day' - n * interval '1 second', now(),
+                'cap-'||n, 'cap-'||n
+         FROM generate_series(1, 510) n, (SELECT collector_id, shop_id FROM observations LIMIT 1) o",
+    )
+    .execute(&db.pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO observation_rows (observation_id, slot, item_id, price, bundle, stock, position)
+         SELECT id, 1, 4010001, 100, 1, 1, 0 FROM observations WHERE observation_id LIKE 'cap-%'",
+    )
+    .execute(&db.pool)
+    .await
+    .unwrap();
+    sqlx::query("UPDATE market_state SET version = version + 1")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    let detail = json_body(client.get("/api/v1/market?item_id=4010001", &[]).await).await;
+    let history = detail["history"].as_array().unwrap();
+    assert_eq!(history.len() as i64, market_web::views::HISTORY_LIMIT);
+    assert_eq!(
+        history[0]["unit_price"], 200.0,
+        "the newest observations stay"
+    );
+    assert!(history
+        .windows(2)
+        .all(|w| w[0]["time"].as_f64() >= w[1]["time"].as_f64()));
+    db.close().await;
+}

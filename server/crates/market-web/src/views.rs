@@ -552,16 +552,42 @@ async fn quotes(db: &PgPool, items: &[i32], cutoff: f64) -> sqlx::Result<Vec<Map
     Ok(result)
 }
 
-/// Every observation row of the item, newest first.
+/// Observations of one item in `?item_id=` history.
+pub const HISTORY_LIMIT: i64 = 500;
+
+/// The item's newest `HISTORY_LIMIT` observations, newest first, one row
+/// each: its cheapest in-stock offer, else its cheapest row. The price chart
+/// takes the lowest in-stock unit price per observation time, so it is the
+/// same as with every row; the full history grew without bound (32 MB).
+/// Observations and shops are read by id for this item's rows, never
+/// scanned whole.
 async fn item_history(db: &PgPool, item: i32) -> sqlx::Result<Vec<Value>> {
     let sql = format!(
-        "SELECT {} FROM observation_rows r
-         JOIN observations o ON o.id = r.observation_id JOIN shops sh ON sh.id = o.shop_id
+        "WITH picked AS MATERIALIZED (
+           SELECT DISTINCT ON (observation_id) observation_id, slot FROM observation_rows
+           WHERE item_id = $1
+           ORDER BY observation_id, stock > 0 DESC, market_unit_price(item_id, price, bundle), position DESC
+         ), seen AS MATERIALIZED (
+           SELECT p.observation_id, p.slot FROM picked p
+           JOIN LATERAL (SELECT observed_at, visit_key FROM observations
+                         WHERE id = p.observation_id OFFSET 0) o ON true
+           ORDER BY o.observed_at DESC, o.visit_key DESC LIMIT $2
+         )
+         SELECT {} FROM seen p
+         JOIN observation_rows r ON r.observation_id = p.observation_id AND r.slot = p.slot
+         JOIN LATERAL (SELECT visit_key, observed_at, shop_id, map_channel, map_id, source
+                       FROM observations WHERE id = r.observation_id OFFSET 0) o ON true
+         JOIN LATERAL (SELECT title, owner_name, shop_id, channel, room, public_key
+                       FROM shops WHERE id = o.shop_id OFFSET 0) sh ON true
          JOIN items i ON i.id = r.item_id LEFT JOIN equipment_variants v ON v.id = r.variant_id
-         WHERE r.item_id = $1 ORDER BY o.observed_at DESC, o.visit_key DESC, r.position DESC",
+         ORDER BY o.observed_at DESC, o.visit_key DESC, r.position DESC",
         row_columns("r")
     );
-    let rows = sqlx::query(&sql).bind(item).fetch_all(db).await?;
+    let rows = sqlx::query(&sql)
+        .bind(item)
+        .bind(HISTORY_LIMIT)
+        .fetch_all(db)
+        .await?;
     Ok(rows.iter().map(|r| Value::Object(row_json(r))).collect())
 }
 
