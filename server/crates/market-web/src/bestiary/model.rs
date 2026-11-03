@@ -363,6 +363,101 @@ pub struct MapPage {
     pub npcs: Vec<NpcRef>,
     pub exits: Vec<Link>,
     pub entrances: Vec<Link>,
+    /// The minimap with spawn points, portals and NPCs, when NiaDB has its box.
+    pub view: Option<MapView>,
+    /// Quests the NPCs here give.
+    pub quests_given: Vec<QuestRef>,
+    /// Quests that ask to defeat monsters that spawn here.
+    pub quests_hunted: Vec<QuestHunt>,
+    /// The maps from Henesys to here (both ends included), when there is a way.
+    pub from_henesys: Option<Vec<MapRef>>,
+}
+
+/// A quest that asks to defeat a monster found on the map.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct QuestHunt {
+    pub quest: QuestRef,
+    pub mob: MobRef,
+    pub quantity: i32,
+}
+
+/// The minimap and what is drawn over it, in the minimap's own units: the
+/// box is `width` x `height`, and every point is already inside it (world
+/// x + minimap centre). The image covers the whole box.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MapView {
+    pub width: i32,
+    pub height: i32,
+    /// Size on screen in CSS pixels at full width; markers are sized for it.
+    pub shown_width: i32,
+    pub shown_height: i32,
+    /// A mob icon's side in box units (24 px when shown at full size).
+    pub icon: i32,
+    pub image_url: Option<String>,
+    pub spawns: Vec<SpawnPoint>,
+    pub portals: Vec<PortalPoint>,
+    pub npcs: Vec<NpcPoint>,
+    /// Where a player arrives without a portal.
+    pub player_spawn: Option<Point>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+pub struct Point {
+    pub x: i32,
+    pub y: i32,
+}
+
+/// `y` is where the monster's feet are.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SpawnPoint {
+    pub mob_id: i32,
+    pub x: i32,
+    pub y: i32,
+    /// Seconds before it returns when the map sets a timer (bosses); 0 for
+    /// the normal wave respawn.
+    pub mob_time: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PortalPoint {
+    pub x: i32,
+    pub y: i32,
+    pub to: MapRef,
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct NpcPoint {
+    pub npc: NpcRef,
+    pub x: i32,
+    pub y: i32,
+}
+
+// ---------- NPC ----------
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct NpcPage {
+    pub npc: NpcRef,
+    /// The maps it stands on; `view` marks it among the map's other NPCs.
+    pub places: Vec<NpcPlace>,
+    pub quests: Vec<QuestRef>,
+    pub shop: Vec<NpcShopItem>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct NpcPlace {
+    pub map: MapRef,
+    pub view: Option<MapView>,
+}
+
+/// An item the NPC sells; every item in `npc_shops` is in the catalogue.
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow, serde::Serialize)]
+pub struct NpcShopItem {
+    pub id: i32,
+    #[sqlx(flatten)]
+    pub names: Names,
+    pub icon_url: Option<String>,
+    pub price: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -435,6 +530,13 @@ pub struct Step {
     pub to: MapRef,
     pub kind: EdgeKind,
     pub portal_name: Option<String>,
+    /// `from`'s minimap with its portals (no monsters or NPCs), when known.
+    pub view: Option<MapView>,
+    /// The portal to take on `view`, when its position is known.
+    pub exit: Option<Point>,
+    /// Where the player is when the step starts: the portal they came in by,
+    /// or the map's spawn point.
+    pub arrival: Option<Point>,
 }
 
 // ---------- search ----------

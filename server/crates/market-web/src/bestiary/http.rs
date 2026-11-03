@@ -16,7 +16,7 @@ use super::dex_api;
 use super::model::{RouteEnd, RouteOutcome, RoutePage, Step};
 use super::pages;
 use super::queries::{self, Resolution};
-use super::route::Graph;
+use super::route::{EdgeKind, Graph, HENESYS};
 use crate::AppState;
 
 // Page context: language, device hint, render time.
@@ -49,6 +49,7 @@ pub fn routes() -> Router<AppState> {
         .route("/item/{id}", get(item))
         .route("/mob/{id}", get(mob))
         .route("/map/{id}", get(map))
+        .route("/npc/{id}", get(npc))
         .route("/route", get(route))
         .route("/search", get(search))
         .route("/static/bestiary.css", get(css))
@@ -120,6 +121,7 @@ type What = (&'static str, &'static str);
 const ITEM: What = ("物品", "item");
 const MOB: What = ("怪物", "monster");
 const MAP: What = ("地图", "map");
+const NPC: What = ("NPC", "NPC");
 
 fn not_found(what: What, ctx: &Ctx) -> Response {
     html(
@@ -267,11 +269,46 @@ async fn map(
         return not_found(MAP, &ctx);
     };
     detail(
-        queries::map_page(&state.db, id).await,
+        map_page(&state, id).await,
         &ctx,
         MAP,
         EDGE_CACHE,
         pages::map_page,
+    )
+}
+
+/// The map page with the way from Henesys.
+async fn map_page(state: &AppState, id: i32) -> sqlx::Result<Option<super::model::MapPage>> {
+    let Some(mut page) = queries::map_page(&state.db, id).await? else {
+        return Ok(None);
+    };
+    if id != HENESYS {
+        let graph = Graph::new(queries::load_edges(&state.db).await?);
+        if let Some(path) = graph.shortest_path(HENESYS, id) {
+            let ids: Vec<i32> = std::iter::once(HENESYS)
+                .chain(path.iter().map(|e| e.to))
+                .collect();
+            let names = queries::map_refs(&state.db, &ids).await?;
+            page.from_henesys = Some(ids.iter().map(|id| names[id].clone()).collect());
+        }
+    }
+    Ok(Some(page))
+}
+
+async fn npc(
+    State(state): State<AppState>,
+    Path(raw): Path<String>,
+    PageCtx(ctx): PageCtx,
+) -> Response {
+    let Some(id) = parse_id(&raw) else {
+        return not_found(NPC, &ctx);
+    };
+    detail(
+        queries::npc_page(&state.db, id).await,
+        &ctx,
+        NPC,
+        EDGE_CACHE,
+        pages::npc_page,
     )
 }
 
@@ -333,19 +370,50 @@ async fn route_page(state: &AppState, from_input: &str, to_input: &str) -> sqlx:
             ids.sort_unstable();
             ids.dedup();
             let names = queries::map_refs(&state.db, &ids).await?;
-            let steps = path
+            let mut steps: Vec<Step> = path
                 .iter()
                 .map(|e| Step {
                     from: names[&e.from].clone(),
                     to: names[&e.to].clone(),
                     kind: e.kind,
                     portal_name: e.portal_name.clone(),
+                    view: None,
+                    exit: None,
+                    arrival: None,
                 })
                 .collect();
+            step_views(&state.db, &mut steps).await?;
             RouteOutcome::Found { from, to, steps }
         }
     };
     Ok(page)
+}
+
+/// Each step's map with the portal to take and where the player stands
+/// when the step starts: the portal back to the previous map, or the map's
+/// spawn point (start, after a scroll, ship or taxi).
+async fn step_views(db: &sqlx::PgPool, steps: &mut [Step]) -> sqlx::Result<()> {
+    let mut came_from: Option<i32> = None;
+    for step in steps.iter_mut() {
+        let view = queries::map_view(db, step.from.id, queries::Layers::PORTALS).await?;
+        if let Some(view) = &view {
+            let point = |p: &super::model::PortalPoint| super::model::Point { x: p.x, y: p.y };
+            if step.kind == EdgeKind::Portal {
+                let to_next = || view.portals.iter().filter(|p| p.to.id == step.to.id);
+                step.exit = to_next()
+                    .find(|p| p.name.is_some() && p.name == step.portal_name)
+                    .or_else(|| to_next().next())
+                    .map(point);
+            }
+            step.arrival = came_from
+                .and_then(|prev| view.portals.iter().find(|p| p.to.id == prev))
+                .map(point)
+                .or(view.player_spawn);
+        }
+        step.view = view;
+        came_from = (step.kind == EdgeKind::Portal).then_some(step.from.id);
+    }
+    Ok(())
 }
 
 /// `Ok(map)` or the outcome to show instead.
@@ -600,7 +668,8 @@ async fn catalog_page(
             )
         }
         "mob" => loaded(queries::mob_page(&state.db, id).await, "mob", &headers),
-        "map" => loaded(queries::map_page(&state.db, id).await, "map", &headers),
+        "map" => loaded(map_page(&state, id).await, "map", &headers),
+        "npc" => loaded(queries::npc_page(&state.db, id).await, "npc", &headers),
         _ => response(StatusCode::NOT_FOUND, json!({"error":"not_found"})),
     }
 }

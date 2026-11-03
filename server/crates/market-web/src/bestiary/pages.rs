@@ -10,6 +10,7 @@
 
 mod dex;
 mod item;
+mod mapview;
 mod market;
 mod preview;
 mod shell;
@@ -17,9 +18,9 @@ mod shell;
 use maud::{html, Markup};
 
 use super::format::Lang;
-use super::model::{MapRef, Names, QuestNeed, QuestRef, QuestReward};
+use super::model::{MapRef, Names, QuestHunt, QuestNeed, QuestRef, QuestReward};
 
-pub use dex::{error_page, map_page, mob_page, not_found_page, route_page, search_page};
+pub use dex::{error_page, map_page, mob_page, not_found_page, npc_page, route_page, search_page};
 pub use item::{item_market_fragment, item_page};
 pub use market::{channel_groups, has_bonus, ladder, tier_bounds, Ladder, Tier};
 pub use preview::item_preview;
@@ -200,6 +201,32 @@ pub fn quest_needs(lang: Lang, needs: &[QuestNeed], defeat: bool) -> Markup {
                     (true, Lang::Zh) => format!("击败 {}", n.quantity),
                     (true, Lang::En) => format!("defeat {}", n.quantity),
                     (false, _) => format!("×{}", n.quantity),
+                }))
+            }
+        }
+    }
+}
+
+/// Quests an NPC gives (`with_npc`: the map page names the NPC).
+pub fn quest_list(lang: Lang, quests: &[QuestRef], with_npc: bool) -> Markup {
+    html! {
+        div.quests {
+            @for q in quests {
+                @let shown = if with_npc { q.clone() } else { QuestRef { npc: None, ..q.clone() } };
+                (quest_line(lang, &shown, None, String::new()))
+            }
+        }
+    }
+}
+
+/// Quests that ask to defeat monsters found on a map.
+pub fn quest_hunts(lang: Lang, hunts: &[QuestHunt]) -> Markup {
+    html! {
+        div.quests {
+            @for h in hunts {
+                (quest_line(lang, &h.quest, None, match lang {
+                    Lang::Zh => format!("{} ×{}", h.mob.names.get(lang), h.quantity),
+                    Lang::En => format!("{} ×{}", h.mob.names.get(lang), h.quantity),
                 }))
             }
         }

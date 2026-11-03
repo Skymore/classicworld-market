@@ -140,7 +140,10 @@ async fn main() -> Result<()> {
         zh.maps.dvg,
         zh.maps.mapledex_tw
     );
-    println!("spawns   {:>5}  NiaDB", s.spawns);
+    println!(
+        "spawns   {:>5}  NiaDB ({} spawn points with positions, for the map view)",
+        s.spawns, s.spawn_points
+    );
     println!(
         "drops    {:>5}  NiaDB: {} items with more up than down votes ({} in the catalogue; {} \
          reports left out), {} meso ranges ({} mobs whose reports NiaDB does not trust yet)",

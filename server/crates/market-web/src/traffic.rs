@@ -83,7 +83,7 @@ fn page_path(value: &str) -> Option<String> {
         return Some(path.to_owned());
     }
     let (kind, id) = path.strip_prefix('/')?.split_once('/')?;
-    if ["item", "mob", "map", "prices"].contains(&kind)
+    if ["item", "mob", "map", "npc", "prices"].contains(&kind)
         && !id.is_empty()
         && id.len() <= 10
         && id.bytes().all(|b| b.is_ascii_digit())

@@ -176,14 +176,16 @@ fn niadb_bestiary_decides_what_exists() {
             counts.mobs,
             counts.mobs_added,
             counts.mobs_removed,
-            counts.mobs_unreleased
+            counts.mobs_unreleased,
+            counts.mob_copies,
         ),
-        (206, 19, 8, 41 + 11),
-        "Orbis / El Nath, and Forgotten Hollow's 11"
+        (206, 19, 8, 41 + 11 + 11, 11),
+        "Orbis / El Nath, Forgotten Hollow's 11, and 11 GM-event / alt copies"
     );
     assert_eq!(
         (counts.maps, counts.maps_removed, counts.maps_unreleased),
-        (453, 15, 92 + 27)
+        (453, 15, 92 + 27 + 1),
+        "and 080003500, which the client leaves unnamed"
     );
     assert_eq!(
         (counts.drops + counts.mesos, counts.drops_unconfirmed),
@@ -219,6 +221,78 @@ fn niadb_bestiary_decides_what_exists() {
         "Forgotten Hollow opens on November 18"
     );
     assert!(mob(54).unwrap().unreleased, "Glowshroom only spawns there");
+    assert!(
+        mob(810000).unwrap().unreleased && mob(800020).unwrap().unreleased,
+        "GM-event and alt copies that spawn nowhere"
+    );
+    assert!(
+        !mob(800011).unwrap().unreleased,
+        "the party-quest Zombie Mushroom spawns in 1st Accompaniment"
+    );
+    assert!(map(80003500).unwrap().unreleased, "unnamed in the client");
+    let house = map(88000000).unwrap();
+    assert_eq!(
+        (
+            house.name_en.as_str(),
+            house.street_en.as_deref(),
+            house.name_zh.as_deref()
+        ),
+        ("Yellow Mushroom House", Some("Victoria Road"), None),
+        "NiaDB's name; Mapledex has name and street swapped"
+    );
+
+    // The map view: NiaDB's minimap box, spawn points and NPC positions.
+    let field = map(1000).unwrap();
+    assert_eq!(
+        (
+            field.minimap_w,
+            field.minimap_h,
+            field.minimap_cx,
+            field.minimap_cy
+        ),
+        (Some(3928), Some(2050), Some(479), Some(1405))
+    );
+    assert_eq!(
+        field.minimap_url.as_deref(),
+        Some("/web/images/minimaps/1000.png")
+    );
+    assert_eq!((field.spawn_x, field.spawn_y), (Some(-91), Some(181)));
+    let points: Vec<_> = data
+        .spawn_points
+        .iter()
+        .filter(|p| p.map_id == 1000)
+        .collect();
+    assert_eq!(points.len(), 66, "NiaDB: 66 monster spawn points");
+    assert_eq!(
+        (points[0].mob_id, points[0].x, points[0].y),
+        (4, 2242, -55),
+        "Shroom, first in NiaDB's order"
+    );
+    let per_map: i64 = data
+        .spawns
+        .iter()
+        .filter(|s| s.map_id == 1000)
+        .map(|s| i64::from(s.spawn_count))
+        .sum();
+    assert_eq!(per_map, 66, "the per-mob totals agree");
+    let mut keys: Vec<(i32, i16)> = data
+        .spawn_points
+        .iter()
+        .map(|p| (p.map_id, p.ord))
+        .collect();
+    keys.sort_unstable();
+    keys.dedup();
+    assert_eq!(
+        keys.len(),
+        data.spawn_points.len(),
+        "(map_id, ord) is the key"
+    );
+    let heena = data
+        .map_npcs
+        .iter()
+        .find(|p| (p.map_id, p.npc_id) == (1, 1))
+        .unwrap();
+    assert_eq!((heena.x, heena.y), (Some(-46), Some(280)));
 
     // Only drops players confirmed and NiaDB's meso ranges; no rates.
     assert!(data
@@ -277,7 +351,10 @@ fn niadb_bestiary_decides_what_exists() {
     let (_, counts) = later
         .add_niadb_bestiary_dir(&repo_data("reference/niadb"), opening)
         .unwrap();
-    assert_eq!((counts.maps_unreleased, counts.mobs_unreleased), (92, 41));
+    assert_eq!(
+        (counts.maps_unreleased, counts.mobs_unreleased),
+        (92 + 1, 41 + 11)
+    );
 }
 
 /// The day the NiaDB files were fetched: Forgotten Hollow is not open yet.
@@ -413,7 +490,7 @@ fn zh_names_fill_map_and_npc_gaps() {
         counts,
         ZhNameCounts {
             maps: ZhSourceCounts {
-                dvg: 188,
+                dvg: 200,
                 mapledex_tw: 1
             },
             npcs: ZhSourceCounts {
@@ -429,15 +506,28 @@ fn zh_names_fill_map_and_npc_gaps() {
     );
     assert_eq!(
         still_english,
-        (21, 9),
+        (16, 9),
         "Mapledex-only test maps, DVG placeholders and NiaDB maps DVG lacks"
     );
+    // Mapledex names stay, except the ones tools/zh_names.py found are
+    // another map's (MAPLEDEX_WRONG there).
+    let replaced = [1001, 1002, 1010, 1011, 1012, 1013, 10001005];
     for (map, (id, name)) in data.maps.iter().zip(&mapledex_names) {
         assert_eq!(map.id, *id);
-        if name.is_some() {
+        if name.is_some() && !replaced.contains(id) {
             assert_eq!(&map.name_zh, name, "map {id}: Mapledex name kept");
         }
     }
+    let map_zh = |id: i32| {
+        data.maps
+            .iter()
+            .find(|m| m.id == id)
+            .unwrap()
+            .name_zh
+            .clone()
+    };
+    assert_eq!(map_zh(1001).as_deref(), Some("小树林"), "not 蜗牛打猎场Ⅰ");
+    assert_eq!(map_zh(1010).as_deref(), Some("彩虹村"));
 
     let map = |id: i32| data.maps.iter().find(|m| m.id == id).unwrap();
     let npc = |id: i32| data.npcs.iter().find(|n| n.id == id).unwrap();
@@ -817,12 +907,12 @@ async fn full_import_is_idempotent_and_upgrades_an_r3_database() {
         ),
         (2919, 453, 1655, 1636, 1655, 281, 281, 315, 877, 426)
     );
-    assert_eq!((first.maps_zh, first.npcs_zh), (453 - 6, 281 - 9));
+    assert_eq!((first.maps_zh, first.npcs_zh), (453 - 1, 281 - 9));
     assert_eq!(first.drops_meso as usize, input.bestiary.mesos);
     assert_eq!(
         (first.mobs_unreleased, first.maps_unreleased),
-        (52, 119),
-        "Orbis / El Nath and Forgotten Hollow"
+        (52 + 11, 119 + 1),
+        "Orbis / El Nath and Forgotten Hollow; GM-event / alt copies; 080003500"
     );
     let before = dump(&fresh.pool).await;
     assert_eq!(import_full(&fresh.pool, &input).await, first);
@@ -883,7 +973,7 @@ async fn full_import_is_idempotent_and_upgrades_an_r3_database() {
     .fetch_one(&fresh.pool)
     .await
     .unwrap();
-    assert_eq!(zh_counts["maps"]["dvg"], 188);
+    assert_eq!(zh_counts["maps"]["dvg"], 200);
     assert_eq!(zh_counts["npcs"]["dvg"], 51);
     fresh.drop_schema().await;
     upgraded.drop_schema().await;
@@ -891,6 +981,70 @@ async fn full_import_is_idempotent_and_upgrades_an_r3_database() {
 
 /// Orbis / El Nath are imported but never shown: no page, no search hit, no
 /// dropper, no NPC price, no route step. Drops show votes, not rates.
+#[tokio::test]
+async fn map_views_quests_and_npc_pages_come_from_the_import() {
+    let Some(db) = common::test_db().await else {
+        return;
+    };
+    let input = full(market_items());
+    import_full(&db.pool, &input).await;
+    let pool = &db.pool;
+    // Portal positions come from `import_portals`, as in production.
+    let text = std::fs::read_to_string(repo_data("reference/niadb/portals.json")).unwrap();
+    let portals =
+        market_web::bestiary::wz::portals_from(&market_web::bestiary::wz::parse(&text).unwrap());
+    market_web::bestiary::wz::import(pool, &portals, "portals.json")
+        .await
+        .unwrap();
+
+    let field = queries::map_page(pool, 1000).await.unwrap().unwrap();
+    let view = field.view.expect("NiaDB has the minimap box");
+    assert_eq!((view.width, view.height), (3928, 2050));
+    assert_eq!(
+        view.image_url.as_deref(),
+        Some("/web/images/minimaps/1000.png")
+    );
+    assert_eq!(view.spawns.len(), 66);
+    let shroom = &view.spawns[0];
+    assert_eq!(
+        (shroom.mob_id, shroom.x, shroom.y),
+        (4, 2242 + 479, -55 + 1405),
+        "box units: world point + minimap centre"
+    );
+    assert!(view
+        .spawns
+        .iter()
+        .all(|p| (0..=view.width).contains(&p.x) && (0..=view.height).contains(&p.y)));
+    assert!(
+        view.portals.iter().any(|p| p.to.id == 50),
+        "west00 to A Split Road"
+    );
+    assert!(view.shown_width <= 880 && view.icon > 0);
+    assert!(
+        field.quests_hunted.iter().any(|h| h.mob.id == 9),
+        "Orange Mushroom quests progress here"
+    );
+
+    let entrance = queries::map_page(pool, 1).await.unwrap().unwrap();
+    assert!(
+        entrance.quests_given.iter().any(|q| q.id == 1000),
+        "Heena's mirror quest"
+    );
+    let entrance_view = entrance.view.unwrap();
+    assert!(entrance_view.npcs.iter().any(|n| n.npc.id == 1));
+
+    let heena = queries::npc_page(pool, 1).await.unwrap().unwrap();
+    assert_eq!(heena.places.len(), 1);
+    assert_eq!(heena.places[0].map.id, 1);
+    let place = heena.places[0].view.as_ref().unwrap();
+    assert!(place.spawns.is_empty() && place.npcs.iter().any(|n| n.npc.id == 1));
+    assert!(heena.quests.iter().any(|q| q.id == 1000));
+
+    assert!(queries::map_page(pool, 80003500).await.unwrap().is_none());
+    assert!(queries::mob_page(pool, 810000).await.unwrap().is_none());
+    assert!(queries::npc_page(pool, 999_999).await.unwrap().is_none());
+}
+
 #[tokio::test]
 async fn unreleased_content_is_never_shown() {
     let Some(db) = common::test_db().await else {
@@ -928,7 +1082,7 @@ async fn unreleased_content_is_never_shown() {
         .fetch_all(pool)
         .await
         .unwrap();
-    assert_eq!(hidden.len(), 119);
+    assert_eq!(hidden.len(), 120);
     let hits = queries::search(pool, "Orbis", Some(SearchKind::Map))
         .await
         .unwrap();

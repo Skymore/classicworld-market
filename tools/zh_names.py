@@ -37,6 +37,13 @@ SAME_DESPITE_ENGLISH = {("npc", 236), ("npc", 432), ("npc", 800013)}
 NAME_IN_STREET = {("map", 10001008)}
 # DVG's name for maps it has no name for.
 PLACEHOLDER = re.compile(r"^地图 \d+$")
+# Checked by hand against NiaDB's English and DVG: Mapledex's simplified name
+# for these ids is another map's (蜗牛打猎场Ⅰ for In a Small Forest, 铁甲猪公园Ⅲ
+# for Someone Else's House). DVG's name replaces it.
+MAPLEDEX_WRONG = {
+    ("map", 1001), ("map", 1002), ("map", 1010), ("map", 1011), ("map", 1012), ("map", 1013),
+    ("map", 10001005),
+}
 
 
 def read_json(path):
@@ -78,6 +85,15 @@ def bestiary():
         return {"en": clean(n.get("en")), "cw": clean(n.get("cw")), "tw": clean(n.get("zh"))}
 
     maps = {m["id"]: names(m["n"]) for m in mdx_maps}
+    for m in nia_maps:
+        # NiaDB names the map; a Mapledex English name that differs is another
+        # map's (import_catalog `take_nia_name`), and so are its Chinese names.
+        row, name = maps.get(int(m["id"])), clean(m.get("name"))
+        if row and name and fold(name) != fold(row["en"]):
+            maps[int(m["id"])] = {"en": name, "cw": None, "tw": None}
+    for kind, entity_id in MAPLEDEX_WRONG:
+        if kind == "map" and entity_id in maps:
+            maps[entity_id]["cw"] = None
     npcs = {i: {"en": None, "cw": None, "tw": None} for m in mdx_maps for i in m.get("npcs", [])}
     npcs.update({n["id"]: names(n["n"]) for n in mdx_npcs})
     for m in nia_maps:
@@ -195,7 +211,8 @@ def dvg_names(dvg_dir):
                 "street": clean(row.get("streetName")),
             }
         for page in pages["items"]:
-            if page["found"]:
+            # Pages were fetched for ids an older list lacked; a newer list wins.
+            if page["found"] and page["id"] not in out[plural]:
                 out[plural][page["id"]] = {"zh": page["name"], "en": page["name_en"], "street": None}
     return out, ", ".join(sorted(fetched))
 
@@ -240,6 +257,8 @@ def build(dvg_dir, output):
                 zh, reason = dvg_choice(kind, entity_id, ours, dvg[plural][entity_id], t2s)
                 if zh:
                     entry = {"zh": zh, "source": "dvg", "en": ours["en"]}
+                    if (kind, entity_id) in MAPLEDEX_WRONG:
+                        entry["replaces_mapledex"] = True
                 elif reason:
                     seen = dvg[plural][entity_id]
                     result["dvg_not_used"].append({"kind": kind, "id": entity_id, "reason": reason,

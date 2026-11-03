@@ -1265,6 +1265,303 @@ pub async fn map_page(db: &PgPool, id: i32) -> sqlx::Result<Option<MapPage>> {
         npcs,
         exits: links(db, id, Direction::Out).await?,
         entrances: links(db, id, Direction::In).await?,
+        view: map_view(db, id, Layers::ALL).await?,
+        quests_given: quests_given_on(db, id).await?,
+        quests_hunted: quests_hunted_on(db, id).await?,
+        from_henesys: None,
+    }))
+}
+
+/// Quests the NPCs on a map give.
+async fn quests_given_on(db: &PgPool, map_id: i32) -> sqlx::Result<Vec<QuestRef>> {
+    let rows: Vec<QuestColumns> = sqlx::query_as(&format!(
+        "SELECT {QUEST_COLUMNS} FROM quests q JOIN npcs n ON n.id = q.npc_id
+         WHERE q.npc_id IN (SELECT npc_id FROM map_npcs WHERE map_id = $1) AND {visible}
+         ORDER BY q.level_min NULLS FIRST, q.id LIMIT {QUESTS_SHOWN}",
+        visible = visible_quest!()
+    ))
+    .bind(map_id)
+    .fetch_all(db)
+    .await?;
+    Ok(rows.into_iter().map(QuestColumns::quest).collect())
+}
+
+/// Quests that ask to defeat a monster spawning on the map.
+async fn quests_hunted_on(db: &PgPool, map_id: i32) -> sqlx::Result<Vec<QuestHunt>> {
+    #[derive(FromRow)]
+    struct Row {
+        #[sqlx(flatten)]
+        quest: QuestColumns,
+        #[sqlx(flatten)]
+        mob: MobRef,
+        quantity: i64,
+    }
+    let rows: Vec<Row> = sqlx::query_as(&format!(
+        "SELECT {QUEST_COLUMNS}, m.id, {mob_name} AS name, {mob_name_en} AS name_en, m.level,
+                COALESCE(m.gms_id, l.gms_id) AS image_id, sum(x.quantity) AS quantity
+         FROM quest_needs x JOIN quests q ON q.id = x.quest_id LEFT JOIN npcs n ON n.id = q.npc_id
+         JOIN mobs m ON m.id = x.mob_id LEFT JOIN mobs l ON l.id = m.link_id
+         WHERE x.mob_id IN (SELECT mob_id FROM mob_spawns WHERE map_id = $1) AND {visible} AND {public}
+         GROUP BY q.id, n.id, m.id, l.gms_id
+         ORDER BY q.level_min NULLS FIRST, q.id, m.id LIMIT {QUESTS_SHOWN}",
+        mob_name = name!("m"),
+        mob_name_en = name_en!("m"),
+        visible = visible_quest!(),
+        public = public_mob!(),
+    ))
+    .bind(map_id)
+    .fetch_all(db)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| QuestHunt {
+            quest: r.quest.quest(),
+            mob: r.mob,
+            quantity: i32::try_from(r.quantity).unwrap_or(i32::MAX),
+        })
+        .collect())
+}
+
+// ---------- map view ----------
+
+const ICON_PX: f64 = 24.0;
+
+/// What `map_view` loads besides the box and the portals, and the CSS-pixel
+/// box it is sized to fit at full width (markers follow the scale).
+#[derive(Debug, Clone, Copy)]
+pub struct Layers {
+    pub spawns: bool,
+    pub npcs: bool,
+    pub fit: (f64, f64),
+    /// Icon size in CSS pixels.
+    pub icon_px: f64,
+}
+
+impl Layers {
+    /// The map page.
+    pub const ALL: Self = Self {
+        spawns: true,
+        npcs: true,
+        fit: (880.0, 520.0),
+        icon_px: ICON_PX,
+    };
+    /// A route step: small, portals only.
+    pub const PORTALS: Self = Self {
+        spawns: false,
+        npcs: false,
+        fit: (560.0, 220.0),
+        icon_px: 20.0,
+    };
+    /// Where an NPC stands.
+    pub const NPCS: Self = Self {
+        spawns: false,
+        npcs: true,
+        fit: (560.0, 260.0),
+        icon_px: 20.0,
+    };
+}
+
+/// Screen size and icon size (in box units) for a `w` x `h` box.
+pub fn view_size(w: i32, h: i32, layers: Layers) -> (i32, i32, i32) {
+    let (wf, hf) = (f64::from(w.max(1)), f64::from(h.max(1)));
+    let scale = (layers.fit.0 / wf).min(layers.fit.1 / hf).min(1.5);
+    let shown = |v: f64| (v * scale).round().max(1.0) as i32;
+    (
+        shown(wf),
+        shown(hf),
+        (layers.icon_px / scale).round().max(1.0) as i32,
+    )
+}
+
+/// World point to box point, `None` when it falls well outside the box.
+fn in_box(x: i32, y: i32, cx: i32, cy: i32, w: i32, h: i32, margin: i32) -> Option<Point> {
+    let (bx, by) = (x + cx, y + cy);
+    let inside = |v: i32, max: i32| (-margin..=max + margin).contains(&v);
+    (inside(bx, w) && inside(by, h)).then(|| Point {
+        x: bx.clamp(0, w),
+        y: by.clamp(0, h),
+    })
+}
+
+/// The map's minimap with the chosen layers, `None` when NiaDB gives no box.
+pub async fn map_view(db: &PgPool, map_id: i32, layers: Layers) -> sqlx::Result<Option<MapView>> {
+    #[allow(clippy::type_complexity)]
+    let row: Option<(i32, i32, i32, i32, Option<String>, Option<i32>, Option<i32>)> =
+        sqlx::query_as(
+            "SELECT minimap_w, minimap_h, minimap_cx, minimap_cy, minimap_url, spawn_x, spawn_y
+         FROM maps WHERE id = $1 AND NOT unreleased AND minimap_w IS NOT NULL
+           AND minimap_h IS NOT NULL AND minimap_cx IS NOT NULL AND minimap_cy IS NOT NULL",
+        )
+        .bind(map_id)
+        .fetch_optional(db)
+        .await?;
+    let Some((w, h, cx, cy, image_url, spawn_x, spawn_y)) = row else {
+        return Ok(None);
+    };
+    let (shown_width, shown_height, icon) = view_size(w, h, layers);
+    let place = |x: i32, y: i32| in_box(x, y, cx, cy, w, h, icon);
+    let mut spawns = Vec::new();
+    if layers.spawns {
+        let rows: Vec<(i32, i32, i32, i32)> = sqlx::query_as(concat!(
+            "SELECT p.mob_id, p.x, p.y, p.mob_time FROM map_spawn_points p JOIN mobs m ON m.id = p.mob_id
+             WHERE p.map_id = $1 AND ",
+            public_mob!(),
+            " ORDER BY p.ord"
+        ))
+        .bind(map_id)
+        .fetch_all(db)
+        .await?;
+        for (mob_id, x, y, mob_time) in rows {
+            if let Some(p) = place(x, y) {
+                spawns.push(SpawnPoint {
+                    mob_id,
+                    x: p.x,
+                    y: p.y,
+                    mob_time,
+                });
+            }
+        }
+    }
+    #[allow(clippy::type_complexity)]
+    let rows: Vec<(
+        i32,
+        i32,
+        i32,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    )> = sqlx::query_as(concat!(
+        "SELECT p.x, p.y, p.to_map_id, ",
+        name!("m"),
+        ", ",
+        name_en!("m"),
+        ", p.portal_name FROM map_portals p JOIN maps m ON m.id = p.to_map_id
+             WHERE p.from_map_id = $1 AND p.kind = 'portal' AND p.x IS NOT NULL AND p.y IS NOT NULL
+               AND NOT m.unreleased
+             ORDER BY p.id"
+    ))
+    .bind(map_id)
+    .fetch_all(db)
+    .await?;
+    let mut portals: Vec<PortalPoint> = Vec::new();
+    for (x, y, to, zh, en, name) in rows {
+        let Some(p) = place(x, y) else { continue };
+        if portals
+            .iter()
+            .any(|q| q.to.id == to && (q.x, q.y) == (p.x, p.y))
+        {
+            continue;
+        }
+        portals.push(PortalPoint {
+            x: p.x,
+            y: p.y,
+            to: MapRef::new(to, zh.unwrap_or_default(), en.unwrap_or_default()),
+            name,
+        });
+    }
+    let mut npcs = Vec::new();
+    if layers.npcs {
+        #[allow(clippy::type_complexity)]
+        let rows: Vec<(i32, Option<String>, Option<String>, i32, i32)> = sqlx::query_as(concat!(
+            "SELECT n.id, ",
+            name!("n"),
+            ", ",
+            name_en!("n"),
+            ", mn.x, mn.y FROM map_npcs mn JOIN npcs n ON n.id = mn.npc_id
+             WHERE mn.map_id = $1 AND mn.x IS NOT NULL AND mn.y IS NOT NULL AND NOT n.unreleased
+             ORDER BY n.id"
+        ))
+        .bind(map_id)
+        .fetch_all(db)
+        .await?;
+        for (id, zh, en, x, y) in rows {
+            if let Some(p) = place(x, y) {
+                npcs.push(NpcPoint {
+                    npc: NpcRef {
+                        id,
+                        names: optional_names(zh, en),
+                    },
+                    x: p.x,
+                    y: p.y,
+                });
+            }
+        }
+    }
+    Ok(Some(MapView {
+        width: w,
+        height: h,
+        shown_width,
+        shown_height,
+        icon,
+        image_url,
+        spawns,
+        portals,
+        npcs,
+        player_spawn: spawn_x.zip(spawn_y).and_then(|(x, y)| place(x, y)),
+    }))
+}
+
+// ---------- NPC ----------
+
+pub async fn npc_page(db: &PgPool, id: i32) -> sqlx::Result<Option<NpcPage>> {
+    let row: Option<(i32, Option<String>, Option<String>)> = sqlx::query_as(concat!(
+        "SELECT n.id, ",
+        name!("n"),
+        ", ",
+        name_en!("n"),
+        " FROM npcs n WHERE n.id = $1 AND NOT n.unreleased"
+    ))
+    .bind(id)
+    .fetch_optional(db)
+    .await?;
+    let Some((id, zh, en)) = row else {
+        return Ok(None);
+    };
+    let maps: Vec<MapRef> = sqlx::query_as(concat!(
+        "SELECT m.id, ",
+        name!("m"),
+        " AS name, ",
+        name_en!("m"),
+        " AS name_en FROM map_npcs mn JOIN maps m ON m.id = mn.map_id
+         WHERE mn.npc_id = $1 AND NOT m.unreleased ORDER BY m.id"
+    ))
+    .bind(id)
+    .fetch_all(db)
+    .await?;
+    let mut places = Vec::with_capacity(maps.len());
+    for map in maps {
+        let view = map_view(db, map.id, Layers::NPCS).await?;
+        places.push(NpcPlace { map, view });
+    }
+    let quests: Vec<QuestColumns> = sqlx::query_as(&format!(
+        "SELECT {QUEST_COLUMNS} FROM quests q JOIN npcs n ON n.id = q.npc_id
+         WHERE q.npc_id = $1 AND {visible}
+         ORDER BY q.level_min NULLS FIRST, q.id LIMIT {QUESTS_SHOWN}",
+        visible = visible_quest!()
+    ))
+    .bind(id)
+    .fetch_all(db)
+    .await?;
+    let shop: Vec<NpcShopItem> = sqlx::query_as(concat!(
+        "SELECT i.id, ",
+        name!("i"),
+        " AS name, ",
+        name_en!("i"),
+        " AS name_en, i.icon_url, s.price
+         FROM npc_shops s JOIN items i ON i.id = s.item_id
+         WHERE s.npc_id = $1 ORDER BY i.category, s.price, i.id"
+    ))
+    .bind(id)
+    .fetch_all(db)
+    .await?;
+    Ok(Some(NpcPage {
+        npc: NpcRef {
+            id,
+            names: optional_names(zh, en),
+        },
+        places,
+        quests: quests.into_iter().map(QuestColumns::quest).collect(),
+        shop,
     }))
 }
 

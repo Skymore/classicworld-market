@@ -166,3 +166,55 @@ html[data-device=desktop] .route-form{grid-template-columns:minmax(0,1fr) minmax
   .catalogue-grid>.drow:first-child{border-top:0}
   .catalogue-grid .s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 }
+/* Map view (pages/mapview.rs, frontend/src/pages/mapview.tsx): the minimap as an SVG.
+   Strokes are in screen pixels (non-scaling) because the minimap's units differ per map. */
+.mapvis{margin:0 12px 12px;border:2px solid var(--edge);background:var(--sheet-lo)}
+.mapvis.compact{margin:0 10px 10px;border-width:1px}
+.mapvis.compact,.mapvis.step-map{width:fit-content;max-width:calc(100% - 20px)}
+.mapvis-scroll{overflow-x:auto}
+.mapvis-svg{display:block;max-width:100%;height:auto;margin:0 auto}
+@media(max-width:700px){.mapvis-svg.wide{min-width:640px}}
+.mv-bg{fill:var(--sheet-lo)}
+.mv-img{image-rendering:pixelated}
+.mv-shadow{fill:rgba(0,0,0,.3)}
+.mv-mob{cursor:pointer}
+.mv-mob:hover image,.mv-mob.on image{filter:drop-shadow(0 0 3px #fff)}
+.mv-mobs.focused .mv-mob:not(.on){opacity:.15}
+.mv-timed{fill:rgba(229,72,77,.18);stroke:#e5484d;stroke-width:2px;vector-effect:non-scaling-stroke}
+.mv-portal{fill:rgba(124,196,255,.45);stroke:#1e6feb;stroke-width:2px;vector-effect:non-scaling-stroke}
+.mv-portal-core{fill:#0b2a5c}
+a:hover>.mv-portal{fill:rgba(124,196,255,.9)}
+.mv-npc{fill:#22a559;stroke:#0b3d1f;stroke-width:1.5px;vector-effect:non-scaling-stroke}
+.mv-npc.here{fill:#f0b232;stroke:#5a3b00;stroke-width:2.5px}
+a:hover>.mv-npc{fill:#36c46f}
+.mv-npc-t{fill:#fff;font-weight:800;text-anchor:middle;font-family:system-ui,sans-serif;pointer-events:none}
+.mv-path{fill:none;stroke:#e5484d;opacity:.85}
+.mv-arrival{fill:rgba(59,130,246,.15);stroke:#3b82f6}
+.mv-exit{fill:rgba(192,38,211,.18);stroke:#c026d3;animation:mv-pulse 1.4s ease-in-out infinite}
+@keyframes mv-pulse{50%{opacity:.35}}
+@media(prefers-reduced-motion:reduce){.mv-exit{animation:none}}
+.mv-tools,.mv-legend{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:7px 10px;background:var(--sheet-hi)}
+.mv-tools{border-bottom:1px solid var(--rule)}
+.mv-legend{border-top:1px solid var(--rule)}
+.mv-chip,.mv-toggle{display:inline-flex;align-items:center;gap:4px;min-height:28px;padding:2px 9px 2px 4px;border:1px solid var(--rule);border-radius:999px;background:var(--sheet);color:var(--ink);font:inherit;font-size:13px;text-decoration:none;cursor:pointer}
+.mv-toggle{padding-left:9px}
+.mv-chip small,.mv-toggle small{color:var(--ink-3);font-size:12px}
+.mv-chip img{width:20px;height:20px;object-fit:contain}
+.mv-chip[aria-pressed=true]{border-color:var(--bar);background:var(--bar-soft);color:var(--bar-text)}
+.mv-chip.clear{padding-left:9px}
+.mv-toggle[aria-pressed=false]{opacity:.55;text-decoration:line-through}
+.mv-chip:hover,.mv-toggle:hover{border-color:var(--bar)}
+.mv-key{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--ink-3)}
+.mv-key::before{content:"";width:10px;height:10px;border-radius:50%;box-sizing:border-box}
+.mv-key.portal::before{background:#7cc4ff;border:2px solid #1e6feb}
+.mv-key.npc::before{background:#22a559}
+/* "From Henesys" strip above the map view. */
+.route-strip{display:grid;gap:4px;margin:0 12px 12px;padding:8px 10px;border:1px solid var(--rule);border-radius:2px;background:var(--sheet-hi);color:var(--ink);text-decoration:none}
+.route-strip:hover{border-color:var(--bar)}
+.rs-h{display:flex;align-items:baseline;gap:6px;font-size:13px;font-weight:700}
+.rs-h small{font-weight:400;color:var(--ink-3)}
+.rs-path{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 0;font-size:13px;color:var(--ink-2)}
+.rs-arrow{margin:0 6px;color:var(--ink-3)}
+.rs-stop.last{font-weight:700;color:var(--bar-text)}
+.step .mapvis.step-map{margin:2px 10px 10px 52px;border-width:1px;max-width:calc(100% - 62px)}
+@media(max-width:700px){.step .mapvis.step-map{margin-left:10px}}

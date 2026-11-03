@@ -3,6 +3,7 @@
 
 use maud::{html, Markup, PreEscaped};
 
+use super::mapview::{map_svg, mob_legend, Marks};
 use super::shell::{icon, layout, Ctx, Icon, Nav, Page};
 use super::{mob_image_url, mob_pic, mob_picture_url, slot};
 use crate::bestiary::format::{grouped, meso, Lang};
@@ -293,7 +294,13 @@ pub fn map_page(page: &MapPage, ctx: &Ctx) -> Markup {
                     a.btn href=(ctx.href(&format!("/map/{}", r.id))) { span { (ctx.t("回城点：", "Return town: ")) (r.names.get(lang)) (super::secondary_name(&r.names, lang)) } }
                 }
             }
-            @if let Some(url) = &map.minimap_url {
+            @if let Some(path) = &page.from_henesys { (henesys_strip(ctx, path, &route_href)) }
+            @if let Some(view) = &page.view {
+                figure.mapvis {
+                    (map_svg(ctx, view, name, &Marks { mobs: &page.mobs, links: true, ..Marks::default() }))
+                    @if !view.spawns.is_empty() { (mob_legend(ctx, &page.mobs)) }
+                }
+            } @else if let Some(url) = &map.minimap_url {
                 img.minimap src=(url) alt={(ctx.t("小地图：", "Minimap: ")) (name)} loading="lazy";
             }
             @if let Some(text) = &map.description {
@@ -309,7 +316,7 @@ pub fn map_page(page: &MapPage, ctx: &Ctx) -> Markup {
                     section.well {
                         (well_head("NPC", Some(n_of(ctx, page.npcs.len(), "个", "NPCs"))))
                         @for npc in &page.npcs {
-                            div.drow.plain { span.glyph { "N" } span.t { b { (npc.label(lang)) } @if let Some(names) = &npc.names { (super::secondary_name(names, lang)) } } }
+                            a.drow href=(ctx.href(&format!("/npc/{}", npc.id))) { span.glyph { "N" } span.t { b { (npc.label(lang)) } @if let Some(names) = &npc.names { (super::secondary_name(names, lang)) } } }
                         }
                         @if page.npcs.is_empty() { (empty(ctx.t("这张地图没有 NPC 记录。", "No NPCs recorded here."))) }
                         @else if page.npcs.iter().all(|n| n.names.is_none()) {
@@ -317,11 +324,98 @@ pub fn map_page(page: &MapPage, ctx: &Ctx) -> Markup {
                         }
                     }
                 }
-                div.dcol { (portals_well(ctx, page)) }
+                div.dcol {
+                    (portals_well(ctx, page))
+                    @if !page.quests_given.is_empty() || !page.quests_hunted.is_empty() {
+                        section.well {
+                            (well_head(ctx.t("任务", "Quests"), None))
+                            @if !page.quests_given.is_empty() {
+                                div.sub-h { (ctx.t("在这里接", "Given here")) small { (super::item::quest_count(lang, page.quests_given.len())) } }
+                                (super::quest_list(lang, &page.quests_given, true))
+                            }
+                            @if !page.quests_hunted.is_empty() {
+                                div.sub-h.ruled[!page.quests_given.is_empty()] { (ctx.t("要打这里的怪", "Hunt monsters here")) small { (super::item::quest_count(lang, page.quests_hunted.len())) } }
+                                (super::quest_hunts(lang, &page.quests_hunted))
+                            }
+                        }
+                    }
+                }
             }
         }
     };
     dex_page(ctx, name, "", body)
+}
+
+/// "射手村 → … → here · 5 步", linking to the route page.
+fn henesys_strip(ctx: &Ctx, path: &[MapRef], route_href: &str) -> Markup {
+    let lang = ctx.lang;
+    let hops = path.len().saturating_sub(1);
+    html! {
+        a.route-strip href=(ctx.href(route_href)) {
+            span.rs-h { (ctx.t("从射手村过来", "From Henesys")) small { (n_of(ctx, hops, "步", "steps")) } }
+            span.rs-path {
+                @for (i, map) in path.iter().enumerate() {
+                    @if i > 0 { span.rs-arrow { "→" } }
+                    span.rs-stop.last[i + 1 == path.len()] { (map.names.get(lang)) }
+                }
+            }
+        }
+    }
+}
+
+// ---------- NPC ----------
+
+pub fn npc_page(page: &NpcPage, ctx: &Ctx) -> Markup {
+    let lang = ctx.lang;
+    let name = page.npc.label(lang);
+    let body = html! {
+        (crumb(ctx, &name))
+        section.stall {
+            (bar(&format!("NPC · {name}"), None))
+            div.ihead.solo {
+                div {
+                    h1 { (name) }
+                    @if let Some(other) = page.npc.names.as_ref().and_then(|n| n.secondary(lang)) { div.en { (other) } }
+                }
+            }
+            div.dgrid {
+                div.dcol {
+                    section.well {
+                        (well_head(ctx.t("在哪里", "Where"), Some(n_of(ctx, page.places.len(), "张地图", "maps"))))
+                        @for place in &page.places {
+                            (map_row(ctx, &place.map, None, None))
+                            @if let Some(view) = &place.view {
+                                figure.mapvis.compact {
+                                    (map_svg(ctx, view, place.map.names.get(lang), &Marks { npc: Some(page.npc.id), links: true, ..Marks::default() }))
+                                }
+                            }
+                        }
+                        @if page.places.is_empty() { (empty(ctx.t("图鉴里没有这个 NPC 的位置。", "The dex has no location for this NPC."))) }
+                    }
+                }
+                div.dcol {
+                    section.well {
+                        (well_head(ctx.t("任务", "Quests"), Some(super::item::quest_count(lang, page.quests.len()))))
+                        (super::quest_list(lang, &page.quests, false))
+                        @if page.quests.is_empty() { (empty(ctx.t("这个 NPC 不给任务。", "This NPC gives no quests."))) }
+                    }
+                    @if !page.shop.is_empty() {
+                        section.well {
+                            (well_head(ctx.t("商店", "Shop"), Some(n_of(ctx, page.shop.len(), "种", "items"))))
+                            @for item in &page.shop {
+                                a.drow href=(ctx.href(&format!("/item/{}", item.id))) {
+                                    (slot(item.icon_url.as_deref(), 28))
+                                    span.t { b { (item.names.get(lang)) } (super::secondary_name(&item.names, lang)) }
+                                    span.r { (meso(item.price)) }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+    dex_page(ctx, &name, "", body)
 }
 
 /// Exits and entrances. Towns are the return point of dozens of fields, so
@@ -457,15 +551,33 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
                                     @if step.from.names.secondary(lang).is_some() || step.to.names.secondary(lang).is_some() {
                                         span.name-secondary { (step.from.names.get(lang.other())) " → " (step.to.names.get(lang.other())) }
                                     }
-                                    span.s { (edge_text(step.kind, step.portal_name.as_deref(), lang)) }
+                                    span.s { (step_hint(ctx, step)) }
                                 }
                                 @if step.kind == EdgeKind::Return { span.kind { (ctx.t("回城卷轴", "scroll")) } }
+                            }
+                            @if let (Some(view), true) = (&step.view, step.exit.is_some() || step.kind != EdgeKind::Portal) {
+                                figure.mapvis.step-map {
+                                    (map_svg(ctx, view, step.from.names.get(lang), &Marks { exit: step.exit, arrival: step.arrival, ..Marks::default() }))
+                                }
                             }
                         }
                     }
                 }
             }
         },
+    }
+}
+
+/// What to do on this step, pointing at the minimap when the portal is marked.
+fn step_hint(ctx: &Ctx, step: &Step) -> String {
+    match (step.kind, step.exit.is_some()) {
+        (EdgeKind::Portal, true) => ctx
+            .t(
+                "走小地图上圈出的传送口",
+                "take the circled portal on the minimap",
+            )
+            .to_string(),
+        (kind, _) => edge_text(kind, step.portal_name.as_deref(), ctx.lang),
     }
 }
 

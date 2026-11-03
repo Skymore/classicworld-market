@@ -61,6 +61,25 @@ pub struct MapRow {
     pub minimap_url: Option<String>,
     /// In the client but not open yet; never shown.
     pub unreleased: bool,
+    /// The minimap box in world units (migration 0040).
+    pub minimap_w: Option<i32>,
+    pub minimap_h: Option<i32>,
+    pub minimap_cx: Option<i32>,
+    pub minimap_cy: Option<i32>,
+    /// Where a player arrives without a portal.
+    pub spawn_x: Option<i32>,
+    pub spawn_y: Option<i32>,
+}
+
+/// One monster spawn point (`map_spawn_points`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SpawnPointRow {
+    pub map_id: i32,
+    pub ord: i16,
+    pub mob_id: i32,
+    pub x: i32,
+    pub y: i32,
+    pub mob_time: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -104,6 +123,9 @@ pub struct NpcRow {
 pub struct MapNpcRow {
     pub map_id: i32,
     pub npc_id: i32,
+    /// Where it stands, when NiaDB says.
+    pub x: Option<i32>,
+    pub y: Option<i32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

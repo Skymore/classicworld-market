@@ -1,15 +1,100 @@
 //! Bounded read-only access to a pinned Global Classic World client export.
 //! No runtime URL fetching or arbitrary database queries in the client tools.
+use chrono::NaiveDate;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::OnceLock;
 
-fn data() -> &'static Value {
+use crate::bestiary::mapledex::{opens_later, quest_area_opens_later};
+
+fn snapshot() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
     DATA.get_or_init(|| {
         serde_json::from_str(include_str!("adventure-data.json"))
             .expect("validated gameplay snapshot")
     })
+}
+
+/// The snapshot as players can see it today: like the bestiary, areas that
+/// open later (`OPENS_LATER`, Forgotten Hollow until 18 November) are left out.
+fn data() -> &'static Value {
+    data_on(chrono::Utc::now().date_naive())
+}
+
+fn data_on(today: NaiveDate) -> &'static Value {
+    // One area is pending, so one filtered copy covers every day before it.
+    static BEFORE: OnceLock<Value> = OnceLock::new();
+    let raw = snapshot();
+    if !hides_anything(raw, today) {
+        return raw;
+    }
+    BEFORE.get_or_init(|| without_unopened(raw, today))
+}
+
+fn row_id(row: &Value) -> Option<i32> {
+    row["id"]
+        .as_i64()
+        .or_else(|| row["id"].as_str()?.parse().ok())
+        .and_then(|id| i32::try_from(id).ok())
+}
+
+fn closed_map(id: Option<i32>, today: NaiveDate) -> bool {
+    id.is_some_and(|id| opens_later(id, today))
+}
+
+fn closed_quest(quest: &Value, today: NaiveDate) -> bool {
+    quest["area"]
+        .as_i64()
+        .and_then(|a| i32::try_from(a).ok())
+        .is_some_and(|area| quest_area_opens_later(area, today))
+}
+
+fn hides_anything(raw: &Value, today: NaiveDate) -> bool {
+    raw["map"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|m| closed_map(row_id(m), today))
+        || raw["quest"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|q| closed_quest(q, today))
+}
+
+/// Drops closed maps and quests, and closed maps from every list of maps;
+/// monsters and NPCs left with only closed maps go too.
+fn without_unopened(raw: &Value, today: NaiveDate) -> Value {
+    let mut out = raw.clone();
+    let closed = |v: &Value| {
+        closed_map(
+            row_id(v).or_else(|| v.as_i64().and_then(|i| i32::try_from(i).ok())),
+            today,
+        )
+    };
+    out["map"].as_array_mut().unwrap().retain(|m| !closed(m));
+    for map in out["map"].as_array_mut().unwrap() {
+        for key in ["exits", "exit_names"] {
+            if let Some(list) = map[key].as_array_mut() {
+                list.retain(|v| !closed(v));
+            }
+        }
+    }
+    out["quest"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|q| !closed_quest(q, today));
+    for kind in ["monster", "npc"] {
+        out[kind].as_array_mut().unwrap().retain_mut(|row| {
+            let Some(maps) = row["maps"].as_array_mut() else {
+                return true;
+            };
+            let had = !maps.is_empty();
+            maps.retain(|m| !closed(m));
+            !(had && maps.is_empty())
+        });
+    }
+    out
 }
 
 pub fn definitions() -> Vec<Value> {
@@ -320,6 +405,47 @@ pub async fn supplement(db: &sqlx::PgPool, value: &mut Value) -> sqlx::Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn forgotten_hollow_stays_out_until_it_opens() {
+        let before = NaiveDate::from_ymd_opt(2026, 11, 3).unwrap();
+        let after = NaiveDate::from_ymd_opt(2026, 11, 18).unwrap();
+        let shut = data_on(before);
+        let ids = |v: &Value, kind: &str| -> Vec<i32> {
+            v[kind]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(row_id)
+                .collect()
+        };
+        assert!(!ids(shut, "map").contains(&10006121));
+        assert!(!ids(shut, "monster").contains(&700003));
+        assert!(!shut["quest"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|q| q["area"] == 17));
+        // Zombie Mushroom spawns elsewhere too: kept, without the closed map.
+        let zombie = shut["monster"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["id"] == 21)
+            .unwrap();
+        assert!(!zombie["maps"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|m| m["id"] == 10006121));
+        let open = data_on(after);
+        assert!(ids(open, "map").contains(&10006121));
+        assert!(open["quest"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|q| q["area"] == 17));
+    }
     #[test]
     fn launch_skills_do_not_mix_prerequisites_or_old_final_attack() {
         let r = run(parse("get_skills", json!({"class_name":"猎人"})).unwrap());

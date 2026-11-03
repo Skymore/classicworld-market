@@ -84,6 +84,7 @@ const pageRoutes = [
   "/item",
   "/mob",
   "/map",
+  "/npc",
   "/route",
   "/collect",
 ];
@@ -209,7 +210,7 @@ function Application() {
         return;
       if (
         ["/search", "/route"].includes(url.pathname) ||
-        /^\/(item|mob|map)\//.test(url.pathname)
+        /^\/(item|mob|map|npc)\//.test(url.pathname)
       ) {
         if (
           document.documentElement.dataset.lang === "en" &&
@@ -254,7 +255,7 @@ function Application() {
               <Route path="/selling/*" element={<Selling />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/web/download.html" element={<Download />} />
-              {["search", "item", "mob", "map", "route"].map((path) => (
+              {["search", "item", "mob", "map", "npc", "route"].map((path) => (
                 <Route
                   key={path}
                   path={"/" + path + "/*"}
@@ -275,7 +276,7 @@ function Application() {
 
 const catalogueLocation =
   ["/search", "/route"].includes(location.pathname) ||
-  /^\/(item|mob|map)\//.test(location.pathname);
+  /^\/(item|mob|map|npc)\//.test(location.pathname);
 // Load the route module alongside account preferences/data, not after them.
 const catalogueReady = catalogueLocation ? loadCatalogueModule() : undefined;
 const snapshot = readCatalogSnapshot();

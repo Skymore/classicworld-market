@@ -15,6 +15,7 @@ import { catalogKey, loadCatalog } from "../lib/catalog";
 import { useUserValue } from "../lib/live";
 import { useProvidePageContext } from "../lib/assistant";
 import { normalizeOfferFilters } from "/web/js/lib/item-offer-filters.js?v=20261029-critical-1";
+import { MapSvg, MapViewPanel } from "./mapview";
 export function useNames() {
   const { language } = usePreferences();
   return (names: any) =>
@@ -428,6 +429,9 @@ function MapPage({ page }: { page: any }) {
   useProvidePageContext({ kind: "map", id: map.id, label: title.slice(0, 120) });
   const scrolls = page.entrances.filter((link: any) => link.kind === "return"),
     walks = page.entrances.filter((link: any) => link.kind !== "return");
+  // Snapshots cached before the map view carry no quest lists.
+  const given: any[] = page.quests_given || [],
+    hunted: any[] = page.quests_hunted || [];
   return (
     <>
       <Crumb text={title} />
@@ -480,7 +484,40 @@ function MapPage({ page }: { page: any }) {
             </a>
           )}
         </div>
-        {map.minimap_url ? (
+        {page.from_henesys && (
+          <a
+            className="route-strip"
+            href={"/route?from=10001000&to=" + map.id}
+          >
+            <span className="rs-h">
+              {words("从射手村过来", "From Henesys")}
+              <small>
+                {words(
+                  `${page.from_henesys.length - 1} 步`,
+                  `${page.from_henesys.length - 1} steps`,
+                )}
+              </small>
+            </span>
+            <span className="rs-path">
+              {page.from_henesys.map((stop: any, i: number) => (
+                <span key={i}>
+                  {i > 0 && <span className="rs-arrow">→</span>}
+                  <span
+                    className={
+                      "rs-stop" +
+                      (i + 1 === page.from_henesys.length ? " last" : "")
+                    }
+                  >
+                    {name(stop.names)}
+                  </span>
+                </span>
+              ))}
+            </span>
+          </a>
+        )}
+        {page.view ? (
+          <MapViewPanel view={page.view} title={title} mobs={page.mobs} />
+        ) : map.minimap_url ? (
           <img
             className="minimap"
             src={map.minimap_url}
@@ -516,13 +553,13 @@ function MapPage({ page }: { page: any }) {
             </Well>
             <Well title="NPC" note={page.npcs.length}>
               {page.npcs.map((npc: any) => (
-                <div className="drow plain" key={npc.id}>
+                <a className="drow" key={npc.id} href={"/npc/" + npc.id}>
                   <span className="glyph">N</span>
                   <span className="t">
                     <b>{name(npc.names) || "NPC #" + npc.id}</b>
                     <Secondary names={npc.names} />
                   </span>
-                </div>
+                </a>
               ))}
               {!page.npcs.length && (
                 <p className="note">
@@ -598,6 +635,152 @@ function MapPage({ page }: { page: any }) {
                 </>
               )}
             </Well>
+            {(given.length > 0 || hunted.length > 0) && (
+              <Well title={words("任务", "Quests")}>
+                {given.length > 0 && (
+                  <>
+                    <div className="sub-h">
+                      {words("在这里接", "Given here")}
+                      <small>{questCount(words, given.length)}</small>
+                    </div>
+                    <QuestList quests={given} withNpc />
+                  </>
+                )}
+                {hunted.length > 0 && (
+                  <>
+                    <div className={"sub-h" + (given.length ? " ruled" : "")}>
+                      {words("要打这里的怪", "Hunt monsters here")}
+                      <small>{questCount(words, hunted.length)}</small>
+                    </div>
+                    <QuestList
+                      quests={hunted.map((h: any) => h.quest)}
+                      amounts={hunted.map(
+                        (h: any) => `${name(h.mob.names)} ×${h.quantity}`,
+                      )}
+                      withNpc
+                    />
+                  </>
+                )}
+              </Well>
+            )}
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+const questCount = (words: (zh: string, en: string) => string, n: number) =>
+  words(`${n} 个`, n === 1 ? "1 quest" : `${n} quests`);
+function QuestList({
+  quests,
+  amounts,
+  withNpc = false,
+}: {
+  quests: any[];
+  amounts?: string[];
+  withNpc?: boolean;
+}) {
+  const words = useWords(),
+    name = useNames();
+  return (
+    <div className="quests">
+      {quests.map((q: any, i: number) => {
+        const meta = [
+          withNpc && q.npc && (name(q.npc.names) || "NPC #" + q.npc.id),
+          q.level_min != null && `Lv.${q.level_min}`,
+          q.repeats === "daily" && words("每日", "daily"),
+          q.repeats === "weekly" && words("每周", "weekly"),
+          q.ends_at &&
+            words(`活动至 ${q.ends_at.slice(5, 10)}`, `event until ${q.ends_at.slice(5, 10)}`),
+        ].filter(Boolean);
+        return (
+          <a
+            className="quest"
+            key={q.id + ":" + i}
+            href={`https://meowdb.com/msclassic/quest-tracker/${q.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <b>{name(q.names)}</b>
+            <span className="qn">{amounts?.[i] ?? ""}</span>
+            <span className="qm">{meta.join(" · ")}</span>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+function NpcPage({ page }: { page: any }) {
+  const words = useWords(),
+    name = useNames(),
+    npc = page.npc,
+    title = name(npc.names) || "NPC #" + npc.id;
+  // The assistant's page context covers items, monsters and maps only.
+  useProvidePageContext(null);
+  return (
+    <>
+      <Crumb text={title} />
+      <section className="stall">
+        <div className="stall-bar">
+          <h2>NPC · {title}</h2>
+        </div>
+        <div className="ihead solo">
+          <div>
+            <h1>{title}</h1>
+            <div className="en">
+              <Secondary names={npc.names} />
+            </div>
+          </div>
+        </div>
+        <div className="dgrid">
+          <div className="dcol">
+            <Well
+              title={words("在哪里", "Where")}
+              note={words(`${page.places.length} 张地图`, `${page.places.length} maps`)}
+            >
+              {page.places.map((place: any) => (
+                <div key={place.map.id}>
+                  <MapRow map={place.map} />
+                  {place.view && (
+                    <figure className="mapvis compact">
+                      <MapSvg view={place.view} title={name(place.map.names)} npc={npc.id} links />
+                    </figure>
+                  )}
+                </div>
+              ))}
+              {!page.places.length && (
+                <p className="note">
+                  {words("图鉴里没有这个 NPC 的位置。", "The dex has no location for this NPC.")}
+                </p>
+              )}
+            </Well>
+          </div>
+          <div className="dcol">
+            <Well title={words("任务", "Quests")} note={questCount(words, page.quests.length)}>
+              <QuestList quests={page.quests} />
+              {!page.quests.length && (
+                <p className="note">{words("这个 NPC 不给任务。", "This NPC gives no quests.")}</p>
+              )}
+            </Well>
+            {page.shop.length > 0 && (
+              <Well
+                title={words("商店", "Shop")}
+                note={words(`${page.shop.length} 种`, `${page.shop.length} items`)}
+              >
+                {page.shop.map((item: any) => (
+                  <a className="drow" key={item.id} href={"/item/" + item.id}>
+                    <Slot empty url={item.icon_url} />
+                    <span className="t">
+                      <b>{name(item.names)}</b>
+                      <Secondary names={item.names} />
+                    </span>
+                    <span className="r">
+                      <Price value={item.price} />
+                    </span>
+                  </a>
+                ))}
+              </Well>
+            )}
           </div>
         </div>
       </section>
@@ -658,13 +841,30 @@ function RoutePage({ page }: { page: any }) {
                     {words(step.to.names.en, step.to.names.zh)}
                   </span>
                   <span className="s">
-                    <Edge kind={step.kind} portal={step.portal_name} />
+                    {step.kind === "portal" && step.exit ? (
+                      words(
+                        "走小地图上圈出的传送口",
+                        "take the circled portal on the minimap",
+                      )
+                    ) : (
+                      <Edge kind={step.kind} portal={step.portal_name} />
+                    )}
                   </span>
                 </span>
                 {step.kind === "return" && (
                   <span className="kind">{words("回城卷轴", "scroll")}</span>
                 )}
               </a>
+              {step.view && (step.exit || step.kind !== "portal") && (
+                <figure className="mapvis step-map">
+                  <MapSvg
+                    view={step.view}
+                    title={name(step.from.names)}
+                    exit={step.exit}
+                    arrival={step.arrival}
+                  />
+                </figure>
+              )}
             </li>
           ))}
         </ol>
@@ -825,6 +1025,8 @@ export default function Catalogue() {
             ? words(page.mob.names?.zh, page.mob.names?.en)
             : data.kind === "map"
               ? words(page.map.names?.zh, page.map.names?.en)
+              : data.kind === "npc"
+                ? words(page.npc.names?.zh, page.npc.names?.en) || "NPC #" + page.npc.id
               : data.kind === "route"
                 ? words("怎么走", "Route")
                 : words("搜索", "Search");
@@ -879,6 +1081,8 @@ export default function Catalogue() {
         <Mob page={data.page} />
       ) : data.kind === "map" ? (
         <MapPage page={data.page} />
+      ) : data.kind === "npc" ? (
+        <NpcPage page={data.page} />
       ) : data.kind === "route" ? (
         <RoutePage page={data.page} />
       ) : (

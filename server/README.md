@@ -228,13 +228,17 @@ cargo run --release -p market-web --bin reachability        # 从射手村能到
 3. NPC：名字来自 Mapledex `npcs.json`，它没有的用 NiaDB 的英文名；NPC 商店来自 NiaDB `npc-shops.json`，没有 `classicPrice` 的不导入，`priceSource` 存进 `npc_shops.source`。
 4. 地图：Mapledex 没有、NiaDB 有的地图连同刷怪、NPC 位置和回城点一起导入，回城边记为 `source = 'niadb'`。传送口仍由 `import_portals` 写（`source = 'wz'`），它只替换输入里那些地图的传送口；`import_catalog` 不碰 `wz` 边，两个工具互不覆盖。
 5. 路线：回城卷轴算 3 步，代价相同时少用非步行步骤的路线优先，所以走 1–3 个传送口能到时不用卷轴，4 个以上才用。射手村 → 废弃都市仍是 5 个传送口加回城卷轴：按 NiaDB 的传送口，废都森林I 没有通往废弃都市的传送口，全程步行最少 10 步（经逆恩森林和废都南方工地）。来源里没有带票价的船和出租车，没有导入这两类边。
-6. 地图和 NPC 的简体名：Mapledex 有简体名（`cw`）的照用，从不覆盖。没有的按 `zh-names.json` 填 `name_zh`，这个文件由 `tools/zh_names.py` 离线生成，`import_catalog` 只读它：先用 DVG 的名字（物品中文名也来自 DVG，和本服中文玩家看到的一致），条件是同一 ID 的 DVG 英文名和我们的一致（只比字母和数字；三个 NPC 拼法不同但地图位置相同，人工核过）；DVG 没有、但 Mapledex 有繁体名（`zh`）的，用 OpenCC t2s（`opencc-python-reimplemented==0.1.7`）转简体。两边都没有的保持英文，不自己翻译。DVG 的名字不用的情况写在 `zh-names.json` 的 `dvg_not_used`：占位名（`地图 80003000`）、名字里有繁体字（20000055 `天空楼梯Ⅱ天空階梯`，改用 Mapledex 繁体名转换）、英文对不上（900000000 我们是 White Map，DVG 是 The Manager's Room「测试」）。10001008 的名字和街道在 NiaDB 与 DVG 里是反的，用 DVG 的街道名「黄蘑菇屋」。
+6. 地图和 NPC 的简体名：Mapledex 有简体名（`cw`）的照用，从不覆盖。没有的按 `zh-names.json` 填 `name_zh`，这个文件由 `tools/zh_names.py` 离线生成，`import_catalog` 只读它：先用 DVG 的名字（物品中文名也来自 DVG，和本服中文玩家看到的一致），条件是同一 ID 的 DVG 英文名和我们的一致（只比字母和数字；三个 NPC 拼法不同但地图位置相同，人工核过）；DVG 没有、但 Mapledex 有繁体名（`zh`）的，用 OpenCC t2s（`opencc-python-reimplemented==0.1.7`）转简体。两边都没有的保持英文，不自己翻译。DVG 的名字不用的情况写在 `zh-names.json` 的 `dvg_not_used`：占位名（`地图 80003000`）、名字里有繁体字（20000055 `天空楼梯Ⅱ天空階梯`，改用 Mapledex 繁体名转换）、英文对不上（900000000 我们是 White Map，DVG 是 The Manager's Room「测试」）。10001008 的名字和街道在 NiaDB 与 DVG 里是反的，用 DVG 的街道名「黄蘑菇屋」。例外：Mapledex 有 7 张地图的简体名是别的地图的（1001 In a Small Forest 写成「蜗牛打猎场Ⅰ」，1010 Amherst 写成「彩虹村西郊平原」，10001005 Someone Else's House 写成「铁甲猪公园Ⅲ」等，人工核对过），`zh_names.py` 的 `MAPLEDEX_WRONG` 列出它们，改用 DVG 的名字，条目带 `replaces_mapledex: true`，只有这些会替换 Mapledex 的名字。DVG 的列表比按页抓的名字新，同一编号两边都有时用列表的。
 7. 图鉴以 NiaDB 为准（`Dataset::add_niadb_bestiary`，取代规则 2，并在规则 4 之后执行）：Mapledex 的怪物表、掉落表是 GMS 时代的数据，和 Classic World 对不上（2026-11-02 对比：我们的 3025 条有物品号的掉落只有 528 条被 NiaDB 玩家确认）。
    - 怪物：只保留 NiaDB `monsters.json` 里的怪物；Mapledex 有、NiaDB 没有的测试怪和旧副本去掉。等级、HP、MP、经验、攻防、命中、回避用 NiaDB 的上线数值；名字、`gms_id`、图片用的 `link_id`、说明和移动速度仍用 Mapledex。同一编号在 Mapledex 是另一只怪时（英文名去掉 NiaDB 的"(alt)""(GM Event)"等后缀仍不同：39、42、800019–800023，例如 39 在 Mapledex 是 Nependeath，在 Classic World 是 Ghost Stump），不用 Mapledex 的任何字段。
    - 怪物简体名：用 DVG 怪物列表（`data/reference/dvg/mob-list.json`，`tools/dvg_lists.py` 抓取，`--dvg ../data/reference/dvg`）的 `mobname`，这是中文玩家在游戏里看到的名字，替换 Mapledex 的（Mapledex 有错字，例如 700000 写作"mush妈妈"）。只在 DVG 的英文名是同一只怪时用（同上去后缀，长名允许 2 个字母不同）。2026-11-03：110 只用了 DVG 的名字，其中 11 只改了名。
    - 任务（`bestiary::quests`，迁移 0039）：NiaDB `quests.json` 的每个任务一行，简体名和发任务 NPC 的编号用 DVG `quest-list.json`（同一编号、英文名是同一个任务时）；DVG 没有的按 NiaDB 写的 NPC 英文名找，同名多个时取开放的那个。奖励写进 `quest_rewards`（`fixed` 人人有，`job` 是只给某职业/性别的；`choice` 按职业选其一；`random` 抽一个，带 `chance_pct`），要交的物品和要打的怪写进 `quest_needs`。`OPENS_LATER` 里区域的任务（遗忘洞穴是 NiaDB `area` 17）在开放日前、NPC 只站在未开放地图上的任务标 `unreleased`；活动任务存 `starts_at` / `ends_at`，页面只在这段时间内显示，不用重跑导入。物品页"来源"列出给这个物品的任务（任务奖励）和要这个物品的任务（任务要用），怪物页列出要打它的任务，都链接到 NiaDB 的任务页。2026-11-03：401 个任务。
    - 怪物图片：GMS v83 渲染器没有或画的是另一只怪的，用 `web/images/mobs/` 里的 DVG 客户端贴图（来源见 `sources.json`）；清单在 `bestiary/pages.rs` 的 `LOCAL_SPRITES` 和 `catalogue.tsx`，两边一致。
-   - 地图和刷怪：只保留 NiaDB `maps.json` 里的地图（Mapledex 有、NiaDB 没有的 Up and Up、White Map 等去掉，连同它们的 NPC 位置和回城边）；刷怪点全部换成 NiaDB 每张地图的怪物列表。
+   - 地图和刷怪：只保留 NiaDB `maps.json` 里的地图（Mapledex 有、NiaDB 没有的 Up and Up、White Map 等去掉，连同它们的 NPC 位置和回城边）；刷怪点全部换成 NiaDB 每张地图的怪物列表。地图英文名用 NiaDB 的；Mapledex 的英文名和 NiaDB 不同时（只有 88000000，Mapledex 把名字和街道写反了）连它的中文名一起不用。
+   - 怪物副本：NiaDB 名字带"(alt)""(alt2)""(GM Event)"、在开放地图上没有刷怪点的怪物（GM 活动的红蜗牛王等 810000–810005，月妙副本的蝙蝠 800020–800023，哥布林之火 800025）标 `unreleased`。有刷怪点的副本怪（组队任务、转职考场里的 8000xx）照常显示。
+   - 占位地图：客户端没有名字、NiaDB 用编号当名字的地图（080003500）标 `unreleased`。
+   - 地图视图（迁移 0040）：`maps` 存 NiaDB 的小地图框（`minimap_w/h`、`minimap_cx/cy`，世界坐标 (x, y) 在框里是 (x + cx, y + cy)）和玩家出生点；`map_spawn_points` 一行一个刷怪点（怪物、坐标、定时重生秒数）；`map_npcs` 加 NPC 站位。图片由 `tools/niadb_map_assets.py` 从 NiaDB 下载进仓库：`web/images/minimaps/<id>.png`（客户端小地图，世界尺寸的 1/16，406 张），怪物站立图 `data/reference/niadb/mob-sprites/`，以及由它生成的 48×48 头像 `web/images/mobs/head/<id>.png`。地图页把小地图画成 SVG（`pages/mapview.rs`，前端 `mapview.tsx`），怪物头像站在刷怪点上，传送口链接到目标地图，NPC 链接到 NPC 页；坐标都是 SVG 属性，页面仍不用内联样式。路线页每一步画出所在地图，圈出要走的传送口和进来的位置。NPC 页（`/npc/<id>`）列出站位、给的任务和商店。
+   - AI 助手：`agent/adventure-data.json` 是固定的客户端快照，`OPENS_LATER` 里未开放区域的地图、任务，以及只出现在那里的怪物和 NPC，在开放日前不返回（`agent/adventure.rs`）。
    - 掉落：整张表换成 NiaDB `drops.json`（玩家报告、投票），只收赞成多于反对的，每只怪每种物品一行，按（赞成 − 反对）从高到低。没有掉率（`rate_pct` 为空，Classic World 不公布），存 `upvotes` / `downvotes`；页面显示"N 票"，不再估算"打多少只出一个"。金币：Mapledex 的金币掉落不再导入，改用 NiaDB `mesos.json`（玩家报告的每堆金币数和投票）：NiaDB 有可信报告（`summary.trustedCount > 0`）的怪物加一行金币，范围是它页面上显示的中位数（`medianMin`–`medianMax`），票数是这只怪所有报告的票数之和；没有可信报告的不加。
    - 未开放：NiaDB 区域为 `Ossyria`（天空之城、冰峰雪域，NiaDB 默认隐藏）的地图，以及 `OPENS_LATER` 里开放日之前的区域（遗忘洞穴 10006000–10006999，2026-11-18 开放），标 `unreleased`；所有刷怪地图都未开放的怪物、所有站位都在未开放地图的 NPC 也标 `unreleased`（没有刷怪记录的怪物按 NiaDB `regions` 是否全是 `Ossyria`）。数据留在表里，页面、搜索、区域筛选、掉落来源、NPC 价格、制作成本、路线和 AI 助手都不显示。开放日之后重跑 `import_catalog` 即可显示；天空之城开放时去掉 `UNRELEASED_REGION` 的判断，并在 `regions.rs` 和 `catalogue-search.tsx` 加回区域选项。
 
@@ -247,6 +251,16 @@ cargo run --release -p market-web --bin reachability        # 从射手村能到
 | `mob_spawns` | 896 | 915 |
 | `drops` | 4575（GMS 时代掉落表，带掉率；金币 142 行） | 1704：物品 1655（玩家确认，没有掉率；另有 106 条赞成不多于反对的报告没收），金币 49 行（有报告的怪物只有 49 个，其中 11 个在未开放地图） |
 | `npcs` 未开放 | 0 | 62 |
+
+2026-11-03 的补充（怪物副本、占位地图、地图名、地图视图；之前 → 之后）：
+
+| | 之前 | 之后 |
+|---|---|---|
+| `mobs` 未开放 | 52 | 63（GM 活动和 alt 副本 11 只） |
+| `maps` 未开放 | 119 | 120（080003500） |
+| 有简体名的地图 | 447 | 452（只剩 080003500 是英文） |
+| `npcs` 未开放 | 62 | 63（只站在 080003500 的 Zelya） |
+| `map_spawn_points` | — | 每个刷怪点一行（1000 彩虹村西边草原 66 个） |
 
 2026-10-21 数据的结果（之前 → 之后）：
 

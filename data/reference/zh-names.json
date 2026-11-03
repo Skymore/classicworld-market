@@ -30,10 +30,52 @@
    "source": "dvg",
    "en": "The Field West of Amherst"
   },
+  "1001": {
+   "zh": "小树林",
+   "source": "dvg",
+   "en": "In a Small Forest",
+   "replaces_mapledex": true
+  },
+  "1002": {
+   "zh": "危险森林",
+   "source": "dvg",
+   "en": "Dangerous Forest",
+   "replaces_mapledex": true
+  },
+  "1010": {
+   "zh": "彩虹村",
+   "source": "dvg",
+   "en": "Amherst",
+   "replaces_mapledex": true
+  },
+  "1011": {
+   "zh": "彩虹村武器店",
+   "source": "dvg",
+   "en": "Amherst Weapon Store",
+   "replaces_mapledex": true
+  },
+  "1012": {
+   "zh": "彩虹村村民家",
+   "source": "dvg",
+   "en": "Amherst Townstreet",
+   "replaces_mapledex": true
+  },
+  "1013": {
+   "zh": "彩虹村杂货店",
+   "source": "dvg",
+   "en": "Amherst Department Store",
+   "replaces_mapledex": true
+  },
   "1020": {
    "zh": "彩虹村东边草原",
    "source": "dvg",
    "en": "The Field East of Amherst"
+  },
+  "10001005": {
+   "zh": "别人的家",
+   "source": "dvg",
+   "en": "Someone Else's House",
+   "replaces_mapledex": true
   },
   "10001007": {
    "zh": "射手村市政厅",
@@ -821,10 +863,35 @@
    "source": "dvg",
    "en": "Free Market <20>"
   },
+  "80003000": {
+   "zh": "樱草山",
+   "source": "dvg",
+   "en": "Primrose Hill"
+  },
+  "80003100": {
+   "zh": "捷径 I",
+   "source": "dvg",
+   "en": "Shortcut"
+  },
+  "80003200": {
+   "zh": "猪猪小镇",
+   "source": "dvg",
+   "en": "Pig Town"
+  },
+  "80003300": {
+   "zh": "返回城镇",
+   "source": "dvg",
+   "en": "Back to Town"
+  },
   "80003400": {
    "zh": "捷径 II",
    "source": "dvg",
    "en": "Shortcut"
+  },
+  "88000000": {
+   "zh": "黄蘑菇屋",
+   "source": "dvg",
+   "en": "Yellow Mushroom House"
   },
   "88001000": {
    "zh": "后巷半地下室",
@@ -1217,38 +1284,6 @@
    "en": "Stairway to the Sky II",
    "dvg": "天空楼梯Ⅱ天空階梯",
    "dvg_en": "Stairway to the Sky II"
-  },
-  {
-   "kind": "map",
-   "id": 80003000,
-   "reason": "placeholder",
-   "en": "Primrose Hill",
-   "dvg": "地图 80003000",
-   "dvg_en": null
-  },
-  {
-   "kind": "map",
-   "id": 80003100,
-   "reason": "placeholder",
-   "en": "Shortcut",
-   "dvg": "地图 80003100",
-   "dvg_en": null
-  },
-  {
-   "kind": "map",
-   "id": 80003200,
-   "reason": "placeholder",
-   "en": "Pig Town",
-   "dvg": "地图 80003200",
-   "dvg_en": null
-  },
-  {
-   "kind": "map",
-   "id": 80003300,
-   "reason": "placeholder",
-   "en": "Back to Town",
-   "dvg": "地图 80003300",
-   "dvg_en": null
   },
   {
    "kind": "map",

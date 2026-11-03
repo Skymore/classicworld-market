@@ -62,6 +62,8 @@ pub struct ImportSummary {
     /// Maps with a simplified name.
     pub maps_zh: i64,
     pub spawns: u64,
+    /// Spawn points with positions (the map view).
+    pub spawn_points: u64,
     pub drops: u64,
     /// Drops whose item is in `items` (and so gets a page).
     pub drops_in_catalog: i64,
@@ -141,7 +143,15 @@ pub async fn import(pool: &PgPool, input: &Input<'_>) -> Result<ImportSummary> {
         &data.npcs,
     )
     .await?;
-    let npc_placements = insert_json(&mut tx, "map_npcs", "map_id, npc_id", &data.map_npcs).await?;
+    let spawn_points = insert_json(
+        &mut tx,
+        "map_spawn_points",
+        "map_id, ord, mob_id, x, y, mob_time",
+        &data.spawn_points,
+    )
+    .await?;
+    let npc_placements =
+        insert_json(&mut tx, "map_npcs", "map_id, npc_id, x, y", &data.map_npcs).await?;
     let npc_shops = insert_json(
         &mut tx,
         "npc_shops",
@@ -203,6 +213,7 @@ pub async fn import(pool: &PgPool, input: &Input<'_>) -> Result<ImportSummary> {
         maps_unreleased,
         maps_zh,
         spawns,
+        spawn_points,
         drops,
         drops_in_catalog,
         drops_meso,
@@ -315,7 +326,8 @@ const MOB_COLUMNS: &str = "id, gms_id, link_id, name_en, name_zh, name_tw, level
     pad, pdd, mad, mdd, acc, eva, speed, is_boss, is_undead, description, drop_source, unreleased";
 const MAP_COLUMNS: &str =
     "id, gms_id, name_en, name_zh, name_tw, street_en, street_zh, street_tw, \
-    description, is_town, return_map_id, mob_rate, bgm, minimap_url, unreleased";
+    description, is_town, return_map_id, mob_rate, bgm, minimap_url, unreleased, \
+    minimap_w, minimap_h, minimap_cx, minimap_cy, spawn_x, spawn_y";
 const DROP_COLUMNS: &str = "mob_id, ord, item_id, gms_item_id, name_en, name_zh, name_tw, \
     meso_min, meso_max, rate_pct, quest_id, source, upvotes, downvotes";
 const QUEST_COLUMNS: &str = "id, name_en, name_zh, name_tw, npc_id, level_min, repeats, \

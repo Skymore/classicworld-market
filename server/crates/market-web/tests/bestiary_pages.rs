@@ -586,15 +586,172 @@ fn map_page_shows_links_and_route_entry() {
             portal_name: None,
         }],
         entrances: vec![],
+        view: None,
+        quests_given: vec![],
+        quests_hunted: vec![],
+        from_henesys: None,
     };
     let html = pages::map_page(&page, &zh()).into_string();
     assert!(html.contains(r#"href="/route?from=10001000&amp;to=10001010""#));
     assert!(html.contains("回城点：射手村"));
     assert!(html.contains(r#"href="/mob/2""#));
     assert!(html.contains("NPC #200"));
+    assert!(
+        html.contains(r#"href="/npc/200""#),
+        "NPC rows open the NPC page"
+    );
+    assert!(!html.contains("mapvis"), "no view without NiaDB's box");
     assert!(html.contains("NPC 名字还没有导入"));
     assert!(html.contains("用回城卷轴"));
     assert!(html.contains("还没有到这里的连接"));
+}
+
+fn small_view() -> MapView {
+    MapView {
+        width: 1000,
+        height: 500,
+        shown_width: 880,
+        shown_height: 440,
+        icon: 27,
+        image_url: Some("/web/images/minimaps/10001010.png".into()),
+        spawns: vec![SpawnPoint {
+            mob_id: 2,
+            x: 300,
+            y: 400,
+            mob_time: 0,
+        }],
+        portals: vec![PortalPoint {
+            x: 950,
+            y: 420,
+            to: map(10001000, "射手村"),
+            name: Some("east00".into()),
+        }],
+        npcs: vec![NpcPoint {
+            npc: NpcRef {
+                id: 200,
+                names: Some(Names::new("赫丽娜", "Athena Pierce")),
+            },
+            x: 500,
+            y: 300,
+        }],
+        player_spawn: Some(Point { x: 100, y: 400 }),
+    }
+}
+
+fn npc_quest(id: i32, name: &str) -> QuestRef {
+    QuestRef {
+        id,
+        names: Names::new(name, format!("{name} (en)")),
+        npc: Some(NpcRef {
+            id: 200,
+            names: Some(Names::new("赫丽娜", "Athena Pierce")),
+        }),
+        level_min: Some(10),
+        repeats: None,
+        ends_at: None,
+    }
+}
+
+#[test]
+fn map_page_draws_the_view_route_strip_and_quests() {
+    let page = MapPage {
+        map: MapDetail {
+            id: 10001010,
+            names: Names::new("射手训练场Ⅰ", "Henesys Hunting Ground I"),
+            street: None,
+            description: None,
+            is_town: false,
+            mob_rate: None,
+            minimap_url: Some("/web/images/minimaps/10001010.png".into()),
+        },
+        return_map: None,
+        mobs: vec![MapMob {
+            mob: mob(2, "蜗牛"),
+            spawn_count: 1,
+        }],
+        npcs: vec![],
+        exits: vec![],
+        entrances: vec![],
+        view: Some(small_view()),
+        quests_given: vec![npc_quest(1, "弓箭手的考验")],
+        quests_hunted: vec![QuestHunt {
+            quest: npc_quest(2, "蜗牛壳"),
+            mob: mob(2, "蜗牛"),
+            quantity: 10,
+        }],
+        from_henesys: Some(vec![map(10001000, "射手村"), map(10001010, "射手训练场Ⅰ")]),
+    };
+    let html = pages::map_page(&page, &zh()).into_string();
+    assert!(html.contains(r#"<figure class="mapvis">"#));
+    assert!(
+        html.contains(r#"href="/web/images/mobs/head/2.png""#),
+        "the head on its spawn point"
+    );
+    assert!(html.contains("<title>传送口 → 射手村</title>"));
+    assert!(
+        html.contains(r#"class="mv-chip""#),
+        "legend chip per monster"
+    );
+    assert!(html.contains("从射手村过来"));
+    assert!(html.contains("1 步"));
+    assert!(html.contains("在这里接") && html.contains("弓箭手的考验"));
+    assert!(html.contains("要打这里的怪") && html.contains("蜗牛 ×10"));
+    assert!(
+        !html.contains(r#"class="minimap""#),
+        "the view replaces the plain image"
+    );
+}
+
+#[test]
+fn npc_page_marks_the_npc_and_lists_quests_and_shop() {
+    let page = NpcPage {
+        npc: NpcRef {
+            id: 200,
+            names: Some(Names::new("赫丽娜", "Athena Pierce")),
+        },
+        places: vec![NpcPlace {
+            map: map(10001010, "射手训练场Ⅰ"),
+            view: Some(small_view()),
+        }],
+        quests: vec![npc_quest(1, "弓箭手的考验")],
+        shop: vec![NpcShopItem {
+            id: 2000000,
+            names: Names::new("红色药水", "Red Potion"),
+            icon_url: None,
+            price: 50,
+        }],
+    };
+    let html = pages::npc_page(&page, &zh()).into_string();
+    assert!(html.contains("<h1>赫丽娜</h1>"));
+    assert!(
+        html.contains("mv-npc here"),
+        "the NPC stands out on its map"
+    );
+    assert!(
+        !html.contains(r#"href="/npc/200""#),
+        "no link to the page itself"
+    );
+    assert!(html.contains("弓箭手的考验"));
+    assert!(html.contains(r#"href="/item/2000000""#) && html.contains("红色药水"));
+}
+
+#[test]
+fn route_steps_circle_the_portal_to_take() {
+    let html = route(RouteOutcome::Found {
+        from: map(10001010, "甲"),
+        to: map(10001000, "乙"),
+        steps: vec![Step {
+            from: map(10001010, "甲"),
+            to: map(10001000, "乙"),
+            kind: EdgeKind::Portal,
+            portal_name: Some("east00".into()),
+            view: Some(small_view()),
+            exit: Some(Point { x: 950, y: 420 }),
+            arrival: Some(Point { x: 100, y: 400 }),
+        }],
+    });
+    assert!(html.contains("走小地图上圈出的传送口"));
+    assert!(html.contains("mv-exit") && html.contains("mv-arrival"));
 }
 
 #[test]
@@ -623,6 +780,10 @@ fn town_lists_return_scroll_entrances_on_one_line() {
             entrance(2, EdgeKind::Return),
             entrance(3, EdgeKind::Return),
         ],
+        view: None,
+        quests_given: vec![],
+        quests_hunted: vec![],
+        from_henesys: None,
     };
     let html = pages::map_page(&page, &zh()).into_string();
     assert!(html.contains("用回城卷轴回到这里<small>2 张地图</small>"));
@@ -658,12 +819,18 @@ fn route_page_outcomes() {
                 to: map(2, "乙"),
                 kind: EdgeKind::Portal,
                 portal_name: Some("east00".into()),
+                view: None,
+                exit: None,
+                arrival: None,
             },
             Step {
                 from: map(2, "乙"),
                 to: map(3, "丙"),
                 kind: EdgeKind::Return,
                 portal_name: None,
+                view: None,
+                exit: None,
+                arrival: None,
             },
         ],
     });

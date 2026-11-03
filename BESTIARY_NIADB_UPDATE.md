@@ -8,15 +8,17 @@
 - 掉落整张换成 NiaDB 玩家确认（赞成多于反对）的掉落，没有掉率，页面显示"N 票"。金币改用 NiaDB 玩家报告的每堆金币数（NiaDB 页面上的中位数范围）。
 - 天空之城、冰峰雪域，以及 2026-11-18 之前的遗忘洞穴，标为未开放：数据在库里，网站不显示。
 - 任务（迁移 `0039_quests.sql`）：物品页"来源"新增"任务奖励"和"任务要用"，怪物页新增"相关任务"。活动任务只在活动期间显示。
+- 地图视图（迁移 `0040_map_view.sql`）：地图页显示小地图，怪物头像站在刷怪点上，传送口和 NPC 可点；路线页每一步圈出要走的传送口；新增 NPC 页。GM 活动和 alt 副本怪隐藏；Mapledex 写错的 7 张地图中文名改正。
+- AI 助手不再返回遗忘洞穴的地图、任务和怪物（开放日后自动恢复，不用重跑）。
 
-需要三样东西：新代码（含迁移 `0038_niadb_bestiary.sql`、`0039_quests.sql`）、仓库里的参考数据（`data/reference/`）、用新代码重跑 `import_catalog` 和 `import_portals`。
+需要三样东西：新代码（含迁移 `0038_niadb_bestiary.sql`、`0039_quests.sql`、`0040_map_view.sql`）、仓库里的参考数据和图片（`data/reference/`、`web/images/minimaps/`、`web/images/mobs/head/`，随网站一起部署）、用新代码重跑 `import_catalog` 和 `import_portals`。
 
 ## 什么时候做
 
 **先上线新网站，再重跑导入。** 重跑后 `drops.rate_pct` 为空，旧网站读到空值会让物品页和怪物页出错。
 
 1. 包含这次改动的提交合入 `gitlab/main`，按 `AGENTS.md` 同步共享目录（含子模块），核对 `HEAD` 与 `gitlab/main` 一致。
-2. 按 `SHARED_DEPLOYMENT.md` 上线这个提交。迁移 0038 只加列、放宽 `rate_pct` 的非空约束，旧数据照常显示。
+2. 按 `SHARED_DEPLOYMENT.md` 上线这个提交。迁移 0038 只加列、放宽 `rate_pct` 的非空约束，0040 只加列和一张新表，旧数据照常显示（重跑导入前地图页没有小地图视图）。
 3. 再做下面的步骤。
 
 ## 步骤
@@ -79,7 +81,7 @@ cargo run --release -p market-web --bin import_catalog -- `
 
 - 导入在一个事务里，出错整体回滚。
 - `--niadb-version` 写 `drops.json` 里 `fetched_at` 的日期（第 1 步第一行打印的）。
-- 预期输出（2026-11-02 的数据，新抓的会略多）：`mobs 206 NiaDB (… 7 replace a different Mapledex mob … 52 unreleased; 110 simplified names from DVG …)`、`maps 453 NiaDB (… 119 unreleased …)`、`drops 1704 NiaDB: 1655 items … 49 meso ranges`、`quests 401 NiaDB (…)`、`items` 与上一次相同。
+- 预期输出（2026-11-02 的数据，新抓的会略多）：`mobs 206 NiaDB (… 7 replace a different Mapledex mob … 63 unreleased; 110 simplified names from DVG …)`、`maps 453 NiaDB (… 120 unreleased; 452 with a simplified name, 200 from DVG …)`、`spawns 915 NiaDB (… spawn points with positions …)`、`drops 1704 NiaDB: 1655 items … 49 meso ranges`、`quests 401 NiaDB (…)`、`items` 与上一次相同。
 - `mobs`、`maps` 少于 200、`drops` 少于 1000：按第 7 步恢复并报告用户。
 
 接着导入传送口（新地图的传送口在仓库的 `portals.json` 里）：
@@ -95,7 +97,14 @@ cd ..
 & "$pg\psql.exe" $env:DATABASE_URL -c "SELECT (SELECT count(*) FROM maps WHERE unreleased) AS maps_hidden, (SELECT count(*) FROM mobs WHERE unreleased) AS mobs_hidden, (SELECT count(*) FROM drops WHERE rate_pct IS NULL) AS niadb_drops, (SELECT count(*) FROM drops) AS drops"
 ```
 
-预期 `maps_hidden` 约 119、`mobs_hidden` 约 52，`niadb_drops` 等于 `drops`。
+预期 `maps_hidden` 约 120、`mobs_hidden` 约 63，`niadb_drops` 等于 `drops`。
+
+```powershell
+& "$pg\psql.exe" $env:DATABASE_URL -c "SELECT (SELECT count(*) FROM map_spawn_points) AS spawn_points, (SELECT count(*) FROM maps WHERE minimap_w IS NOT NULL) AS maps_with_box, (SELECT count(*) FROM map_npcs WHERE x IS NOT NULL) AS npcs_placed"
+Test-Path web\images\minimaps\1000.png, web\images\mobs\head\4.png
+```
+
+预期 `spawn_points` 一万左右、`maps_with_box` 约 453、`npcs_placed` 三百左右；两个 `Test-Path` 都是 `True`。
 
 网站（首屏 HTML 最多缓存 60 秒，刷新即可）：
 
@@ -103,11 +112,14 @@ cd ..
 - [蜗牛](https://mxd.ruit.me/mob/2)：掉落最上面是金币 3–4。
 - [古木妖](https://mxd.ruit.me/mob/39)：名字是古木妖（Ghost Stump），不是食人花，有图片。
 - [天空之城](https://mxd.ruit.me/map/20000000)：显示"没有找到"（404）。
+- [彩虹村西边草原](https://mxd.ruit.me/map/1000)：小地图上有蜗牛、蘑菇仔等头像，点下面的怪物标签只突出那一种；传送口"岔路"写的是中文。
+- [希娜](https://mxd.ruit.me/npc/1)：NPC 页，小地图上金色标出她，任务里有"借来莎丽的镜子"。
+- [射手村 → 遗迹发掘地I](https://mxd.ruit.me/route?from=10001000&to=10004130)：每一步下面有小地图，紫圈是要走的传送口。
 - 图鉴搜索的区域筛选里没有天空之城和冰峰雪域。
 
 ### 6. 2026-11-18 之后
 
-遗忘洞穴开放日之后，用第 4 步完全相同的参数再跑一次 `import_catalog`（不需要重新抓数据）。之后 `maps_hidden` 降为约 92，[遗忘洞穴](https://mxd.ruit.me/map/10006000) 能打开。
+遗忘洞穴开放日之后，用第 4 步完全相同的参数再跑一次 `import_catalog`（不需要重新抓数据）。之后 `maps_hidden` 降为约 93，[遗忘洞穴](https://mxd.ruit.me/map/10006000) 能打开。
 
 ### 7. 出问题时
 

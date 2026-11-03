@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use super::rows::{
     DropRow, MapNpcRow, MapRow, MobRow, NpcRow, PortalRow, QuestNeedRow, QuestRewardRow, QuestRow,
-    SpawnRow,
+    SpawnPointRow, SpawnRow,
 };
 
 pub const DEFAULT_VERSION: &str = "CW GMS_COT2_2026-08-11";
@@ -118,6 +118,8 @@ pub struct Dataset {
     pub mobs: Vec<MobRow>,
     pub maps: Vec<MapRow>,
     pub spawns: Vec<SpawnRow>,
+    /// Every spawn point with its position, from NiaDB.
+    pub spawn_points: Vec<SpawnPointRow>,
     pub drops: Vec<DropRow>,
     pub npcs: Vec<NpcRow>,
     pub map_npcs: Vec<MapNpcRow>,
@@ -292,6 +294,12 @@ impl Dataset {
                 bgm: clean(map.bgm.as_deref()),
                 minimap_url: None,
                 unreleased: false,
+                minimap_w: None,
+                minimap_h: None,
+                minimap_cx: None,
+                minimap_cy: None,
+                spawn_x: None,
+                spawn_y: None,
             });
             self.add_spawns(map, &mob_ids);
             for npc_id in map.npcs.iter().copied().collect::<BTreeSet<_>>() {
@@ -299,6 +307,8 @@ impl Dataset {
                 self.map_npcs.push(MapNpcRow {
                     map_id: map.id,
                     npc_id,
+                    x: None,
+                    y: None,
                 });
             }
         }
@@ -424,12 +434,44 @@ struct NiaMap {
     npcs: Vec<NiaNpc>,
     #[serde(default)]
     monsters: Vec<NiaMob>,
+    #[serde(default)]
+    spawns: Vec<NiaSpawn>,
+    #[serde(rename = "playerSpawns", default)]
+    player_spawns: Vec<NiaPoint>,
+    #[serde(rename = "minimapWidth")]
+    minimap_w: Option<i32>,
+    #[serde(rename = "minimapHeight")]
+    minimap_h: Option<i32>,
+    #[serde(rename = "miniMapCenterX")]
+    minimap_cx: Option<i32>,
+    #[serde(rename = "miniMapCenterY")]
+    minimap_cy: Option<i32>,
+    #[serde(rename = "hasMinimapImage", default)]
+    has_minimap: bool,
 }
 
 #[derive(Deserialize)]
 struct NiaNpc {
     id: String,
     name: Option<String>,
+    x: Option<i32>,
+    y: Option<i32>,
+}
+
+#[derive(Deserialize)]
+struct NiaSpawn {
+    #[serde(rename = "mobId")]
+    mob_id: String,
+    x: i32,
+    y: i32,
+    #[serde(rename = "mobTime", default)]
+    mob_time: i32,
+}
+
+#[derive(Deserialize)]
+struct NiaPoint {
+    x: i32,
+    y: i32,
 }
 
 #[derive(Deserialize)]
@@ -568,6 +610,12 @@ impl Dataset {
                 bgm: clean(map.bgm.as_deref()),
                 minimap_url: None,
                 unreleased: false,
+                minimap_w: None,
+                minimap_h: None,
+                minimap_cx: None,
+                minimap_cy: None,
+                spawn_x: None,
+                spawn_y: None,
             });
             counts.maps += 1;
             counts.spawns += self.add_nia_spawns(id, &map.monsters, &mob_ids);
@@ -620,7 +668,12 @@ impl Dataset {
                 };
                 counts.npc_names += name_if_unnamed(npcs, npc_id, npc.name.as_deref());
                 if placed.insert((map_id, npc_id)) {
-                    self.map_npcs.push(MapNpcRow { map_id, npc_id });
+                    self.map_npcs.push(MapNpcRow {
+                        map_id,
+                        npc_id,
+                        x: npc.x,
+                        y: npc.y,
+                    });
                     counts.npc_placements += 1;
                 }
             }
@@ -701,14 +754,72 @@ fn before(day: (i32, u32, u32), today: NaiveDate) -> bool {
     NaiveDate::from_ymd_opt(day.0, day.1, day.2).is_some_and(|day| today < day)
 }
 
-fn opens_later(map_id: i32, today: NaiveDate) -> bool {
+pub(crate) fn opens_later(map_id: i32, today: NaiveDate) -> bool {
     OPENS_LATER
         .iter()
         .any(|a| a.maps.contains(&map_id) && before(a.day, today))
 }
 
+/// "Mano (alt) (GM Event)", "Flyeye (alt2)".
+fn copy_name(name: &str) -> bool {
+    let name = name.to_ascii_lowercase();
+    name.contains("(gm event)") || name.contains("(alt)") || name.contains("(alt2)")
+}
+
+/// NiaDB names the map. A Mapledex English name that differs belongs to
+/// something else (Mapledex has 88000000's name and street swapped), so its
+/// Chinese names go too.
+fn take_nia_name(map: &mut MapRow, source: &NiaMap) {
+    let Some(name) = clean(source.name.as_deref()) else {
+        return;
+    };
+    if fold_name(&name) == fold_name(&map.name_en) {
+        return;
+    }
+    map.name_en = name;
+    map.name_zh = None;
+    map.name_tw = None;
+    map.street_en = clean(source.street.as_deref());
+    map.street_zh = None;
+    map.street_tw = None;
+}
+
+fn fold_name(name: &str) -> String {
+    name.chars()
+        .filter(char::is_ascii_alphanumeric)
+        .map(|c| c.to_ascii_lowercase())
+        .collect()
+}
+
+/// NiaDB names maps the client leaves unnamed by their id ("080003500").
+fn placeholder_name(name: &str) -> bool {
+    !name.is_empty() && name.chars().all(|c| c.is_ascii_digit())
+}
+
+/// Minimap box, image and player spawn from NiaDB.
+fn set_view(map: &mut MapRow, source: &NiaMap) {
+    let size = source
+        .minimap_w
+        .zip(source.minimap_h)
+        .filter(|&(w, h)| w > 0 && h > 0);
+    let center = source.minimap_cx.zip(source.minimap_cy);
+    if let (Some((w, h)), Some((cx, cy))) = (size, center) {
+        map.minimap_w = Some(w);
+        map.minimap_h = Some(h);
+        map.minimap_cx = Some(cx);
+        map.minimap_cy = Some(cy);
+        map.minimap_url = source
+            .has_minimap
+            .then(|| format!("/web/images/minimaps/{}.png", map.id));
+    }
+    if let Some(spawn) = source.player_spawns.first() {
+        map.spawn_x = Some(spawn.x);
+        map.spawn_y = Some(spawn.y);
+    }
+}
+
 /// A quest of an area that is not open yet.
-pub(super) fn quest_area_opens_later(area: i32, today: NaiveDate) -> bool {
+pub(crate) fn quest_area_opens_later(area: i32, today: NaiveDate) -> bool {
     OPENS_LATER
         .iter()
         .any(|a| a.quest_area == area && before(a.day, today))
@@ -805,6 +916,9 @@ pub struct NiaBestiaryCounts {
     /// Mapledex mobs NiaDB does not list (test and unused copies), dropped.
     pub mobs_removed: usize,
     pub mobs_unreleased: usize,
+    /// GM-event and "(alt)" copies of other mobs that spawn nowhere, hidden
+    /// like unreleased mobs (counted in `mobs_unreleased` too).
+    pub mob_copies: usize,
     pub maps: usize,
     /// Mapledex maps NiaDB does not list, dropped.
     pub maps_removed: usize,
@@ -871,6 +985,7 @@ impl Dataset {
         self.warnings.truncate(reported); // `add_niadb` already reported bad map ids
         self.apply_nia_maps(&maps, today, &mut counts);
         self.mark_mobs_without_open_maps(&mut counts);
+        self.hide_mob_copies(&monsters, &mut counts);
         self.apply_nia_drops(&drops, &mut counts);
         self.apply_nia_mesos(&mesos, &mut counts);
         Ok((added, counts))
@@ -965,16 +1080,21 @@ impl Dataset {
         let mut unreleased = HashSet::new();
         for map in &mut self.maps {
             let source = nia[&map.id];
-            map.unreleased =
-                source.region.as_deref() == Some(UNRELEASED_REGION) || opens_later(map.id, today);
+            take_nia_name(map, source);
+            map.unreleased = source.region.as_deref() == Some(UNRELEASED_REGION)
+                || opens_later(map.id, today)
+                || placeholder_name(&map.name_en);
             if map.unreleased {
                 unreleased.insert(map.id);
             }
             map.mob_rate = source.mob_rate.or(map.mob_rate);
             map.return_map_id = map.return_map_id.filter(|to| listed.contains(to));
+            set_view(map, source);
         }
         counts.maps = self.maps.len();
         counts.maps_unreleased = unreleased.len();
+        self.add_spawn_points(maps);
+        self.place_nia_npcs(maps);
         self.portals
             .retain(|p| listed.contains(&p.from_map_id) && listed.contains(&p.to_map_id));
         self.map_npcs.retain(|p| listed.contains(&p.map_id));
@@ -997,6 +1117,80 @@ impl Dataset {
         ids.sort_unstable();
         for id in ids {
             counts.spawns += self.add_nia_spawns(id, &nia[&id].monsters, &mob_ids);
+        }
+    }
+
+    /// One row per NiaDB spawn point of a listed mob, in NiaDB's order.
+    fn add_spawn_points(&mut self, maps: &[(i32, &NiaMap)]) {
+        let listed: HashSet<i32> = self.maps.iter().map(|m| m.id).collect();
+        let mob_ids: HashSet<i32> = self.mobs.iter().map(|m| m.id).collect();
+        self.spawn_points.clear();
+        for &(map_id, map) in maps.iter().filter(|(id, _)| listed.contains(id)) {
+            let mut ord: i16 = 0;
+            for spawn in &map.spawns {
+                let Some(mob_id) = nia_id(&spawn.mob_id).filter(|id| mob_ids.contains(id)) else {
+                    continue; // `add_nia_spawns` reports unknown mobs
+                };
+                self.spawn_points.push(SpawnPointRow {
+                    map_id,
+                    ord,
+                    mob_id,
+                    x: spawn.x,
+                    y: spawn.y,
+                    mob_time: spawn.mob_time.max(0),
+                });
+                ord = ord.saturating_add(1);
+            }
+        }
+    }
+
+    /// Where each NPC stands, from NiaDB (Mapledex placements carry no position).
+    fn place_nia_npcs(&mut self, maps: &[(i32, &NiaMap)]) {
+        let mut at: HashMap<(i32, i32), (i32, i32)> = HashMap::new();
+        for &(map_id, map) in maps {
+            for npc in &map.npcs {
+                if let (Some(id), Some(x), Some(y)) = (nia_id(&npc.id), npc.x, npc.y) {
+                    at.entry((map_id, id)).or_insert((x, y));
+                }
+            }
+        }
+        for placement in &mut self.map_npcs {
+            if let Some(&(x, y)) = at.get(&(placement.map_id, placement.npc_id)) {
+                placement.x = Some(x);
+                placement.y = Some(y);
+            }
+        }
+    }
+
+    /// NiaDB lists GM-event and "(alt)" copies of mobs ("Mano (alt) (GM
+    /// Event)", "Stirge (alt2)"). Ones that spawn on no open map are hidden;
+    /// instance copies with spawns (party quests) stay.
+    fn hide_mob_copies(&mut self, monsters: &[NiaMonster], counts: &mut NiaBestiaryCounts) {
+        let copies: HashSet<i32> = monsters
+            .iter()
+            .filter(|m| m.name.as_deref().is_some_and(copy_name))
+            .map(|m| m.id)
+            .collect();
+        let open: HashSet<i32> = self
+            .maps
+            .iter()
+            .filter(|m| !m.unreleased)
+            .map(|m| m.id)
+            .collect();
+        let spawning: HashSet<i32> = self
+            .spawns
+            .iter()
+            .filter(|s| open.contains(&s.map_id))
+            .map(|s| s.mob_id)
+            .collect();
+        for mob in &mut self.mobs {
+            if copies.contains(&mob.id) && !spawning.contains(&mob.id) {
+                counts.mob_copies += 1;
+                if !mob.unreleased {
+                    mob.unreleased = true;
+                    counts.mobs_unreleased += 1;
+                }
+            }
         }
     }
 
@@ -1255,6 +1449,9 @@ pub struct ZhNames {
 struct ZhName {
     zh: String,
     source: ZhSource,
+    /// Mapledex's simplified name for this id is another map's; replace it.
+    #[serde(default)]
+    replaces_mapledex: bool,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -1292,8 +1489,9 @@ impl ZhNames {
 }
 
 impl Dataset {
-    /// Sets `name_zh` on maps and NPCs that have none. Call after
-    /// `add_niadb`, which adds most of those rows; existing names are kept.
+    /// Sets `name_zh` on maps and NPCs that have none, and on the ones whose
+    /// Mapledex name `tools/zh_names.py` found wrong. Call after `add_niadb`,
+    /// which adds most of those rows; other existing names are kept.
     pub fn add_zh_names(&mut self, names: &ZhNames) -> ZhNameCounts {
         let maps = self.maps.iter_mut().map(|m| (m.id, &mut m.name_zh));
         let maps = fill_zh("map", maps, &names.maps, &mut self.warnings);
@@ -1316,7 +1514,7 @@ fn fill_zh<'a>(
             continue;
         };
         used.insert(id);
-        if name_zh.is_some() {
+        if name_zh.is_some() && !entry.replaces_mapledex {
             warnings.push(format!(
                 "zh-names: {kind} {id} already has a simplified name; kept"
             ));
