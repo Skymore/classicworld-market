@@ -1,8 +1,10 @@
 {
- "version": "DVG gms-cw fetched 2026-10-21, 2026-11-03; Mapledex tw via OpenCC t2s 0.1.7",
+ "version": "DVG gms-cw fetched 2026-10-21, 2026-11-03; Mapledex tw via OpenCC t2s 0.1.7; translations 2026-11-03",
  "sources": {
   "dvg": "https://mxdgcw.dvg.cn (data/reference/dvg/)",
-  "mapledex-tw": "Mapledex n.zh (GMS-TW traditional), converted with OpenCC t2s"
+  "mapledex-tw": "Mapledex n.zh (GMS-TW traditional), converted with OpenCC t2s",
+  "cms": "Chinese MapleStory client name of the same GMS quest (cms_quest), https://maplestory.io/api/CMS/202/quest, kept in data/reference/zh-translations.json",
+  "translated": "our translation, data/reference/zh-translations.json"
  },
  "maps": {
   "1": {
@@ -1055,6 +1057,11 @@
    "source": "dvg",
    "en": "Doorbell (Henesys)"
   },
+  "237": {
+   "zh": "信箱",
+   "source": "dvg",
+   "en": "Mailbox (Henesys)"
+  },
   "321": {
    "zh": "盛开的蓝铃花",
    "source": "dvg",
@@ -1120,6 +1127,11 @@
    "source": "dvg",
    "en": "Doorbell (Kerning City)"
   },
+  "433": {
+   "zh": "信箱",
+   "source": "dvg",
+   "en": "Mailbox (Kerning City)"
+  },
   "436": {
    "zh": "斯莱德",
    "source": "dvg",
@@ -1129,6 +1141,21 @@
    "zh": "西拉斯·艾恩斯",
    "source": "dvg",
    "en": "Silas Irons"
+  },
+  "515": {
+   "zh": "修安",
+   "source": "dvg",
+   "en": "Shuang"
+  },
+  "516": {
+   "zh": "杉峰",
+   "source": "dvg",
+   "en": "Shawn"
+  },
+  "517": {
+   "zh": "留言板",
+   "source": "dvg",
+   "en": "Bulletin Board"
   },
   "615": {
    "zh": "异界之门",
@@ -1255,6 +1282,21 @@
    "source": "dvg",
    "en": "Lewis"
   },
+  "800019": {
+   "zh": "达尔利",
+   "source": "dvg",
+   "en": "Tory"
+  },
+  "800020": {
+   "zh": "蒂米",
+   "source": "dvg",
+   "en": "Timmy"
+  },
+  "800021": {
+   "zh": "格劳利",
+   "source": "dvg",
+   "en": "Growlie"
+  },
   "900003": {
    "zh": "琳",
    "source": "dvg",
@@ -1274,6 +1316,3790 @@
    "zh": "巫婆",
    "source": "dvg",
    "en": "Malady"
+  }
+ },
+ "quests": {
+  "10600": {
+   "zh": "泽莉娅的地图",
+   "source": "translated",
+   "en": "Zelya's Map"
+  },
+  "10601": {
+   "zh": "天然黏合剂",
+   "source": "translated",
+   "en": "Natural Adhesive"
+  },
+  "10602": {
+   "zh": "回家的路",
+   "source": "translated",
+   "en": "The Road Back Home"
+  },
+  "10603": {
+   "zh": "老朋友",
+   "source": "translated",
+   "en": "Old Friends"
+  },
+  "10604": {
+   "zh": "米拉的老朋友",
+   "source": "translated",
+   "en": "Myra's Old Friend"
+  },
+  "10607": {
+   "zh": "遗憾之根",
+   "source": "translated",
+   "en": "The Roots of Regret"
+  },
+  "10608": {
+   "zh": "妖精的洞察",
+   "source": "translated",
+   "en": "A Fairy's Insight"
+  },
+  "10609": {
+   "zh": "追寻共鸣",
+   "source": "translated",
+   "en": "Tracing the Resonance"
+  },
+  "10610": {
+   "zh": "无底深渊",
+   "source": "translated",
+   "en": "The Yawning Abyss"
+  },
+  "10611": {
+   "zh": "欢迎来到遗忘空洞",
+   "source": "translated",
+   "en": "Welcome to the Hollow"
+  },
+  "10612": {
+   "zh": "尼洛斯脆弱的希望",
+   "source": "translated",
+   "en": "Nyroth's Fragile Hope"
+  },
+  "10613": {
+   "zh": "心事",
+   "source": "translated",
+   "en": "Matters of the Heart"
+  },
+  "10614": {
+   "zh": "钢铁的记忆",
+   "source": "translated",
+   "en": "A Memory of Iron"
+  },
+  "10615": {
+   "zh": "静谧的木之心",
+   "source": "translated",
+   "en": "A Heart of Stillness and Wood"
+  },
+  "10616": {
+   "zh": "贤者的重担",
+   "source": "translated",
+   "en": "The Sage's Burden"
+  },
+  "12000": {
+   "zh": "何克的魔法材料收集",
+   "source": "cms",
+   "en": "Collecting Huckle's Magic Ingredients",
+   "cms_quest": 3038
+  },
+  "12100": {
+   "zh": "查里中士",
+   "source": "cms",
+   "en": "Missing Staff Sergeant Charlie",
+   "cms_quest": 3000
+  },
+  "12101": {
+   "zh": "查里中士的拜托",
+   "source": "cms",
+   "en": "A Request from Staff Sergeant Charlie",
+   "cms_quest": 3039
+  },
+  "12102": {
+   "zh": "查里中士的报告",
+   "source": "translated",
+   "en": "A Report from Staff Sergeant Charlie"
+  },
+  "12103": {
+   "zh": "巴伯下士",
+   "source": "cms",
+   "en": "Missing Sergeant Bravo",
+   "cms_quest": 3001
+  },
+  "12104": {
+   "zh": "巴伯下士的拜托",
+   "source": "cms",
+   "en": "A Request from Sergeant Bravo",
+   "cms_quest": 3040
+  },
+  "12105": {
+   "zh": "巴伯下士的报告",
+   "source": "translated",
+   "en": "A Report from Sergeant Bravo"
+  },
+  "12106": {
+   "zh": "伊吉上等兵",
+   "source": "cms",
+   "en": "Missing Corporal Easy",
+   "cms_quest": 3002
+  },
+  "12107": {
+   "zh": "伊吉上等兵的拜托",
+   "source": "cms",
+   "en": "A Request from Corporal Easy",
+   "cms_quest": 3041
+  },
+  "12108": {
+   "zh": "伊吉上等兵的报告",
+   "source": "translated",
+   "en": "A Report from Corporal Easy"
+  },
+  "12109": {
+   "zh": "《上古魔书》作者的后代",
+   "source": "cms",
+   "en": "The Descendent of the Author of the Book of Ancient",
+   "cms_quest": 3004
+  },
+  "12110": {
+   "zh": "消失的赫拉",
+   "source": "cms",
+   "en": "Hella's Missing",
+   "cms_quest": 3005
+  },
+  "12111": {
+   "zh": "赫拉去哪儿？",
+   "source": "cms",
+   "en": "Where's Hella?",
+   "cms_quest": 3006
+  },
+  "12112": {
+   "zh": "一个钥匙",
+   "source": "cms",
+   "en": "One Clue",
+   "cms_quest": 3007
+  },
+  "12113": {
+   "zh": "老太太",
+   "source": "cms",
+   "en": "Looking For the Old Lady",
+   "cms_quest": 3008
+  },
+  "12114": {
+   "zh": "斯皮罗纳的黑水晶",
+   "source": "cms",
+   "en": "Spiruna's Black Crystal",
+   "cms_quest": 3009
+  },
+  "12115": {
+   "zh": "被破坏的黑水晶",
+   "source": "cms",
+   "en": "The Cracked Black Crystal",
+   "cms_quest": 3010
+  },
+  "12116": {
+   "zh": "水晶修改办法",
+   "source": "cms",
+   "en": "How to Restore the Cracked Black Crystal",
+   "cms_quest": 3011
+  },
+  "12117": {
+   "zh": "助手的帮助",
+   "source": "cms",
+   "en": "A Word from the Assistant",
+   "cms_quest": 3012
+  },
+  "12118": {
+   "zh": "妖精之粉",
+   "source": "cms",
+   "en": "To Acquire the Fairy Dust",
+   "cms_quest": 3013
+  },
+  "12119": {
+   "zh": "得到的妖精之粉",
+   "source": "cms",
+   "en": "Acquiring the Fairy Dust",
+   "cms_quest": 3014
+  },
+  "12120": {
+   "zh": "判明真实",
+   "source": "cms",
+   "en": "The Truth Revealed",
+   "cms_quest": 3015
+  },
+  "12121": {
+   "zh": "找到的赫拉",
+   "source": "cms",
+   "en": "Hella is Found!",
+   "cms_quest": 3016
+  },
+  "12122": {
+   "zh": "小墓地",
+   "source": "cms",
+   "en": "The Small Grave That's Hidden",
+   "cms_quest": 3017
+  },
+  "12123": {
+   "zh": "老戒指",
+   "source": "cms",
+   "en": "An Old Ring",
+   "cms_quest": 3018
+  },
+  "12124": {
+   "zh": "戒指的秘密",
+   "source": "cms",
+   "en": "The Secrets Behind the Ring?",
+   "cms_quest": 3019
+  },
+  "12125": {
+   "zh": "收集狼皮",
+   "source": "translated",
+   "en": "Collecting Wolf Skin"
+  },
+  "12126": {
+   "zh": "勇士部落的贤者",
+   "source": "cms",
+   "en": "Looking for the Sage in Perion",
+   "cms_quest": 3021
+  },
+  "12127": {
+   "zh": "武术教练的拜托",
+   "source": "cms",
+   "en": "Dances with Balrog and His Recovery",
+   "cms_quest": 3022
+  },
+  "12128": {
+   "zh": "魔法密林的贤者",
+   "source": "cms",
+   "en": "Looking for the Sage in Ellinia",
+   "cms_quest": 3023
+  },
+  "12129": {
+   "zh": "汉斯的拜托",
+   "source": "cms",
+   "en": "Grendel the Really Old and His Recovery",
+   "cms_quest": 3024
+  },
+  "12130": {
+   "zh": "射手村的贤者",
+   "source": "cms",
+   "en": "Looking for the Sage in Henesys",
+   "cms_quest": 3025
+  },
+  "12131": {
+   "zh": "赫丽娜的拜托",
+   "source": "cms",
+   "en": "Athena Pierce and Her Recovery",
+   "cms_quest": 3026
+  },
+  "12132": {
+   "zh": "废弃都市的贤者",
+   "source": "cms",
+   "en": "Looking for the Sage in Kerning City",
+   "cms_quest": 3027
+  },
+  "12133": {
+   "zh": "达克鲁的拜托",
+   "source": "cms",
+   "en": "Dark Lord and His Recovery",
+   "cms_quest": 3028
+  },
+  "12134": {
+   "zh": "散落的地图碎片",
+   "source": "cms",
+   "en": "All the Map Pieces in One Place",
+   "cms_quest": 3029
+  },
+  "12135": {
+   "zh": "地图复原",
+   "source": "cms",
+   "en": "Restoring the Map",
+   "cms_quest": 3030
+  },
+  "12136": {
+   "zh": "记忆之粉",
+   "source": "cms",
+   "en": "Acquiring the Memory Powder",
+   "cms_quest": 3031
+  },
+  "12137": {
+   "zh": "地图复原2",
+   "source": "cms",
+   "en": "The Map is in One Piece",
+   "cms_quest": 3032
+  },
+  "12138": {
+   "zh": "雕像的秘密",
+   "source": "cms",
+   "en": "The Secrets Behind the Statue",
+   "cms_quest": 3033
+  },
+  "12139": {
+   "zh": "再寻找的上古魔书",
+   "source": "cms",
+   "en": "The Book of Ancient is Back!",
+   "cms_quest": 3034
+  },
+  "12140": {
+   "zh": "阿尔卡斯特和星石",
+   "source": "cms",
+   "en": "Alcaster and the Dark Crystal",
+   "cms_quest": 3035
+  },
+  "12141": {
+   "zh": "寻找尼克的痕迹",
+   "source": "cms",
+   "en": "Traces of Nick",
+   "cms_quest": 3036
+  },
+  "12142": {
+   "zh": "尼克的戒指",
+   "source": "cms",
+   "en": "Nick's Ring",
+   "cms_quest": 3037
+  }
+ },
+ "items": {
+  "1002994": {
+   "zh": "枫叶帽",
+   "source": "dvg",
+   "en": "Mark of the Beta"
+  },
+  "1002995": {
+   "zh": "枫叶无敌帽",
+   "source": "dvg",
+   "en": "MapleStory Invincible Hat"
+  },
+  "1002996": {
+   "zh": "林霞博士",
+   "source": "dvg",
+   "en": "Dr. Lim Hat"
+  },
+  "1002997": {
+   "zh": "奈米帽",
+   "source": "dvg",
+   "en": "Nemi Hat"
+  },
+  "1002998": {
+   "zh": "墨水瓶帽",
+   "source": "dvg",
+   "en": "Inkwell Hat"
+  },
+  "1003000": {
+   "zh": "回忆之帽",
+   "source": "dvg",
+   "en": "Cap of Memories"
+  },
+  "1007013": {
+   "zh": "中国僵尸帽（蓝）",
+   "source": "dvg",
+   "en": "Blue Chinese Undead Hat"
+  },
+  "1007014": {
+   "zh": "中国僵尸帽（栗色）",
+   "source": "dvg",
+   "en": "Maroon Chinese Undead Hat"
+  },
+  "1007047": {
+   "zh": "毕业帽",
+   "source": "dvg",
+   "en": "Graduation Hat"
+  },
+  "1007055": {
+   "zh": "迷彩头盔",
+   "source": "dvg",
+   "en": "Camouflage Helmet"
+  },
+  "1007100": {
+   "zh": "精美黑色韩服帽",
+   "source": "dvg",
+   "en": "Fine Black Hanbok Hat"
+  },
+  "1007101": {
+   "zh": "精美蓝色韩服帽",
+   "source": "dvg",
+   "en": "Fine Blue Hanbok Hat"
+  },
+  "1007104": {
+   "zh": "死亡之帽",
+   "source": "dvg",
+   "en": "Hat of Death"
+  },
+  "1007114": {
+   "zh": "韩服小帽",
+   "source": "dvg",
+   "en": "Hanbok Jobawi"
+  },
+  "1007120": {
+   "zh": "红色羽毛头巾",
+   "source": "dvg",
+   "en": "Red Feather Bandana"
+  },
+  "1007121": {
+   "zh": "蓝色羽毛头巾",
+   "source": "dvg",
+   "en": "Blue Feather Bandana"
+  },
+  "1007122": {
+   "zh": "黄色新娘面纱",
+   "source": "dvg",
+   "en": "Yellow Bridal Veil"
+  },
+  "1017003": {
+   "zh": "腮红",
+   "source": "dvg",
+   "en": "Rouge"
+  },
+  "1017004": {
+   "zh": "迷彩脸部彩绘",
+   "source": "dvg",
+   "en": "Camo Face Paint"
+  },
+  "1017014": {
+   "zh": "威猛脸部彩绘",
+   "source": "dvg",
+   "en": "Fierce Face Paint"
+  },
+  "1027018": {
+   "zh": "纹章眼罩",
+   "source": "dvg",
+   "en": "Crested Eye Patch"
+  },
+  "1027034": {
+   "zh": "透明眼饰",
+   "source": "dvg",
+   "en": "Transparent Eye Accessory"
+  },
+  "1032021": {
+   "zh": "射手村耳环",
+   "source": "dvg",
+   "en": "Henesys Earrings"
+  },
+  "1032022": {
+   "zh": "废弃都市耳环",
+   "source": "dvg",
+   "en": "Kerning City Earrings"
+  },
+  "1041000": {
+   "zh": "粉红无袖衫",
+   "source": "dvg",
+   "en": "Pink Tank Top"
+  },
+  "1047007": {
+   "zh": "野猫棒球衫（基础款）",
+   "source": "dvg",
+   "en": "Basic Wildcats Baseball Shirt"
+  },
+  "1047008": {
+   "zh": "棒球衫（主场）",
+   "source": "dvg",
+   "en": "Home Wildcats Baseball Shirt"
+  },
+  "1047009": {
+   "zh": "棒球衫（客场）",
+   "source": "dvg",
+   "en": "Away Wildcats Baseball Shirt"
+  },
+  "1047010": {
+   "zh": "野猫棒球衫（替换款）",
+   "source": "dvg",
+   "en": "Alternate Wildcats Baseball Shirt"
+  },
+  "1047017": {
+   "zh": "红色爱心T恤",
+   "source": "dvg",
+   "en": "Red Shirt with Heart"
+  },
+  "1047019": {
+   "zh": "旧式军装上衣",
+   "source": "dvg",
+   "en": "Old Military Uniform"
+  },
+  "1047020": {
+   "zh": "迷彩制服上衣",
+   "source": "dvg",
+   "en": "Camouflage Uniform"
+  },
+  "1047026": {
+   "zh": "蘑菇仔T恤",
+   "source": "dvg",
+   "en": "Orange Mushroom T-Shirt"
+  },
+  "1047044": {
+   "zh": "复古西装外套",
+   "source": "dvg",
+   "en": "Old School Blazer"
+  },
+  "1047063": {
+   "zh": "爱心背心",
+   "source": "dvg",
+   "en": "Heart Tank Top"
+  },
+  "1047064": {
+   "zh": "蓝色线条背心",
+   "source": "dvg",
+   "en": "Blue Line Tank Top"
+  },
+  "1047068": {
+   "zh": "棕榈树背心",
+   "source": "dvg",
+   "en": "Palm Tree Tank Top"
+  },
+  "1047070": {
+   "zh": "蓝色水手衬衫",
+   "source": "dvg",
+   "en": "Blue Sailor Shirt"
+  },
+  "1047075": {
+   "zh": "复古校服上衣",
+   "source": "dvg",
+   "en": "Old School Uniform Top"
+  },
+  "1047088": {
+   "zh": "白色领衬衫",
+   "source": "dvg",
+   "en": "White Collared Shirt"
+  },
+  "1050014": {
+   "zh": "黑巫师长袍",
+   "source": "dvg",
+   "en": "Black Wizard Robe"
+  },
+  "1055002": {
+   "zh": "拳击短裤",
+   "source": "dvg",
+   "en": "Boxing Trunks"
+  },
+  "1055003": {
+   "zh": "迷你蓝色泳裤",
+   "source": "dvg",
+   "en": "Blue Tiny Swim Shorts"
+  },
+  "1055004": {
+   "zh": "迷你黑色泳裤",
+   "source": "dvg",
+   "en": "Black Tiny Swim Shorts"
+  },
+  "1057033": {
+   "zh": "棕色高级韩服",
+   "source": "dvg",
+   "en": "Fine Brown Hanbok"
+  },
+  "1057034": {
+   "zh": "黑色高级韩服",
+   "source": "dvg",
+   "en": "Fine Black Hanbok"
+  },
+  "1057035": {
+   "zh": "蓝色高级韩服",
+   "source": "dvg",
+   "en": "Fine Blue Hanbok"
+  },
+  "1057037": {
+   "zh": "幽灵装",
+   "source": "dvg",
+   "en": "Ghost Costume"
+  },
+  "1057038": {
+   "zh": "蓝色庆典韩服",
+   "source": "dvg",
+   "en": "Blue Celebration Hanbok"
+  },
+  "1057039": {
+   "zh": "绿色庆典韩服",
+   "source": "dvg",
+   "en": "Green Celebration Hanbok"
+  },
+  "1057041": {
+   "zh": "红色魔力服",
+   "source": "dvg",
+   "en": "Red M-Forcer"
+  },
+  "1057042": {
+   "zh": "蓝色魔力服",
+   "source": "dvg",
+   "en": "Blue M-Forcer"
+  },
+  "1057043": {
+   "zh": "绿色魔力服",
+   "source": "dvg",
+   "en": "Green M-Forcer"
+  },
+  "1057044": {
+   "zh": "黑色魔力服",
+   "source": "dvg",
+   "en": "Black M-Forcer"
+  },
+  "1057050": {
+   "zh": "红色高级韩服裙",
+   "source": "dvg",
+   "en": "Red Fine Hanbok Dress"
+  },
+  "1057051": {
+   "zh": "蓝色高级韩服裙",
+   "source": "dvg",
+   "en": "Blue Fine Hanbok Dress"
+  },
+  "1057055": {
+   "zh": "蓝色庆典韩服裙",
+   "source": "dvg",
+   "en": "Blue Celebration Hanbok Dress"
+  },
+  "1057056": {
+   "zh": "粉色庆典韩服裙",
+   "source": "dvg",
+   "en": "Pink Celebration Hanbok Dress"
+  },
+  "1057058": {
+   "zh": "幽灵套装",
+   "source": "dvg",
+   "en": "Ghost Suit"
+  },
+  "1057059": {
+   "zh": "破旧韩服",
+   "source": "dvg",
+   "en": "Ragged Hanbok"
+  },
+  "1057060": {
+   "zh": "粉色M-力量",
+   "source": "dvg",
+   "en": "Pink M-Forcer"
+  },
+  "1057061": {
+   "zh": "黄色M-力量",
+   "source": "dvg",
+   "en": "Yellow M-Forcer"
+  },
+  "1057062": {
+   "zh": "黑色M-力量",
+   "source": "dvg",
+   "en": "Black M-Forcer"
+  },
+  "1057067": {
+   "zh": "拳击装备",
+   "source": "dvg",
+   "en": "Boxing Gear"
+  },
+  "1067005": {
+   "zh": "野猫队棒球裤（基础款）",
+   "source": "dvg",
+   "en": "Basic Wildcats Baseball Pants"
+  },
+  "1067006": {
+   "zh": "棒球裤（主场）",
+   "source": "dvg",
+   "en": "Home Wildcats Baseball Pants"
+  },
+  "1067007": {
+   "zh": "棒球裤（客场）",
+   "source": "dvg",
+   "en": "Away Wildcats Baseball Pants"
+  },
+  "1067008": {
+   "zh": "野猫队棒球裤（替换款）",
+   "source": "dvg",
+   "en": "Alternate Wildcats Baseball Pants"
+  },
+  "1067012": {
+   "zh": "褪色喇叭牛仔裤",
+   "source": "dvg",
+   "en": "Faded Bell-Bottom Jeans"
+  },
+  "1067016": {
+   "zh": "旧军裤",
+   "source": "dvg",
+   "en": "Old Army Pants"
+  },
+  "1067017": {
+   "zh": "迷彩军裤",
+   "source": "dvg",
+   "en": "Camouflaged Army Pants"
+  },
+  "1067044": {
+   "zh": "学前裤",
+   "source": "dvg",
+   "en": "Pre-School Pants"
+  },
+  "1067054": {
+   "zh": "粉色咪咪裙",
+   "source": "dvg",
+   "en": "Pink Mimi Skirt"
+  },
+  "1067055": {
+   "zh": "卷边牛仔裤",
+   "source": "dvg",
+   "en": "Rolled-Up Jeans"
+  },
+  "1067057": {
+   "zh": "天蓝米米裙",
+   "source": "dvg",
+   "en": "Sky Blue Mimi Skirt"
+  },
+  "1072022": {
+   "zh": "黄忍者凉鞋",
+   "source": "dvg",
+   "en": "Yellow Ninja Sandals"
+  },
+  "1072023": {
+   "zh": "蓝忍者凉鞋",
+   "source": "dvg",
+   "en": "Blue Ninja Sandals"
+  },
+  "1072150": {
+   "zh": "米色精灵鞋",
+   "source": "dvg",
+   "en": "Beige Elf Shoes"
+  },
+  "1072999": {
+   "zh": "维泽特素色鞋",
+   "source": "dvg",
+   "en": "Wizet Plain Shoes"
+  },
+  "1077015": {
+   "zh": "军靴",
+   "source": "dvg",
+   "en": "Military Boots"
+  },
+  "1077021": {
+   "zh": "米色雨鞋",
+   "source": "dvg",
+   "en": "Beige Galoshes"
+  },
+  "1077022": {
+   "zh": "天蓝雨鞋",
+   "source": "dvg",
+   "en": "Sky Blue Galoshes"
+  },
+  "1077023": {
+   "zh": "粉色雨鞋",
+   "source": "dvg",
+   "en": "Pink Galoshes"
+  },
+  "1077032": {
+   "zh": "蓝色橡胶鞋",
+   "source": "dvg",
+   "en": "Blue Gomushin"
+  },
+  "1077037": {
+   "zh": "蓝色橡胶鞋",
+   "source": "dvg",
+   "en": "Blue Gomushin"
+  },
+  "1082067": {
+   "zh": "红色忏悔",
+   "source": "dvg",
+   "en": "Red Penance"
+  },
+  "1082068": {
+   "zh": "蓝色忏悔",
+   "source": "dvg",
+   "en": "Blue Penance"
+  },
+  "1087008": {
+   "zh": "理发师手套",
+   "source": "dvg",
+   "en": "Haircutter Gloves"
+  },
+  "1087009": {
+   "zh": "M-Forcer 手套",
+   "source": "dvg",
+   "en": "M-Forcer Gloves"
+  },
+  "1112103": {
+   "zh": "粉色蝴蝶结名牌戒指",
+   "source": "dvg",
+   "en": "Pink Ribbon Label Ring"
+  },
+  "1112104": {
+   "zh": "蓝色蝴蝶结名牌戒指",
+   "source": "dvg",
+   "en": "Blue Ribbon Label Ring"
+  },
+  "1112108": {
+   "zh": "经典初心名牌戒指",
+   "source": "dvg",
+   "en": "Classic Beginnings Label Ring"
+  },
+  "1112203": {
+   "zh": "粉色花朵聊天戒指",
+   "source": "dvg",
+   "en": "Pink Flower Chat Ring"
+  },
+  "1112204": {
+   "zh": "蓝色花朵聊天戒指",
+   "source": "dvg",
+   "en": "Blue Flower Chat Ring"
+  },
+  "1112205": {
+   "zh": "粉色蝴蝶结聊天戒指",
+   "source": "dvg",
+   "en": "Pink Ribbon Chat Ring"
+  },
+  "1112206": {
+   "zh": "蓝色蝴蝶结聊天戒指",
+   "source": "dvg",
+   "en": "Blue Ribbon Chat Ring"
+  },
+  "1112207": {
+   "zh": "骷髅聊天戒指",
+   "source": "dvg",
+   "en": "Skull Chat Ring"
+  },
+  "1112208": {
+   "zh": "蓝色爱心聊天戒指",
+   "source": "dvg",
+   "en": "Blue Heart Chat Ring"
+  },
+  "1112209": {
+   "zh": "金黄色聊天戒指",
+   "source": "dvg",
+   "en": "Gold-Yellow Chat Ring"
+  },
+  "1112210": {
+   "zh": "粉红女郎聊天戒指",
+   "source": "dvg",
+   "en": "Pink Lady Chat Ring"
+  },
+  "1112211": {
+   "zh": "银蓝聊天戒指",
+   "source": "dvg",
+   "en": "Silver-Blue Chat Ring"
+  },
+  "1112212": {
+   "zh": "金黄色聊天戒指2",
+   "source": "dvg",
+   "en": "Gold-Yellow Chat Ring 2"
+  },
+  "1112213": {
+   "zh": "粉红女郎聊天戒指2",
+   "source": "dvg",
+   "en": "Pink Lady Chat Ring 2"
+  },
+  "1112214": {
+   "zh": "蓝色海洋聊天戒指",
+   "source": "dvg",
+   "en": "Blue Marine Chat Ring"
+  },
+  "1112216": {
+   "zh": "爪印聊天戒指",
+   "source": "dvg",
+   "en": "Paw-Print Chat Ring"
+  },
+  "1112217": {
+   "zh": "泰迪熊聊天戒指",
+   "source": "dvg",
+   "en": "Teddy Bear Chat Ring"
+  },
+  "1112218": {
+   "zh": "计分板聊天戒指",
+   "source": "dvg",
+   "en": "Scoreboard Chat Ring"
+  },
+  "1112219": {
+   "zh": "经典初心聊天戒指",
+   "source": "dvg",
+   "en": "Classic Beginnings Chat Ring"
+  },
+  "1302016": {
+   "zh": "初级大剑",
+   "source": "dvg",
+   "en": "Beginner's Long Sword"
+  },
+  "1302019": {
+   "zh": "南瓜篮",
+   "source": "dvg",
+   "en": "Pumpkin Basket"
+  },
+  "1332017": {
+   "zh": "初级三角刃",
+   "source": "dvg",
+   "en": "Beginner's Triangular Zamadar"
+  },
+  "1372008": {
+   "zh": "初级木制短杖",
+   "source": "dvg",
+   "en": "Beginner's Wooden Wand"
+  },
+  "1452008": {
+   "zh": "初级长弓",
+   "source": "dvg",
+   "en": "Beginner's War Bow"
+  },
+  "1472022": {
+   "zh": "初级拳套",
+   "source": "dvg",
+   "en": "Beginner's Garnier"
+  },
+  "2000007": {
+   "zh": "红色药水（账号共享）",
+   "source": "dvg",
+   "en": "Red Potion (Alt)"
+  },
+  "2000008": {
+   "zh": "蓝色药水（账号共享）",
+   "source": "dvg",
+   "en": "Blue Potion (Alt)"
+  },
+  "2002013": {
+   "zh": "锋利药水",
+   "source": "dvg",
+   "en": "Sharpness Potion"
+  },
+  "2002014": {
+   "zh": "毁灭药水",
+   "source": "dvg",
+   "en": "Destructive Potion"
+  },
+  "2020018": {
+   "zh": "明明夫人的炖菜",
+   "source": "dvg",
+   "en": "Mrs. Ming Ming's Stew"
+  },
+  "2020019": {
+   "zh": "安德烈的海鲜汤",
+   "source": "dvg",
+   "en": "Andre's Seafood Soup"
+  },
+  "2020020": {
+   "zh": "红色玛拉迪糖果",
+   "source": "dvg",
+   "en": "Red Malady's Candy"
+  },
+  "2020021": {
+   "zh": "蓝色玛拉迪糖果",
+   "source": "dvg",
+   "en": "Blue Malady's Candy"
+  },
+  "2020022": {
+   "zh": "绿色玛拉迪糖果",
+   "source": "dvg",
+   "en": "Green Malady's Candy"
+  },
+  "2020023": {
+   "zh": "蛋糕（账号共享·限时）",
+   "source": "dvg",
+   "en": "Cake (Alt)"
+  },
+  "2023000": {
+   "zh": "GM的风之祝福",
+   "source": "dvg",
+   "en": "GM's Blessing of Wind"
+  },
+  "2023001": {
+   "zh": "GM的精准祝福",
+   "source": "dvg",
+   "en": "GM's Blessing of Precision"
+  },
+  "2023002": {
+   "zh": "因克威尔的祝福",
+   "source": "dvg",
+   "en": "Inkwell's Blessing"
+  },
+  "2028000": {
+   "zh": "神秘金币袋",
+   "source": "dvg",
+   "en": "Mysterious Meso Pouch"
+  },
+  "2028001": {
+   "zh": "10000金币袋",
+   "source": "dvg",
+   "en": "10,000 Meso Pouch"
+  },
+  "2028002": {
+   "zh": "50000金币袋",
+   "source": "dvg",
+   "en": "50,000 Meso Pouch"
+  },
+  "2030007": {
+   "zh": "遗忘山谷回城卷",
+   "source": "dvg",
+   "en": "Return Scroll to Forgotten Hollow"
+  },
+  "2030008": {
+   "zh": "天空之城回城卷轴",
+   "source": "dvg",
+   "en": "Return Scroll to Orbis"
+  },
+  "2030009": {
+   "zh": "冰峰雪域回城卷轴",
+   "source": "dvg",
+   "en": "Return Scroll to El Nath"
+  },
+  "2030010": {
+   "zh": "返回我的家卷轴",
+   "source": "dvg",
+   "en": "Return Scroll to My Home"
+  },
+  "2030011": {
+   "zh": "回城卷轴（账号共享·限时）",
+   "source": "dvg",
+   "en": "Return Scroll - Nearest Town (Alt)"
+  },
+  "2040003": {
+   "zh": "头盔命中率卷轴：混沌",
+   "source": "dvg",
+   "en": "Hat Accuracy Scroll: Chaos"
+  },
+  "2040007": {
+   "zh": "头盔生命值卷轴：混沌",
+   "source": "dvg",
+   "en": "Hat HP Scroll: Chaos"
+  },
+  "2040009": {
+   "zh": "头盔魔法值卷轴：中级",
+   "source": "dvg",
+   "en": "Hat MP Scroll: Intermediate"
+  },
+  "2040010": {
+   "zh": "头盔魔法值卷轴：高级",
+   "source": "dvg",
+   "en": "Hat MP Scroll: Greater"
+  },
+  "2040011": {
+   "zh": "头盔魔法值卷轴：混沌",
+   "source": "dvg",
+   "en": "Hat MP Scroll: Chaos"
+  },
+  "2040303": {
+   "zh": "耳环力量卷轴：混沌",
+   "source": "dvg",
+   "en": "Earring STR Scroll: Chaos"
+  },
+  "2040306": {
+   "zh": "耳环敏捷卷轴：高级",
+   "source": "dvg",
+   "en": "Earring DEX Scroll: Greater"
+  },
+  "2040307": {
+   "zh": "耳环敏捷卷轴：混沌",
+   "source": "dvg",
+   "en": "Earring DEX Scroll: Chaos"
+  },
+  "2040311": {
+   "zh": "耳环智力卷轴：混沌",
+   "source": "dvg",
+   "en": "Earring INT Scroll: Chaos"
+  },
+  "2040316": {
+   "zh": "耳环暴击伤害卷轴：初级",
+   "source": "dvg",
+   "en": "Earring Crit. Damage Scroll: Lesser"
+  },
+  "2040319": {
+   "zh": "耳环暴击伤害卷轴：混沌",
+   "source": "dvg",
+   "en": "Earring Crit. Damage Scroll: Chaos"
+  },
+  "2040320": {
+   "zh": "耳环回避率卷轴：初级",
+   "source": "dvg",
+   "en": "Earring Evasion Scroll: Lesser"
+  },
+  "2040321": {
+   "zh": "耳环回避率卷轴：中级",
+   "source": "dvg",
+   "en": "Earring Evasion Scroll: Intermediate"
+  },
+  "2040323": {
+   "zh": "耳环回避率卷轴：混沌",
+   "source": "dvg",
+   "en": "Earring Evasion Scroll: Chaos"
+  },
+  "2040403": {
+   "zh": "上衣防御力卷轴：混沌",
+   "source": "dvg",
+   "en": "Topwear DEF Scroll: Chaos"
+  },
+  "2040407": {
+   "zh": "上衣生命值卷轴：混沌",
+   "source": "dvg",
+   "en": "Topwear HP Scroll: Chaos"
+  },
+  "2040411": {
+   "zh": "上衣魔法值卷轴：混沌",
+   "source": "dvg",
+   "en": "Topwear MP Scroll: Chaos"
+  },
+  "2040500": {
+   "zh": "套服防御力卷轴：初级",
+   "source": "dvg",
+   "en": "Overall Armor DEF Scroll: Lesser"
+  },
+  "2040503": {
+   "zh": "套服防御力卷轴：混沌",
+   "source": "dvg",
+   "en": "Overall Armor DEF Scroll: Chaos"
+  },
+  "2040505": {
+   "zh": "套服力量卷轴：中级",
+   "source": "dvg",
+   "en": "Overall Armor STR Scroll: Intermediate"
+  },
+  "2040507": {
+   "zh": "套服力量卷轴：混沌",
+   "source": "dvg",
+   "en": "Overall Armor STR Scroll: Chaos"
+  },
+  "2040508": {
+   "zh": "套服敏捷卷轴：初级",
+   "source": "dvg",
+   "en": "Overall Armor DEX Scroll: Lesser"
+  },
+  "2040509": {
+   "zh": "套服敏捷卷轴：中级",
+   "source": "dvg",
+   "en": "Overall Armor DEX Scroll: Intermediate"
+  },
+  "2040511": {
+   "zh": "套服敏捷卷轴：混沌",
+   "source": "dvg",
+   "en": "Overall Armor DEX Scroll: Chaos"
+  },
+  "2040512": {
+   "zh": "套服智力卷轴：初级",
+   "source": "dvg",
+   "en": "Overall Armor INT Scroll: Lesser"
+  },
+  "2040513": {
+   "zh": "套服智力卷轴：中级",
+   "source": "dvg",
+   "en": "Overall Armor INT Scroll: Intermediate"
+  },
+  "2040515": {
+   "zh": "套服智力卷轴：混沌",
+   "source": "dvg",
+   "en": "Overall Armor INT Scroll: Chaos"
+  },
+  "2040516": {
+   "zh": "套服幸运卷轴：初级",
+   "source": "dvg",
+   "en": "Overall Armor LUK Scroll: Lesser"
+  },
+  "2040519": {
+   "zh": "套服幸运卷轴：混沌",
+   "source": "dvg",
+   "en": "Overall Armor LUK Scroll: Chaos"
+  },
+  "2040600": {
+   "zh": "下装防御力卷轴：初级",
+   "source": "dvg",
+   "en": "Bottomwear DEF Scroll: Lesser"
+  },
+  "2040603": {
+   "zh": "下装防御力卷轴：混沌",
+   "source": "dvg",
+   "en": "Bottomwear DEF Scroll: Chaos"
+  },
+  "2040605": {
+   "zh": "下装生命值卷轴：中级",
+   "source": "dvg",
+   "en": "Bottomwear HP Scroll: Intermediate"
+  },
+  "2040607": {
+   "zh": "下装生命值卷轴：混沌",
+   "source": "dvg",
+   "en": "Bottomwear HP Scroll: Chaos"
+  },
+  "2040609": {
+   "zh": "下装魔法值卷轴：中级",
+   "source": "dvg",
+   "en": "Bottomwear MP Scroll: Intermediate"
+  },
+  "2040610": {
+   "zh": "下装魔法值卷轴：高级",
+   "source": "dvg",
+   "en": "Bottomwear MP Scroll: Greater"
+  },
+  "2040611": {
+   "zh": "下装魔法值卷轴：混沌",
+   "source": "dvg",
+   "en": "Bottomwear MP Scroll: Chaos"
+  },
+  "2040703": {
+   "zh": "鞋子跳跃力卷轴：混沌",
+   "source": "dvg",
+   "en": "Shoes Jump Scroll: Chaos"
+  },
+  "2040707": {
+   "zh": "鞋子移动速度卷轴：混沌",
+   "source": "dvg",
+   "en": "Shoes Speed Scroll: Chaos"
+  },
+  "2040708": {
+   "zh": "鞋子回避率卷轴：初级",
+   "source": "dvg",
+   "en": "Shoes Evasion Scroll: Lesser"
+  },
+  "2040709": {
+   "zh": "鞋子回避率卷轴：中级",
+   "source": "dvg",
+   "en": "Shoes Evasion Scroll: Intermediate"
+  },
+  "2040710": {
+   "zh": "鞋子回避率卷轴：高级",
+   "source": "dvg",
+   "en": "Shoes Evasion Scroll: Greater"
+  },
+  "2040711": {
+   "zh": "鞋子回避率卷轴：混沌",
+   "source": "dvg",
+   "en": "Shoes Evasion Scroll: Chaos"
+  },
+  "2040800": {
+   "zh": "手套武器攻击卷轴：初级",
+   "source": "dvg",
+   "en": "Gloves Attack Scroll: Lesser"
+  },
+  "2040803": {
+   "zh": "手套武器攻击卷轴：混沌",
+   "source": "dvg",
+   "en": "Gloves Attack Scroll: Chaos"
+  },
+  "2040804": {
+   "zh": "手套魔法攻击力卷轴：初级",
+   "source": "dvg",
+   "en": "Gloves Magic Attack Scroll: Lesser"
+  },
+  "2040807": {
+   "zh": "手套魔法攻击力卷轴：混沌",
+   "source": "dvg",
+   "en": "Gloves Magic Attack Scroll: Chaos"
+  },
+  "2040808": {
+   "zh": "手套命中率卷轴：初级",
+   "source": "dvg",
+   "en": "Gloves Accuracy Scroll: Lesser"
+  },
+  "2040809": {
+   "zh": "手套命中率卷轴：中级",
+   "source": "dvg",
+   "en": "Gloves Accuracy Scroll: Intermediate"
+  },
+  "2040811": {
+   "zh": "手套命中率卷轴：混沌",
+   "source": "dvg",
+   "en": "Gloves Accuracy Scroll: Chaos"
+  },
+  "2040812": {
+   "zh": "手套暴击率卷轴：初级",
+   "source": "dvg",
+   "en": "Gloves Crit. Rate Scroll: Lesser"
+  },
+  "2040815": {
+   "zh": "手套暴击率卷轴：混沌",
+   "source": "dvg",
+   "en": "Gloves Crit. Rate Scroll: Chaos"
+  },
+  "2040901": {
+   "zh": "盾牌防御力卷轴：中级",
+   "source": "dvg",
+   "en": "Shield DEF Scroll: Intermediate"
+  },
+  "2040903": {
+   "zh": "盾牌防御力卷轴：混沌",
+   "source": "dvg",
+   "en": "Shield DEF Scroll: Chaos"
+  },
+  "2041003": {
+   "zh": "披风物理防御卷轴：混沌",
+   "source": "dvg",
+   "en": "Cape Weapon Def. Scroll: Chaos"
+  },
+  "2041007": {
+   "zh": "披风魔法防御卷轴：混沌",
+   "source": "dvg",
+   "en": "Cape Magic Def. Scroll: Chaos"
+  },
+  "2041011": {
+   "zh": "披风力量卷轴：混沌",
+   "source": "dvg",
+   "en": "Cape STR Scroll: Chaos"
+  },
+  "2041012": {
+   "zh": "披风敏捷卷轴：初级",
+   "source": "dvg",
+   "en": "Cape DEX Scroll: Lesser"
+  },
+  "2041014": {
+   "zh": "披风敏捷卷轴：高级",
+   "source": "dvg",
+   "en": "Cape DEX Scroll: Greater"
+  },
+  "2041015": {
+   "zh": "披风敏捷卷轴：混沌",
+   "source": "dvg",
+   "en": "Cape DEX Scroll: Chaos"
+  },
+  "2041019": {
+   "zh": "披风智力卷轴：混沌",
+   "source": "dvg",
+   "en": "Cape INT Scroll: Chaos"
+  },
+  "2041023": {
+   "zh": "披风幸运卷轴：混沌",
+   "source": "dvg",
+   "en": "Cape LUK Scroll: Chaos"
+  },
+  "2041024": {
+   "zh": "披风命中率卷轴：初级",
+   "source": "dvg",
+   "en": "Cape Accuracy Scroll: Lesser"
+  },
+  "2041025": {
+   "zh": "披风命中率卷轴：中级",
+   "source": "dvg",
+   "en": "Cape Accuracy Scroll: Intermediate"
+  },
+  "2041026": {
+   "zh": "披风命中率卷轴：高级",
+   "source": "dvg",
+   "en": "Cape Accuracy Scroll: Greater"
+  },
+  "2041027": {
+   "zh": "披风命中率卷轴：混沌",
+   "source": "dvg",
+   "en": "Cape Accuracy Scroll: Chaos"
+  },
+  "2043000": {
+   "zh": "单手剑武器攻击卷轴：初级",
+   "source": "dvg",
+   "en": "One-Handed Sword Attack Scroll: Lesser"
+  },
+  "2043003": {
+   "zh": "单手剑武器攻击卷轴：混沌",
+   "source": "dvg",
+   "en": "One-Handed Sword Attack Scroll: Chaos"
+  },
+  "2043100": {
+   "zh": "单手斧武器攻击卷轴：初级",
+   "source": "dvg",
+   "en": "One-Handed Axe Attack Scroll: Lesser"
+  },
+  "2043103": {
+   "zh": "单手斧武器攻击卷轴：混沌",
+   "source": "dvg",
+   "en": "One-Handed Axe Attack Scroll: Chaos"
+  },
+  "2043200": {
+   "zh": "单手钝器武器攻击卷轴：初级",
+   "source": "dvg",
+   "en": "One-Handed Blunt Weapon Attack Scroll: Lesser"
+  },
+  "2043203": {
+   "zh": "单手钝器武器攻击卷轴：混沌",
+   "source": "dvg",
+   "en": "One-Handed Blunt Weapon Attack Scroll: Chaos"
+  },
+  "2043303": {
+   "zh": "短剑武器攻击卷轴：混沌",
+   "source": "dvg",
+   "en": "Dagger Attack Scroll: Chaos"
+  },
+  "2043703": {
+   "zh": "短杖魔法攻击力卷轴：混沌",
+   "source": "dvg",
+   "en": "Wand Magic Attack Scroll: Chaos"
+  },
+  "2043800": {
+   "zh": "长杖魔法攻击力卷轴：初级",
+   "source": "dvg",
+   "en": "Staff Magic Attack Scroll: Lesser"
+  },
+  "2043803": {
+   "zh": "长杖魔法攻击力卷轴：混沌",
+   "source": "dvg",
+   "en": "Staff Magic Attack Scroll: Chaos"
+  },
+  "2044000": {
+   "zh": "双手剑武器攻击卷轴：初级",
+   "source": "dvg",
+   "en": "Two-handed Sword Attack Scroll: Lesser"
+  },
+  "2044003": {
+   "zh": "双手剑武器攻击卷轴：混沌",
+   "source": "dvg",
+   "en": "Two-handed Sword Attack Scroll: Chaos"
+  },
+  "2044100": {
+   "zh": "双手斧武器攻击卷轴：初级",
+   "source": "dvg",
+   "en": "Two-handed Axe Attack Scroll: Lesser"
+  },
+  "2044102": {
+   "zh": "双手斧武器攻击卷轴：高级",
+   "source": "dvg",
+   "en": "Two-handed Axe Attack Scroll: Greater"
+  },
+  "2044103": {
+   "zh": "双手斧武器攻击卷轴：混沌",
+   "source": "dvg",
+   "en": "Two-handed Axe Attack Scroll: Chaos"
+  },
+  "2044200": {
+   "zh": "双手钝器武器攻击卷轴：初级",
+   "source": "dvg",
+   "en": "Two-handed Blunt Weapon Attack Scroll: Lesser"
+  },
+  "2044203": {
+   "zh": "双手钝器武器攻击卷轴：混沌",
+   "source": "dvg",
+   "en": "Two-handed Blunt Weapon Attack Scroll: Chaos"
+  },
+  "2044300": {
+   "zh": "枪武器攻击卷轴：初级",
+   "source": "dvg",
+   "en": "Spear Attack Scroll: Lesser"
+  },
+  "2044303": {
+   "zh": "枪武器攻击卷轴：混沌",
+   "source": "dvg",
+   "en": "Spear Attack Scroll: Chaos"
+  },
+  "2044400": {
+   "zh": "矛武器攻击卷轴：初级",
+   "source": "dvg",
+   "en": "Polearm Attack Scroll: Lesser"
+  },
+  "2044403": {
+   "zh": "矛武器攻击卷轴：混沌",
+   "source": "dvg",
+   "en": "Polearm Attack Scroll: Chaos"
+  },
+  "2044500": {
+   "zh": "弓武器攻击卷轴：初级",
+   "source": "dvg",
+   "en": "Bow Attack Scroll: Lesser"
+  },
+  "2044503": {
+   "zh": "弓武器攻击卷轴：混沌",
+   "source": "dvg",
+   "en": "Bow Attack Scroll: Chaos"
+  },
+  "2044600": {
+   "zh": "弩武器攻击卷轴：初级",
+   "source": "dvg",
+   "en": "Crossbow Attack Scroll: Lesser"
+  },
+  "2044603": {
+   "zh": "弩武器攻击卷轴：混沌",
+   "source": "dvg",
+   "en": "Crossbow Attack Scroll: Chaos"
+  },
+  "2044703": {
+   "zh": "拳套武器攻击卷轴：混沌",
+   "source": "dvg",
+   "en": "Claw Attack Scroll: Chaos"
+  },
+  "2048003": {
+   "zh": "宠物装备移动速度卷轴：混沌",
+   "source": "dvg",
+   "en": "Pet Equip Speed Scroll: Chaos"
+  },
+  "2048007": {
+   "zh": "宠物装备跳跃力卷轴：混沌",
+   "source": "dvg",
+   "en": "Pet Equip Jump Scroll: Chaos"
+  },
+  "2060003": {
+   "zh": "亚德曼合金弓矢",
+   "source": "dvg",
+   "en": "Adamantium Arrows for Bows"
+  },
+  "2061003": {
+   "zh": "秘银弩矢",
+   "source": "dvg",
+   "en": "Mithril Arrows for Crossbows"
+  },
+  "2100001": {
+   "zh": "GM黑包：马诺 LV20",
+   "source": "dvg",
+   "en": "GM Black Sack: Mano Level 20"
+  },
+  "2100002": {
+   "zh": "GM黑包：巨大绿水灵 LV32",
+   "source": "dvg",
+   "en": "GM Black Sack: King Slime Level 32"
+  },
+  "2100003": {
+   "zh": "GM黑包：蘑菇王 LV40",
+   "source": "dvg",
+   "en": "GM Black Sack: Mushmom Level 40"
+  },
+  "2100004": {
+   "zh": "GM黑包：僵尸蘑菇王 LV50",
+   "source": "dvg",
+   "en": "GM Black Sack: Zombie Mushmom Level 50"
+  },
+  "2100005": {
+   "zh": "GM黑包：腐烂蘑菇王 LV60",
+   "source": "dvg",
+   "en": "GM Black Sack: Rotten Mushmom Level 60"
+  },
+  "2100006": {
+   "zh": "GM黑包：小蝙蝠魔 LV 80",
+   "source": "dvg",
+   "en": "GM Black Sack: Jr. Balrog Level 80"
+  },
+  "2120001": {
+   "zh": "宠物食品（账号共享·限时）",
+   "source": "dvg",
+   "en": "Pet Food (Alt)"
+  },
+  "2190001": {
+   "zh": "测谎仪（限时）",
+   "source": "dvg",
+   "en": "Lie Detector Test (Alt)"
+  },
+  "2210001": {
+   "zh": "红蜗牛入侵",
+   "source": "dvg",
+   "en": "Red Snail Invasion"
+  },
+  "2210002": {
+   "zh": "橙蘑菇入侵",
+   "source": "dvg",
+   "en": "Orange Mushroom Invasion"
+  },
+  "2210003": {
+   "zh": "缎带猪入侵",
+   "source": "dvg",
+   "en": "Ribbon Pig Invasion"
+  },
+  "2210004": {
+   "zh": "红蜗牛白日梦",
+   "source": "dvg",
+   "en": "Red Snail Daydream"
+  },
+  "2210005": {
+   "zh": "橙蘑菇白日梦",
+   "source": "dvg",
+   "en": "Orange Mushroom Daydream"
+  },
+  "2210006": {
+   "zh": "缎带猪白日梦",
+   "source": "dvg",
+   "en": "Ribbon Pig Daydream"
+  },
+  "2210007": {
+   "zh": "蝙蝠怪入侵",
+   "source": "dvg",
+   "en": "Jr. Balrog Invasion"
+  },
+  "2375000": {
+   "zh": "兵法书(孙子)",
+   "source": "dvg",
+   "en": "The Songs of Solomon"
+  },
+  "2430000": {
+   "zh": "伙伴的魔法箱",
+   "source": "dvg",
+   "en": "Companion's Magic Box"
+  },
+  "2430001": {
+   "zh": "娜塔莉的时装箱（男）",
+   "source": "dvg",
+   "en": "Natalie's Fashion Box (M)"
+  },
+  "2430002": {
+   "zh": "娜塔莉的时装箱（女）",
+   "source": "dvg",
+   "en": "Natalie's Fashion Box (F)"
+  },
+  "2430003": {
+   "zh": "新旅程的礼物",
+   "source": "dvg",
+   "en": "Gift for the New Journey"
+  },
+  "2430004": {
+   "zh": "叶子积分（1000）兑换券",
+   "source": "dvg",
+   "en": "Leaf Points (1,000) Exchange Coupon"
+  },
+  "2430005": {
+   "zh": "枫叶点数(5,000)兑换券",
+   "source": "dvg",
+   "en": "Leaf Points (5,000) Exchange Coupon"
+  },
+  "2430006": {
+   "zh": "枫叶点数(10,000)兑换券",
+   "source": "dvg",
+   "en": "Leaf Points (10,000) Exchange Coupon"
+  },
+  "2430007": {
+   "zh": "枫叶点数(50,000)兑换券",
+   "source": "dvg",
+   "en": "Leaf Points (50,000) Exchange Coupon"
+  },
+  "2430008": {
+   "zh": "枫叶点数(100,000)兑换券",
+   "source": "dvg",
+   "en": "Leaf Points (100,000) Exchange Coupon"
+  },
+  "2430009": {
+   "zh": "雇佣商店箱",
+   "source": "translated",
+   "en": "Hired Merchants Box"
+  },
+  "2430010": {
+   "zh": "氛围效果箱",
+   "source": "translated",
+   "en": "Atmospheric Effect Box"
+  },
+  "2430011": {
+   "zh": "经典世界庆典2026礼盒（黄金）",
+   "source": "dvg",
+   "en": "MapleStory Fest 2026 Gift Box (Gold)"
+  },
+  "2430012": {
+   "zh": "经典世界庆典2026名牌戒指交换券",
+   "source": "dvg",
+   "en": "MapleStory Fest 2026 Label Ring Exchange Coupon"
+  },
+  "2430013": {
+   "zh": "经典世界庆典2026聊天戒指交换券",
+   "source": "dvg",
+   "en": "MapleStory Fest 2026 Chat Ring Exchange Coupon"
+  },
+  "2430014": {
+   "zh": "经典世界庆典2026特别帽子交换箱（青铜）",
+   "source": "dvg",
+   "en": "MapleStory Fest 2026 Special Hat Exchange Box (Bronze)"
+  },
+  "2430015": {
+   "zh": "经典世界庆典2026特别帽子交换箱（白银）",
+   "source": "dvg",
+   "en": "MapleStory Fest 2026 Special Hat Exchange Box (Silver)"
+  },
+  "2430016": {
+   "zh": "经典世界庆典2026特别帽子交换箱（黄金）",
+   "source": "dvg",
+   "en": "MapleStory Fest 2026 Special Hat Exchange Box (Gold)"
+  },
+  "2430017": {
+   "zh": "蜗牛礼包",
+   "source": "dvg",
+   "en": "Snail Package"
+  },
+  "2430018": {
+   "zh": "花蘑菇礼包",
+   "source": "dvg",
+   "en": "Orange Mushroom Package"
+  },
+  "2430019": {
+   "zh": "扎昆礼包",
+   "source": "dvg",
+   "en": "Zakum Package"
+  },
+  "2430020": {
+   "zh": "蜗牛至花蘑菇升级礼包",
+   "source": "dvg",
+   "en": "Snail to Orange Mushroom Upgrade Package"
+  },
+  "2430021": {
+   "zh": "花蘑菇至扎昆升级礼包",
+   "source": "dvg",
+   "en": "Orange Mushroom to Zakum Upgrade Package"
+  },
+  "2430022": {
+   "zh": "蜗牛至扎昆升级礼包",
+   "source": "dvg",
+   "en": "Snail to Zakum Upgrade Package"
+  },
+  "2430023": {
+   "zh": "人气时装套装",
+   "source": "dvg",
+   "en": "Well-Loved Avatar Set"
+  },
+  "2430024": {
+   "zh": "创始者盗贼时装套装",
+   "source": "dvg",
+   "en": "Founder's Thief Avatar Set"
+  },
+  "2430025": {
+   "zh": "曼吉时装套装",
+   "source": "dvg",
+   "en": "Manji Avatar Set"
+  },
+  "2430026": {
+   "zh": "创始者名牌戒指交换券",
+   "source": "dvg",
+   "en": "Founder's Label Ring Exchange Coupon"
+  },
+  "2430027": {
+   "zh": "创始者聊天戒指交换券",
+   "source": "dvg",
+   "en": "Founder's Chat Ring Exchange Coupon"
+  },
+  "2430028": {
+   "zh": "芙莉莲时装套装",
+   "source": "dvg",
+   "en": "Frieren Outfit Set"
+  },
+  "2430029": {
+   "zh": "芙莉莲服装选择券",
+   "source": "dvg",
+   "en": "Frieren Clothes Selector Coupon"
+  },
+  "2430030": {
+   "zh": "芙莉莲时装套装（卷发）",
+   "source": "dvg",
+   "en": "Frieren Outfit Set (Ringlets)"
+  },
+  "2430031": {
+   "zh": "芙莉莲时装套装（睡衣）",
+   "source": "dvg",
+   "en": "Frieren Outfit Set (Sleep)"
+  },
+  "2430032": {
+   "zh": "菲伦时装套装",
+   "source": "dvg",
+   "en": "Fern Outfit Set"
+  },
+  "2430033": {
+   "zh": "菲伦服装选择券",
+   "source": "dvg",
+   "en": "Fern's Clothes Selector Coupon"
+  },
+  "2430034": {
+   "zh": "休塔尔克时装套装",
+   "source": "dvg",
+   "en": "Stark Outfit Set"
+  },
+  "2430035": {
+   "zh": "休塔尔克服装选择券",
+   "source": "dvg",
+   "en": "Stark's Clothes Selector Coupon"
+  },
+  "2430036": {
+   "zh": "休塔尔克鞋子选择券",
+   "source": "dvg",
+   "en": "Stark's Shoes Selector Coupon"
+  },
+  "2430037": {
+   "zh": "休塔尔克手套选择券",
+   "source": "dvg",
+   "en": "Stark's Gloves Selector Coupon"
+  },
+  "2430038": {
+   "zh": "辛美尔时装套装",
+   "source": "dvg",
+   "en": "Himmel Outfit Set"
+  },
+  "2430039": {
+   "zh": "尤贝尔时装套装",
+   "source": "dvg",
+   "en": "Übel Outfit Set"
+  },
+  "2430040": {
+   "zh": "阿乌拉时装套装",
+   "source": "dvg",
+   "en": "Aura Outfit Set"
+  },
+  "2430041": {
+   "zh": "莉妮耶时装套装",
+   "source": "dvg",
+   "en": "Linie Outfit Set"
+  },
+  "2430042": {
+   "zh": "琉古纳时装套装",
+   "source": "dvg",
+   "en": "Lügner Outfit Set"
+  },
+  "2430043": {
+   "zh": "氛围效果箱",
+   "source": "dvg",
+   "en": "Atmospheric Effect Box"
+  },
+  "2430044": {
+   "zh": "极光印章",
+   "source": "dvg",
+   "en": "Aurora Stamp"
+  },
+  "2430047": {
+   "zh": "冒险家日志",
+   "source": "dvg",
+   "en": "Adventurer's Journal"
+  },
+  "2430048": {
+   "zh": "冒险家日志 - 第2页",
+   "source": "dvg",
+   "en": "Adventurer's Journal - Page 2"
+  },
+  "2430049": {
+   "zh": "冒险家日志 - 第3页",
+   "source": "dvg",
+   "en": "Adventurer's Journal - Page 3"
+  },
+  "2430050": {
+   "zh": "冒险家日志 - 第4页",
+   "source": "dvg",
+   "en": "Adventurer's Journal - Page 4"
+  },
+  "2430051": {
+   "zh": "冒险家日志 - 第5页",
+   "source": "dvg",
+   "en": "Adventurer's Journal - Page 5"
+  },
+  "2430052": {
+   "zh": "冒险家日志 - 第6页",
+   "source": "dvg",
+   "en": "Adventurer's Journal - Page 6"
+  },
+  "2430053": {
+   "zh": "补偿箱",
+   "source": "dvg",
+   "en": "Compensation Box"
+  },
+  "2430054": {
+   "zh": "补偿箱",
+   "source": "dvg",
+   "en": "Compensation Box (Alt)"
+  },
+  "2430055": {
+   "zh": "补偿箱",
+   "source": "dvg",
+   "en": "Compensation Box (Alt 2)"
+  },
+  "2430056": {
+   "zh": "补偿箱",
+   "source": "dvg",
+   "en": "Compensation Box (Alt 3)"
+  },
+  "2430057": {
+   "zh": "补偿箱",
+   "source": "dvg",
+   "en": "Compensation Box (Alt 4)"
+  },
+  "2430058": {
+   "zh": "礼物盒",
+   "source": "dvg",
+   "en": "Gift Box"
+  },
+  "2450000": {
+   "zh": "2倍经验券（30分钟）",
+   "source": "translated",
+   "en": "2x EXP Coupon (30 min)"
+  },
+  "2450001": {
+   "zh": "3倍经验券（15分钟）",
+   "source": "translated",
+   "en": "3x EXP Coupon (15 min)"
+  },
+  "2450002": {
+   "zh": "3张EXP优惠券（15分钟）",
+   "source": "dvg",
+   "en": "3x EXP Coupon (15 min)"
+  },
+  "2542000": {
+   "zh": "芙莉莲发型券",
+   "source": "dvg",
+   "en": "Frieren Hair Coupon"
+  },
+  "2542001": {
+   "zh": "芙莉莲发型(卷发)券",
+   "source": "dvg",
+   "en": "Frieren Hair (Ringlets) Coupon"
+  },
+  "2542002": {
+   "zh": "芙莉莲发型(睡眠)券",
+   "source": "dvg",
+   "en": "Frieren Hair (Sleep) Coupon"
+  },
+  "2542003": {
+   "zh": "菲伦发型券",
+   "source": "dvg",
+   "en": "Fern Hair Coupon"
+  },
+  "2542004": {
+   "zh": "休塔尔克发型券",
+   "source": "dvg",
+   "en": "Stark Hair Coupon"
+  },
+  "2542005": {
+   "zh": "辛美尔发型券",
+   "source": "dvg",
+   "en": "Himmel Hair Coupon"
+  },
+  "2542006": {
+   "zh": "尤贝尔发型券",
+   "source": "dvg",
+   "en": "Übel Hair Coupon"
+  },
+  "2897000": {
+   "zh": "芙莉莲脸型券",
+   "source": "dvg",
+   "en": "Frieren Face Coupon"
+  },
+  "2897001": {
+   "zh": "菲伦脸型券",
+   "source": "dvg",
+   "en": "Fern Face Coupon"
+  },
+  "2897002": {
+   "zh": "休塔尔克脸型券",
+   "source": "dvg",
+   "en": "Stark Face Coupon"
+  },
+  "2897003": {
+   "zh": "辛美尔脸型券",
+   "source": "dvg",
+   "en": "Himmel Face Coupon"
+  },
+  "2897004": {
+   "zh": "尤贝尔脸型券",
+   "source": "dvg",
+   "en": "Übel Face Coupon"
+  },
+  "2897005": {
+   "zh": "阿乌拉脸型券",
+   "source": "dvg",
+   "en": "Aura Face Coupon"
+  },
+  "2897006": {
+   "zh": "莉妮耶脸型券",
+   "source": "dvg",
+   "en": "Linie Face Coupon"
+  },
+  "2897007": {
+   "zh": "琉古纳脸型券",
+   "source": "dvg",
+   "en": "Lügner Face Coupon"
+  },
+  "3000000": {
+   "zh": "橡木窗",
+   "source": "dvg",
+   "en": "Oak Window"
+  },
+  "3000001": {
+   "zh": "樱桃木格窗",
+   "source": "dvg",
+   "en": "Cherry Lattice Window"
+  },
+  "3000002": {
+   "zh": "花蕾吸顶灯",
+   "source": "dvg",
+   "en": "Flower Bud Ceiling Light"
+  },
+  "3000003": {
+   "zh": "黄铜烛台",
+   "source": "dvg",
+   "en": "Brass Candlestick"
+  },
+  "3000004": {
+   "zh": "樱桃木书架",
+   "source": "dvg",
+   "en": "Cherry Bookshelf"
+  },
+  "3000005": {
+   "zh": "樱桃木床",
+   "source": "dvg",
+   "en": "Cherry Bed"
+  },
+  "3000006": {
+   "zh": "樱桃木衣柜",
+   "source": "dvg",
+   "en": "Cherry Wardrobe"
+  },
+  "3000007": {
+   "zh": "橡木长椅",
+   "source": "dvg",
+   "en": "Oak Bench"
+  },
+  "3000008": {
+   "zh": "樱桃木长椅",
+   "source": "dvg",
+   "en": "Cherry Bench"
+  },
+  "3000009": {
+   "zh": "盆栽向日葵",
+   "source": "dvg",
+   "en": "Potted Sunflower"
+  },
+  "3000010": {
+   "zh": "钢制牛奶罐",
+   "source": "dvg",
+   "en": "Steel Milk Can"
+  },
+  "3000011": {
+   "zh": "木制洗涤刷",
+   "source": "dvg",
+   "en": "Wooden Scrub Brush"
+  },
+  "3000012": {
+   "zh": "绳缠水罐",
+   "source": "dvg",
+   "en": "Rope-Wrapped Jug"
+  },
+  "3000013": {
+   "zh": "软木塞储物罐",
+   "source": "dvg",
+   "en": "Corked Storage Jar"
+  },
+  "3000014": {
+   "zh": "陶器套装",
+   "source": "dvg",
+   "en": "Assorted Pottery Set"
+  },
+  "3000015": {
+   "zh": "橡木桶",
+   "source": "dvg",
+   "en": "Oak Barrel"
+  },
+  "3000016": {
+   "zh": "射手村桌子",
+   "source": "dvg",
+   "en": "Henesys Table"
+  },
+  "3000017": {
+   "zh": "射手村旗帜",
+   "source": "dvg",
+   "en": "Henesys Flag"
+  },
+  "3000018": {
+   "zh": "赫丽娜肖像画",
+   "source": "dvg",
+   "en": "Portrait of Helena"
+  },
+  "3000019": {
+   "zh": "麦捆",
+   "source": "dvg",
+   "en": "Wheat Sheaves"
+  },
+  "3000020": {
+   "zh": "番茄树",
+   "source": "dvg",
+   "en": "Tomato Tree"
+  },
+  "3000021": {
+   "zh": "草莓田",
+   "source": "dvg",
+   "en": "Strawberry Patch"
+  },
+  "3000022": {
+   "zh": "高大的向日葵",
+   "source": "dvg",
+   "en": "Tall Sunflower"
+  },
+  "3000023": {
+   "zh": "小向日葵",
+   "source": "dvg",
+   "en": "Little Sunflower"
+  },
+  "3000024": {
+   "zh": "黄色蝴蝶",
+   "source": "dvg",
+   "en": "Yellow Butterfly"
+  },
+  "3000025": {
+   "zh": "小花园地",
+   "source": "dvg",
+   "en": "Small Garden Plot"
+  },
+  "3000026": {
+   "zh": "带窗帘的金属窗",
+   "source": "dvg",
+   "en": "Metal Window with Curtains"
+  },
+  "3000027": {
+   "zh": "金属窗",
+   "source": "dvg",
+   "en": "Metal Window"
+  },
+  "3000028": {
+   "zh": "金属吊灯",
+   "source": "dvg",
+   "en": "Metal Ceiling Light"
+  },
+  "3000029": {
+   "zh": "金属壁灯",
+   "source": "dvg",
+   "en": "Metal Wall Light"
+  },
+  "3000030": {
+   "zh": "金属书架",
+   "source": "dvg",
+   "en": "Metal Bookshelf"
+  },
+  "3000031": {
+   "zh": "田园床",
+   "source": "dvg",
+   "en": "Rustic Bed"
+  },
+  "3000032": {
+   "zh": "金属衣柜",
+   "source": "dvg",
+   "en": "Metal Wardrobe"
+  },
+  "3000033": {
+   "zh": "木长椅",
+   "source": "dvg",
+   "en": "Wooden Bench"
+  },
+  "3000034": {
+   "zh": "紫色吧台凳",
+   "source": "dvg",
+   "en": "Purple Barstool"
+  },
+  "3000035": {
+   "zh": "金属秤",
+   "source": "dvg",
+   "en": "Metal Scale"
+  },
+  "3000036": {
+   "zh": "小型藤蔓盆栽",
+   "source": "dvg",
+   "en": "Small Potted Vine"
+  },
+  "3000037": {
+   "zh": "废弃都市路牌",
+   "source": "dvg",
+   "en": "Kerning City Street Sign"
+  },
+  "3000038": {
+   "zh": "禁止吸烟标志",
+   "source": "dvg",
+   "en": "No Smoking Sign"
+  },
+  "3000039": {
+   "zh": "灭火器",
+   "source": "dvg",
+   "en": "Fire Extinguisher"
+  },
+  "3000040": {
+   "zh": "出口标志",
+   "source": "dvg",
+   "en": "Exit Sign"
+  },
+  "3000041": {
+   "zh": "壁扇",
+   "source": "dvg",
+   "en": "Wall Fan"
+  },
+  "3000042": {
+   "zh": "废弃都市桌子",
+   "source": "dvg",
+   "en": "Kerning City Table"
+  },
+  "3000043": {
+   "zh": "废弃都市旗帜",
+   "source": "dvg",
+   "en": "Kerning City Flag"
+  },
+  "3000044": {
+   "zh": "达克鲁肖像画",
+   "source": "dvg",
+   "en": "Portrait of the Dark Lord"
+  },
+  "3000045": {
+   "zh": "消防栓",
+   "source": "dvg",
+   "en": "Fire Hydrant"
+  },
+  "3000046": {
+   "zh": "金属垃圾桶",
+   "source": "dvg",
+   "en": "Metal Trash Can"
+  },
+  "3000047": {
+   "zh": "钢桶",
+   "source": "dvg",
+   "en": "Steel Drum"
+  },
+  "3000048": {
+   "zh": "砖堆",
+   "source": "dvg",
+   "en": "Brick Pile"
+  },
+  "3000049": {
+   "zh": "禁止骑车标志",
+   "source": "dvg",
+   "en": "No Biking Sign"
+  },
+  "3000050": {
+   "zh": "小虫子",
+   "source": "dvg",
+   "en": "Little Bug"
+  },
+  "3000051": {
+   "zh": "小型铁丝网花园地",
+   "source": "dvg",
+   "en": "Small Barbed Wire Garden Plot"
+  },
+  "3010001": {
+   "zh": "黄蓝休闲椅",
+   "source": "dvg",
+   "en": "The Yellow Relaxer"
+  },
+  "3010002": {
+   "zh": "红蓝休闲椅",
+   "source": "dvg",
+   "en": "The Red Relaxer"
+  },
+  "3010006": {
+   "zh": "黄色时尚转椅",
+   "source": "dvg",
+   "en": "Yellow Chair"
+  },
+  "3010009": {
+   "zh": "射手村居民椅子",
+   "source": "dvg",
+   "en": "Henesys Resident's Chair"
+  },
+  "3010010": {
+   "zh": "废弃都市居民椅子",
+   "source": "dvg",
+   "en": "Kerning City Resident's Chair"
+  },
+  "3015000": {
+   "zh": "经典世界庆典2026员工椅",
+   "source": "dvg",
+   "en": "MapleStory Fest 2026 Staff Chair"
+  },
+  "3015001": {
+   "zh": "最初的试炼",
+   "source": "dvg",
+   "en": "The First Trial"
+  },
+  "3015002": {
+   "zh": "榻榻凳",
+   "source": "dvg",
+   "en": "Red Round Chair"
+  },
+  "3015003": {
+   "zh": "白玉海豹靠垫",
+   "source": "dvg",
+   "en": "White Seal Cushion"
+  },
+  "3015004": {
+   "zh": "黑色海狗靠垫",
+   "source": "dvg",
+   "en": "Grey Seal Cushion"
+  },
+  "3015005": {
+   "zh": "金色海狗靠垫",
+   "source": "dvg",
+   "en": "Gold Seal Cushion"
+  },
+  "3015006": {
+   "zh": "阿莫利亚休闲椅",
+   "source": "dvg",
+   "en": "Amorian Relaxer"
+  },
+  "3015007": {
+   "zh": "红蓝休闲椅（账号共享）",
+   "source": "dvg",
+   "en": "The Red Relaxer (Alt)"
+  },
+  "3015008": {
+   "zh": "粉色沙滩椅",
+   "source": "dvg",
+   "en": "Pink Beach Chair"
+  },
+  "3015009": {
+   "zh": "沙滩椅(红)",
+   "source": "dvg",
+   "en": "Beach Chair(Red)"
+  },
+  "3015010": {
+   "zh": "沙滩椅(蓝)",
+   "source": "dvg",
+   "en": "Beach Chair(Blue)"
+  },
+  "3015011": {
+   "zh": "椰子树沙滩椅",
+   "source": "dvg",
+   "en": "Palm Tree Beach Chair"
+  },
+  "3015012": {
+   "zh": "战士王座",
+   "source": "dvg",
+   "en": "Warrior Throne"
+  },
+  "3015013": {
+   "zh": "月亮弯",
+   "source": "dvg",
+   "en": "Moon Star Chair"
+  },
+  "3015014": {
+   "zh": "透明椅子",
+   "source": "dvg",
+   "en": "Clear Chair"
+  },
+  "3015015": {
+   "zh": "寿司椅",
+   "source": "dvg",
+   "en": "Kadomatsu"
+  },
+  "3015016": {
+   "zh": "暖桌",
+   "source": "dvg",
+   "en": "Kotatsu"
+  },
+  "3015017": {
+   "zh": "木浴桶",
+   "source": "dvg",
+   "en": "Wooden Tub"
+  },
+  "3015018": {
+   "zh": "玩具粉熊椅子",
+   "source": "dvg",
+   "en": "Pink Teddy Chair"
+  },
+  "3015019": {
+   "zh": "恶灵附身的娃娃椅子",
+   "source": "dvg",
+   "en": "Soul Teddy Chair"
+  },
+  "3015020": {
+   "zh": "枫树椅子",
+   "source": "dvg",
+   "en": "Maple Tree Chair"
+  },
+  "3015021": {
+   "zh": "蝙蝠椅",
+   "source": "dvg",
+   "en": "The Stirge Seat"
+  },
+  "3015022": {
+   "zh": "骷髅王座",
+   "source": "dvg",
+   "en": "Skull Throne"
+  },
+  "3015023": {
+   "zh": "魔女的飞扫把",
+   "source": "dvg",
+   "en": "Halloween Broomstick Chair"
+  },
+  "3015024": {
+   "zh": "红伞椅子",
+   "source": "dvg",
+   "en": "Red Umbrella Chair"
+  },
+  "3015025": {
+   "zh": "寒冰椅子",
+   "source": "dvg",
+   "en": "Ice Chair"
+  },
+  "3015026": {
+   "zh": "圣诞树椅子",
+   "source": "dvg",
+   "en": "Christmas Tree Chair"
+  },
+  "3015027": {
+   "zh": "冰屋",
+   "source": "dvg",
+   "en": "Igloo"
+  },
+  "3015028": {
+   "zh": "雏祭装饰椅子",
+   "source": "dvg",
+   "en": "Hinakazari Chair"
+  },
+  "3015029": {
+   "zh": "兔子沙发",
+   "source": "dvg",
+   "en": "Rabbit Sofa"
+  },
+  "3015030": {
+   "zh": "泰迪熊床",
+   "source": "dvg",
+   "en": "Teddy Bear Bed"
+  },
+  "3015031": {
+   "zh": "麻薯冰淇淋椅子",
+   "source": "dvg",
+   "en": "Mochi Ice Cream Chair"
+  },
+  "3015032": {
+   "zh": "充能椅子",
+   "source": "dvg",
+   "en": "Charge UP Chair"
+  },
+  "3015033": {
+   "zh": "血色玫瑰",
+   "source": "dvg",
+   "en": "Bloody Rose"
+  },
+  "3015034": {
+   "zh": "世界尽头",
+   "source": "dvg",
+   "en": "World's End"
+  },
+  "3015035": {
+   "zh": "特大晴天娃娃椅子",
+   "source": "dvg",
+   "en": "Greater Teru Bozu Chair"
+  },
+  "3015036": {
+   "zh": "米沃克酋长椅子",
+   "source": "dvg",
+   "en": "Miwok Chief's Chair"
+  },
+  "3015037": {
+   "zh": "露营帐篷",
+   "source": "dvg",
+   "en": "Camping Tent"
+  },
+  "3015038": {
+   "zh": "音乐盒",
+   "source": "dvg",
+   "en": "Music Box"
+  },
+  "3015039": {
+   "zh": "猫头鹰椅子",
+   "source": "dvg",
+   "en": "It's a Hoot! Chair"
+  },
+  "3015040": {
+   "zh": "啃竹熊猫椅子",
+   "source": "dvg",
+   "en": "Chewing Panda Chair"
+  },
+  "3015041": {
+   "zh": "毛茸茸猫咪椅子",
+   "source": "dvg",
+   "en": "Fuzzy Kitty Chair"
+  },
+  "3015042": {
+   "zh": "奥莉维亚的椅子",
+   "source": "dvg",
+   "en": "Olivia's Chair"
+  },
+  "3015043": {
+   "zh": "烤火休息椅",
+   "source": "dvg",
+   "en": "Roasted Relaxer"
+  },
+  "3015044": {
+   "zh": "可怜的漂漂猪椅子",
+   "source": "dvg",
+   "en": "Poor Ribbon Pig Chair"
+  },
+  "3015045": {
+   "zh": "石头人手椅子",
+   "source": "dvg",
+   "en": "Stone Golem Hand Chair"
+  },
+  "3015046": {
+   "zh": "龙颅骨椅子",
+   "source": "dvg",
+   "en": "Dragon Skull Chair"
+  },
+  "3015047": {
+   "zh": "电视宅人",
+   "source": "dvg",
+   "en": "TV Recliner"
+  },
+  "3015048": {
+   "zh": "北极熊椅子",
+   "source": "dvg",
+   "en": "Cuddly Polar Bear"
+  },
+  "3015049": {
+   "zh": "圣诞礼盒",
+   "source": "dvg",
+   "en": "Christmas Box"
+  },
+  "3015050": {
+   "zh": "绿色圣诞充电椅子",
+   "source": "dvg",
+   "en": "Green Christmas Recharger Chair"
+  },
+  "3015051": {
+   "zh": "红色圣诞充电椅子",
+   "source": "dvg",
+   "en": "Red Christmas Recharger Chair"
+  },
+  "3015052": {
+   "zh": "黑色圣诞充电椅子",
+   "source": "dvg",
+   "en": "Black Christmas Recharger Chair"
+  },
+  "3015053": {
+   "zh": "火炉椅子",
+   "source": "dvg",
+   "en": "Furnace Chair"
+  },
+  "3015054": {
+   "zh": "北极熊座椅",
+   "source": "dvg",
+   "en": "Polar Bear Chair"
+  },
+  "3020000": {
+   "zh": "破旧的木箱",
+   "source": "dvg",
+   "en": "Worn Wooden Chest"
+  },
+  "3020001": {
+   "zh": "加固的木箱",
+   "source": "dvg",
+   "en": "Reinforced Wooden Chest"
+  },
+  "3030000": {
+   "zh": "铁砧",
+   "source": "dvg",
+   "en": "Anvil"
+  },
+  "3030001": {
+   "zh": "武器制作台",
+   "source": "dvg",
+   "en": "Weaponcrafting Station"
+  },
+  "3030002": {
+   "zh": "缝纫机",
+   "source": "dvg",
+   "en": "Sewing Machine"
+  },
+  "3030003": {
+   "zh": "木工台",
+   "source": "dvg",
+   "en": "Woodworking Station"
+  },
+  "3030004": {
+   "zh": "皮革制作台",
+   "source": "dvg",
+   "en": "Leatherworking Station"
+  },
+  "3030005": {
+   "zh": "炼金台",
+   "source": "dvg",
+   "en": "Arcane Station"
+  },
+  "3040000": {
+   "zh": "稻草训练人偶",
+   "source": "dvg",
+   "en": "Straw Training Dummy"
+  },
+  "3990000": {
+   "zh": "红色1号",
+   "source": "dvg",
+   "en": "Red No. 1"
+  },
+  "3990001": {
+   "zh": "红色2号",
+   "source": "dvg",
+   "en": "Red No. 2"
+  },
+  "3990002": {
+   "zh": "红色3号",
+   "source": "dvg",
+   "en": "Red No. 3"
+  },
+  "3990003": {
+   "zh": "红色4号",
+   "source": "dvg",
+   "en": "Red No. 4"
+  },
+  "3990004": {
+   "zh": "红色5号",
+   "source": "dvg",
+   "en": "Red No. 5"
+  },
+  "3990005": {
+   "zh": "红色6号",
+   "source": "dvg",
+   "en": "Red No. 6"
+  },
+  "3990006": {
+   "zh": "红色7号",
+   "source": "dvg",
+   "en": "Red No. 7"
+  },
+  "3990007": {
+   "zh": "红色8号",
+   "source": "dvg",
+   "en": "Red No. 8"
+  },
+  "3990008": {
+   "zh": "红色9号",
+   "source": "dvg",
+   "en": "Red No. 9"
+  },
+  "3990009": {
+   "zh": "红色0号",
+   "source": "dvg",
+   "en": "Red No. 0"
+  },
+  "3990010": {
+   "zh": "绿色1号",
+   "source": "dvg",
+   "en": "Green No. 1"
+  },
+  "3990011": {
+   "zh": "绿色2号",
+   "source": "dvg",
+   "en": "Green No. 2"
+  },
+  "3990012": {
+   "zh": "绿色3号",
+   "source": "dvg",
+   "en": "Green No. 3"
+  },
+  "3990013": {
+   "zh": "绿色4号",
+   "source": "dvg",
+   "en": "Green No. 4"
+  },
+  "3990014": {
+   "zh": "绿色5号",
+   "source": "dvg",
+   "en": "Green No. 5"
+  },
+  "3990015": {
+   "zh": "绿色6号",
+   "source": "dvg",
+   "en": "Green No. 6"
+  },
+  "3990016": {
+   "zh": "绿色7号",
+   "source": "dvg",
+   "en": "Green No. 7"
+  },
+  "3990017": {
+   "zh": "绿色8号",
+   "source": "dvg",
+   "en": "Green No. 8"
+  },
+  "3990018": {
+   "zh": "绿色9号",
+   "source": "dvg",
+   "en": "Green No. 9"
+  },
+  "3990019": {
+   "zh": "绿色0号",
+   "source": "dvg",
+   "en": "Green No. 0"
+  },
+  "3990020": {
+   "zh": "红色“+”",
+   "source": "dvg",
+   "en": "Red \" + \""
+  },
+  "3990021": {
+   "zh": "红色“-”",
+   "source": "dvg",
+   "en": "Red \" - \""
+  },
+  "3990022": {
+   "zh": "绿色“+”",
+   "source": "dvg",
+   "en": "Green \" + \""
+  },
+  "3990023": {
+   "zh": "绿色“-”",
+   "source": "dvg",
+   "en": "Green \" - \""
+  },
+  "3991000": {
+   "zh": "红色“A”",
+   "source": "dvg",
+   "en": "Red \"A\""
+  },
+  "3991001": {
+   "zh": "红色“C”",
+   "source": "dvg",
+   "en": "Red \"C\""
+  },
+  "3991002": {
+   "zh": "红色“E”",
+   "source": "dvg",
+   "en": "Red \"E\""
+  },
+  "3991003": {
+   "zh": "红色“H”",
+   "source": "dvg",
+   "en": "Red \"H\""
+  },
+  "3991004": {
+   "zh": "红色“I”",
+   "source": "dvg",
+   "en": "Red \"I\""
+  },
+  "3991005": {
+   "zh": "红色“M”",
+   "source": "dvg",
+   "en": "Red \"M\""
+  },
+  "3991006": {
+   "zh": "红色“P”",
+   "source": "dvg",
+   "en": "Red \"P\""
+  },
+  "3991007": {
+   "zh": "红色“R”",
+   "source": "dvg",
+   "en": "Red \"R\""
+  },
+  "3991008": {
+   "zh": "红色“S”",
+   "source": "dvg",
+   "en": "Red \"S\""
+  },
+  "3991009": {
+   "zh": "红色“T”",
+   "source": "dvg",
+   "en": "Red \"T\""
+  },
+  "3991010": {
+   "zh": "红色“X”",
+   "source": "dvg",
+   "en": "Red \"X\""
+  },
+  "3991011": {
+   "zh": "红色“Y”",
+   "source": "dvg",
+   "en": "Red \"Y\""
+  },
+  "3991012": {
+   "zh": "绿色“A”",
+   "source": "dvg",
+   "en": "Green \"A\""
+  },
+  "3991013": {
+   "zh": "绿色“C”",
+   "source": "dvg",
+   "en": "Green \"C\""
+  },
+  "3991014": {
+   "zh": "绿色“E”",
+   "source": "dvg",
+   "en": "Green \"E\""
+  },
+  "3991015": {
+   "zh": "绿色“H”",
+   "source": "dvg",
+   "en": "Green \"H\""
+  },
+  "3991016": {
+   "zh": "绿色“I”",
+   "source": "dvg",
+   "en": "Green \"I\""
+  },
+  "3991017": {
+   "zh": "绿色“M”",
+   "source": "dvg",
+   "en": "Green \"M\""
+  },
+  "3991018": {
+   "zh": "绿色“P”",
+   "source": "dvg",
+   "en": "Green \"P\""
+  },
+  "3991019": {
+   "zh": "绿色R",
+   "source": "dvg",
+   "en": "Green \"R\""
+  },
+  "3991020": {
+   "zh": "绿色S",
+   "source": "dvg",
+   "en": "Green \"S\""
+  },
+  "3991021": {
+   "zh": "绿色T",
+   "source": "dvg",
+   "en": "Green \"T\""
+  },
+  "3991022": {
+   "zh": "绿色X",
+   "source": "dvg",
+   "en": "Green \"X\""
+  },
+  "3991023": {
+   "zh": "绿色Y",
+   "source": "dvg",
+   "en": "Green \"Y\""
+  },
+  "3992000": {
+   "zh": "圣诞老人装饰",
+   "source": "dvg",
+   "en": "Santa Ornament"
+  },
+  "3992001": {
+   "zh": "鲁道夫装饰",
+   "source": "dvg",
+   "en": "Rudolph Ornament"
+  },
+  "3992002": {
+   "zh": "蘑菇装饰",
+   "source": "dvg",
+   "en": "Mushroom Ornament"
+  },
+  "3992003": {
+   "zh": "猪装饰",
+   "source": "dvg",
+   "en": "Pig Ornament"
+  },
+  "3992004": {
+   "zh": "史莱姆装饰",
+   "source": "dvg",
+   "en": "Slime Ornament"
+  },
+  "3992005": {
+   "zh": "红色礼物盒装饰",
+   "source": "dvg",
+   "en": "Red Gift-Box Ornament"
+  },
+  "3992006": {
+   "zh": "蓝色礼物盒装饰",
+   "source": "dvg",
+   "en": "Blue Gift-Box Ornament"
+  },
+  "3992007": {
+   "zh": "黄色礼物盒装饰",
+   "source": "dvg",
+   "en": "Yellow Gift-Box Ornament"
+  },
+  "3992008": {
+   "zh": "红色星星迷你灯泡",
+   "source": "dvg",
+   "en": "Red Star Miniature Bulb"
+  },
+  "3992009": {
+   "zh": "蓝色星星迷你灯泡",
+   "source": "dvg",
+   "en": "Blue Star Miniature Bulb"
+  },
+  "3992010": {
+   "zh": "绿色星星迷你灯泡",
+   "source": "dvg",
+   "en": "Green Star Miniature Bulb"
+  },
+  "3992011": {
+   "zh": "粉色星星迷你灯泡",
+   "source": "dvg",
+   "en": "Pink Star Miniature Bulb"
+  },
+  "3992012": {
+   "zh": "橙色星星迷你灯泡",
+   "source": "dvg",
+   "en": "Orange Star Miniature Bulb"
+  },
+  "3992013": {
+   "zh": "红色迷你灯泡",
+   "source": "dvg",
+   "en": "Red Miniature Bulb"
+  },
+  "3992014": {
+   "zh": "蓝色迷你灯泡",
+   "source": "dvg",
+   "en": "Blue Miniature Bulb"
+  },
+  "3992015": {
+   "zh": "黄色迷你灯泡",
+   "source": "dvg",
+   "en": "Yellow Miniature Bulb"
+  },
+  "3992016": {
+   "zh": "绿色迷你灯泡",
+   "source": "dvg",
+   "en": "Green Miniature Bulb"
+  },
+  "3992017": {
+   "zh": "红色圆球装饰",
+   "source": "dvg",
+   "en": "Red Ball Ornament"
+  },
+  "3992018": {
+   "zh": "蓝色圆球装饰",
+   "source": "dvg",
+   "en": "Blue Ball Ornament"
+  },
+  "3992019": {
+   "zh": "黄色圆球装饰",
+   "source": "dvg",
+   "en": "Yellow Ball Ornament"
+  },
+  "3992020": {
+   "zh": "红色袜子",
+   "source": "dvg",
+   "en": "Red Sock"
+  },
+  "3992021": {
+   "zh": "姜饼人",
+   "source": "dvg",
+   "en": "The gingerbread man"
+  },
+  "3992022": {
+   "zh": "姜饼女人",
+   "source": "dvg",
+   "en": "The gingerbread woman"
+  },
+  "3992023": {
+   "zh": "拐杖糖",
+   "source": "dvg",
+   "en": "Candy Cane"
+  },
+  "3992024": {
+   "zh": "圆形树装饰",
+   "source": "dvg",
+   "en": "Circular Tree Ornament"
+  },
+  "3992025": {
+   "zh": "特大号星星",
+   "source": "dvg",
+   "en": "King-sized Star"
+  },
+  "3992026": {
+   "zh": "圣诞花环",
+   "source": "dvg",
+   "en": "Christmas wreath"
+  },
+  "3992027": {
+   "zh": "红色蜡烛",
+   "source": "dvg",
+   "en": "Red Candle"
+  },
+  "3992028": {
+   "zh": "蓝色蜡烛",
+   "source": "dvg",
+   "en": "Blue Candle"
+  },
+  "3992029": {
+   "zh": "黄色蜡烛",
+   "source": "dvg",
+   "en": "Yellow Candle"
+  },
+  "3992030": {
+   "zh": "红色拐杖糖",
+   "source": "dvg",
+   "en": "Red Candy Canes"
+  },
+  "3992031": {
+   "zh": "蓝色拐杖糖",
+   "source": "dvg",
+   "en": "Blue Candy Canes"
+  },
+  "3992032": {
+   "zh": "黄色拐杖糖",
+   "source": "dvg",
+   "en": "Yellow Candy Canes"
+  },
+  "3992033": {
+   "zh": "红色水果叶",
+   "source": "dvg",
+   "en": "Red Fruit Leaves"
+  },
+  "3992034": {
+   "zh": "黄色水果叶",
+   "source": "dvg",
+   "en": "Yellow Fruit Leaves"
+  },
+  "3992035": {
+   "zh": "红丝带礼盒",
+   "source": "dvg",
+   "en": "Red-Ribboned Giftbox"
+  },
+  "3992036": {
+   "zh": "蓝丝带礼盒",
+   "source": "dvg",
+   "en": "Blue-Ribboned Giftbox"
+  },
+  "3992037": {
+   "zh": "黄丝带礼盒",
+   "source": "dvg",
+   "en": "Yellow-Ribboned Giftbox"
+  },
+  "3992038": {
+   "zh": "鲁道夫圣诞靴",
+   "source": "dvg",
+   "en": "Ruldolph Santa Boots"
+  },
+  "3994000": {
+   "zh": "字母L",
+   "source": "dvg",
+   "en": "Letter L"
+  },
+  "3994001": {
+   "zh": "字母E",
+   "source": "dvg",
+   "en": "Letter E"
+  },
+  "3994002": {
+   "zh": "字母A",
+   "source": "dvg",
+   "en": "Letter A"
+  },
+  "3994003": {
+   "zh": "字母F",
+   "source": "dvg",
+   "en": "Letter F"
+  },
+  "3994004": {
+   "zh": "字母P",
+   "source": "dvg",
+   "en": "Letter P"
+  },
+  "3994005": {
+   "zh": "字母O",
+   "source": "dvg",
+   "en": "Letter O"
+  },
+  "3994006": {
+   "zh": "字母I",
+   "source": "dvg",
+   "en": "Letter I"
+  },
+  "3994007": {
+   "zh": "字母N",
+   "source": "dvg",
+   "en": "Letter N"
+  },
+  "3994008": {
+   "zh": "字母T",
+   "source": "dvg",
+   "en": "Letter T"
+  },
+  "3994009": {
+   "zh": "字母S",
+   "source": "dvg",
+   "en": "Letter S"
+  },
+  "3994010": {
+   "zh": "淡枫叶",
+   "source": "dvg",
+   "en": "Pale Maple Leaf"
+  },
+  "3994011": {
+   "zh": "红枫叶",
+   "source": "dvg",
+   "en": "Reddened Maple Leaf"
+  },
+  "4000051": {
+   "zh": "发光蘑菇孢子",
+   "source": "dvg",
+   "en": "Glowing Mushroom Spore"
+  },
+  "4000052": {
+   "zh": "莱芙花瓣",
+   "source": "dvg",
+   "en": "Raffle Petal"
+  },
+  "4000053": {
+   "zh": "黄金蝙蝠翼",
+   "source": "dvg",
+   "en": "Golden Stirge Wing"
+  },
+  "4000054": {
+   "zh": "水螈尾",
+   "source": "dvg",
+   "en": "Aqumander Tail"
+  },
+  "4000055": {
+   "zh": "回音章鱼腿",
+   "source": "dvg",
+   "en": "Echopus Leg"
+  },
+  "4000056": {
+   "zh": "大王花花瓣",
+   "source": "dvg",
+   "en": "Rafflesia Petal"
+  },
+  "4000057": {
+   "zh": "暮色螈尾",
+   "source": "dvg",
+   "en": "Duskmander Tail"
+  },
+  "4000058": {
+   "zh": "巨树枝",
+   "source": "dvg",
+   "en": "Giant Tree's Bough"
+  },
+  "4000059": {
+   "zh": "腐朽护符",
+   "source": "dvg",
+   "en": "Decayed Charm"
+  },
+  "4000060": {
+   "zh": "巨树的腐枝",
+   "source": "dvg",
+   "en": "Giant Tree's Rotten Bough"
+  },
+  "4000065": {
+   "zh": "腐烂蘑菇王帽",
+   "source": "dvg",
+   "en": "Rotten Mushmom Cap"
+  },
+  "4000120": {
+   "zh": "白牙尾巴",
+   "source": "dvg",
+   "en": "White Fang Tail"
+  },
+  "4001016": {
+   "zh": "透明道具",
+   "source": "dvg",
+   "en": "Transparent Item"
+  },
+  "4001017": {
+   "zh": "浅绿色迎月花种子",
+   "source": "dvg",
+   "en": "Green Primrose Seed"
+  },
+  "4001018": {
+   "zh": "紫色迎月花种子",
+   "source": "dvg",
+   "en": "Purple Primrose Seed"
+  },
+  "4001019": {
+   "zh": "浅紫色迎月花种子",
+   "source": "dvg",
+   "en": "Pink Primrose Seed"
+  },
+  "4001020": {
+   "zh": "黄褐色迎月花种子",
+   "source": "dvg",
+   "en": "Brown Primrose Seed"
+  },
+  "4001021": {
+   "zh": "黄色迎月花种子",
+   "source": "dvg",
+   "en": "Yellow Primrose Seed"
+  },
+  "4001022": {
+   "zh": "蓝色迎月花种子",
+   "source": "dvg",
+   "en": "Blue Primrose Seed"
+  },
+  "4001023": {
+   "zh": "月兔的年糕",
+   "source": "dvg",
+   "en": "Moon Bunny's Rice Cake"
+  },
+  "4003010": {
+   "zh": "黑色染料",
+   "source": "dvg",
+   "en": "Black Dye"
+  },
+  "4003011": {
+   "zh": "白色染料",
+   "source": "dvg",
+   "en": "White Dye"
+  },
+  "4003012": {
+   "zh": "红色染料",
+   "source": "dvg",
+   "en": "Red Dye"
+  },
+  "4003013": {
+   "zh": "黄色染料",
+   "source": "dvg",
+   "en": "Yellow Dye"
+  },
+  "4003014": {
+   "zh": "蓝色染料",
+   "source": "dvg",
+   "en": "Blue Dye"
+  },
+  "4003015": {
+   "zh": "力量母矿",
+   "source": "dvg",
+   "en": "Power Crystal Ore"
+  },
+  "4003016": {
+   "zh": "智慧母矿",
+   "source": "dvg",
+   "en": "Wisdom Crystal Ore"
+  },
+  "4003017": {
+   "zh": "敏捷水晶矿石",
+   "source": "dvg",
+   "en": "Dexterity Crystal Ore"
+  },
+  "4003018": {
+   "zh": "运气水晶矿石",
+   "source": "dvg",
+   "en": "Luck Crystal Ore"
+  },
+  "4003019": {
+   "zh": "黑暗水晶母矿",
+   "source": "dvg",
+   "en": "Dark Crystal Ore"
+  },
+  "4003020": {
+   "zh": "力量水晶",
+   "source": "dvg",
+   "en": "Power Crystal"
+  },
+  "4003021": {
+   "zh": "智慧水晶",
+   "source": "dvg",
+   "en": "Wisdom Crystal"
+  },
+  "4003022": {
+   "zh": "敏捷水晶",
+   "source": "dvg",
+   "en": "Dexterity Crystal"
+  },
+  "4003023": {
+   "zh": "运气水晶",
+   "source": "dvg",
+   "en": "Luck Crystal"
+  },
+  "4003024": {
+   "zh": "黑暗水晶",
+   "source": "dvg",
+   "en": "Dark Crystal"
+  },
+  "4031002": {
+   "zh": "路卡斯的信件",
+   "source": "dvg",
+   "en": "Lucas's Letter"
+  },
+  "4031016": {
+   "zh": "达克鲁的信件",
+   "source": "dvg",
+   "en": "The Dark Lord's Letter"
+  },
+  "4031028": {
+   "zh": "泽莉娅的地图片段",
+   "source": "dvg",
+   "en": "Zelya's Map Fragment"
+  },
+  "4031029": {
+   "zh": "不祥的腐枝",
+   "source": "dvg",
+   "en": "Ominous Rotten Branch"
+  },
+  "4031080": {
+   "zh": "奇怪的蘑菇孢子",
+   "source": "dvg",
+   "en": "Strange Mushroom Spore"
+  },
+  "4031081": {
+   "zh": "发光蘑菇",
+   "source": "dvg",
+   "en": "Glowing Mushroom"
+  },
+  "4031088": {
+   "zh": "腐烂的树根碎片",
+   "source": "dvg",
+   "en": "Rotten Root Fragment"
+  },
+  "4031089": {
+   "zh": "刘易斯的信",
+   "source": "dvg",
+   "en": "Lewis's Letter"
+  },
+  "4031091": {
+   "zh": "刘易斯的信",
+   "source": "dvg",
+   "en": "Lewis's Letter"
+  },
+  "4031092": {
+   "zh": "长老斯坦的信",
+   "source": "dvg",
+   "en": "Chief Stan's Letter"
+  },
+  "4031093": {
+   "zh": "光之魔法共振",
+   "source": "dvg",
+   "en": "Luminous Magical Resonance"
+  },
+  "4031094": {
+   "zh": "古代卷轴碎片 1",
+   "source": "dvg",
+   "en": "The First Piece of an Ancient Scroll"
+  },
+  "4031095": {
+   "zh": "古代卷轴碎片 2",
+   "source": "dvg",
+   "en": "The Second Piece of an Ancient Scroll"
+  },
+  "4031096": {
+   "zh": "古代卷轴碎片 3",
+   "source": "dvg",
+   "en": "The Third Piece of an Ancient Scroll"
+  },
+  "4031103": {
+   "zh": "旧地图碎片(1/4)",
+   "source": "dvg",
+   "en": "Old Map Piece (1/4)"
+  },
+  "4031104": {
+   "zh": "旧地图碎片(2/4)",
+   "source": "dvg",
+   "en": "Old Map Piece (2/4)"
+  },
+  "4031105": {
+   "zh": "旧地图碎片(3/4)",
+   "source": "dvg",
+   "en": "Old Map Piece (3/4)"
+  },
+  "4031106": {
+   "zh": "旧地图碎片(4/4)",
+   "source": "dvg",
+   "en": "Old Map Piece (4/4)"
+  },
+  "4031110": {
+   "zh": "贝蒂的报告",
+   "source": "dvg",
+   "en": "Betty's report"
+  },
+  "4031111": {
+   "zh": "明明夫人的烹饪配方",
+   "source": "dvg",
+   "en": "Mrs. Ming Ming's Cooking Recipe"
+  },
+  "4031112": {
+   "zh": "布鲁斯的特制蛋糕",
+   "source": "dvg",
+   "en": "Bruce's Special Cake"
+  },
+  "4031113": {
+   "zh": "维生素软糖",
+   "source": "dvg",
+   "en": "Vitamin Gummy"
+  },
+  "4031114": {
+   "zh": "特殊的吸血蝙蝠恐惧症治疗药",
+   "source": "dvg",
+   "en": "Special Stirge Phobia Cure"
+  },
+  "4031115": {
+   "zh": "烧焦的阿尔康卷轴",
+   "source": "dvg",
+   "en": "Scorched Arcon Scroll"
+  },
+  "4031116": {
+   "zh": "长老斯坦的旧锤子",
+   "source": "dvg",
+   "en": "Old Chief Stan's Hammer"
+  },
+  "4031117": {
+   "zh": "长老斯坦的锤子",
+   "source": "dvg",
+   "en": "Chief Stan's Hammer"
+  },
+  "4031118": {
+   "zh": "破损的账簿页",
+   "source": "dvg",
+   "en": "Torn Ledger Pages"
+  },
+  "4031119": {
+   "zh": "未完成的账簿",
+   "source": "dvg",
+   "en": "Incomplete Ledger"
+  },
+  "4031120": {
+   "zh": "装订好的账簿",
+   "source": "dvg",
+   "en": "Bound Ledger"
+  },
+  "4031121": {
+   "zh": "光滑的角珠",
+   "source": "dvg",
+   "en": "Smooth Horn Marble"
+  },
+  "4031122": {
+   "zh": "破损的纸条",
+   "source": "dvg",
+   "en": "Torn Note"
+  },
+  "4031123": {
+   "zh": "赫丽娜的箱子",
+   "source": "dvg",
+   "en": "Athena Pierce's Box"
+  },
+  "4031124": {
+   "zh": "破损的木弓",
+   "source": "dvg",
+   "en": "Broken Wooden Bow"
+  },
+  "4031125": {
+   "zh": "修好的木弓",
+   "source": "dvg",
+   "en": "Repaired Wooden Bow"
+  },
+  "4031126": {
+   "zh": "阿勒斯的礼物袋",
+   "source": "dvg",
+   "en": "Alex's Gift Sack"
+  },
+  "4031127": {
+   "zh": "送给内拉的礼物",
+   "source": "dvg",
+   "en": "A Gift for Nella"
+  },
+  "4031128": {
+   "zh": "送给JM的礼物",
+   "source": "dvg",
+   "en": "A Gift for JM"
+  },
+  "4031129": {
+   "zh": "万圣节糖果",
+   "source": "dvg",
+   "en": "Halloween Candies"
+  },
+  "4031130": {
+   "zh": "盖过章的账簿",
+   "source": "dvg",
+   "en": "Stamped Ledger"
+  },
+  "4031131": {
+   "zh": "加密文件",
+   "source": "dvg",
+   "en": "Encrypted Document"
+  },
+  "4031132": {
+   "zh": "加密文件",
+   "source": "dvg",
+   "en": "Encrypted Document (Alt)"
+  },
+  "4031133": {
+   "zh": "真实之墨",
+   "source": "dvg",
+   "en": "Ink of Truth"
+  },
+  "4031134": {
+   "zh": "枫叶",
+   "source": "dvg",
+   "en": "Maple Leaf"
+  },
+  "4031135": {
+   "zh": "解密文件",
+   "source": "dvg",
+   "en": "Deciphered Document"
+  },
+  "4031136": {
+   "zh": "修正后的账簿",
+   "source": "dvg",
+   "en": "Amended Ledger"
+  },
+  "4160000": {
+   "zh": "宠物能力转移卷轴",
+   "source": "dvg",
+   "en": "Pet Ability Transfer Scroll"
+  },
+  "5000011": {
+   "zh": "枫叶蜗牛",
+   "source": "dvg",
+   "en": "Maple Snail"
+  },
+  "5000012": {
+   "zh": "猴子",
+   "source": "dvg",
+   "en": "Monkey"
+  },
+  "5000013": {
+   "zh": "小白虎",
+   "source": "dvg",
+   "en": "White Tiger"
+  },
+  "5000014": {
+   "zh": "大象",
+   "source": "dvg",
+   "en": "Elephant"
+  },
+  "5000015": {
+   "zh": "圣诞鹿",
+   "source": "dvg",
+   "en": "Dasher"
+  },
+  "5000016": {
+   "zh": "机器人",
+   "source": "dvg",
+   "en": "Robot"
+  },
+  "5000017": {
+   "zh": "小白雪人",
+   "source": "dvg",
+   "en": "Mini Yeti"
+  },
+  "5000018": {
+   "zh": "火鸡",
+   "source": "dvg",
+   "en": "Turkey"
+  },
+  "5000019": {
+   "zh": "小企企",
+   "source": "dvg",
+   "en": "Penguin"
+  },
+  "5000020": {
+   "zh": "黑兔",
+   "source": "dvg",
+   "en": "Black Bunny"
+  },
+  "5000021": {
+   "zh": "雪犬",
+   "source": "dvg",
+   "en": "Husky (Alt)"
+  },
+  "5000022": {
+   "zh": "豪猪",
+   "source": "dvg",
+   "en": "Porcupine"
+  },
+  "5000023": {
+   "zh": "鬼灵精怪",
+   "source": "dvg",
+   "en": "Jr. Reaper"
+  },
+  "5000024": {
+   "zh": "雪人",
+   "source": "dvg",
+   "en": "Snowman"
+  },
+  "5000025": {
+   "zh": "橙色老虎",
+   "source": "dvg",
+   "en": "Orange Tiger"
+  },
+  "5000026": {
+   "zh": "臭鼬",
+   "source": "dvg",
+   "en": "Skunk"
+  },
+  "5000027": {
+   "zh": "花蘑菇仔",
+   "source": "dvg",
+   "en": "Kino"
+  },
+  "5000028": {
+   "zh": "大猩猩机器人",
+   "source": "dvg",
+   "en": "Gorilla Robo"
+  },
+  "5000029": {
+   "zh": "水晶银圣诞鹿",
+   "source": "dvg",
+   "en": "Crys.Rudolph"
+  },
+  "5000030": {
+   "zh": "巨嘴鸟",
+   "source": "dvg",
+   "en": "Toucan"
+  },
+  "5000031": {
+   "zh": "白鸭",
+   "source": "dvg",
+   "en": "White Duck"
+  },
+  "5000032": {
+   "zh": "小金猪",
+   "source": "dvg",
+   "en": "Golden Pig"
+  },
+  "5000033": {
+   "zh": "蜗牛",
+   "source": "dvg",
+   "en": "Snail (Alt)"
+  },
+  "5010000": {
+   "zh": "微笑太阳",
+   "source": "dvg",
+   "en": "Smiley Sun"
+  },
+  "5010006": {
+   "zh": "创始者之微光",
+   "source": "dvg",
+   "en": "Glimmer of the Founder"
+  },
+  "5010007": {
+   "zh": "创始者之辉光",
+   "source": "dvg",
+   "en": "Glow of the Founder"
+  },
+  "5010008": {
+   "zh": "创始者之荣光",
+   "source": "dvg",
+   "en": "Radiance of the Founder"
+  },
+  "5030003": {
+   "zh": "温馨咖啡屋",
+   "source": "dvg",
+   "en": "Cozy Coffeehouse"
+  },
+  "5070006": {
+   "zh": "道具喇叭",
+   "source": "dvg",
+   "en": "Item Megaphone"
+  },
+  "5070010": {
+   "zh": "红喇叭",
+   "source": "dvg",
+   "en": "Megaphone (Alt)"
+  },
+  "5070016": {
+   "zh": "双倍道具喇叭",
+   "source": "dvg",
+   "en": "Double Item Megaphone"
+  },
+  "5121000": {
+   "zh": "GM的风之祝福",
+   "source": "dvg",
+   "en": "GM's Blessing of Wind"
+  },
+  "5121001": {
+   "zh": "GM的精准祝福",
+   "source": "dvg",
+   "en": "GM's Blessing of Precision"
+  },
+  "5121002": {
+   "zh": "红蜗牛入侵",
+   "source": "dvg",
+   "en": "Red Snail Invasion"
+  },
+  "5121003": {
+   "zh": "橙色蘑菇入侵",
+   "source": "dvg",
+   "en": "Orange Mushroom Invasion"
+  },
+  "5121004": {
+   "zh": "缎带猪入侵",
+   "source": "dvg",
+   "en": "Ribbon Pig Invasion"
+  },
+  "5121005": {
+   "zh": "墨水瓶的祝福",
+   "source": "dvg",
+   "en": "Inkwell's Blessing (Alt)"
+  },
+  "5140005": {
+   "zh": "特殊商店许可证",
+   "source": "dvg",
+   "en": "Special Store Permit"
+  },
+  "5151000": {
+   "zh": "射手村染发券（普通）",
+   "source": "dvg",
+   "en": "Mystery Hair Color Coupon"
+  },
+  "5151100": {
+   "zh": "射手村染发券（VIP）",
+   "source": "dvg",
+   "en": "Signature Color Coupon"
+  },
+  "5151200": {
+   "zh": "自定义混合染发券",
+   "source": "dvg",
+   "en": "Custom Mix Dye Coupon"
+  },
+  "5152300": {
+   "zh": "自定义混色眼色券",
+   "source": "dvg",
+   "en": "Custom Colorblend Eye Color Coupon"
+  },
+  "5222000": {
+   "zh": "神秘时装箱",
+   "source": "dvg",
+   "en": "Mystery Fashion Crate"
+  },
+  "5222002": {
+   "zh": "万圣节神秘时装箱",
+   "source": "dvg",
+   "en": "Halloween Mystery Fashion Crate"
+  },
+  "5222100": {
+   "zh": "极光神秘时装箱",
+   "source": "dvg",
+   "en": "Aurora Mystery Fashion Crate"
+  },
+  "5249000": {
+   "zh": "高级宠物食品",
+   "source": "dvg",
+   "en": "Premium Pet Food"
+  },
+  "5450000": {
+   "zh": "便携式仓库",
+   "source": "dvg",
+   "en": "Portable Storage"
+  },
+  "5680002": {
+   "zh": "消耗栏5格扩展券",
+   "source": "translated",
+   "en": "Use Tab 5-slot Coupon"
+  },
+  "5680003": {
+   "zh": "设置栏5格扩展券",
+   "source": "translated",
+   "en": "Set Up Tab 5-Slot Coupon"
+  },
+  "5680004": {
+   "zh": "其他栏5格扩展券",
+   "source": "translated",
+   "en": "Etc Tab 5-Slot Coupon"
+  },
+  "5680005": {
+   "zh": "菲伦时装套装兑换券",
+   "source": "dvg",
+   "en": "Fern Outfit Set Coupon"
+  },
+  "5680006": {
+   "zh": "休塔尔克时装套装兑换券",
+   "source": "dvg",
+   "en": "Stark Outfit Set Coupon"
+  },
+  "5680007": {
+   "zh": "辛美尔时装套装兑换券",
+   "source": "dvg",
+   "en": "Himmel Outfit Set Coupon"
+  },
+  "5680008": {
+   "zh": "尤贝尔时装套装兑换券",
+   "source": "dvg",
+   "en": "Übel Outfit Set Coupon"
+  },
+  "5680009": {
+   "zh": "阿乌拉时装套装兑换券",
+   "source": "dvg",
+   "en": "Aura Outfit Set Coupon"
+  },
+  "5680010": {
+   "zh": "莉妮耶时装套装兑换券",
+   "source": "dvg",
+   "en": "Linie Outfit Set Coupon"
+  },
+  "5680011": {
+   "zh": "琉古纳时装套装兑换券",
+   "source": "dvg",
+   "en": "Lügner Outfit Set Coupon"
+  },
+  "5680012": {
+   "zh": "10个安全护身符兑换券",
+   "source": "dvg",
+   "en": "10 Safety Charm Exchange Coupon"
+  },
+  "5680013": {
+   "zh": "10个超级喇叭兑换券",
+   "source": "dvg",
+   "en": "10 Super Megaphone Exchange Coupon"
+  },
+  "5680014": {
+   "zh": "30个高级宠物食品兑换券",
+   "source": "dvg",
+   "en": "30 Premium Pet Food Exchange Coupon"
+  },
+  "5680015": {
+   "zh": "5个双倍道具喇叭兑换券",
+   "source": "dvg",
+   "en": "5 Double Item Megaphone Exchange Coupon"
+  },
+  "5680016": {
+   "zh": "20个喇叭兑换券",
+   "source": "dvg",
+   "en": "20 Megaphone Exchange Coupon"
+  },
+  "5782000": {
+   "zh": "高级染色棱镜",
+   "source": "dvg",
+   "en": "Premium Coloring Prism"
+  },
+  "5782001": {
+   "zh": "调色板清洁剂",
+   "source": "dvg",
+   "en": "Palette Cleanser"
+  },
+  "5782002": {
+   "zh": "神秘调色板",
+   "source": "dvg",
+   "en": "Mystery Palette"
+  },
+  "5782003": {
+   "zh": "专业染色棱镜",
+   "source": "dvg",
+   "en": "Coloring Prism Pro"
+  },
+  "5782004": {
+   "zh": "武器特效棱镜",
+   "source": "dvg",
+   "en": "Weapon Effect Prism"
   }
  },
  "dvg_not_used": [
@@ -1302,20 +5128,61 @@
    "dvg_en": "The Manager's Room"
   },
   {
-   "kind": "npc",
-   "id": 237,
+   "kind": "item",
+   "id": 2430009,
    "reason": "English differs",
-   "en": "Mailbox (Henesys)",
-   "dvg": "信箱",
-   "dvg_en": "Mailbox"
+   "en": "Hired Merchants Box",
+   "dvg": "经典世界庆典2026礼盒（青铜）",
+   "dvg_en": "MapleStory Fest 2026 Gift Box (Bronze)"
   },
   {
-   "kind": "npc",
-   "id": 433,
+   "kind": "item",
+   "id": 2430010,
    "reason": "English differs",
-   "en": "Mailbox (Kerning City)",
-   "dvg": "信箱",
-   "dvg_en": "Mailbox"
+   "en": "Atmospheric Effect Box",
+   "dvg": "经典世界庆典2026礼盒（白银）",
+   "dvg_en": "MapleStory Fest 2026 Gift Box (Silver)"
+  },
+  {
+   "kind": "item",
+   "id": 2450000,
+   "reason": "English differs",
+   "en": "2x EXP Coupon (30 min)",
+   "dvg": "1.5倍经验券（15分钟）",
+   "dvg_en": "1.5x EXP Coupon (15 min)"
+  },
+  {
+   "kind": "item",
+   "id": 2450001,
+   "reason": "English differs",
+   "en": "3x EXP Coupon (15 min)",
+   "dvg": "2倍经验券（15分钟）",
+   "dvg_en": "2x EXP Coupon (15 min)"
+  },
+  {
+   "kind": "item",
+   "id": 5680002,
+   "reason": "English differs",
+   "en": "Use Tab 5-slot Coupon",
+   "dvg": "芙莉莲时装套装兑换券",
+   "dvg_en": "Frieren Outfit Set Coupon"
+  },
+  {
+   "kind": "item",
+   "id": 5680003,
+   "reason": "English differs",
+   "en": "Set Up Tab 5-Slot Coupon",
+   "dvg": "芙莉莲时装套装（卷发）兑换券",
+   "dvg_en": "Frieren Outfit Set (Ringlets) Coupon"
+  },
+  {
+   "kind": "item",
+   "id": 5680004,
+   "reason": "English differs",
+   "en": "Etc Tab 5-Slot Coupon",
+   "dvg": "芙莉莲时装套装（睡衣）兑换券",
+   "dvg_en": "Frieren Outfit Set (Sleep) Coupon"
   }
- ]
+ ],
+ "translations_not_used": []
 }

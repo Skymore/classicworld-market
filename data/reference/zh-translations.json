@@ -1,0 +1,321 @@
+{
+ "version": "2026-11-03",
+ "note": "Hand-kept simplified names for what DVG, Mapledex and the Classic World client data give no Chinese name. Entries with cms_quest use the Chinese MapleStory (CMS v148-v202) client name of that GMS quest id, read from https://maplestory.io/api/CMS/202/quest; the rest are written from CMS terms. tools/zh_names.py build uses an entry only while its en matches.",
+ "items": {
+  "2430009": {
+   "en": "Hired Merchants Box",
+   "zh": "雇佣商店箱",
+   "note": "雇佣商店 as in CMS 5030028 熊猫雇佣商店"
+  },
+  "2430010": {
+   "en": "Atmospheric Effect Box",
+   "zh": "氛围效果箱",
+   "note": "DVG's name for 2430043, same English"
+  },
+  "2450000": {
+   "en": "2x EXP Coupon (30 min)",
+   "zh": "2倍经验券（30分钟）",
+   "note": "DVG's pattern for 2450001 2倍经验券（15分钟）"
+  },
+  "2450001": {
+   "en": "3x EXP Coupon (15 min)",
+   "zh": "3倍经验券（15分钟）",
+   "note": "DVG's pattern for 2450001 2倍经验券（15分钟）"
+  },
+  "5680002": {
+   "en": "Use Tab 5-slot Coupon",
+   "zh": "消耗栏5格扩展券",
+   "note": "CMS 2430769 消耗栏8格扩展券"
+  },
+  "5680003": {
+   "en": "Set Up Tab 5-Slot Coupon",
+   "zh": "设置栏5格扩展券",
+   "note": "CMS 2430770 设置栏8格扩展券"
+  },
+  "5680004": {
+   "en": "Etc Tab 5-Slot Coupon",
+   "zh": "其他栏5格扩展券",
+   "note": "CMS 2430771 其他栏8格扩展券"
+  }
+ },
+ "quests": {
+  "10600": {
+   "en": "Zelya's Map",
+   "zh": "泽莉娅的地图"
+  },
+  "10601": {
+   "en": "Natural Adhesive",
+   "zh": "天然黏合剂"
+  },
+  "10602": {
+   "en": "The Road Back Home",
+   "zh": "回家的路"
+  },
+  "10603": {
+   "en": "Old Friends",
+   "zh": "老朋友"
+  },
+  "10604": {
+   "en": "Myra's Old Friend",
+   "zh": "米拉的老朋友"
+  },
+  "10607": {
+   "en": "The Roots of Regret",
+   "zh": "遗憾之根"
+  },
+  "10608": {
+   "en": "A Fairy's Insight",
+   "zh": "妖精的洞察"
+  },
+  "10609": {
+   "en": "Tracing the Resonance",
+   "zh": "追寻共鸣"
+  },
+  "10610": {
+   "en": "The Yawning Abyss",
+   "zh": "无底深渊"
+  },
+  "10611": {
+   "en": "Welcome to the Hollow",
+   "zh": "欢迎来到遗忘空洞"
+  },
+  "10612": {
+   "en": "Nyroth's Fragile Hope",
+   "zh": "尼洛斯脆弱的希望"
+  },
+  "10613": {
+   "en": "Matters of the Heart",
+   "zh": "心事"
+  },
+  "10614": {
+   "en": "A Memory of Iron",
+   "zh": "钢铁的记忆"
+  },
+  "10615": {
+   "en": "A Heart of Stillness and Wood",
+   "zh": "静谧的木之心"
+  },
+  "10616": {
+   "en": "The Sage's Burden",
+   "zh": "贤者的重担"
+  },
+  "12000": {
+   "en": "Collecting Huckle's Magic Ingredients",
+   "zh": "何克的魔法材料收集",
+   "cms_quest": 3038
+  },
+  "12100": {
+   "en": "Missing Staff Sergeant Charlie",
+   "zh": "查里中士",
+   "cms_quest": 3000
+  },
+  "12101": {
+   "en": "A Request from Staff Sergeant Charlie",
+   "zh": "查里中士的拜托",
+   "cms_quest": 3039
+  },
+  "12102": {
+   "en": "A Report from Staff Sergeant Charlie",
+   "zh": "查里中士的报告"
+  },
+  "12103": {
+   "en": "Missing Sergeant Bravo",
+   "zh": "巴伯下士",
+   "cms_quest": 3001
+  },
+  "12104": {
+   "en": "A Request from Sergeant Bravo",
+   "zh": "巴伯下士的拜托",
+   "cms_quest": 3040
+  },
+  "12105": {
+   "en": "A Report from Sergeant Bravo",
+   "zh": "巴伯下士的报告"
+  },
+  "12106": {
+   "en": "Missing Corporal Easy",
+   "zh": "伊吉上等兵",
+   "cms_quest": 3002
+  },
+  "12107": {
+   "en": "A Request from Corporal Easy",
+   "zh": "伊吉上等兵的拜托",
+   "cms_quest": 3041
+  },
+  "12108": {
+   "en": "A Report from Corporal Easy",
+   "zh": "伊吉上等兵的报告"
+  },
+  "12109": {
+   "en": "The Descendent of the Author of the Book of Ancient",
+   "zh": "《上古魔书》作者的后代",
+   "cms_quest": 3004
+  },
+  "12110": {
+   "en": "Hella's Missing",
+   "zh": "消失的赫拉",
+   "cms_quest": 3005
+  },
+  "12111": {
+   "en": "Where's Hella?",
+   "zh": "赫拉去哪儿？",
+   "cms_quest": 3006
+  },
+  "12112": {
+   "en": "One Clue",
+   "zh": "一个钥匙",
+   "cms_quest": 3007
+  },
+  "12113": {
+   "en": "Looking For the Old Lady",
+   "zh": "老太太",
+   "cms_quest": 3008
+  },
+  "12114": {
+   "en": "Spiruna's Black Crystal",
+   "zh": "斯皮罗纳的黑水晶",
+   "cms_quest": 3009
+  },
+  "12115": {
+   "en": "The Cracked Black Crystal",
+   "zh": "被破坏的黑水晶",
+   "cms_quest": 3010
+  },
+  "12116": {
+   "en": "How to Restore the Cracked Black Crystal",
+   "zh": "水晶修改办法",
+   "cms_quest": 3011
+  },
+  "12117": {
+   "en": "A Word from the Assistant",
+   "zh": "助手的帮助",
+   "cms_quest": 3012,
+   "note": "CMS 3012 reads 住手的帮助, a typo of 助手"
+  },
+  "12118": {
+   "en": "To Acquire the Fairy Dust",
+   "zh": "妖精之粉",
+   "cms_quest": 3013
+  },
+  "12119": {
+   "en": "Acquiring the Fairy Dust",
+   "zh": "得到的妖精之粉",
+   "cms_quest": 3014
+  },
+  "12120": {
+   "en": "The Truth Revealed",
+   "zh": "判明真实",
+   "cms_quest": 3015
+  },
+  "12121": {
+   "en": "Hella is Found!",
+   "zh": "找到的赫拉",
+   "cms_quest": 3016
+  },
+  "12122": {
+   "en": "The Small Grave That's Hidden",
+   "zh": "小墓地",
+   "cms_quest": 3017
+  },
+  "12123": {
+   "en": "An Old Ring",
+   "zh": "老戒指",
+   "cms_quest": 3018
+  },
+  "12124": {
+   "en": "The Secrets Behind the Ring?",
+   "zh": "戒指的秘密",
+   "cms_quest": 3019
+  },
+  "12125": {
+   "en": "Collecting Wolf Skin",
+   "zh": "收集狼皮",
+   "note": "CMS 3020 repeats 3019's name 戒指的秘密; translated"
+  },
+  "12126": {
+   "en": "Looking for the Sage in Perion",
+   "zh": "勇士部落的贤者",
+   "cms_quest": 3021
+  },
+  "12127": {
+   "en": "Dances with Balrog and His Recovery",
+   "zh": "武术教练的拜托",
+   "cms_quest": 3022
+  },
+  "12128": {
+   "en": "Looking for the Sage in Ellinia",
+   "zh": "魔法密林的贤者",
+   "cms_quest": 3023
+  },
+  "12129": {
+   "en": "Grendel the Really Old and His Recovery",
+   "zh": "汉斯的拜托",
+   "cms_quest": 3024
+  },
+  "12130": {
+   "en": "Looking for the Sage in Henesys",
+   "zh": "射手村的贤者",
+   "cms_quest": 3025
+  },
+  "12131": {
+   "en": "Athena Pierce and Her Recovery",
+   "zh": "赫丽娜的拜托",
+   "cms_quest": 3026
+  },
+  "12132": {
+   "en": "Looking for the Sage in Kerning City",
+   "zh": "废弃都市的贤者",
+   "cms_quest": 3027
+  },
+  "12133": {
+   "en": "Dark Lord and His Recovery",
+   "zh": "达克鲁的拜托",
+   "cms_quest": 3028
+  },
+  "12134": {
+   "en": "All the Map Pieces in One Place",
+   "zh": "散落的地图碎片",
+   "cms_quest": 3029
+  },
+  "12135": {
+   "en": "Restoring the Map",
+   "zh": "地图复原",
+   "cms_quest": 3030
+  },
+  "12136": {
+   "en": "Acquiring the Memory Powder",
+   "zh": "记忆之粉",
+   "cms_quest": 3031
+  },
+  "12137": {
+   "en": "The Map is in One Piece",
+   "zh": "地图复原2",
+   "cms_quest": 3032
+  },
+  "12138": {
+   "en": "The Secrets Behind the Statue",
+   "zh": "雕像的秘密",
+   "cms_quest": 3033
+  },
+  "12139": {
+   "en": "The Book of Ancient is Back!",
+   "zh": "再寻找的上古魔书",
+   "cms_quest": 3034
+  },
+  "12140": {
+   "en": "Alcaster and the Dark Crystal",
+   "zh": "阿尔卡斯特和星石",
+   "cms_quest": 3035
+  },
+  "12141": {
+   "en": "Traces of Nick",
+   "zh": "寻找尼克的痕迹",
+   "cms_quest": 3036
+  },
+  "12142": {
+   "en": "Nick's Ring",
+   "zh": "尼克的戒指",
+   "cms_quest": 3037
+  }
+ }
+}

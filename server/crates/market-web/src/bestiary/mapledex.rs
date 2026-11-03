@@ -1,7 +1,8 @@
 //! Mapledex `monsters.json`, `maps.json` and `npcs.json` -> bestiary rows,
 //! plus the NiaDB bundles that fill Mapledex's gaps (`add_niadb`): maps it
 //! does not list, names of NPCs it does not know, and NPC shops; and
-//! `zh-names.json` (`add_zh_names`): simplified names it lacks.
+//! `zh-names.json` (`add_zh_names`, `ZhNames::add_item_names`): simplified
+//! names it lacks.
 //!
 //! Mapledex files are `{"items": [...]}`, NiaDB files plain arrays. Bad
 //! references are skipped and reported in `Dataset::warnings` rather than
@@ -14,6 +15,7 @@ use anyhow::{Context, Result};
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
+use super::catalog::Catalog;
 use super::rows::{
     DropRow, MapNpcRow, MapRow, MobRow, NpcRow, PortalRow, QuestNeedRow, QuestRewardRow, QuestRow,
     SpawnPointRow, SpawnRow, WorldRegionRow, WorldSpotMapRow, WorldSpotRow,
@@ -1479,12 +1481,17 @@ impl Dataset {
 // ---------- zh-names.json ----------
 
 /// `data/reference/zh-names.json` (written by `tools/zh_names.py`):
-/// simplified names for the maps and NPCs Mapledex gives none.
+/// simplified names for the maps, NPCs, quests and items no other source
+/// names in Chinese.
 #[derive(Debug, Deserialize)]
 pub struct ZhNames {
     pub version: String,
     maps: BTreeMap<i32, ZhName>,
     npcs: BTreeMap<i32, ZhName>,
+    #[serde(default)]
+    quests: BTreeMap<i32, ZhName>,
+    #[serde(default)]
+    items: BTreeMap<i32, ZhName>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1503,6 +1510,12 @@ enum ZhSource {
     Dvg,
     /// Mapledex's GMS-TW traditional name, converted with OpenCC t2s.
     MapledexTw,
+    /// The Chinese MapleStory client's name for the same GMS quest
+    /// (`cms_quest`), kept in `data/reference/zh-translations.json`.
+    Cms,
+    /// Our translation (`data/reference/zh-translations.json`), for names
+    /// none of the above has.
+    Translated,
 }
 
 /// Names `add_zh_names` set, per source.
@@ -1510,12 +1523,16 @@ enum ZhSource {
 pub struct ZhSourceCounts {
     pub dvg: usize,
     pub mapledex_tw: usize,
+    pub cms: usize,
+    pub translated: usize,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize)]
 pub struct ZhNameCounts {
     pub maps: ZhSourceCounts,
     pub npcs: ZhSourceCounts,
+    pub quests: ZhSourceCounts,
+    pub items: ZhSourceCounts,
 }
 
 impl ZhNames {
@@ -1528,18 +1545,36 @@ impl ZhNames {
     pub fn from_json(json: &str) -> Result<Self> {
         serde_json::from_str(json).context("parsing zh-names.json")
     }
+
+    /// Sets `name_zh` on catalogue items that have none. Call after
+    /// `ItemReferences::extend`, which adds those rows, and before
+    /// `resolve_drops`, which copies item names onto drops; existing names
+    /// are kept. Warnings go to `catalog.warnings`.
+    pub fn add_item_names(&self, catalog: &mut Catalog) -> ZhSourceCounts {
+        let items = catalog.items.iter_mut().map(|i| (i.id, &mut i.name_zh));
+        fill_zh("item", items, &self.items, &mut catalog.warnings)
+    }
 }
 
 impl Dataset {
-    /// Sets `name_zh` on maps and NPCs that have none, and on the ones whose
-    /// Mapledex name `tools/zh_names.py` found wrong. Call after `add_niadb`,
-    /// which adds most of those rows; other existing names are kept.
+    /// Sets `name_zh` on maps, NPCs and quests that have none, and on the maps
+    /// whose Mapledex name `tools/zh_names.py` found wrong. Call after
+    /// `add_niadb`, which adds most of those maps and NPCs, and after
+    /// `add_quests`; other existing names are kept. `ZhNameCounts::items` is
+    /// left at zero: `ZhNames::add_item_names` fills items.
     pub fn add_zh_names(&mut self, names: &ZhNames) -> ZhNameCounts {
         let maps = self.maps.iter_mut().map(|m| (m.id, &mut m.name_zh));
         let maps = fill_zh("map", maps, &names.maps, &mut self.warnings);
         let npcs = self.npcs.iter_mut().map(|n| (n.id, &mut n.name_zh));
         let npcs = fill_zh("NPC", npcs, &names.npcs, &mut self.warnings);
-        ZhNameCounts { maps, npcs }
+        let quests = self.quests.iter_mut().map(|q| (q.id, &mut q.name_zh));
+        let quests = fill_zh("quest", quests, &names.quests, &mut self.warnings);
+        ZhNameCounts {
+            maps,
+            npcs,
+            quests,
+            items: ZhSourceCounts::default(),
+        }
     }
 }
 
@@ -1570,6 +1605,8 @@ fn fill_zh<'a>(
         match entry.source {
             ZhSource::Dvg => counts.dvg += 1,
             ZhSource::MapledexTw => counts.mapledex_tw += 1,
+            ZhSource::Cms => counts.cms += 1,
+            ZhSource::Translated => counts.translated += 1,
         }
     }
     for id in names.keys().filter(|id| !used.contains(*id)) {
@@ -1800,7 +1837,8 @@ mod tests {
                 "maps": {"10": {"zh": "不用", "source": "dvg"}, "20": {"zh": "城镇", "source": "dvg"},
                          "40": {"zh": " 隐藏之屋 ", "source": "mapledex-tw", "tw": "隱藏之屋"},
                          "77": {"zh": "没有", "source": "dvg"}},
-                "npcs": {"7": {"zh": "不用", "source": "dvg"}, "11": {"zh": "斯莱德", "source": "dvg"}},
+                "npcs": {"7": {"zh": "不用", "source": "dvg"}, "11": {"zh": "斯莱德", "source": "dvg"},
+                         "12": {"zh": "露西", "source": "translated"}},
                 "dvg_not_used": []}"#,
         )
         .unwrap();
@@ -1810,12 +1848,18 @@ mod tests {
             ZhNameCounts {
                 maps: ZhSourceCounts {
                     dvg: 1,
-                    mapledex_tw: 1
+                    mapledex_tw: 1,
+                    cms: 0,
+                    translated: 0
                 },
                 npcs: ZhSourceCounts {
                     dvg: 1,
-                    mapledex_tw: 0
+                    mapledex_tw: 0,
+                    cms: 0,
+                    translated: 1
                 },
+                quests: ZhSourceCounts::default(),
+                items: ZhSourceCounts::default(),
             }
         );
         let map = |id: i32| data.maps.iter().find(|m| m.id == id).unwrap();
@@ -1826,6 +1870,7 @@ mod tests {
         assert_eq!(npc(7).name_zh.as_deref(), Some("希娜"), "Mapledex kept");
         assert_eq!(npc(11).name_zh.as_deref(), Some("斯莱德"));
         assert_eq!(npc(11).name_en.as_deref(), Some("Slade"));
+        assert_eq!(npc(12).name_zh.as_deref(), Some("露西"));
         assert_eq!(
             data.warnings,
             vec![
@@ -1841,5 +1886,89 @@ mod tests {
             r#"{"version": "x", "maps": {"1": {"zh": "a", "source": "guess"}}, "npcs": {}}"#
         )
         .is_err());
+    }
+
+    #[test]
+    fn zh_names_fill_quests_and_items() {
+        use crate::bestiary::rows::ItemRow;
+
+        let names = ZhNames::from_json(
+            r#"{"version": "test", "maps": {}, "npcs": {},
+                "quests": {"5": {"zh": "老朋友", "source": "translated"},
+                           "7": {"zh": "赫丽娜的拜托", "source": "cms", "cms_quest": 3026},
+                           "6": {"zh": "不用", "source": "translated"}},
+                "items": {"1003000": {"zh": "回忆之帽", "source": "translated", "en": "Cap of Memories"},
+                          "1007104": {"zh": "地狱使者帽", "source": "mapledex-tw", "tw": "地獄使者帽"},
+                          "2000000": {"zh": "不用", "source": "translated"},
+                          "4999999": {"zh": "没有", "source": "translated"}}}"#,
+        )
+        .unwrap();
+        let quest = |id: i32, zh: Option<&str>| QuestRow {
+            id,
+            name_en: Some(format!("Quest {id}")),
+            name_zh: zh.map(Into::into),
+            name_tw: None,
+            npc_id: None,
+            level_min: None,
+            repeats: None,
+            starts_at: None,
+            ends_at: None,
+            unreleased: false,
+        };
+        let mut data = Dataset {
+            quests: vec![quest(5, None), quest(6, Some("旧名")), quest(7, None)],
+            ..Default::default()
+        };
+        let counts = data.add_zh_names(&names);
+        assert_eq!((counts.quests.translated, counts.quests.cms), (1, 1));
+        assert_eq!(data.quests[2].name_zh.as_deref(), Some("赫丽娜的拜托"));
+        assert_eq!(counts.items, ZhSourceCounts::default());
+        assert_eq!(data.quests[0].name_zh.as_deref(), Some("老朋友"));
+        assert_eq!(data.quests[1].name_zh.as_deref(), Some("旧名"), "kept");
+        assert_eq!(
+            data.warnings,
+            vec!["zh-names: quest 6 already has a simplified name; kept"]
+        );
+
+        let item = |id: i32, zh: Option<&str>| ItemRow {
+            id,
+            name_en: format!("Item {id}"),
+            name_zh: zh.map(Into::into),
+            category: "装备".into(),
+            subcategory: None,
+            req_level: None,
+            req_job_mask: None,
+            icon_url: None,
+            is_cash: false,
+        };
+        let mut catalog = Catalog {
+            items: vec![
+                item(1003000, None),
+                item(1007104, None),
+                item(2000000, Some("红色药水")),
+            ],
+            records: Vec::new(),
+            version: String::new(),
+            warnings: Vec::new(),
+        };
+        let counts = names.add_item_names(&mut catalog);
+        assert_eq!(
+            counts,
+            ZhSourceCounts {
+                dvg: 0,
+                mapledex_tw: 1,
+                cms: 0,
+                translated: 1
+            }
+        );
+        let zh: Vec<Option<&str>> = catalog.items.iter().map(|i| i.name_zh.as_deref()).collect();
+        assert_eq!(zh, [Some("回忆之帽"), Some("地狱使者帽"), Some("红色药水")]);
+        assert_eq!(
+            catalog.warnings,
+            vec![
+                "zh-names: item 2000000 already has a simplified name; kept",
+                "zh-names: item 4999999 is not in the bestiary",
+            ]
+        );
     }
 }

@@ -2,9 +2,10 @@
 //! market's items), Mapledex (items, equips, names of mobs, maps and NPCs),
 //! NiaDB (items, NPC names and shops, and what exists in Classic World: maps,
 //! spawns, mobs with launch stats, community-confirmed drops, unreleased
-//! Orbis / El Nath content) and zh-names.json (simplified map and NPC names
-//! Mapledex lacks, from DVG or Mapledex's traditional names). Idempotent: a
-//! re-run replaces the bestiary rows and upserts items.
+//! Orbis / El Nath content) and zh-names.json (simplified map, NPC, quest and
+//! item names the other sources lack, from DVG, Mapledex's traditional names or
+//! our translations). Idempotent: a re-run replaces the bestiary rows and
+//! upserts items.
 //!
 //! ```sh
 //! DATABASE_URL=postgres://... cargo run -p market-web --bin import_catalog -- \
@@ -56,6 +57,8 @@ async fn main() -> Result<()> {
     let references = ItemReferences::from_dirs(Path::new(mapledex_path), Path::new(niadb_path))?;
     let added = references.extend(&mut catalog);
     let niadb_stats = references.annotate_records(&mut catalog);
+    let zh_names = ZhNames::from_file(Path::new(zh_names_path))?;
+    let item_zh = zh_names.add_item_names(&mut catalog);
     let mut data = Dataset::from_dir(Path::new(mapledex_path))?;
     let (niadb, bestiary) =
         data.add_niadb_bestiary_dir(Path::new(niadb_path), chrono::Utc::now().date_naive())?;
@@ -64,8 +67,8 @@ async fn main() -> Result<()> {
     let dvg = data.add_dvg_mob_names(&dvg_mobs);
     let dvg_quests = DvgQuests::from_file(&Path::new(dvg_path).join("quest-list.json"))?;
     let quests = data.add_quests_from(Path::new(niadb_path), &dvg_quests, today)?;
-    let zh_names = ZhNames::from_file(Path::new(zh_names_path))?;
-    let zh = data.add_zh_names(&zh_names);
+    let mut zh = data.add_zh_names(&zh_names);
+    zh.items = item_zh;
     // NiaDB drops carry Classic World ids; this fills their names from the items.
     references.resolve_drops(&catalog, &mut data.drops);
     let warnings: Vec<&String> = catalog
@@ -111,8 +114,15 @@ async fn main() -> Result<()> {
     .await?;
     println!(
         "items    {:>5}  upserted ({market_items} from items.sqlite {:?}, {added} more from \
-         Mapledex {} / NiaDB {})",
-        s.items, catalog.version, references.mapledex_items, references.niadb_items
+         Mapledex {} / NiaDB {}; simplified names: {} from DVG, {} from Mapledex traditional, {} \
+         translated)",
+        s.items,
+        catalog.version,
+        references.mapledex_items,
+        references.niadb_items,
+        zh.items.dvg,
+        zh.items.mapledex_tw,
+        zh.items.translated
     );
     println!(
         "records  {:>5}  item records ({niadb_stats} with NiaDB equipment stats)",
@@ -157,7 +167,7 @@ async fn main() -> Result<()> {
     );
     println!(
         "npcs     {:>5}  ({} unreleased; {} named, {} from NiaDB; {} with a simplified name, {} \
-         from DVG, {} from Mapledex traditional; {} map placements)",
+         from DVG, {} from Mapledex traditional, {} translated; {} map placements)",
         s.npcs,
         s.npcs_unreleased,
         s.npcs_named,
@@ -165,15 +175,18 @@ async fn main() -> Result<()> {
         s.npcs_zh,
         zh.npcs.dvg,
         zh.npcs.mapledex_tw,
+        zh.npcs.translated,
         s.npc_placements
     );
     println!("shops    {:>5}  NPC shop rows from NiaDB", s.npc_shops);
     println!(
-        "quests   {:>5}  NiaDB ({} unreleased; {} with a simplified name from DVG, {} with an NPC; \
-         {} rewards, {} needs)",
+        "quests   {:>5}  NiaDB ({} unreleased; {} with a simplified name from DVG, {} from CMS, {} \
+         translated, {} with an NPC; {} rewards, {} needs)",
         s.quests,
         s.quests_unreleased,
         quests.named_zh,
+        zh.quests.cms,
+        zh.quests.translated,
         quests.with_npc,
         s.quest_rewards,
         s.quest_needs

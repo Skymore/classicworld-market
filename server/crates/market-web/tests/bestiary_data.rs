@@ -483,6 +483,10 @@ fn zh_names_fill_map_and_npc_gaps() {
         .iter()
         .map(|m| (m.id, m.name_zh.clone()))
         .collect();
+    data.add_quests_from(&repo_data("reference/niadb"), &dvg_quests(), fetch_day())
+        .unwrap();
+    let quests_english = data.quests.iter().filter(|q| q.name_zh.is_none()).count();
+    assert_eq!(quests_english, 59);
     data.warnings.clear();
 
     let counts = data.add_zh_names(&zh_names());
@@ -491,23 +495,35 @@ fn zh_names_fill_map_and_npc_gaps() {
         ZhNameCounts {
             maps: ZhSourceCounts {
                 dvg: 200,
-                mapledex_tw: 1
+                mapledex_tw: 1,
+                cms: 0,
+                translated: 0
             },
             npcs: ZhSourceCounts {
-                dvg: 51,
-                mapledex_tw: 0
+                dvg: 59,
+                mapledex_tw: 0,
+                cms: 0,
+                translated: 0
             },
+            quests: ZhSourceCounts {
+                dvg: 0,
+                mapledex_tw: 0,
+                cms: 40,
+                translated: 19
+            },
+            items: ZhSourceCounts::default(),
         }
     );
     assert!(data.warnings.is_empty(), "{:?}", data.warnings);
     let still_english = (
         data.maps.iter().filter(|m| m.name_zh.is_none()).count(),
         data.npcs.iter().filter(|n| n.name_zh.is_none()).count(),
+        data.quests.iter().filter(|q| q.name_zh.is_none()).count(),
     );
     assert_eq!(
         still_english,
-        (16, 9),
-        "Mapledex-only test maps, DVG placeholders and NiaDB maps DVG lacks"
+        (16, 1, 0),
+        "Mapledex-only test maps, DVG placeholders, NiaDB maps DVG lacks and NPC 1024 ????"
     );
     // Mapledex names stay, except the ones tools/zh_names.py found are
     // another map's (MAPLEDEX_WRONG there).
@@ -546,6 +562,14 @@ fn zh_names_fill_map_and_npc_gaps() {
     assert_eq!(npc(231).name_zh.as_deref(), Some("比安卡"));
     assert_eq!(npc(231).name_en.as_deref(), Some("Bianca"));
     assert_eq!(npc(1024).name_zh, None);
+    assert_eq!(npc(515).name_zh.as_deref(), Some("修安"), "DVG site search");
+    let quest = |id: i32| data.quests.iter().find(|q| q.id == id).unwrap();
+    assert_eq!(
+        quest(12131).name_zh.as_deref(),
+        Some("赫丽娜的拜托"),
+        "CMS quest 3026"
+    );
+    assert_eq!(quest(10611).name_zh.as_deref(), Some("欢迎来到遗忘空洞"));
 }
 
 #[test]
@@ -612,6 +636,20 @@ async fn items_sqlite_maps_every_row() {
     let refs = references();
     assert_eq!(refs.extend(&mut catalog), 1961);
     assert_eq!(catalog.items.len(), 2962);
+    let zh = zh_names().add_item_names(&mut catalog);
+    assert_eq!((zh.dvg, zh.mapledex_tw, zh.translated), (682, 0, 7));
+    assert!(catalog.warnings.is_empty(), "{:?}", catalog.warnings);
+    let item_zh = |id: i32| {
+        catalog
+            .items
+            .iter()
+            .find(|i| i.id == id)
+            .and_then(|i| i.name_zh.clone())
+    };
+    assert_eq!(item_zh(3000000).as_deref(), Some("橡木窗"));
+    assert_eq!(item_zh(1007100).as_deref(), Some("精美黑色韩服帽"));
+    assert_eq!(item_zh(5680002).as_deref(), Some("消耗栏5格扩展券"));
+    assert!(catalog.items.iter().all(|i| i.name_zh.is_some()));
     let mut data = mapledex();
     let resolution = refs.resolve_drops(&catalog, &mut data.drops);
     assert_eq!((resolution.by_name, resolution.unresolved), (15, 1392));
@@ -793,6 +831,8 @@ fn full(items: Vec<ItemRow>) -> Full {
     let mut catalog = catalog_of(items);
     refs.extend(&mut catalog);
     refs.annotate_records(&mut catalog);
+    let zh_names = zh_names();
+    let item_zh = zh_names.add_item_names(&mut catalog);
     let mut data = mapledex();
     let (_, bestiary) = data
         .add_niadb_bestiary_dir(&repo_data("reference/niadb"), fetch_day())
@@ -802,8 +842,8 @@ fn full(items: Vec<ItemRow>) -> Full {
     let quests = data
         .add_quests_from(&repo_data("reference/niadb"), &dvg_quests(), fetch_day())
         .unwrap();
-    let zh_names = zh_names();
-    let zh = data.add_zh_names(&zh_names);
+    let mut zh = data.add_zh_names(&zh_names);
+    zh.items = item_zh;
     refs.resolve_drops(&catalog, &mut data.drops);
     Full {
         catalog,
@@ -907,7 +947,11 @@ async fn full_import_is_idempotent_and_upgrades_an_r3_database() {
         ),
         (2919, 453, 1655, 1636, 1655, 281, 281, 315, 877, 426 + 21),
     );
-    assert_eq!((first.maps_zh, first.npcs_zh), (453 - 1, 281 - 9));
+    assert_eq!(
+        (first.maps_zh, first.npcs_zh),
+        (453 - 1, 281 - 1),
+        "080003500; NPC 1024 ????"
+    );
     assert_eq!(first.drops_meso as usize, input.bestiary.mesos);
     assert_eq!(
         (first.mobs_unreleased, first.maps_unreleased),
@@ -974,7 +1018,26 @@ async fn full_import_is_idempotent_and_upgrades_an_r3_database() {
     .await
     .unwrap();
     assert_eq!(zh_counts["maps"]["dvg"], 200);
-    assert_eq!(zh_counts["npcs"]["dvg"], 51);
+    assert_eq!(zh_counts["npcs"]["dvg"], 59);
+    assert_eq!(
+        (
+            zh_counts["quests"]["cms"].as_i64(),
+            zh_counts["quests"]["translated"].as_i64()
+        ),
+        (Some(40), Some(19))
+    );
+    let item_names: Vec<(i32, Option<String>)> =
+        sqlx::query_as("SELECT id, name_zh FROM items WHERE id IN (3000000, 5680002) ORDER BY id")
+            .fetch_all(&fresh.pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        item_names,
+        vec![
+            (3000000, Some("橡木窗".into())),
+            (5680002, Some("消耗栏5格扩展券".into()))
+        ]
+    );
     fresh.drop_schema().await;
     upgraded.drop_schema().await;
 }
