@@ -43,7 +43,7 @@ pub mod legacy;
 pub mod market_cache;
 pub mod realtime;
 pub mod scan_assignments;
-pub(crate) mod search;
+pub mod search;
 pub mod stats;
 pub mod sweep;
 pub mod traffic;
