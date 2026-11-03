@@ -648,7 +648,6 @@ export default function PriceTable() {
                       <div className="fsec">
                         <h4>
                           {words("职业", "Job")}
-                          <small>{words("只影响装备", "Equipment only")}</small>
                         </h4>
                         <div className="chips">
                           {jobs.map(([key, , zh, english]) => (

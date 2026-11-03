@@ -304,7 +304,6 @@ export default function Search({ page }: { page: any }) {
           <div className="fsec">
             <h4>
               {words("职业", "Job")}
-              <small>{words("只影响装备", "Equipment only")}</small>
             </h4>
             <div className="chips dex-chips" role="group" aria-label={words("职业", "Job")}>
               {[["", "所有职业", "All jobs"], ...jobs].map(
