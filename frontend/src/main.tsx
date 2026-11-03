@@ -2,8 +2,11 @@ import {
   Component,
   Suspense,
   lazy,
+  startTransition,
+  use,
   useEffect,
   useLayoutEffect,
+  type ComponentType,
   type ReactNode,
 } from "react";
 import { createRoot } from "react-dom/client";
@@ -22,14 +25,22 @@ import {
   initializePreferences,
 } from "./providers";
 import { AppShell } from "./components/shell";
-import { ensureStyle } from "./lib/styles";
+import { ensureStyle, useStyles } from "./lib/styles";
 import { queryClient } from "./lib/query";
-import { loadCatalog, catalogKey, readCatalogSnapshot } from "./lib/catalog";
+import {
+  loadCatalog,
+  catalogKey,
+  readCatalogSnapshot,
+  sameCatalog,
+} from "./lib/catalog";
+import { CATALOGUE_STYLES, SITE_STYLES } from "./lib/route-styles";
 import { WatchAlertsProvider } from "./components/watch-alerts";
 import { ToastHost } from "./components/toasts";
-import { Loading, ErrorState } from "./components/shared";
+import { Loading, ErrorState, Stall } from "./components/shared";
 import "./styles.css";
 import { trackPage } from "/web/js/lib/traffic.js";
+import { t } from "/web/js/lib/i18n.js";
+import { resolvePeriod } from "/web/js/lib/period.js";
 import Home, { loadPriceTable } from "./pages/home";
 
 /** The price table lives on the home page: old /prices and /sales links keep their query. */
@@ -43,39 +54,77 @@ const legacyPricePath = priceTablePath(new URL(location.href));
 if (legacyPricePath) history.replaceState(history.state, "", legacyPricePath);
 if (location.pathname === "/") void loadPriceTable();
 
-const Watch = lazy(() => import("./pages/watch"));
-const Alerts = lazy(() => import("./pages/alerts"));
-const Tools = lazy(() => import("./pages/tools"));
-const Enhancement = lazy(() => import("./pages/enhancement"));
-const Agent = lazy(() => import("./pages/agent"));
-const Selling = lazy(async () => {
-  await ensureStyle("selling");
-  return import("./pages/selling");
-});
-const Privacy = lazy(() => import("./pages/privacy"));
-const Download = lazy(async () => {
-  await ensureStyle("download");
-  return import("./pages/download");
-});
+/** A route chunk that renders once its site stylesheets apply (index.html links them). */
+function page<T extends { default: ComponentType<any> }>(
+  load: () => Promise<T>,
+  ...styles: string[]
+) {
+  return lazy(async () => {
+    const [module] = await Promise.all([
+      load(),
+      ...[...SITE_STYLES, ...styles].map(ensureStyle),
+    ]);
+    return module;
+  });
+}
+const loadWatch = () => import("./pages/watch");
+const loadAccount = () => import("./pages/account");
+const Watch = page(loadWatch);
+const Alerts = page(() => import("./pages/alerts"));
+const Tools = page(() => import("./pages/tools"));
+const Enhancement = page(() => import("./pages/enhancement"));
+const Agent = page(() => import("./pages/agent"));
+const Selling = page(() => import("./pages/selling"), "selling");
+const Privacy = page(() => import("./pages/privacy"));
+const Download = page(() => import("./pages/download"), "download");
 let catalogueModule: Promise<typeof import("./pages/catalogue")> | undefined;
+let catalogueLoaded: typeof import("./pages/catalogue") | undefined;
+// The catalogue pages need neither home.css nor account.css.
 const loadCatalogueModule = () =>
   (catalogueModule ??= Promise.all([
     import("./pages/catalogue"),
-    ensureStyle("dex"),
-    ensureStyle("item"),
-  ]).then(([module]) => module));
-const Catalogue = lazy(loadCatalogueModule);
-const Collect = lazy(async () => {
-  await ensureStyle("collect");
-  return import("./pages/collect");
-});
-const Account = lazy(() => import("./pages/account"));
-const Device = lazy(() => import("./pages/device"));
-const Contributors = lazy(() => import("./pages/contributors"));
-const Traffic = lazy(async () => {
-  await ensureStyle("traffic");
-  return import("./pages/traffic");
-});
+    ...CATALOGUE_STYLES.map(ensureStyle),
+  ]).then(([module]) => (catalogueLoaded = module)));
+// Loaded before a server-rendered page mounts, so it renders at once instead
+// of replacing the page with the fallback for a frame (as lazy() would).
+function Catalogue() {
+  const Page = (catalogueLoaded ?? use(loadCatalogueModule())).default;
+  return <Page />;
+}
+const Collect = page(() => import("./pages/collect"), "collect");
+const Account = page(loadAccount);
+const Device = page(() => import("./pages/device"));
+const Contributors = page(() => import("./pages/contributors"));
+const Traffic = page(() => import("./pages/traffic"), "traffic");
+function HomePage() {
+  useStyles(SITE_STYLES);
+  return <Home />;
+}
+// /watch and /account show their frame while the account loads, not a blank page.
+const shellFirst = (path: string) => /^\/(watch|account)(\/|$)/.test(path);
+function AccountShell({ path }: { path: string }) {
+  useStyles(SITE_STYLES);
+  const words = useWords();
+  if (path.startsWith("/account"))
+    return (
+      <Stall title={words("我的", "My profile")} className="account-stall" h1>
+        <div className="account-body" data-account>
+          <Loading />
+        </div>
+      </Stall>
+    );
+  return (
+    <div className="lwrap watch-page">
+      <section className="stall lpage">
+        <div className="stall-bar watch-heading">
+          <h1>{t("watch.title")}</h1>
+          <span className="bar-meta" data-meta />
+        </div>
+        <Loading />
+      </section>
+    </div>
+  );
+}
 const pageRoutes = [
   "/",
   "/prices",
@@ -247,10 +296,14 @@ function Application() {
       <PageErrorBoundary key={route.pathname}>
         <Suspense fallback={<Loading />}>
           {!ready && route.pathname !== "/" ? (
-            <Loading />
+            shellFirst(route.pathname) ? (
+              <AccountShell path={route.pathname} />
+            ) : (
+              <Loading />
+            )
           ) : (
             <Routes>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<HomePage />} />
               <Route path="/prices/*" element={<PriceTableRedirect />} />
               <Route path="/account" element={<Account />} />
               <Route path="/device" element={<Device />} />
@@ -274,7 +327,7 @@ function Application() {
               <Route path="/collect/*" element={<Collect />} />
               <Route path="/sales" element={<PriceTableRedirect />} />
               <Route path="/v2/*" element={<LegacyRedirect />} />
-              <Route path="*" element={<Home />} />
+              <Route path="*" element={<HomePage />} />
             </Routes>
           )}
         </Suspense>
@@ -287,35 +340,64 @@ const catalogueLocation =
   ["/search", "/route", "/world"].includes(location.pathname) ||
   /^\/(item|mob|map|npc)\//.test(location.pathname);
 // Load the route module alongside account preferences/data, not after them.
-const catalogueReady = catalogueLocation ? loadCatalogueModule() : undefined;
+const catalogueReady = catalogueLocation
+  ? loadCatalogueModule().then((module) => module.preloadView(location.pathname))
+  : undefined;
+if (/^\/watch(\/|$)/.test(location.pathname)) void loadWatch();
+if (/^\/account(\/|$)/.test(location.pathname)) void loadAccount();
 const snapshot = readCatalogSnapshot();
 if (snapshot)
   queryClient.setQueryData(catalogKey(snapshot.url), snapshot.data, {
     updatedAt: snapshot.updatedAt,
   });
 const preferencesReady = initializePreferences();
-// Public home/search previews can paint while account data synchronizes.
-// Other routes retain their account-scoped initialization before rendering.
-if (location.pathname !== "/") await preferencesReady;
+/** The page's catalogue JSON, requested without waiting for the account. An
+ * item page also gets the statistics period it switches to after mounting
+ * (saved or server default; React switches again if the account differs). */
+async function prefetchCatalogue() {
+  const prefetch = (search: string) => {
+    const url = location.pathname + search;
+    if (snapshot && sameCatalog(snapshot.url, url)) return;
+    return queryClient.prefetchQuery({
+      queryKey: catalogKey(url),
+      queryFn: ({ signal }) => loadCatalog(url, signal),
+    });
+  };
+  const period = async () => {
+    const params = new URLSearchParams(location.search);
+    const hours = await resolvePeriod();
+    if ((params.get("hours") || "72") === hours) return;
+    params.set("hours", hours);
+    await prefetch("?" + params);
+  };
+  // Mounting needs only this URL's data; the period's arrives alongside.
+  if (location.pathname.startsWith("/item/")) void period().catch(() => undefined);
+  await prefetch(location.search);
+}
 if (catalogueLocation) {
   document.documentElement.dataset.reactShell = "1";
   await Promise.all([
     catalogueReady,
-    !snapshot &&
-      queryClient.prefetchQuery({
-        queryKey: catalogKey(location.pathname + location.search),
-        queryFn: ({ signal }) =>
-          loadCatalog(location.pathname + location.search, signal),
-      }),
+    preferencesReady,
+    prefetchCatalogue().catch(() => undefined),
   ]);
 }
-await Promise.all(["home", "prices", "account", "lists"].map(ensureStyle));
-createRoot(document.getElementById("app")!).render(
-  <BrowserRouter>
-    <Providers>
-      <WatchAlertsProvider>
-        <Application />
-      </WatchAlertsProvider>
-    </Providers>
-  </BrowserRouter>,
-);
+// Public home/search previews can paint while account data synchronizes.
+// Other routes retain their account-scoped initialization before rendering.
+else if (location.pathname !== "/" && !shellFirst(location.pathname))
+  await preferencesReady;
+const root = createRoot(document.getElementById("app")!);
+// A server-rendered page stays visible while React renders; rendering in a
+// transition lets the browser handle input between chunks of that work.
+const render = () =>
+  root.render(
+    <BrowserRouter>
+      <Providers>
+        <WatchAlertsProvider>
+          <Application />
+        </WatchAlertsProvider>
+      </Providers>
+    </BrowserRouter>,
+  );
+if (catalogueLocation) startTransition(render);
+else render();

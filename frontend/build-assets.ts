@@ -38,22 +38,69 @@ export function versionHtml(html: string, version: string) {
   );
 }
 
-export function versionAssets(root: string, version: string): Plugin {
-  let appPreloads: string[] = [];
+/** Module and stylesheet files one route needs beyond what is already listed. */
+export type RoutePreloads = { modules: string[]; styles: string[] };
+
+/** `siteStyles`: the web/css files the catalogue route loads (src/lib/route-styles.ts). */
+export function versionAssets(
+  root: string,
+  version: string,
+  siteStyles: string[] = [],
+): Plugin {
+  let homePreloads: RoutePreloads = { modules: [], styles: [] };
   return {
     name: "version-site-entry-assets",
     apply: "build",
     generateBundle(_, bundle) {
-      const seen = new Set<string>();
-      const visit = (file: string) => {
-        if (seen.has(file)) return;
-        const chunk = bundle[file];
-        if (!chunk || chunk.type !== "chunk") return;
-        seen.add(file);
-        for (const dependency of chunk.imports) visit(dependency);
+      const chunk = (file: string) => {
+        const output = bundle[file];
+        return output?.type === "chunk" ? output : undefined;
       };
-      visit("app.js");
-      appPreloads = [...seen].filter((file) => file !== "app.js");
+      // A chunk and everything it imports statically, dependencies in load order.
+      const closure = (file: string, seen = new Set<string>()) => {
+        const visit = (name: string) => {
+          if (seen.has(name) || !chunk(name)) return;
+          seen.add(name);
+          for (const dependency of chunk(name)!.imports) visit(dependency);
+        };
+        visit(file);
+        return seen;
+      };
+      const route = (source: string, loaded: Set<string>): RoutePreloads => {
+        const entry = Object.values(bundle).find(
+          (output) =>
+            output.type === "chunk" &&
+            output.facadeModuleId?.replaceAll("\\", "/").endsWith(source),
+        );
+        if (!entry) throw new Error(`no chunk for ${source}`);
+        const modules = [...closure(entry.fileName)].filter((file) => !loaded.has(file));
+        for (const file of modules) loaded.add(file);
+        const styles = modules.flatMap((file) => [
+          ...((chunk(file) as any)?.viteMetadata?.importedCss ?? []),
+        ]);
+        return { modules, styles: styles.filter((file) => file !== "style.css") };
+      };
+      // index.html: the home page's startup modules plus its price table.
+      const app = closure("app.js");
+      app.delete("app.js");
+      homePreloads = route("src/pages/prices.tsx", new Set(["app.js"]));
+      homePreloads.modules = [...app, ...homePreloads.modules.filter((file) => !app.has(file))];
+      // Server-rendered pages: the shell entry's modules, the catalogue
+      // route, and the search view the catalogue loads on /search.
+      const shell = closure("shell.js");
+      shell.delete("shell.js");
+      const loaded = new Set(["shell.js", ...shell]);
+      const preloads = {
+        shell: [...shell],
+        catalogue: route("src/pages/catalogue.tsx", loaded),
+        search: route("src/pages/catalogue-search.tsx", loaded),
+        siteStyles,
+      };
+      this.emitFile({
+        type: "asset",
+        fileName: "preload.json",
+        source: JSON.stringify(preloads, null, 1) + "\n",
+      });
       this.emitFile({
         type: "asset",
         fileName: "asset-version.txt",
@@ -73,12 +120,16 @@ export function versionAssets(root: string, version: string): Plugin {
           // Flatten the startup module waterfall without loading other routes.
           const preloads =
             "  <!-- app-preloads:start -->\n" +
-            appPreloads
-              .map(
+            [
+              ...homePreloads.modules.map(
                 (file) =>
                   `  <link rel="modulepreload" href="/web/react/${file}">`,
-              )
-              .join("\n") +
+              ),
+              ...homePreloads.styles.map(
+                (file) =>
+                  `  <link rel="preload" as="style" href="/web/react/${file}">`,
+              ),
+            ].join("\n") +
             "\n  <!-- app-preloads:end -->\n";
           output = output
             .replace(

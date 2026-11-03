@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { use, useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { usePreferences, useWords } from "../providers";
@@ -1255,9 +1255,24 @@ export default function Catalogue() {
       ) : data.kind === "route" ? (
         <RoutePage page={data.page} />
       ) : (
-        <SearchPage page={data.page} />
+        <SearchView page={data.page} />
       )}
     </div>
   );
 }
-import SearchPage from "./catalogue-search";
+// Search brings the filter dialog and menus (Radix); other pages never load them.
+let searchModule: typeof import("./catalogue-search") | undefined;
+let searchLoad: Promise<unknown> | undefined;
+const loadSearch = () =>
+  (searchLoad ??= import("./catalogue-search").then((module) => {
+    searchModule = module;
+  }));
+/** Loads the view `path` renders, so a server-rendered page mounts without a fallback. */
+export function preloadView(path: string) {
+  return path === "/search" ? loadSearch() : Promise.resolve();
+}
+function SearchView({ page }: { page: any }) {
+  if (!searchModule) use(loadSearch());
+  const SearchPage = searchModule!.default;
+  return <SearchPage page={page} />;
+}
