@@ -109,7 +109,7 @@ pub fn head(v: &View) -> Markup {
         @if few { span.few { (v.t("样本少", "few sales")) } }
     };
     let big = html! {
-        span.big { @match typical { Some(p) => (meso(p)), None => "—" } }
+        span.big { @match typical { Some(p) => (meso(p, v.ctx.lang)), None => "—" } }
     };
     html! {
         div data-market="head" {
@@ -155,11 +155,11 @@ fn range_line(v: &View) -> Markup {
     };
     html! {
         @if let (Some(lo), Some(hi)) = (s.typical_low, s.typical_high) {
-            (v.t("常见 ", "usual ")) b { (meso(lo)) "–" (meso(hi)) } " · "
+            (v.t("常见 ", "usual ")) b { (meso(lo, v.ctx.lang)) "–" (meso(hi, v.ctx.lang)) } " · "
         }
         (if v.ctx.here.contains("hours=all") { v.t("全部 ", "All time ") } else { "72h " }) b { (s.sales_24h) } (v.t(" 笔", " sales"))
         // Where to buy counts merged offers; the head shows the lowest ask instead of a second count.
-        @if let Some(ask) = s.lowest_ask { (v.t(" · 在售最低 ", " · lowest ask ")) b { (meso(ask)) } }
+        @if let Some(ask) = s.lowest_ask { (v.t(" · 在售最低 ", " · lowest ask ")) b { (meso(ask, v.ctx.lang)) } }
     }
 }
 
@@ -323,7 +323,7 @@ fn channel_group(v: &View, g: &Group, index: usize) -> Markup {
                     None => span.chno.unk { (v.t("位置未知", "unknown")) },
                 }
                 span.cg-meta { (count(v, g.shops, "摊", "shops")) " · " (count(v, g.listings.len(), "条挂单", "listings")) }
-                span.cg-min { (v.t("最低 ", "from ")) b { (meso_f(g.min)) } }
+                span.cg-min { (v.t("最低 ", "from ")) b { (meso_f(g.min, v.ctx.lang)) } }
                 span.caret { (PreEscaped(icon(Icon::Caret))) }
             }
             div.cg-body {
@@ -348,7 +348,7 @@ fn holes(v: &View, g: &Group) -> Markup {
                     @let price = fresh_min(here.iter().map(|l| **l), |l| v.stale(l.seen_at));
                     @let best = !all_stale && price == g.min;
                     span.hole.lit.stale[all_stale].best[best] title=(hole_title(v, room, price)) {
-                        i { (room) } b { (meso_f(price)) }
+                        i { (room) } b { (meso_f(price, v.ctx.lang)) }
                     }
                 }
             }
@@ -358,8 +358,8 @@ fn holes(v: &View, g: &Group) -> Markup {
 
 fn hole_title(v: &View, room: i16, price: f64) -> String {
     match v.ctx.lang {
-        Lang::Zh => format!("{room} 洞 最低 {}", meso_f(price)),
-        Lang::En => format!("room {room}, from {}", meso_f(price)),
+        Lang::Zh => format!("{room} 洞 最低 {}", meso_f(price, v.ctx.lang)),
+        Lang::En => format!("room {room}, from {}", meso_f(price, v.ctx.lang)),
     }
 }
 
@@ -378,7 +378,7 @@ fn listing_row(v: &View, l: &Listing) -> Markup {
             div.lrow.stale[v.stale(l.seen_at)] data-quote=(key) data-observed=(l.seen_at.timestamp()) data-unit-price=(l.unit_price) {
                 span.lshop { (l.shop) }
                 span.lroom { (l.room.map(|r| room_label(v.ctx.lang, r)).unwrap_or_else(|| v.t("洞未知", "room ?").into())) }
-                span.lp { (meso_f(l.unit_price)) }
+                span.lp { (meso_f(l.unit_price, v.ctx.lang)) }
                 span.lq title=(v.t("库存数量，未知时显示 —", "Stock; — means unknown")) { @if let Some(stock)=l.stock { "×" (stock) } @else { "—" } }
                 span.la data-relative-time=(l.seen_at.timestamp()) { (v.ago(l.seen_at)) }
             }
@@ -403,7 +403,7 @@ fn listing_row(v: &View, l: &Listing) -> Markup {
                     None => (v.t("洞未知", "room ?")),
                 }
             }
-            span.lp { (meso_f(l.unit_price)) }
+            span.lp { (meso_f(l.unit_price, v.ctx.lang)) }
             span.lq title=(v.t("库存数量，未知时显示 —", "Stock; — means unknown")) { @if let Some(stock)=l.stock { "×" (stock) } @else { "—" } }
             span.la data-relative-time=(l.seen_at.timestamp()) { (v.ago(l.seen_at)) }
         }
@@ -446,7 +446,7 @@ impl Tier {
 
     /// "400–449" as in the mockup; round bounds from 1K up read "2.5K–5K"
     /// (the band up to, not including, 5K).
-    fn label(&self) -> String {
+    fn label(&self, lang: Lang) -> String {
         let round = |v: i64| {
             if v >= 1_000_000 {
                 v % 100_000 == 0
@@ -454,13 +454,19 @@ impl Tier {
                 v >= 1_000 && v % 100 == 0
             }
         };
-        let short = |v: i64| if round(v) { meso(v) } else { v.to_string() };
+        let short = |v: i64| {
+            if round(v) {
+                meso(v, lang)
+            } else {
+                v.to_string()
+            }
+        };
         match self.hi {
             None => format!("{}+", short(self.lo)),
             Some(hi) if self.lo == 0 => format!("< {}", short(hi + 1)),
             Some(hi) if hi == self.lo => hi.to_string(),
             Some(hi) if round(self.lo) && round(hi + 1) => {
-                format!("{}–{}", meso(self.lo), meso(hi + 1))
+                format!("{}–{}", meso(self.lo, lang), meso(hi + 1, lang))
             }
             Some(hi) => format!("{}–{hi}", self.lo),
         }
@@ -696,7 +702,7 @@ fn ladder_pane(v: &View) -> Markup {
             @for (i, tier) in ladder.tiers.iter().enumerate().rev() {
                 button.rung.sel[i == selected].med[median == Some(i)] type="button" data-tier=(i) aria-pressed=(i == selected) {
                     span.rung-l { (tier.listings) i class=(bar_class(tier.listings, max_stock)) {} }
-                    span.rung-p { (tier.label()) }
+                    span.rung-p { (tier.label(v.ctx.lang)) }
                     span.rung-r {
                         @for &c in &ladder.grid[i] {
                             span { @if c > 0 { i class=(square_class(c, max_count)) title=(sales_title(v, c)) {} } }
@@ -763,7 +769,7 @@ fn trend_pane(v: &View) -> Markup {
         div.trend {
             svg viewBox={"0 0 " (w) " " (h)} role="img" aria-label=(label) {
                 @for tick in [0.0, hi / 2.0, hi] {
-                    text x=(format!("{:.1}", pl - 6.0)) y=(format!("{:.1}", y(tick) + 4.0)) text-anchor="end" font-size="12" fill="var(--ink-3)" { (meso(tick.round() as i64)) }
+                    text x=(format!("{:.1}", pl - 6.0)) y=(format!("{:.1}", y(tick) + 4.0)) text-anchor="end" font-size="12" fill="var(--ink-3)" { (meso(tick.round() as i64, v.ctx.lang)) }
                     line x1=(pl) x2=(w - pr) y1=(format!("{:.1}", y(tick))) y2=(format!("{:.1}", y(tick))) stroke="var(--rule)" stroke-dasharray="2 3" {}
                 }
                 @for (i, d) in days.iter().enumerate() {
@@ -843,7 +849,7 @@ fn sale_row(v: &View, s: &Sale, with_shop: bool, extra: bool) -> Markup {
         div.sale.extra[extra] data-bonus=[bonus_attr(v, s.variant.as_ref())] {
             span class={"evi " (s.kind.as_str())} title=[merged_title(v, s)] { (evidence(s.kind, v.ctx.lang)) }
             span {
-                span.sp { (meso_f(s.unit_price)) }
+                span.sp { (meso_f(s.unit_price, v.ctx.lang)) }
                 span.sq {
                     @match s.quantity {
                         Some(q) => { "×" (q) },
@@ -1061,7 +1067,7 @@ pub fn equipment_well(v: &View) -> Option<Markup> {
                                 (variant_stats(v, o.variant))
                                 div.tip-f {
                                     @let cheapest = o.listings[0];
-                                    (v.t("最低 ", "from ")) b { (meso_f(cheapest.unit_price)) }
+                                    (v.t("最低 ", "from ")) b { (meso_f(cheapest.unit_price, v.ctx.lang)) }
                                     " · " (count(v, o.listings.len(), "件", "listed")) " · "
                                     (loc(v.ctx.lang, cheapest.channel, cheapest.room))
                                 }
@@ -1206,17 +1212,17 @@ mod tests {
             hi,
             listings: 0,
         };
-        assert_eq!(t(0, Some(249)).label(), "< 250");
-        assert_eq!(t(250, Some(299)).label(), "250–299");
-        assert_eq!(t(600, None).label(), "600+");
-        assert_eq!(t(45, Some(45)).label(), "45");
-        assert_eq!(t(10_000, Some(19_999)).label(), "10K–20K");
-        assert_eq!(t(2_500, Some(4_999)).label(), "2.5K–5K");
-        assert_eq!(t(0, Some(2_499)).label(), "< 2.5K");
-        assert_eq!(t(17_500, None).label(), "17.5K+");
-        assert_eq!(t(1_250, Some(1_299)).label(), "1250–1299");
-        assert_eq!(t(0, Some(9_999)).label(), "< 10K");
-        assert_eq!(t(60_000, None).label(), "60K+");
+        assert_eq!(t(0, Some(249)).label(Lang::En), "< 250");
+        assert_eq!(t(250, Some(299)).label(Lang::En), "250–299");
+        assert_eq!(t(600, None).label(Lang::En), "600+");
+        assert_eq!(t(45, Some(45)).label(Lang::En), "45");
+        assert_eq!(t(10_000, Some(19_999)).label(Lang::En), "10K–20K");
+        assert_eq!(t(2_500, Some(4_999)).label(Lang::En), "2.5K–5K");
+        assert_eq!(t(0, Some(2_499)).label(Lang::En), "< 2.5K");
+        assert_eq!(t(17_500, None).label(Lang::En), "17.5K+");
+        assert_eq!(t(1_250, Some(1_299)).label(Lang::En), "1250–1299");
+        assert_eq!(t(0, Some(9_999)).label(Lang::En), "< 10K");
+        assert_eq!(t(60_000, None).label(Lang::En), "60K+");
         assert!(t(400, Some(449)).holds(449.6));
     }
 

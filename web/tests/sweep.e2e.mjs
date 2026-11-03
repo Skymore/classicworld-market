@@ -210,7 +210,7 @@ try{
   assert.equal(await dialog.locator('[name=budget]').inputValue(),'1000000');
   await dialog.locator('[name=budget]').fill('5000000');
   await dialog.locator('[data-sweep-duration="1440"]').click();
-  assert.match(await dialog.locator('[data-sweep-start-summary]').innerText(),/^红药水、战斗弓 · 预算 5M · 明天 \d\d:\d\d 结束$/);
+  assert.match(await dialog.locator('[data-sweep-start-summary]').innerText(),/^红药水、战斗弓 · 预算 500万 · 明天 \d\d:\d\d 结束$/);
   await dialog.locator('[data-sweep-duration="10080"]').click();
   assert.match(await dialog.locator('[data-sweep-start-summary]').innerText(),/· \d{1,2}\/\d{1,2} \d\d:\d\d 结束$/);
   const fonts=await dialog.locator('input:not([type=checkbox])').evaluateAll(els=>els.map(e=>parseFloat(getComputedStyle(e).fontSize)));

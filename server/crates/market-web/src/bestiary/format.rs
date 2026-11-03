@@ -41,24 +41,40 @@ impl Lang {
     }
 }
 
-/// 450 -> "450", 1234 -> "1.2K", 1_500_000 -> "1.5M".
-pub fn meso(value: i64) -> String {
-    let abs = value.unsigned_abs();
-    if abs >= 1_000_000 {
-        one_decimal(value as f64 / 1e6) + "M"
-    } else if abs >= 1_000 {
-        one_decimal(value as f64 / 1e3) + "K"
-    } else {
-        value.to_string()
-    }
+/// Mesos as `meso()` in web/js/lib/format.js renders them. English uses K / M
+/// (450, 1.2K, 1.5M); Chinese uses 万 / 亿 (9999, 1.2万, 150万, 1.2亿). The
+/// browser switches Chinese pages to K / M when the visitor chose that.
+pub fn meso(value: i64, lang: Lang) -> String {
+    large(value as f64, lang).unwrap_or_else(|| value.to_string())
 }
 
 /// Unit prices can be fractional (a bundle price over its size).
-pub fn meso_f(value: f64) -> String {
-    if value.fract() == 0.0 || value.abs() >= 1_000.0 {
-        meso(value.round() as i64)
-    } else {
-        one_decimal(value)
+pub fn meso_f(value: f64, lang: Lang) -> String {
+    match large(value, lang) {
+        Some(text) => text,
+        None if value.fract() == 0.0 => (value as i64).to_string(),
+        None => one_decimal(value),
+    }
+}
+
+/// The unit a large number takes, or None when it is shown in full.
+fn large(value: f64, lang: Lang) -> Option<String> {
+    // Up to 1,000 of a unit keeps one decimal (44.4万); more drops it (1235万).
+    let scaled = |x: f64| {
+        if x.abs() >= 1_000.0 {
+            format!("{}", x.round())
+        } else {
+            one_decimal(x)
+        }
+    };
+    let abs = value.abs();
+    match lang {
+        // Thresholds sit where rounding would show 1000K or 10000万.
+        Lang::En if abs >= 999_950.0 => Some(scaled(value / 1e6) + "M"),
+        Lang::En if abs >= 1_000.0 => Some(one_decimal(value / 1e3) + "K"),
+        Lang::Zh if abs >= 99_995_000.0 => Some(scaled(value / 1e8) + "亿"),
+        Lang::Zh if abs >= 10_000.0 => Some(scaled(value / 1e4) + "万"),
+        _ => None,
     }
 }
 
@@ -116,14 +132,27 @@ mod tests {
 
     #[test]
     fn meso_units() {
-        assert_eq!(meso(450), "450");
-        assert_eq!(meso(1_000), "1K");
-        assert_eq!(meso(1_234), "1.2K");
-        assert_eq!(meso(1_500_000), "1.5M");
-        assert_eq!(meso(-2_000), "-2K");
-        assert_eq!(meso_f(449.0), "449");
-        assert_eq!(meso_f(12.5), "12.5");
-        assert_eq!(meso_f(1_250.4), "1.3K");
+        let en = Lang::En;
+        assert_eq!(meso(450, en), "450");
+        assert_eq!(meso(1_000, en), "1K");
+        assert_eq!(meso(1_234, en), "1.2K");
+        assert_eq!(meso(1_500_000, en), "1.5M");
+        assert_eq!(meso(999_960, en), "1M");
+        assert_eq!(meso(-2_000, en), "-2K");
+        assert_eq!(meso_f(449.0, en), "449");
+        assert_eq!(meso_f(12.5, en), "12.5");
+        assert_eq!(meso_f(1_250.4, en), "1.3K");
+        let zh = Lang::Zh;
+        assert_eq!(meso(9_999, zh), "9999");
+        assert_eq!(meso(12_345, zh), "1.2万");
+        assert_eq!(meso(444_444, zh), "44.4万");
+        assert_eq!(meso(12_345_678, zh), "1235万");
+        assert_eq!(meso(99_994_999, zh), "9999万");
+        assert_eq!(meso(99_995_000, zh), "1亿");
+        assert_eq!(meso(123_456_789, zh), "1.2亿");
+        assert_eq!(meso(-25_000, zh), "-2.5万");
+        assert_eq!(meso_f(0.3, zh), "0.3");
+        assert_eq!(meso_f(1_250.4, zh), "1250.4");
     }
 
     #[test]

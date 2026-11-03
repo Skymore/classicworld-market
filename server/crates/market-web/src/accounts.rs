@@ -751,6 +751,7 @@ pub(crate) fn valid_record(r: &Record) -> bool {
         return [
             "lang",
             "theme",
+            "units",
             "market.offerSort",
             "watch.offerSort",
             "market.hours",
@@ -762,6 +763,7 @@ pub(crate) fn valid_record(r: &Record) -> bool {
     match r.key.as_str() {
         "lang" => v == "zh" || v == "en",
         "theme" => v == "light" || v == "dark",
+        "units" => v == "wan" || v == "km",
         "market.offerSort" | "watch.offerSort" => v == "price" || v == "recent",
         "market.hours" => v == "72" || v == "all",
         "watch.lists" => v.as_str().is_some_and(valid_watch_lists),
@@ -969,6 +971,19 @@ mod tests {
             r.value=Some(json!(bad.to_string()));assert!(!valid_record(&r),"{bad}");
         }
         r.value=None;assert!(valid_record(&r));
+    }
+    #[test]
+    fn number_units_preference() {
+        let pref = |value: Option<Value>| Record {
+            kind: "pref".into(),
+            key: "units".into(),
+            version: 0,
+            value,
+        };
+        assert!(valid_record(&pref(Some(json!("wan")))));
+        assert!(valid_record(&pref(Some(json!("km")))));
+        assert!(valid_record(&pref(None)), "back to the language default");
+        assert!(!valid_record(&pref(Some(json!("kmb")))));
     }
     #[test]
     fn watch_groups_empty_delete_and_upgrade_zero_are_valid() {

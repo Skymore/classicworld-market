@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { lang as legacyLanguage, setLang } from "/web/js/lib/i18n.js";
+import { setUnits, usesWan, unitChoiceNow } from "/web/js/lib/format.js";
 import { userStorage, ready as userDataReady } from "/web/js/lib/user-data.js";
 import { DataProvider } from "./lib/query";
 import type { Language, Theme } from "./lib/types";
@@ -15,11 +16,22 @@ const subscribeLanguage = (callback: () => void) => {
   document.addEventListener("langchange", callback);
   return () => document.removeEventListener("langchange", callback);
 };
+const subscribeUnits = (callback: () => void) => {
+  document.addEventListener("unitschange", callback);
+  return () => document.removeEventListener("unitschange", callback);
+};
+/** "wan" (万 / 亿) or "km" (K / M), as numbers render now. */
+export type Units = "wan" | "km";
+const unitsNow = (): Units => (usesWan() ? "wan" : "km");
 const Preferences = createContext<{
   language: Language;
   theme: Theme;
   toggleTheme(): void;
   changeLanguage(): void;
+  /** Number units now in use, and the saved choice (null: the language default). */
+  units: Units;
+  unitChoice: Units | null;
+  changeUnits(value: Units | null): void;
   server: boolean;
   ready: boolean;
 } | null>(null);
@@ -41,6 +53,11 @@ function applyPreferences() {
   const language = userStorage.getItem("lang");
   if ((language === "zh" || language === "en") && language !== legacyLanguage)
     setLang(language);
+  try {
+    setUnits(userStorage.getItem("units"));
+  } catch {
+    setUnits(null);
+  }
 }
 let preferencesInitialized = false;
 let initialization: Promise<void> | undefined;
@@ -79,6 +96,14 @@ export function Providers({
     subscribeLanguage,
     () => legacyLanguage as Language,
   );
+  // Also follows the language (English always uses K / M), which re-renders here.
+  const units = useSyncExternalStore(subscribeUnits, unitsNow, unitsNow);
+  const choice = () => unitChoiceNow() as Units | null;
+  const unitChoice = useSyncExternalStore(subscribeUnits, choice, choice);
+  useEffect(() => {
+    // Read by modules that cannot import format.js (the sweep labels).
+    document.documentElement.dataset.units = units;
+  }, [units, language]);
   const [theme, setTheme] = useState<Theme>(() =>
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   );
@@ -101,6 +126,7 @@ export function Providers({
       }
     };
     const storage = (event: StorageEvent) => {
+      if (event.key === "units" || event.key === null) applyPreferences();
       if (event.key === "theme" || event.key === null) {
         const saved = storedTheme();
         document.documentElement.dataset.theme =
@@ -152,6 +178,15 @@ export function Providers({
     }
     document.dispatchEvent(new CustomEvent("themechange", { detail: next }));
   }
+  function changeUnits(value: Units | null) {
+    try {
+      if (value) userStorage.setItem("units", value);
+      else userStorage.removeItem("units");
+    } catch {
+      /* keep this session usable */
+    }
+    setUnits(value);
+  }
   function changeLanguage() {
     const next = language === "zh" ? "en" : "zh";
     setLang(next);
@@ -162,7 +197,17 @@ export function Providers({
   }
   return (
     <Preferences.Provider
-      value={{ language, theme, toggleTheme, changeLanguage, server, ready }}
+      value={{
+        language,
+        theme,
+        toggleTheme,
+        changeLanguage,
+        units,
+        unitChoice,
+        changeUnits,
+        server,
+        ready,
+      }}
     >
       <DataProvider>{children}</DataProvider>
     </Preferences.Provider>

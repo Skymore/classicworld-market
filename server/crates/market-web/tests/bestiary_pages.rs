@@ -264,7 +264,7 @@ fn item_page_head_sources_and_shell() {
             && html.contains(r#"class="dhead""#)
             && html.contains(r#"class="dock""#)
     );
-    assert!(html.contains("1.2K"));
+    assert!(html.contains("1234") && !html.contains("1.2K"), "Chinese pages show mesos below 1万 in full");
     assert!(html.contains("▼ 6.1%"));
     assert!(html.contains("数据 1小时前更新"), "freshness from as_of");
     assert!(html.contains(r#"href="/mob/2""#));
@@ -274,8 +274,8 @@ fn item_page_head_sources_and_shell() {
     assert!(html.contains("任务要用") && html.contains("×3"));
     assert!(!html.contains("60%"));
     assert!(html.contains("射手训练场Ⅰ · 蜗牛猎场Ⅰ"));
-    assert!(html.contains("没有 NPC 出售记录"));
-    assert!(html.contains("NPC 回收价 20 / 个"));
+    assert!(html.contains("NPC 不卖"));
+    assert!(html.contains("回收价") && html.contains("<b>20</b>"));
     assert!(!html.contains("打还是买"), "no farm-or-buy verdict");
     assert!(!html.contains("无等级限制"), "no level tag without a level requirement");
     assert!(html.contains("https://maplestory.io/api/GMS/83/mob/100100/render/stand"));
@@ -384,7 +384,7 @@ fn item_without_market_data_says_so() {
     assert!(html.contains("还没有成交价"));
     assert!(html.contains("市场数据暂无"));
     assert!(html.contains("还没有玩家确认的怪物掉落"));
-    assert!(html.contains("NPC #212 出售 <b>50</b> / 个"));
+    assert!(html.contains("NPC #212") && html.contains("<b>50</b>"));
     assert!(html.contains("最近 72 小时没有看到在售挂单"));
     assert!(html.contains("画不出价格分布"));
     assert!(

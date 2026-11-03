@@ -38,6 +38,13 @@ import OfferFilterDialog from "../components/offer-filters";
 import { Well, MobPicture, QuestRows, Secondary, useNames } from "./catalogue";
 import Crafting from "../components/crafting";
 import ItemTrend from "../components/item-trend";
+/** NPC shop offers grouped by price, cheapest first. */
+function npcPrices(offers: any[]): [number, any[]][] {
+  const byPrice = new Map<number, any[]>();
+  for (const offer of offers)
+    byPrice.set(offer.price, [...(byPrice.get(offer.price) || []), offer.npc]);
+  return [...byPrice].sort((a, b) => a[0] - b[0]);
+}
 // Item categories as the 图鉴 filter names them (catalogue-search.tsx).
 const CATEGORY: Record<string, [string, string]> = {
   装备: ["equip", "Equip"],
@@ -1471,30 +1478,43 @@ export default function Item({ page }: { page: any }) {
               <div className="sub-h ruled">
                 {words("NPC 商店", "NPC shops")}
               </div>
+              {/* 买: which NPCs sell it and for how much; 卖: what an NPC pays for one. */}
               <div className="npc">
-                {page.npc_offers.map((offer: any, i: number) => (
-                  <span key={i}>
-                    {name(offer.npc.names) || "NPC #" + offer.npc.id}
-                    {words(" 出售 ", " sells for ")}
-                    <b>
-                      <Price value={offer.price} />
-                    </b>
-                    {words(" / 个", " each")}
-                    <Secondary names={offer.npc.names} />
-                  </span>
-                ))}
-                {!page.npc_offers.length && (
-                  <span className="no">
-                    {words("没有 NPC 出售记录", "No NPC sells it")}
-                  </span>
-                )}
-                {page.npc_sell != null && (
-                  <span className="sell">
-                    {words("NPC 回收价 ", "NPC buys at ")}
-                    <Price value={page.npc_sell} />
-                    {words(" / 个", " each")}
-                  </span>
-                )}
+                <div className="npc-col">
+                  <h4>{words("买", "Buy")}</h4>
+                  {/* One row per price: most NPCs sell at the same price. */}
+                  {npcPrices(page.npc_offers).map(([price, npcs]) => (
+                    <span className="npc-row" key={price}>
+                      <span>
+                        {npcs
+                          .slice(0, 3)
+                          .map((npc: any) => name(npc.names) || "NPC #" + npc.id)
+                          .join(words("、", ", "))}
+                        {npcs.length > 3 &&
+                          words(` 等 ${npcs.length} 个`, ` and ${npcs.length - 3} more`)}
+                      </span>
+                      <b>
+                        <Price value={price} />
+                      </b>
+                    </span>
+                  ))}
+                  {!page.npc_offers.length && (
+                    <span className="no">{words("NPC 不卖", "No NPC sells it")}</span>
+                  )}
+                </div>
+                <div className="npc-col">
+                  <h4>{words("卖", "Sell")}</h4>
+                  {page.npc_sell != null ? (
+                    <span className="npc-row">
+                      <span>{words("回收价", "NPCs pay")}</span>
+                      <b>
+                        <Price value={page.npc_sell} />
+                      </b>
+                    </span>
+                  ) : (
+                    <span className="no">{words("NPC 不收", "NPCs do not buy it")}</span>
+                  )}
+                </div>
               </div>
               <Crafting key={page.item.id} itemId={page.item.id} />
               {page.quest_rewards?.length > 0 && (

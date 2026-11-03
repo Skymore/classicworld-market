@@ -213,18 +213,10 @@ async fn new_offers(
     Ok(per_item.into_values().collect())
 }
 
-/// `meso()` in web/js/lib/format.js.
-fn meso(value: f64) -> String {
-    let one = |x: f64| {
-        let text = format!("{:.1}", (x * 10.0).round() / 10.0);
-        text.strip_suffix(".0").map_or(text.clone(), str::to_owned)
-    };
-    match value.abs() {
-        a if a >= 1e6 => format!("{}M", one(value / 1e6)),
-        a if a >= 1e3 => format!("{}K", one(value / 1e3)),
-        _ if value.fract() == 0.0 => format!("{value:.0}"),
-        _ => one(value),
-    }
+/// Mesos as the site shows them: 万 / 亿 in Chinese, K / M in English.
+fn meso(value: f64, en: bool) -> String {
+    use crate::bestiary::format::{meso_f, Lang};
+    meso_f(value, if en { Lang::En } else { Lang::Zh })
 }
 
 fn item_name(row: &Value, en: bool) -> String {
@@ -243,7 +235,7 @@ fn item_name(row: &Value, en: bool) -> String {
 fn offer_line(row: &Value, en: bool) -> String {
     let mut parts = vec![
         item_name(row, en),
-        meso(row["unit_price"].as_f64().unwrap_or_default()),
+        meso(row["unit_price"].as_f64().unwrap_or_default(), en),
     ];
     parts.push(match row["stock"].as_i64() {
         Some(n) if en => format!("stock {n}"),
@@ -288,7 +280,7 @@ pub fn messages(items: &[Vec<Value>], en: bool) -> Vec<Message> {
                     .iter()
                     .filter_map(|r| r["unit_price"].as_f64())
                     .fold(f64::INFINITY, f64::min);
-                let (name, count, low) = (item_name(first, en), rows.len(), meso(lowest));
+                let (name, count, low) = (item_name(first, en), rows.len(), meso(lowest, en));
                 if en {
                     format!("{name} · {count} new offers · from {low}")
                 } else {
@@ -449,10 +441,17 @@ mod tests {
             (12.5, "12.5"),
             (1000.0, "1K"),
             (1250.0, "1.3K"),
-            (999_999.0, "1000K"),
+            (999_999.0, "1M"),
             (2_500_000.0, "2.5M"),
         ] {
-            assert_eq!(meso(value), text);
+            assert_eq!(meso(value, true), text);
+        }
+        for (value, text) in [
+            (1250.0, "1250"),
+            (12_500.0, "1.3万"),
+            (2_500_000.0, "250万"),
+        ] {
+            assert_eq!(meso(value, false), text);
         }
     }
 

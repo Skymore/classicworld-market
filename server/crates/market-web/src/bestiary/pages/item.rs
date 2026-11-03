@@ -226,16 +226,26 @@ fn sources_well(v: &View) -> Markup {
                 button.more.on-desktop type="button" data-more="mobs" { (all_mobs(lang, droppers.len())) (PreEscaped(icon(Icon::Chev))) }
             }
             div.sub-h.ruled { (v.ctx.t("NPC 商店", "NPC shops")) }
+            // 买: which NPCs sell it and for how much; 卖: what an NPC pays for one.
             div.npc {
-                @for offer in &page.npc_offers {
-                    span {
-                        (offer.npc.label(lang)) (v.ctx.t(" 出售 ", " sells for ")) b { (meso(offer.price)) } (v.ctx.t(" / 个", " each"))
-                        @if let Some(names) = &offer.npc.names { (super::secondary_name(names, lang)) }
+                div.npc-col {
+                    h4 { (v.ctx.t("买", "Buy")) }
+                    // One row per price: most NPCs sell at the same price.
+                    @for (price, npcs) in npc_prices(&page.npc_offers) {
+                        span.npc-row {
+                            span { (npc_names(&npcs, lang)) }
+                            b { (meso(price, lang)) }
+                        }
                     }
+                    @if page.npc_offers.is_empty() { span.no { (v.ctx.t("NPC 不卖", "No NPC sells it")) } }
                 }
-                @if page.npc_offers.is_empty() { span.no { (v.ctx.t("没有 NPC 出售记录", "No NPC sells it")) } }
-                @if let Some(sell) = page.npc_sell {
-                    span.sell { (v.ctx.t("NPC 回收价 ", "NPC buys at ")) (meso(sell)) (v.ctx.t(" / 个", " each")) }
+                div.npc-col {
+                    h4 { (v.ctx.t("卖", "Sell")) }
+                    @if let Some(sell) = page.npc_sell {
+                        span.npc-row { span { (v.ctx.t("回收价", "NPCs pay")) } b { (meso(sell, lang)) } }
+                    } @else {
+                        span.no { (v.ctx.t("NPC 不收", "NPCs do not buy it")) }
+                    }
                 }
             }
             @if !page.quest_rewards.is_empty() {
@@ -247,6 +257,31 @@ fn sources_well(v: &View) -> Markup {
                 (super::quest_needs(lang, &page.quest_needs, false))
             }
         }
+    }
+}
+
+/// NPC shop offers grouped by price, cheapest first.
+fn npc_prices(offers: &[NpcOffer]) -> Vec<(i64, Vec<&NpcRef>)> {
+    let mut groups: Vec<(i64, Vec<&NpcRef>)> = Vec::new();
+    for offer in offers {
+        match groups.iter_mut().find(|(price, _)| *price == offer.price) {
+            Some((_, npcs)) => npcs.push(&offer.npc),
+            None => groups.push((offer.price, vec![&offer.npc])),
+        }
+    }
+    groups.sort_by_key(|(price, _)| *price);
+    groups
+}
+
+/// "露茜、米娜、卢娜 等 8 个": the first three names of one price's sellers.
+fn npc_names(npcs: &[&NpcRef], lang: Lang) -> String {
+    let names: Vec<String> = npcs.iter().take(3).map(|n| n.label(lang)).collect();
+    let more = npcs.len().saturating_sub(3);
+    match (lang, more) {
+        (Lang::Zh, 0) => names.join("、"),
+        (Lang::Zh, _) => format!("{} 等 {} 个", names.join("、"), npcs.len()),
+        (Lang::En, 0) => names.join(", "),
+        (Lang::En, n) => format!("{} and {n} more", names.join(", ")),
     }
 }
 

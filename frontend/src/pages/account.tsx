@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Bell, Monitor, Pencil, ArrowUpRight } from "lucide-react";
+import { Bell, Monitor, Pencil, ArrowUpRight, SlidersHorizontal } from "lucide-react";
 import { useAccount } from "../lib/query";
 import { beforeSignOut } from "/web/js/lib/user-data.js";
 import { isLocalGateway, releasePushForSignOut } from "../lib/push";
@@ -21,7 +21,7 @@ import {
 } from "./account-access";
 import { DevicesPanel } from "./account-devices";
 import { takeReturn } from "../lib/return-to";
-import { useWords } from "../providers";
+import { usePreferences, useWords } from "../providers";
 import { SiteLink } from "../components/shell";
 import {
   Stall,
@@ -56,6 +56,43 @@ function NotificationsPanel() {
       <SiteLink href="/watch">
         {words("选择提醒的物品", "Choose items to alert on")} →
       </SiteLink>
+    </AccountSetting>
+  );
+}
+
+/** 我的 → 偏好设置: how large numbers read on Chinese pages. */
+function PreferencesPanel() {
+  const words = useWords();
+  const { language, unitChoice, changeUnits } = usePreferences();
+  // English pages always use K / M, so the choice only exists in Chinese.
+  if (language !== "zh") return null;
+  const current = unitChoice || "wan";
+  const choices: [typeof current, string, string][] = [
+    ["wan", "万 / 亿", "44.4万 · 1.2亿"],
+    ["km", "K / M", "444.4K · 120M"],
+  ];
+  return (
+    <AccountSetting
+      name="preferences"
+      icon={<SlidersHorizontal size={20} />}
+      title={words("偏好设置", "Preferences")}
+      meta={`数字单位：${current === "km" ? "K / M" : "万 / 亿"}`}
+    >
+      <div className="unit-choice" role="radiogroup" aria-label="数字单位">
+        {choices.map(([value, label, sample]) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={current === value}
+            data-units={value}
+            onClick={() => changeUnits(value === "wan" ? null : value)}
+          >
+            <b>{label}</b>
+            <small>{sample}</small>
+          </button>
+        ))}
+      </div>
     </AccountSetting>
   );
 }
@@ -183,11 +220,10 @@ export default function AccountPage() {
             {params.has("error") && (
               <p role="alert">{message(params.get("error")!)}</p>
             )}
-            {isLocalGateway && !embedded && (
-              <div className="account-settings">
-                <NotificationsPanel />
-              </div>
-            )}
+            <div className="account-settings">
+              {isLocalGateway && !embedded && <NotificationsPanel />}
+              <PreferencesPanel />
+            </div>
             <section className="well account-help">
               <h3>{words("只想用昵称？也可以", "Prefer just a nickname?")}</h3>
               <p>
@@ -348,6 +384,7 @@ export default function AccountPage() {
               {!local && <SyncPanel message={message} />}
               {!local && <DevicesPanel profile={profile} message={message} />}
               {!embedded && <NotificationsPanel />}
+              <PreferencesPanel />
               {/* Collectors on old versions still link through ?link=. */}
               {(local || link || linkStatus) && <AccountSetting
                 name="collectors"

@@ -24,11 +24,11 @@ fn is_level_line(line: &str) -> bool {
 }
 
 /// Rounded unit prices: arrows and other bundle items cost under 1 meso each.
-fn unit_meso(value: i64) -> String {
+fn unit_meso(value: i64, lang: Lang) -> String {
     if value < 1 {
         "<1".to_string()
     } else {
-        meso(value)
+        meso(value, lang)
     }
 }
 
@@ -253,10 +253,10 @@ fn drop_row(ctx: &Ctx, drop: &MobDrop) -> Markup {
                     (super::secondary_name(names, lang))
                     span.s {
                         @match typical {
-                            Some(p) => { (ctx.t("成交价 ", "typical ")) (unit_meso(*p)) },
+                            Some(p) => { (ctx.t("成交价 ", "typical ")) (unit_meso(*p, lang)) },
                             None => (ctx.t("暂无成交", "no sales yet")),
                         }
-                        @if let Some(ask) = lowest_ask { (ctx.t(" · 在售最低 ", " · lowest ask ")) (unit_meso(*ask)) }
+                        @if let Some(ask) = lowest_ask { (ctx.t(" · 在售最低 ", " · lowest ask ")) (unit_meso(*ask, lang)) }
                         @if let Some(q) = &quest { (q) }
                     }
                 }
@@ -433,7 +433,7 @@ pub fn npc_page(page: &NpcPage, ctx: &Ctx) -> Markup {
                                 a.drow href=(ctx.href(&format!("/item/{}", item.id))) {
                                     (slot(item.icon_url.as_deref(), 28))
                                     span.t { b { (item.names.get(lang)) } (super::secondary_name(&item.names, lang)) }
-                                    span.r { (meso(item.price)) }
+                                    span.r { (meso(item.price, lang)) }
                                 }
                             }
                         }
@@ -1101,8 +1101,9 @@ mod tests {
         assert!(is_level_line(" 等级: 12 "));
         assert!(!is_level_line("等级：未知"));
         assert!(!is_level_line("形态：植物型"));
-        assert_eq!(unit_meso(0), "<1");
-        assert_eq!(unit_meso(23), "23");
-        assert_eq!(unit_meso(2_000), "2K");
+        assert_eq!(unit_meso(0, Lang::Zh), "<1");
+        assert_eq!(unit_meso(23, Lang::Zh), "23");
+        assert_eq!(unit_meso(2_000, Lang::En), "2K");
+        assert_eq!(unit_meso(25_000, Lang::Zh), "2.5万");
     }
 }

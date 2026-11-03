@@ -312,13 +312,29 @@ export function clockTime(
     ? time
     : `${date.getMonth() + 1}/${date.getDate()} ${time}`;
 }
-/** Mesos in K / M, as web/js/lib/format.js `meso` (the desktop cannot load that module). */
+/**
+ * Mesos with the same rules as web/js/lib/format.js `meso` (the desktop cannot
+ * load that module): 万 / 亿 on Chinese pages unless `data-units="km"` is set on
+ * the root element, K / M otherwise.
+ */
 export function mesos(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) return "—";
   const short = (x: number) =>
     (Math.round(x * 10) / 10).toFixed(1).replace(/\.0$/, "");
+  const scaled = (x: number) =>
+    Math.abs(x) >= 1000 ? String(Math.round(x)) : short(x);
+  const root = document.documentElement;
+  const wan =
+    root.dataset.units != null
+      ? root.dataset.units === "wan"
+      : root.lang.startsWith("zh");
   const size = Math.abs(value);
-  if (size >= 1e6) return short(value / 1e6) + "M";
-  if (size >= 1e3) return short(value / 1e3) + "K";
+  if (wan) {
+    if (size >= 99995000) return scaled(value / 1e8) + "亿";
+    if (size >= 1e4) return scaled(value / 1e4) + "万";
+  } else {
+    if (size >= 999950) return scaled(value / 1e6) + "M";
+    if (size >= 1e3) return short(value / 1e3) + "K";
+  }
   return Number.isInteger(value) ? String(value) : short(value);
 }

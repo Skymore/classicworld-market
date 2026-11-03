@@ -109,7 +109,7 @@ try {
     await page.keyboard.press('Escape');
     if (mobile) {
       assert.equal(await page.locator('[data-mobile-price-heading]').textContent(), '最低报价');
-      assert.deepEqual(await rows.locator('.pr').allTextContents(), ['12K', '18.9K', '—'], 'the visible prices are the asks used to sort, not the typical sale prices');
+      assert.deepEqual(await rows.locator('.pr').allTextContents(), ['1.2万', '1.9万', '—'], 'the visible prices are the asks used to sort, not the typical sale prices');
       assert.equal(await rows.locator('.sample-badge').count(), 0, 'sales sample badges do not describe asking prices');
       for (const width of [320, 375]) {
         await page.setViewportSize({ width, height: 900 });
@@ -139,14 +139,14 @@ try {
     assert.equal(await rows.count(), 2, 'only items with a matching latest sale are included');
     assert.match(await rows.first().textContent(), /红色药水/);
     assert.match(await rows.last().textContent(), /蓝色头巾/);
-    assert.deepEqual(await rows.locator('.ware-price').allTextContents(), ['13.5K', '25K']);
+    assert.deepEqual(await rows.locator('.ware-price').allTextContents(), ['1.4万', '2.5万']);
     assert.match(await rows.first().locator('.name-primary .evi').textContent(), /卖光/);
     assert.equal(await rows.first().locator('.record-value > .record-time [data-relative-time]').getAttribute('data-relative-time'), String(now));
     await sortBy('recent', '最新报价');
     await page.locator('[data-price-records=quotes] .market-record').first().waitFor();
     assert.equal(new URL(page.url()).searchParams.get('sort'), 'recent');
     assert.match(await rows.first().textContent(), /红色药水/); assert.match(await rows.last().textContent(), /蓝色头巾/);
-    assert.equal(await rows.first().locator('.ware-price').textContent(), '32K');
+    assert.equal(await rows.first().locator('.ware-price').textContent(), '3.2万');
     const oldUrl = new URL(page.url()); oldUrl.searchParams.set('dir', 'asc');
     await page.goto(oldUrl.href); await rows.first().waitFor();
     assert.equal(await page.locator('[data-sort-label]').textContent(), '最新报价');
@@ -163,7 +163,7 @@ try {
     await offers.first().waitFor();
     assert.equal(await offers.count(), 2, 'latest offers exclude items without an observed quote time');
     assert.match(await offers.first().textContent(), /红色药水/);
-    assert.equal(await offers.first().locator('.ware-price').textContent(), '32K', 'offers show the actual newest listing price, not the item minimum');
+    assert.equal(await offers.first().locator('.ware-price').textContent(), '3.2万', 'offers show the actual newest listing price, not the item minimum');
     assert.equal(await offers.first().locator('[data-relative-time]').getAttribute('data-relative-time'), String(now));
     assert.equal(await offers.first().locator('.record-open').getAttribute('href'), '/item/2000000?hours=all');
     await page.locator('[data-lang-toggle]:visible').click();
@@ -178,7 +178,7 @@ try {
     assert.match(await page.title(), /^低价提醒/);
     await nav('prices').click(); await rows.first().waitFor();
     price = mobile ? 35000 : 36000; for (const stream of streams) stream.write('event: market\ndata: {}\n\n');
-    await page.waitForFunction(expected => [...document.querySelectorAll('.pr')].some(node => node.textContent.includes(expected)), mobile ? '35K' : '36K');
+    await page.waitForFunction(expected => [...document.querySelectorAll('.pr')].some(node => node.textContent.includes(expected)), mobile ? '3.5万' : '3.6万');
     await nav('watch').click(); await page.locator('[data-search]').waitFor();
     await nav('prices').click(); await rows.first().waitFor();
     await page.locator('[data-theme-toggle]:visible').click();

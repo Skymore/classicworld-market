@@ -57,7 +57,7 @@
   .account-avatar{width:52px;height:52px}
   .account-name h2{font-size:20px}
   .account-settings{padding-inline:18px}
-  .account-body .account-setting>summary{min-height:76px;gap:10px}
+  .account-body .account-setting>summary{min-height:62px;gap:10px}
   .account-setting-content{padding-left:0}
   .account-body .account-footer{padding:8px 18px}
 }
@@ -86,3 +86,8 @@
 /* 我的 → 通知: the notification row sits inside the section without its own frame. */
 .account-setting-content .watch-notification-bar{padding:0;border:0}
 .account-setting-content>a{justify-self:start;font-size:13px}
+/* 我的 → 偏好设置: two side-by-side choices for number units. */
+.unit-choice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-width:360px}
+.account-setting-content .unit-choice button{justify-self:stretch;display:grid;justify-items:start;gap:2px;min-height:52px;padding:6px 12px;text-align:left;color:var(--ink);cursor:pointer}
+.account-setting-content .unit-choice button[aria-checked=true]{border:2px solid var(--maple);background:var(--sheet)}
+.unit-choice small{color:var(--ink-3);font-size:12px}

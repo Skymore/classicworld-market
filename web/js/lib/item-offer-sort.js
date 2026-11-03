@@ -10,8 +10,8 @@ const STALE_SECONDS = 48 * 3600;
 function entry(row) {
   // Support HTML cached before quote metadata was added to ordinary rows.
   const shown = row.querySelector('.lp')?.textContent.trim().replaceAll(',', '') || '';
-  const match = shown.match(/^([\d.]+)\s*([KMB])?$/i);
-  const legacyPrice = match ? Number(match[1]) * ({ K: 1e3, M: 1e6, B: 1e9 }[match[2]?.toUpperCase()] || 1) : Infinity;
+  const match = shown.match(/^([\d.]+)\s*([KMB万亿])?$/i);
+  const legacyPrice = match ? Number(match[1]) * ({ K: 1e3, M: 1e6, B: 1e9, 万: 1e4, 亿: 1e8 }[match[2]?.toUpperCase()] || 1) : Infinity;
   return {
     observed: Number(row.dataset.observed || row.querySelector('[data-relative-time]')?.dataset.relativeTime) || null,
     price: row.hasAttribute('data-unit-price') ? Number(row.dataset.unitPrice) : legacyPrice,

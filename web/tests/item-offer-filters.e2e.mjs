@@ -211,7 +211,7 @@ try {
     assert.equal(await page.locator('[data-more=groups]').count(),0,'enhancement counts no longer add another group');
     const plain=page.locator('[data-equipment-group]').filter({hasText:'10–30'});
     assert.equal(await plain.count(),1);assert.equal(await plain.locator('.attr-count').textContent(),mobile?'3 件':'3');
-    assert.match(await plain.textContent(),/10K/,'group minimum includes all defence and enhancement counts');
+    assert.match(await plain.textContent(),/1万|10K/,'group minimum includes all defence and enhancement counts');
     assert.doesNotMatch((await page.locator('.offer-group-head').allTextContents()).join(' '),/\+\d/,'headers have no plus sign and no enhancement counts');
     assert.deepEqual(await visibleRows(),['plain-a','plain-b','def-enhanced','dex2-a','dex2-b','dex4'],'each set lists its own offers, cheapest first');
     const plainOffers=page.locator('.offer-group').filter({has:plain}).locator('[data-quote]');

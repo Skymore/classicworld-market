@@ -1,6 +1,6 @@
 // A storage facade: guest keys stay untouched; account caches and pending writes
 // are namespaced by a server-confirmed public account ID. Credentials stay in cookies.
-const PREFS=['lang','theme','market.offerSort','watch.offerSort','market.hours','watch.sweepSettings','watch.lists'];
+const PREFS=['lang','theme','units','market.offerSort','watch.offerSort','market.hours','watch.sweepSettings','watch.lists'];
 const KEYS=['watchlist','watchlist_settings',...PREFS];
 const itemPref=key=>/^item\.(offerFilters|showExpired)\.[1-5]\d{6}$/.test(key);
 const scoped=key=>profile?.sync_scope!=='watch'||['watch.sweepSettings','watch.lists'].includes(key);
@@ -149,7 +149,8 @@ export async function flush(){
   reconcile(result.records||[],operations);
  }catch(e){
   if(mine!==epoch)return;
-  if(e.status===401||e.status===403){status='login_required';notify();await refreshIdentity();return;}
+  // Inside a running identity refresh, awaiting another one would wait on itself.
+  if(e.status===401||e.status===403){status='login_required';notify();if(!identityBusy)await refreshIdentity();return;}
   if(e.status===409&&e.message==='sync_conflict'){
    const result=await request('/api/v1/account/data',null,csrf);if(mine===epoch)reconcile(result.records||[]);
   }else{status=e.message==='watch_limit'?'watch_limit':persistent?'offline':'memory_only';notify();}

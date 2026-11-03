@@ -16,8 +16,6 @@ export function SaleKindsHelp() {
       <b>{t("evidence.sold_out")}</b> {t("evidence.help.sold_out")}
       <br />
       <b>{t("evidence.drop")}</b> {t("evidence.help.drop")}
-      <br />
-      {t("evidence.help.time")}
     </InfoTip>
   );
 }

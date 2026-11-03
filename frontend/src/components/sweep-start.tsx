@@ -24,12 +24,7 @@ const DURATIONS: [number, string, string][] = [
   [4320, "3 天", "3 days"],
   [10080, "7 天", "7 days"],
 ];
-const QUICK_BUDGETS: [number, string][] = [
-  [1e5, "100K"],
-  [1e6, "1M"],
-  [3e6, "3M"],
-  [1e7, "10M"],
-];
+const QUICK_BUDGETS = [1e5, 1e6, 3e6, 1e7];
 
 export function sweepMessage(words: Words, code: string) {
   const messages: Record<string, [string, string]> = {
@@ -157,9 +152,9 @@ function BudgetField({
       </label>
       {quick && (
         <div className="sweep-quick">
-          {QUICK_BUDGETS.map(([value, label]) => (
-            <button type="button" key={label} data-sweep-quick={value} onClick={() => setBudget(String(value))}>
-              {label}
+          {QUICK_BUDGETS.map((value) => (
+            <button type="button" key={value} data-sweep-quick={value} onClick={() => setBudget(String(value))}>
+              {meso(value)}
             </button>
           ))}
         </div>

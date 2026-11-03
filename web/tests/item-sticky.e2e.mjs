@@ -75,7 +75,7 @@ try {
     assert(geometry.nameHeight < 24, 'the name never wraps');
     assert.equal(geometry.bodyTop, boundary.bodyTop, 'showing the summary never moves the content');
     assert.equal(geometry.documentHeight, boundary.height, 'showing the summary never changes scroll height');
-    assert.equal(await summary.locator('.item-summary-price').textContent(), '20K');
+    assert.match(await summary.locator('.item-summary-price').textContent(), /^(2万|20K)$/);
     assert.equal(await summary.locator('.slot img').count(), 1);
     if (width === 320) assert(await summary.locator('.item-summary-name').evaluate(node => node.scrollWidth > node.clientWidth), 'long English name is truncated');
     await page.evaluate(() => scrollBy(0, 600));
@@ -86,7 +86,7 @@ try {
     generation++;
     for (const stream of streams) stream.write('event: market\ndata: {}\n\n');
     await (await refreshed).finished();
-    await page.waitForFunction(() => document.querySelector('.item-summary-price')?.textContent === '25K');
+    await page.waitForFunction(() => document.querySelector('.item-summary-price')?.textContent.match(/^(2\.5万|25K)$/));
     assert.equal(await page.evaluate(() => scrollY), scroll, 'SSE refresh keeps the reading position');
     if (output) await page.screenshot({ path: path.join(output, `sticky-${width}.png`) });
     if (width === 390) {

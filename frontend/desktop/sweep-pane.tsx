@@ -7,7 +7,7 @@ import type { DeviceRun, RecentPurchase, Run, RunItem, Shell, SweepRule, Workspa
 
 type Sweep = NonNullable<WorkspaceStatus['sweep']>;
 const MAX_MESOS = 1e12;
-const BUDGETS = [[100000, '100K'], [1000000, '1M'], [3000000, '3M'], [10000000, '10M']] as const;
+const BUDGETS = [100000, 1000000, 3000000, 10000000] as const;
 const DURATIONS = [[60, '1 小时'], [360, '6 小时'], [1440, '24 小时'], [4320, '3 天'], [10080, '7 天']] as const;
 const MINUTES_KEY = 'desktop.sweepMinutes';
 const zh = (s: string) => s;
@@ -82,7 +82,7 @@ function LocalStart({ rules, blocked, ready, busy, run, chosen }: { rules: Sweep
     <div className="sweep-form"><span className="sweep-label">预算</span>
       <input name="budget" aria-label="预算" type="number" inputMode="numeric" min={1} max={MAX_MESOS} step={1} value={budget} onChange={e => setBudget(e.target.value)} />
       <small className="sweep-hint">{value ? mesos(value) : ''}</small>
-      <div className="quick">{BUDGETS.map(([v, label]) => <button type="button" key={label} aria-pressed={value === v} onClick={() => setBudget(String(v))}>{label}</button>)}</div></div>
+      <div className="quick">{BUDGETS.map((v) => <button type="button" key={v} aria-pressed={value === v} onClick={() => setBudget(String(v))}>{mesos(v)}</button>)}</div></div>
     <div className="sweep-form"><span className="sweep-label">时长</span>
       <div className="seg" role="group" aria-label="时长">{DURATIONS.map(([m, label]) => <button type="button" key={m} aria-pressed={minutes === m} onClick={() => choose(m)}>{label}</button>)}</div></div>
         <div className="start-row"><span className="sweep-sub" data-start-summary>{summary}</span>

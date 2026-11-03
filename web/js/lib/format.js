@@ -7,13 +7,37 @@ export const esc = (s) =>
 
 const oneDecimal = (x) => (Math.round(x * 10) / 10).toFixed(1).replace(/\.0$/, '');
 
-// Mesos in K / M for both languages (plan v2 decision 4).
+// Large numbers: Chinese pages use 万 / 亿 unless the visitor chose K / M under
+// 我的 → 偏好设置; English pages always use K / M. `setUnits` is called by the
+// app with the saved choice ('wan' | 'km' | null for the language default).
+let unitChoice = null;
+export function setUnits(value) {
+  const next = value === 'wan' || value === 'km' ? value : null;
+  if (next === unitChoice) return;
+  unitChoice = next;
+  if (typeof document !== 'undefined') document.dispatchEvent(new CustomEvent('unitschange'));
+}
+export const usesWan = () => lang === 'zh' && unitChoice !== 'km';
+export const unitChoiceNow = () => unitChoice;
+// Up to 1,000 of a unit keeps one decimal (44.4万); more drops it (1235万).
+const scaled = (x) => (Math.abs(x) >= 1000 ? String(Math.round(x)) : oneDecimal(x));
+// The unit a large number takes, or null when it is shown in full.
+function large(v, km) {
+  const a = Math.abs(v);
+  if (!usesWan()) {
+    // 999,950 would round to 1000K, so it already takes M.
+    if (a >= 999950) return scaled(v / 1e6) + 'M';
+    return a >= km ? oneDecimal(v / 1e3) + 'K' : null;
+  }
+  // 99,995,000 would round to 10000万, so it already takes 亿.
+  if (a >= 99995000) return scaled(v / 1e8) + '亿';
+  return a >= 1e4 ? scaled(v / 1e4) + '万' : null;
+}
+
+// Mesos: 1.5K / 44.4万 above a thousand (K / M) or ten thousand (万 / 亿).
 export function meso(v) {
   if (v == null) return '—';
-  const a = Math.abs(v);
-  if (a >= 1e6) return oneDecimal(v / 1e6) + 'M';
-  if (a >= 1e3) return oneDecimal(v / 1e3) + 'K';
-  return Number.isInteger(v) ? String(v) : oneDecimal(v);
+  return large(v, 1e3) ?? (Number.isInteger(v) ? String(v) : oneDecimal(v));
 }
 
 // Relative ages use the real wall clock; a dataset timestamp is never 'now'.
@@ -55,14 +79,11 @@ export const mobImg = (id, pose) => `https://maplestory.io/api/GMS/83/mob/${id}/
 
 // Counts with thousands separators, the same in both languages ("1,001").
 export const num = (n) => (n == null ? '—' : Number(n).toLocaleString('en-US'));
-// Large counts as K / M ("12.3K"); below 10,000 they keep every digit.
+// Large counts ("1.8万" / "18.3K"); below 10,000 they keep every digit.
 export function compact(n) {
   if (n == null) return '—';
-  const v = Number(n), a = Math.abs(v);
-  // 999,960 rounds to 1000K, so switch to M at that point.
-  if (a >= 999950) return oneDecimal(v / 1e6) + 'M';
-  if (a >= 1e4) return oneDecimal(v / 1e3) + 'K';
-  return num(v);
+  const v = Number(n);
+  return large(v, 1e4) ?? num(v);
 }
 
 export const slot = (url, size = 28) =>
