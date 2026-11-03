@@ -772,84 +772,191 @@ pub(super) fn url_encode(text: &str) -> String {
 
 // ---------- search ----------
 
-pub fn search_page(page: &SearchPage, ctx: &Ctx) -> Markup {
-    let q = page.query.as_str();
-    let lang = ctx.lang;
-    let nothing =
-        page.items.rows.is_empty() && page.mobs.rows.is_empty() && page.maps.rows.is_empty();
-    let meta = (!q.is_empty()).then(|| format!("“{q}”"));
-    let body = html! {
-        section.stall {
-            (bar(ctx.t("搜索", "Search"), meta.as_deref()))
-            form.finder.in-page id="catalog-search" action="/search" method="get" role="search" {
-                (PreEscaped(icon(Icon::Search)))
-                input type="search" name="q" value=(q) placeholder=(ctx.t("搜索物品、怪物、地图", "Search items, monsters, maps"))
-                    aria-label=(ctx.t("搜索", "Search")) autocomplete="off";
-                @if let Some(kind) = page.kind { input type="hidden" name="kind" value=(kind.key()); }
-                @if lang == Lang::En { input type="hidden" name="lang" value="en"; }
+/// The search page's own URL as key/value pairs: the query, the kind and the
+/// kind's normalized filters. Links edit a copy.
+fn search_pairs(page: &SearchPage) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    if !page.query.is_empty() {
+        out.push(("q".into(), page.query.clone()));
+    }
+    if let Some(kind) = page.kind {
+        out.push(("kind".into(), kind.key().into()));
+    }
+    let filters = match page.kind {
+        Some(SearchKind::Item) => page.filters.query(),
+        Some(SearchKind::Mob) => page.mob_filters.query(),
+        Some(SearchKind::Map) if page.town => "&town=1".into(),
+        _ => String::new(),
+    };
+    for pair in filters.split('&').filter(|p| !p.is_empty()) {
+        let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
+        out.push((key.into(), value.into()));
+    }
+    if matches!(page.kind, Some(SearchKind::Mob | SearchKind::Map)) {
+        if !page.region.is_empty() {
+            out.push(("region".into(), page.region.clone()));
+        }
+        if !page.area.is_empty() {
+            out.push(("area".into(), page.area.clone()));
+        }
+    }
+    out
+}
+
+fn search_href(ctx: &Ctx, pairs: &[(String, String)]) -> String {
+    let query: Vec<String> = pairs
+        .iter()
+        .map(|(k, v)| format!("{k}={}", url_encode(v)))
+        .collect();
+    ctx.href(&format!("/search?{}", query.join("&")))
+}
+
+/// This page's URL without `drop` keys, plus `add`.
+fn edited_href(ctx: &Ctx, page: &SearchPage, drop: &[&str], add: &[(&str, String)]) -> String {
+    let mut pairs = search_pairs(page);
+    pairs.retain(|(k, _)| !drop.contains(&k.as_str()) && !add.iter().any(|(a, _)| a == k));
+    pairs.extend(add.iter().map(|(k, v)| (k.to_string(), v.clone())));
+    search_href(ctx, &pairs)
+}
+
+/// Filters only equipment has: another category drops them.
+const EQUIPMENT_KEYS: [&str; 6] = ["job", "shared", "type", "weapon", "lmin", "lmax"];
+
+/// An active filter: label, value, and the URL keys that remove it.
+struct Token {
+    label: &'static str,
+    value: String,
+    keys: &'static [&'static str],
+}
+
+fn level_text(lo: Option<i16>, hi: Option<i16>) -> String {
+    match hi {
+        Some(hi) => format!("{}–{hi}", lo.unwrap_or(0)),
+        None => format!("{}+", lo.unwrap_or(0)),
+    }
+}
+
+fn search_tokens(page: &SearchPage, ctx: &Ctx) -> Vec<Token> {
+    let mut out = Vec::new();
+    let mut add = |label, value: String, keys| out.push(Token { label, value, keys });
+    let level = |lo: Option<i16>, hi: Option<i16>| {
+        (lo.is_some() || hi.is_some()).then(|| level_text(lo, hi))
+    };
+    match page.kind {
+        Some(SearchKind::Item) => {
+            let f = &page.filters;
+            if let Some((_, _, zh, en)) = JOBS.iter().find(|(key, ..)| *key == f.job) {
+                add(ctx.t("职业", "Job"), ctx.t(zh, en).into(), &["job"]);
             }
-            div data-search-results aria-live="polite" {
-            (kind_chips(page, ctx))
-            (search_pagination(page,ctx))
-            div.dbody {
-                @if page.kind.is_none() && !q.is_empty() { (place_filters(page,ctx)) }
-                @if nothing {
-                    @if page.kind.is_none() || page.kind == Some(SearchKind::Item) {
-                        section.well id="search-item" {
-                            (well_head(ctx.t("物品","Items"), Some(ctx.t("0 个","0 found").into())))
-                            (catalog_filters(page,ctx))
-                        }
-                    }
-                    @if page.kind == Some(SearchKind::Mob) || page.kind == Some(SearchKind::Map) {
-                        section.well {
-                            (well_head(if page.kind==Some(SearchKind::Map) {ctx.t("地图","Maps")} else {ctx.t("怪物","Monsters")},Some(ctx.t("本页 0","This page: 0").into())))
-                            (place_filters(page,ctx))
-                        }
-                    }
-                    (empty_state(ctx, &match lang {
-                        _ if q.is_empty() && (!page.region.is_empty() || !page.area.is_empty()) => ctx.t("这个地区暂无匹配的记录，请调整地区或区域。", "No matching records in this location. Try another region or area.").to_string(),
-                        _ if q.is_empty() && !page.filters.query().is_empty() => ctx.t("没有符合筛选条件的物品，请调整或重置筛选。", "No items match these filters. Adjust or reset the filters.").to_string(),
-                        _ if q.is_empty() => ctx.t("暂无图鉴数据。", "No catalogue data yet.").to_string(),
-                        Lang::Zh => format!("没有找到「{q}」。换个字试试，比如只输入名字的一部分。"),
-                        Lang::En => format!("Nothing matches “{q}”. Try part of the name."),
-                    }))
-                } @else {
-                    (hits_well(ctx, SearchKind::Item, !q.is_empty() || page.kind == Some(SearchKind::Item), ctx.t("物品", "Items"), &page.items, Some(catalog_filters(page,ctx)), |hit: &ItemHit| html! {
-                        a.drow href=(ctx.href(&format!("/item/{}", hit.id))) {
-                            (slot(hit.icon_url.as_deref(), 28))
-                            span.t {
-                                b { (hit.names.get(lang)) }
-                                @if let Some(level)=hit.level.filter(|_| hit.id/1_000_000==1) { span.lv { (ctx.t("等级 ","Lv. ")) (level) } }
-                                span.s {
-                                    @if let Some(other) = hit.names.secondary(lang) { (other) }
-                                    @if let Some(sub) = hit.subcategory.as_ref().filter(|_| lang == Lang::Zh) { " · " (sub) }
-                                }
-                            }
-                        }
-                    }))
-                    (hits_well(ctx, SearchKind::Mob, !q.is_empty(), ctx.t("怪物", "Monsters"), &page.mobs, (page.kind==Some(SearchKind::Mob)).then(||place_filters(page,ctx)), |mob: &MobRef| {
-                        mob_row(ctx, mob, None, mob.names.secondary(lang).map(str::to_string))
-                    }))
-                    (hits_well(ctx, SearchKind::Map, !q.is_empty(), ctx.t("地图", "Maps"), &page.maps, (page.kind==Some(SearchKind::Map)).then(||place_filters(page,ctx)), |map: &MapHit| html! {
-                        a.drow href=(ctx.href(&format!("/map/{}", map.id))) {
-                            (map_glyph())
-                            span.t {
-                                b { (map.names.get(lang)) }
-                                (super::secondary_name(&map.names, lang))
-                                @if let Some(street) = &map.street { span.s { (street.get(lang)) } }
-                            }
-                        }
-                    }))
+            if !f.shared {
+                add(
+                    "",
+                    ctx.t("不含通用装备", "No all-class gear").into(),
+                    &["shared"],
+                );
+            }
+            if let Some((_, zh, en)) = EQUIPMENT_TYPES.iter().find(|(key, ..)| *key == f.slot) {
+                add(
+                    ctx.t("类型", "Type"),
+                    ctx.t(zh, en).into(),
+                    &["type", "weapon"],
+                );
+            }
+            if let Some((_, zh, en)) = WEAPON_TYPES.iter().find(|(id, ..)| Some(*id) == f.weapon) {
+                add(ctx.t("武器", "Weapon"), ctx.t(zh, en).into(), &["weapon"]);
+            }
+            if let Some((_, zh, en)) = USE_TYPES.iter().find(|(key, ..)| *key == f.use_type) {
+                add(ctx.t("类型", "Type"), ctx.t(zh, en).into(), &["use"]);
+            }
+            if let Some(text) = level(f.lmin, f.lmax) {
+                add(ctx.t("等级", "Level"), text, &["lmin", "lmax"]);
+            }
+        }
+        Some(kind) => {
+            if kind == SearchKind::Mob {
+                let f = &page.mob_filters;
+                if let Some(text) = level(f.lmin, f.lmax) {
+                    add(ctx.t("等级", "Level"), text, &["lmin", "lmax"]);
                 }
             }
-            (search_pagination(page,ctx))
+            let regions = super::super::regions::REGIONS;
+            if let Some((_, zh, en)) = regions.iter().find(|(key, ..)| *key == page.region) {
+                add(
+                    ctx.t("地区", "Region"),
+                    ctx.t(zh, en).into(),
+                    &["region", "area"],
+                );
+            }
+            if let Some(area) = page
+                .areas
+                .iter()
+                .find(|a| a.key == page.area && a.region == page.region)
+            {
+                add(
+                    ctx.t("区域", "Area"),
+                    area.names.get(ctx.lang).into(),
+                    &["area"],
+                );
+            }
+            if kind == SearchKind::Mob && page.mob_filters.boss {
+                add("", ctx.t("只看 Boss", "Bosses only").into(), &["boss"]);
+            }
+            if kind == SearchKind::Map && page.town {
+                add("", ctx.t("只看城镇", "Towns only").into(), &["town"]);
+            }
+        }
+        None => {}
+    }
+    out
+}
+
+/// Units of a kind's count: 件 items, 只 monsters, 张 maps.
+fn count_text(ctx: &Ctx, kind: SearchKind, n: i64) -> String {
+    let (zh, en) = match kind {
+        SearchKind::Item => ("件", "items"),
+        SearchKind::Mob => ("只", "monsters"),
+        SearchKind::Map => ("张", "maps"),
+    };
+    match ctx.lang {
+        Lang::Zh => format!("共 {} {zh}", grouped(n)),
+        Lang::En => format!("{} {en}", grouped(n)),
+    }
+}
+
+fn page_count(page: &SearchPage, total: i64) -> (i64, i64) {
+    let size = page.page_size.max(1);
+    ((page.offset / size) + 1, ((total + size - 1) / size).max(1))
+}
+
+pub fn search_page(page: &SearchPage, ctx: &Ctx) -> Markup {
+    let q = page.query.as_str();
+    let meta = (!q.is_empty()).then(|| format!("“{q}”"));
+    let body = html! {
+        section.stall.dex-search {
+            (bar(ctx.t("图鉴", "Catalogue"), meta.as_deref()))
+            div.dex-tools.dex-kind[page.kind.is_some()] {
+                form.finder.in-page id="catalog-search" action="/search" method="get" role="search" {
+                    (PreEscaped(icon(Icon::Search)))
+                    input type="search" name="q" value=(q) placeholder=(ctx.t("搜索物品、怪物、地图", "Search items, monsters, maps"))
+                        aria-label=(ctx.t("搜索", "Search")) autocomplete="off";
+                    @for (key, value) in search_pairs(page).iter().filter(|(k, _)| k != "q") {
+                        input type="hidden" name=(key) value=(value);
+                    }
+                    @if ctx.lang == Lang::En { input type="hidden" name="lang" value="en"; }
+                }
+                (kind_tabs(page, ctx))
+                @if page.kind == Some(SearchKind::Item) { (category_links(page, ctx)) }
+            }
+            @match page.kind {
+                Some(kind) => (kind_results(page, kind, ctx)),
+                None => (mixed_results(page, ctx)),
             }
         }
     };
     dex_page(
         ctx,
         if q.is_empty() {
-            ctx.t("搜索", "Search")
+            ctx.t("图鉴", "Catalogue")
         } else {
             q
         },
@@ -858,25 +965,278 @@ pub fn search_page(page: &SearchPage, ctx: &Ctx) -> Markup {
     )
 }
 
-fn search_pagination(page: &SearchPage, ctx: &Ctx) -> Markup {
-    if page.offset == 0 && !page.items.more && !page.mobs.more && !page.maps.more {
-        return html! {};
-    }
-    let q = page.query.as_str();
-    html! {
-            @let size = if page.kind.is_some() { 60 } else { 20 };
-            @let number = page.offset / size + 1;
-            @let link = |n| {
-                let kind = page.kind.map(|k| format!("&kind={}", k.key())).unwrap_or_default();
-                ctx.href(&format!("/search?q={}&page={n}{kind}{}{}", url_encode(q), page.filters.query(), place_query(page)))
-            };
-            nav.chips.kinds aria-label=(ctx.t("分页", "Pagination")) {
-                @if number > 1 { a.chip href=(link(number-1)) { (ctx.t("上一页", "Previous")) } }
-                span.chip { (ctx.t("第", "Page")) " " (number) }
-                @if page.items.more || page.mobs.more || page.maps.more {
-                    a.chip href=(link(number+1)) { (ctx.t("下一页", "Next")) }
+/// Items, monsters or maps: one tab each. Without a kind (a typed query
+/// over all three) no tab is current and each opens its catalogue.
+fn kind_tabs(page: &SearchPage, ctx: &Ctx) -> Markup {
+    let places = matches!(page.kind, Some(SearchKind::Mob | SearchKind::Map));
+    let tabs: Vec<(SearchKind, &str, String)> = [
+        (SearchKind::Item, ctx.t("物品", "Items")),
+        (SearchKind::Mob, ctx.t("怪物", "Monsters")),
+        (SearchKind::Map, ctx.t("地图", "Maps")),
+    ]
+    .into_iter()
+    .map(|(kind, label)| {
+        let mut pairs = Vec::new();
+        if !page.query.is_empty() {
+            pairs.push(("q".to_string(), page.query.clone()));
+        }
+        pairs.push(("kind".to_string(), kind.key().to_string()));
+        // Monsters and maps share the region and area.
+        if places && kind != SearchKind::Item {
+            for (key, value) in [("region", &page.region), ("area", &page.area)] {
+                if !value.is_empty() {
+                    pairs.push((key.to_string(), value.clone()));
                 }
             }
+        }
+        (kind, label, search_href(ctx, &pairs))
+    })
+    .collect();
+    html! {
+        nav.tabs.dex-kinds aria-label=(ctx.t("图鉴分类", "Catalogue")) {
+            @for (kind, label, href) in tabs {
+                @let on = page.kind == Some(kind);
+                a.tab.on[on] href=(href) aria-current=[on.then_some("page")] data-kind=(kind.key()) { (label) }
+            }
+        }
+    }
+}
+
+fn category_links(page: &SearchPage, ctx: &Ctx) -> Markup {
+    let counts = page
+        .facets
+        .as_ref()
+        .map(|f| f.categories.as_slice())
+        .unwrap_or(&[]);
+    let links: Vec<(&str, &str, String, Option<i64>)> = ITEM_CATEGORIES
+        .iter()
+        .map(|(key, zh, en)| {
+            let mut drop = vec!["cat", "use"];
+            if *key != "equip" {
+                drop.extend(EQUIPMENT_KEYS);
+            }
+            let add: Vec<(&str, String)> = if key.is_empty() {
+                vec![]
+            } else {
+                vec![("cat", key.to_string())]
+            };
+            let count = counts.iter().find(|f| f.key == *key).map(|f| f.count);
+            (
+                *key,
+                ctx.t(zh, en),
+                edited_href(ctx, page, &drop, &add),
+                count,
+            )
+        })
+        .collect();
+    html! {
+        div.cats data-cats role="group" aria-label=(ctx.t("物品分类", "Item category")) {
+            @for (key, label, href, count) in links {
+                @let on = page.filters.cat == key;
+                a.cat.on[on] href=(href) aria-current=[on.then_some("true")] data-cat=(if key.is_empty() { "all" } else { key }) {
+                    (label)
+                    @if let Some(n) = count { small { (grouped(n)) } }
+                }
+            }
+        }
+    }
+}
+
+fn kind_results(page: &SearchPage, kind: SearchKind, ctx: &Ctx) -> Markup {
+    let lang = ctx.lang;
+    let tokens = search_tokens(page, ctx);
+    let total = match kind {
+        SearchKind::Item => page.items.total,
+        SearchKind::Mob => page.mobs.total,
+        SearchKind::Map => page.maps.total,
+    };
+    let (number, pages) = page_count(page, total);
+    let empty = match kind {
+        SearchKind::Item => page.items.rows.is_empty(),
+        SearchKind::Mob => page.mobs.rows.is_empty(),
+        SearchKind::Map => page.maps.rows.is_empty(),
+    };
+    let all_keys: Vec<&str> = tokens.iter().flat_map(|t| t.keys.iter().copied()).collect();
+    html! {
+        div.dex-body {
+            @if !tokens.is_empty() {
+                div.dex-tokens data-active-filters {
+                    @for token in &tokens {
+                        a.tok href=(edited_href(ctx, page, token.keys, &[])) data-remove-filter=(token.keys[0]) {
+                            @if !token.label.is_empty() { (token.label) " " }
+                            b { (token.value) } " ×"
+                        }
+                    }
+                    a.dex-clear href=(edited_href(ctx, page, &all_keys, &[])) data-clear-filters { (ctx.t("清除筛选", "Clear filters")) }
+                }
+            }
+            p.dex-total data-total {
+                (count_text(ctx, kind, total))
+                @if total > 0 {
+                    @match lang {
+                        Lang::Zh => { " · 第 " (number) "/" (pages) " 页" },
+                        Lang::En => { " · page " (number) " of " (pages) },
+                    }
+                }
+            }
+            div data-search-results aria-live="polite" id={"search-" (kind.key())} {
+                @if empty {
+                    (search_empty(page, ctx, !tokens.is_empty() || !page.filters.cat.is_empty()))
+                } @else {
+                    div.catalogue-grid {
+                        @match kind {
+                            SearchKind::Item => { @for hit in &page.items.rows { (item_hit(ctx, hit)) } },
+                            SearchKind::Mob => { @for mob in &page.mobs.rows { (mob_row(ctx, mob, None, mob.names.secondary(lang).map(str::to_string))) } },
+                            SearchKind::Map => { @for map in &page.maps.rows { (map_hit(ctx, map)) } },
+                        }
+                    }
+                }
+            }
+            @if pages > 1 { (search_pager(page, ctx, number, pages)) }
+        }
+    }
+}
+
+fn item_hit(ctx: &Ctx, hit: &ItemHit) -> Markup {
+    let lang = ctx.lang;
+    html! {
+        a.drow href=(ctx.href(&format!("/item/{}", hit.id))) {
+            (slot(hit.icon_url.as_deref(), 28))
+            span.t {
+                b { (hit.names.get(lang)) }
+                @if let Some(level)=hit.level.filter(|_| hit.id/1_000_000==1) { span.lv { (ctx.t("等级 ","Lv. ")) (level) } }
+                span.s {
+                    @if let Some(other) = hit.names.secondary(lang) { (other) }
+                    @if let Some(sub) = hit.subcategory.as_ref().filter(|_| lang == Lang::Zh) { " · " (sub) }
+                }
+            }
+        }
+    }
+}
+
+fn map_hit(ctx: &Ctx, map: &MapHit) -> Markup {
+    html! {
+        a.drow href=(ctx.href(&format!("/map/{}", map.id))) {
+            (map_glyph())
+            span.t {
+                b { (map.names.get(ctx.lang)) }
+                (super::secondary_name(&map.names, ctx.lang))
+                @if let Some(street) = &map.street { span.s { (street.get(ctx.lang)) } }
+            }
+        }
+    }
+}
+
+/// Numbered pages: the first, the last and two either side of this one.
+fn search_pager(page: &SearchPage, ctx: &Ctx, number: i64, pages: i64) -> Markup {
+    let link = |n: i64| edited_href(ctx, page, &[], &[("page", n.to_string())]);
+    let mut shown: Vec<Option<i64>> = Vec::new();
+    for n in 1..=pages {
+        if n == 1 || n == pages || (n - number).abs() <= 2 {
+            shown.push(Some(n));
+        } else if shown.last() != Some(&None) {
+            shown.push(None);
+        }
+    }
+    html! {
+        nav.dex-pager aria-label=(ctx.t("分页", "Pagination")) {
+            @if number > 1 { a.chip href=(link(number - 1)) rel="prev" { (ctx.t("上一页", "Previous")) } }
+            @for n in shown {
+                @match n {
+                    Some(n) if n == number => { a.chip.on href=(link(n)) aria-current="page" { (n) } },
+                    Some(n) => { a.chip href=(link(n)) { (n) } },
+                    None => { span.gap { "…" } },
+                }
+            }
+            @if number < pages { a.chip href=(link(number + 1)) rel="next" { (ctx.t("下一页", "Next")) } }
+        }
+    }
+}
+
+fn search_empty(page: &SearchPage, ctx: &Ctx, filtered: bool) -> Markup {
+    let q = page.query.as_str();
+    let text = match (q.is_empty(), filtered, ctx.lang) {
+        (false, _, Lang::Zh) => format!("没有找到「{q}」。换个字试试，比如只输入名字的一部分。"),
+        (false, _, Lang::En) => format!("Nothing matches “{q}”. Try part of the name."),
+        (true, true, _) => ctx
+            .t("没有符合筛选条件的结果。", "Nothing matches these filters.")
+            .to_string(),
+        (true, false, _) => ctx
+            .t("暂无图鉴数据。", "No catalogue data yet.")
+            .to_string(),
+    };
+    let kind = page
+        .kind
+        .map(|k| format!("?kind={}", k.key()))
+        .unwrap_or_default();
+    html! {
+        div.empty {
+            img src=(mob_image_url(EMPTY_MOB)) alt="" loading="lazy";
+            p { (text) }
+            @if !q.is_empty() || filtered {
+                a.btn href=(ctx.href(&format!("/search{kind}"))) data-clear-search { (ctx.t("清空搜索和筛选", "Clear search and filters")) }
+            }
+        }
+    }
+}
+
+/// A typed query without a kind: the first rows of all three catalogues,
+/// each linking to its full list.
+fn mixed_results(page: &SearchPage, ctx: &Ctx) -> Markup {
+    let lang = ctx.lang;
+    let nothing =
+        page.items.rows.is_empty() && page.mobs.rows.is_empty() && page.maps.rows.is_empty();
+    html! {
+        div.dbody data-search-results aria-live="polite" {
+            @if nothing {
+                (empty_state(ctx, &match lang {
+                    _ if page.query.is_empty() => ctx.t("暂无图鉴数据。", "No catalogue data yet.").to_string(),
+                    Lang::Zh => format!("没有找到「{}」。换个字试试，比如只输入名字的一部分。", page.query),
+                    Lang::En => format!("Nothing matches “{}”. Try part of the name.", page.query),
+                }))
+            } @else {
+                (hits_well(page, ctx, SearchKind::Item, ctx.t("物品", "Items"), &page.items, |hit| item_hit(ctx, hit)))
+                (hits_well(page, ctx, SearchKind::Mob, ctx.t("怪物", "Monsters"), &page.mobs, |mob: &MobRef| {
+                    mob_row(ctx, mob, None, mob.names.secondary(lang).map(str::to_string))
+                }))
+                (hits_well(page, ctx, SearchKind::Map, ctx.t("地图", "Maps"), &page.maps, |map| map_hit(ctx, map)))
+            }
+        }
+    }
+}
+
+fn hits_well<T>(
+    page: &SearchPage,
+    ctx: &Ctx,
+    kind: SearchKind,
+    title: &str,
+    hits: &Hits<T>,
+    row: impl Fn(&T) -> Markup,
+) -> Markup {
+    let all = search_href(
+        ctx,
+        &[
+            ("q".into(), page.query.clone()),
+            ("kind".into(), kind.key().into()),
+        ],
+    );
+    html! {
+        section.well id={"search-" (kind.key())} {
+            (well_head(title, Some(count_text(ctx, kind, hits.total))))
+            @if !hits.rows.is_empty() {
+                div.catalogue-grid { @for hit in &hits.rows { (row(hit)) } }
+            } @else {
+                p.note { (ctx.t("没有匹配结果。", "No matches.")) }
+            }
+            @if hits.more {
+                a.more href=(all) data-kind-all=(kind.key()) {
+                    (match ctx.lang {
+                        Lang::Zh => format!("查看全部 {} {}", grouped(hits.total), match kind { SearchKind::Item => "件", SearchKind::Mob => "只", SearchKind::Map => "张" }),
+                        Lang::En => format!("Show all {}", grouped(hits.total)),
+                    })
+                }
+            }
+        }
     }
 }
 
@@ -886,147 +1246,6 @@ fn empty_state(ctx: &Ctx, text: &str) -> Markup {
             img src=(mob_image_url(EMPTY_MOB)) alt="" loading="lazy";
             p { (text) }
             @if ctx.lang == Lang::Zh { p.hint { "试试：蜗牛、射手村、铁矿石" } } @else { p.hint { "Try: snail, Henesys, iron ore" } }
-        }
-    }
-}
-
-fn place_query(page: &SearchPage) -> String {
-    let mut out = String::new();
-    if !page.region.is_empty() {
-        out.push_str(&format!("&region={}", url_encode(&page.region)));
-    }
-    if !page.area.is_empty() {
-        out.push_str(&format!("&area={}", url_encode(&page.area)));
-    }
-    out
-}
-
-fn place_filters(page: &SearchPage, ctx: &Ctx) -> Markup {
-    html! {
-        div.place-tools {
-            @if page.kind.is_none() { span.place-scope { (ctx.t("地图／怪物地区","Map / monster location")) } }
-            label { (ctx.t("地区","Region"))
-                select name="region" form="catalog-search" {
-                    option value="" selected[page.region.is_empty()] { (ctx.t("全部地区","All regions")) }
-                    @for (key,zh,en) in super::super::regions::REGIONS {
-                        option value=(key) selected[page.region==*key] { (ctx.t(zh,en)) }
-                    }
-                }
-            }
-            label { (ctx.t("区域","Area"))
-                select name="area" form="catalog-search" disabled[page.region.is_empty()] {
-                    option value="" selected[page.area.is_empty()] { (if page.region.is_empty() {ctx.t("先选地区","Choose a region first")} else {ctx.t("全部区域","All areas")}) }
-                    @for area in &page.areas {
-                        @if !page.region.is_empty() && area.region==page.region {
-                            option value=(&area.key) selected[page.area==area.key] { (area.names.get(ctx.lang)) }
-                        }
-                    }
-                }
-            }
-            button.chip type="button" data-place-reset { (ctx.t("重置","Reset")) }
-            @if page.kind != Some(SearchKind::Map) {
-                small.place-hint { (ctx.t("怪物按刷新地图筛选；没有地图记录的怪物仅在全部地区显示。","Monsters match their recorded spawn maps. Monsters without map records appear only under all regions.")) }
-            }
-        }
-    }
-}
-
-fn catalog_filters(page: &SearchPage, ctx: &Ctx) -> Markup {
-    let f = &page.filters;
-    let categories = [
-        ("", ctx.t("全部", "All")),
-        ("equip", ctx.t("装备 EQUIP", "EQUIP")),
-        ("use", ctx.t("消耗 USE", "USE")),
-        ("setup", ctx.t("装饰 SETUP", "SETUP")),
-        ("etc", ctx.t("其他 ETC", "ETC")),
-        ("cash", ctx.t("商城 CASH", "CASH")),
-    ];
-    let jobs = [
-        (0, ctx.t("所有职业", "All jobs")),
-        (1, ctx.t("战士", "Warrior")),
-        (2, ctx.t("魔法师", "Magician")),
-        (4, ctx.t("弓箭手", "Bowman")),
-        (8, ctx.t("飞侠", "Thief")),
-    ];
-    let active = f.job != 0 || f.min_level.is_some() || f.max_level.is_some();
-    html! {
-        div.catalogue-tools {
-            div.catalogue-cats role="group" aria-label=(ctx.t("物品分类","Item category")) {
-                @for (value,label) in categories {
-                    label { input type="radio" name="cat" value=(value) form="catalog-search" checked[f.cat==value]; span { (label) } }
-                }
-            }
-            details.catalogue-filter open[active] {
-                summary { (ctx.t("筛选","Filters")) span data-filter-summary { @if active { " ●" } } }
-                div.catalogue-panel {
-                    label { (ctx.t("适用职业","Job")) select name="job" form="catalog-search" {
-                        @for (value,label) in jobs { option value=(value) selected[f.job==value] { (label) } }
-                    } }
-                    div.catalogue-levels {
-                        label { (ctx.t("最低等级","Min level")) input type="number" name="min_level" form="catalog-search" min="0" max="300" value=(f.min_level.map(|n|n.to_string()).unwrap_or_default()) placeholder="0"; }
-                        span { "–" }
-                        label { (ctx.t("最高等级","Max level")) input type="number" name="max_level" form="catalog-search" min="0" max="300" value=(f.max_level.map(|n|n.to_string()).unwrap_or_default()) placeholder=(ctx.t("不限","Any")); }
-                    }
-                    div.catalogue-presets {
-                        @for (lo,hi) in [(1,20),(21,30),(31,50),(51,70),(71,120)] {
-                            button.chip type="button" data-catalog-levels=(format!("{lo},{hi}")) { (lo) "–" (hi) }
-                        }
-                        button.chip type="button" data-catalog-reset { (ctx.t("重置筛选","Reset filters")) }
-                    }
-                    p.fnote { (ctx.t("职业和等级筛选仅适用于装备，包含该职业可用的通用装备。","Job and level filters apply to equipment, including gear usable by all jobs.")) }
-                }
-            }
-        }
-    }
-}
-
-/// Three browse categories; during search these jump to the matching result group.
-fn kind_chips(page: &SearchPage, ctx: &Ctx) -> Markup {
-    let searching = !page.query.is_empty();
-    let chips = [
-        (SearchKind::Item, ctx.t("物品", "Items")),
-        (SearchKind::Mob, ctx.t("怪物", "Monsters")),
-        (SearchKind::Map, ctx.t("地图", "Maps")),
-    ];
-    html! {
-        nav.chips.kinds aria-label=(ctx.t("结果类型", "Result type")) {
-            @for (kind, label) in chips {
-                @let href = if searching {
-                    format!("#search-{}", kind.key())
-                } else {
-                    ctx.href(&format!("/search?kind={}{}", kind.key(), place_query(page)))
-                };
-                @let on = !searching && kind == page.kind.unwrap_or(SearchKind::Item);
-                a.chip.on[on] href=(href) aria-current=[on.then_some("page")] { (label) }
-            }
-        }
-    }
-}
-
-fn hits_well<T>(
-    ctx: &Ctx,
-    kind: SearchKind,
-    show_empty: bool,
-    title: &str,
-    hits: &Hits<T>,
-    controls: Option<Markup>,
-    row: impl Fn(&T) -> Markup,
-) -> Markup {
-    html! {
-        @if show_empty || !hits.rows.is_empty() {
-            section.well id={"search-" (kind.key())} {
-                (well_head(title, Some(format!("{} {}{}",ctx.t("本页","This page:"),hits.rows.len(),if hits.more { "+" } else { "" }))))
-                @if let Some(controls)=controls { (controls) }
-                @if !hits.rows.is_empty() {
-                    div.catalogue-grid { @for hit in &hits.rows { (row(hit)) } }
-                }
-                @if hits.rows.is_empty() { p.note { (ctx.t("没有匹配结果。", "No matches.")) } }
-                @if hits.more {
-                    p.note {
-                        (ctx.t("还有更多结果，可翻到下一页。", "More results on the next page."))
-                    }
-                }
-            }
         }
     }
 }
@@ -1062,20 +1281,85 @@ pub fn error_page(ctx: &Ctx) -> Markup {
 mod tests {
     use super::*;
     #[test]
-    fn category_chips_have_no_all_tab_and_search_links_jump_to_groups() {
+    fn kind_tabs_keep_the_query_and_shared_places() {
         let ctx = Ctx::default();
-        let browse = kind_chips(&SearchPage::default(), &ctx).into_string();
+        let browse = kind_tabs(
+            &SearchPage {
+                kind: Some(SearchKind::Item),
+                ..Default::default()
+            },
+            &ctx,
+        )
+        .into_string();
         assert_eq!(browse.matches("<a ").count(), 3);
         assert!(!browse.contains("全部"));
-        assert!(browse.contains("/search?kind=item"));
+        assert!(browse.contains(r#"class="tab on" href="/search?kind=item""#));
+        let search = kind_tabs(
+            &SearchPage {
+                query: "蜗牛".into(),
+                ..Default::default()
+            },
+            &ctx,
+        )
+        .into_string();
+        assert!(
+            !search.contains("tab on"),
+            "no tab is current over three catalogues"
+        );
+        assert!(search.contains("/search?q=%E8%9C%97%E7%89%9B&amp;kind=mob"));
+        let mobs = kind_tabs(
+            &SearchPage {
+                kind: Some(SearchKind::Mob),
+                region: "victoria".into(),
+                ..Default::default()
+            },
+            &ctx,
+        )
+        .into_string();
+        assert!(mobs.contains("/search?kind=map&amp;region=victoria"));
+        assert!(mobs.contains(r#"href="/search?kind=item""#));
+    }
+
+    #[test]
+    fn tokens_remove_their_own_keys_and_categories_drop_equipment_filters() {
+        let ctx = Ctx::default();
         let page = SearchPage {
-            query: "蜗牛".into(),
+            kind: Some(SearchKind::Item),
+            filters: ItemFilters {
+                cat: "equip".into(),
+                job: "warrior".into(),
+                lmin: Some(30),
+                lmax: Some(40),
+                sort: "level".into(),
+                ..Default::default()
+            },
+            page_size: 60,
+            offset: 60,
+            items: Hits {
+                total: 113,
+                ..Default::default()
+            },
             ..Default::default()
         };
-        let search = kind_chips(&page, &ctx).into_string();
-        for kind in ["item", "mob", "map"] {
-            assert!(search.contains(&format!("href=\"#search-{kind}\"")));
-        }
+        let tokens = search_tokens(&page, &ctx);
+        assert_eq!(
+            tokens
+                .iter()
+                .map(|t| (t.label, t.value.as_str()))
+                .collect::<Vec<_>>(),
+            [("职业", "战士"), ("等级", "30–40")]
+        );
+        assert_eq!(
+            edited_href(&ctx, &page, tokens[0].keys, &[]),
+            "/search?kind=item&cat=equip&lmin=30&lmax=40&sort=level"
+        );
+        let html = search_page(&page, &ctx).into_string();
+        assert!(html.contains("共 113 件 · 第 2/2 页"));
+        assert!(html.contains(r#"href="/search?kind=item&amp;sort=level&amp;cat=use""#));
+        assert!(html.contains(r#"href="/search?kind=item&amp;cat=equip&amp;job=warrior&amp;lmin=30&amp;lmax=40&amp;sort=level&amp;page=1""#));
+        assert!(html.contains("清除筛选"));
+        assert!(html.contains(r#"<a class="cat on""#));
+        assert_eq!(level_text(Some(70), None), "70+");
     }
 
     #[test]

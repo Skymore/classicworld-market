@@ -696,50 +696,289 @@ impl SearchKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, serde::Deserialize, serde::Serialize)]
-#[serde(default)]
+/// Item categories: URL key and both page languages.
+pub const ITEM_CATEGORIES: &[(&str, &str, &str)] = &[
+    ("", "全部", "All"),
+    ("equip", "装备", "Equip"),
+    ("use", "消耗", "Use"),
+    ("setup", "装饰", "Setup"),
+    ("etc", "其他", "Etc"),
+    ("cash", "商城", "Cash"),
+];
+
+/// Jobs: URL key, `req_job_mask` bit and both page languages. Classic World
+/// has no pirates.
+pub const JOBS: &[(&str, i16, &str, &str)] = &[
+    ("warrior", 1, "战士", "Warrior"),
+    ("magician", 2, "法师", "Magician"),
+    ("bowman", 4, "弓箭手", "Bowman"),
+    ("thief", 8, "飞侠", "Thief"),
+];
+
+/// Equipment types: URL key and `items.subcategory`, in the order of
+/// `equipmentTypes` in `web/js/lib/price-filters.js`.
+pub const EQUIPMENT_TYPES: &[(&str, &str, &str)] = &[
+    ("weapon", "武器", "Weapon"),
+    ("hat", "帽子", "Hat"),
+    ("overall", "套服", "Overall"),
+    ("top", "上衣", "Top"),
+    ("bottom", "裤裙", "Bottom"),
+    ("gloves", "手套", "Gloves"),
+    ("shoes", "鞋子", "Shoes"),
+    ("shield", "盾牌", "Shield"),
+    ("cape", "披风", "Cape"),
+    ("face", "脸饰", "Face accessory"),
+    ("eye", "眼饰", "Eye accessory"),
+    ("earrings", "耳环", "Earrings"),
+    ("ring", "戒指", "Ring"),
+    ("pendant", "项链", "Pendant"),
+    ("belt", "腰带", "Belt"),
+    ("medal", "勋章", "Medal"),
+    ("pet", "宠物装备", "Pet equipment"),
+];
+
+/// Weapon types by item id prefix (`id / 10000`).
+pub const WEAPON_TYPES: &[(i32, &str, &str)] = &[
+    (130, "单手剑", "One-handed sword"),
+    (131, "单手斧", "One-handed axe"),
+    (132, "单手钝器", "One-handed mace"),
+    (133, "短刀", "Dagger"),
+    (137, "短杖", "Wand"),
+    (138, "长杖", "Staff"),
+    (140, "双手剑", "Two-handed sword"),
+    (141, "双手斧", "Two-handed axe"),
+    (142, "双手钝器", "Two-handed mace"),
+    (143, "枪", "Spear"),
+    (144, "矛", "Polearm"),
+    (145, "弓", "Bow"),
+    (146, "弩", "Crossbow"),
+    (147, "拳套", "Claw"),
+];
+
+/// Use-item types; `queries` matches them on the id prefix.
+pub const USE_TYPES: &[(&str, &str, &str)] = &[
+    ("potion", "药水", "Potions"),
+    ("return", "回城卷轴", "Return scrolls"),
+    ("scroll", "卷轴", "Scrolls"),
+    ("arrow", "箭矢", "Arrows"),
+    ("star", "飞镖", "Throwing stars"),
+    ("other", "其他", "Other"),
+];
+
+/// The use-item type of an item id prefix (`id / 10000`, 200-299).
+pub fn use_type(prefix: i32) -> &'static str {
+    match prefix {
+        200..=202 => "potion",
+        203 => "return",
+        204 => "scroll",
+        206 => "arrow",
+        207 => "star",
+        _ => "other",
+    }
+}
+
+/// Item filters as the URL spells them (`cat`, `job`, `lmin`, `lmax`,
+/// `type`, `weapon`, `use`, `shared`, `sort`).
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ItemFilters {
     pub cat: String,
-    pub job: i16,
-    pub min_level: Option<i16>,
-    pub max_level: Option<i16>,
+    /// A `JOBS` key, or empty for every job.
+    pub job: String,
+    pub lmin: Option<i16>,
+    pub lmax: Option<i16>,
+    /// An `EQUIPMENT_TYPES` key.
+    #[serde(rename = "type")]
+    pub slot: String,
+    /// A `WEAPON_TYPES` prefix; only with the weapon type.
+    pub weapon: Option<i32>,
+    /// A `USE_TYPES` key; only with the use category.
+    #[serde(rename = "use")]
+    pub use_type: String,
+    /// Keep gear every job can wear (`shared=0` drops it).
+    pub shared: bool,
+    /// Empty (popular first), `level`, `level_desc` or `name`.
+    pub sort: String,
 }
-impl ItemFilters {
-    pub fn normalize(&mut self) {
-        if ![0, 1, 2, 4, 8, 16].contains(&self.job) {
-            self.job = 0;
-        }
-        if !["", "equip", "use", "setup", "etc", "cash"].contains(&self.cat.as_str()) {
-            self.cat.clear();
-        }
-        self.min_level = self.min_level.map(|n| n.clamp(0, 300));
-        self.max_level = self.max_level.map(|n| n.clamp(0, 300));
-        if let (Some(lo), Some(hi)) = (self.min_level, self.max_level) {
-            if lo > hi {
-                self.min_level = Some(hi);
-                self.max_level = Some(lo);
-            }
-        }
-        if self.job != 0 || self.min_level.is_some() || self.max_level.is_some() {
-            self.cat = "equip".into();
+
+impl Default for ItemFilters {
+    fn default() -> Self {
+        Self {
+            cat: String::new(),
+            job: String::new(),
+            lmin: None,
+            lmax: None,
+            slot: String::new(),
+            weapon: None,
+            use_type: String::new(),
+            shared: true,
+            sort: String::new(),
         }
     }
+}
+
+/// Clamped to 0-300 and in order; a lone minimum of 0 filters nothing.
+fn level_range(lo: Option<i16>, hi: Option<i16>) -> (Option<i16>, Option<i16>) {
+    let (mut lo, mut hi) = (lo.map(|n| n.clamp(0, 300)), hi.map(|n| n.clamp(0, 300)));
+    if let (Some(a), Some(b)) = (lo, hi) {
+        if a > b {
+            (lo, hi) = (Some(b), Some(a));
+        }
+    }
+    if lo == Some(0) && hi.is_none() {
+        lo = None;
+    }
+    (lo, hi)
+}
+
+fn push_level(out: &mut String, lo: Option<i16>, hi: Option<i16>) {
+    if let Some(n) = lo {
+        out.push_str(&format!("&lmin={n}"));
+    }
+    if let Some(n) = hi {
+        out.push_str(&format!("&lmax={n}"));
+    }
+}
+
+impl ItemFilters {
+    /// The job from `job=warrior` or an old `job=1` link; pirates (16) are
+    /// not in Classic World.
+    pub fn parse_job(raw: &str) -> String {
+        JOBS.iter()
+            .find(|(key, bit, _, _)| *key == raw || bit.to_string() == raw)
+            .map(|(key, ..)| key.to_string())
+            .unwrap_or_default()
+    }
+
+    pub fn job_bit(&self) -> i16 {
+        JOBS.iter()
+            .find(|(key, ..)| *key == self.job)
+            .map_or(0, |(_, bit, ..)| *bit)
+    }
+
+    /// `items.subcategory` of the equipment type.
+    pub fn subcategory(&self) -> &'static str {
+        EQUIPMENT_TYPES
+            .iter()
+            .find(|(key, ..)| *key == self.slot)
+            .map_or("", |(_, zh, _)| zh)
+    }
+
+    /// Filters that only equipment has.
+    pub fn equipment_only(&self) -> bool {
+        !self.job.is_empty()
+            || !self.shared
+            || !self.slot.is_empty()
+            || self.lmin.is_some()
+            || self.lmax.is_some()
+    }
+
+    /// Drops unknown values; equipment-only filters select 装备, and the
+    /// use-item type needs 消耗.
+    pub fn normalize(&mut self) {
+        if !ITEM_CATEGORIES.iter().any(|(key, ..)| *key == self.cat) {
+            self.cat.clear();
+        }
+        if !JOBS.iter().any(|(key, ..)| *key == self.job) {
+            self.job.clear();
+        }
+        (self.lmin, self.lmax) = level_range(self.lmin, self.lmax);
+        if !EQUIPMENT_TYPES.iter().any(|(key, ..)| *key == self.slot) {
+            self.slot.clear();
+        }
+        self.weapon = self
+            .weapon
+            .filter(|w| WEAPON_TYPES.iter().any(|(id, ..)| id == w));
+        if self.weapon.is_some() && self.slot.is_empty() {
+            self.slot = "weapon".into();
+        }
+        if self.slot != "weapon" {
+            self.weapon = None;
+        }
+        if !["", "level", "level_desc", "name"].contains(&self.sort.as_str()) {
+            self.sort.clear();
+        }
+        if self.equipment_only() {
+            self.cat = "equip".into();
+        }
+        if self.cat != "use" || !USE_TYPES.iter().any(|(key, ..)| *key == self.use_type) {
+            self.use_type.clear();
+        }
+    }
+
+    /// `&key=value` pairs of the set filters, in a fixed order.
     pub fn query(&self) -> String {
         let mut out = String::new();
         if !self.cat.is_empty() {
             out.push_str(&format!("&cat={}", self.cat));
         }
-        if self.job != 0 {
+        if !self.job.is_empty() {
             out.push_str(&format!("&job={}", self.job));
         }
-        if let Some(n) = self.min_level {
-            out.push_str(&format!("&min_level={n}"));
+        if !self.shared {
+            out.push_str("&shared=0");
         }
-        if let Some(n) = self.max_level {
-            out.push_str(&format!("&max_level={n}"));
+        if !self.slot.is_empty() {
+            out.push_str(&format!("&type={}", self.slot));
+        }
+        if let Some(w) = self.weapon {
+            out.push_str(&format!("&weapon={w}"));
+        }
+        if !self.use_type.is_empty() {
+            out.push_str(&format!("&use={}", self.use_type));
+        }
+        push_level(&mut out, self.lmin, self.lmax);
+        if !self.sort.is_empty() {
+            out.push_str(&format!("&sort={}", self.sort));
         }
         out
     }
+}
+
+/// Monster filters (`lmin`, `lmax`, `boss`, `sort`); region and area sit on
+/// the page because maps share them.
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize)]
+pub struct MobFilters {
+    pub lmin: Option<i16>,
+    pub lmax: Option<i16>,
+    pub boss: bool,
+    /// Empty (level, low to high), `level_desc` or `name`.
+    pub sort: String,
+}
+
+impl MobFilters {
+    pub fn normalize(&mut self) {
+        (self.lmin, self.lmax) = level_range(self.lmin, self.lmax);
+        if !["", "level_desc", "name"].contains(&self.sort.as_str()) {
+            self.sort.clear();
+        }
+    }
+
+    pub fn query(&self) -> String {
+        let mut out = String::new();
+        push_level(&mut out, self.lmin, self.lmax);
+        if self.boss {
+            out.push_str("&boss=1");
+        }
+        if !self.sort.is_empty() {
+            out.push_str(&format!("&sort={}", self.sort));
+        }
+        out
+    }
+}
+
+/// What `/search` was asked, after normalization.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SearchRequest {
+    pub query: String,
+    /// `None`: a typed query over all three catalogues, without filters.
+    pub kind: Option<SearchKind>,
+    pub offset: i64,
+    pub items: ItemFilters,
+    pub mobs: MobFilters,
+    /// Maps: towns only.
+    pub town: bool,
+    pub region: String,
+    pub area: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, serde::Serialize)]
@@ -748,13 +987,41 @@ pub struct SearchPage {
     pub area: String,
     pub areas: Vec<AreaChoice>,
     pub filters: ItemFilters,
+    pub mob_filters: MobFilters,
+    pub town: bool,
     pub query: String,
     pub offset: i64,
-    /// `?kind=`: only that group, with a longer list.
+    /// Rows per page and group: 60 for one kind, 20 for each of three.
+    pub page_size: i64,
+    /// `?kind=`: only that group, with a longer list and filters.
     pub kind: Option<SearchKind>,
+    /// Item counts for the filter bar; only when browsing items.
+    pub facets: Option<ItemFacets>,
     pub items: Hits<ItemHit>,
     pub mobs: Hits<MobRef>,
     pub maps: Hits<MapHit>,
+}
+
+/// Counts behind the item filter bar and dialog.
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize)]
+pub struct ItemFacets {
+    /// Items per category (`ITEM_CATEGORIES` keys, `""` is all) matching the
+    /// query; the other item filters are not applied.
+    pub categories: Vec<Facet>,
+    /// Equipment per type under the job, all-class and level filters.
+    pub types: Vec<Facet>,
+    /// Weapons per weapon type under the same filters.
+    pub weapons: Vec<Facet>,
+    /// Use items per use type matching the query.
+    pub uses: Vec<Facet>,
+}
+
+/// One filter value that has items, or the selected one.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct Facet {
+    pub key: String,
+    pub names: Names,
+    pub count: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, sqlx::FromRow, serde::Serialize)]
@@ -770,6 +1037,8 @@ pub struct Hits<T> {
     pub rows: Vec<T>,
     /// More matched than `rows` holds.
     pub more: bool,
+    /// Everything the query and filters match, on all pages.
+    pub total: i64,
 }
 
 impl<T> Default for Hits<T> {
@@ -777,6 +1046,7 @@ impl<T> Default for Hits<T> {
         Self {
             rows: Vec::new(),
             more: false,
+            total: 0,
         }
     }
 }
@@ -823,20 +1093,84 @@ mod item_filter_tests {
     fn normalize_equipment_filters_and_reversed_levels() {
         let mut f = ItemFilters {
             cat: "etc".into(),
-            job: 4,
-            min_level: Some(30),
-            max_level: Some(20),
+            job: ItemFilters::parse_job("4"),
+            lmin: Some(30),
+            lmax: Some(20),
+            ..Default::default()
         };
         f.normalize();
-        assert_eq!(f.cat, "equip");
-        assert_eq!((f.min_level, f.max_level), (Some(20), Some(30)));
-        assert_eq!(f.query(), "&cat=equip&job=4&min_level=20&max_level=30");
+        assert_eq!(f.cat, "equip", "equipment-only filters select 装备");
+        assert_eq!((f.lmin, f.lmax), (Some(20), Some(30)));
+        assert_eq!(f.job_bit(), 4);
+        assert_eq!(f.query(), "&cat=equip&job=bowman&lmin=20&lmax=30");
         let mut f = ItemFilters {
             cat: "invalid".into(),
-            job: 99,
+            job: ItemFilters::parse_job("99"),
+            slot: "<b>".into(),
+            sort: "price".into(),
             ..Default::default()
         };
         f.normalize();
         assert_eq!(f, ItemFilters::default());
+    }
+
+    #[test]
+    fn jobs_accept_old_bits_but_not_pirates() {
+        assert_eq!(ItemFilters::parse_job("1"), "warrior");
+        assert_eq!(ItemFilters::parse_job("magician"), "magician");
+        assert_eq!(ItemFilters::parse_job("16"), "");
+        assert_eq!(ItemFilters::parse_job("pirate"), "");
+    }
+
+    #[test]
+    fn weapon_types_belong_to_weapons_and_use_types_to_use_items() {
+        let mut f = ItemFilters {
+            weapon: Some(140),
+            use_type: "potion".into(),
+            ..Default::default()
+        };
+        f.normalize();
+        assert_eq!((f.cat.as_str(), f.slot.as_str()), ("equip", "weapon"));
+        assert_eq!(f.subcategory(), "武器");
+        assert_eq!(f.use_type, "", "a use type does not survive 装备");
+        let mut f = ItemFilters {
+            slot: "hat".into(),
+            weapon: Some(140),
+            ..Default::default()
+        };
+        f.normalize();
+        assert_eq!(f.weapon, None);
+        let mut f = ItemFilters {
+            cat: "use".into(),
+            use_type: "scroll".into(),
+            weapon: Some(999),
+            ..Default::default()
+        };
+        f.normalize();
+        assert_eq!((f.cat.as_str(), f.use_type.as_str()), ("use", "scroll"));
+        assert_eq!(f.query(), "&cat=use&use=scroll");
+        assert_eq!(use_type(201), "potion");
+        assert_eq!(use_type(243), "other");
+    }
+
+    #[test]
+    fn all_class_toggle_and_lone_zero_minimum() {
+        let mut f = ItemFilters {
+            shared: false,
+            lmin: Some(0),
+            sort: "level_desc".into(),
+            ..Default::default()
+        };
+        f.normalize();
+        assert_eq!(f.lmin, None, "a lone minimum of 0 filters nothing");
+        assert_eq!(f.query(), "&cat=equip&shared=0&sort=level_desc");
+        let mut m = MobFilters {
+            lmin: Some(70),
+            lmax: Some(61),
+            boss: true,
+            sort: "level".into(),
+        };
+        m.normalize();
+        assert_eq!(m.query(), "&lmin=61&lmax=70&boss=1");
     }
 }

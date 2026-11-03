@@ -354,12 +354,16 @@ async fn search_page() {
         .execute(&db.pool).await.unwrap();
     let first = get(&router, "/search?q=Browse&kind=item").await.body;
     let second = get(&router, "/search?q=Browse&kind=item&page=2").await.body;
-    let last = get(&router, "/search?q=Browse&kind=item&page=4").await.body;
     assert!(first.contains("下一页"));
+    assert!(first.contains("共 65 件 · 第 1/2 页"));
     assert!(!first.contains(r#"href="/item/8000065""#));
-    assert!(second.contains(r#"href="/item/8000021""#));
+    assert!(second.contains(r#"href="/item/8000065""#));
     assert!(second.contains("上一页"));
-    assert!(last.contains(r#"href="/item/8000065""#));
+    let mixed = get(&router, "/search?q=Browse").await.body;
+    assert!(
+        mixed.contains("查看全部 65 件"),
+        "20 per group, then a link"
+    );
     let catalogue = get(&router, "/search?kind=item&page=2").await.body;
     assert!(catalogue.contains(r#"href="/item/8000065""#));
 
@@ -380,11 +384,150 @@ async fn search_page() {
         .body; // 蜗牛
     assert!(cross_catalogue.contains(r#"href="/mob/2""#));
     assert!(
-        cross_catalogue.contains(r#"href="/item/4000019""#),
-        "a typed query searches every catalogue even when opened from mobs"
+        !cross_catalogue.contains(r#"href="/item/4000019""#),
+        "a typed query with a kind stays in that catalogue"
     );
+    let all = get(&router, "/search?q=%E8%9C%97%E7%89%9B").await.body; // 蜗牛
+    assert!(all.contains(r#"href="/item/4000019""#) && all.contains(r#"href="/mob/2""#));
     let wildcard = get(&router, "/search?q=%25").await.body;
     assert!(wildcard.contains("没有找到"), "% is literal");
+    db.drop_schema().await;
+}
+
+/// The catalogue snapshot React reads for a `/search` URL.
+async fn search_json(router: &Router, url: &str) -> serde_json::Value {
+    let path = format!(
+        "/api/v1/catalog/page?url={}",
+        url::form_urlencoded::byte_serialize(url.as_bytes()).collect::<String>()
+    );
+    let page = get(router, &path).await;
+    assert_eq!(page.status, StatusCode::OK, "{url}");
+    serde_json::from_str::<serde_json::Value>(&page.body).unwrap()["page"].clone()
+}
+
+#[tokio::test]
+async fn search_filters_totals_and_counts() {
+    let Some((db, router)) = seeded().await else {
+        return;
+    };
+    sqlx::query(
+        "INSERT INTO items (id, name_zh, name_en, category, subcategory, req_level, req_job_mask) VALUES
+         (1302000, '剑', 'Sword', '装备', '武器', 10, 1),
+         (1402000, '双手剑', 'Two-handed Sword', '装备', '武器', 35, 1),
+         (1382000, '长杖', 'Staff', '装备', '武器', 30, 2),
+         (1002100, '头盔', 'Helmet', '装备', '帽子', 32, 0),
+         (2000000, '红色药水', 'Red Potion', '消耗品', NULL, NULL, NULL),
+         (2040000, '卷轴', 'Scroll', '消耗品', NULL, NULL, NULL)",
+    )
+    .execute(&db.pool)
+    .await
+    .unwrap();
+    sqlx::query("UPDATE mobs SET is_boss = true WHERE id = 8")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    // The category follows the server's normalized filters: a job means 装备.
+    let page = search_json(&router, "/search?kind=item&cat=use&job=1").await;
+    assert_eq!(page["filters"]["cat"], "equip");
+    assert_eq!(page["filters"]["job"], "warrior");
+    assert_eq!(page["page_size"], 60);
+    let counts: Vec<(String, i64)> = page["facets"]["categories"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| {
+            (
+                f["key"].as_str().unwrap().to_string(),
+                f["count"].as_i64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        counts,
+        [
+            ("", 8),
+            ("equip", 5),
+            ("use", 2),
+            ("setup", 0),
+            ("etc", 1),
+            ("cash", 0)
+        ]
+        .map(|(k, n)| (k.to_string(), n)),
+        "category counts ignore the job"
+    );
+    // Warrior gear plus gear for every job (褐色皮帽 has no mask, 头盔 mask 0).
+    assert_eq!(page["items"]["total"], 4);
+    let weapons = search_json(&router, "/search?kind=item&job=warrior&type=weapon").await;
+    assert_eq!(weapons["items"]["total"], 2);
+    let keys = |list: &serde_json::Value| -> Vec<String> {
+        list.as_array()
+            .unwrap()
+            .iter()
+            .map(|f| format!("{}:{}", f["key"].as_str().unwrap(), f["count"]))
+            .collect()
+    };
+    assert_eq!(
+        keys(&weapons["facets"]["weapons"]),
+        ["130:1", "140:1"],
+        "only types present"
+    );
+    assert_eq!(keys(&weapons["facets"]["types"]), ["weapon:2", "hat:1"]);
+    let level = search_json(&router, "/search?kind=item&job=warrior&lmin=30&lmax=40").await;
+    assert_eq!(level["items"]["total"], 2, "双手剑 and 头盔");
+    let own = search_json(
+        &router,
+        "/search?kind=item&job=warrior&min_level=30&max_level=40&shared=0",
+    )
+    .await;
+    assert_eq!(
+        (
+            own["filters"]["lmin"].as_i64(),
+            own["items"]["total"].as_i64()
+        ),
+        (Some(30), Some(1))
+    );
+    let two_handed = search_json(&router, "/search?kind=item&weapon=140").await;
+    assert_eq!(two_handed["filters"]["type"], "weapon");
+    assert_eq!(two_handed["items"]["rows"][0]["id"], 1402000);
+    let by_level = search_json(&router, "/search?kind=item&cat=equip&sort=level_desc").await;
+    assert_eq!(by_level["items"]["rows"][0]["id"], 1402000);
+    let scrolls = search_json(&router, "/search?kind=item&cat=use&use=scroll").await;
+    assert_eq!(
+        (
+            scrolls["items"]["total"].as_i64(),
+            scrolls["items"]["rows"][0]["id"].as_i64()
+        ),
+        (Some(1), Some(2040000))
+    );
+    assert_eq!(keys(&scrolls["facets"]["uses"]), ["potion:1", "scroll:1"]);
+    // Monsters: level range and bosses; maps: towns.
+    let mobs = search_json(&router, "/search?kind=mob&lmin=5&lmax=10").await;
+    assert_eq!(
+        (
+            mobs["mobs"]["total"].as_i64(),
+            mobs["mobs"]["rows"][0]["id"].as_i64()
+        ),
+        (Some(1), Some(8))
+    );
+    let bosses = search_json(&router, "/search?kind=mob&boss=1").await;
+    assert_eq!(bosses["mobs"]["total"], 1);
+    let by_level = search_json(&router, "/search?kind=mob&sort=level_desc").await;
+    assert_eq!(by_level["mobs"]["rows"][0]["id"], 8);
+    let towns = search_json(&router, "/search?kind=map&town=1").await;
+    assert_eq!(towns["maps"]["total"], 2);
+    assert!(towns["town"].as_bool().unwrap());
+    // A typed query without a kind: three groups, no filters or counts.
+    let mixed = search_json(&router, "/search?q=%E8%9C%97%E7%89%9B&boss=1&region=maple").await;
+    assert!(mixed["kind"].is_null() && mixed["facets"].is_null());
+    assert_eq!(mixed["mobs"]["total"], 1);
+    let html = get(&router, "/search?kind=item&cat=use&job=1&lmin=30")
+        .await
+        .body;
+    assert!(html.contains(
+        r#"class="cat on" href="/search?kind=item&amp;job=warrior&amp;lmin=30&amp;cat=equip""#
+    ));
+    assert!(html.contains("职业 <b>战士</b> ×") && html.contains("等级 <b>30+</b> ×"));
+    assert!(html.contains("共 2 件 · 第 1/1 页"));
     db.drop_schema().await;
 }
 

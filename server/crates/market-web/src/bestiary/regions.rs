@@ -8,7 +8,7 @@ pub const REGIONS: &[(&str, &str, &str)] = &[
     ("victoria", "金银岛", "Victoria Island"),
     ("market", "自由市场", "Free Market"),
     ("special", "活动／特殊地图", "Events / special maps"),
-    ("other", "其他／待归类", "Other / unclassified"),
+    ("other", "其他", "Other"),
 ];
 
 pub fn normalize(region: &str) -> String {

@@ -908,13 +908,8 @@ fn search_page_states() {
 
     let hits = pages::search_page(
         &SearchPage {
-            filters: Default::default(),
-            region: String::new(),
-            area: String::new(),
-            areas: Vec::new(),
             query: "蜗牛".into(),
-            offset: 0,
-            kind: None,
+            page_size: 20,
             items: Hits {
                 rows: vec![ItemHit {
                     level: None,
@@ -924,12 +919,14 @@ fn search_page_states() {
                     subcategory: Some("其他道具".into()),
                 }],
                 more: true,
+                total: 25,
             },
             mobs: Hits {
                 rows: vec![mob(2, "蜗牛")],
                 more: false,
+                total: 1,
             },
-            maps: Hits::default(),
+            ..Default::default()
         },
         &zh(),
     )
@@ -937,13 +934,25 @@ fn search_page_states() {
     assert!(hits.contains(r#"href="/item/4000019""#));
     assert!(hits.contains("Snail Shell · 其他道具"));
     assert!(hits.contains(r#"href="/mob/2""#));
-    assert!(hits.contains("还有更多结果"));
+    assert!(hits.contains("共 25 件"), "group totals");
+    assert!(
+        hits.contains("查看全部 25 件")
+            && hits.contains("/search?q=%E8%9C%97%E7%89%9B&amp;kind=item"),
+        "a group with more rows links to its full list"
+    );
     assert!(
         hits.contains("<h3>地图</h3>"),
         "search keeps all three result groups visible"
     );
     assert!(hits.contains(r#"value="蜗牛""#), "query kept in the box");
-    assert!(hits.contains(r##"href="#search-mob""##), "kind chips");
+    assert!(
+        !hits.contains("data-cats"),
+        "no filter bar over three catalogues"
+    );
+    assert!(
+        hits.contains("/search?q=%E8%9C%97%E7%89%9B&amp;kind=mob"),
+        "kind tabs"
+    );
 }
 
 #[test]
@@ -989,17 +998,76 @@ fn region_controls_survive_empty_results_and_keep_url_state() {
             names: Names::new("深层通道", "Deep Passage"),
         }],
         offset: 60,
+        page_size: 60,
+        town: true,
         ..Default::default()
     };
     let rendered = pages::search_page(&page, &zh()).into_string();
-    assert!(rendered.contains("这个地区暂无匹配的记录"));
-    assert!(rendered.contains("<h3>地图</h3>"));
-    assert!(rendered.contains("value=\"victoria\" selected"));
-    assert!(rendered.contains("value=\"Deep Passage\" selected"));
-    assert!(rendered.contains("region=victoria&amp;area=Deep%20Passage"));
+    assert!(rendered.contains("没有符合筛选条件的结果"));
+    assert!(rendered.contains("清空搜索和筛选"));
+    assert!(rendered.contains("共 0 张"));
+    assert!(rendered.contains(r#"class="tab on""#));
+    assert!(rendered.contains("地区 <b>金银岛</b>"), "region token");
+    assert!(rendered.contains("区域 <b>深层通道</b>"), "area token");
+    assert!(rendered.contains("<b>只看城镇</b>"));
+    assert!(
+        rendered.contains("/search?kind=map&amp;region=victoria&amp;area=Deep%20Passage"),
+        "the town token keeps the place"
+    );
+    assert!(
+        rendered.contains("/search?kind=map&amp;town=1\""),
+        "the region token drops the area too"
+    );
+    assert!(
+        rendered.contains("/search?kind=mob&amp;region=victoria&amp;area=Deep%20Passage"),
+        "monsters share the place"
+    );
     let english = pages::search_page(&page, &en()).into_string();
     assert!(english.contains("Victoria Island"));
     assert!(english.contains("Deep Passage"));
+}
+
+#[test]
+fn item_bar_shows_category_counts_and_the_normalized_category() {
+    let page = SearchPage {
+        kind: Some(SearchKind::Item),
+        filters: ItemFilters {
+            cat: "equip".into(),
+            job: "warrior".into(),
+            shared: false,
+            slot: "weapon".into(),
+            weapon: Some(140),
+            ..Default::default()
+        },
+        facets: Some(ItemFacets {
+            categories: vec![
+                Facet {
+                    key: "".into(),
+                    names: Names::new("全部", "All"),
+                    count: 2962,
+                },
+                Facet {
+                    key: "equip".into(),
+                    names: Names::new("装备", "Equip"),
+                    count: 1203,
+                },
+            ],
+            ..Default::default()
+        }),
+        page_size: 60,
+        ..Default::default()
+    };
+    let html = pages::search_page(&page, &zh()).into_string();
+    assert!(html.contains("全部<small>2,962</small>"));
+    assert!(html.contains(r#"class="cat on" href="/search?kind=item&amp;job=warrior&amp;shared=0&amp;type=weapon&amp;weapon=140&amp;cat=equip""#));
+    assert!(html.contains("职业 <b>战士</b> ×"));
+    assert!(html.contains("<b>不含通用装备</b> ×"));
+    assert!(html.contains("类型 <b>武器</b> ×"));
+    assert!(html.contains("武器 <b>双手剑</b> ×"));
+    assert!(
+        html.contains(r#"name="job" value="warrior""#),
+        "a new query keeps the filters"
+    );
 }
 
 #[test]

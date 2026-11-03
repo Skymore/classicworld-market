@@ -26,7 +26,7 @@ use axum::{extract::FromRequestParts, http::request::Parts};
 use sqlx::types::chrono::Utc;
 
 use super::format::Lang;
-use super::model::SearchKind;
+use super::model::{ItemFilters, MobFilters, SearchKind, SearchRequest};
 use super::pages::{Ctx, Device};
 use crate::unix_now;
 
@@ -591,27 +591,105 @@ struct SearchParams {
     area: String,
     #[serde(default)]
     cat: String,
+    /// `warrior`, `magician`, `bowman`, `thief`, or an old bit (1, 2, 4, 8).
     #[serde(default)]
     job: String,
+    #[serde(default)]
+    lmin: String,
+    #[serde(default)]
+    lmax: String,
+    /// Old names of `lmin` and `lmax`.
     #[serde(default)]
     min_level: String,
     #[serde(default)]
     max_level: String,
+    #[serde(default, rename = "type")]
+    slot: String,
+    #[serde(default)]
+    weapon: String,
+    #[serde(default, rename = "use")]
+    use_type: String,
+    /// `0` drops gear every job can wear.
+    #[serde(default)]
+    shared: String,
+    #[serde(default)]
+    sort: String,
+    #[serde(default)]
+    boss: String,
+    #[serde(default)]
+    town: String,
     #[serde(default)]
     q: String,
-    /// `item`, `mob` or `map`; anything else searches all three.
+    /// `item`, `mob` or `map`; a query without it searches all three.
     #[serde(default)]
     kind: String,
     #[serde(default)]
     page: u32,
 }
 
-// Browsing selects one catalogue; a nonempty query always searches all three.
-fn search_kind(query: &str, requested: &str) -> Option<SearchKind> {
-    if query.is_empty() {
-        Some(SearchKind::parse(requested).unwrap_or(SearchKind::Item))
-    } else {
-        None
+impl SearchParams {
+    /// The normalized request: only the chosen kind's filters are kept, and
+    /// the three-catalogue view of a typed query has none.
+    fn request(&self) -> SearchRequest {
+        let query = clip(&self.q).to_string();
+        let level =
+            |new: &str, old: &str| if new.is_empty() { old } else { new }.parse::<i16>().ok();
+        let (lmin, lmax) = (
+            level(&self.lmin, &self.min_level),
+            level(&self.lmax, &self.max_level),
+        );
+        let mut items = ItemFilters {
+            cat: self.cat.clone(),
+            job: ItemFilters::parse_job(&self.job),
+            lmin,
+            lmax,
+            slot: self.slot.clone(),
+            weapon: self.weapon.parse().ok(),
+            use_type: self.use_type.clone(),
+            shared: self.shared != "0",
+            sort: self.sort.clone(),
+        };
+        items.normalize();
+        let mut mobs = MobFilters {
+            lmin,
+            lmax,
+            boss: self.boss == "1",
+            sort: self.sort.clone(),
+        };
+        mobs.normalize();
+        let kind = search_kind(&query, &self.kind, items != ItemFilters::default());
+        let size = if kind.is_some() {
+            queries::SEARCH_KIND_LIMIT
+        } else {
+            queries::SEARCH_LIMIT
+        };
+        let mut request = SearchRequest {
+            query,
+            kind,
+            offset: i64::from(self.page.saturating_sub(1).min(10000)) * size,
+            ..Default::default()
+        };
+        match kind {
+            Some(SearchKind::Item) => request.items = items,
+            Some(SearchKind::Mob) => request.mobs = mobs,
+            Some(SearchKind::Map) => request.town = self.town == "1",
+            None => {}
+        }
+        if matches!(kind, Some(SearchKind::Mob | SearchKind::Map)) {
+            request.region = self.region.clone();
+            request.area = self.area.clone();
+        }
+        request
+    }
+}
+
+// Browsing selects one catalogue (items by default). A typed query searches
+// all three unless it names a kind; old links with item filters mean items.
+fn search_kind(query: &str, requested: &str, item_filters: bool) -> Option<SearchKind> {
+    match SearchKind::parse(requested) {
+        Some(kind) => Some(kind),
+        None if query.is_empty() || item_filters => Some(SearchKind::Item),
+        None => None,
     }
 }
 
@@ -620,31 +698,7 @@ async fn search(
     PageCtx(ctx): PageCtx,
     Query(params): Query<SearchParams>,
 ) -> Response {
-    let q = clip(&params.q);
-    let kind = search_kind(q, &params.kind);
-    let limit = if kind.is_some() {
-        queries::SEARCH_KIND_LIMIT
-    } else {
-        queries::SEARCH_LIMIT
-    };
-    let offset = i64::from(params.page.saturating_sub(1).min(10000)) * limit;
-    let mut filters = super::model::ItemFilters {
-        cat: params.cat,
-        job: params.job.parse().unwrap_or(0),
-        min_level: params.min_level.parse().ok(),
-        max_level: params.max_level.parse().ok(),
-    };
-    filters.normalize();
-    let page = queries::search_places(
-        &state.db,
-        q,
-        kind,
-        offset,
-        filters,
-        &params.region,
-        &params.area,
-    )
-    .await;
+    let page = queries::search_page(&state.db, &params.request()).await;
     match page {
         Ok(page) => html(StatusCode::OK, NO_STORE, pages::search_page(&page, &ctx)),
         Err(err) => server_error(err, &ctx),
@@ -722,33 +776,10 @@ async fn catalog_page(
         let Ok(Query(params)) = Query::<SearchParams>::try_from_uri(&uri) else {
             return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_query"}));
         };
-        let q = clip(&params.q);
-        let kind = search_kind(q, &params.kind);
-        let limit = if kind.is_some() {
-            queries::SEARCH_KIND_LIMIT
-        } else {
-            queries::SEARCH_LIMIT
-        };
-        let offset = i64::from(params.page.saturating_sub(1).min(10000)) * limit;
-        let mut filters = super::model::ItemFilters {
-            cat: params.cat,
-            job: params.job.parse().unwrap_or(0),
-            min_level: params.min_level.parse().ok(),
-            max_level: params.max_level.parse().ok(),
-        };
-        filters.normalize();
         return loaded(
-            queries::search_places(
-                &state.db,
-                q,
-                kind,
-                offset,
-                filters,
-                &params.region,
-                &params.area,
-            )
-            .await
-            .map(Some),
+            queries::search_page(&state.db, &params.request())
+                .await
+                .map(Some),
             "search", &headers,
         );
     }
@@ -850,13 +881,46 @@ mod tests {
         assert_eq!(params.selection().unwrap().attributes.len(), 2);
     }
     #[test]
-    fn search_crosses_catalogues_only_when_typing() {
-        assert_eq!(search_kind("", ""), Some(SearchKind::Item));
-        assert_eq!(search_kind("", "mob"), Some(SearchKind::Mob));
-        assert_eq!(search_kind("", "map"), Some(SearchKind::Map));
-        for kind in ["", "item", "mob", "map"] {
-            assert_eq!(search_kind("蜗牛", kind), None);
-        }
+    fn search_crosses_catalogues_only_for_a_query_without_a_kind() {
+        assert_eq!(search_kind("", "", false), Some(SearchKind::Item));
+        assert_eq!(search_kind("", "mob", false), Some(SearchKind::Mob));
+        assert_eq!(search_kind("", "map", false), Some(SearchKind::Map));
+        assert_eq!(search_kind("蜗牛", "", false), None);
+        assert_eq!(search_kind("蜗牛", "mob", false), Some(SearchKind::Mob));
+        assert_eq!(search_kind("帽", "", true), Some(SearchKind::Item));
+    }
+
+    fn request(query: &str) -> SearchRequest {
+        let uri: axum::http::Uri = format!("/search?{query}").parse().unwrap();
+        Query::<SearchParams>::try_from_uri(&uri)
+            .unwrap()
+            .0
+            .request()
+    }
+
+    #[test]
+    fn old_links_and_kind_scoped_filters() {
+        let old = request("kind=item&cat=use&job=1&min_level=30&max_level=40");
+        assert_eq!(old.items.cat, "equip", "a job selects 装备");
+        assert_eq!(old.items.job, "warrior");
+        assert_eq!((old.items.lmin, old.items.lmax), (Some(30), Some(40)));
+        let new = request("kind=item&job=warrior&lmin=30&lmax=40");
+        assert_eq!(new.items, old.items);
+        assert_eq!(request("kind=item&job=16").items.job, "", "no pirates");
+        assert_eq!(request("kind=item&page=3").offset, 120);
+        let mobs = request("kind=mob&lmin=10&lmax=1&boss=1&sort=name&region=victoria&job=1");
+        assert_eq!(mobs.mobs.query(), "&lmin=1&lmax=10&boss=1&sort=name");
+        assert_eq!(mobs.items, ItemFilters::default());
+        assert_eq!(mobs.region, "victoria");
+        let maps = request("kind=map&town=1&lmin=5");
+        assert!(maps.town);
+        assert_eq!(maps.mobs, MobFilters::default());
+        let mixed = request("q=%E8%9C%97%E7%89%9B&region=victoria&page=2");
+        assert_eq!(mixed.kind, None);
+        assert_eq!((mixed.region.as_str(), mixed.offset), ("", 20));
+        let legacy = request("q=%E5%B8%BD&cat=equip");
+        assert_eq!(legacy.kind, Some(SearchKind::Item));
+        assert_eq!(legacy.items.cat, "equip");
     }
 
     #[test]

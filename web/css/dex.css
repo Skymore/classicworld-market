@@ -78,61 +78,55 @@ html[data-device=desktop] .route-form{grid-template-columns:minmax(0,1fr) minmax
 .step.scroll .no{background:var(--maple)}
 .step .kind{font-size:12px;font-weight:700;padding:0 6px;line-height:20px;border:1px dashed var(--maple-ink);color:var(--maple-ink);white-space:nowrap}
 
-/* ---------- search ---------- */
-.finder.in-page{margin:12px 12px 0}
-.kinds{flex-wrap:nowrap;overflow-x:auto;padding:10px 12px 0;scrollbar-width:none}
-.kinds::-webkit-scrollbar{display:none}
+/* ---------- search: the price table's bar (tabs, categories, sort, filter) ---------- */
+.dex-tools{display:grid;grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"find find find" "tabs tabs tabs" "cats sort filter";align-items:center;gap:10px 8px;padding:12px 12px 0}
+.dex-tools>.finder.in-page{grid-area:find;margin:0}
+.dex-tools>.dex-kinds{grid-area:tabs}
+.dex-tools>.cats{grid-area:cats}
+.dex-tools>.sortwrap{grid-area:sort}
+.dex-tools>.fbtn{grid-area:filter}
+.dex-kinds{border-bottom:2px solid var(--edge)}
+.dex-kinds .tab{display:flex;align-items:center;justify-content:center;color:var(--ink-2);text-decoration:none}
+.dex-kinds .tab.on{color:var(--ink)}
+.dex-tools a.cat{display:inline-flex;align-items:center}
+.dex-tokens{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px 0}
+.dex-tokens .tok{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 10px;border:1px solid var(--maple);border-radius:2px;background:var(--sheet-hi);color:var(--ink);font:inherit;font-size:13px;white-space:nowrap;text-decoration:none;cursor:pointer}
+.dex-tokens .tok b{color:var(--maple-ink);font-weight:700}
+.dex-clear{padding:0 4px;border:0;background:none;color:var(--bar-text);font:inherit;font-size:13px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;white-space:nowrap}
+.dex-total{margin:0;padding:10px 12px 0;font-size:13px;color:var(--ink-3)}
+.dex-total+[data-search-results]>.catalogue-grid{padding-top:8px}
+.dex-pager{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;padding:4px 12px 16px}
+.dex-pager .chip{display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:36px;padding:0 10px;font-size:13px;text-decoration:none}
+.dex-pager .gap{padding:0 2px;color:var(--ink-3)}
+.dex-search .empty .btn{margin-top:4px}
+.dex-search .dbody>.well>a.more{display:block;padding:10px 12px;border-top:1px solid var(--rule);font-weight:600;text-align:center;color:var(--bar-text);text-decoration:none}
+/* Filter sheet: chips wrap; the last section is not the price table's two-column toggles. */
+.dex-filter-dialog .dex-chips{display:flex;flex-wrap:wrap;gap:6px}
+.dex-filter-dialog .dex-chips .chip{padding:0 10px}
+.dex-filter-dialog .chip[aria-pressed=true]:hover{background:var(--maple);color:#fff}
+.dex-filter-dialog .dex-chips .chip small{margin-left:4px;font-size:11px;font-weight:400;opacity:.8}
+.dex-filter-dialog .fsec:last-child{display:block}
+.dex-filter-dialog .fsec .filter-check{margin-top:4px}
+@media(max-width:640px){
+  .dex-tools{grid-template-areas:"find sort filter" "tabs tabs tabs" "cats cats cats";padding:8px var(--gap) 0;gap:8px}
+  .dex-tools>.finder.in-page{height:44px}
+  .dex-tools>.cats{-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}
+  .dex-tools .cat{padding:0 12px}
+  .dex-tools>.fbtn>span:not(.contents){display:none}
+  .dex-tokens{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:8px var(--gap) 0}
+  .dex-tokens::-webkit-scrollbar{display:none}
+  .dex-tokens .tok{min-height:40px}
+  .dex-total{padding:8px var(--gap) 0}
+}
 .empty{display:grid;justify-items:center;gap:8px;padding:28px 12px;text-align:center;color:var(--ink-2)}
 .empty img{width:72px;height:72px;object-fit:contain}
 .empty .hint{font-size:13px;color:var(--ink-3)}
 
 [data-search-results] section[id]{scroll-margin-top:80px}
 
-/* Page counters use the same centered alignment as adjacent links. */
-.kinds>.chip{display:inline-flex;align-items:center;justify-content:center}
-
-.catalogue-tools{padding:12px;border-bottom:1px solid var(--rule)}
-.catalogue-cats{display:flex;gap:6px;flex-wrap:wrap}
-.catalogue-cats label{position:relative;cursor:pointer}
-.catalogue-cats input{position:absolute;opacity:0;width:1px;height:1px}
-.catalogue-cats span{display:flex;align-items:center;justify-content:center;min-height:40px;padding:0 10px;background:var(--sheet-hi);border:2px solid var(--edge);font-size:13px;font-weight:600}
-.catalogue-cats input:checked+span{background:var(--maple);color:#fff}
-.catalogue-cats input:focus-visible+span{outline:3px solid var(--focus);outline-offset:2px}
-.catalogue-filter{margin-top:10px}
-.catalogue-filter>summary{cursor:pointer;width:max-content;padding:8px 12px;border:1px solid var(--edge);font-weight:600}
-.catalogue-panel{display:flex;align-items:end;flex-wrap:wrap;gap:12px;margin-top:10px;padding:12px;background:var(--sheet-hi);border:1px solid var(--rule)}
-.catalogue-panel label{display:grid;gap:5px;font-size:13px}
-.catalogue-panel select,.catalogue-panel input{min-height:40px;max-width:160px;background:var(--sheet);color:var(--ink);border:1px solid var(--edge);padding:6px 8px;font:inherit}
-.catalogue-levels{display:flex;align-items:end;gap:8px}
-.catalogue-levels input{width:100px}.catalogue-levels>span{padding-bottom:12px}
-.catalogue-presets{display:flex;gap:6px;flex-wrap:wrap;flex-basis:100%}
-.catalogue-presets .chip{padding:0 10px;min-height:36px;font-size:13px}
-.catalogue-panel .fnote{flex-basis:100%;margin:0}
-@media(max-width:640px){.catalogue-cats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.catalogue-cats span{padding:0 4px}.catalogue-panel{gap:10px}.catalogue-levels input{width:88px}}
-
 .mobile-item-search{display:none}
 @media(max-width:640px){.mobile-item-search{display:flex;width:100%;margin-bottom:12px;min-width:0}.mobile-item-search .quick-search{min-width:0;width:auto;max-height:60vh}}
 .map-preview-missing{padding:24px;border:1px dashed var(--rule);text-align:center}
-.place-tools{display:flex;align-items:end;flex-wrap:wrap;gap:10px;padding:10px 12px;border-bottom:1px solid var(--rule);background:var(--sheet-hi)}
-.place-tools label{display:grid;gap:4px;min-width:0;font-size:13px}
-.place-tools select{height:40px;max-width:240px;min-width:150px;padding:0 8px;background:var(--sheet);color:var(--ink);border:1px solid var(--edge);font:inherit}
-.place-tools .chip{min-height:40px}
-.place-hint{flex:1;min-width:200px;align-self:center;font-size:12px;color:var(--ink-3)}
-.place-scope{font-size:13px;align-self:center}
-@media(max-width:640px){.place-tools{gap:8px}.place-tools label{flex:1}.place-tools select{min-width:0;width:100%;max-width:100%}.place-tools>.chip{padding:0 8px}.place-hint{flex-basis:100%;min-width:0}}
-
-/* Keep browse navigation, paging and collapsed filters compact. */
-[data-search-results]{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start}
-[data-search-results]>.kinds{margin:0;padding-bottom:0}
-[data-search-results]>.kinds+.kinds{justify-content:flex-end;padding-left:8px}
-[data-search-results]>.dbody{grid-column:1/-1}
-.catalogue-tools{display:block;position:relative;padding:10px 12px}
-.catalogue-cats{display:flex;flex:1;min-width:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin}
-.catalogue-cats label{flex:none;white-space:nowrap}
-.catalogue-filter{flex:none;margin:0}
-.catalogue-tools>.catalogue-cats{margin-right:96px}
-.catalogue-filter>summary{position:absolute;top:10px;right:12px;width:88px;min-height:40px;display:list-item;padding:8px;white-space:nowrap}
-.catalogue-filter[open]{min-width:0}
 /* Compact catalogue cards; detail-page lists keep their row layout. */
 .catalogue-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:10px}
 .catalogue-grid>.drow{grid-template-columns:auto minmax(0,1fr);gap:8px;align-content:center;min-width:0;min-height:72px;padding:8px;border:1px solid var(--rule);background:var(--sheet-hi)}
@@ -147,24 +141,13 @@ html[data-device=desktop] .route-form{grid-template-columns:minmax(0,1fr) minmax
 @media(max-width:700px){.catalogue-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:8px}.catalogue-grid>.drow{gap:6px;padding:7px;min-height:76px}.catalogue-grid .mobpic{width:32px;height:32px}.catalogue-grid .mobpic img{max-width:30px;max-height:30px}}
 @media(max-width:359px){.catalogue-grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:640px){
-  .catalogue-cats{display:flex;grid-template-columns:none}
-  .catalogue-cats span{padding:0 8px}
-  [data-search-results]>.kinds{gap:5px;padding-left:12px}
-  [data-search-results]>.kinds+.kinds{padding-left:4px}
-  [data-search-results]>.kinds>.chip{padding-left:9px;padding-right:9px;white-space:nowrap}
-}
-
-/* 搜索页：页码是文字，不做成按钮 */
-.kinds>span.chip{border-color:transparent;background:none;box-shadow:none;color:var(--ink-3);cursor:default}
-@media(max-width:640px){
-  .place-scope{flex-basis:100%}
-  .place-tools label{flex:1 1 0}
-  .catalogue-tools>.catalogue-cats{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}
   /* 手机上结果用单列紧凑行，名字不再折成两行 */
   .catalogue-grid{grid-template-columns:minmax(0,1fr);gap:0;padding:0}
   .catalogue-grid>.drow{min-height:56px;padding:8px 12px;border:0;border-top:1px solid var(--rule);background:transparent}
   .catalogue-grid>.drow:first-child{border-top:0}
   .catalogue-grid .s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dex-total+[data-search-results]>.catalogue-grid{margin-top:8px;border-top:1px solid var(--rule);padding-top:0}
+  .dex-pager{padding-top:12px;border-top:1px solid var(--rule)}
 }
 /* Map view (pages/mapview.rs, frontend/src/pages/mapview.tsx): the minimap as an SVG.
    Strokes are in screen pixels (non-scaling) because the minimap's units differ per map. */

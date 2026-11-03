@@ -2049,19 +2049,20 @@ pub async fn search_filtered(
     offset: i64,
     filters: ItemFilters,
 ) -> sqlx::Result<SearchPage> {
-    search_places(db, query, kind, offset, filters, "", "").await
+    let request = SearchRequest {
+        query: query.to_string(),
+        kind,
+        offset,
+        items: filters,
+        ..Default::default()
+    };
+    search_page(db, &request).await
 }
 
-pub async fn search_places(
-    db: &PgPool,
-    query: &str,
-    kind: Option<SearchKind>,
-    offset: i64,
-    filters: ItemFilters,
-    region: &str,
-    area: &str,
-) -> sqlx::Result<SearchPage> {
-    let region = super::regions::normalize(region);
+/// One page of `/search`. The filters are used as given (`http` normalizes
+/// them); region and area are checked against the area list here.
+pub async fn search_page(db: &PgPool, request: &SearchRequest) -> sqlx::Result<SearchPage> {
+    let region = super::regions::normalize(&request.region);
     let region_expr = super::regions::region_sql("m");
     let area_expr = super::regions::area_sql("m");
     let areas: Vec<AreaChoice> = sqlx::query_as(&format!(
@@ -2072,37 +2073,86 @@ pub async fn search_places(
     ))
     .fetch_all(db)
     .await?;
-    let area = if !region.is_empty() && areas.iter().any(|a| a.key == area && a.region == region) {
-        area.to_string()
+    let area = if !region.is_empty()
+        && areas
+            .iter()
+            .any(|a| a.key == request.area && a.region == region)
+    {
+        request.area.clone()
     } else {
         String::new()
     };
+    let kind = request.kind;
     let limit = |k: SearchKind| match kind {
         None => Some(SEARCH_LIMIT),
         Some(only) if only == k => Some(SEARCH_KIND_LIMIT),
         Some(_) => None,
     };
+    let text = Text::new(&request.query);
+    let offset = request.offset;
     let mut page = SearchPage {
         region: region.clone(),
         area: area.clone(),
         areas,
-        filters: filters.clone(),
-        query: query.to_string(),
+        filters: request.items.clone(),
+        mob_filters: request.mobs.clone(),
+        town: request.town,
+        query: request.query.clone(),
         offset,
+        page_size: if kind.is_some() {
+            SEARCH_KIND_LIMIT
+        } else {
+            SEARCH_LIMIT
+        },
         kind,
         ..Default::default()
     };
     if let Some(n) = limit(SearchKind::Item) {
-        page.items = search_items(db, query, n, offset, &filters).await?;
+        page.items = search_items(db, &text, n, offset, &request.items).await?;
+        if kind == Some(SearchKind::Item) {
+            page.facets = Some(item_facets(db, &text, &request.items).await?);
+        }
     }
     if let Some(n) = limit(SearchKind::Mob) {
-        page.mobs = search_mobs(db, query, n, offset, &region, &area).await?;
+        page.mobs = search_mobs(db, &text, n, offset, &request.mobs, &region, &area).await?;
     }
     if let Some(n) = limit(SearchKind::Map) {
-        page.maps = search_maps_in_region(db, query, n, offset, &region, &area).await?;
+        page.maps =
+            search_maps_in_region(db, &text, n, offset, request.town, &region, &area).await?;
     }
     Ok(page)
 }
+
+/// The search text as bound: `$1` raw, `$2` prefix and `$3` substring LIKE
+/// patterns, `$4` keyword patterns (see `matcher`).
+struct Text {
+    raw: String,
+    prefix: String,
+    substring: String,
+    patterns: Vec<String>,
+}
+
+impl Text {
+    fn new(query: &str) -> Self {
+        let escaped = like_escape(query);
+        Self {
+            raw: query.to_string(),
+            prefix: format!("{escaped}%"),
+            substring: format!("%{escaped}%"),
+            patterns: crate::search::patterns(query),
+        }
+    }
+
+    fn bind<'q, O>(&self, query: PgQueryAs<'q, O>) -> PgQueryAs<'q, O> {
+        query
+            .bind(self.raw.clone())
+            .bind(self.prefix.clone())
+            .bind(self.substring.clone())
+            .bind(self.patterns.clone())
+    }
+}
+
+type PgQueryAs<'q, O> = sqlx::query::QueryAs<'q, sqlx::Postgres, O, sqlx::postgres::PgArguments>;
 
 /// SQL fragments matching `$1` (raw query), `$2` (prefix pattern) and `$3`
 /// (substring pattern) against name columns. Inputs are constants.
@@ -2139,106 +2189,232 @@ fn like_escape(text: &str) -> String {
     out
 }
 
-async fn run_search<T>(
+/// One page of rows and the count of every match, run together.
+async fn page_of<T>(
     db: &PgPool,
-    sql: &str,
-    query: &str,
-    limit: i64,
+    rows: PgQueryAs<'_, T>,
+    count: PgQueryAs<'_, (i64,)>,
     offset: i64,
-    region: &str,
-    area: &str,
 ) -> sqlx::Result<Hits<T>>
 where
     T: for<'r> FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
 {
-    let escaped = like_escape(query);
-    let mut rows: Vec<T> = sqlx::query_as(sql)
-        .bind(query)
-        .bind(format!("{escaped}%"))
-        .bind(format!("%{escaped}%"))
-        .bind(limit + 1)
-        .bind(offset)
-        .bind(region)
-        .bind(area)
-        .bind(crate::search::patterns(query))
-        .fetch_all(db)
-        .await?;
-    let more = rows.len() as i64 > limit;
-    rows.truncate(limit as usize);
-    Ok(Hits { rows, more })
+    let (rows, (total,)) = tokio::try_join!(rows.fetch_all(db), count.fetch_one(db))?;
+    Ok(Hits {
+        more: offset + (rows.len() as i64) < total,
+        rows,
+        total,
+    })
 }
 
-async fn search_items(
-    db: &PgPool,
-    query: &str,
-    limit: i64,
-    offset: i64,
-    filters: &ItemFilters,
-) -> sqlx::Result<Hits<ItemHit>> {
-    let (filter, rank) = matcher("i.id", &["i.name_zh", "i.name_en"], "$10");
-    let cat: i32 = match filters.cat.as_str() {
+/// `$5` category code.
+const ITEM_CATEGORY: &str = "($5=0 OR ($5=5 AND (i.is_cash OR i.id/1000000=5))
+    OR ($5 BETWEEN 1 AND 4 AND i.id/1000000=$5 AND NOT i.is_cash))";
+/// `$6` job bit, `$7` keep gear for every job (mask 0 or NULL), `$8`/`$9`
+/// required level range.
+const ITEM_JOB_LEVEL: &str = "($6::smallint=0 OR (COALESCE(i.req_job_mask,0) & $6::smallint)>0
+      OR ($7 AND COALESCE(i.req_job_mask,0)=0))
+    AND ($7 OR COALESCE(i.req_job_mask,0)<>0)
+    AND ($8::smallint IS NULL OR i.req_level >= $8) AND ($9::smallint IS NULL OR i.req_level <= $9)";
+/// `$10` equipment subcategory, `$11` weapon id prefix, `$12` use-item type
+/// (the prefixes of `model::use_type`).
+const ITEM_TYPE: &str = "($10='' OR i.subcategory=$10) AND ($11=0 OR i.id/10000=$11)
+    AND ($12='' OR CASE $12 WHEN 'potion' THEN i.id/10000 BETWEEN 200 AND 202
+      WHEN 'return' THEN i.id/10000=203 WHEN 'scroll' THEN i.id/10000=204
+      WHEN 'arrow' THEN i.id/10000=206 WHEN 'star' THEN i.id/10000=207
+      ELSE i.id/10000 NOT IN (200, 201, 202, 203, 204, 206, 207) END)";
+
+fn category_code(cat: &str) -> i32 {
+    match cat {
         "equip" => 1,
         "use" => 2,
         "setup" => 3,
         "etc" => 4,
         "cash" => 5,
         _ => 0,
-    };
+    }
+}
+
+/// Binds `$5`-`$12`.
+fn bind_item_filters<'q, O>(query: PgQueryAs<'q, O>, filters: &ItemFilters) -> PgQueryAs<'q, O> {
+    query
+        .bind(category_code(&filters.cat))
+        .bind(filters.job_bit())
+        .bind(filters.shared)
+        .bind(filters.lmin)
+        .bind(filters.lmax)
+        .bind(filters.subcategory())
+        .bind(filters.weapon.unwrap_or(0))
+        .bind(filters.use_type.clone())
+}
+
+async fn search_items(
+    db: &PgPool,
+    text: &Text,
+    limit: i64,
+    offset: i64,
+    filters: &ItemFilters,
+) -> sqlx::Result<Hits<ItemHit>> {
+    let (filter, rank) = matcher("i.id", &["i.name_zh", "i.name_en"], "$4");
+    let condition = format!("{filter} AND {ITEM_CATEGORY} AND {ITEM_JOB_LEVEL} AND {ITEM_TYPE}");
     // A blank search browses the catalogue: traded items first (most sales, then
     // most listings), so the first page is not skins and faces in id order.
-    // A job filter keeps equipment without a job requirement (NULL mask): every job can wear it.
-    let sql = format!(
-        "SELECT i.id, COALESCE(NULLIF(i.name_zh, ''), i.name_en) AS name, i.name_en, i.icon_url, i.subcategory, i.req_level AS level
-         FROM items i LEFT JOIN item_stats st ON st.item_id = i.id WHERE {filter}
-         AND ($6=0 OR ($6=5 AND (i.is_cash OR i.id/1000000=5)) OR ($6 BETWEEN 1 AND 4 AND i.id/1000000=$6 AND NOT i.is_cash))
-         AND ($7::smallint=0 OR i.req_job_mask=0 OR (i.req_job_mask IS NULL AND i.id/1000000=1) OR (i.req_job_mask & $7::smallint)>0)
-         AND ($8::smallint IS NULL OR i.req_level >= $8) AND ($9::smallint IS NULL OR i.req_level <= $9)
-         ORDER BY CASE WHEN $1='' THEN 0 ELSE {rank} END,
+    let order = match filters.sort.as_str() {
+        "level" => format!("i.req_level NULLS LAST, {rank}, -COALESCE(st.sales_24h, 0), i.id"),
+        "level_desc" => {
+            format!("i.req_level DESC NULLS LAST, {rank}, -COALESCE(st.sales_24h, 0), i.id")
+        }
+        "name" => "COALESCE(NULLIF(i.name_zh, ''), i.name_en), i.id".to_string(),
+        _ => format!(
+            "CASE WHEN $1='' THEN 0 ELSE {rank} END,
            CASE WHEN $1='' THEN -COALESCE(st.sales_24h, 0) ELSE 0 END,
            CASE WHEN $1='' THEN -COALESCE(st.listings_count, 0) ELSE 0 END,
-           CASE WHEN $1='' THEN i.id ELSE 0 END, length(COALESCE(i.name_zh, i.name_en)), i.id LIMIT $4 OFFSET $5"
+           CASE WHEN $1='' THEN i.id ELSE 0 END, length(COALESCE(i.name_zh, i.name_en)), i.id"
+        ),
+    };
+    let rows_sql = format!(
+        "SELECT i.id, COALESCE(NULLIF(i.name_zh, ''), i.name_en) AS name, i.name_en, i.icon_url, i.subcategory, i.req_level AS level
+         FROM items i LEFT JOIN item_stats st ON st.item_id = i.id WHERE {condition}
+         ORDER BY {order} LIMIT $13 OFFSET $14"
     );
-    let escaped = like_escape(query);
-    let mut rows: Vec<ItemHit> = sqlx::query_as(&sql)
-        .bind(query)
-        .bind(format!("{escaped}%"))
-        .bind(format!("%{escaped}%"))
-        .bind(limit + 1)
-        .bind(offset)
-        .bind(cat)
-        .bind(filters.job)
-        .bind(filters.min_level)
-        .bind(filters.max_level)
-        .bind(crate::search::patterns(query))
-        .fetch_all(db)
-        .await?;
-    let more = rows.len() as i64 > limit;
-    rows.truncate(limit as usize);
-    Ok(Hits { rows, more })
+    let count_sql = format!("SELECT count(*) FROM items i WHERE {condition}");
+    let rows = bind_item_filters(text.bind(sqlx::query_as(&rows_sql)), filters)
+        .bind(limit)
+        .bind(offset);
+    let count = bind_item_filters(text.bind(sqlx::query_as(&count_sql)), filters);
+    page_of(db, rows, count, offset).await
+}
+
+/// Category counts under the query alone; type and weapon counts under the
+/// job, all-class and level filters too, so the dialog offers only types
+/// that have items. The selected values stay listed with a count of 0.
+async fn item_facets(db: &PgPool, text: &Text, filters: &ItemFilters) -> sqlx::Result<ItemFacets> {
+    let (filter, _) = matcher("i.id", &["i.name_zh", "i.name_en"], "$4");
+    let categories_sql = format!(
+        "SELECT count(*), count(*) FILTER (WHERE i.id/1000000=1 AND NOT i.is_cash),
+           count(*) FILTER (WHERE i.id/1000000=2 AND NOT i.is_cash),
+           count(*) FILTER (WHERE i.id/1000000=3 AND NOT i.is_cash),
+           count(*) FILTER (WHERE i.id/1000000=4 AND NOT i.is_cash),
+           count(*) FILTER (WHERE i.is_cash OR i.id/1000000=5)
+         FROM items i WHERE {filter}"
+    );
+    let groups_sql = format!(
+        "SELECT i.id/10000 AS prefix, COALESCE(i.subcategory, '') AS sub, count(*) AS n
+         FROM items i WHERE {filter} AND NOT i.is_cash
+           AND ((i.id/1000000=1 AND {ITEM_JOB_LEVEL}) OR i.id/1000000=2)
+         GROUP BY 1, 2"
+    );
+    let categories = text.bind(sqlx::query_as::<_, (i64, i64, i64, i64, i64, i64)>(
+        &categories_sql,
+    ));
+    let groups = bind_item_filters(
+        text.bind(sqlx::query_as::<_, (i32, String, i64)>(&groups_sql)),
+        filters,
+    );
+    let (counts, groups) = tokio::try_join!(categories.fetch_one(db), groups.fetch_all(db))?;
+    let (all, equip, use_, setup, etc, cash) = counts;
+    let names = |zh: &str, en: &str| Names::new(zh, en);
+    let categories = ITEM_CATEGORIES
+        .iter()
+        .zip([all, equip, use_, setup, etc, cash])
+        .map(|((key, zh, en), count)| Facet {
+            key: key.to_string(),
+            names: names(zh, en),
+            count,
+        })
+        .collect();
+    let sum = |keep: &dyn Fn(i32, &str) -> bool| -> i64 {
+        groups
+            .iter()
+            .filter(|(prefix, sub, _)| keep(*prefix, sub))
+            .map(|(_, _, n)| n)
+            .sum()
+    };
+    let equipment = |prefix: i32| (100..200).contains(&prefix);
+    let types = EQUIPMENT_TYPES
+        .iter()
+        .map(|(key, zh, en)| Facet {
+            key: key.to_string(),
+            names: names(zh, en),
+            count: sum(&|prefix, sub| equipment(prefix) && sub == *zh),
+        })
+        .filter(|f| f.count > 0 || f.key == filters.slot)
+        .collect();
+    let weapons = WEAPON_TYPES
+        .iter()
+        .map(|(id, zh, en)| Facet {
+            key: id.to_string(),
+            names: names(zh, en),
+            count: sum(&|prefix, sub| prefix == *id && sub == "武器"),
+        })
+        .filter(|f| f.count > 0 || filters.weapon.is_some_and(|w| w.to_string() == f.key))
+        .collect();
+    let uses = USE_TYPES
+        .iter()
+        .map(|(key, zh, en)| Facet {
+            key: key.to_string(),
+            names: names(zh, en),
+            count: sum(&|prefix, _| (200..300).contains(&prefix) && use_type(prefix) == *key),
+        })
+        .filter(|f| f.count > 0 || f.key == filters.use_type)
+        .collect();
+    Ok(ItemFacets {
+        categories,
+        types,
+        weapons,
+        uses,
+    })
 }
 
 async fn search_mobs(
     db: &PgPool,
-    query: &str,
+    text: &Text,
     limit: i64,
     offset: i64,
+    filters: &MobFilters,
     region: &str,
     area: &str,
 ) -> sqlx::Result<Hits<MobRef>> {
-    let (filter, rank) = matcher("m.id", &["m.name_zh", "m.name_tw", "m.name_en"], "$8");
-    let sql = format!(
-        "SELECT m.id, {name} AS name, {name_en} AS name_en, m.level, COALESCE(m.gms_id, l.gms_id) AS image_id
-         FROM mobs m LEFT JOIN mobs l ON l.id = m.link_id WHERE ({filter}) AND {PUBLIC_MOB_FILTER}
-         AND (($6='' AND $7='') OR EXISTS (
+    let (filter, rank) = matcher("m.id", &["m.name_zh", "m.name_tw", "m.name_en"], "$4");
+    let condition = format!(
+        "({filter}) AND {PUBLIC_MOB_FILTER}
+         AND (($5='' AND $6='') OR EXISTS (
              SELECT 1 FROM mob_spawns sp JOIN maps mp ON mp.id=sp.map_id
-             WHERE sp.mob_id=m.id AND NOT mp.unreleased AND ($6='' OR {region_expr}=$6) AND ($7='' OR {area_expr}=$7)))
-         ORDER BY {rank}, m.level NULLS LAST, m.id LIMIT $4 OFFSET $5",
-        region_expr=super::regions::region_sql("mp"),
-        area_expr=super::regions::area_sql("mp"),
+             WHERE sp.mob_id=m.id AND NOT mp.unreleased AND ($5='' OR {region_expr}=$5) AND ($6='' OR {area_expr}=$6)))
+         AND ($7::smallint IS NULL OR m.level >= $7) AND ($8::smallint IS NULL OR m.level <= $8)
+         AND (NOT $9 OR m.is_boss)",
+        region_expr = super::regions::region_sql("mp"),
+        area_expr = super::regions::area_sql("mp"),
+    );
+    let order = match filters.sort.as_str() {
+        "level_desc" => format!("m.level DESC NULLS LAST, {rank}, m.id"),
+        "name" => format!("{}, m.id", name!("m")),
+        _ => format!("{rank}, m.level NULLS LAST, m.id"),
+    };
+    let rows_sql = format!(
+        "SELECT m.id, {name} AS name, {name_en} AS name_en, m.level, COALESCE(m.gms_id, l.gms_id) AS image_id
+         FROM mobs m LEFT JOIN mobs l ON l.id = m.link_id WHERE {condition}
+         ORDER BY {order} LIMIT $10 OFFSET $11",
         name = name!("m"),
         name_en = name_en!("m"),
     );
-    run_search(db, &sql, query, limit, offset, region, area).await
+    let count_sql = format!("SELECT count(*) FROM mobs m WHERE {condition}");
+    let rows = bind_place(text.bind(sqlx::query_as(&rows_sql)), region, area)
+        .bind(filters.lmin)
+        .bind(filters.lmax)
+        .bind(filters.boss)
+        .bind(limit)
+        .bind(offset);
+    let count = bind_place(text.bind(sqlx::query_as(&count_sql)), region, area)
+        .bind(filters.lmin)
+        .bind(filters.lmax)
+        .bind(filters.boss);
+    page_of(db, rows, count, offset).await
+}
+
+/// Binds `$5` region and `$6` area.
+fn bind_place<'q, O>(query: PgQueryAs<'q, O>, region: &str, area: &str) -> PgQueryAs<'q, O> {
+    query.bind(region.to_string()).bind(area.to_string())
 }
 
 async fn search_maps(
@@ -2247,14 +2423,15 @@ async fn search_maps(
     limit: i64,
     offset: i64,
 ) -> sqlx::Result<Hits<MapHit>> {
-    search_maps_in_region(db, query, limit, offset, "", "").await
+    search_maps_in_region(db, &Text::new(query), limit, offset, false, "", "").await
 }
 
 async fn search_maps_in_region(
     db: &PgPool,
-    query: &str,
+    text: &Text,
     limit: i64,
     offset: i64,
+    town: bool,
     region: &str,
     area: &str,
 ) -> sqlx::Result<Hits<MapHit>> {
@@ -2266,21 +2443,31 @@ async fn search_maps_in_region(
         street: Option<String>,
         street_en: Option<String>,
     }
-    let (filter, rank) = matcher("m.id", &["m.name_zh", "m.name_tw", "m.name_en"], "$8");
-    let sql = format!(
-        "SELECT m.id, {name} AS name, {name_en} AS name_en, {streets}
-         FROM maps m WHERE {filter} AND NOT m.unreleased
-         AND ($6='' OR {region_expr}=$6) AND ($7='' OR {area_expr}=$7)
-         ORDER BY {rank}, length({name}), m.id LIMIT $4 OFFSET $5",
-        name = name!("m"),
-        name_en = name_en!("m"),
-        streets = streets!("m"),
+    let (filter, rank) = matcher("m.id", &["m.name_zh", "m.name_tw", "m.name_en"], "$4");
+    let condition = format!(
+        "{filter} AND NOT m.unreleased
+         AND ($5='' OR {region_expr}=$5) AND ($6='' OR {area_expr}=$6) AND (NOT $7 OR m.is_town)",
         region_expr = super::regions::region_sql("m"),
         area_expr = super::regions::area_sql("m"),
     );
-    let hits: Hits<Row> = run_search(db, &sql, query, limit, offset, region, area).await?;
+    let rows_sql = format!(
+        "SELECT m.id, {name} AS name, {name_en} AS name_en, {streets}
+         FROM maps m WHERE {condition}
+         ORDER BY {rank}, length({name}), m.id LIMIT $8 OFFSET $9",
+        name = name!("m"),
+        name_en = name_en!("m"),
+        streets = streets!("m"),
+    );
+    let count_sql = format!("SELECT count(*) FROM maps m WHERE {condition}");
+    let rows = bind_place(text.bind(sqlx::query_as(&rows_sql)), region, area)
+        .bind(town)
+        .bind(limit)
+        .bind(offset);
+    let count = bind_place(text.bind(sqlx::query_as(&count_sql)), region, area).bind(town);
+    let hits: Hits<Row> = page_of(db, rows, count, offset).await?;
     Ok(Hits {
         more: hits.more,
+        total: hits.total,
         rows: hits
             .rows
             .into_iter()

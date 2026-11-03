@@ -1,458 +1,640 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useWords } from "../providers";
-import { Icon, Slot } from "../components/shared";
+import { usePreferences, useWords } from "../providers";
+import { Icon, Slot, num } from "../components/shared";
+import { Button } from "../components/ui/button";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogTitle,
+  DialogClose,
+} from "../components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "../components/ui/dropdown-menu";
+import { levelRanges } from "../lib/price-state";
 import { MapRow, MobRow, Secondary, useNames, Well } from "./catalogue";
-// Orbis and El Nath are not open yet; their maps are imported as unreleased
-// and never listed. Add them back here and in regions.rs when they open.
-const regions = [
-  ["maple", "彩虹岛", "Maple Island"],
-  ["victoria", "金银岛", "Victoria Island"],
-  ["market", "自由市场", "Free Market"],
-  ["special", "活动／特殊地图", "Events / special maps"],
-  ["other", "其他／待归类", "Other / unclassified"],
+import {
+  jobs,
+  regions,
+  mobLevelRanges,
+  sorts,
+  searchKind,
+  dexHref,
+  categoryPatch,
+  dexTokens,
+  clearAllPatch,
+  pageNumbers,
+} from "/web/js/lib/dex-filters.js";
+
+const kinds = [
+  ["item", "物品", "Items", "items", "件"],
+  ["mob", "怪物", "Monsters", "mobs", "只"],
+  ["map", "地图", "Maps", "maps", "张"],
 ];
+const categories = [
+  ["", "全部", "All"],
+  ["equip", "装备", "Equip"],
+  ["use", "消耗", "Use"],
+  ["setup", "装饰", "Setup"],
+  ["etc", "其他", "Etc"],
+  ["cash", "商城", "Cash"],
+];
+
+/** A number of results with its unit: 113 件, 12 只, 5 张. */
+function useCount() {
+  const words = useWords();
+  return (kind: string, n: number) => {
+    const row = kinds.find(([key]) => key === kind) || kinds[0];
+    return words(`${num(n)} ${row[4]}`, `${num(n)} ${row[2].toLowerCase()}`);
+  };
+}
+
+function ItemHit({ hit }: { hit: any }) {
+  const words = useWords(),
+    name = useNames();
+  return (
+    <a className="drow" href={"/item/" + hit.id}>
+      <Slot empty url={hit.icon_url} />
+      <span className="t">
+        <b>{name(hit.names)}</b>
+        {hit.level != null && Math.floor(hit.id / 1000000) === 1 && (
+          <span className="lv">
+            {words("等级 ", "Lv. ")}
+            {hit.level}
+          </span>
+        )}
+        <span className="s">
+          <Secondary names={hit.names} />
+          {hit.subcategory && words(hit.subcategory, "") && (
+            <span className="sub">{hit.subcategory}</span>
+          )}
+        </span>
+      </span>
+    </a>
+  );
+}
+
+function Hit({ kind, hit }: { kind: string; hit: any }) {
+  const name = useNames();
+  return kind === "item" ? (
+    <ItemHit hit={hit} />
+  ) : kind === "mob" ? (
+    <MobRow mob={hit} />
+  ) : (
+    <MapRow map={hit} sub={name(hit.street)} />
+  );
+}
+
+/** One row of filter chips; `on` is the selected key, `""` for "all". */
+function ChipRow({
+  label,
+  note,
+  all,
+  rows,
+  on,
+  data,
+  pick,
+  className = "chips dex-chips",
+}: {
+  label: string;
+  note?: string;
+  all?: string;
+  rows: { key: string; label: string; count?: number }[];
+  on: string;
+  data: string;
+  pick: (key: string) => void;
+  className?: string;
+}) {
+  const chip = (key: string, text: ReactNode) => (
+    <button
+      type="button"
+      key={key || "all"}
+      className="chip"
+      {...{ [data]: key || "all" }}
+      aria-pressed={on === key}
+      onClick={() => pick(key)}
+    >
+      {text}
+    </button>
+  );
+  return (
+    <div className="fsec">
+      <h4>
+        {label}
+        {note && <small>{note}</small>}
+      </h4>
+      <div className={className} role="group" aria-label={label}>
+        {all != null && chip("", all)}
+        {rows.map((row) =>
+          chip(
+            row.key,
+            <>
+              {row.label}
+              {row.count != null && <small>{num(row.count)}</small>}
+            </>,
+          ),
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Search({ page }: { page: any }) {
   const words = useWords(),
     name = useNames(),
+    count = useCount(),
     navigate = useNavigate(),
     route = useLocation();
+  const { language } = usePreferences();
+  const en = language === "en";
   const params = new URLSearchParams(route.search);
-  const [draft, setDraft] = useState(params.get("q") || ""),
-    [min, setMin] = useState(params.get("min_level") || ""),
-    [max, setMax] = useState(params.get("max_level") || "");
+  const kind = searchKind(page);
+  const groups = kinds.find(([key]) => key === kind)?.[3];
+  const filters = page.filters || {},
+    mobFilters = page.mob_filters || {},
+    facets = page.facets || {};
+  const levels = kind === "mob" ? mobFilters : filters;
+  const [draft, setDraft] = useState(params.get("q") || "");
+  const level = (key: string, old: string) =>
+    new URLSearchParams(route.search).get(key) ??
+    new URLSearchParams(route.search).get(old) ??
+    "";
+  const [lmin, setLmin] = useState(level("lmin", "min_level")),
+    [lmax, setLmax] = useState(level("lmax", "max_level"));
   const composing = useRef(false),
     typing = useRef(false);
-  const kind = (page.kind || "").toLowerCase(),
-    searching = !!page.query;
-  const filters = page.filters || {};
-  const [filterOpen, setFilterOpen] = useState(
-    Boolean(
-      filters.job || filters.min_level != null || filters.max_level != null,
-    ),
-  );
-  function update(values: Record<string, string>, replace = true) {
-    const next = new URLSearchParams(location.search);
-    next.delete("page");
-    for (const [key, value] of Object.entries(values)) {
-      if (value) next.set(key, value);
-      else next.delete(key);
-    }
-    navigate("/search?" + next, { replace });
+  // Links start from the address bar, so quick clicks build on each other.
+  function go(patch: Record<string, any>, replace = true) {
+    navigate(dexHref(location.search, patch), { replace });
   }
   useEffect(() => {
     const q = new URLSearchParams(route.search).get("q") || "";
     if (!typing.current) setDraft(q);
-    setMin(new URLSearchParams(route.search).get("min_level") || "");
-    setMax(new URLSearchParams(route.search).get("max_level") || "");
+    setLmin(level("lmin", "min_level"));
+    setLmax(level("lmax", "max_level"));
   }, [route.search]);
   useEffect(() => {
     if (!typing.current || composing.current) return;
     const timer = setTimeout(() => {
       typing.current = false;
-      update({ q: draft.trim() });
+      go({ q: draft.trim() });
     }, 200);
     return () => clearTimeout(timer);
   }, [draft]);
-  const place = (
-    <div className="place-tools">
-      {!page.kind && (
-        <span className="place-scope">
-          {words("地图／怪物地区", "Map / monster location")}
-        </span>
-      )}
-      <label>
-        {words("地区", "Region")}
-        <select
-          name="region"
-          form="catalog-search"
-          value={params.get("region") || ""}
-          onChange={(event) => update({ region: event.target.value, area: "" })}
-        >
-          <option value="">{words("全部地区", "All regions")}</option>
-          {regions.map(([value, zh, en]) => (
-            <option key={value} value={value}>
-              {words(zh, en)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        {words("区域", "Area")}
-        <select
-          name="area"
-          form="catalog-search"
-          disabled={!params.get("region")}
-          value={params.get("area") || ""}
-          onChange={(event) => update({ area: event.target.value })}
-        >
-          <option value="">
-            {params.get("region")
-              ? words("全部区域", "All areas")
-              : words("先选地区", "Choose a region first")}
-          </option>
-          {(page.areas || [])
-            .filter((area: any) => area.region === params.get("region"))
-            .map((area: any) => (
-              <option key={area.key} value={area.key}>
-                {name(area.names)}
-              </option>
-            ))}
-        </select>
-      </label>
-      <button
-        className="chip"
-        type="button"
-        data-place-reset
-        onClick={() => update({ region: "", area: "" })}
-      >
-        {words("重置", "Reset")}
-      </button>
-    </div>
-  );
-  const catControls = (
-    <div className="catalogue-tools">
-      <div
-        className="catalogue-cats"
-        role="group"
-        aria-label={words("物品分类", "Item category")}
-      >
-        {[
-          ["", "全部", "All"],
-          ["equip", "装备", "EQUIP"],
-          ["use", "消耗", "USE"],
-          ["setup", "装饰", "SETUP"],
-          ["etc", "其他", "ETC"],
-          ["cash", "商城", "CASH"],
-        ].map(([value, zh, en]) => (
-          <label key={value}>
+  const tokens: { key: string; label: string; value: string; patch: any }[] =
+    dexTokens(page, en);
+  const hits = groups ? page[groups] : null;
+  const size = page.page_size || (kind ? 60 : 20);
+  const total = hits ? (hits.total ?? hits.rows.length) : 0;
+  const number = Math.floor((page.offset || 0) / size) + 1,
+    pages = Math.max(1, Math.ceil(total / size));
+  const sortRows = sorts[kind as keyof typeof sorts] || [];
+  const sortKey = (kind === "mob" ? mobFilters.sort : filters.sort) || "";
+  const sortRow = sortRows.find(([key]: string[]) => key === sortKey) ||
+    sortRows[0];
+  const turn = (n: number) => {
+    go({ page: n > 1 ? String(n) : null }, false);
+    window.scrollTo({ top: 0 });
+  };
+  const levelSection = (presets: readonly (readonly [number, number | null])[]) => (
+    <div className="fsec">
+      <h4>{words(kind === "mob" ? "等级" : "需求等级", kind === "mob" ? "Level" : "Required level")}</h4>
+      <div className="lvrow">
+        {(
+          [
+            ["lmin", "最低", "Min", lmin, setLmin],
+            ["lmax", "最高", "Max", lmax, setLmax],
+          ] as const
+        ).map(([key, zh, english, value, set]) => (
+          <label key={key}>
+            {words(zh, english)}
             <input
-              type="radio"
-              name="cat"
+              type="number"
+              min={0}
+              max={300}
+              inputMode="numeric"
+              {...{ [`data-${key}`]: "" }}
               value={value}
-              form="catalog-search"
-              checked={(params.get("cat") || "") === value}
-              onChange={() =>
-                update({
-                  cat: value,
-                  ...(value === "equip"
-                    ? {}
-                    : { job: "", min_level: "", max_level: "" }),
-                })
-              }
+              onChange={(event) => {
+                const next = event.target.value;
+                set(next);
+                go({ [key]: /^\d{1,3}$/.test(next) ? next : null });
+              }}
             />
-            <span>{words(zh, en)}</span>
           </label>
         ))}
       </div>
-      <details
-        className="catalogue-filter"
-        open={filterOpen}
-        onToggle={(event) => setFilterOpen(event.currentTarget.open)}
-      >
-        <summary>
-          {words("筛选", "Filters")}
-          <span data-filter-summary>
-            {filters.job ||
-            filters.min_level != null ||
-            filters.max_level != null
-              ? " ●"
-              : ""}
-          </span>
-        </summary>
-        <div className="catalogue-panel">
-          <label>
-            {words("适用职业", "Job")}
-            <select
-              name="job"
-              form="catalog-search"
-              value={params.get("job") || "0"}
-              onChange={(event) =>
-                update({
-                  job: event.target.value === "0" ? "" : event.target.value,
-                  cat: "equip",
-                })
-              }
-            >
-              {[
-                ["0", "所有职业", "All jobs"],
-                ["1", "战士", "Warrior"],
-                ["2", "魔法师", "Magician"],
-                ["4", "弓箭手", "Bowman"],
-                ["8", "飞侠", "Thief"],
-              ].map(([value, zh, en]) => (
-                <option key={value} value={value}>
-                  {words(zh, en)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="catalogue-levels">
-            <label>
-              {words("最低等级", "Min level")}
-              <input
-                type="number"
-                name="min_level"
-                form="catalog-search"
-                min="0"
-                max="300"
-                value={min}
-                placeholder="0"
-                onChange={(event) => setMin(event.target.value)}
-                onBlur={() =>
-                  update({ min_level: min, max_level: max, cat: "equip" })
-                }
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    update({ min_level: min, max_level: max, cat: "equip" });
-                  }
-                }}
-              />
-            </label>
-            <span>–</span>
-            <label>
-              {words("最高等级", "Max level")}
-              <input
-                type="number"
-                name="max_level"
-                form="catalog-search"
-                min="0"
-                max="300"
-                value={max}
-                placeholder={words("不限", "Any")}
-                onChange={(event) => setMax(event.target.value)}
-                onBlur={() =>
-                  update({ min_level: min, max_level: max, cat: "equip" })
-                }
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    update({ min_level: min, max_level: max, cat: "equip" });
-                  }
-                }}
-              />
-            </label>
-          </div>
-          <div className="catalogue-presets">
-            {[
-              [1, 20],
-              [21, 30],
-              [31, 50],
-              [51, 70],
-              [71, 120],
-            ].map(([lo, hi]) => (
-              <button
-                className="chip"
-                type="button"
-                data-catalog-levels={`${lo},${hi}`}
-                key={lo}
-                onClick={() => {
-                  setMin(String(lo));
-                  setMax(String(hi));
-                  update({
-                    cat: "equip",
-                    min_level: String(lo),
-                    max_level: String(hi),
-                  });
-                }}
-              >
-                {lo}–{hi}
-              </button>
-            ))}
-            <button
-              className="chip"
-              type="button"
-              data-catalog-reset
-              onClick={() => {
-                setMin("");
-                setMax("");
-                update({ cat: "", job: "", min_level: "", max_level: "" });
-              }}
-            >
-              {words("重置筛选", "Reset filters")}
-            </button>
-          </div>
-        </div>
-      </details>
+      <div className="chips level-presets">
+        {presets.map(([lo, hi]) => (
+          <button
+            type="button"
+            key={lo}
+            className="chip"
+            data-lv={hi == null ? `${lo}+` : `${lo}-${hi}`}
+            aria-pressed={(levels.lmin ?? 0) === lo && (levels.lmax ?? null) === hi}
+            onClick={() => go({ lmin: lo || (hi == null ? null : "0"), lmax: hi })}
+          >
+            {hi == null ? `${lo}+` : `${lo}–${hi}`}
+          </button>
+        ))}
+      </div>
     </div>
   );
-  const number = page.offset / (page.kind ? 60 : 20) + 1,
-    more = page.items.more || page.mobs.more || page.maps.more;
-  const pagination =
-    page.offset || more ? (
-      <nav className="chips kinds" aria-label={words("分页", "Pagination")}>
-        {number > 1 && (
-          <button
-            className="chip"
-            onClick={() => update({ page: String(number - 1) }, false)}
-          >
-            {words("上一页", "Previous")}
-          </button>
-        )}
-        <span className="chip">
-          {words("第", "Page")} {number}
-        </span>
-        {more && (
-          <button
-            className="chip"
-            onClick={() => update({ page: String(number + 1) }, false)}
-          >
-            {words("下一页", "Next")}
-          </button>
-        )}
-      </nav>
-    ) : null;
-  const nothing =
-    !page.items.rows.length && !page.mobs.rows.length && !page.maps.rows.length;
+  const placeSections = (
+    <>
+      <ChipRow
+        label={words("地区", "Region")}
+        all={words("所有地区", "All regions")}
+        rows={regions.map(([key, zh, english]: string[]) => ({
+          key,
+          label: words(zh, english),
+        }))}
+        on={page.region || ""}
+        data="data-region"
+        pick={(key) => go({ region: key, area: null })}
+      />
+      {page.region && (
+        <ChipRow
+          label={words("区域", "Area")}
+          all={words("所有区域", "All areas")}
+          rows={(page.areas || [])
+            .filter((area: any) => area.region === page.region)
+            .map((area: any) => ({ key: area.key, label: name(area.names) }))}
+          on={page.area || ""}
+          data="data-area"
+          pick={(key) => go({ area: key })}
+        />
+      )}
+    </>
+  );
+  const check = (key: string, text: string, checked: boolean, flip: () => void) => (
+    <label className="filter-check" key={key}>
+      <input
+        type="checkbox"
+        {...{ [`data-${key}`]: "" }}
+        checked={checked}
+        onChange={flip}
+      />
+      {text}
+    </label>
+  );
+  const sheet =
+    kind === "item" ? (
+      filters.cat === "use" ? (
+        <ChipRow
+          label={words("消耗类型", "Use type")}
+          all={words("所有类型", "All types")}
+          rows={(facets.uses || []).map((row: any) => ({
+            key: row.key,
+            label: name(row.names),
+            count: row.count,
+          }))}
+          on={filters.use || ""}
+          data="data-use"
+          pick={(key) => go({ use: key })}
+        />
+      ) : (
+        <>
+          <div className="fsec">
+            <h4>
+              {words("职业", "Job")}
+              <small>{words("只影响装备", "Equipment only")}</small>
+            </h4>
+            <div className="chips dex-chips" role="group" aria-label={words("职业", "Job")}>
+              {[["", "所有职业", "All jobs"], ...jobs].map(
+                ([key, zh, english]: string[]) => (
+                  <button
+                    type="button"
+                    key={key || "all"}
+                    className="chip"
+                    data-job={key || "all"}
+                    aria-pressed={(filters.job || "") === key}
+                    onClick={() => go({ job: key })}
+                  >
+                    {words(zh, english)}
+                  </button>
+                ),
+              )}
+            </div>
+            {check(
+              "shared",
+              words("包含通用装备", "Include all-class gear"),
+              filters.shared !== false,
+              () => go({ shared: filters.shared === false ? null : "0" }),
+            )}
+          </div>
+          <ChipRow
+            label={words("装备类型", "Equipment type")}
+            all={words("所有类型", "All types")}
+            rows={(facets.types || []).map((row: any) => ({
+              key: row.key,
+              label: name(row.names),
+              count: row.count,
+            }))}
+            on={filters.type || ""}
+            data="data-equipment-type"
+            pick={(key) => go({ type: key, weapon: null })}
+          />
+          {filters.type === "weapon" && (
+            <ChipRow
+              label={words("武器类型", "Weapon type")}
+              all={words("所有武器", "All weapons")}
+              rows={(facets.weapons || []).map((row: any) => ({
+                key: String(row.key),
+                label: name(row.names),
+                count: row.count,
+              }))}
+              on={filters.weapon == null ? "" : String(filters.weapon)}
+              data="data-weapon"
+              pick={(key) => go({ weapon: key })}
+            />
+          )}
+          {levelSection(levelRanges)}
+        </>
+      )
+    ) : kind === "mob" ? (
+      <>
+        {levelSection(mobLevelRanges)}
+        {placeSections}
+        <div className="fsec">
+          {check("boss", words("只看 Boss", "Bosses only"), !!mobFilters.boss, () =>
+            go({ boss: !mobFilters.boss }),
+          )}
+        </div>
+      </>
+    ) : (
+      <>
+        {placeSections}
+        <div className="fsec">
+          {check("town", words("只看城镇", "Towns only"), !!page.town, () =>
+            go({ town: !page.town }),
+          )}
+        </div>
+      </>
+    );
   return (
-    <section className="stall">
+    <section className="stall dex-search">
       <div className="stall-bar">
-        <h2>{words("搜索", "Search")}</h2>
+        <h2>{words("图鉴", "Catalogue")}</h2>
         {page.query && <span className="bar-meta">“{page.query}”</span>}
       </div>
-      <form
-        className="finder in-page"
-        id="catalog-search"
-        action="/search"
-        method="get"
-        role="search"
-        onSubmit={(event) => {
-          event.preventDefault();
-          typing.current = false;
-          update({ q: draft.trim(), min_level: min, max_level: max });
-        }}
-      >
-        <Icon name="search" />
-        <input
-          type="search"
-          name="q"
-          value={draft}
-          placeholder={words(
-            "搜索物品、怪物、地图",
-            "Search items, monsters, maps",
-          )}
-          aria-label={words("搜索", "Search")}
-          autoComplete="off"
-          onChange={(event) => {
-            typing.current = true;
-            setDraft(event.target.value);
-          }}
-          onCompositionStart={() => {
-            composing.current = true;
-          }}
-          onCompositionEnd={(event) => {
-            composing.current = false;
+      <div className={"dex-tools " + (kind ? "dex-kind" : "")}>
+        <form
+          className="finder in-page"
+          id="catalog-search"
+          action="/search"
+          method="get"
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
             typing.current = false;
-            update({ q: event.currentTarget.value.trim() });
+            go({ q: draft.trim() });
           }}
-        />
-        {page.kind && <input type="hidden" name="kind" value={kind} />}
-      </form>
-      <div data-search-results aria-live="polite">
-        <nav
-          className="chips kinds"
-          aria-label={words("结果类型", "Result type")}
         >
-          {[
-            ["item", "物品", "Items"],
-            ["mob", "怪物", "Monsters"],
-            ["map", "地图", "Maps"],
-          ].map(([value, zh, en]) => (
-            <a
-              className={"chip " + (!searching && kind === value ? "on" : "")}
-              key={value}
-              aria-current={!searching && kind === value ? "page" : undefined}
-              href={
-                searching
-                  ? "#search-" + value
-                  : "/search?" +
-                    new URLSearchParams({
-                      kind: value,
-                      ...(page.region ? { region: page.region } : {}),
-                      ...(page.area ? { area: page.area } : {}),
-                    })
-              }
-            >
-              {words(zh, en)}
-            </a>
-          ))}
-        </nav>
-        {pagination}
-        <div className="dbody">
-          {!page.kind &&
-            searching &&
-            (page.mobs.rows.length > 0 ||
-              page.maps.rows.length > 0 ||
-              !!params.get("region")) &&
-            place}
-          {[
-            ["item", "物品", "Items", "items"],
-            ["mob", "怪物", "Monsters", "mobs"],
-            ["map", "地图", "Maps", "maps"],
-          ].map(([group, zh, en, key]) => {
-            const hits = page[key];
-            if (!hits.rows.length && !searching && kind !== group) return null;
+          <Icon name="search" />
+          <input
+            type="search"
+            name="q"
+            value={draft}
+            placeholder={words("搜索物品、怪物、地图", "Search items, monsters, maps")}
+            aria-label={words("搜索", "Search")}
+            autoComplete="off"
+            onChange={(event) => {
+              typing.current = true;
+              setDraft(event.target.value);
+            }}
+            onCompositionStart={() => {
+              composing.current = true;
+            }}
+            onCompositionEnd={(event) => {
+              composing.current = false;
+              typing.current = false;
+              go({ q: event.currentTarget.value.trim() });
+            }}
+          />
+        </form>
+        <nav className="tabs dex-kinds" aria-label={words("图鉴分类", "Catalogue")}>
+          {kinds.map(([key, zh, english]) => {
+            const next = new URLSearchParams({
+              ...(page.query ? { q: page.query } : {}),
+              kind: key,
+              ...(key !== "item" && kind !== "item" && page.region
+                ? { region: page.region }
+                : {}),
+              ...(key !== "item" && kind !== "item" && page.area
+                ? { area: page.area }
+                : {}),
+            });
             return (
-              <Well
+              <a
                 key={key}
-                id={"search-" + group}
-                title={words(zh, en)}
-                note={`${words("本页", "This page:")} ${hits.rows.length}${hits.more ? "+" : ""}`}
+                className={"tab " + (kind === key ? "on" : "")}
+                aria-current={kind === key ? "page" : undefined}
+                data-kind={key}
+                href={"/search?" + next}
               >
-                {group === "item" && catControls}
-                {group !== "item" && kind === group && place}
-                {hits.rows.length ? (
-                  <div className="catalogue-grid">
-                    {hits.rows.map((hit: any) =>
-                      group === "item" ? (
-                        <a
-                          className="drow"
-                          key={hit.id}
-                          href={"/item/" + hit.id}
-                        >
-                          <Slot empty url={hit.icon_url} />
-                          <span className="t">
-                            <b>{name(hit.names)}</b>
-                            {hit.level != null &&
-                              Math.floor(hit.id / 1000000) === 1 && (
-                                <span className="lv">
-                                  {words("等级 ", "Lv. ")}
-                                  {hit.level}
-                                </span>
-                              )}
-                            <span className="s">
-                              <Secondary names={hit.names} />
-                              {hit.subcategory && words(hit.subcategory, "") && (
-                                <span className="sub">{hit.subcategory}</span>
-                              )}
-                            </span>
-                          </span>
-                        </a>
-                      ) : group === "mob" ? (
-                        <MobRow mob={hit} key={hit.id} />
-                      ) : (
-                        <MapRow map={hit} sub={name(hit.street)} key={hit.id} />
-                      ),
-                    )}
-                  </div>
-                ) : (
-                  <p className="note">
-                    {words("没有匹配结果。", "No matches.")}
-                  </p>
-                )}
-                {hits.more && (
-                  <p className="note">
-                    {words(
-                      "还有更多结果，可翻到下一页。",
-                      "More results on the next page.",
-                    )}
-                  </p>
-                )}
-              </Well>
+                {words(zh, english)}
+              </a>
             );
           })}
-          {nothing && (
+        </nav>
+        {kind === "item" && (
+          <div className="cats" data-cats role="group" aria-label={words("物品分类", "Item category")}>
+            {categories.map(([key, zh, english]) => {
+              const facet = (facets.categories || []).find((row: any) => row.key === key);
+              const on = (filters.cat || "") === key;
+              return (
+                <button
+                  type="button"
+                  key={key || "all"}
+                  className={"cat " + (on ? "on" : "")}
+                  aria-pressed={on}
+                  data-cat={key || "all"}
+                  onClick={() => go(categoryPatch(key))}
+                >
+                  {words(zh, english)}
+                  {facet && <small>{num(facet.count)}</small>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {sortRow && (
+          <span className="sortwrap">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="sortbtn"
+                  data-sort-btn
+                  aria-label={words("排序：", "Sort: ") + words(sortRow[1], sortRow[2])}
+                >
+                  <span data-sort-label>{words(sortRow[1], sortRow[2])}</span>
+                  <Icon name="caret" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuRadioGroup value={sortKey}>
+                  {sortRows.map(([key, zh, english]: string[]) => (
+                    <DropdownMenuRadioItem
+                      value={key}
+                      key={key || "default"}
+                      data-sort={key || "default"}
+                      onSelect={() => go({ sort: key })}
+                    >
+                      {words(zh, english)}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </span>
+        )}
+        {kind && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <button
+                type="button"
+                className={"sortbtn fbtn " + (tokens.length ? "on" : "")}
+                data-filter-btn
+                aria-label={words("筛选", "Filter")}
+              >
+                <Icon name="funnel" />
+                <span>{words("筛选", "Filter")}</span>
+                {tokens.length > 0 && <b className="fcount">{tokens.length}</b>}
+              </button>
+            </DialogTrigger>
+            <DialogContent
+              className="price-filter-dialog dex-filter-dialog"
+              aria-describedby={undefined}
+            >
+              <div className="stall-bar">
+                <DialogTitle>{words("筛选", "Filter")}</DialogTitle>
+              </div>
+              <div className="fpanel">{sheet}</div>
+              <div className="ffoot">
+                <Button data-filter-reset onClick={() => go(clearAllPatch(tokens))}>
+                  {words("重置", "Reset")}
+                </Button>
+                <DialogClose asChild>
+                  <Button variant="primary" data-apply>
+                    {words("显示 ", "Show ")}
+                    {count(kind, total)}
+                  </Button>
+                </DialogClose>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+      {kind ? (
+        <>
+          {tokens.length > 0 && (
+            <div className="dex-tokens" data-active-filters>
+              {tokens.map((token) => (
+                <button
+                  type="button"
+                  className="tok"
+                  key={token.key}
+                  data-remove-filter={token.key}
+                  onClick={() => go(token.patch)}
+                >
+                  {token.label && token.label + " "}
+                  <b>{token.value}</b> ×
+                </button>
+              ))}
+              <button
+                type="button"
+                className="dex-clear"
+                data-clear-filters
+                onClick={() => go(clearAllPatch(tokens))}
+              >
+                {words("清除筛选", "Clear filters")}
+              </button>
+            </div>
+          )}
+          <p className="dex-total" data-total>
+            {words("共 ", "")}
+            {count(kind, total)}
+            {total > 0 && words(` · 第 ${number}/${pages} 页`, ` · page ${number} of ${pages}`)}
+          </p>
+          <div data-search-results aria-live="polite" id={"search-" + kind}>
+            {hits.rows.length ? (
+              <div className="catalogue-grid">
+                {hits.rows.map((hit: any) => (
+                  <Hit kind={kind} hit={hit} key={hit.id} />
+                ))}
+              </div>
+            ) : (
+              <div className="empty">
+                <img
+                  src="https://maplestory.io/api/GMS/83/mob/120100/render/stand"
+                  alt=""
+                  loading="lazy"
+                />
+                <p>
+                  {page.query
+                    ? words(
+                        `没有找到「${page.query}」。换个字试试，比如只输入名字的一部分。`,
+                        `Nothing matches “${page.query}”. Try part of the name.`,
+                      )
+                    : tokens.length || filters.cat
+                      ? words("没有符合筛选条件的结果。", "Nothing matches these filters.")
+                      : words("暂无图鉴数据。", "No catalogue data yet.")}
+                </p>
+                {(page.query || tokens.length > 0 || filters.cat) && (
+                  <Button
+                    data-clear-search
+                    onClick={() => navigate("/search?kind=" + kind, { replace: true })}
+                  >
+                    {words("清空搜索和筛选", "Clear search and filters")}
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+          {pages > 1 && (
+            <nav className="dex-pager" data-pager aria-label={words("分页", "Pagination")}>
+              {number > 1 && (
+                <button type="button" className="chip" data-page="prev" onClick={() => turn(number - 1)}>
+                  {words("上一页", "Previous")}
+                </button>
+              )}
+              {pageNumbers(number, pages).map((n: number | null, i: number) =>
+                n == null ? (
+                  <span className="gap" key={"gap" + i}>
+                    …
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    key={n}
+                    className={"chip " + (n === number ? "on" : "")}
+                    aria-current={n === number ? "page" : undefined}
+                    data-page={n}
+                    onClick={() => turn(n)}
+                  >
+                    {n}
+                  </button>
+                ),
+              )}
+              {number < pages && (
+                <button type="button" className="chip" data-page="next" onClick={() => turn(number + 1)}>
+                  {words("下一页", "Next")}
+                </button>
+              )}
+            </nav>
+          )}
+        </>
+      ) : (
+        <div className="dbody" data-search-results aria-live="polite">
+          {!page.items.rows.length && !page.mobs.rows.length && !page.maps.rows.length ? (
             <div className="empty">
               <img
                 src="https://maplestory.io/api/GMS/83/mob/120100/render/stand"
@@ -465,29 +647,48 @@ export default function Search({ page }: { page: any }) {
                       `没有找到「${page.query}」。换个字试试，比如只输入名字的一部分。`,
                       `Nothing matches “${page.query}”. Try part of the name.`,
                     )
-                  : page.region || page.area
-                    ? words(
-                        "这个地区暂无匹配的记录，请调整地区或区域。",
-                        "No matching records in this location. Try another region or area.",
-                      )
-                    : filters.cat || filters.job
-                      ? words(
-                          "没有符合筛选条件的物品，请调整或重置筛选。",
-                          "No items match these filters. Adjust or reset the filters.",
-                        )
-                      : words("暂无图鉴数据。", "No catalogue data yet.")}
+                  : words("暂无图鉴数据。", "No catalogue data yet.")}
               </p>
               <p className="hint">
-                {words(
-                  "试试：蜗牛、射手村、铁矿石",
-                  "Try: snail, Henesys, iron ore",
-                )}
+                {words("试试：蜗牛、射手村、铁矿石", "Try: snail, Henesys, iron ore")}
               </p>
             </div>
+          ) : (
+            kinds.map(([key, zh, english, group]) => {
+              const group_hits = page[group];
+              const n = group_hits.total ?? group_hits.rows.length;
+              return (
+                <Well
+                  key={key}
+                  id={"search-" + key}
+                  title={words(zh, english)}
+                  note={words("共 ", "") + count(key, n)}
+                >
+                  {group_hits.rows.length ? (
+                    <div className="catalogue-grid">
+                      {group_hits.rows.map((hit: any) => (
+                        <Hit kind={key} hit={hit} key={hit.id} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="note">{words("没有匹配结果。", "No matches.")}</p>
+                  )}
+                  {group_hits.more && (
+                    <a
+                      className="more"
+                      data-kind-all={key}
+                      href={"/search?" + new URLSearchParams({ q: page.query, kind: key })}
+                    >
+                      {words("查看全部 ", "Show all ")}
+                      {count(key, n)}
+                    </a>
+                  )}
+                </Well>
+              );
+            })
           )}
         </div>
-        {pagination}
-      </div>
+      )}
     </section>
   );
 }
