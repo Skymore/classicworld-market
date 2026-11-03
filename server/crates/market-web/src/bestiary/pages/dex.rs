@@ -536,8 +536,16 @@ pub fn route_page(page: &RoutePage, ctx: &Ctx) -> Markup {
     dex_page(ctx, ctx.t("怎么走", "Route"), "", body)
 }
 
+/// Whether a route step draws its map view.
+fn step_shows_map(step: &Step) -> bool {
+    step.view.is_some() && (step.exit.is_some() || step.kind != EdgeKind::Portal)
+}
+
 fn steps_list(ctx: &Ctx, steps: &[Step]) -> Markup {
     let lang = ctx.lang;
+    // Only the first map loads its scene with the page; the rest wait with
+    // the minimap until they scroll into view (`Steps` in catalogue.tsx).
+    let first_map = steps.iter().position(step_shows_map);
     html! {
         ol.steps {
             @for (i, step) in steps.iter().enumerate() {
@@ -553,9 +561,9 @@ fn steps_list(ctx: &Ctx, steps: &[Step]) -> Markup {
                         }
                         @if step.kind == EdgeKind::Return { span.kind { (ctx.t("回城卷轴", "scroll")) } }
                     }
-                    @if let (Some(view), true) = (&step.view, step.exit.is_some() || step.kind != EdgeKind::Portal) {
+                    @if let (Some(view), true) = (&step.view, step_shows_map(step)) {
                         figure.mapvis.step-map {
-                            (map_svg(ctx, view, step.from.names.get(lang), &Marks { exit: step.exit, arrival: step.arrival, exit_npc: step.npc.is_some(), ..Marks::default() }))
+                            (map_svg(ctx, view, step.from.names.get(lang), &Marks { exit: step.exit, arrival: step.arrival, exit_npc: step.npc.is_some(), defer_scene: first_map != Some(i), ..Marks::default() }))
                         }
                     }
                 }

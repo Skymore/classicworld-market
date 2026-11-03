@@ -413,6 +413,46 @@ pub struct SceneImage {
     pub y: i32,
     pub width: i32,
     pub height: i32,
+    /// The picture's width in pixels.
+    pub px: i32,
+    /// The copy for phones and its width, when it is smaller.
+    pub small_url: Option<String>,
+    pub small_px: Option<i32>,
+}
+
+/// `tools/niadb_map_assets.py scenes` scales each scene picture to fit these
+/// boxes, never up: the full-size picture, and the copy for phones under
+/// `small/`. Keep them in step with the tool.
+const SCENE_FIT: (f64, f64) = (1760.0, 1040.0);
+const SCENE_SMALL_FIT: (f64, f64) = (1100.0, 650.0);
+
+impl SceneImage {
+    /// `width` x `height` is the scene's rectangle in world pixels, which is
+    /// the size of the picture the tool scaled.
+    pub fn new(url: String, x: i32, y: i32, width: i32, height: i32) -> Self {
+        let fitted = |fit: (f64, f64)| {
+            let (w, h) = (f64::from(width.max(1)), f64::from(height.max(1)));
+            let scale = (fit.0 / w).min(fit.1 / h).min(1.0);
+            (w * scale).round().max(1.0) as i32
+        };
+        let (px, small_px) = (fitted(SCENE_FIT), fitted(SCENE_SMALL_FIT));
+        let small_url = (small_px < px)
+            .then(|| {
+                url.rsplit_once('/')
+                    .map(|(dir, file)| format!("{dir}/small/{file}"))
+            })
+            .flatten();
+        Self {
+            small_px: small_url.as_ref().map(|_| small_px),
+            small_url,
+            url,
+            x,
+            y,
+            width,
+            height,
+            px,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
