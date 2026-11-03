@@ -87,7 +87,8 @@ try {
       document.body.dispatchEvent(gesture);
       return [touch('touchstart', 1), touch('touchmove', 1), touch('touchstart', 2), touch('touchmove', 2), gesture.defaultPrevented];
     });
-    assert.deepEqual(cancellation, [false, false, true, true, true], 'block Safari zoom gestures while preserving single-finger input');
+    // Touch listeners stay passive (CSS touch-action stops pinch zoom), so scrolling never waits for scripts; Safari gestures are still canceled.
+    assert.deepEqual(cancellation, [false, false, false, false, true], 'block Safari zoom gestures without blocking touch scrolling');
     const doubleClick = await page.evaluate(() => {
       const event = new MouseEvent('dblclick', { bubbles: true, cancelable: true, detail: 2 });
       document.body.dispatchEvent(event);

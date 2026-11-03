@@ -4,22 +4,20 @@
 // logic for later changes; every page shell includes this file.
 (function () {
   var html = document.documentElement;
-  // The owner requests a fixed page scale. Some iOS browsers ignore the
-  // viewport limit, so also cancel their native multi-touch zoom gestures.
+  // The owner requests a fixed page scale. The viewport limit and CSS
+  // `touch-action: pan-x pan-y` on <html> (base.css) stop pinch and double-tap
+  // zoom without touch listeners, so scrolling never waits for this page's
+  // scripts. iOS Safari may still zoom: cancel its gesture events and the
+  // second tap of a double tap. Touch tracking listeners stay passive.
   var viewport = document.querySelector('meta[name="viewport"]');
   if (viewport) viewport.setAttribute('content', 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
   if (html.dataset.pageZoom !== 'locked') {
     html.dataset.pageZoom = 'locked';
     var stopGestureZoom = function (event) { event.preventDefault(); };
-    var stopMultiTouchZoom = function (event) {
-      if (event.touches.length > 1) event.preventDefault();
-    };
     var options = { capture: true, passive: false };
+    var watch = { capture: true, passive: true };
     document.addEventListener('gesturestart', stopGestureZoom, options);
     document.addEventListener('gesturechange', stopGestureZoom, options);
-    document.addEventListener('touchstart', stopMultiTouchZoom, options);
-    document.addEventListener('touchmove', stopMultiTouchZoom, options);
-    // Explicitly stop legacy iOS double-tap zoom as well as pinch zoom.
     // Leave rapid button/link taps and native text editing to their controls.
     var tapStart = null;
     var lastTap = null;
@@ -30,15 +28,15 @@
       if (event.touches.length !== 1) { tapStart = lastTap = null; return; }
       var point = event.touches[0];
       tapStart = { x: point.clientX, y: point.clientY, at: event.timeStamp };
-    }, options);
+    }, watch);
     document.addEventListener('touchmove', function (event) {
       if (!tapStart || event.touches.length !== 1 ||
           Math.abs(event.touches[0].clientX - tapStart.x) > 12 ||
           Math.abs(event.touches[0].clientY - tapStart.y) > 12) {
         tapStart = lastTap = null;
       }
-    }, options);
-    document.addEventListener('touchcancel', function () { tapStart = lastTap = null; }, options);
+    }, watch);
+    document.addEventListener('touchcancel', function () { tapStart = lastTap = null; }, watch);
     document.addEventListener('touchend', function (event) {
       var start = tapStart;
       tapStart = null;
