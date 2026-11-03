@@ -43,6 +43,11 @@
 /* 列表下方的空、出错状态和表格之间留出边线 */
 [data-empty]:not(:empty){border-top:1px solid var(--rule)}
 
+/* 加载中先占住一屏高度：数据到达时页脚不会从屏幕里被推走 */
+.price-pending{min-height:100vh}
+/* 滚远的整块行换成等高的空行 */
+.ptable .price-spacer td{padding:0;border:0}
+
 /* 平板：表格去掉走势和最近成交两列，工具栏换行，控件保持 44px */
 @media (min-width:641px) and (max-width:1100px){
   .ptable .c-spark,.ptable .c-last{display:none}

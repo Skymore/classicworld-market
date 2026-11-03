@@ -16,7 +16,7 @@ export default function Home() {
   const table = (
     <Suspense
       fallback={
-        <section className="stall">
+        <section className="stall price-pending">
           <Loading />
         </section>
       }

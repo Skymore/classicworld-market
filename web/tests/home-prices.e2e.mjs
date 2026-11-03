@@ -61,7 +61,7 @@ try {
     assert(await page.locator('.hero input[name=q]').isVisible(), 'the hero search stays at the top');
     assert.deepEqual(await page.locator('.hero .portal .p-top').allTextContents(), ['关注', '图鉴', '世界地图']);
     assert.equal(await page.locator('.home-market').count(), 0, 'the market overview is gone');
-    assert.equal(await page.locator('.react-prices .stall-bar h2').textContent(), '价格表');
+    assert.equal(await page.locator('.react-prices .stall-bar [role=tablist]').getAttribute('aria-label'), '价格表');
     assert.equal(await page.locator('.react-prices [data-period]').count(), 1, 'the price table keeps 统计范围');
     assert.deepEqual(await page.locator('[data-nav-key]:visible').evaluateAll(links => links.map(link => link.dataset.navKey)), ['home', 'agent', 'dex', 'watch', 'tools']);
     assert.equal(await page.locator('[data-nav-key=home]:visible').getAttribute('aria-current'), 'page');

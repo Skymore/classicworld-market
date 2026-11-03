@@ -168,7 +168,7 @@ try {
     assert.deepEqual(await page.locator('.hero .portal .p-top').allTextContents(), ['关注', '图鉴', '世界地图']);
     assert.equal(await page.locator('.hero .portal').first().getAttribute('href'), '/watch');
     await page.locator('[data-lang-toggle]:visible').click();
-    assert.equal(await page.locator('.react-prices .stall-bar h2').textContent(), 'Prices');
+    assert.equal(await page.locator('.react-prices .stall-bar [role=tablist]').getAttribute('aria-label'), 'Prices');
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'the home page fits in English');
     await page.locator('[data-lang-toggle]:visible').click();
     await page.evaluate(() => { const link = document.createElement('a'); link.id = 'old-prices-link'; link.href = '/prices?sort=recent&hours=all'; link.textContent = 'old'; link.style.cssText = 'position:fixed;top:120px;left:12px;z-index:9999'; document.body.append(link); });
