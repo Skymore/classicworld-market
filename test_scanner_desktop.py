@@ -270,7 +270,9 @@ class DesktopTests(unittest.TestCase):
         with patch('scanner_desktop.focus_game'), patch('scanner_desktop.release_keys'), patch('scanner_desktop.RUNS', Path(self.temp.name)/'runs'):
             controller.start(12)
             controller._worker.join(3)
-        self.assertIs(hooks['shop_callback'], sweep.on_shop_open)
+        self.assertIs(hooks['shop_callback'].requires_window, sweep.buying)
+        hooks['shop_callback']('capture','window')
+        sweep.on_shop_open.assert_called_once_with('capture','window')
         self.assertIs(hooks['capture_receipt'], sweep.receipt)
         controller.read_local_status()
         self.assertEqual(controller.snapshot()['sweep'], sweep.summary.return_value)

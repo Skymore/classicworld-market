@@ -21,6 +21,14 @@ ACTIVITY_LIMIT = 40  # The activity panel fills the window and scrolls.
 MIN_SIZE = (880, 740)  # Smallest window the layout is designed for.
 
 
+def scan_shop_callback(sweep):
+    """Keep buying dynamic between visits; passive visits need no UI callback."""
+    def visit(collected,window):
+        return sweep.on_shop_open(collected,window)
+    visit.requires_window=sweep.buying
+    return visit
+
+
 def scanner_modules(backend='windows'):
     from channel_state_collector import DEFAULT_STATE, run as channel_capture
     from position_state_collector import POSITION_STATE, run as position_capture
@@ -756,7 +764,7 @@ class DesktopController:
             started = threading.Event()
             started.set()
             # The sweep engine buys in shops the scanner opens; it decides per visit.
-            hooks = dict(shop_callback=self.sweep.on_shop_open, capture_receipt=self.sweep.receipt) if self.sweep else {}
+            hooks = dict(shop_callback=scan_shop_callback(self.sweep), capture_receipt=self.sweep.receipt) if self.sweep else {}
             from inventory_check import check_at_start
             def ready(switcher):
                 # Reading shop prices does not need the character's inventory.
