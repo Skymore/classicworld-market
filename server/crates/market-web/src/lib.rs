@@ -53,6 +53,7 @@ pub mod web;
 mod write_timing;
 mod encoding;
 mod static_files;
+pub mod catalog_cache;
 
 /// Behaviour switches of `shared_server.create_app`.
 #[derive(Debug, Clone)]
@@ -91,6 +92,8 @@ pub struct AppState {
     /// Committed `market_changed` notices: the changed item ids, `None`
     /// when unknown (see `realtime::notify_market`).
     pub events: tokio::sync::broadcast::Sender<realtime::MarketChange>,
+    /// Route graphs and the search area list, per catalogue import.
+    pub catalog: Arc<catalog_cache::CatalogCache>,
     /// Committed `account_changed` notices: (account id, topic).
     pub account_events: tokio::sync::broadcast::Sender<(i64, &'static str)>,
     pub collector_updates: tokio::sync::watch::Sender<Option<String>>,
@@ -122,6 +125,7 @@ impl AppState {
             settings: Arc::new(settings),
             limiter: Arc::default(),
             events: tokio::sync::broadcast::channel(64).0,
+            catalog: Arc::default(),
             account_events: tokio::sync::broadcast::channel(256).0,
             collector_updates: tokio::sync::watch::channel(None).0,
             google: None,

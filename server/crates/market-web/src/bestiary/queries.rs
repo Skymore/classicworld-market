@@ -2059,20 +2059,35 @@ pub async fn search_filtered(
     search_page(db, &request).await
 }
 
-/// One page of `/search`. The filters are used as given (`http` normalizes
-/// them); region and area are checked against the area list here.
-pub async fn search_page(db: &PgPool, request: &SearchRequest) -> sqlx::Result<SearchPage> {
-    let region = super::regions::normalize(&request.region);
+/// The regions and areas `/search` offers: static game data, which the
+/// server caches per catalogue import (`catalog_cache`).
+pub async fn search_areas(db: &PgPool) -> sqlx::Result<Vec<AreaChoice>> {
     let region_expr = super::regions::region_sql("m");
     let area_expr = super::regions::area_sql("m");
-    let areas: Vec<AreaChoice> = sqlx::query_as(&format!(
+    sqlx::query_as(&format!(
         "SELECT {region_expr} AS region, {area_expr} AS key,
          COALESCE(max(NULLIF(m.street_zh,'')),max(m.street_en)) AS name,
          COALESCE(max(NULLIF(m.street_en,'')),max(m.street_zh)) AS name_en
          FROM maps m WHERE {area_expr}<>'' AND NOT m.unreleased GROUP BY 1,2 ORDER BY region,key"
     ))
     .fetch_all(db)
-    .await?;
+    .await
+}
+
+/// One page of `/search`. The filters are used as given (`http` normalizes
+/// them); region and area are checked against the area list here.
+pub async fn search_page(db: &PgPool, request: &SearchRequest) -> sqlx::Result<SearchPage> {
+    let areas = search_areas(db).await?;
+    search_page_in(db, request, areas).await
+}
+
+/// `search_page` with the area list already read.
+pub async fn search_page_in(
+    db: &PgPool,
+    request: &SearchRequest,
+    areas: Vec<AreaChoice>,
+) -> sqlx::Result<SearchPage> {
+    let region = super::regions::normalize(&request.region);
     let area = if !region.is_empty()
         && areas
             .iter()

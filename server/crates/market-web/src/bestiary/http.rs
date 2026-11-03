@@ -374,21 +374,24 @@ async fn route_page(
     mob_input: &str,
     taxi: bool,
 ) -> sqlx::Result<RoutePage> {
-    let mut edges = queries::load_edges(&state.db).await?;
-    if !taxi {
-        edges.retain(|e| e.kind != EdgeKind::Taxi);
-    }
+    // Built once per catalogue import (`catalog_cache`).
+    let routes = state.catalog.routes(&state.db).await?;
+    let graph = if taxi {
+        &routes.all
+    } else {
+        &routes.without_taxi
+    };
     let mut page = RoutePage {
         from_input: from_input.to_string(),
         to_input: to_input.to_string(),
         mob_input: mob_input.to_string(),
         mob_mode: !mob_input.is_empty(),
         taxi,
-        known_edges: edges.len(),
+        known_edges: graph.edge_count(),
         outcome: RouteOutcome::Form,
     };
     if !mob_input.is_empty() {
-        page.outcome = mob_route(state, edges, from_input, mob_input).await?;
+        page.outcome = mob_route(state, graph, from_input, mob_input).await?;
         return Ok(page);
     }
     if from_input.is_empty() && to_input.is_empty() {
@@ -412,7 +415,6 @@ async fn route_page(
         page.outcome = RouteOutcome::Same(from);
         return Ok(page);
     }
-    let graph = Graph::new(edges);
     page.outcome = match graph.shortest_path(from.id, to.id) {
         None => RouteOutcome::NoPath { from, to },
         Some(path) => {
@@ -432,7 +434,7 @@ async fn route_page(
 /// open map where the monster spawns.
 async fn mob_route(
     state: &AppState,
-    edges: Vec<super::route::Edge>,
+    graph: &Graph,
     from_input: &str,
     mob_input: &str,
 ) -> sqlx::Result<RouteOutcome> {
@@ -455,7 +457,6 @@ async fn mob_route(
         }
     };
     let spawn_maps = queries::mob_spawn_maps(&state.db, mob.id).await?;
-    let graph = Graph::new(edges);
     let paths = graph.paths_from(from.id);
     let Some(nearest) = paths.nearest(spawn_maps.iter().map(|(m, _)| m.id)) else {
         return Ok(RouteOutcome::MobNoPath { from, mob });
@@ -698,11 +699,20 @@ async fn search(
     PageCtx(ctx): PageCtx,
     Query(params): Query<SearchParams>,
 ) -> Response {
-    let page = queries::search_page(&state.db, &params.request()).await;
+    let page = search_page(&state, &params.request()).await;
     match page {
         Ok(page) => html(StatusCode::OK, NO_STORE, pages::search_page(&page, &ctx)),
         Err(err) => server_error(err, &ctx),
     }
+}
+
+/// `/search` with the area list kept per catalogue import (`catalog_cache`).
+async fn search_page(
+    state: &AppState,
+    request: &super::model::SearchRequest,
+) -> sqlx::Result<super::model::SearchPage> {
+    let areas = state.catalog.search_areas(&state.db).await?;
+    queries::search_page_in(&state.db, request, areas.as_ref().clone()).await
 }
 
 /// Trimmed and capped, so a long query string costs nothing.
@@ -777,9 +787,7 @@ async fn catalog_page(
             return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_query"}));
         };
         return loaded(
-            queries::search_page(&state.db, &params.request())
-                .await
-                .map(Some),
+            search_page(&state, &params.request()).await.map(Some),
             "search", &headers,
         );
     }
