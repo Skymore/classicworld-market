@@ -13,6 +13,29 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request
 
 
+def network_diagnostic(error):
+    """Keep native error codes/types, never URLs, headers or exception bodies."""
+    cause = error.reason if isinstance(error, URLError) else error
+    detail = dict(type=type(error).__name__, cause=type(cause).__name__)
+    for key in ('errno', 'winerror'):
+        value = getattr(cause, key, None)
+        if isinstance(value, int):
+            detail[key] = value
+    reason = getattr(cause, 'reason', None)
+    if isinstance(reason, str) and reason and all(c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789' for c in reason):
+        detail['ssl_reason'] = reason[:80]
+    return detail
+
+
+def worker_exit_error(process, started, stage):
+    process.join(.05)
+    detail = dict(worker_exitcode=process.exitcode, stage=stage,
+                  elapsed_ms=round((time.monotonic() - started) * 1000))
+    error = ConnectionError(f'Request worker exited (exit_code={process.exitcode}; stage={stage})')
+    error.request_diagnostic = detail
+    return error
+
+
 def scanner_request(config, action, body, *, stop):
     # Stop game input immediately, but let a bounded claim return its lease so
     # teardown can release it. Cleanup itself must survive the closed input gate.
@@ -44,7 +67,7 @@ def _request_worker(pipe):
         pipe.send(('http', error.code, (error.headers or {}).get('Retry-After', ''),
                    (error.headers or {}).get('Date', ''), body))
     except Exception as error:
-        pipe.send(('error', type(error).__name__))
+        pipe.send(('error', network_diagnostic(error)))
     finally:
         pipe.close()
 
@@ -53,7 +76,8 @@ def request_json(url, payload, headers, *, stop=None, timeout=6, worker=_request
     context = multiprocessing.get_context('spawn')
     parent, child = context.Pipe()
     process = context.Process(target=worker, args=(child,), daemon=True)
-    deadline = time.monotonic() + timeout
+    started = time.monotonic()
+    deadline = started + timeout
     sender = None
     send_error = []
     try:
@@ -76,7 +100,11 @@ def request_json(url, payload, headers, *, stop=None, timeout=6, worker=_request
             if time.monotonic() >= deadline:
                 raise TimeoutError('Service request exceeded total deadline')
             if not process.is_alive():
-                raise ConnectionError('Request worker exited')
+                # The reply can arrive between poll() and the exit check.
+                # Drain it before interpreting normal worker exit as failure.
+                if parent.poll():
+                    break
+                raise worker_exit_error(process, started, 'await_response')
             if send_error:
                 raise ConnectionError('Request body could not be delivered')
         result = parent.recv()
@@ -87,12 +115,14 @@ def request_json(url, payload, headers, *, stop=None, timeout=6, worker=_request
                             {'Retry-After': result[2], 'Date': result[3] if len(result) > 3 else ''},
                             io.BytesIO(result[4] if len(result) > 4 else b''))
         if result[0] != 'ok':
-            raise URLError(result[1])
+            error = URLError(result[1])
+            error.request_diagnostic = result[1] if isinstance(result[1], dict) else {'type': result[1]}
+            raise error
         if not isinstance(result[1], dict):
             raise ValueError('Invalid service response')
         return result[1]
     except EOFError as error:
-        raise ConnectionError('Request worker exited') from error
+        raise worker_exit_error(process, started, 'pipe_eof') from error
     finally:
         if process.pid is not None:
             if process.is_alive():

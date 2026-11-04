@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 from collector_update import VERSION
-from collector_recovery import ScanIntent, RecoveryLog, atomic_json, failure_state, retry_delay, prune_diagnostics, read_json
+from collector_recovery import ScanIntent, RecoveryLog, atomic_json, failure_state, retry_delay, prune_diagnostics, read_json, memory_exhausted, system_memory_status
 from collector_watchdog import STOP_NOTICE as WATCHDOG_STOP
 
 RUNS = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'ClassworldFMBot/screen_scanner'
@@ -718,7 +718,7 @@ class DesktopController:
                     self._position_failures += 1
                 phase, message = failure_state(error, self._position_failures)
                 self._journal.event('recovery_wait', attempt=attempts, state=phase, error=type(error).__name__, reason=str(error)[:500],
-                                    resource=getattr(error, 'resource_diagnostic', None))
+                                    resource=(system_memory_status() if memory_exhausted(error) else getattr(error, 'resource_diagnostic', None)))
                 self._journal.event('recovery_end', outcome='waiting', state=phase)
                 self._change(phase=phase, message=message, retries=attempts, failure=message)
                 if phase == 'needs_attention':
@@ -775,15 +775,18 @@ class DesktopController:
                 began = time.monotonic()
                 result = 'ok'
                 status_code = None
+                diagnostic = None
                 try:
                     return scanner_request(config, action, body, stop=stop)
                 except Exception as error:
                     result = type(error).__name__
                     status_code = getattr(error, 'code', None)
+                    diagnostic = getattr(error, 'request_diagnostic', None)
                     raise
                 finally:
                     self._journal.event('request', action=action, result=result,
                                         status_code=status_code,
+                                        diagnostic=diagnostic,
                                         duration_ms=round((time.monotonic()-began)*1000))
             started = threading.Event()
             started.set()
@@ -813,7 +816,8 @@ class DesktopController:
                 progress_type = self._modules.get('AssignedProgress')
                 progress_options = {'progress': progress_type(self.collector.home/'scan-progress.json')} if progress_type else {}
                 assignments = self._modules['CloudScan'](config, stop, self._on_scan,
-                    paused=self._modules['is_paused'], session=self._session, transport=transport, **progress_options)
+                    paused=self._modules['is_paused'], session=self._session, transport=transport,
+                    diagnostic=self._journal.event, **progress_options)
                 outcome = scan(self._folder, self._hwnd, started, stop,
                                               self._on_scan, assignments=assignments, **hooks)
             if outcome and outcome.get('reason') == 'room_scan_incomplete':

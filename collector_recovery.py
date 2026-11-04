@@ -92,7 +92,39 @@ def retry_delay(attempt, error=None):
     return max(delay, retry_after(error))
 
 
+def system_memory_status():
+    """Windows available commit, not just physical RAM or process working set."""
+    if os.name != 'nt':
+        return {}
+    import ctypes
+    class MemoryStatus(ctypes.Structure):
+        _fields_ = [('length', ctypes.c_uint32), ('load', ctypes.c_uint32)] + [
+            (name, ctypes.c_uint64) for name in (
+                'total_physical', 'available_physical', 'commit_limit', 'available_commit',
+                'total_virtual', 'available_virtual', 'extended_virtual')]
+    status = MemoryStatus()
+    status.length = ctypes.sizeof(status)
+    if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+        return {}
+    return dict(system_physical_available_bytes=status.available_physical,
+                system_commit_limit_bytes=status.commit_limit,
+                system_commit_available_bytes=status.available_commit)
+
+
+def memory_exhausted(error):
+    """Identify allocation failures without importing OpenCV during low memory."""
+    if isinstance(error, MemoryError):
+        return True
+    if isinstance(error, OSError) and (getattr(error, 'winerror', None) in (8, 14, 1455)
+                                      or getattr(error, 'errno', None) == 12):
+        return True
+    return (type(error).__module__.split('.')[0] == 'cv2'
+            and getattr(error, 'code', None) == -4)
+
+
 def failure_state(error, position_failures=0):
+    if memory_exhausted(error):
+        return 'needs_attention', '系统内存不足，扫描已暂停。请关闭占用内存的程序或重启游戏后重新开始。'
     from keyboard_bindings import KeyBindingError, KeyBindingMenuError
     from packet_keybindings import PacketKeyBindingError
     if isinstance(error,PacketKeyBindingError):
