@@ -17,7 +17,7 @@ import { useProvidePageContext } from "../lib/assistant";
 import { normalizeOfferFilters } from "/web/js/lib/item-offer-filters.js?v=20261029-critical-1";
 import { MapViewPanel, ZoomMap } from "./mapview";
 import { PlaceField, type Choice } from "./route-field";
-import { RouteOverview, WorldBody } from "./worldmap";
+import { RouteOverview } from "./worldmap";
 export function useNames() {
   const { language } = usePreferences();
   return (names: any) =>
@@ -526,8 +526,8 @@ function MapPage({ page }: { page: any }) {
               <span>{name(page.return_map.names)}</span>
             </a>
           )}
-          {page.on_world_map && (
-            <a className="btn" href={"/world?map=" + map.id}>
+          {page.world_spot && (
+            <a className="btn" href={"/search?kind=map&spot=" + encodeURIComponent(page.world_spot)}>
               <FitLabel
                 long={words("在世界地图上看", "On the world map")}
                 short={words("世界地图", "World map")}
@@ -1097,7 +1097,6 @@ function RoutePage({ page }: { page: any }) {
         <a className={mobMode ? "on" : ""} href={withTaxi({ mode: "mob", from: page.from_input })}>
           {words("找怪物", "Find a monster")}
         </a>
-        <a href="/world">{words("世界地图", "World map")}</a>
       </nav>
       <form
         className="route-form"
@@ -1157,28 +1156,6 @@ function RoutePage({ page }: { page: any }) {
     </section>
   );
 }
-function WorldPage({ page }: { page: any }) {
-  const words = useWords();
-  useProvidePageContext(null);
-  return (
-    <>
-      <Crumb text={words("世界地图", "World map")} />
-      <section className="stall">
-        <div className="stall-bar">
-          <h2>{words("世界地图", "World map")}</h2>
-        </div>
-        <nav className="route-tabs" aria-label={words("寻路方式", "Route mode")}>
-          <a href="/route">{words("去地图", "To a map")}</a>
-          <a href="/route?mode=mob">{words("找怪物", "Find a monster")}</a>
-          <a className="on" href="/world">
-            {words("世界地图", "World map")}
-          </a>
-        </nav>
-        <WorldBody page={page} />
-      </section>
-    </>
-  );
-}
 export default function Catalogue() {
   usePageReady();
   const route = useLocation(),
@@ -1231,8 +1208,6 @@ export default function Catalogue() {
               ? words(page.map.names?.zh, page.map.names?.en)
               : data.kind === "npc"
                 ? words(page.npc.names?.zh, page.npc.names?.en) || "NPC #" + page.npc.id
-              : data.kind === "world"
-                ? words("世界地图", "World map")
               : data.kind === "route"
                 ? words("怎么走", "Route")
                 : words("搜索", "Search");
@@ -1289,8 +1264,6 @@ export default function Catalogue() {
         <MapPage page={data.page} />
       ) : data.kind === "npc" ? (
         <NpcPage page={data.page} />
-      ) : data.kind === "world" ? (
-        <WorldPage page={data.page} />
       ) : data.kind === "route" ? (
         <RoutePage page={data.page} />
       ) : (

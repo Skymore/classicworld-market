@@ -131,17 +131,14 @@ try {
     await page.waitForFunction((text) => document.querySelector('[data-apply]')?.textContent === text, `显示 ${num(bosses.mobs.total)} 只`);
     await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'detached' });
 
-    // Maps: towns only.
+    // Maps: the region and towns are chips over the world map, not a sheet.
     await open('/search?kind=map');
-    assert.equal(await page.locator('[data-sort-btn]').count(), 0, 'maps have no sort');
-    await click(page.locator('[data-filter-btn]'));
-    await click(dialog.locator('[data-town]'));
+    assert.equal(await page.locator('[data-sort-btn], [data-filter-btn]').count(), 0, 'maps have no sort or sheet');
+    await click(page.locator('[data-town]'));
     await page.waitForFunction(() => new URL(location.href).searchParams.get('town') === '1'); await settle();
     const towns = await api('/search?kind=map&town=1');
-    await page.waitForFunction((text) => document.querySelector('[data-apply]')?.textContent === text, `显示 ${num(towns.maps.total)} 张`);
-    await click(dialog.locator('[data-apply]')); await dialog.waitFor({ state: 'detached' });
     assert.match(await total(), new RegExp(`^共 ${num(towns.maps.total)} 张`));
-    assert.equal(await page.locator('[data-remove-filter=town]').textContent(), '只看城镇 ×');
+    assert.equal(await page.locator('[data-town].on').count(), 1);
     await shot('search-map-town');
 
     // A typed query without a kind: three groups, no filter bar; tabs keep the query.

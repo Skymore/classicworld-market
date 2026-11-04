@@ -184,8 +184,8 @@ fn niadb_bestiary_decides_what_exists() {
     );
     assert_eq!(
         (counts.maps, counts.maps_removed, counts.maps_unreleased),
-        (453, 15, 92 + 27 + 1),
-        "and 080003500, which the client leaves unnamed"
+        (453, 15, 92 + 27 + 1 + 2),
+        "080003500, which the client leaves unnamed, and two dead copies of town houses"
     );
     assert_eq!(
         (counts.drops + counts.mesos, counts.drops_unconfirmed),
@@ -353,7 +353,7 @@ fn niadb_bestiary_decides_what_exists() {
         .unwrap();
     assert_eq!(
         (counts.maps_unreleased, counts.mobs_unreleased),
-        (92 + 1, 41 + 11)
+        (92 + 1 + 2, 41 + 11)
     );
 }
 
@@ -955,7 +955,7 @@ async fn full_import_is_idempotent_and_upgrades_an_r3_database() {
     assert_eq!(first.drops_meso as usize, input.bestiary.mesos);
     assert_eq!(
         (first.mobs_unreleased, first.maps_unreleased),
-        (52 + 11, 119 + 1),
+        (52 + 11, 119 + 1 + 2),
         "Orbis / El Nath and Forgotten Hollow; GM-event / alt copies; 080003500"
     );
     let before = dump(&fresh.pool).await;
@@ -1142,7 +1142,14 @@ async fn map_views_quests_and_npc_pages_come_from_the_import() {
     assert!(henesys.map_count > 10, "Henesys and its shops and houses");
     assert_eq!(world.here.as_ref().map(|m| m.id), Some(10001001));
     assert_eq!(world.here_spots, vec![henesys.key.clone()], "Henesys Townstreet is on Henesys's spot");
-    assert!(queries::map_page(pool, 10001000).await.unwrap().unwrap().on_world_map);
+    assert_eq!(
+        queries::map_page(pool, 10001000)
+            .await
+            .unwrap()
+            .unwrap()
+            .world_spot,
+        Some(henesys.key.clone())
+    );
 
     let path = vec![
         MapRef::new(10001000, "射手村", "Henesys"),
@@ -1210,7 +1217,7 @@ async fn unreleased_content_is_never_shown() {
         .fetch_all(pool)
         .await
         .unwrap();
-    assert_eq!(hidden.len(), 120);
+    assert_eq!(hidden.len(), 122, "with the two dead copies of town houses");
     let hits = queries::search(pool, "Orbis", Some(SearchKind::Map))
         .await
         .unwrap();

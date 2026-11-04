@@ -16,6 +16,13 @@ export const regions = [
   ['special', '活动／特殊地图', 'Events / special maps'],
   ['other', '其他', 'Other'],
 ];
+// The map list's region chips (regions.rs MAP_REGIONS): rest is every map
+// off the two islands.
+export const mapRegions = [
+  ['maple', '彩虹岛', 'Maple Island'],
+  ['victoria', '金银岛', 'Victoria Island'],
+  ['rest', '其他', 'Other'],
+];
 export const mobLevelRanges = [[1, 10], [11, 20], [21, 30], [31, 40], [41, 50], [51, 60], [61, 70]];
 export const sorts = {
   item: [['', '热门', 'Popular'], ['level', '等级从低到高', 'Level, low to high'], ['level_desc', '等级从高到低', 'Level, high to low'], ['name', '名字', 'Name']],
@@ -79,7 +86,8 @@ export function dexTokens(page, en = false) {
     if (f.lmin != null || f.lmax != null) add('level', t('等级', 'Level'), levelText(f.lmin, f.lmax), { lmin: null, lmax: null });
   };
   const place = () => {
-    const region = regions.find(([key]) => key === page.region);
+    // The map list's region and towns are chips of their own.
+    const region = kind === 'map' ? null : [...regions, ...mapRegions].find(([key]) => key === page.region);
     if (region) add('region', t('地区', 'Region'), en ? region[2] : region[1], { region: null, area: null });
     const area = (page.areas || []).find((row) => row.key === page.area && row.region === page.region);
     if (area) add('area', t('区域', 'Area'), label(area.names, en), { area: null });
@@ -100,7 +108,6 @@ export function dexTokens(page, en = false) {
     if (f.boss) add('boss', '', t('只看 Boss', 'Bosses only'), { boss: null });
   } else if (kind === 'map') {
     place();
-    if (page.town) add('town', '', t('只看城镇', 'Towns only'), { town: null });
   }
   return tokens;
 }

@@ -1,13 +1,13 @@
-//! The client's world map as SVG: each region's picture with its spots
-//! (the client's marker sprites), linking to their maps; and a route drawn
-//! over it. Positions are SVG attributes, so no inline styles. The browser
-//! side is `frontend/src/pages/worldmap.tsx`; keep the two in step.
+//! The client's world map as SVG: a region's picture with its spots (the
+//! client's marker sprites) beside the map list, and a route drawn over it.
+//! Positions are SVG attributes, so no inline styles. The browser side is
+//! `frontend/src/pages/worldmap.tsx`; keep the two in step.
 
 use maud::{html, Markup};
 
 use super::shell::Ctx;
 use crate::bestiary::format::Lang;
-use crate::bestiary::model::{OverviewRegion, RouteOverview, WorldPage, WorldRegion, WorldSpot};
+use crate::bestiary::model::{OverviewRegion, RouteOverview, WorldRegion, WorldSpot};
 
 /// Marker sprite and its size per spot kind (0 town … 4 facility).
 pub(crate) fn marker(kind: i16) -> (&'static str, i32) {
@@ -20,15 +20,10 @@ pub(crate) fn marker(kind: i16) -> (&'static str, i32) {
     }
 }
 
-/// The world map pictures are small; show them at 1.4x.
-const WORLD_SCALE: f64 = 1.4;
-
 pub(crate) fn spot_tip(spot: &WorldSpot, lang: Lang) -> String {
     let mut parts = vec![spot.map.names.get(lang).to_string()];
-    match (spot.level_min, spot.level_max) {
-        (Some(lo), Some(hi)) if lo == hi => parts.push(format!("Lv.{lo}")),
-        (Some(lo), Some(hi)) => parts.push(format!("Lv.{lo}–{hi}")),
-        _ => {}
+    if let Some(levels) = spot_levels(spot) {
+        parts.push(levels);
     }
     if spot.map_count > 1 {
         parts.push(match lang {
@@ -39,48 +34,44 @@ pub(crate) fn spot_tip(spot: &WorldSpot, lang: Lang) -> String {
     parts.join(" · ")
 }
 
-fn region_svg(ctx: &Ctx, region: &WorldRegion, here: &[String]) -> Markup {
-    let lang = ctx.lang;
-    let shown = |v: i32| (f64::from(v) * WORLD_SCALE).round() as i32;
-    html! {
-        figure.wm {
-            figcaption { (region.names.get(lang)) }
-            div.mapvis-scroll {
-                svg.wm-svg xmlns="http://www.w3.org/2000/svg" viewBox={"0 0 " (region.width) " " (region.height)}
-                    width=(shown(region.width)) height=(shown(region.height)) role="img"
-                    aria-label={(ctx.t("世界地图：", "World map: ")) (region.names.get(lang))} {
-                    image.wm-img href=(region.image_url) width=(region.width) height=(region.height) {}
-                    @for spot in &region.spots {
-                        @let (sprite, size) = marker(spot.kind);
-                        @let is_here = here.contains(&spot.key);
-                        a.wm-spot.here[is_here] href=(ctx.href(&format!("/map/{}", spot.map.id))) data-kind=(spot.kind) {
-                            title { (spot_tip(spot, lang)) }
-                            @if is_here { circle.wm-ring cx=(spot.x) cy=(spot.y) r="14" {} }
-                            image href=(sprite) x=(spot.x - size / 2) y=(spot.y - size / 2) width=(size) height=(size) {}
-                            @if spot.kind == 0 {
-                                text.wm-label x=(spot.x) y=(spot.y + size / 2 + 11) { (spot.map.names.get(lang)) }
-                            }
-                            @if is_here {
-                                image.wm-here href="/web/images/worldmap/curpos-0.png" x=(spot.x - 8) y=(spot.y - size / 2 - 35) width="17" height="35" {}
-                            }
-                        }
-                    }
-                }
-            }
-        }
+/// "Lv.8–40": the levels of the monsters on the spot's maps.
+pub(crate) fn spot_levels(spot: &WorldSpot) -> Option<String> {
+    levels(spot.level_min, spot.level_max)
+}
+
+pub(crate) fn levels(lo: Option<i16>, hi: Option<i16>) -> Option<String> {
+    match (lo, hi) {
+        (Some(lo), Some(hi)) if lo == hi => Some(format!("Lv.{lo}")),
+        (Some(lo), Some(hi)) => Some(format!("Lv.{lo}–{hi}")),
+        _ => None,
     }
 }
 
-/// The world map page: every open region, the asked-for map's spot marked.
-pub(crate) fn world_body(ctx: &Ctx, page: &WorldPage) -> Markup {
+/// One island of the world map beside the map list: each spot links the list
+/// narrowed to it (`href`), and `on` is the spot it is narrowed to.
+pub(crate) fn list_world(
+    ctx: &Ctx,
+    region: &WorldRegion,
+    on: &str,
+    href: impl Fn(&WorldSpot) -> String,
+) -> Markup {
+    let lang = ctx.lang;
     html! {
-        div.wm-regions {
-            @for region in &page.regions { (region_svg(ctx, region, &page.here_spots)) }
-        }
-        div.wm-keys {
-            @for (kind, zh, en) in [(0, "城镇", "Town"), (3, "野外", "Field"), (2, "地下城", "Dungeon"), (1, "地点", "Place"), (4, "设施", "Facility")] {
-                @let (sprite, _) = marker(kind);
-                span.wm-key { img src=(sprite) alt="" width="16" height="16"; (ctx.t(zh, en)) }
+        svg.mb-wm xmlns="http://www.w3.org/2000/svg" viewBox={"0 0 " (region.width) " " (region.height)}
+            preserveAspectRatio="xMidYMin meet" role="img"
+            aria-label={(ctx.t("世界地图：", "World map: ")) (region.names.get(lang))} {
+            image.wm-img href=(region.image_url) width=(region.width) height=(region.height) {}
+            @for spot in &region.spots {
+                @let (sprite, size) = marker(spot.kind);
+                a.mb-spot.on[spot.key == on] href=(href(spot)) data-spot=(spot.key) data-kind=(spot.kind) {
+                    title { (spot_tip(spot, lang)) }
+                    circle.mb-ring cx=(spot.x) cy=(spot.y) r=(size / 2 + 8) {}
+                    circle.mb-hit cx=(spot.x) cy=(spot.y) r="11" {}
+                    image href=(sprite) x=(spot.x - size / 2) y=(spot.y - size / 2) width=(size) height=(size) {}
+                    @if spot.kind == 0 {
+                        text.wm-label x=(spot.x) y=(spot.y + size / 2 + 11) { (spot.map.names.get(lang)) }
+                    }
+                }
             }
         }
     }
@@ -168,27 +159,34 @@ mod tests {
     }
 
     #[test]
-    fn spots_link_their_maps_and_the_asked_map_is_marked() {
-        let page = WorldPage {
-            regions: vec![WorldRegion {
-                id: "VictoriaIsland".into(),
-                names: Names::new("金银岛", "Victoria Island"),
-                image_url: "/web/images/worldmap/victoria-island.webp".into(),
-                width: 636,
-                height: 466,
-                spots: vec![spot("W:10", 0, 10001000, "射手村")],
-            }],
-            here: Some(MapRef::new(10001001, "射手村民宅", "en")),
-            here_spots: vec!["W:10".into()],
+    fn spots_narrow_the_map_list_and_the_chosen_one_is_marked() {
+        let region = WorldRegion {
+            id: "VictoriaIsland".into(),
+            names: Names::new("金银岛", "Victoria Island"),
+            image_url: "/web/images/worldmap/victoria-island.webp".into(),
+            width: 636,
+            height: 466,
+            spots: vec![
+                spot("W:10", 0, 10001000, "射手村"),
+                spot("W:11", 3, 10001010, "射手村东部草原"),
+            ],
         };
-        let html = world_body(&ctx(), &page).into_string();
-        assert!(html.contains(r#"href="/map/10001000""#));
+        let html = list_world(&ctx(), &region, "W:10", |s| {
+            format!("/search?kind=map&spot={}", s.key)
+        })
+        .into_string();
+        assert!(
+            html.contains(r#"href="/search?kind=map&amp;spot=W:10""#),
+            "{html}"
+        );
         assert!(html.contains("<title>射手村 · Lv.8–40 · 19 张地图</title>"));
-        assert!(html.contains("marker-town.png") && html.contains("curpos-0.png"));
+        assert!(html.contains(r#"class="mb-spot on" href="/search?kind=map&amp;spot=W:10""#));
+        assert!(html.contains("marker-town.png") && html.contains("marker-field.png"));
         assert!(
             html.contains(r#"<text class="wm-label" x="100" y="222">射手村</text>"#),
             "{html}"
         );
+        assert!(!html.contains(">射手村东部草原</text>"));
         assert!(!html.contains("style="));
     }
 

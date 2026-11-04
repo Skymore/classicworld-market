@@ -21,9 +21,7 @@ use maud::{html, Markup};
 use super::format::Lang;
 use super::model::{MapRef, Names, QuestHunt, QuestNeed, QuestRef, QuestReward};
 
-pub use dex::{
-    error_page, map_page, mob_page, not_found_page, npc_page, route_page, search_page, world_page,
-};
+pub use dex::{error_page, map_page, mob_page, not_found_page, npc_page, route_page, search_page};
 pub use item::{item_data, item_market_fragment, item_page};
 pub use market::{channel_groups, has_bonus, ladder, tier_bounds, Ladder, Tier};
 pub use preview::item_preview;

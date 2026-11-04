@@ -165,7 +165,7 @@ try {
     assert.equal(await page.locator('main').count(), 1);
     assert.equal(new URL(page.url()).search, '', 'the 首页 link resets the price table');
     await rows.first().waitFor();
-    assert.deepEqual(await page.locator('.hero .portal .p-top').allTextContents(), ['关注', '图鉴', '世界地图']);
+    assert.deepEqual(await page.locator('.hero .portal .p-top').allTextContents(), ['关注', '图鉴']);
     assert.equal(await page.locator('.hero .portal').first().getAttribute('href'), '/watch');
     await page.locator('[data-lang-toggle]:visible').click();
     assert.equal(await page.locator('.react-prices .stall-bar [role=tablist]').getAttribute('aria-label'), 'Prices');

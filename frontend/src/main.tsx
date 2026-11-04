@@ -148,7 +148,6 @@ const pageRoutes = [
   "/map",
   "/npc",
   "/route",
-  "/world",
   "/collect",
 ];
 class PageErrorBoundary extends Component<
@@ -270,7 +269,7 @@ function Application() {
       )
         return;
       if (
-        ["/search", "/route", "/world"].includes(url.pathname) ||
+        ["/search", "/route"].includes(url.pathname) ||
         /^\/(item|mob|map|npc)\//.test(url.pathname)
       ) {
         if (
@@ -320,7 +319,7 @@ function Application() {
               <Route path="/selling/*" element={<Selling />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/web/download.html" element={<Download />} />
-              {["search", "item", "mob", "map", "npc", "route", "world"].map((path) => (
+              {["search", "item", "mob", "map", "npc", "route"].map((path) => (
                 <Route
                   key={path}
                   path={"/" + path + "/*"}
@@ -340,7 +339,7 @@ function Application() {
 }
 
 const catalogueLocation =
-  ["/search", "/route", "/world"].includes(location.pathname) ||
+  ["/search", "/route"].includes(location.pathname) ||
   /^\/(item|mob|map|npc)\//.test(location.pathname);
 // Load the route module alongside account preferences/data, not after them.
 const catalogueReady = catalogueLocation

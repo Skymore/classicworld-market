@@ -636,7 +636,7 @@ fn map_page_shows_links_and_route_entry() {
         quests_given: vec![],
         quests_hunted: vec![],
         from_henesys: None,
-        on_world_map: false,
+        world_spot: None,
     };
     let html = pages::map_page(&page, &zh()).into_string();
     assert!(html.contains(r#"href="/route?from=10001000&amp;to=10001010""#));
@@ -729,7 +729,7 @@ fn map_page_draws_the_view_route_strip_and_quests() {
             quantity: 10,
         }],
         from_henesys: Some(vec![map(10001000, "射手村"), map(10001010, "射手训练场Ⅰ")]),
-        on_world_map: true,
+        world_spot: Some("WorldMap001.img:10".into()),
     };
     let html = pages::map_page(&page, &zh()).into_string();
     assert!(html.contains(r#"<figure class="mapvis">"#));
@@ -744,7 +744,7 @@ fn map_page_draws_the_view_route_strip_and_quests() {
     );
     assert!(html.contains("从射手村过来"));
     assert!(
-        html.contains(r#"href="/world?map=10001010""#),
+        html.contains(r#"href="/search?kind=map&amp;spot=WorldMap001.img%3A10""#),
         "world map button"
     );
     assert!(
@@ -848,7 +848,7 @@ fn town_lists_return_scroll_entrances_on_one_line() {
         quests_given: vec![],
         quests_hunted: vec![],
         from_henesys: None,
-        on_world_map: false,
+        world_spot: None,
     };
     let html = pages::map_page(&page, &zh()).into_string();
     assert!(html.contains("用回城卷轴回到这里<small>2 张地图</small>"));
@@ -1087,9 +1087,22 @@ fn region_controls_survive_empty_results_and_keep_url_state() {
             key: "Deep Passage".into(),
             names: Names::new("深层通道", "Deep Passage"),
         }],
-        offset: 60,
-        page_size: 60,
+        offset: 24,
+        page_size: 24,
         town: true,
+        island: "victoria".into(),
+        map_regions: vec![
+            Facet {
+                key: "".into(),
+                names: Names::new("全部", "All"),
+                count: 54,
+            },
+            Facet {
+                key: "victoria".into(),
+                names: Names::new("金银岛", "Victoria Island"),
+                count: 40,
+            },
+        ],
         ..Default::default()
     };
     let rendered = pages::search_page(&page, &zh()).into_string();
@@ -1097,16 +1110,17 @@ fn region_controls_survive_empty_results_and_keep_url_state() {
     assert!(rendered.contains("清空搜索和筛选"));
     assert!(rendered.contains("共 0 张"));
     assert!(rendered.contains(r#"class="tab on""#));
-    assert!(rendered.contains("地区 <b>金银岛</b>"), "region token");
-    assert!(rendered.contains("区域 <b>深层通道</b>"), "area token");
-    assert!(rendered.contains("<b>只看城镇</b>"));
     assert!(
-        rendered.contains("/search?kind=map&amp;region=victoria&amp;area=Deep%20Passage"),
-        "the town token keeps the place"
+        rendered.contains(
+            r#"class="mb-chip on" href="/search?kind=map&amp;town=1&amp;region=victoria""#
+        ),
+        "the region chip drops the area: {rendered}"
     );
+    assert!(rendered.contains("区域 <b>深层通道</b>"), "area token");
+    assert!(!rendered.contains("地区 <b>"), "the region is a chip");
     assert!(
-        rendered.contains("/search?kind=map&amp;town=1\""),
-        "the region token drops the area too"
+        rendered.contains(r#"class="mb-chip mb-town on" href="/search?kind=map&amp;region=victoria&amp;area=Deep%20Passage""#),
+        "the towns chip keeps the place"
     );
     assert!(
         rendered.contains("/search?kind=mob&amp;region=victoria&amp;area=Deep%20Passage"),
@@ -1232,35 +1246,95 @@ fn monster_finder_lists_the_nearest_map_first() {
 }
 
 #[test]
-fn world_page_links_every_spot() {
-    let page = WorldPage {
-        regions: vec![WorldRegion {
+fn map_list_shows_cards_beside_the_world_map() {
+    let spot = WorldSpot {
+        key: "WorldMap000.img:7".into(),
+        x: 385,
+        y: 234,
+        kind: 3,
+        map: map(1000, "彩虹村西边草原"),
+        map_count: 1,
+        level_min: Some(1),
+        level_max: Some(8),
+    };
+    let tile = |id, zh: &str, en: &str| MapHit {
+        id,
+        names: Names::new(zh, en),
+        street: Some(Names::new("彩虹岛", "Maple Road")),
+        hint: None,
+        town: false,
+        thumb: Some(format!("/web/images/map-thumbs/{id}.webp")),
+        level_min: Some(1),
+        level_max: Some(8),
+        copies: None,
+        spot: Some("WorldMap000.img:7".into()),
+    };
+    let page = SearchPage {
+        kind: Some(SearchKind::Map),
+        page_size: 24,
+        island: "maple".into(),
+        spot: spot.key.clone(),
+        maps: Hits {
+            rows: vec![
+                tile(1000, "彩虹村西边草原", "Rainbow Street"),
+                MapHit {
+                    thumb: None,
+                    town: true,
+                    level_min: None,
+                    level_max: None,
+                    copies: Some(Names::new("20 个房间", "20 rooms")),
+                    street: Some(Names::new("自由市场", "Free Market")),
+                    ..tile(80002001, "自由市场 <1>–<20>", "Free Market <1>–<20>")
+                },
+            ],
+            total: 30,
+            more: true,
+        },
+        world: vec![WorldRegion {
             id: "MapleIsland".into(),
             names: Names::new("彩虹岛", "Maple Island"),
             image_url: "/web/images/worldmap/maple-island.webp".into(),
             width: 634,
             height: 446,
-            spots: vec![WorldSpot {
-                key: "WorldMap000.img:7".into(),
-                x: 385,
-                y: 234,
-                kind: 3,
-                map: map(1000, "彩虹村西边草原"),
-                map_count: 1,
-                level_min: Some(1),
-                level_max: Some(8),
-            }],
+            spots: vec![spot],
         }],
-        here: None,
-        here_spots: vec![],
+        ..Default::default()
     };
-    let html = pages::world_page(&page, &zh()).into_string();
-    assert!(html.contains("<figcaption>彩虹岛</figcaption>"));
+    let html = pages::search_page(&page, &zh()).into_string();
     assert!(
-        html.contains(r#"href="/map/1000""#)
-            && html.contains("<title>彩虹村西边草原 · Lv.1–8</title>")
+        html.contains(
+            r#"<a class="mtile" href="/map/1000" data-map="1000" data-spot="WorldMap000.img:7">"#
+        ),
+        "{html}"
     );
-    assert!(html.contains("marker-field.png"));
+    assert!(html.contains(r#"<img src="/web/images/map-thumbs/1000.webp" alt="" loading="lazy""#));
+    assert!(html.contains("<b>彩虹村西边草原</b><small>Rainbow Street · 彩虹岛</small>"));
+    assert!(html.contains(r#"<span class="mt-tag mt-lv" title="怪物等级">Lv.1–8</span>"#));
+    assert!(
+        html.contains(r#"class="mb-route" href="/route?to=1000""#),
+        "the route goes to the chosen place"
+    );
+    assert!(
+        html.contains("<span class=\"mt-none\">无图</span>")
+            && html.contains("<span class=\"mt-tag mt-town\">城镇</span>")
+    );
+    assert!(html.contains("Free Market &lt;1&gt;–&lt;20&gt; · 自由市场 · 20 个房间"));
+    assert!(
+        html.contains(r#"class="mb-spot on" href="/search?kind=map&amp;island=maple""#),
+        "the chosen spot goes back to the whole island: {html}"
+    );
+    assert!(html.contains("<title>彩虹村西边草原 · Lv.1–8</title>"));
+    assert!(
+        html.contains("<b>彩虹村西边草原</b><span>30 张 · Lv.1–8</span>"),
+        "{html}"
+    );
+    assert!(html.contains(r#"data-island="maple">彩虹岛</a>"#));
+    assert!(
+        html.contains(
+            r#"href="/search?kind=map&amp;spot=WorldMap000.img%3A7&amp;page=2" rel="next""#
+        ),
+        "{html}"
+    );
 }
 
 #[test]

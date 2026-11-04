@@ -11,12 +11,40 @@ pub const REGIONS: &[(&str, &str, &str)] = &[
     ("other", "其他", "Other"),
 ];
 
+/// The map list's region chips. `rest` (其他) is every map off the two
+/// islands: the Free Market, events and the rest.
+pub const MAP_REGIONS: &[(&str, &str, &str)] = &[
+    ("maple", "彩虹岛", "Maple Island"),
+    ("victoria", "金银岛", "Victoria Island"),
+    ("rest", "其他", "Other"),
+];
+
+/// The map list's world map islands: region key and `world_regions.id`.
+pub const ISLANDS: &[(&str, &str)] = &[("maple", "MapleIsland"), ("victoria", "VictoriaIsland")];
+
 pub fn normalize(region: &str) -> String {
-    if REGIONS.iter().any(|r| r.0 == region) {
+    if REGIONS.iter().any(|r| r.0 == region) || region == "rest" {
         region.into()
     } else {
         String::new()
     }
+}
+
+/// A region's name, the map list's `rest` included.
+pub fn label(region: &str) -> Option<(&'static str, &'static str)> {
+    REGIONS
+        .iter()
+        .chain(MAP_REGIONS)
+        .find(|r| r.0 == region)
+        .map(|r| (r.1, r.2))
+}
+
+/// SQL: `alias` is in the region bound as `param` (`''` is every region).
+pub fn region_match_sql(alias: &str, param: &str) -> String {
+    let region = region_sql(alias);
+    format!(
+        "({param}='' OR {region}={param} OR ({param}='rest' AND {region} NOT IN ('maple','victoria')))"
+    )
 }
 
 /// Shared by map filtering, mob spawn filtering and the area option list.
@@ -44,6 +72,9 @@ mod tests {
     fn region_values_are_allowlisted() {
         assert_eq!(normalize("victoria"), "victoria");
         assert_eq!(normalize("<script>"), "");
+        assert_eq!(normalize("rest"), "rest");
+        assert_eq!(label("rest"), Some(("其他", "Other")));
+        assert!(region_match_sql("m", "$5").contains("($5='rest' AND CASE"));
         assert!(region_sql("mp").contains("mp.id BETWEEN 20001000 AND 20001999"));
     }
 }

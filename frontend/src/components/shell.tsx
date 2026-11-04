@@ -133,7 +133,7 @@ export function SiteLink({
 }: React.ComponentProps<"a"> & { href: string }) {
   const { server, language } = usePreferences();
   const path = href.split("?")[0];
-  const isCatalogue = ["/search", "/item", "/mob", "/map", "/npc", "/route", "/world"].some(
+  const isCatalogue = ["/search", "/item", "/mob", "/map", "/npc", "/route"].some(
     (prefix) => path === prefix || path.startsWith(prefix + "/"),
   );
   const url = new URL(href, location.href);
@@ -193,7 +193,7 @@ export function Navigation({ dock = false }: { dock?: boolean }) {
         ? "tools"
         : path === "/" || path === "/v2" || path.startsWith("/prices") || path.startsWith("/sales")
           ? "home"
-          : ["/search", "/item", "/mob", "/map", "/npc", "/route", "/world"].some(
+          : ["/search", "/item", "/mob", "/map", "/npc", "/route"].some(
                 (prefix) => path === prefix || path.startsWith(prefix + "/"),
               )
             ? "dex"

@@ -353,19 +353,30 @@ struct WorldParams {
     map: String,
 }
 
+/// The world map is on the map list now: `/world?map=<id>` opens it at the
+/// map's spot.
 async fn world(
     State(state): State<AppState>,
     PageCtx(ctx): PageCtx,
     Query(params): Query<WorldParams>,
 ) -> Response {
-    match queries::world_page(&state.db, parse_id(&params.map)).await {
-        Ok(page) => {
-            let markup = pages::world_page(&page, &ctx);
-            let data = serde_json::to_value(&page).expect("world page serialize");
-            page_with_data(EDGE_CACHE, markup, &ctx, "world", data)
-        }
-        Err(err) => server_error(err, &ctx),
-    }
+    let spot = match parse_id(&params.map) {
+        Some(id) => match queries::main_spot(&state.db, id).await {
+            Ok(spot) => spot,
+            Err(err) => return server_error(err, &ctx),
+        },
+        None => None,
+    };
+    let target = match spot {
+        Some(key) => format!(
+            "/search?kind=map&{}",
+            url::form_urlencoded::Serializer::new(String::new())
+                .append_pair("spot", &key)
+                .finish()
+        ),
+        None => "/search?kind=map".to_string(),
+    };
+    axum::response::Redirect::to(&ctx.href(&target)).into_response()
 }
 
 async fn npc(
@@ -682,6 +693,12 @@ struct SearchParams {
     boss: String,
     #[serde(default)]
     town: String,
+    /// Maps: a world map spot key.
+    #[serde(default)]
+    spot: String,
+    /// Maps: the world map island shown, `maple` or `victoria`.
+    #[serde(default)]
+    island: String,
     #[serde(default)]
     q: String,
     /// `item`, `mob` or `map`; a query without it searches all three.
@@ -722,11 +739,7 @@ impl SearchParams {
         };
         mobs.normalize();
         let kind = search_kind(&query, &self.kind, items != ItemFilters::default());
-        let size = if kind.is_some() {
-            queries::SEARCH_KIND_LIMIT
-        } else {
-            queries::SEARCH_LIMIT
-        };
+        let size = queries::page_size(kind);
         let mut request = SearchRequest {
             query,
             kind,
@@ -736,7 +749,11 @@ impl SearchParams {
         match kind {
             Some(SearchKind::Item) => request.items = items,
             Some(SearchKind::Mob) => request.mobs = mobs,
-            Some(SearchKind::Map) => request.town = self.town == "1",
+            Some(SearchKind::Map) => {
+                request.town = self.town == "1";
+                request.spot = clip(&self.spot).to_string();
+                request.island = self.island.clone();
+            }
             None => {}
         }
         if matches!(kind, Some(SearchKind::Mob | SearchKind::Map)) {
@@ -779,14 +796,58 @@ async fn search_page(
     request: &super::model::SearchRequest,
 ) -> sqlx::Result<super::model::SearchPage> {
     let areas = state.catalog.search_areas(&state.db).await?;
-    let mut page = queries::search_page_in(&state.db, request, areas.as_ref().clone()).await?;
+    let world = match request.kind {
+        Some(SearchKind::Map) => Some(state.catalog.world(&state.db).await?),
+        _ => None,
+    };
+    let mut request = request.clone();
+    if let Some(world) = &world {
+        place_on_world_map(&mut request, world);
+    }
+    let mut page = queries::search_page_in(&state.db, &request, areas.as_ref().clone()).await?;
     if !page.maps.rows.is_empty() {
         let hints = state.catalog.map_hints(&state.db).await?;
         for row in &mut page.maps.rows {
             row.hint = hints.get(&row.id).cloned();
+            if let Some(world) = &world {
+                row.spot = world.spot_of.get(&row.id).cloned();
+            }
         }
     }
+    if let Some(world) = world {
+        page.world = world.regions.clone();
+    }
     Ok(page)
+}
+
+/// The map list's spot and island: an unknown spot goes; the island is the
+/// spot's, else the region's, else the asked one, else Victoria Island; a
+/// spot moves an island region chip onto its island.
+fn place_on_world_map(
+    request: &mut super::model::SearchRequest,
+    world: &crate::catalog_cache::WorldMap,
+) {
+    use super::regions::ISLANDS;
+    let island_key = |region_id: &str| {
+        ISLANDS
+            .iter()
+            .find(|(_, id)| *id == region_id)
+            .map(|(key, _)| *key)
+    };
+    let is_island = |key: &str| ISLANDS.iter().any(|(k, _)| *k == key);
+    let spot_island = world.region_of(&request.spot).and_then(island_key);
+    if world.region_of(&request.spot).is_none() {
+        request.spot.clear();
+    }
+    let island = spot_island
+        .or(Some(request.region.as_str()).filter(|r| is_island(r)))
+        .or(Some(request.island.as_str()).filter(|r| is_island(r)))
+        .unwrap_or("victoria")
+        .to_string();
+    if spot_island.is_some() && !request.region.is_empty() {
+        request.region = island.clone();
+    }
+    request.island = island;
 }
 
 /// Trimmed and capped, so a long query string costs nothing.
@@ -863,18 +924,6 @@ async fn catalog_page(
         return loaded(
             search_page(&state, &params.request()).await.map(Some),
             "search", &headers,
-        );
-    }
-    if path == "/world" {
-        let Ok(Query(params)) = Query::<WorldParams>::try_from_uri(&uri) else {
-            return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_query"}));
-        };
-        return loaded(
-            queries::world_page(&state.db, parse_id(&params.map))
-                .await
-                .map(Some),
-            "world",
-            &headers,
         );
     }
     if path == "/route" {

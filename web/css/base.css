@@ -140,7 +140,7 @@ h1,h2,h3,p{margin:0}
 /* ---------- 首页 ---------- */
 .hero{padding:12px}
 .hero .finder{margin-bottom:10px}
-.portals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.portals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .portal{display:flex;flex-direction:column;gap:4px;min-height:64px;padding:10px;background:var(--sheet-hi);border:2px solid var(--edge);border-radius:2px;box-shadow:inset 1px 1px 0 var(--bevel-hi),inset -1px -1px 0 var(--bevel-lo),var(--hard)}
 .portal .p-top{display:flex;align-items:center;gap:6px;font-weight:700;color:var(--ink);white-space:nowrap}
 .portal .p-top .px{color:var(--bar)}

@@ -1,6 +1,6 @@
 //! Game data that `/route` and `/search` rebuilt on every request: the
-//! portal graphs, the search area list and the hints for maps that share a
-//! name. Kept until `catalog_versions`
+//! portal graphs, the search area list, the hints for maps that share a
+//! name and the map list's world map. Kept until `catalog_versions`
 //! changes; every import records its version in the same transaction, so a
 //! new import shows on the next request without a restart.
 
@@ -11,7 +11,7 @@ use sqlx::PgPool;
 use tokio::sync::Mutex;
 
 use crate::bestiary::{
-    model::{AreaChoice, MapHint},
+    model::{AreaChoice, MapHint, WorldRegion},
     queries,
     route::{EdgeKind, Graph},
 };
@@ -38,11 +38,29 @@ pub struct Routes {
     pub without_taxi: Graph,
 }
 
+/// The map list's world map: the regions with their spots, and the spot of
+/// each open map that is on one (`queries::main_spots`).
+pub struct WorldMap {
+    pub regions: Vec<WorldRegion>,
+    pub spot_of: HashMap<i32, String>,
+}
+
+impl WorldMap {
+    /// The region (`world_regions.id`) the spot is in.
+    pub fn region_of(&self, spot: &str) -> Option<&str> {
+        self.regions
+            .iter()
+            .find(|r| r.spots.iter().any(|s| s.key == spot))
+            .map(|r| r.id.as_str())
+    }
+}
+
 #[derive(Default)]
 pub struct CatalogCache {
     routes: Mutex<Option<(Stamp, Arc<Routes>)>>,
     areas: Mutex<Option<(Stamp, Arc<Vec<AreaChoice>>)>>,
     hints: Mutex<Option<(Stamp, Arc<MapHints>)>>,
+    world: Mutex<Option<(Stamp, Arc<WorldMap>)>>,
 }
 
 impl CatalogCache {
@@ -91,5 +109,21 @@ impl CatalogCache {
         let hints = Arc::new(queries::map_hints(db).await?);
         *slot = Some((current, hints.clone()));
         Ok(hints)
+    }
+
+    pub async fn world(&self, db: &PgPool) -> sqlx::Result<Arc<WorldMap>> {
+        let mut slot = self.world.lock().await;
+        let current = stamp(db).await?;
+        if let Some((cached, world)) = slot.as_ref() {
+            if *cached == current {
+                return Ok(world.clone());
+            }
+        }
+        let world = Arc::new(WorldMap {
+            regions: queries::world_page(db, None).await?.regions,
+            spot_of: queries::main_spots(db).await?,
+        });
+        *slot = Some((current, world.clone()));
+        Ok(world)
     }
 }

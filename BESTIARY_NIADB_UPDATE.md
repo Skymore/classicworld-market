@@ -11,10 +11,11 @@
 - 地图视图（迁移 `0040_map_view.sql`）：地图页显示小地图，怪物头像站在刷怪点上，传送口和 NPC 可点；路线页每一步圈出要走的传送口；新增 NPC 页。GM 活动和 alt 副本怪隐藏；Mapledex 写错的 7 张地图中文名改正。
 - AI 助手不再返回遗忘洞穴的地图、任务和怪物（开放日后自动恢复，不用重跑）。
 - 船、出租车和传送口类型（迁移 `0042_portal_types_and_transport.sql`）：南港坐船去明珠港，彩虹岛的地图终于能连上金银岛；路线可以勾选坐出租车；隐藏传送口在地图上画成虚线圈。`portals.json` 带上了传送口类型，所以第 4 步的 `import_portals` 必须重跑。
-- 场景图和世界地图（迁移 `0041_world_map_and_scenes.sql`）：地图视图改画整张场景图（可切回小地图）；新增世界地图页 `/world`；路线页把路线画在世界地图上；新增"找怪物"：输入怪物，给出离出发地最近的刷怪地图和路线。
+- 场景图和世界地图（迁移 `0041_world_map_and_scenes.sql`）：地图视图改画整张场景图；路线页把路线画在世界地图上；新增"找怪物"：输入怪物，给出离出发地最近的刷怪地图和路线。
+- 地图列表（2026-11-04）：图鉴·地图页左边是世界地图，右边是带图的地图卡片（`web/images/map-thumbs/`），滚动加载，点世界地图上的地点只看那里的地图；`/world` 跳到这一页。黄蘑菇屋、后巷半地下室没有传送口能进的旧副本（10001008、10003008）标为未开放；椰子收获的 3 个场地、自由市场的 20 个房间各合成一张卡。第 4 步重跑 `import_catalog` 就会写入，不需要迁移。
 - 中文名（2026-11-03）：以前只有英文名的 689 件物品、8 个 NPC 和 59 个任务改用国服名（DVG 国服 Classic World 资料站，冰峰雪域任务用国服客户端的任务名），国服没有的少数几条用按国服用词写的译名。来源都在 `data/reference/zh-names.json`，第 4 步重跑 `import_catalog` 就会写入，不需要迁移。
 
-需要三样东西：新代码（含迁移 `0038_niadb_bestiary.sql`、`0039_quests.sql`、`0040_map_view.sql`、`0041_world_map_and_scenes.sql`、`0042_portal_types_and_transport.sql`）、仓库里的参考数据和图片（`data/reference/`、`web/images/minimaps/`、`web/images/mobs/head/`、`web/images/scenes/`、`web/images/worldmap/`，随网站一起部署）、用新代码重跑 `import_catalog` 和 `import_portals`。
+需要三样东西：新代码（含迁移 `0038_niadb_bestiary.sql`、`0039_quests.sql`、`0040_map_view.sql`、`0041_world_map_and_scenes.sql`、`0042_portal_types_and_transport.sql`）、仓库里的参考数据和图片（`data/reference/`、`web/images/minimaps/`、`web/images/mobs/head/`、`web/images/scenes/`、`web/images/worldmap/`、`web/images/map-thumbs/`，随网站一起部署）、用新代码重跑 `import_catalog` 和 `import_portals`。
 
 ## 什么时候做
 
@@ -84,7 +85,7 @@ cargo run --release -p market-web --bin import_catalog -- `
 
 - 导入在一个事务里，出错整体回滚。
 - `--niadb-version` 写 `drops.json` 里 `fetched_at` 的日期（第 1 步第一行打印的）。
-- 预期输出（2026-11-02 的数据，新抓的会略多）：`mobs 206 NiaDB (… 7 replace a different Mapledex mob … 63 unreleased; 110 simplified names from DVG …)`、`maps 453 NiaDB (… 120 unreleased; 452 with a simplified name, 200 from DVG …)`、`spawns 915 NiaDB (… spawn points with positions …)`、`world 134 world map spots`、`drops 1704 NiaDB: 1655 items … 49 meso ranges`、`portals 447`、`quests 401 NiaDB (…)`、`items` 与上一次相同。
+- 预期输出（2026-11-02 的数据，新抓的会略多）：`mobs 206 NiaDB (… 7 replace a different Mapledex mob … 63 unreleased; 110 simplified names from DVG …)`、`maps 453 NiaDB (… 122 unreleased; 452 with a simplified name, 200 from DVG …)`、`spawns 915 NiaDB (… spawn points with positions …)`、`world 134 world map spots`、`drops 1704 NiaDB: 1655 items … 49 meso ranges`、`portals 447`、`quests 401 NiaDB (…)`、`items` 与上一次相同。
 - `mobs`、`maps` 少于 200、`drops` 少于 1000：按第 7 步恢复并报告用户。
 
 接着导入传送口（新地图的传送口在仓库的 `portals.json` 里）：
@@ -100,15 +101,15 @@ cd ..
 & "$pg\psql.exe" $env:DATABASE_URL -c "SELECT (SELECT count(*) FROM maps WHERE unreleased) AS maps_hidden, (SELECT count(*) FROM mobs WHERE unreleased) AS mobs_hidden, (SELECT count(*) FROM drops WHERE rate_pct IS NULL) AS niadb_drops, (SELECT count(*) FROM drops) AS drops"
 ```
 
-预期 `maps_hidden` 约 120、`mobs_hidden` 约 63，`niadb_drops` 等于 `drops`。
+预期 `maps_hidden` 约 122、`mobs_hidden` 约 63，`niadb_drops` 等于 `drops`。
 
 ```powershell
 & "$pg\psql.exe" $env:DATABASE_URL -c "SELECT (SELECT count(*) FROM map_spawn_points) AS spawn_points, (SELECT count(*) FROM maps WHERE minimap_w IS NOT NULL) AS maps_with_box, (SELECT count(*) FROM map_npcs WHERE x IS NOT NULL) AS npcs_placed"
 & "$pg\psql.exe" $env:DATABASE_URL -c "SELECT (SELECT count(*) FROM world_spots) AS world_spots, (SELECT count(*) FROM maps WHERE scene_url IS NOT NULL) AS scenes"
-Test-Path web\images\minimaps\1000.png, web\images\mobs\head\4.png, web\images\scenes\1000.webp, web\images\worldmap\victoria-island.webp
+Test-Path web\images\minimaps\1000.png, web\images\mobs\head\4.png, web\images\scenes\1000.webp, web\images\worldmap\victoria-island.webp, web\images\map-thumbs\1000.webp
 ```
 
-预期 `spawn_points` 一万左右、`maps_with_box` 约 453、`npcs_placed` 三百左右，`world_spots` 134、`scenes` 约 366；四个 `Test-Path` 都是 `True`。
+预期 `spawn_points` 一万左右、`maps_with_box` 约 453、`npcs_placed` 三百左右，`world_spots` 134、`scenes` 约 366；五个 `Test-Path` 都是 `True`。
 
 网站（首屏 HTML 最多缓存 60 秒，刷新即可）：
 
@@ -119,7 +120,8 @@ Test-Path web\images\minimaps\1000.png, web\images\mobs\head\4.png, web\images\s
 - [彩虹村西边草原](https://mxd.ruit.me/map/1000)：小地图上有蜗牛、蘑菇仔等头像，点下面的怪物标签只突出那一种；传送口"岔路"写的是中文。
 - [希娜](https://mxd.ruit.me/npc/1)：NPC 页，小地图上金色标出她，任务里有"借来莎丽的镜子"。
 - [射手村 → 遗迹发掘地I](https://mxd.ruit.me/route?from=10001000&to=10004130)：上面是画在世界地图上的路线，每一步下面有地图，紫圈是要走的传送口。
-- [世界地图](https://mxd.ruit.me/world?map=10002000)：彩虹岛和金银岛两张图，箭头指着魔法密林；没有天空之城。
+- [世界地图](https://mxd.ruit.me/world?map=10002000)：跳到图鉴·地图页，左边金银岛地图上选中魔法密林，右边只列那里的地图；没有天空之城。
+- [图鉴·地图](https://mxd.ruit.me/search?kind=map)：写"共 310 张"，卡片有图，往下滚会继续加载；没有第二张黄蘑菇屋。
 - [蘑菇镇 → 射手村](https://mxd.ruit.me/route?from=1&to=10001000)：中间有一步"找圈出的桑克斯坐船"。
 - [射手村 → 勇士部落，坐出租车](https://mxd.ruit.me/route?from=10001000&to=10004000&taxi=1)：1 步。
 - [找花蘑菇](https://mxd.ruit.me/route?from=10001000&mob=9)：给出最近的刷怪地图和路线，下面按步数列出所有刷怪地图。
@@ -127,7 +129,7 @@ Test-Path web\images\minimaps\1000.png, web\images\mobs\head\4.png, web\images\s
 
 ### 6. 2026-11-18 之后
 
-遗忘洞穴开放日之后，用第 4 步完全相同的参数再跑一次 `import_catalog`（不需要重新抓数据）。之后 `maps_hidden` 降为约 93，[遗忘洞穴](https://mxd.ruit.me/map/10006000) 能打开。
+遗忘洞穴开放日之后，用第 4 步完全相同的参数再跑一次 `import_catalog`（不需要重新抓数据）。之后 `maps_hidden` 降为约 95，[遗忘洞穴](https://mxd.ruit.me/map/10006000) 能打开。
 
 ### 7. 出问题时
 

@@ -371,8 +371,9 @@ pub struct MapPage {
     pub quests_hunted: Vec<QuestHunt>,
     /// The maps from Henesys to here (both ends included), when there is a way.
     pub from_henesys: Option<Vec<MapRef>>,
-    /// The map has a spot on the world map (`/world?map=<id>`).
-    pub on_world_map: bool,
+    /// The map's spot on the world map, which the map list opens
+    /// (`/search?kind=map&spot=<key>`).
+    pub world_spot: Option<String>,
 }
 
 /// A quest that asks to defeat a monster found on the map.
@@ -1019,6 +1020,10 @@ pub struct SearchRequest {
     pub town: bool,
     pub region: String,
     pub area: String,
+    /// Maps: only those on this world map spot (`WorldSpot::key`).
+    pub spot: String,
+    /// Maps: the world map island shown (`regions::ISLANDS`).
+    pub island: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, serde::Serialize)]
@@ -1040,6 +1045,17 @@ pub struct SearchPage {
     pub items: Hits<ItemHit>,
     pub mobs: Hits<MobRef>,
     pub maps: Hits<MapHit>,
+    /// Browsing maps: the world map spot the list is narrowed to.
+    pub spot: String,
+    /// Browsing maps: the world map island shown (`regions::ISLANDS`).
+    pub island: String,
+    /// Browsing maps: maps per region chip (`regions::MAP_REGIONS`, `""` is
+    /// all) under the query and the towns filter.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub map_regions: Vec<Facet>,
+    /// Browsing maps: the world map beside the list.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub world: Vec<WorldRegion>,
 }
 
 /// Counts behind the item filter bar and dialog.
@@ -1109,6 +1125,21 @@ pub struct MapHit {
     /// Set when another open map has the same name (`queries::map_hints`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hint: Option<MapHint>,
+    pub town: bool,
+    /// The map list's card picture (`tools/niadb_map_assets.py thumbs`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thumb: Option<String>,
+    /// Levels of the monsters here.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level_min: Option<i16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level_max: Option<i16>,
+    /// A card for several rooms of one place (`map_list::ROOMS`): "20 个房间".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub copies: Option<Names>,
+    /// The world map spot the map is on, the first when on two.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spot: Option<String>,
 }
 
 /// What tells a map apart from open maps of the same name, per language

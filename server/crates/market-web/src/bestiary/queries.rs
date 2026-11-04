@@ -52,18 +52,26 @@ macro_rules! name_en {
 }
 
 /// A map's street ("金银岛") in both languages. In Chinese, maps on Maple
-/// Island are always 彩虹岛 (some carry a wrong or missing street_zh), and
-/// Victoria maps without a Chinese street fall back to 金银岛, not English.
+/// Island are always 彩虹岛 (some carry a wrong or missing street_zh) and the
+/// Free Market's rooms 自由市场; without a Chinese street, Victoria maps and
+/// Victoria Road fall back to 金银岛 and Hidden Street to 隐藏地图, not the
+/// traditional or English name.
 macro_rules! streets {
     ($t:literal) => {
         concat!(
             "CASE WHEN ",
             $t,
-            ".id BETWEEN 0 AND 9999999 THEN '彩虹岛' ELSE COALESCE(NULLIF(",
+            ".id BETWEEN 0 AND 9999999 THEN '彩虹岛' WHEN ",
+            $t,
+            ".id BETWEEN 80002000 AND 80002999 THEN '自由市场' ELSE COALESCE(NULLIF(",
             $t,
             ".street_zh, ''), CASE WHEN ",
             $t,
-            ".id BETWEEN 10000000 AND 19999999 THEN '金银岛' END, NULLIF(",
+            ".id BETWEEN 10000000 AND 19999999 OR ",
+            $t,
+            ".street_en = 'Victoria Road' THEN '金银岛' WHEN ",
+            $t,
+            ".street_en = 'Hidden Street' THEN '隐藏地图' END, NULLIF(",
             $t,
             ".street_tw, ''), ",
             $t,
@@ -1276,7 +1284,7 @@ pub async fn map_page(db: &PgPool, id: i32) -> sqlx::Result<Option<MapPage>> {
         quests_given: quests_given_on(db, id).await?,
         quests_hunted: quests_hunted_on(db, id).await?,
         from_henesys: None,
-        on_world_map: !world_spots_of(db, &[id]).await?.is_empty(),
+        world_spot: main_spot(db, id).await?,
     }))
 }
 
@@ -1364,6 +1372,32 @@ pub async fn world_page(db: &PgPool, here: Option<i32>) -> sqlx::Result<WorldPag
         here,
         here_spots,
     })
+}
+
+/// SQL: open maps' world map spots, one per map: the spot named after the
+/// map, else the first.
+const MAIN_SPOTS: &str = "SELECT DISTINCT ON (w.map_id) w.map_id, s.key
+     FROM world_spot_maps w JOIN world_spots s ON s.key = w.spot_key
+     JOIN maps mp ON mp.id = s.map_id AND NOT mp.unreleased
+     WHERE $1::int IS NULL OR w.map_id = $1
+     ORDER BY w.map_id, (s.map_id = w.map_id) DESC, s.key";
+
+/// The world map spot the map list opens for a map (`MAIN_SPOTS`).
+pub async fn main_spot(db: &PgPool, map_id: i32) -> sqlx::Result<Option<String>> {
+    let row: Option<(i32, String)> = sqlx::query_as(MAIN_SPOTS)
+        .bind(Some(map_id))
+        .fetch_optional(db)
+        .await?;
+    Ok(row.map(|(_, key)| key))
+}
+
+/// Every open map's spot (`MAIN_SPOTS`), for the map list.
+pub async fn main_spots(db: &PgPool) -> sqlx::Result<HashMap<i32, String>> {
+    let rows: Vec<(i32, String)> = sqlx::query_as(MAIN_SPOTS)
+        .bind(None::<i32>)
+        .fetch_all(db)
+        .await?;
+    Ok(rows.into_iter().collect())
 }
 
 /// A map's place on the world map.
@@ -2205,6 +2239,17 @@ pub async fn resolve_map(db: &PgPool, input: &str) -> sqlx::Result<Resolution> {
 pub const SEARCH_LIMIT: i64 = 20;
 /// With `?kind=` one group gets the room of three.
 pub const SEARCH_KIND_LIMIT: i64 = 60;
+/// Maps are big picture cards: fewer per page, more as the list scrolls.
+pub const SEARCH_MAP_LIMIT: i64 = 24;
+
+/// Rows per page with `?kind=` (`None`: 20 of each of the three).
+pub fn page_size(kind: Option<SearchKind>) -> i64 {
+    match kind {
+        Some(SearchKind::Map) => SEARCH_MAP_LIMIT,
+        Some(_) => SEARCH_KIND_LIMIT,
+        None => SEARCH_LIMIT,
+    }
+}
 
 pub async fn search(
     db: &PgPool,
@@ -2281,7 +2326,7 @@ pub async fn search_page_in(
     let kind = request.kind;
     let limit = |k: SearchKind| match kind {
         None => Some(SEARCH_LIMIT),
-        Some(only) if only == k => Some(SEARCH_KIND_LIMIT),
+        Some(only) if only == k => Some(page_size(kind)),
         Some(_) => None,
     };
     let text = Text::new(&request.query);
@@ -2295,12 +2340,10 @@ pub async fn search_page_in(
         town: request.town,
         query: request.query.clone(),
         offset,
-        page_size: if kind.is_some() {
-            SEARCH_KIND_LIMIT
-        } else {
-            SEARCH_LIMIT
-        },
+        page_size: page_size(kind),
         kind,
+        spot: request.spot.clone(),
+        island: request.island.clone(),
         ..Default::default()
     };
     if let Some(n) = limit(SearchKind::Item) {
@@ -2313,8 +2356,15 @@ pub async fn search_page_in(
         page.mobs = search_mobs(db, &text, n, offset, &request.mobs, &region, &area).await?;
     }
     if let Some(n) = limit(SearchKind::Map) {
-        page.maps =
-            search_maps_in_region(db, &text, n, offset, request.town, &region, &area).await?;
+        let place = Place {
+            region: &region,
+            area: &area,
+            spot: &request.spot,
+        };
+        page.maps = search_maps_in_region(db, &text, n, offset, request.town, &place).await?;
+        if kind == Some(SearchKind::Map) {
+            page.map_regions = map_region_counts(db, &text, request.town).await?;
+        }
     }
     Ok(page)
 }
@@ -2576,10 +2626,10 @@ async fn search_mobs(
         "({filter}) AND {PUBLIC_MOB_FILTER}
          AND (($5='' AND $6='') OR EXISTS (
              SELECT 1 FROM mob_spawns sp JOIN maps mp ON mp.id=sp.map_id
-             WHERE sp.mob_id=m.id AND NOT mp.unreleased AND ($5='' OR {region_expr}=$5) AND ($6='' OR {area_expr}=$6)))
+             WHERE sp.mob_id=m.id AND NOT mp.unreleased AND {region_match} AND ($6='' OR {area_expr}=$6)))
          AND ($7::smallint IS NULL OR m.level >= $7) AND ($8::smallint IS NULL OR m.level <= $8)
          AND (NOT $9 OR m.is_boss)",
-        region_expr = super::regions::region_sql("mp"),
+        region_match = super::regions::region_match_sql("mp", "$5"),
         area_expr = super::regions::area_sql("mp"),
     );
     let order = match filters.sort.as_str() {
@@ -2619,7 +2669,25 @@ async fn search_maps(
     limit: i64,
     offset: i64,
 ) -> sqlx::Result<Hits<MapHit>> {
-    search_maps_in_region(db, &Text::new(query), limit, offset, false, "", "").await
+    let anywhere = Place {
+        region: "",
+        area: "",
+        spot: "",
+    };
+    search_maps_in_region(db, &Text::new(query), limit, offset, false, &anywhere).await
+}
+
+/// Where maps are looked for: a region (`regions::region_match_sql`), an
+/// area and a world map spot; `""` is anywhere.
+struct Place<'a> {
+    region: &'a str,
+    area: &'a str,
+    spot: &'a str,
+}
+
+/// The map list's card picture, made for every map with a scene or a minimap.
+pub fn map_thumb(map_id: i32) -> String {
+    format!("/web/images/map-thumbs/{map_id}.webp")
 }
 
 async fn search_maps_in_region(
@@ -2628,8 +2696,7 @@ async fn search_maps_in_region(
     limit: i64,
     offset: i64,
     town: bool,
-    region: &str,
-    area: &str,
+    place: &Place<'_>,
 ) -> sqlx::Result<Hits<MapHit>> {
     #[derive(FromRow)]
     struct Row {
@@ -2638,28 +2705,58 @@ async fn search_maps_in_region(
         names: Names,
         street: Option<String>,
         street_en: Option<String>,
+        is_town: bool,
+        pictured: bool,
+        level_min: Option<i16>,
+        level_max: Option<i16>,
     }
     let (filter, rank) = matcher("m.id", &["m.name_zh", "m.name_tw", "m.name_en"], "$4");
     let condition = format!(
-        "{filter} AND NOT m.unreleased
-         AND ($5='' OR {region_expr}=$5) AND ($6='' OR {area_expr}=$6) AND (NOT $7 OR m.is_town)",
-        region_expr = super::regions::region_sql("m"),
+        "{filter} AND NOT m.unreleased AND {listed}
+         AND {region_match} AND ($6='' OR {area_expr}=$6) AND (NOT $7 OR m.is_town)
+         AND ($8='' OR m.id IN (SELECT w.map_id FROM world_spot_maps w WHERE w.spot_key=$8))",
+        listed = super::map_list::listed_sql("m"),
+        region_match = super::regions::region_match_sql("m", "$5"),
         area_expr = super::regions::area_sql("m"),
     );
+    // The page's maps first, then their monsters' levels (`public_mob!` reads
+    // the mobs as `m`). Browsing goes by id, which keeps a place's maps
+    // together; a query puts the closest names first.
     let rows_sql = format!(
-        "SELECT m.id, {name} AS name, {name_en} AS name_en, {streets}
-         FROM maps m WHERE {condition}
-         ORDER BY {rank}, length({name}), m.id LIMIT $8 OFFSET $9",
+        "SELECT r.*, l.level_min, l.level_max FROM (
+             SELECT m.id, {name} AS name, {name_en} AS name_en, {streets}, m.is_town,
+                    (m.scene_url IS NOT NULL OR m.minimap_url IS NOT NULL) AS pictured,
+                    row_number() OVER (ORDER BY {order}) AS ord
+             FROM maps m WHERE {condition}
+             ORDER BY {order} LIMIT $9 OFFSET $10) r
+         LEFT JOIN LATERAL (
+             SELECT min(m.level) AS level_min, max(m.level) AS level_max
+             FROM mob_spawns sp JOIN mobs m ON m.id = sp.mob_id
+             WHERE sp.map_id = r.id AND {public}) l ON true
+         ORDER BY r.ord",
+        order = format!("{rank}, CASE WHEN $1 = '' THEN 0 ELSE length({}) END, m.id", name!("m")),
         name = name!("m"),
         name_en = name_en!("m"),
         streets = streets!("m"),
+        public = public_mob!(),
     );
     let count_sql = format!("SELECT count(*) FROM maps m WHERE {condition}");
-    let rows = bind_place(text.bind(sqlx::query_as(&rows_sql)), region, area)
-        .bind(town)
-        .bind(limit)
-        .bind(offset);
-    let count = bind_place(text.bind(sqlx::query_as(&count_sql)), region, area).bind(town);
+    let rows = bind_place(
+        text.bind(sqlx::query_as(&rows_sql)),
+        place.region,
+        place.area,
+    )
+    .bind(town)
+    .bind(place.spot.to_string())
+    .bind(limit)
+    .bind(offset);
+    let count = bind_place(
+        text.bind(sqlx::query_as(&count_sql)),
+        place.region,
+        place.area,
+    )
+    .bind(town)
+    .bind(place.spot.to_string());
     let hits: Hits<Row> = page_of(db, rows, count, offset).await?;
     Ok(Hits {
         more: hits.more,
@@ -2667,14 +2764,67 @@ async fn search_maps_in_region(
         rows: hits
             .rows
             .into_iter()
-            .map(|r| MapHit {
-                id: r.id,
-                names: r.names,
-                street: optional_names(r.street, r.street_en),
-                hint: None,
+            .map(|r| {
+                let card = super::map_list::card(r.id);
+                MapHit {
+                    id: r.id,
+                    names: match card.and_then(|c| c.names) {
+                        Some((zh, en)) => Names::new(zh, en),
+                        None => r.names,
+                    },
+                    street: optional_names(r.street, r.street_en),
+                    hint: None,
+                    town: r.is_town,
+                    thumb: r.pictured.then(|| map_thumb(r.id)),
+                    level_min: r.level_min,
+                    level_max: r.level_max,
+                    copies: card.map(|c| Names::new(c.copies.0, c.copies.1)),
+                    spot: None,
+                }
             })
             .collect(),
     })
+}
+
+/// The map list's region chips (`regions::MAP_REGIONS`, `""` first for
+/// every region) with their maps under the query and the towns filter.
+async fn map_region_counts(db: &PgPool, text: &Text, town: bool) -> sqlx::Result<Vec<Facet>> {
+    let (filter, _) = matcher("m.id", &["m.name_zh", "m.name_tw", "m.name_en"], "$4");
+    let sql = format!(
+        "SELECT {region} AS region, count(*) FROM maps m
+         WHERE {filter} AND NOT m.unreleased AND {listed} AND (NOT $5 OR m.is_town) GROUP BY 1",
+        region = super::regions::region_sql("m"),
+        listed = super::map_list::listed_sql("m"),
+    );
+    let rows: Vec<(String, i64)> = text
+        .bind(sqlx::query_as(&sql))
+        .bind(town)
+        .fetch_all(db)
+        .await?;
+    let island = |r: &str| r == "maple" || r == "victoria";
+    let count = |key: &str| -> i64 {
+        rows.iter()
+            .filter(|(r, _)| match key {
+                "" => true,
+                "rest" => !island(r),
+                key => r == key,
+            })
+            .map(|(_, n)| n)
+            .sum()
+    };
+    let mut out = vec![Facet {
+        key: String::new(),
+        names: Names::new("全部", "All"),
+        count: count(""),
+    }];
+    for (key, zh, en) in super::regions::MAP_REGIONS {
+        out.push(Facet {
+            key: key.to_string(),
+            names: Names::new(*zh, *en),
+            count: count(key),
+        });
+    }
+    Ok(out)
 }
 
 #[cfg(test)]

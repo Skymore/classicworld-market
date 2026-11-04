@@ -5,7 +5,7 @@ use maud::{html, Markup, PreEscaped};
 
 use super::mapview::{map_svg, mob_legend, Marks};
 use super::shell::{icon, layout, Ctx, Icon, Nav, Page};
-use super::worldmap::{route_overview, world_body};
+use super::worldmap::{levels, list_world, route_overview, spot_levels};
 use super::{mob_image_url, mob_pic, mob_picture_url, slot};
 use crate::bestiary::format::{grouped, meso, Lang};
 use crate::bestiary::model::*;
@@ -321,8 +321,8 @@ pub fn map_page(page: &MapPage, ctx: &Ctx) -> Markup {
                 @if let Some(r) = &page.return_map {
                     a.btn.rtown href=(ctx.href(&format!("/map/{}", r.id))) { small { (ctx.t("回城点", "Return town")) } span { (r.names.get(lang)) } }
                 }
-                @if page.on_world_map {
-                    a.btn href=(ctx.href(&format!("/world?map={}", map.id))) { (fit_label(ctx.t("在世界地图上看", "On the world map"), ctx.t("世界地图", "World map"))) }
+                @if let Some(spot) = &page.world_spot {
+                    a.btn href=(ctx.href(&format!("/search?kind=map&spot={}", url_encode(spot)))) { (fit_label(ctx.t("在世界地图上看", "On the world map"), ctx.t("世界地图", "World map"))) }
                 }
             }
             @if let Some(path) = &page.from_henesys { (henesys_strip(ctx, path, &route_href)) }
@@ -511,7 +511,6 @@ pub fn route_page(page: &RoutePage, ctx: &Ctx) -> Markup {
             nav.route-tabs aria-label=(ctx.t("寻路方式", "Route mode")) {
                 a.on[!page.mob_mode] href=(ctx.href(&map_tab)) { (ctx.t("去地图", "To a map")) }
                 a.on[page.mob_mode] href=(ctx.href(&mob_tab)) { (ctx.t("找怪物", "Find a monster")) }
-                a href=(ctx.href("/world")) { (ctx.t("世界地图", "World map")) }
             }
             form.route-form action="/route" method="get" {
                 div.place-field {
@@ -740,25 +739,6 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
     }
 }
 
-// ---------- world map ----------
-
-pub fn world_page(page: &WorldPage, ctx: &Ctx) -> Markup {
-    let title = ctx.t("世界地图", "World map");
-    let body = html! {
-        (crumb(ctx, title))
-        section.stall {
-            (bar(title, None))
-            nav.route-tabs aria-label=(ctx.t("寻路方式", "Route mode")) {
-                a href=(ctx.href("/route")) { (ctx.t("去地图", "To a map")) }
-                a href=(ctx.href("/route?mode=mob")) { (ctx.t("找怪物", "Find a monster")) }
-                a.on href=(ctx.href("/world")) { (ctx.t("世界地图", "World map")) }
-            }
-            (world_body(ctx, page))
-        }
-    };
-    dex_page(ctx, title, "", body)
-}
-
 /// What to do on this step, pointing at the minimap when the portal is marked.
 fn step_hint(ctx: &Ctx, step: &Step) -> String {
     let lang = ctx.lang;
@@ -832,7 +812,24 @@ fn search_pairs(page: &SearchPage) -> Vec<(String, String)> {
             out.push(("area".into(), page.area.clone()));
         }
     }
+    if page.kind == Some(SearchKind::Map) {
+        // A spot sets the island; otherwise only a non-default island shows.
+        if !page.spot.is_empty() {
+            out.push(("spot".into(), page.spot.clone()));
+        } else if page.island != default_island(page) {
+            out.push(("island".into(), page.island.clone()));
+        }
+    }
     out
+}
+
+/// The island the map list shows without `island=`: the region's, else
+/// Victoria Island.
+fn default_island(page: &SearchPage) -> &'static str {
+    match page.region.as_str() {
+        "maple" => "maple",
+        _ => "victoria",
+    }
 }
 
 fn search_href(ctx: &Ctx, pairs: &[(String, String)]) -> String {
@@ -911,8 +908,10 @@ fn search_tokens(page: &SearchPage, ctx: &Ctx) -> Vec<Token> {
                     add(ctx.t("等级", "Level"), text, &["lmin", "lmax"]);
                 }
             }
-            let regions = super::super::regions::REGIONS;
-            if let Some((_, zh, en)) = regions.iter().find(|(key, ..)| *key == page.region) {
+            // The map list's region and towns are chips of their own.
+            let label =
+                super::super::regions::label(&page.region).filter(|_| kind != SearchKind::Map);
+            if let Some((zh, en)) = label {
                 add(
                     ctx.t("地区", "Region"),
                     ctx.t(zh, en).into(),
@@ -932,9 +931,6 @@ fn search_tokens(page: &SearchPage, ctx: &Ctx) -> Vec<Token> {
             }
             if kind == SearchKind::Mob && page.mob_filters.boss {
                 add("", ctx.t("只看 Boss", "Bosses only").into(), &["boss"]);
-            }
-            if kind == SearchKind::Map && page.town {
-                add("", ctx.t("只看城镇", "Towns only").into(), &["town"]);
             }
         }
         None => {}
@@ -1075,6 +1071,9 @@ fn category_links(page: &SearchPage, ctx: &Ctx) -> Markup {
 }
 
 fn kind_results(page: &SearchPage, kind: SearchKind, ctx: &Ctx) -> Markup {
+    if kind == SearchKind::Map {
+        return map_browser(page, ctx);
+    }
     let lang = ctx.lang;
     let tokens = search_tokens(page, ctx);
     let total = match kind {
@@ -1163,6 +1162,202 @@ fn map_hit(ctx: &Ctx, map: &MapHit) -> Markup {
             }
         }
     }
+}
+
+/// The map list: region chips over the world map (left) and picture cards
+/// (right) in one box. The cards scroll inside the box; in the browser more
+/// load as they scroll, and the pager is for pages without scripts.
+fn map_browser(page: &SearchPage, ctx: &Ctx) -> Markup {
+    let lang = ctx.lang;
+    let total = page.maps.total;
+    let (number, pages) = page_count(page, total);
+    let tokens = search_tokens(page, ctx);
+    let island_id = super::super::regions::ISLANDS
+        .iter()
+        .find(|(key, _)| *key == page.island)
+        .map(|(_, id)| *id);
+    let region = page.world.iter().find(|r| Some(r.id.as_str()) == island_id);
+    let spot = page
+        .world
+        .iter()
+        .flat_map(|r| &r.spots)
+        .find(|s| s.key == page.spot);
+    let is_island = |key: &str| key == "maple" || key == "victoria";
+    let chip_on = |key: &str| match key {
+        "rest" => !page.region.is_empty() && !is_island(&page.region),
+        key => page.region == key,
+    };
+    let chip_href = |key: &str| {
+        let add: Vec<(&str, String)> = if key.is_empty() {
+            vec![]
+        } else {
+            vec![("region", key.to_string())]
+        };
+        edited_href(
+            ctx,
+            page,
+            &["region", "area", "spot", "island", "page"],
+            &add,
+        )
+    };
+    let island_href = |key: &str| {
+        if is_island(&page.region) {
+            edited_href(
+                ctx,
+                page,
+                &["region", "area", "spot", "island", "page"],
+                &[("region", key.to_string())],
+            )
+        } else if key == "victoria" {
+            edited_href(ctx, page, &["spot", "island", "page"], &[])
+        } else {
+            edited_href(
+                ctx,
+                page,
+                &["spot", "island", "page"],
+                &[("island", key.to_string())],
+            )
+        }
+    };
+    let spot_href = |s: &WorldSpot| {
+        if s.key == page.spot {
+            edited_href(
+                ctx,
+                page,
+                &["spot", "page"],
+                &[("island", page.island.clone())],
+            )
+        } else {
+            let mut add = vec![("spot", s.key.clone())];
+            if !page.region.is_empty() {
+                add.push(("region", page.island.clone()));
+            }
+            edited_href(ctx, page, &["spot", "island", "page", "area"], &add)
+        }
+    };
+    // A chosen place is where the route goes.
+    let route_href = match spot {
+        Some(spot) => format!("/route?to={}", spot.map.id),
+        None => "/route".to_string(),
+    };
+    let town_href = if page.town {
+        edited_href(ctx, page, &["town", "page"], &[])
+    } else {
+        edited_href(ctx, page, &["page"], &[("town", "1".into())])
+    };
+    html! {
+        div.dex-body {
+            @if !tokens.is_empty() {
+                div.dex-tokens data-active-filters {
+                    @for token in &tokens {
+                        a.tok href=(edited_href(ctx, page, token.keys, &[])) data-remove-filter=(token.keys[0]) {
+                            @if !token.label.is_empty() { (token.label) " " }
+                            b { (token.value) } " ×"
+                        }
+                    }
+                }
+            }
+            div.mbox data-map-browser {
+                div.mb-tools {
+                    nav.mb-regions aria-label=(ctx.t("地区", "Region")) {
+                        @for facet in &page.map_regions {
+                            @let on = if facet.key.is_empty() { page.region.is_empty() } else { chip_on(&facet.key) };
+                            a.mb-chip.on[on] href=(chip_href(&facet.key)) aria-current=[on.then_some("true")]
+                                data-region=(if facet.key.is_empty() { "all" } else { facet.key.as_str() }) {
+                                (facet.names.get(lang)) " " span.mb-n { (grouped(facet.count)) }
+                            }
+                        }
+                    }
+                    a.mb-chip.mb-town.on[page.town] href=(town_href) aria-pressed=(page.town) data-town {
+                        (ctx.t("只看城镇", "Towns only"))
+                    }
+                    a.mb-route href=(ctx.href(&route_href)) { (ctx.t("怎么走", "Route")) " →" }
+                }
+                div.mb-split {
+                    div.mb-left {
+                        div.mb-bar {
+                            // An island chip already picks the island.
+                            @if !is_island(&page.region) {
+                            span.mb-isl role="group" aria-label=(ctx.t("世界地图", "World map")) {
+                                @for r in &page.world {
+                                    @let key = super::super::regions::ISLANDS.iter().find(|(_, id)| *id == r.id).map(|(k, _)| *k);
+                                    @if let Some(key) = key {
+                                        a.on[Some(r.id.as_str()) == island_id] href=(island_href(key)) data-island=(key) { (r.names.get(lang)) }
+                                    }
+                                }
+                            }
+                            }
+                            small.mb-tip { (ctx.t("点地点只看那里的地图", "Pick a place to see its maps")) }
+                        }
+                        div.mb-mapbox {
+                            @if let Some(region) = region { (list_world(ctx, region, &page.spot, spot_href)) }
+                        }
+                        div.mb-info {
+                            @if let Some(spot) = spot {
+                                b { (spot.map.names.get(lang)) }
+                                span {
+                                    (count_text(ctx, SearchKind::Map, total).trim_start_matches("共 "))
+                                    @if let Some(lv) = spot_levels(spot) { " · " (lv) }
+                                }
+                                a.mb-clear href=(spot_href(spot)) data-clear-spot { (ctx.t("看全部", "Show all")) }
+                            }
+                        }
+                    }
+                    div.mb-right data-search-results aria-live="polite" id="search-map" {
+                        p.mb-total data-total { (count_text(ctx, SearchKind::Map, total)) }
+                        @if page.maps.rows.is_empty() {
+                            (search_empty(page, ctx, !tokens.is_empty() || page.town || !page.region.is_empty() || !page.spot.is_empty()))
+                        } @else {
+                            div.mb-tiles { @for map in &page.maps.rows { (map_tile(ctx, map)) } }
+                        }
+                        @if pages > 1 { (search_pager(page, ctx, number, pages)) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// A map's card: its picture, with the name and details on it.
+fn map_tile(ctx: &Ctx, map: &MapHit) -> Markup {
+    let lang = ctx.lang;
+    let name = map.names.get(lang);
+    html! {
+        a.mtile href=(ctx.href(&format!("/map/{}", map.id))) data-map=(map.id) data-spot=[map.spot.as_deref()] {
+            @if let Some(url) = &map.thumb {
+                img src=(url) alt="" loading="lazy" decoding="async" width="480" height="300";
+            } @else {
+                span.mt-none { (ctx.t("无图", "No picture")) }
+            }
+            @if map.town { span.mt-tag.mt-town { (ctx.t("城镇", "Town")) } }
+            @if let Some(lv) = levels(map.level_min, map.level_max) {
+                span.mt-tag.mt-lv title=(ctx.t("怪物等级", "Monster levels")) { (lv) }
+            }
+            span.mt-ov {
+                b { (name) }
+                small { (tile_details(map, lang).join(" · ")) }
+            }
+        }
+    }
+}
+
+/// The card's small line: the other language's name, the street, the rooms
+/// and what tells it from a map of the same name; nothing twice.
+fn tile_details(map: &MapHit, lang: Lang) -> Vec<&str> {
+    let name = map.names.get(lang);
+    let mut out: Vec<&str> = Vec::new();
+    let parts = [
+        map.names.secondary(lang),
+        map.street.as_ref().map(|s| s.get(lang)),
+        map.copies.as_ref().map(|c| c.get(lang)),
+        map.hint.as_ref().and_then(|h| h.get(lang)),
+    ];
+    for part in parts.into_iter().flatten() {
+        if !part.is_empty() && part != name && !out.contains(&part) {
+            out.push(part);
+        }
+    }
+    out
 }
 
 /// Numbered pages: the first, the last and two either side of this one.

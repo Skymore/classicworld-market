@@ -51,7 +51,7 @@ function snapshot(target) {
     const scene = id !== 10002031;
     return { kind, page: {
       map: { id, names: { zh: '第1军营', en: 'Camp 1' }, street: { zh: '金银岛', en: 'Victoria Road' }, is_town: false, mob_rate: 1 },
-      return_map: ref(10002000, '勇士部落', 'Perion'), on_world_map: true, from_henesys: null,
+      return_map: ref(10002000, '勇士部落', 'Perion'), world_spot: 'WorldMap001.img:10', from_henesys: null,
       view: view(scene), mobs: [{ mob: mobs[0], spawn_count: 1 }], npcs: [], exits: [], entrances: [], quests_given: [], quests_hunted: [],
     } };
   }

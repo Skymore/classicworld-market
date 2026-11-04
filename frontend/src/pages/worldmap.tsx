@@ -1,9 +1,8 @@
 import { useWords } from "../providers";
 import { useNames } from "./catalogue";
-import { Zoomable } from "./zoom";
 
-// The client's world map as SVG: region pictures with the client's marker
-// sprites linking to their maps, and a route drawn over them. Same markup as
+// The client's world map as SVG: a region picture with the client's marker
+// sprites beside the map list, and a route drawn over it. Same markup as
 // pages/worldmap.rs on the server.
 
 const MARKERS: Record<number, [string, number]> = {
@@ -14,7 +13,10 @@ const MARKERS: Record<number, [string, number]> = {
   4: ["/web/images/worldmap/marker-facility.png", 13],
 };
 const marker = (kind: number) => MARKERS[kind] || MARKERS[3];
-const WORLD_SCALE = 1.4;
+
+/** "Lv.8–40", or "" without monsters. */
+export const levels = (lo: number | null | undefined, hi: number | null | undefined) =>
+  lo == null || hi == null ? "" : lo === hi ? `Lv.${lo}` : `Lv.${lo}–${hi}`;
 
 function useSpotTip() {
   const words = useWords(),
@@ -22,112 +24,74 @@ function useSpotTip() {
   return (spot: any) =>
     [
       name(spot.map.names),
-      spot.level_min != null &&
-        (spot.level_min === spot.level_max
-          ? `Lv.${spot.level_min}`
-          : `Lv.${spot.level_min}–${spot.level_max}`),
+      levels(spot.level_min, spot.level_max),
       spot.map_count > 1 && words(`${spot.map_count} 张地图`, `${spot.map_count} maps`),
     ]
       .filter(Boolean)
       .join(" · ");
 }
 
-function Region({ region, here }: { region: any; here: string[] }) {
+/** One island beside the map list: each spot links the list narrowed to it
+ * (`href`, `pick`); `on` is the chosen spot and `lit` the hovered card's. */
+export function ListWorld({
+  region,
+  on,
+  lit,
+  href,
+  pick,
+}: {
+  region: any;
+  on: string;
+  lit: string | null;
+  href: (spot: any) => string;
+  pick: (spot: any) => void;
+}) {
   const words = useWords(),
     name = useNames(),
     tip = useSpotTip();
   return (
-    <figure className="wm">
-      <figcaption>{name(region.names)}</figcaption>
-      <Zoomable
-        title={name(region.names)}
-        width={region.width}
-        height={region.height}
-        focus={region.spots.find((s: any) => here.includes(s.key)) || null}
-      >
-        {() => (
-      <div className="mapvis-scroll">
-        <svg
-          className="wm-svg"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox={`0 0 ${region.width} ${region.height}`}
-          width={Math.round(region.width * WORLD_SCALE)}
-          height={Math.round(region.height * WORLD_SCALE)}
-          role="img"
-          aria-label={words("世界地图：", "World map: ") + name(region.names)}
-        >
-          <image className="wm-img" href={region.image_url} width={region.width} height={region.height} />
-          {region.spots.map((spot: any) => {
-            const [sprite, size] = marker(spot.kind);
-            const isHere = here.includes(spot.key);
-            return (
-              <a
-                key={spot.key}
-                className={"wm-spot" + (isHere ? " here" : "")}
-                href={"/map/" + spot.map.id}
-                data-kind={spot.kind}
-              >
-                <title>{tip(spot)}</title>
-                {isHere && <circle className="wm-ring" cx={spot.x} cy={spot.y} r={14} />}
-                <image
-                  href={sprite}
-                  x={spot.x - Math.trunc(size / 2)}
-                  y={spot.y - Math.trunc(size / 2)}
-                  width={size}
-                  height={size}
-                />
-                {spot.kind === 0 && (
-                  <text className="wm-label" x={spot.x} y={spot.y + Math.trunc(size / 2) + 11}>
-                    {name(spot.map.names)}
-                  </text>
-                )}
-                {isHere && (
-                  <image
-                    className="wm-here"
-                    href="/web/images/worldmap/curpos-0.png"
-                    x={spot.x - 8}
-                    y={spot.y - Math.trunc(size / 2) - 35}
-                    width={17}
-                    height={35}
-                  />
-                )}
-              </a>
-            );
-          })}
-        </svg>
-      </div>
-        )}
-      </Zoomable>
-    </figure>
-  );
-}
-
-export function WorldBody({ page }: { page: any }) {
-  const words = useWords(),
-    name = useNames();
-  const keys: [number, string, string][] = [
-    [0, "城镇", "Town"],
-    [3, "野外", "Field"],
-    [2, "地下城", "Dungeon"],
-    [1, "地点", "Place"],
-    [4, "设施", "Facility"],
-  ];
-  return (
-    <>
-      <div className="wm-regions">
-        {page.regions.map((region: any) => (
-          <Region key={region.id} region={region} here={page.here_spots || []} />
-        ))}
-      </div>
-      <div className="wm-keys">
-        {keys.map(([kind, zh, en]) => (
-          <span className="wm-key" key={kind}>
-            <img src={marker(kind)[0]} alt="" width={16} height={16} />
-            {words(zh, en)}
-          </span>
-        ))}
-      </div>
-    </>
+    <svg
+      className="mb-wm"
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox={`0 0 ${region.width} ${region.height}`}
+      preserveAspectRatio="xMidYMin meet"
+      role="img"
+      aria-label={words("世界地图：", "World map: ") + name(region.names)}
+    >
+      <image className="wm-img" href={region.image_url} width={region.width} height={region.height} />
+      {region.spots.map((spot: any) => {
+        const [sprite, size] = marker(spot.kind);
+        return (
+          <a
+            key={spot.key}
+            className={"mb-spot" + (spot.key === on ? " on" : "") + (spot.key === lit ? " hl" : "")}
+            href={href(spot)}
+            data-spot={spot.key}
+            data-kind={spot.kind}
+            onClick={(event) => {
+              event.preventDefault();
+              pick(spot);
+            }}
+          >
+            <title>{tip(spot)}</title>
+            <circle className="mb-ring" cx={spot.x} cy={spot.y} r={Math.trunc(size / 2) + 8} />
+            <circle className="mb-hit" cx={spot.x} cy={spot.y} r={11} />
+            <image
+              href={sprite}
+              x={spot.x - Math.trunc(size / 2)}
+              y={spot.y - Math.trunc(size / 2)}
+              width={size}
+              height={size}
+            />
+            {spot.kind === 0 && (
+              <text className="wm-label" x={spot.x} y={spot.y + Math.trunc(size / 2) + 11}>
+                {name(spot.map.names)}
+              </text>
+            )}
+          </a>
+        );
+      })}
+    </svg>
   );
 }
 

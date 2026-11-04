@@ -46,6 +46,13 @@ data/reference/niadb/scenes.json records each scene's world rectangle.
 `scene-copies` makes the phone copies from the scene pictures already in
 web/images/scenes/, without downloading anything.
 
+`thumbs` makes the map list's card pictures, web/images/map-thumbs/<id>.webp
+(480x300, WebP quality 80), for every map with a scene or a minimap on disk:
+the middle of the scene cut to 16:10, or without a scene the whole minimap on
+the cards' background. It remakes missing ones and ones older than their
+picture (`--all`: every one), and `scenes` makes one for each new scene. The
+server links a map's thumbnail when the map has a scene or a minimap.
+
 Each writes a `sources.json` next to the files with the URL and date.
 """
 import argparse
@@ -314,6 +321,76 @@ def scene_copies():
     print(f"{made} phone copies in {SCENES_SMALL}")
 
 
+THUMBS = ROOT / "web" / "images" / "map-thumbs"
+MINIMAPS = ROOT / "web" / "images" / "minimaps"
+# The map list's 16:10 cards (web/css/dex.css .mtile), at twice their size.
+THUMB_SIZE = (480, 300)
+THUMB_QUALITY = 80
+# The cards' background (.mtile in web/css/dex.css), behind a minimap.
+THUMB_BACK = (27, 36, 51)
+
+
+def save_thumb(map_id):
+    """web/images/map-thumbs/<id>.webp for the map list: the middle of the
+    scene cut to 16:10, or without a scene the whole minimap on the cards'
+    background, clear of the name along the bottom. False when the map has
+    neither picture."""
+    from PIL import Image
+
+    scene, minimap = SCENES / f"{map_id}.webp", MINIMAPS / f"{map_id}.png"
+    tw, th = THUMB_SIZE
+    if scene.exists():
+        with Image.open(scene) as image:
+            w, h = image.size
+            if w * th > h * tw:
+                cw, ch = round(h * tw / th), h
+            else:
+                cw, ch = w, round(w * th / tw)
+            box = ((w - cw) // 2, (h - ch) // 2, (w - cw) // 2 + cw, (h - ch) // 2 + ch)
+            thumb = image.convert("RGB").resize(THUMB_SIZE, Image.LANCZOS, box=box)
+    elif minimap.exists():
+        with Image.open(minimap) as image:
+            image = image.convert("RGBA")
+            # 12 px around, 62 px at the bottom for the name.
+            fw, fh = tw - 24, th - 12 - 62
+            scale = min(fw / image.width, fh / image.height)
+            if scale >= 1:
+                # Whole steps keep the minimap's pixels sharp.
+                n = int(scale)
+                image = image.resize((image.width * n, image.height * n), Image.NEAREST)
+            else:
+                image = image.resize((max(1, round(image.width * scale)), max(1, round(image.height * scale))),
+                                     Image.LANCZOS)
+            thumb = Image.new("RGB", THUMB_SIZE, THUMB_BACK)
+            thumb.paste(image, ((tw - image.width) // 2, 12 + (fh - image.height) // 2), image)
+    else:
+        return False
+    THUMBS.mkdir(parents=True, exist_ok=True)
+    thumb.save(THUMBS / f"{map_id}.webp", "WEBP", quality=THUMB_QUALITY, method=6)
+    return True
+
+
+def thumbs(every):
+    """Thumbnails for every map with a scene or a minimap; without `every`,
+    only missing ones and ones older than their picture."""
+    ids = {int(p.stem) for folder in (SCENES, MINIMAPS) for p in folder.glob("*.*") if p.stem.isdigit()}
+    made = 0
+    for map_id in sorted(ids):
+        target = THUMBS / f"{map_id}.webp"
+        sources = [p for p in (SCENES / f"{map_id}.webp", MINIMAPS / f"{map_id}.png") if p.exists()]
+        if not every and target.exists() and all(p.stat().st_mtime <= target.stat().st_mtime for p in sources):
+            continue
+        made += save_thumb(map_id)
+    write_json(THUMBS / "sources.json", {
+        "note": "The map list's card pictures, made by tools/niadb_map_assets.py thumbs from "
+                "web/images/scenes/ (the middle, cut to 16:10) or, without a scene, web/images/minimaps/. "
+                "Game art belongs to NEXON and its affiliates.",
+        "size": list(THUMB_SIZE),
+        "maps": sorted(int(p.stem) for p in THUMBS.glob("*.webp")),
+    })
+    print(f"{made} thumbnails in {THUMBS}")
+
+
 def scenes(pause):
     import io
     from PIL import Image
@@ -349,6 +426,7 @@ def scenes(pause):
         size = fitted((w, h), SCENE_FIT)
         save_scene(image, size, target)
         phone = save_small_scene(image, (w, h), map_id)
+        save_thumb(map_id)
         done[str(map_id)] = {"key": key, "x": rect[0], "y": rect[1], "w": rect[2], "h": rect[3],
                              "source_size": [w, h], "size": list(size)}
         write_json(out_path, {
@@ -382,11 +460,15 @@ def main():
     c = sub.add_parser("scenes", help="download and scale the rendered map scenes")
     c.add_argument("--pause", type=float, default=1.5, help="seconds between requests")
     sub.add_parser("scene-copies", help="make the missing phone copies of the scenes on disk")
+    t = sub.add_parser("thumbs", help="make the map list's card pictures from the scenes and minimaps on disk")
+    t.add_argument("--all", action="store_true", help="remake every thumbnail")
     args = ap.parse_args()
     if args.command == "scenes":
         scenes(args.pause)
     elif args.command == "scene-copies":
         scene_copies()
+    elif args.command == "thumbs":
+        thumbs(args.all)
     elif args.command == "fetch":
         fetch(args.pause)
     elif args.command == "worldmap":

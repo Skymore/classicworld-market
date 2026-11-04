@@ -328,9 +328,26 @@ async fn monster_finder_and_world_map() {
     assert!(form.contains(r#"name="mob""#) && form.contains("找最近的地图"));
     let mob = get(&router, "/mob/8").await.body;
     assert!(mob.contains("&amp;mob=8"), "the mob page links the finder");
-    let world = get(&router, "/world").await;
-    assert_eq!(world.status, StatusCode::OK);
-    assert!(world.body.contains("世界地图"));
+    // The world map is on the map list: old links open it.
+    let world = router
+        .clone()
+        .oneshot(
+            Request::get("/world?map=10001000&lang=en")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(world.status(), StatusCode::SEE_OTHER);
+    let to = world.headers()[header::LOCATION].to_str().unwrap();
+    assert!(
+        to.starts_with("/search?kind=map") && to.ends_with("lang=en"),
+        "{to}"
+    );
+    let list = search_json(&router, "/search?kind=map").await;
+    assert_eq!(list["page_size"], 24);
+    assert_eq!(list["island"], "victoria");
+    assert_eq!(list["map_regions"][0]["key"], "");
     db.drop_schema().await;
 }
 

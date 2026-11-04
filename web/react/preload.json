@@ -1,28 +1,28 @@
 {
  "shell": [
-  "chunks/main-vCafi7IA.js",
-  "chunks/shared-DdQVliR2.js",
-  "chunks/react-dom-CJ5fnSLa.js",
-  "chunks/watch-ids-C4sqPYSm.js",
+  "chunks/main-B7RFHBAq.js",
+  "chunks/shared-BvadJZDP.js",
+  "chunks/react-dom-DhoePxSb.js",
+  "chunks/watch-ids-Dvu9Uema.js",
   "chunks/item-market-BznqKqrm.js",
-  "chunks/list-rows-Bf7A6Y23.js",
-  "chunks/shell-DCP7BIMl.js",
-  "chunks/assistant-icon-DxJTKomV.js",
+  "chunks/list-rows-CEeW6UPY.js",
+  "chunks/shell-FVlnudhy.js",
+  "chunks/assistant-icon-Bimvzc28.js",
   "chunks/embed-Dt3d22Ag.js",
-  "chunks/createLucideIcon-CkCeKDIj.js",
-  "chunks/watch-alerts-CzT46h-X.js",
+  "chunks/createLucideIcon-80RA_1_X.js",
+  "chunks/watch-alerts-snYH5WVD.js",
   "chunks/watchlist-core-CnJpcWvS.js",
   "chunks/item-offer-filters-WhsqKTCQ.js",
-  "chunks/live-CG2rhTCA.js",
-  "chunks/toasts-DGpwrNyj.js",
-  "chunks/push-s_bsuQb6.js",
-  "chunks/list-copy-BqOV-nwS.js"
+  "chunks/live-7nS96oyq.js",
+  "chunks/toasts-DIPthn5X.js",
+  "chunks/push-Dhv0KHBA.js",
+  "chunks/list-copy-oQdadr67.js"
  ],
  "catalogue": {
   "modules": [
-   "chunks/catalogue-BadEIzrO.js",
-   "chunks/catalogue-BdDEvm8G.js",
-   "chunks/offer-filters-D3YEXAYb.js",
+   "chunks/catalogue-DkaynOyT.js",
+   "chunks/catalogue-RomtdzM5.js",
+   "chunks/offer-filters-DueU8uc7.js",
    "chunks/crafting-CXB4nJ1A.js"
   ],
   "styles": [
@@ -31,11 +31,11 @@
  },
  "search": {
   "modules": [
-   "chunks/catalogue-search-DM4f7FfD.js",
-   "chunks/dialog-wKyLI7ur.js",
-   "chunks/dist-Cb_ajfdt.js",
-   "chunks/price-state-BnaVj3xA.js",
-   "chunks/dist-B6pT7ebE.js"
+   "chunks/catalogue-search-CzOHXy3M.js",
+   "chunks/dialog-BmN04NTf.js",
+   "chunks/dist-CJKr9frC.js",
+   "chunks/price-state-CaBh6gQI.js",
+   "chunks/dist-Ftr-qCJS.js"
   ],
   "styles": []
  },

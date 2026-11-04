@@ -27,7 +27,10 @@ test('tokens come from the normalized page, not the URL', () => {
   const mob = dexTokens({ kind: 'Mob', mob_filters: { lmin: 1, lmax: 10, boss: true }, region: 'victoria', area: '射手村', areas: [{ region: 'victoria', key: '射手村', names: { zh: '射手村', en: 'Henesys' } }] });
   assert.deepEqual(mob.map((t) => t.key), ['level', 'region', 'area', 'boss']);
   assert.deepEqual(mob[1].patch, { region: null, area: null });
-  assert.deepEqual(dexTokens({ kind: 'Map', town: true, region: '', areas: [] }).map((t) => t.value), ['只看城镇']);
+  // The map list shows its region and towns as chips; an old area link is a token.
+  const areas = [{ region: 'victoria', key: 'Perion', names: { zh: '勇士部落', en: 'Perion' } }];
+  assert.deepEqual(dexTokens({ kind: 'Map', town: true, region: 'victoria', area: 'Perion', areas }).map((t) => t.value), ['勇士部落']);
+  assert.deepEqual(dexTokens({ kind: 'Mob', region: 'rest', areas: [] }).map((t) => t.value), ['其他']);
   assert.deepEqual(dexTokens({ kind: null, query: '蜗牛' }), [], 'the three-catalogue view has no filters');
 });
 

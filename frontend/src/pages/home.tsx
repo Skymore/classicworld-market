@@ -53,12 +53,6 @@ export default function Home() {
               {words("图鉴", "Catalogue")}
             </span>
           </SiteLink>
-          <SiteLink className="portal" href="/world">
-            <span className="p-top">
-              <Icon name="map" />
-              {words("世界地图", "Maps")}
-            </span>
-          </SiteLink>
         </nav>
         <img
           className="deco-snail"

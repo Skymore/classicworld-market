@@ -41,11 +41,11 @@
 
 - dev 库重跑 `import_catalog`（会读 `scenes.json`），打开几张地图页看：蚂蚁洞Ⅰ（10005060）、一张废弃都市地铁、彩虹村杂货店（1013）。场景图要显示，怪物头像要站在平台上。手机宽度也看一下。
 - 跑 `cargo test --workspace`、`node --test web/tests/*.test.mjs`。
-- 如果地图列表缩略图已经上线，重新生成这些地图的缩略图。
+- 重新生成地图列表的卡片图：`python tools/niadb_map_assets.py thumbs`。它只重做缺的和比场景图旧的，这些地图会从小地图图换成场景图，7 家店铺不再显示"无图"。
 
 ### 6. 提交和上线
 
-- 作者 Skymore。图片、`scenes.json`、`sources.json` 和工具改动一起提交，推功能分支，不推 main。
+- 作者 Skymore。图片（含 `web/images/map-thumbs/`）、`scenes.json`、`sources.json` 和工具改动一起提交，推功能分支，不推 main。
 - 合入并上线后，按 `BESTIARY_NIADB_UPDATE.md` 第 4 步在生产库重跑 `import_catalog`。
 
 ## 完成后报告

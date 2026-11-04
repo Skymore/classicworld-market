@@ -19,6 +19,7 @@ import {
 } from "../components/ui/dropdown-menu";
 import { levelRanges } from "../lib/price-state";
 import { MapRow, MobRow, Secondary, useMapHint, useNames, Well } from "./catalogue";
+import { MapBrowser } from "./map-browser";
 import {
   jobs,
   regions,
@@ -381,6 +382,27 @@ export default function Search({ page }: { page: any }) {
         </div>
       </>
     );
+  const filtered = !!(page.query || tokens.length || filters.cat || page.region || page.town || page.spot);
+  const empty = (
+    <div className="empty">
+      <img src="https://maplestory.io/api/GMS/83/mob/120100/render/stand" alt="" loading="lazy" />
+      <p>
+        {page.query
+          ? words(
+              `没有找到「${page.query}」。换个字试试，比如只输入名字的一部分。`,
+              `Nothing matches “${page.query}”. Try part of the name.`,
+            )
+          : filtered
+            ? words("没有符合筛选条件的结果。", "Nothing matches these filters.")
+            : words("暂无图鉴数据。", "No catalogue data yet.")}
+      </p>
+      {filtered && (
+        <Button data-clear-search onClick={() => navigate("/search?kind=" + kind, { replace: true })}>
+          {words("清空搜索和筛选", "Clear search and filters")}
+        </Button>
+      )}
+    </div>
+  );
   return (
     <section className="stall dex-search">
       <div className="stall-bar">
@@ -499,7 +521,7 @@ export default function Search({ page }: { page: any }) {
             </DropdownMenu>
           </span>
         )}
-        {kind && (
+        {kind && kind !== "map" && (
           <Dialog>
             <DialogTrigger asChild>
               <button
@@ -536,7 +558,27 @@ export default function Search({ page }: { page: any }) {
           </Dialog>
         )}
       </div>
-      {kind ? (
+      {kind === "map" ? (
+        <>
+          {tokens.length > 0 && (
+            <div className="dex-tokens" data-active-filters>
+              {tokens.map((token) => (
+                <button
+                  type="button"
+                  className="tok"
+                  key={token.key}
+                  data-remove-filter={token.key}
+                  onClick={() => go(token.patch)}
+                >
+                  {token.label && token.label + " "}
+                  <b>{token.value}</b> ×
+                </button>
+              ))}
+            </div>
+          )}
+          <MapBrowser page={page} empty={empty} />
+        </>
+      ) : kind ? (
         <>
           {tokens.length > 0 && (
             <div className="dex-tokens" data-active-filters>
@@ -575,31 +617,7 @@ export default function Search({ page }: { page: any }) {
                 ))}
               </div>
             ) : (
-              <div className="empty">
-                <img
-                  src="https://maplestory.io/api/GMS/83/mob/120100/render/stand"
-                  alt=""
-                  loading="lazy"
-                />
-                <p>
-                  {page.query
-                    ? words(
-                        `没有找到「${page.query}」。换个字试试，比如只输入名字的一部分。`,
-                        `Nothing matches “${page.query}”. Try part of the name.`,
-                      )
-                    : tokens.length || filters.cat
-                      ? words("没有符合筛选条件的结果。", "Nothing matches these filters.")
-                      : words("暂无图鉴数据。", "No catalogue data yet.")}
-                </p>
-                {(page.query || tokens.length > 0 || filters.cat) && (
-                  <Button
-                    data-clear-search
-                    onClick={() => navigate("/search?kind=" + kind, { replace: true })}
-                  >
-                    {words("清空搜索和筛选", "Clear search and filters")}
-                  </Button>
-                )}
-              </div>
+              empty
             )}
           </div>
           {pages > 1 && (

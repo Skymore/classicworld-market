@@ -13,7 +13,7 @@ export const catalogKey = (url: string) => {
 };
 export const sameCatalog = (a: string, b: string) =>
   JSON.stringify(catalogKey(a)) === JSON.stringify(catalogKey(b));
-const SNAPSHOT_KINDS = ["item", "mob", "map", "npc", "world", "route", "search"];
+const SNAPSHOT_KINDS = ["item", "mob", "map", "npc", "route", "search"];
 /** Page data a server-rendered page embeds (`page_data_script` in shell.rs). */
 export function readCatalogSnapshot() {
   const element = document.getElementById("catalog-snapshot");
