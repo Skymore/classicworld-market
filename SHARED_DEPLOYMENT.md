@@ -3,7 +3,7 @@
 ## 网站流量统计
 
 网站通过 `/api/v1/traffic/event` 记录匿名页面访问，PostgreSQL 的
-`site_pageviews` 与网站数据一同备份。所有访客均可在主站
+`site_pageviews` 属于网站数据库；仅在用户明确要求备份时与网站数据一同备份。所有访客均可在主站
 `https://mxd.ruit.me/traffic` 查看浏览量、今日访客、地区地图、来源域名与设备分布；
 首页页脚提供「网站流量」入口。流量页使用主站 React 导航、窗口样式与昼夜主题，
 不展示统计说明长文、每日明细或分页面排行。
@@ -68,9 +68,9 @@ R2 发布配置在本机 `shared_data/r2-publisher.json`，仅含 `account_id`�
 部署继续使用不可变产物、候选服务检查和 supervisor 原子切换；
 上线后核对公网静态文件与发布清单一致。
 
-用户最新偏好（2026-10-25）：常规网站改动和发布不备份数据库。
-数据库迁移、批量修改或删除等高风险操作前才备份；高风险发布使用
-`deploy_market.py deploy --backup-database ...`。既有数据库备份继续保留。
+用户最新偏好（2026-11-04）：网站发布、数据库迁移、批量导入、修改或删除均不自动备份数据库。
+只有用户明确要求备份时才执行，届时可使用 `deploy_market.py deploy --backup-database ...`；
+不要因迁移或导入自行添加该参数。源码与发布版本仍须保留，以便回滚；既有数据库备份继续保留。
 
 ## 历史 GitHub RoomTalk 自动发布（已停用）
 
@@ -121,7 +121,7 @@ python shared_server.py --backup shared_data/backups/manual.sqlite
 
 ## 启停
 
-`shared_supervisor.py` 维持 web、upload、tunnel 三个子进程，异常退出约 20 秒后重启。启动和日常守护循环不执行数据库备份，避免死机后的数据库恢复或备份阻塞网站重启；数据库迁移、批量修改或删除前使用显式备份。Windows 登录计划任务可调用它；仅在该 Windows 用户登录后运行。电脑休眠、关机或网络中断期间网站不可用。日志在 `shared_data/*.log`，进程状态在 `shared_data/supervisor_status.json`。
+`shared_supervisor.py` 维持 web、upload、tunnel 三个子进程，异常退出约 20 秒后重启。启动、日常守护、发布、迁移及批量导入均不自动备份数据库，只有用户明确要求时才备份。Windows 登录计划任务可调用它；仅在该 Windows 用户登录后运行。电脑休眠、关机或网络中断期间网站不可用。日志在 `shared_data/*.log`，进程状态在 `shared_data/supervisor_status.json`。
 
 Cloudflare 隧道凭据放在用户 `.cloudflared`，项目的 `shared_data/tunnel.yml` 指向该凭据。仅指定域名的 HTTP 流量进入 8766，其他 hostname 返回 404。
 
@@ -210,7 +210,7 @@ React 使用的 `web/js/` 共享模块随哈希资源一起构建，避免 CDN �
 未来记录到达首次有效时间时仅精确重算对应摊位，周/月窗口过期不使累计汇总失效。
 任意设备子集与周/月统计沿用原精确查询，绑定、解绑、设备停用及位置修复在同一事务更新汇总。
 
-此次发布新增派生表并回填历史数据，须使用 `deploy_market.py deploy --backup-database`。
+此迁移新增派生表并回填历史数据；按 2026-11-04 的用户规则不自动备份数据库。
 原始采集与逐设备贡献记录保持完整。旧二进制的 SQLx 会拒绝未知迁移，回滚时先执行
 `server/tools/rollback_account_contribution_rollups.sql`，再切回保留版本；该脚本只撤销新派生表、
 触发器和对应迁移记录，不删除原始贡献。如已有后续迁移，脚本会停止，须先复核依赖。

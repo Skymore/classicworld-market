@@ -392,7 +392,7 @@ def main():
     install.add_argument("--artifact", required=True)
     install.add_argument("--commit", required=True)
     install.add_argument("--backup-database", action="store_true",
-                         help="Back up PostgreSQL before high-risk schema or data changes")
+                         help="Back up PostgreSQL only when explicitly requested by the user")
     args = parser.parse_args()
     if args.command == "package":
         package(args.root, args.binary, args.output, args.commit, args.base_release)
