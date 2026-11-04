@@ -264,6 +264,18 @@ class DeploymentTests(unittest.TestCase):
         with patch.object(deployment, "wait_for_release"):
             self.assertEqual(deployment.activate(self.root, merged), previous)
         self.assertEqual(json.loads(pointer.read_text())["commit"], merged)
+        # A rewritten history maps the active commit to its new equivalent.
+        rewritten = git("commit-tree", tree, data=b"rewritten active version\n")
+        fixed = git("commit-tree", tree, "-p", rewritten, data=b"fix after rewrite\n")
+        deployment.write_json(self.root / "shared_data/deploy/releases" / fixed / "manifest.json",
+                              {"base_release": merged, "source_branch": "main"})
+        git("update-ref", "refs/heads/main", fixed)
+        with patch.object(deployment, "wait_for_release"):
+            with self.assertRaisesRegex(RuntimeError, "omits the active version"):
+                deployment.activate(self.root, fixed)
+        deployment.write_json(self.root / "shared_data/deploy/commit-aliases.json", {merged: rewritten})
+        with patch.object(deployment, "wait_for_release"):
+            self.assertEqual(deployment.activate(self.root, fixed), merged)
 
     def test_relocated_web_keeps_local_google_credentials_out_of_artifact(self):
         credential = self.root / "shared_data/google-oauth.json"

@@ -304,6 +304,10 @@ def verify_activation_source(root, commit, previous_commit):
     if main.returncode or main.stdout.strip() != commit:
         raise RuntimeError("Release source must match main; merge the reviewed change before activation")
     if previous_commit != "legacy":
+        # History rewrites record old -> new commit pairs with identical source trees.
+        aliases = root / "shared_data/deploy/commit-aliases.json"
+        if aliases.exists():
+            previous_commit = json.loads(aliases.read_text(encoding="utf-8")).get(previous_commit, previous_commit)
         included = subprocess.run(["git", "merge-base", "--is-ancestor", previous_commit, commit], cwd=root,
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if included.returncode:
