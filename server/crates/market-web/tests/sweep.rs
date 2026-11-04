@@ -879,6 +879,49 @@ async fn recent_route_is_frozen_capability_gated_and_account_scoped() {
 }
 
 #[tokio::test]
+async fn live_targets_accept_market_mode_and_exclude_own_stale_sold_and_expensive_quotes() {
+    let Some(db) = TestDb::new().await else { return };
+    let s = AppState::new(db.pool.clone(), Settings::default());
+    let w = signup(&s, "live_targets").await;
+    watch(&s, &w, GLOVE, 100, 0, 0).await;
+    let (token, id) = ready_device(&s, &w, "Buyer").await;
+    let own = db.collector("own-targets").await;
+    let other = db.collector("other-targets").await;
+    sqlx::query("UPDATE account_devices SET collector_id=$1 WHERE public_id=$2")
+        .bind(own.id).bind(&id).execute(&db.pool).await.unwrap();
+    let run = device_start(&s, &token, 10000).await;
+    let path = "/api/v1/device/sweep/targets?live=true";
+    assert_eq!(dev(&s,"GET",path,&token,Value::Null).await.1["error"],"lease_lost");
+    join(&s,&token,&run,1).await;
+    let now = market_web::unix_now();
+    for (index, (collector, age, stock, price)) in [
+        (&own,0.0,10,90), (&other,0.0,10,90), (&other,601.0,10,90),
+        (&other,0.0,0,90), (&other,0.0,10,101),
+    ].into_iter().enumerate() {
+        let raw = json!({"version":1,"world":"ClassicWorld","complete":true,"observation_id":format!("live-{index}"),
+            "observed_at":now-age,"shop_id":4000+index,"title":format!("Live{index}"),
+            "owner":{"character_id":4000+index,"name":format!("Seller{index}"),"parser":"cw_shop_owner_v1"},
+            "location":{"channel":40,"room":7},
+            "items":[{"item_id":GLOVE,"slot":1,"price":price,"bundle":1,"stock":stock}]});
+        let upload = market_core::protocol::validate(&raw,now).unwrap();
+        market_web::ingest::ingest(&db.pool, market_web::ingest::Received {
+            collector,upload:&upload,raw:&serde_json::to_vec(&raw).unwrap(),received_at:now,now,
+        }).await.unwrap();
+    }
+    let (status, response) = dev(&s,"GET",path,&token,Value::Null).await;
+    assert_eq!(status,StatusCode::OK,"{response}");
+    assert_eq!(response["live"],true);
+    let rows = response["listings"].as_array().unwrap();
+    assert_eq!(rows.len(),1,"{response}");
+    assert_eq!(rows[0]["owner_name"],"Seller1");
+    assert_eq!(rows[0]["location"]["channel"],40);
+    assert_eq!(response["plan_version"],1);
+    sqlx::query("UPDATE listings SET stock=0").execute(&db.pool).await.unwrap();
+    assert_eq!(dev(&s,"GET",path,&token,Value::Null).await.1["listings"],json!([]));
+    db.close().await;
+}
+
+#[tokio::test]
 async fn shared_priority_uses_one_budget_and_local_selection() {
     let Some(db) = TestDb::new().await else { return };
     let s = AppState::new(db.pool.clone(), Settings::default());

@@ -260,6 +260,11 @@ class SweepEngine:
         self.listeners = []
         self.thread = None
         self.recent_shops = set()
+        from sweep_routes import LiveTargets
+        self.live_targets = LiveTargets()
+        self.live_context = None
+        self.live_generation = 0
+        self.target_thread = None
         self.revisit = None  # ShopRevisit handed to the scanner and not yet delivered or ended.
 
     def _decision(self, reason, row=None, packet=None, **details):
@@ -1063,6 +1068,54 @@ class SweepEngine:
             self.recent_shops = {shop_key(s, s['owner']) for s in result}
             return result
 
+    def _target_context(self):
+        return (self.token, (self.run or {}).get('id'), self.plan_version, self.lease)
+
+    def refresh_live_targets(self):
+        from sweep_routes import LiveTargets, targets
+        with self.lock:
+            if not self.buying():
+                return
+            context, plan = self._target_context(), copy.deepcopy(self.plan)
+        response = self.client.call('GET', '/api/v1/device/sweep/targets?live=true', timeout=4)
+        with self.lock:
+            if (not isinstance(response, dict) or response.get('live') is not True
+                    or not self.buying() or context != self._target_context()
+                    or response.get('run') != context[1] or response.get('plan_version') != context[2]):
+                return
+            if self.live_context != context:
+                self.live_targets = LiveTargets()
+                self.live_context = context
+                self.live_generation += 1
+            self.live_targets.update(targets(response.get('listings', []), plan, 10, time.time()))
+
+    def next_live_target(self):
+        from sweep_routes import shop_key
+        with self.lock:
+            if not self.buying() or self.live_context != self._target_context():
+                return []
+            shops = self.live_targets.next(time.time())
+            # Recent-only mode also authorizes these owners for its fresh local
+            # visit; the actual items still pass all normal purchase rules.
+            self.recent_shops.update(shop_key(s, s['owner']) for s in shops)
+            return [dict(copy.deepcopy(s), _generation=self.live_generation) for s in shops]
+
+    def complete_live_target(self, shops):
+        with self.lock:
+            if (self.buying() and self.live_context == self._target_context()
+                    and shops and shops[0].get('_generation') == self.live_generation):
+                self.live_targets.complete(shops, time.time())
+                self._decision('live_target_complete', room=shops[0]['room'], channel=shops[0]['channel'])
+
+    def _target_loop(self):
+        # A slow quote query must never block the purchase-lease heartbeat.
+        while not self.closed.is_set():
+            try:
+                self.refresh_live_targets()
+            except (OSError, DeviceError, RuntimeError, ValueError, TypeError, KeyError, AttributeError):
+                pass  # Old servers/offline: ordinary scanning continues.
+            self.closed.wait(5)
+
     def heartbeat(self):
         with self.lock:
             if not self.run or not self.lease:
@@ -1195,6 +1248,8 @@ class SweepEngine:
     def start(self):
         self.thread = threading.Thread(target=self._loop, name='sweep-engine', daemon=True)
         self.thread.start()
+        self.target_thread = threading.Thread(target=self._target_loop, name='sweep-targets', daemon=True)
+        self.target_thread.start()
         if self.dashboard:
             self.events.start()
 
@@ -1203,6 +1258,8 @@ class SweepEngine:
         self.wake.set()
         if self.thread:
             self.thread.join(timeout=5)
+        if self.target_thread:
+            self.target_thread.join(timeout=5)
 
     def _loop(self):
         next_poll = next_beat = next_pending = 0

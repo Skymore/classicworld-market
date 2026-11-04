@@ -804,25 +804,48 @@ class DesktopController:
             def scan(*args, **kwargs):
                 return self._modules['run'](*args, **kwargs,
                     ready_callback=ready)
-            if self.sweep and self.sweep.buying() and self.sweep.scan_mode() == 'recent':
-                from sweep_routes import run_recent
-                outcome = run_recent(self._folder, self._hwnd, started, stop, self._on_scan, self.sweep, scan)
-                if not self.sweep.buying():
-                    self._user_stop()
-            else:
-                if self.sweep and self.sweep.buying() and self.sweep.scan_mode() == 'priority':
-                    from sweep_routes import run_recent
-                    run_recent(self._folder, self._hwnd, started, stop, self._on_scan, self.sweep, scan, once=True)
-                    if not self.sweep.buying():
-                        stop.set()
+            from sweep_routes import run_recent, with_live_priority, PriorityPending
+            recent_visited, initial_finished = {}, False
+            progress_type = self._modules.get('AssignedProgress')
+            progress_options = {'progress': progress_type(self.collector.home/'scan-progress.json')} if progress_type else {}
+            def regular(checkpoint=None):
+                nonlocal assignments, initial_finished
+                if self.sweep and self.sweep.buying():
+                    mode = self.sweep.scan_mode()
+                    if mode == 'recent' or (mode == 'priority' and not initial_finished):
+                        result = run_recent(self._folder, self._hwnd, started, stop, self._on_scan,
+                            self.sweep, scan, once=mode == 'priority', visited=recent_visited,
+                            safe_checkpoint=checkpoint)
+                        initial_finished = True
+                        if not self.sweep.buying():
+                            self._user_stop()
+                            return result
+                        if mode == 'recent':
+                            return result
                     self.sweep.progress('全市场扫描')
-                progress_type = self._modules.get('AssignedProgress')
-                progress_options = {'progress': progress_type(self.collector.home/'scan-progress.json')} if progress_type else {}
                 assignments = self._modules['CloudScan'](config, stop, self._on_scan,
                     paused=self._modules['is_paused'], session=self._session, transport=transport,
-                    diagnostic=self._journal.event, **progress_options)
-                outcome = scan(self._folder, self._hwnd, started, stop,
-                                              self._on_scan, assignments=assignments, **hooks)
+                    diagnostic=self._journal.event, **progress_options,
+                    **({'safe_checkpoint': checkpoint} if checkpoint else {}))
+                try:
+                    return scan(self._folder, self._hwnd, started, stop, self._on_scan,
+                        assignments=assignments, **hooks,
+                        **({'safe_checkpoint': checkpoint} if checkpoint else {}))
+                except PriorityPending:
+                    # Route cleanup already released input. Return the ordinary
+                    # room lease now; its checkpoint survives for a later claim.
+                    assignments.close()
+                    monitor = getattr(assignments, 'thread', None)
+                    if isinstance(monitor, threading.Thread) and monitor.is_alive():
+                        raise RuntimeError('Previous scan assignment did not close')
+                    self._journal.event('live_target_handoff')
+                    assignments = None
+                    raise
+            if self.sweep:
+                outcome = with_live_priority(self._folder, self._hwnd, started, stop,
+                    self._on_scan, self.sweep, scan, regular, visited=recent_visited)
+            else:
+                outcome = regular()
             if outcome and outcome.get('reason') == 'room_scan_incomplete':
                 raise RuntimeError('Room scan incomplete')
         except Exception as error:

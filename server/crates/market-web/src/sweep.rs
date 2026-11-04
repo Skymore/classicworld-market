@@ -12,7 +12,7 @@ use crate::{
     AppState,
 };
 use axum::{
-    extract::{DefaultBodyLimit, State},
+    extract::{DefaultBodyLimit, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -632,7 +632,12 @@ async fn device_start(State(state): State<AppState>, headers: HeaderMap, Json(in
 
 /// Current known quotes guide navigation only. The collector reapplies the
 /// complete conditions and verifies a fresh in-game listing before reserving.
-async fn device_targets(State(state): State<AppState>, headers: HeaderMap) -> Reply {
+#[derive(Deserialize, Default)]
+struct TargetQuery {
+    #[serde(default)]
+    live: bool,
+}
+async fn device_targets(State(state): State<AppState>, headers: HeaderMap, Query(query): Query<TargetQuery>) -> Reply {
     let d = devices::device(&state, &headers).await?;
     let mut tx = state.db.begin().await.map_err(internal)?;
     let run = lock_running(&mut tx, d.account).await?.ok_or_else(|| conflict("sweep_stopped"))?;
@@ -640,12 +645,17 @@ async fn device_targets(State(state): State<AppState>, headers: HeaderMap) -> Re
     let member: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sweep_run_devices WHERE run_id=$1 AND device_id=$2 AND state='active' AND lease_expires_at>clock_timestamp())")
         .bind(run.id).bind(d.id).fetch_one(&mut *tx).await.map_err(internal)?;
     if !member { return Err(conflict("lease_lost")); }
-    let minutes = if run.plan["scan"]["mode"] == "priority" { 180 }
+    let minutes = if query.live { 10 } else if run.plan["scan"]["mode"] == "priority" { 180 }
         else { run.plan["scan"]["recent_minutes"].as_i64().ok_or_else(invalid)? };
     let ids: Vec<i32> = watches(&run.plan).filter_map(|w| w["item_id"].as_i64().map(|n| n as i32)).collect();
     tx.commit().await.map_err(internal)?;
     let now = Utc::now().timestamp() as f64;
-    let rows = crate::views::sweep_quotes(&state.db, &ids, now - (minutes * 60) as f64).await.map_err(internal)?;
+    let cutoff = now - (minutes * 60) as f64;
+    let rows = if query.live {
+        crate::views::sweep_live_quotes(&state.db, &ids, cutoff, d.id).await
+    } else {
+        crate::views::sweep_quotes(&state.db, &ids, cutoff).await
+    }.map_err(internal)?;
     let rows: Vec<Value> = rows.into_iter().filter(|r| {
         let item = r["item_id"].as_i64().unwrap_or_default();
         r["source"] == "packet" && r["location"]["room"].as_i64().is_some_and(|n| (1..=20).contains(&n))
@@ -653,7 +663,7 @@ async fn device_targets(State(state): State<AppState>, headers: HeaderMap) -> Re
             && r["stock"].as_i64().is_some_and(|n| n > 0)
             && plan_item(&run.plan, item).is_some_and(|(_, cap)| r["unit_price"].as_f64().is_some_and(|p| p > 0.0 && p <= cap))
     }).collect();
-    Ok(Json(json!({"run":run.public_id,"plan_version":run.plan_version,"generated_at":now,"listings":rows})).into_response())
+    Ok(Json(json!({"run":run.public_id,"plan_version":run.plan_version,"generated_at":now,"live":query.live,"listings":rows})).into_response())
 }
 #[derive(Deserialize)]
 struct Join {

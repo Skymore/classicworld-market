@@ -256,6 +256,7 @@ class DesktopTests(unittest.TestCase):
 
     def test_sweep_hooks_reach_the_scan_and_status_line(self):
         sweep = Mock()
+        sweep.next_live_target.return_value = []
         sweep.lock = threading.RLock()
         sweep.buying.return_value = False
         sweep.summary.return_value = {'enabled': True, 'units': 2, 'spent': 300, 'message': '扫货中'}
@@ -277,6 +278,41 @@ class DesktopTests(unittest.TestCase):
         controller.read_local_status()
         self.assertEqual(controller.snapshot()['sweep'], sweep.summary.return_value)
         self.assertIs(DesktopAPI(controller)._workspace.sweep, sweep)
+
+    def test_live_target_handoff_releases_lease_and_reuses_checkpoint_without_restarting_capture(self):
+        from scan_progress import AssignedProgress
+        sweep = Mock()
+        sweep.buying.return_value=True
+        sweep.scan_mode.return_value='market'
+        self.controller.sweep=sweep
+        pending, events, checkpoints=[],[],[]
+        sweep.next_live_target.side_effect=lambda:list(pending)
+        sweep.complete_live_target.side_effect=lambda shops:pending.clear()
+        def factory(*args,**kw):
+            checkpoints.append(kw['progress'])
+            return Mock(close=lambda:events.append('release'))
+        stop=threading.Event()
+        def run(folder,hwnd,ready,cancel,status,**kw):
+            if 'assignments' in kw:
+                events.append('ordinary')
+                if events.count('ordinary')==1:
+                    pending.append(dict(room=3,channel=9,owner='A',offers=[]))
+                    kw['safe_checkpoint']()
+                stop.set()
+                return dict(reason='cancelled')
+            events.append('target')
+            self.assertEqual(events[-2],'release')
+            kw['progress'].begin(3,9,1)
+            kw['progress'].save(3,10,1,phase='pending')
+        self.modules.update(channel_capture=lambda path,cancel,ready_event:(ready_event.set(),cancel.wait(5)),
+            position_capture=lambda path,cancel,ready_event:(ready_event.set(),cancel.wait(5)),
+            DEFAULT_STATE=None,POSITION_STATE=None,CloudScan=factory,AssignedProgress=AssignedProgress,run=run)
+        with patch('scanner_desktop.release_keys'),patch('scanner_desktop.RUNS',Path(self.temp.name)/'runs'):
+            failure,clean=self.controller._attempt(stop)
+        self.assertEqual(str(failure),'Scan worker returned without completing service')
+        self.assertTrue(clean)
+        self.assertEqual(events,['ordinary','release','target','ordinary','release'])
+        self.assertIs(checkpoints[0],checkpoints[1])
 
     def test_new_web_sweep_starts_once_and_does_not_undo_manual_stop(self):
         sweep = Mock(lock=threading.RLock(), run={'id':'new-run'})

@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from collector_sweep import configuration
-from sweep_routes import targets, run_recent
+from sweep_routes import targets, run_recent, LiveTargets, with_live_priority
 
 
 class RecentRouteTests(unittest.TestCase):
@@ -74,6 +74,59 @@ class RecentRouteTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,'incomplete'):
                 run_recent(Path(folder),12,threading.Event(),threading.Event(),Mock(),engine,
                            lambda *args,**kwargs: {'reason':'room_scan_incomplete'})
+
+    def test_live_targets_merge_places_deduplicate_and_expire(self):
+        queue = LiveTargets()
+        a = dict(room=2, channel=40, owner='A', observed=1000, offers=[[1,1,10,1,2,None]])
+        b = dict(a, owner='B')
+        queue.update([a,b,dict(a,room=3)])
+        self.assertEqual(queue.next(1001), [a,b])
+        queue.complete([a,b],1001)
+        self.assertEqual(queue.next(1002)[0]['room'],3)
+        queue.update([dict(a,observed=1010),b])
+        self.assertEqual(queue.next(1010), [], 'new observation alone is not a new offer')
+        changed = dict(a,offers=[[1,1,9,1,2,None]])
+        queue.update([changed])
+        self.assertEqual(queue.next(1010), [changed])
+        self.assertEqual(queue.next(1601), [])
+        queue.update([])
+        self.assertEqual(queue.next(1001), [])
+
+    def test_live_hit_preempts_regular_route_then_resumes_after_one_channel(self):
+        shop = dict(room=7,channel=40,owner='A',observed=1,offers=[])
+        engine = Mock()
+        engine.buying.return_value = True
+        pending, events = [], []
+        engine.next_live_target.side_effect = lambda:list(pending)
+        engine.complete_live_target.side_effect = lambda shops: (events.append('completed'),pending.clear())
+        def regular(checkpoint):
+            events.append('regular')
+            if events.count('regular') == 1:
+                pending.append(shop)
+                try:
+                    checkpoint()
+                finally:
+                    events.append('lease_released')
+            return {'reason':'cancelled'}
+        def scan(folder,hwnd,ready,stop,status,progress,**hooks):
+            events.append('target')
+            self.assertEqual((progress.state['room'],progress.state['channel']),(7,40))
+            self.assertNotIn('safe_checkpoint',hooks)
+            progress.begin(7,40,1)
+            progress.complete(7,40,1)
+        with tempfile.TemporaryDirectory() as folder:
+            with_live_priority(folder,12,threading.Event(),threading.Event(),Mock(),engine,scan,regular)
+        self.assertEqual(events,['regular','lease_released','target','completed','regular'])
+
+    def test_live_failed_route_does_not_consume_target(self):
+        engine = Mock()
+        engine.buying.return_value = True
+        engine.next_live_target.return_value = [dict(room=1,channel=2,owner='A',offers=[])]
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(RuntimeError,'incomplete'):
+                with_live_priority(folder,12,threading.Event(),threading.Event(),Mock(),engine,
+                                   lambda *a,**kw: {'reason':'room_scan_incomplete'},Mock())
+        engine.complete_live_target.assert_not_called()
 
 
 if __name__=='__main__':unittest.main()

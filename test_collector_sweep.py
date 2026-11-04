@@ -149,6 +149,32 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(state['sweep']['game'], {'connected': True})
         self.assertIn('client_version', state)
 
+    def test_live_target_poll_fences_plan_changes_and_completed_routes(self):
+        self.joined()
+        row = dict(item_id=ITEM,price=90,bundle=1,stock=3,slot=1,source='packet',
+                   owner_name='Seller',observed=time.time(),location=dict(room=7,channel=12))
+        response = dict(run=self.engine.run['id'],plan_version=self.engine.plan_version,listings=[row],live=True)
+        original = self.server.call
+        def call(method,path,*args,**kwargs):
+            return response if path.endswith('targets?live=true') else original(method,path,*args,**kwargs)
+        with patch.object(self.server,'call',side_effect=call):
+            self.engine.refresh_live_targets()
+            shops = self.engine.next_live_target()
+            self.assertEqual((shops[0]['room'],shops[0]['channel']),(7,12))
+            self.engine.complete_live_target(shops)
+            self.engine.refresh_live_targets()
+            self.assertEqual(self.engine.next_live_target(),[])
+            self.engine.plan_version += 1
+            self.assertEqual(self.engine.next_live_target(),[])
+            self.engine.refresh_live_targets()  # Old in-flight response.
+            self.assertEqual(self.engine.next_live_target(),[])
+            response['plan_version'] = self.engine.plan_version
+            self.engine.refresh_live_targets()
+            self.engine.complete_live_target(shops)  # Completion from old plan.
+            self.assertEqual(len(self.engine.next_live_target()),1)
+            self.engine.lease_deadline = 0
+            self.assertEqual(self.engine.next_live_target(),[])
+
     def test_state_is_reported_on_change_and_every_minute(self):
         self.engine._identity()
         self.engine.report()

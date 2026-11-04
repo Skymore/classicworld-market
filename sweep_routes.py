@@ -42,33 +42,106 @@ class TargetComplete(Exception):
     """Raised only at the scanner's completed-channel checkpoint, after cleanup."""
 
 
-def run_recent(folder, hwnd, ready, stop, status, engine, scan, *, once=False):
+class PriorityPending(Exception):
+    """Controlled route handoff, never a channel failure or recovery request."""
+
+
+def fingerprint(shop):
+    return json.dumps(sorted(shop['offers'], key=lambda v: json.dumps(v, sort_keys=True)), sort_keys=True)
+
+
+class LiveTargets:
+    """Owned under the engine lock. Refreshes replace stale/sold navigation hints."""
+    def __init__(self):
+        self.shops = []
+        self.done = collections.OrderedDict()
+
+    def update(self, shops):
+        self.shops = shops
+
+    def next(self, now):
+        while self.done and next(iter(self.done.values())) < now-1800:
+            self.done.popitem(last=False)
+        eligible = [s for s in self.shops if 0 <= now-s['observed'] <= 600
+                    and (shop_key(s, s['owner']), fingerprint(s)) not in self.done]
+        if not eligible:
+            return []
+        place = eligible[0]['room'], eligible[0]['channel']
+        return [s for s in eligible if (s['room'], s['channel']) == place]
+
+    def complete(self, shops, now):
+        for shop in shops:
+            key = shop_key(shop, shop['owner']), fingerprint(shop)
+            self.done.pop(key, None)
+            self.done[key] = now
+        while len(self.done) > 4096:
+            self.done.popitem(last=False)
+
+
+def with_live_priority(folder, hwnd, ready, stop, status, engine, scan, regular, *, visited=None):
+    """The ordinary route releases its room lease before yielding control here."""
+    def checkpoint():
+        if not stop.is_set() and engine.next_live_target():
+            raise PriorityPending()
+
+    while not stop.is_set():
+        shops = engine.next_live_target()
+        if shops:
+            room, channel = shops[0]['room'], shops[0]['channel']
+            engine.progress(f'优先扫货：{room} 洞 · {channel}频道', revisits=1)
+            # No checkpoint hook: finish this highest-priority channel once.
+            run_recent(folder, hwnd, ready, stop, status, engine, scan,
+                       once=True, target_shops=shops, visited=visited)
+            if not stop.is_set():
+                engine.complete_live_target(shops)
+            continue
+        try:
+            return regular(checkpoint)
+        except PriorityPending:
+            # full_market_scan has already released held keys; regular() must
+            # close CloudScan before this exception reaches the dispatcher.
+            continue
+    return dict(reason='cancelled')
+
+
+def run_recent(folder, hwnd, ready, stop, status, engine, scan, *, once=False,
+               target_shops=None, visited=None, safe_checkpoint=None):
     from scan_progress import ScanProgress
     folder = Path(folder)
-    visited = {}
+    visited = {} if visited is None else visited
     total = 0
     while not stop.is_set() and engine.buying():
-        queue = engine.recent_targets()
+        if safe_checkpoint:
+            safe_checkpoint()
+        queue = engine.recent_targets() if target_shops is None else target_shops
         locations = {}
         now = time.monotonic()
         for shop in queue:
             key = shop_key(shop, shop['owner'])
-            fingerprint = json.dumps(shop['offers'], sort_keys=True)
+            stamp = fingerprint(shop)
             previous = visited.get(key)
-            if previous and previous[0] == fingerprint and now-previous[1] < 300:
+            if previous and previous[0] == stamp and now-previous[1] < 300:
                 continue
-            locations.setdefault((shop['room'], shop['channel']), []).append((shop, fingerprint))
+            locations.setdefault((shop['room'], shop['channel']), []).append((shop, stamp))
         if not locations:
             if once:
                 break
             engine.progress('等待新的命中店铺', revisits=0)
             status(('confirmed', dict(step='recent_wait', room=None, channel=None, visited=total)))
-            stop.wait(15)
+            # Polling runs separately; a new hit can interrupt this idle wait.
+            for _ in range(15):
+                if stop.wait(1):
+                    break
+                if safe_checkpoint:
+                    safe_checkpoint()
             continue
         for index, ((room, channel), shops) in enumerate(locations.items()):
             if stop.is_set() or not engine.buying():
                 break
-            engine.progress(f'近期命中：{room} 洞 · {channel}频道 · 待访 {len(locations)-index} 处', revisits=len(locations)-index)
+            if safe_checkpoint:
+                safe_checkpoint()
+            label = '优先扫货' if target_shops is not None else '近期命中'
+            engine.progress(f'{label}：{room} 洞 · {channel}频道 · 待访 {len(locations)-index} 处', revisits=len(locations)-index)
             class VisitProgress(ScanProgress):
                 armed = False
                 def save(self, r, ch, cycle, **details):
@@ -89,12 +162,13 @@ def run_recent(folder, hwnd, ready, stop, status, engine, scan, *, once=False):
                 status(event)
             try:
                 outcome = scan(visit_folder, hwnd, ready, stop, observed, progress=progress,
-                               shop_callback=engine.on_shop_open, capture_receipt=engine.receipt)
+                               shop_callback=engine.on_shop_open, capture_receipt=engine.receipt,
+                               **({'safe_checkpoint': safe_checkpoint} if safe_checkpoint else {}))
                 if not stop.is_set():
                     raise RuntimeError(f'Recent target incomplete: {outcome}')
             except TargetComplete:
-                for shop, fingerprint in shops:
-                    visited[shop_key(shop, shop['owner'])] = fingerprint, time.monotonic()
+                for shop, stamp in shops:
+                    visited[shop_key(shop, shop['owner'])] = stamp, time.monotonic()
                 total += count
         if once:
             break

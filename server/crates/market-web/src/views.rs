@@ -1143,6 +1143,27 @@ pub(crate) async fn sweep_quotes(db: &PgPool, items: &[i32], cutoff: f64) -> sql
     Ok(quotes(db, items, cutoff).await?.into_iter().map(watch_listing).collect())
 }
 
+/// Live navigation hints from other collectors, never authorization to buy.
+/// Query current stock (not historical observation_rows) so a sold/removed
+/// listing disappears on the next refresh. Keep all slots for stock conditions.
+pub async fn sweep_live_quotes(db: &PgPool, items: &[i32], cutoff: f64, device: i64) -> sqlx::Result<Vec<Value>> {
+    let sql = format!(
+        "SELECT {} FROM listings l
+         JOIN LATERAL (SELECT public_key,title,owner_name,shop_id,channel,room,last_seen_at
+                       FROM shops WHERE id=l.shop_id OFFSET 0) sh ON true
+         JOIN LATERAL (SELECT visit_key,observed_at,map_channel,map_id,source,collector_id
+                       FROM observations WHERE id=l.observation_id OFFSET 0) o ON true
+         JOIN items i ON i.id=l.item_id LEFT JOIN equipment_variants v ON v.id=l.variant_id
+         WHERE l.item_id=ANY($1) AND l.stock>0 AND o.source='packet'
+           AND o.observed_at>=to_timestamp($2)
+           AND o.collector_id IS DISTINCT FROM (SELECT collector_id FROM account_devices WHERE id=$3)
+         ORDER BY o.observed_at DESC,sh.public_key,l.slot",
+        row_columns("l")
+    );
+    let rows = sqlx::query(&sql).bind(items).bind(cutoff).bind(device).fetch_all(db).await?;
+    Ok(rows.iter().map(|r| watch_listing(row_json(r))).collect())
+}
+
 pub async fn watch_listings(db: &PgPool, items: &[i32], now: f64) -> sqlx::Result<Value> {
     let started = std::time::Instant::now();
     let quotes = quotes(db, items, Window::recent(now).cutoff).await?;
