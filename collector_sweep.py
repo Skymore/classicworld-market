@@ -635,6 +635,9 @@ class SweepEngine:
         executor_limit = getattr(self.purchaser, 'max_quantity', None)
         if type(executor_limit) is int and executor_limit > 0:
             caps.append(('max_order', executor_limit))
+        unit_limit = getattr(self.purchaser, 'max_units', None)
+        if type(unit_limit) is int and unit_limit > 0:
+            caps.append(('max_order', unit_limit//row['bundle']))
         if type(executor.mesos) is int:
             caps.append(('reserve_mesos', (executor.mesos-settings['reserve_mesos'])//price))
         quantity = min([row['stock'], *(cap for _, cap in caps)])

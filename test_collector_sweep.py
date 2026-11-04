@@ -439,6 +439,14 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(self.engine.spent, 15000)
         self.assertEqual(self.engine.status()['sweep']['recent'][0]['reason'], 'max_spend')
 
+    def test_native_unit_limit_caps_bundle_reservation(self):
+        self.joined()
+        self.purchaser.max_units=3
+        rows=[dict(item_id=ITEM,slot=1,price_mesos_candidate=90,
+                   bundle_quantity_candidate=2,available_quantity_candidate=10)]
+        self.engine.on_shop_open(self.capture(items=rows),'w')
+        self.assertEqual(self.server.named('reserve')[-1]['quantity'],1)
+
     def test_ammunition_counts_sets_and_bundles_count_items(self):
         self.joined()
         rows = [dict(item_id=ITEM, slot=1, price_mesos_candidate=180, bundle_quantity_candidate=2, available_quantity_candidate=10)]

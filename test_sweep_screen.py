@@ -374,7 +374,7 @@ class NativeFlowTests(unittest.TestCase):
         self.assertNotIn((735,421),self.control.actions)
 
     def test_packet_receipt_counts_units_in_multi_item_bundles(self):
-        self.frames[5]['number']=3
+        self.frames[5]['number']=15
         self.frames[-2]['number']=405
         after=dict(session='stream',revision=6,mesos=595,categories=[2],
                    items=[dict(item_id=2000001,quantity=25)])
@@ -495,6 +495,23 @@ class NativeFlowTests(unittest.TestCase):
                                  PurchaseResult('bought',count,135*count))
                 self.assertIn(('quantity',count),self.control.actions)
                 self.assertEqual(self.control.actions.count((735,421)),1)
+
+    def test_bundle_order_types_units_but_keeps_bundle_cost_and_result(self):
+        for bundles in (1,2,99):
+            self.setUp()
+            for frame in self.frames: frame['balance']=50000
+            self.frames[5]['number']=bundles*100
+            self.frames[-2]['number']=135*bundles
+            self.frames[-1]['balance']=50000-135*bundles
+            result=self.run_buy(order=replace(self.order,bundle=100,quantity=bundles))
+            self.assertEqual(result,PurchaseResult('bought',bundles,135*bundles))
+            self.assertIn(('quantity',bundles*100),self.control.actions)
+            self.assertEqual(self.control.actions.count((735,421)),1)
+
+    def test_bundle_units_limit_is_checked_before_input(self):
+        self.assertEqual(self.run_buy(order=replace(self.order,bundle=100,quantity=100)),
+                         PurchaseResult('not_bought',reason='error'))
+        self.assertEqual(self.control.actions,[])
 
     def test_partial_debit_cannot_settle_full_batch(self):
         self.frames[5]['number']=3

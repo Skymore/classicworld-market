@@ -160,6 +160,7 @@ def inventory_position(order):
 
 class WindowsPurchaser:
     max_quantity = 9999
+    max_units = 9999
 
     def __init__(self, reader=None, input_factory=None, clock=time.monotonic):
         self.reader = reader or Reader()
@@ -239,6 +240,8 @@ class WindowsPurchaser:
     def _buy(self, order, window, trace):
         flow = PurchaseFlow(order, self.clock)
         if (type(order.quantity) is not int or not 1 <= order.quantity <= self.max_quantity
+                or type(order.bundle) is not int or order.bundle < 1
+                or order.quantity*order.bundle > self.max_units
                 or order.category == 1 or order.equipment is not None
                 or order.item_id//10000 in (207, 233)):
             return PurchaseResult('not_bought', reason='error')
@@ -268,7 +271,11 @@ class WindowsPurchaser:
                 if kind:
                     if title_stamp is None:
                         flow.halt('shop_closed')
-                    view = View(kind, quantity=number if kind == 'quantity' else None,
+                    # The game accepts individual units; orders and accounting
+                    # use bundles. Reject partial bundles during readback.
+                    bundles = (number//order.bundle if type(number) is int
+                               and number % order.bundle == 0 else None)
+                    view = View(kind, quantity=bundles if kind == 'quantity' else None,
                                 total=number if kind == 'confirm' else None,
                                 reason=number if kind == 'rejected' else '')
                 elif self.reader.shop(image):
@@ -384,7 +391,7 @@ class WindowsPurchaser:
                         selected_row = screen_row
                         control.click(604, 252)
                     elif action.kind == 'quantity':
-                        control.quantity(action.quantity, lambda: self.clock() < order.deadline and order.can_buy())
+                        control.quantity(action.quantity*order.bundle, lambda: self.clock() < order.deadline and order.can_buy())
                     elif action.kind in ('accept_quantity', 'confirm'):
                         control.click(735, 423 if action.kind == 'accept_quantity' else 421)
                     elif action.kind == 'cancel':
