@@ -653,7 +653,7 @@ pub enum RouteOutcome {
     Unresolved {
         end: RouteEnd,
         query: String,
-        candidates: Vec<MapRef>,
+        candidates: Vec<MapChoice>,
     },
     Same(MapRef),
     NoPath {
@@ -1106,6 +1106,42 @@ pub struct MapHit {
     pub id: i32,
     pub names: Names,
     pub street: Option<Names>,
+    /// Set when another open map has the same name (`queries::map_hints`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hint: Option<MapHint>,
+}
+
+/// What tells a map apart from open maps of the same name, per language
+/// ("通往 蘑菇镇 - 西入口"); `None` in a language where its name is unique.
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize)]
+pub struct MapHint {
+    pub zh: Option<String>,
+    pub en: Option<String>,
+}
+
+impl MapHint {
+    pub fn get(&self, lang: Lang) -> Option<&str> {
+        match lang {
+            Lang::Zh => self.zh.as_deref(),
+            Lang::En => self.en.as_deref(),
+        }
+    }
+}
+
+/// A map offered as one of several matches, with its hint when its name is
+/// shared.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MapChoice {
+    #[serde(flatten)]
+    pub map: MapRef,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hint: Option<MapHint>,
+}
+
+impl From<MapRef> for MapChoice {
+    fn from(map: MapRef) -> Self {
+        Self { map, hint: None }
+    }
 }
 
 #[cfg(test)]

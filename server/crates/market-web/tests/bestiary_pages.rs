@@ -929,9 +929,41 @@ fn route_page_outcomes() {
     let many = route(RouteOutcome::Unresolved {
         end: RouteEnd::From,
         query: "射手训练场".into(),
-        candidates: vec![map(10001010, "射手训练场Ⅰ"), map(10001011, "射手训练场Ⅱ")],
+        candidates: vec![
+            map(10001010, "射手训练场Ⅰ").into(),
+            map(10001011, "射手训练场Ⅱ").into(),
+        ],
     });
     assert!(many.contains("有多个地图"));
+    assert!(
+        many.contains("ID 10001010"),
+        "a candidate without a hint shows its id"
+    );
+    let shared = route(RouteOutcome::Unresolved {
+        end: RouteEnd::To,
+        query: "蘑菇村".into(),
+        candidates: vec![
+            MapChoice {
+                map: map(10, "蘑菇村"),
+                hint: Some(MapHint {
+                    zh: Some("通往 蘑菇镇 - 西入口".into()),
+                    en: None,
+                }),
+            },
+            MapChoice {
+                map: map(20, "蘑菇村"),
+                hint: Some(MapHint {
+                    zh: Some("通往 蘑菇村村民家、蘑菇镇东入口".into()),
+                    en: None,
+                }),
+            },
+        ],
+    });
+    assert!(
+        shared.contains("通往 蘑菇镇 - 西入口")
+            && shared.contains("通往 蘑菇村村民家、蘑菇镇东入口")
+    );
+    assert!(!shared.contains("ID 10<"), "the hint replaces the id");
     let to = "%E5%B0%84%E6%89%8B%E6%9D%91";
     assert!(many.contains(&format!(r#"href="/route?from=10001010&amp;to={to}""#)));
 

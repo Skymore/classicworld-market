@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useWords } from "../providers";
 import { loadCatalog } from "../lib/catalog";
-import { mobImageUrl, useNames } from "./catalogue";
+import { mobImageUrl, useMapHint, useNames } from "./catalogue";
 
 // A route page field that suggests open maps or monsters as the user types:
 // the quick search's list and search endpoint (components/quick-search.tsx),
@@ -32,6 +32,7 @@ export function PlaceField({
 }) {
   const words = useWords(),
     names = useNames(),
+    mapHint = useMapHint(),
     id = useId();
   const [open, setOpen] = useState(false),
     [query, setQuery] = useState(""),
@@ -210,6 +211,7 @@ export function PlaceField({
             const other = words(row.names?.en, row.names?.zh);
             const image = kind === "mob" ? mobImageUrl(row) : null;
             const extra = kind === "mob" ? (row.level != null ? `Lv.${row.level}` : "") : names(row.street);
+            const hint = kind === "map" ? mapHint(row.hint) : "";
             return (
               <li
                 key={row.id}
@@ -228,6 +230,7 @@ export function PlaceField({
                 <span className="quick-names">
                   <b>{main}</b>
                   {other && other !== main && <small>{other}</small>}
+                  {hint && <small>{hint}</small>}
                 </span>
                 {extra && <small className="quick-kind">{extra}</small>}
               </li>

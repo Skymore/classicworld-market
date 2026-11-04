@@ -1,15 +1,17 @@
 //! Game data that `/route` and `/search` rebuilt on every request: the
-//! portal graphs and the search area list. Kept until `catalog_versions`
+//! portal graphs, the search area list and the hints for maps that share a
+//! name. Kept until `catalog_versions`
 //! changes; every import records its version in the same transaction, so a
 //! new import shows on the next request without a restart.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use sqlx::PgPool;
 use tokio::sync::Mutex;
 
 use crate::bestiary::{
-    model::AreaChoice,
+    model::{AreaChoice, MapHint},
     queries,
     route::{EdgeKind, Graph},
 };
@@ -37,6 +39,7 @@ pub struct Routes {
 pub struct CatalogCache {
     routes: Mutex<Option<(Stamp, Arc<Routes>)>>,
     areas: Mutex<Option<(Stamp, Arc<Vec<AreaChoice>>)>>,
+    hints: Mutex<Option<(Stamp, Arc<HashMap<i32, MapHint>>)>>,
 }
 
 impl CatalogCache {
@@ -71,5 +74,19 @@ impl CatalogCache {
         let areas = Arc::new(queries::search_areas(db).await?);
         *slot = Some((current, areas.clone()));
         Ok(areas)
+    }
+
+    /// `queries::map_hints`: what tells apart open maps of the same name.
+    pub async fn map_hints(&self, db: &PgPool) -> sqlx::Result<Arc<HashMap<i32, MapHint>>> {
+        let mut slot = self.hints.lock().await;
+        let current = stamp(db).await?;
+        if let Some((cached, hints)) = slot.as_ref() {
+            if *cached == current {
+                return Ok(hints.clone());
+            }
+        }
+        let hints = Arc::new(queries::map_hints(db).await?);
+        *slot = Some((current, hints.clone()));
+        Ok(hints)
     }
 }

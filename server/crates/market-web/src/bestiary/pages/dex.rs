@@ -612,12 +612,21 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
                 section.well {
                     (well_head(&title, None))
                     @for c in candidates {
+                        @let id = c.map.id;
                         @let href = match (end, page.mob_mode) {
-                            (RouteEnd::From, true) => format!("/route?from={}&mob={}", c.id, url_encode(&page.mob_input)),
-                            (RouteEnd::From, false) => route_href(&c.id.to_string(), &page.to_input),
-                            (RouteEnd::To, _) => route_href(&page.from_input, &c.id.to_string()),
+                            (RouteEnd::From, true) => format!("/route?from={id}&mob={}", url_encode(&page.mob_input)),
+                            (RouteEnd::From, false) => route_href(&id.to_string(), &page.to_input),
+                            (RouteEnd::To, _) => route_href(&page.from_input, &id.to_string()),
                         };
-                        a.drow href=(ctx.href(&href)) { (map_glyph()) span.t { b { (c.names.get(lang)) } (super::secondary_name(&c.names, lang)) span.s { "ID " (c.id) } } }
+                        @let hint = c.hint.as_ref().and_then(|h| h.get(lang));
+                        a.drow href=(ctx.href(&href)) {
+                            (map_glyph())
+                            span.t {
+                                b { (c.map.names.get(lang)) }
+                                (super::secondary_name(&c.map.names, lang))
+                                @if let Some(hint) = hint { span.s { (hint) } } @else { span.s { "ID " (id) } }
+                            }
+                        }
                     }
                 }
             }
@@ -1144,7 +1153,13 @@ fn map_hit(ctx: &Ctx, map: &MapHit) -> Markup {
             span.t {
                 b { (map.names.get(ctx.lang)) }
                 (super::secondary_name(&map.names, ctx.lang))
-                @if let Some(street) = &map.street { span.s { (street.get(ctx.lang)) } }
+                @let street = map.street.as_ref().map(|s| s.get(ctx.lang));
+                @let hint = map.hint.as_ref().and_then(|h| h.get(ctx.lang));
+                @match (street, hint) {
+                    (Some(street), Some(hint)) => span.s { (street) " · " (hint) },
+                    (Some(text), None) | (None, Some(text)) => span.s { (text) },
+                    (None, None) => {},
+                }
             }
         }
     }

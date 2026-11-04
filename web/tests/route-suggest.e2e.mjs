@@ -33,7 +33,11 @@ const maps = [
   { ...HENESYS, street: { zh: '金银岛', en: 'Victoria Road' } },
   { ...ref(10001100, '射手村民宅', 'Henesys Townstreet'), street: { zh: '金银岛', en: 'Victoria Road' } },
   { ...ref(10001200, '射手训练场Ⅰ', 'Henesys Hunting Ground I'), street: { zh: '金银岛', en: 'Victoria Road' } },
-  { ...TOWN, street: { zh: '彩虹岛', en: 'Maple Island' } },
+  { ...TOWN, street: { zh: '彩虹岛', en: 'Maple Island' },
+    hint: { zh: '通往 蘑菇镇 - 西入口', en: 'Next to Mushroom Town - West Entrance' } },
+  // A second map of the same name: the server's hint tells the two apart.
+  { ...ref(10000200, '蘑菇村', 'Mushroom Town'), street: { zh: '彩虹岛', en: 'Maple Island' },
+    hint: { zh: '通往 蘑菇村村民家', en: 'Next to Mushroom Town Townstreet' } },
   { ...ref(10000100, '蘑菇山', 'Mushroom Garden'), street: { zh: '彩虹岛', en: 'Maple Island' } },
 ];
 const mobs = [
@@ -196,7 +200,11 @@ try {
     await to.tap();
     await page.keyboard.type('蘑菇');
     const toList = page.locator('.place-field').nth(1).locator('[role=listbox]');
-    await toList.getByRole('option', { name: /蘑菇村/ }).tap();
+    const towns = toList.getByRole('option', { name: /蘑菇村/ });
+    await towns.nth(1).waitFor();
+    assert.deepEqual((await towns.allInnerTexts()).map((t) => (t.includes('西入口') ? 'west' : t.includes('村民家') ? 'east' : t)),
+      ['west', 'east'], 'maps of one name show what tells them apart');
+    await towns.filter({ hasText: '西入口' }).tap();
     assert.equal(await to.inputValue(), '蘑菇村');
     assert(await toList.isHidden());
     await page.locator('.route-form button[type=submit]').tap();

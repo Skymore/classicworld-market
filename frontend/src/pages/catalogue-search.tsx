@@ -18,7 +18,7 @@ import {
   DropdownMenuRadioItem,
 } from "../components/ui/dropdown-menu";
 import { levelRanges } from "../lib/price-state";
-import { MapRow, MobRow, Secondary, useNames, Well } from "./catalogue";
+import { MapRow, MobRow, Secondary, useMapHint, useNames, Well } from "./catalogue";
 import {
   jobs,
   regions,
@@ -81,13 +81,17 @@ function ItemHit({ hit }: { hit: any }) {
 }
 
 function Hit({ kind, hit }: { kind: string; hit: any }) {
-  const name = useNames();
+  const name = useNames(),
+    mapHint = useMapHint();
   return kind === "item" ? (
     <ItemHit hit={hit} />
   ) : kind === "mob" ? (
     <MobRow mob={hit} />
   ) : (
-    <MapRow map={hit} sub={name(hit.street)} />
+    <MapRow
+      map={hit}
+      sub={[name(hit.street), mapHint(hit.hint)].filter(Boolean).join(" · ")}
+    />
   );
 }
 

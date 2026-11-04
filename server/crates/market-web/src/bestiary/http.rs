@@ -630,11 +630,20 @@ async fn resolve(
     }
     Ok(match queries::resolve_map(&state.db, input).await? {
         Resolution::One(map) => Ok(map),
-        Resolution::Many(candidates) => Err(RouteOutcome::Unresolved {
-            end,
-            query: input.to_string(),
-            candidates,
-        }),
+        Resolution::Many(candidates) => {
+            let hints = state.catalog.map_hints(&state.db).await?;
+            Err(RouteOutcome::Unresolved {
+                end,
+                query: input.to_string(),
+                candidates: candidates
+                    .into_iter()
+                    .map(|map| super::model::MapChoice {
+                        hint: hints.get(&map.id).cloned(),
+                        map,
+                    })
+                    .collect(),
+            })
+        }
     })
 }
 
@@ -770,7 +779,14 @@ async fn search_page(
     request: &super::model::SearchRequest,
 ) -> sqlx::Result<super::model::SearchPage> {
     let areas = state.catalog.search_areas(&state.db).await?;
-    queries::search_page_in(&state.db, request, areas.as_ref().clone()).await
+    let mut page = queries::search_page_in(&state.db, request, areas.as_ref().clone()).await?;
+    if !page.maps.rows.is_empty() {
+        let hints = state.catalog.map_hints(&state.db).await?;
+        for row in &mut page.maps.rows {
+            row.hint = hints.get(&row.id).cloned();
+        }
+    }
+    Ok(page)
 }
 
 /// Trimmed and capped, so a long query string costs nothing.

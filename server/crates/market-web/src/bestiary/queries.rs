@@ -10,6 +10,7 @@ use serde_json::Value;
 use sqlx::types::chrono::{DateTime, NaiveDate, Utc};
 use sqlx::{FromRow, PgPool};
 
+use super::format::Lang;
 use super::model::*;
 use super::route::{Edge, EdgeKind};
 
@@ -1938,6 +1939,190 @@ pub async fn load_edges(db: &PgPool) -> sqlx::Result<Vec<Edge>> {
         .collect())
 }
 
+/// Hints for the open maps whose name another open map shares, in either
+/// language (蘑菇村 10 and 20; "Shortcut" for 捷径 I and II in English).
+/// `catalog_cache` keeps the result until the next import.
+pub async fn map_hints(db: &PgPool) -> sqlx::Result<HashMap<i32, MapHint>> {
+    let maps: Vec<MapRef> = sqlx::query_as(concat!(
+        "SELECT m.id, ",
+        name!("m"),
+        " AS name, ",
+        name_en!("m"),
+        " AS name_en FROM maps m WHERE NOT m.unreleased ORDER BY m.id"
+    ))
+    .fetch_all(db)
+    .await?;
+    let shared = shared_name_ids(&maps);
+    if shared.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let portals: Vec<(i32, i32)> = sqlx::query_as(
+        "SELECT from_map_id, to_map_id FROM map_portals
+         WHERE kind = 'portal' AND (from_map_id = ANY($1) OR to_map_id = ANY($1))",
+    )
+    .bind(&shared)
+    .fetch_all(db)
+    .await?;
+    let mut neighbors: HashMap<i32, std::collections::BTreeSet<i32>> = HashMap::new();
+    for (from, to) in portals {
+        if from != to {
+            neighbors.entry(from).or_default().insert(to);
+            neighbors.entry(to).or_default().insert(from);
+        }
+    }
+    let npc_rows: Vec<(i32, Names)> = sqlx::query_as::<_, (i32, String, String)>(
+        "SELECT mn.map_id,
+                COALESCE(NULLIF(n.name_zh, ''), NULLIF(n.name_tw, ''), n.name_en, ''),
+                COALESCE(NULLIF(n.name_en, ''), NULLIF(n.name_zh, ''), n.name_tw, '')
+         FROM map_npcs mn JOIN npcs n ON n.id = mn.npc_id
+         WHERE mn.map_id = ANY($1) AND NOT n.unreleased
+         ORDER BY mn.map_id, n.id",
+    )
+    .bind(&shared)
+    .fetch_all(db)
+    .await?
+    .into_iter()
+    .filter(|(_, zh, en)| !zh.is_empty() || !en.is_empty())
+    .map(|(map, zh, en)| (map, Names::new(zh, en)))
+    .collect();
+    let mut npcs: HashMap<i32, Vec<Names>> = HashMap::new();
+    for (map, names) in npc_rows {
+        npcs.entry(map).or_default().push(names);
+    }
+    Ok(map_hints_for(&maps, &neighbors, &npcs))
+}
+
+/// Ids of the maps whose name another map in `maps` shares in either language.
+fn shared_name_ids(maps: &[MapRef]) -> Vec<i32> {
+    let mut ids = std::collections::BTreeSet::new();
+    for lang in [Lang::Zh, Lang::En] {
+        let mut by_name: HashMap<&str, Vec<i32>> = HashMap::new();
+        for map in maps {
+            by_name.entry(map.names.get(lang)).or_default().push(map.id);
+        }
+        ids.extend(by_name.into_values().filter(|g| g.len() > 1).flatten());
+    }
+    ids.into_iter().collect()
+}
+
+/// For each group of maps with the same name in a language: the walkable
+/// neighbours only that map has, else the NPCs only it has, else its id. A
+/// hint two maps of the group would share falls back to the id as well.
+pub(crate) fn map_hints_for(
+    maps: &[MapRef],
+    neighbors: &HashMap<i32, std::collections::BTreeSet<i32>>,
+    npcs: &HashMap<i32, Vec<Names>>,
+) -> HashMap<i32, MapHint> {
+    use std::collections::BTreeSet;
+    let names: HashMap<i32, &Names> = maps.iter().map(|m| (m.id, &m.names)).collect();
+    let mut out: HashMap<i32, MapHint> = HashMap::new();
+    for lang in [Lang::Zh, Lang::En] {
+        let mut groups: Vec<(&str, Vec<i32>)> = Vec::new();
+        for map in maps {
+            let name = map.names.get(lang);
+            match groups.iter_mut().find(|(n, _)| *n == name) {
+                Some((_, ids)) => ids.push(map.id),
+                None => groups.push((name, vec![map.id])),
+            }
+        }
+        for (_, group) in groups.into_iter().filter(|(_, g)| g.len() > 1) {
+            let members: BTreeSet<i32> = group.iter().copied().collect();
+            // Neighbours that are open maps outside the group.
+            let near: Vec<BTreeSet<i32>> = group
+                .iter()
+                .map(|id| {
+                    neighbors
+                        .get(id)
+                        .map(|n| {
+                            n.iter()
+                                .copied()
+                                .filter(|n| !members.contains(n) && names.contains_key(n))
+                                .collect()
+                        })
+                        .unwrap_or_default()
+                })
+                .collect();
+            let staff: Vec<BTreeSet<&str>> = group
+                .iter()
+                .map(|id| {
+                    npcs.get(id)
+                        .map(|n| n.iter().map(|n| n.get(lang)).collect())
+                        .unwrap_or_default()
+                })
+                .collect();
+            let common_near = intersection(&near);
+            let common_staff = intersection(&staff);
+            let mut hints: Vec<String> = group
+                .iter()
+                .enumerate()
+                .map(|(i, id)| {
+                    let own: Vec<&str> = near[i]
+                        .difference(&common_near)
+                        .map(|n| names[n].get(lang))
+                        .collect();
+                    if !own.is_empty() {
+                        return listed(lang, ("通往", "Next to"), &own);
+                    }
+                    let own: Vec<&str> = staff[i].difference(&common_staff).copied().collect();
+                    if !own.is_empty() {
+                        return listed(lang, ("NPC", "NPC"), &own);
+                    }
+                    id_hint(lang, *id)
+                })
+                .collect();
+            let repeated: Vec<bool> = hints
+                .iter()
+                .map(|h| hints.iter().filter(|o| *o == h).count() > 1)
+                .collect();
+            for (i, id) in group.iter().enumerate() {
+                if repeated[i] {
+                    hints[i] = id_hint(lang, *id);
+                }
+                let hint = out.entry(*id).or_default();
+                match lang {
+                    Lang::Zh => hint.zh = Some(hints[i].clone()),
+                    Lang::En => hint.en = Some(hints[i].clone()),
+                }
+            }
+        }
+    }
+    out
+}
+
+fn intersection<T: Ord + Clone>(
+    sets: &[std::collections::BTreeSet<T>],
+) -> std::collections::BTreeSet<T> {
+    let mut sets = sets.iter();
+    let first = sets.next().cloned().unwrap_or_default();
+    sets.fold(first, |acc, s| acc.intersection(s).cloned().collect())
+}
+
+/// "通往 甲、乙等" / "Next to A, B, …": at most two names.
+fn listed(lang: Lang, label: (&str, &str), names: &[&str]) -> String {
+    let more = names.len() > 2;
+    match lang {
+        Lang::Zh => format!(
+            "{} {}{}",
+            label.0,
+            names[..names.len().min(2)].join("、"),
+            if more { "等" } else { "" }
+        ),
+        Lang::En => format!(
+            "{} {}{}",
+            label.1,
+            names[..names.len().min(2)].join(", "),
+            if more { ", …" } else { "" }
+        ),
+    }
+}
+
+fn id_hint(lang: Lang, id: i32) -> String {
+    match lang {
+        Lang::Zh => format!("编号 {id}"),
+        Lang::En => format!("ID {id}"),
+    }
+}
+
 /// Display names for map ids; ids not in `maps` get a placeholder.
 pub async fn map_refs(db: &PgPool, ids: &[i32]) -> sqlx::Result<HashMap<i32, MapRef>> {
     let rows: Vec<MapRef> = sqlx::query_as(concat!(
@@ -2486,6 +2671,7 @@ async fn search_maps_in_region(
                 id: r.id,
                 names: r.names,
                 street: optional_names(r.street, r.street_en),
+                hint: None,
             })
             .collect(),
     })
@@ -2495,6 +2681,71 @@ async fn search_maps_in_region(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn maps_with_one_name_get_what_tells_them_apart() {
+        use std::collections::BTreeSet;
+        let m = |id, zh: &str, en: &str| MapRef::new(id, zh, en);
+        let maps = vec![
+            m(1, "蘑菇镇 - 西入口", "Mushroom Town - West Entrance"),
+            m(10, "蘑菇村", "Mushroom Town"),
+            m(20, "蘑菇村", "Mushroom Town"),
+            m(21, "蘑菇村村民家", "Mushroom Town Townstreet"),
+            m(30, "蘑菇镇东入口", "East Entrance to Mushroom Town"),
+            m(10001000, "射手村", "Henesys"),
+            m(10001008, "黄蘑菇屋", "Yellow Mushroom House"),
+            m(88000000, "黄蘑菇屋", "Yellow Mushroom House"),
+            m(90040200, "椰子收获", "Coconut Harvest"),
+            m(90040201, "椰子收获", "Coconut Harvest"),
+            m(80003100, "捷径 I", "Shortcut"),
+            m(80003400, "捷径 II", "Shortcut"),
+            m(80003000, "樱草山", "Primrose Hill"),
+            m(80003200, "猪猪小镇", "Pig Town"),
+        ];
+        let links = [
+            (10, 20),
+            (10, 1),
+            (20, 21),
+            (20, 30),
+            (10001008, 10001000),
+            (88000000, 10001000),
+            (80003100, 80003000),
+            (80003400, 80003200),
+            (10, 999), // an unreleased neighbour is never named
+        ];
+        let mut neighbors: HashMap<i32, BTreeSet<i32>> = HashMap::new();
+        for (a, b) in links {
+            neighbors.entry(a).or_default().insert(b);
+            neighbors.entry(b).or_default().insert(a);
+        }
+        let mut npcs: HashMap<i32, Vec<Names>> = HashMap::new();
+        npcs.insert(88000000, vec![Names::new("信箱", "Mailbox")]);
+        npcs.insert(90040200, vec![Names::new("慧丽", "Huili")]);
+        npcs.insert(90040201, vec![Names::new("慧丽", "Huili")]);
+        let hints = map_hints_for(&maps, &neighbors, &npcs);
+        let zh = |id| hints.get(&id).and_then(|h| h.zh.as_deref());
+        let en = |id| hints.get(&id).and_then(|h| h.en.as_deref());
+        assert_eq!(zh(10), Some("通往 蘑菇镇 - 西入口"), "not the other 蘑菇村");
+        assert_eq!(zh(20), Some("通往 蘑菇村村民家、蘑菇镇东入口"));
+        assert_eq!(en(10), Some("Next to Mushroom Town - West Entrance"));
+        assert_eq!(zh(88000000), Some("NPC 信箱"), "both lead to 射手村");
+        assert_eq!(zh(10001008), Some("编号 10001008"));
+        assert_eq!(
+            (zh(90040200), zh(90040201)),
+            (Some("编号 90040200"), Some("编号 90040201"))
+        );
+        assert_eq!(
+            (zh(80003100), en(80003100)),
+            (None, Some("Next to Primrose Hill")),
+            "only the English name is shared"
+        );
+        assert_eq!(en(80003400), Some("Next to Pig Town"));
+        assert_eq!(hints.get(&21), None);
+        assert_eq!(
+            shared_name_ids(&maps),
+            vec![10, 20, 10001008, 80003100, 80003400, 88000000, 90040200, 90040201]
+        );
+    }
 
     #[test]
     fn variants_merge_into_the_mob_with_most_maps() {

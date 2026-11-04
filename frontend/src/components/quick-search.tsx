@@ -207,6 +207,8 @@ export default function QuickSearch() {
               const name =
                 row.names?.[language] || row.names?.zh || row.names?.en;
               const other = row.names?.[language === "zh" ? "en" : "zh"];
+              // Set where another open map has the same name (蘑菇村 10 / 20).
+              const hint = row.kind === "map" ? row.hint?.[language] : "";
               const image =
                 row.icon_url ||
                 (row.kind === "mob" && row.image_id
@@ -233,6 +235,7 @@ export default function QuickSearch() {
                   <span className="quick-names">
                     <b>{name}</b>
                     {other && other !== name && <small>{other}</small>}
+                    {hint && <small>{hint}</small>}
                   </span>
                   <small className="quick-kind">
                     {row.kind === "item"

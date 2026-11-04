@@ -25,6 +25,12 @@ export function useNames() {
       ? names
       : names?.[language] || names?.zh || names?.en || "";
 }
+/** A map's `hint` in the page language only: the server sets it where the
+ * name is shared in that language ("通往 蘑菇镇 - 西入口"). */
+export function useMapHint() {
+  const { language } = usePreferences();
+  return (hint: any): string => (hint && hint[language]) || "";
+}
 export function Secondary({ names }: { names: any }) {
   const { language } = usePreferences();
   const name = useNames();
@@ -898,6 +904,7 @@ function Steps({ steps }: { steps: any[] }) {
 function RoutePage({ page }: { page: any }) {
   const words = useWords(),
     name = useNames(),
+    mapHint = useMapHint(),
     navigate = useNavigate();
   const result = page.outcome;
   const mobMode = !!page.mob_mode;
@@ -1063,7 +1070,7 @@ function RoutePage({ page }: { page: any }) {
           <MapRow
             key={map.id}
             map={map}
-            sub={"ID " + map.id}
+            sub={mapHint(map.hint) || "ID " + map.id}
             href={
               mobMode && unresolved.end === "From"
                 ? mobRoute(String(map.id), page.mob_input)
