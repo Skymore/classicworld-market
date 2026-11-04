@@ -24,7 +24,8 @@ VITE_MANIFEST = "web/react/.vite/manifest.json"
 # chunk ever built. A release takes those of the current build and of the
 # KEPT_BUILDS frontend builds before it (the manifest's git history): a page
 # opened before a deploy can still load its lazy routes, and the release
-# does not copy 1000+ dead files.
+# does not copy unpublished dead files. Already published chunks remain
+# available even when several development builds happened between releases.
 KEPT_BUILDS = 3
 
 
@@ -110,8 +111,16 @@ def kept_chunks(root, builds=KEPT_BUILDS):
         if shown is not None and shown.replace("\r\n", "\n") not in [t.replace("\r\n", "\n") for t in texts]:
             texts.append(shown)
     try:
-        return set().union(*(manifest_chunks(text) for text in texts))
-    except (ValueError, KeyError, TypeError, AttributeError):
+        keep = set().union(*(manifest_chunks(text) for text in texts))
+        pointer = root / "shared_data/deploy/current.json"
+        if pointer.is_file():
+            active = check_commit(json.loads(pointer.read_text(encoding="utf-8"))["commit"])
+            published = json.loads((root / "shared_data/deploy/releases" / active /
+                                    "manifest.json").read_text(encoding="utf-8"))
+            keep.update(name.removeprefix(CHUNKS + "/").removesuffix(".gz")
+                        for name in published["files"] if name.startswith(CHUNKS + "/"))
+        return keep
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return None
 
 

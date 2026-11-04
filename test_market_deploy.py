@@ -161,6 +161,27 @@ class DeploymentTests(unittest.TestCase):
         deployment.package(source, source / "bin/market-web.exe", self.root / "artifact", SHA)
         self.assertTrue((self.root / "artifact" / deployment.CHUNKS / "old-AAAAAAAA.js").is_file())
 
+    def test_package_preserves_published_chunks_outside_recent_build_history(self):
+        source = self.root / "source"
+        for name in deployment.REQUIRED:
+            path = source / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"synthetic test only")
+        for name in ["current-AAAAAAAA.js", "published-BBBBBBBB.js", "unpublished-CCCCCCCC.js"]:
+            path = source / deployment.CHUNKS / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(name)
+        deployment.write_json(source / deployment.VITE_MANIFEST,
+                              {"route": {"file": "chunks/current-AAAAAAAA.js"}})
+        deployment.write_json(source / "shared_data/deploy/current.json", {"commit": PREVIOUS})
+        deployment.write_json(source / "shared_data/deploy/releases" / PREVIOUS / "manifest.json",
+                              {"files": {deployment.CHUNKS + "/published-BBBBBBBB.js": "old digest"}})
+        output = self.root / "artifact"
+        deployment.package(source, source / "bin/market-web.exe", output, SHA)
+        kept = sorted(path.name for path in (output / deployment.CHUNKS).iterdir())
+        self.assertEqual(kept, ["current-AAAAAAAA.js", "published-BBBBBBBB.js"])
+        deployment.verify_bundle(output, SHA)
+
     def test_unchanged_files_keep_the_previous_release_modification_time(self):
         previous, release = self.root / "previous", self.root / "release"
         for folder, changed in [(previous, b"old"), (release, b"new")]:
