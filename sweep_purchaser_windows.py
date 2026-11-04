@@ -124,16 +124,15 @@ def ordered_snapshot(filename, order, now=time.time):
     if (packet['shop_id'], owner.get('name'), location.get('room'), location.get('channel')) != (
             order.shop_id, order.owner, order.room, order.channel):
         raise ValueError('Wrong shop capture')
-    by_slot = {(r['category'], r['slot']): r for r in packet['items']}
-    if len(by_slot) != len(raw['items']):
-        raise ValueError('Duplicate capture slots')
-    ordered = [by_slot[(r.get('category', r['item_id']//1000000), r['slot'])] for r in raw['items']]
-    found = [i for i, r in enumerate(ordered) if (r['category'], r['slot']) == (order.category, order.slot)]
-    if len(found) != 1:
-        raise ValueError('Missing listing')
-    row = ordered[found[0]]
-    if any(row.get(key) != getattr(order, key) for key in ('item_id', 'price', 'bundle', 'equipment')):
-        raise ValueError('Listing changed')
+    # Split stacks may share an inventory slot. Preserve every display row,
+    # including its stock, instead of collapsing rows into a slot dictionary.
+    ordered = [from_snapshot(dict(raw, items=[row]))['items'][0] for row in raw['items']]
+    found = [i for i, r in enumerate(ordered)
+             if (r['category'], r['slot']) == (order.category, order.slot)
+             and all(r.get(key) == getattr(order, key)
+                     for key in ('item_id', 'price', 'bundle', 'equipment'))]
+    if not found:
+        raise ValueError('Missing or changed listing')
     return packet['title'], ordered, found[0]
 
 
@@ -245,8 +244,9 @@ class WindowsPurchaser:
             return PurchaseResult('not_bought', reason='error')
         try:
             title, ordered, target = ordered_snapshot(window.capture_file, order)
-        except (OSError, ValueError, KeyError, TypeError):
-            flow.halt('listing_unverified')
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            trace.check(stage='snapshot', error_type=type(error).__name__, detail=str(error))
+            return PurchaseResult('not_bought', reason='listing_unverified')
         try:
             control = self.input_factory(window)
             control.move()
