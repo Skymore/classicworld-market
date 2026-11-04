@@ -713,13 +713,12 @@ class DesktopController:
                     self._change(phase='paused', message='已暂停，继续时重新领取任务。')
                     continue
                 attempts += 1
-                from free_market_route import PositionSyncError
-                from packet_keybindings import PacketKeyBindingError
-                from vmware_keyboard_bridge import transport_failure
-                if isinstance(error, PositionSyncError) or (isinstance(error, PacketKeyBindingError) and error.recoverable) or transport_failure(error):
+                from collector_recovery import bounded_recovery_failure, recovery_error
+                if bounded_recovery_failure(error):
                     self._position_failures += 1
                 phase, message = failure_state(error, self._position_failures)
                 self._journal.event('recovery_wait', attempt=attempts, state=phase, error=type(error).__name__, reason=str(error)[:500],
+                                    cause_type=type(recovery_error(error)).__name__, cause=str(recovery_error(error))[:500],
                                     resource=(system_memory_status() if memory_exhausted(error) else getattr(error, 'resource_diagnostic', None)))
                 self._journal.event('recovery_end', outcome='waiting', state=phase)
                 self._change(phase=phase, message=message, retries=attempts, failure=message)

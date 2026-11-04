@@ -122,7 +122,28 @@ def memory_exhausted(error):
             and getattr(error, 'code', None) == -4)
 
 
+def recovery_error(error):
+    """Unwrap explicit generic route wrappers, preserving typed stop decisions."""
+    from free_market_route import RouteError
+    seen=set()
+    while type(error) in (RuntimeError, RouteError) and error.__cause__ is not None:
+        if id(error) in seen:break
+        seen.add(id(error));error=error.__cause__
+    return error
+
+
+def bounded_recovery_failure(error):
+    from free_market_route import PositionSyncError
+    from packet_keybindings import PacketKeyBindingError
+    from vmware_keyboard_bridge import transport_failure
+    error=recovery_error(error)
+    return (isinstance(error,PositionSyncError)
+            or isinstance(error,PacketKeyBindingError) and error.recoverable
+            or transport_failure(error) is not None)
+
+
 def failure_state(error, position_failures=0):
+    error=recovery_error(error)
     from vmware_keyboard_bridge import transport_failure
     if transport_failure(error):
         if position_failures < 3:
