@@ -1,6 +1,7 @@
 //! Only explicit, paired player enter/leave evidence can retire inventory.
 use std::collections::HashMap;
 
+use crate::write_timing::{Phase, WriteTiming};
 use crate::{
     api::{bearer, error, internal},
     auth, stats, unix_now, AppState,
@@ -15,7 +16,6 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{PgConnection, PgPool, Postgres, QueryBuilder};
-use crate::write_timing::{Phase, WriteTiming};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -86,11 +86,20 @@ async fn expire_at(
     let mut query = QueryBuilder::<Postgres>::new(
         "WITH scoped_shops AS MATERIALIZED (
           SELECT id,world,channel,room,owner_character_id FROM shops
-          WHERE world='ClassicWorld' AND owner_character_id IS NOT NULL");
-    if let Some(shop) = shop { query.push(" AND id=").push_bind(shop); }
-    if let Some(owner) = owner { query.push(" AND owner_character_id=").push_bind(owner); }
+          WHERE world='ClassicWorld' AND owner_character_id IS NOT NULL",
+    );
+    if let Some(shop) = shop {
+        query.push(" AND id=").push_bind(shop);
+    }
+    if let Some(owner) = owner {
+        query.push(" AND owner_character_id=").push_bind(owner);
+    }
     if let Some(place) = place {
-        query.push(" AND channel=").push_bind(place.channel).push(" AND room=").push_bind(place.room);
+        query
+            .push(" AND channel=")
+            .push_bind(place.channel)
+            .push(" AND room=")
+            .push_bind(place.room);
     }
     query.push(
         "), candidates AS MATERIALIZED (

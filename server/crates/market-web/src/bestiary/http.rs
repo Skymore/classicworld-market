@@ -893,13 +893,23 @@ async fn catalog_page(
     fn response(status: StatusCode, value: serde_json::Value) -> Response {
         (status, [(header::CACHE_CONTROL, NO_STORE)], Json(value)).into_response()
     }
-    fn loaded<T: serde::Serialize>(result: sqlx::Result<Option<T>>, kind: &str, headers: &HeaderMap) -> Response {
+    fn loaded<T: serde::Serialize>(
+        result: sqlx::Result<Option<T>>,
+        kind: &str,
+        headers: &HeaderMap,
+    ) -> Response {
         #[derive(serde::Serialize)]
-        struct Snapshot<'a, T> { kind: &'a str, page: T }
+        struct Snapshot<'a, T> {
+            kind: &'a str,
+            page: T,
+        }
         match result {
             // Conditional requests keep unchanged snapshots off the wire.
-            Ok(Some(page)) => crate::delivery::revalidate(headers, kind,
-                serde_json::to_value(Snapshot { kind, page }).expect("catalog snapshot")),
+            Ok(Some(page)) => crate::delivery::revalidate(
+                headers,
+                kind,
+                serde_json::to_value(Snapshot { kind, page }).expect("catalog snapshot"),
+            ),
             Ok(None) => response(StatusCode::NOT_FOUND, json!({"error":"not_found"})),
             Err(error) => {
                 tracing::error!(%error,"catalog snapshot failed");
@@ -923,7 +933,8 @@ async fn catalog_page(
         };
         return loaded(
             search_page(&state, &params.request()).await.map(Some),
-            "search", &headers,
+            "search",
+            &headers,
         );
     }
     if path == "/route" {
@@ -943,7 +954,8 @@ async fn catalog_page(
                 page.mob_mode |= params.mode == "mob";
                 Some(page)
             }),
-            "route", &headers,
+            "route",
+            &headers,
         );
     }
     let Some((kind, raw)) = path.trim_start_matches('/').split_once('/') else {
@@ -963,35 +975,53 @@ async fn catalog_page(
                         return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_query"}));
                     };
                     if request.preview {
-                        if selection.variant.is_some() || !selection.attributes.is_empty()
-                            || !selection.equipment.is_empty() {
-                            return response(StatusCode::BAD_REQUEST, json!({"error":"invalid_query"}));
+                        if selection.variant.is_some()
+                            || !selection.attributes.is_empty()
+                            || !selection.equipment.is_empty()
+                        {
+                            return response(
+                                StatusCode::BAD_REQUEST,
+                                json!({"error":"invalid_query"}),
+                            );
                         }
-                        return loaded(queries::item_preview(&state.db, id, params.hours == "all").await, "item_preview", &headers);
+                        return loaded(
+                            queries::item_preview(&state.db, id, params.hours == "all").await,
+                            "item_preview",
+                            &headers,
+                        );
                     }
-                    let key = format!("item:{id}:{}:{:?}:{:?}:{}", params.hours == "all",
-                        selection.variant, selection.attributes, selection.equipment);
-                    state.public_reads.get_items(&state.db, &key, &[id], async {
-                    queries::item_page_selected(
-                        &state.db,
-                        id,
-                        unix_now(),
+                    let key = format!(
+                        "item:{id}:{}:{:?}:{:?}:{}",
                         params.hours == "all",
-                        &selection,
-                    )
-                    .await
-                    .map(|page| {
-                        page.map(|page| {
-                            let unit = crate::external::unit(page.item.id);
-                            let mut value =
-                                serde_json::to_value(page).expect("catalog item serialize");
-                            value["unit"] = json!(unit);
-                            value
+                        selection.variant,
+                        selection.attributes,
+                        selection.equipment
+                    );
+                    state
+                        .public_reads
+                        .get_items(&state.db, &key, &[id], async {
+                            queries::item_page_selected(
+                                &state.db,
+                                id,
+                                unix_now(),
+                                params.hours == "all",
+                                &selection,
+                            )
+                            .await
+                            .map(|page| {
+                                page.map(|page| {
+                                    let unit = crate::external::unit(page.item.id);
+                                    let mut value =
+                                        serde_json::to_value(page).expect("catalog item serialize");
+                                    value["unit"] = json!(unit);
+                                    value
+                                })
+                            })
                         })
-                    })
-                    }).await
+                        .await
                 },
-                "item", &headers,
+                "item",
+                &headers,
             )
         }
         "mob" => loaded(queries::mob_page(&state.db, id).await, "mob", &headers),
@@ -1008,7 +1038,8 @@ mod tests {
     fn item_selection_accepts_critical_attribute_filters() {
         let params: ItemParams = serde_json::from_value(serde_json::json!({
             "attributes": r#"[["critical_rate",2],["critical_damage",3]]"#
-        })).unwrap();
+        }))
+        .unwrap();
         assert_eq!(params.selection().unwrap().attributes.len(), 2);
     }
     #[test]

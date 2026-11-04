@@ -1,4 +1,5 @@
 //! Absence proven by a complete decoded map-entry roster, including the observer.
+use crate::write_timing::{Phase, WriteTiming};
 use crate::{
     api::{bearer, error, internal},
     auth, presence, stats, unix_now, AppState,
@@ -14,7 +15,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{PgConnection, PgPool, Postgres, QueryBuilder};
 use std::collections::HashSet;
-use crate::write_timing::{Phase, WriteTiming};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -71,12 +71,21 @@ pub async fn reconcile(
          AND EXISTS (SELECT 1 FROM observations o WHERE o.shop_id=s.id AND o.observed_at < r.started_at)");
     // Separate query shapes retain index conditions in generic prepared plans.
     // Nullable OR predicates otherwise scan every shop while holding the writer lock.
-    if let Some(shop) = shop { query.push(" AND s.id=").push_bind(shop); }
-    if let Some((event, collector)) = snapshot {
-        query.push(" AND r.event_id=").push_bind(event)
-            .push(" AND r.collector_id=").push_bind(collector);
+    if let Some(shop) = shop {
+        query.push(" AND s.id=").push_bind(shop);
     }
-    query.push(" ON CONFLICT DO NOTHING").build().execute(conn).await?;
+    if let Some((event, collector)) = snapshot {
+        query
+            .push(" AND r.event_id=")
+            .push_bind(event)
+            .push(" AND r.collector_id=")
+            .push_bind(collector);
+    }
+    query
+        .push(" ON CONFLICT DO NOTHING")
+        .build()
+        .execute(conn)
+        .await?;
     Ok(())
 }
 

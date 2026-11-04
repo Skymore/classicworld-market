@@ -10,8 +10,8 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use flate2::{write::GzEncoder, Compression};
 use base64::Engine;
+use flate2::{write::GzEncoder, Compression};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -57,10 +57,15 @@ impl Report {
             && self.state.len() <= 12
             && self.files.len() <= 16
             && self.screenshot.as_ref().is_none_or(|encoded| {
-                self.kind == "manual" && encoded.len() <= 1400000 &&
-                base64::engine::general_purpose::STANDARD.decode(encoded).is_ok_and(|data| {
-                    data.len() <= 1024 * 1024 && data.starts_with(b"\xff\xd8\xff") && data.ends_with(b"\xff\xd9")
-                })
+                self.kind == "manual"
+                    && encoded.len() <= 1400000
+                    && base64::engine::general_purpose::STANDARD
+                        .decode(encoded)
+                        .is_ok_and(|data| {
+                            data.len() <= 1024 * 1024
+                                && data.starts_with(b"\xff\xd8\xff")
+                                && data.ends_with(b"\xff\xd9")
+                        })
             })
             && self.files.iter().all(|(name, data)| {
                 !name.is_empty()
@@ -212,16 +217,42 @@ mod tests {
         use axum::{body::Body, http::Request};
         use tower::ServiceExt;
         let db = sqlx::postgres::PgPoolOptions::new()
-            .connect_lazy("postgres://test@127.0.0.1:1/unused").unwrap();
+            .connect_lazy("postgres://test@127.0.0.1:1/unused")
+            .unwrap();
         let app = crate::app(AppState::new(db, crate::Settings::default()));
-        let response = app.clone().oneshot(Request::builder().method("POST")
-            .uri("/api/v1/collector/diagnostics").body(Body::from("{}")).unwrap()).await.unwrap();
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/collector/diagnostics")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-        let response = app.clone().oneshot(Request::builder().method("POST")
-            .uri("/api/v1/collector/diagnostics").body(Body::from(vec![b'x'; 300000])).unwrap()).await.unwrap();
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/collector/diagnostics")
+                    .body(Body::from(vec![b'x'; 300000]))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-        let response = app.oneshot(Request::builder().uri("/api/v1/collector/diagnostics")
-            .body(Body::empty()).unwrap()).await.unwrap();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/collector/diagnostics")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
     }
     #[test]
@@ -259,12 +290,18 @@ mod tests {
     #[test]
     fn screenshots_are_bounded_manual_attachments_only() {
         let mut value = json!({"schema":1,"id":"0123456789abcdef0123456789abcdef","version":"0.6.53","created_at":1,"kind":"manual","state":{},"files":{},"screenshot":"/9j/2Q=="});
-        assert!(serde_json::from_value::<Report>(value.clone()).unwrap().valid());
+        assert!(serde_json::from_value::<Report>(value.clone())
+            .unwrap()
+            .valid());
         value["kind"] = json!("continuous");
-        assert!(!serde_json::from_value::<Report>(value.clone()).unwrap().valid());
+        assert!(!serde_json::from_value::<Report>(value.clone())
+            .unwrap()
+            .valid());
         value["kind"] = json!("manual");
         value["screenshot"] = json!("not an image");
-        assert!(!serde_json::from_value::<Report>(value.clone()).unwrap().valid());
+        assert!(!serde_json::from_value::<Report>(value.clone())
+            .unwrap()
+            .valid());
         value["screenshot"] = json!("a".repeat(1400001));
         assert!(!serde_json::from_value::<Report>(value).unwrap().valid());
     }

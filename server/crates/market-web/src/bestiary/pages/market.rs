@@ -1124,8 +1124,8 @@ mod tests {
 
     fn listing(channel: Option<i16>, room: i16, price: f64, age_hours: i64) -> Listing {
         Listing {
-        owner_name: None,
-        invalidated_at: None,
+            owner_name: None,
+            invalidated_at: None,
             grouping: None,
             shop: format!("shop{room}"),
             channel,

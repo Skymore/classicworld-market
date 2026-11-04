@@ -1139,14 +1139,27 @@ fn select_watch_rows(quotes: Vec<Map<String, Value>>, limit: usize, cheapest: us
 }
 
 /// `report_listings` over the 72-hour window.
-pub(crate) async fn sweep_quotes(db: &PgPool, items: &[i32], cutoff: f64) -> sqlx::Result<Vec<Value>> {
-    Ok(quotes(db, items, cutoff).await?.into_iter().map(watch_listing).collect())
+pub(crate) async fn sweep_quotes(
+    db: &PgPool,
+    items: &[i32],
+    cutoff: f64,
+) -> sqlx::Result<Vec<Value>> {
+    Ok(quotes(db, items, cutoff)
+        .await?
+        .into_iter()
+        .map(watch_listing)
+        .collect())
 }
 
 /// Live navigation hints from other collectors, never authorization to buy.
 /// Query current stock (not historical observation_rows) so a sold/removed
 /// listing disappears on the next refresh. Keep all slots for stock conditions.
-pub async fn sweep_live_quotes(db: &PgPool, items: &[i32], cutoff: f64, device: i64) -> sqlx::Result<Vec<Value>> {
+pub async fn sweep_live_quotes(
+    db: &PgPool,
+    items: &[i32],
+    cutoff: f64,
+    device: i64,
+) -> sqlx::Result<Vec<Value>> {
     let sql = format!(
         "SELECT {} FROM listings l
          JOIN LATERAL (SELECT public_key,title,owner_name,shop_id,channel,room,last_seen_at
@@ -1160,7 +1173,12 @@ pub async fn sweep_live_quotes(db: &PgPool, items: &[i32], cutoff: f64, device: 
          ORDER BY o.observed_at DESC,sh.public_key,l.slot",
         row_columns("l")
     );
-    let rows = sqlx::query(&sql).bind(items).bind(cutoff).bind(device).fetch_all(db).await?;
+    let rows = sqlx::query(&sql)
+        .bind(items)
+        .bind(cutoff)
+        .bind(device)
+        .fetch_all(db)
+        .await?;
     Ok(rows.iter().map(|r| watch_listing(row_json(r))).collect())
 }
 

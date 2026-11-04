@@ -724,43 +724,154 @@ async fn google_linking_preserves_accounts_rejects_takeover_and_requires_remaini
     db.close().await;
 }
 
-
-async fn collector_request(state:&AppState,method:&str,path:&str,token:&str,body:Value)->(StatusCode,Value){
-    let response=app(state.clone()).oneshot(Request::builder().method(method).uri(path)
-        .header("content-type","application/json").header("authorization",format!("Bearer {token}"))
-        .body(Body::from(body.to_string())).unwrap()).await.unwrap();
-    let status=response.status();let bytes=response.into_body().collect().await.unwrap().to_bytes();
-    (status,serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+async fn collector_request(
+    state: &AppState,
+    method: &str,
+    path: &str,
+    token: &str,
+    body: Value,
+) -> (StatusCode, Value) {
+    let response = app(state.clone())
+        .oneshot(
+            Request::builder()
+                .method(method)
+                .uri(path)
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
 }
 #[tokio::test]
-async fn collector_watch_sync_is_scoped_versioned_and_revoked_on_logout(){
-    let Some(db)=TestDb::new().await else{return;};
-    let state=AppState::new(db.pool.clone(),Settings::default());
-    let (cookie,csrf,_)=signup(&state,"desktop_watcher").await;
-    let account=me(&state,&cookie).await["public_id"].as_str().unwrap().to_owned();
-    let c=db.collector("desktop").await;
-    let token="token-of-desktop-padding-to-thirty-chars";
-    let endpoint="/api/v1/collector/watch-data";
-    assert_eq!(collector_request(&state,"GET",endpoint,"invalid",json!(null)).await.0,StatusCode::UNAUTHORIZED);
-    assert_eq!(collector_request(&state,"GET",endpoint,token,json!(null)).await.1["linked"],false);
-    sqlx::query("UPDATE collectors SET account_id=(SELECT id FROM accounts WHERE public_id=$2) WHERE id=$1").bind(c.id).bind(&account).execute(&db.pool).await.unwrap();
-    let group=json!({"id":"one","name":"test","cap":10000,"notify":true,"buy":true,"reminder":{"minUpgrades":0}});
-    let value=json!({"cap":null,"notify":true,"position":0,"groups":[group],"buyLimit":2});
-    let change=json!({"account":account,"operations":[watch("1002000",value.clone(),0)]});
-    assert_eq!(collector_request(&state,"POST",endpoint,token,change.clone()).await.0,StatusCode::OK);
-    assert_eq!(collector_request(&state,"POST",endpoint,token,change).await.0,StatusCode::CONFLICT);
-    let website=request(&state,"GET","/api/v1/account/data",json!(null),&cookie,"",false).await.2;
-    assert_eq!(website["records"][0]["value"],value);
-    let blocked=json!({"account":account,"operations":[{"kind":"pref","key":"theme","value":"dark","version":0}]});
-    assert_eq!(collector_request(&state,"POST",endpoint,token,blocked).await.0,StatusCode::BAD_REQUEST);
-    let empty=json!({"cap":null,"notify":true,"position":0,"groups":[],"buyLimit":2});
-    assert_eq!(post(&state,"/api/v1/account/data",json!({"operations":[watch("1002000",empty.clone(),1)]}),&cookie,&csrf).await.0,StatusCode::OK);
-    assert_eq!(collector_request(&state,"GET",endpoint,token,json!(null)).await.1["records"][0]["value"],empty);
-    let wrong=json!({"account":"other","operations":[watch("1002000",json!(null),2)]});
-    assert_eq!(collector_request(&state,"POST",endpoint,token,wrong).await.0,StatusCode::UNAUTHORIZED);
-    assert_eq!(collector_request(&state,"POST","/api/v1/collector/account-disconnect",token,json!({"account":account})).await.0,StatusCode::OK);
-    let after=collector_request(&state,"GET",endpoint,token,json!(null)).await.1;
-    assert_eq!(after["linked"],false);assert_eq!(after["records"],json!([]));
-    assert_eq!(collector_request(&state,"POST",endpoint,token,json!({"account":account,"operations":[watch("1002000",json!(null),2)]})).await.0,StatusCode::UNAUTHORIZED);
+async fn collector_watch_sync_is_scoped_versioned_and_revoked_on_logout() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let state = AppState::new(db.pool.clone(), Settings::default());
+    let (cookie, csrf, _) = signup(&state, "desktop_watcher").await;
+    let account = me(&state, &cookie).await["public_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let c = db.collector("desktop").await;
+    let token = "token-of-desktop-padding-to-thirty-chars";
+    let endpoint = "/api/v1/collector/watch-data";
+    assert_eq!(
+        collector_request(&state, "GET", endpoint, "invalid", json!(null))
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        collector_request(&state, "GET", endpoint, token, json!(null))
+            .await
+            .1["linked"],
+        false
+    );
+    sqlx::query(
+        "UPDATE collectors SET account_id=(SELECT id FROM accounts WHERE public_id=$2) WHERE id=$1",
+    )
+    .bind(c.id)
+    .bind(&account)
+    .execute(&db.pool)
+    .await
+    .unwrap();
+    let group = json!({"id":"one","name":"test","cap":10000,"notify":true,"buy":true,"reminder":{"minUpgrades":0}});
+    let value = json!({"cap":null,"notify":true,"position":0,"groups":[group],"buyLimit":2});
+    let change = json!({"account":account,"operations":[watch("1002000",value.clone(),0)]});
+    assert_eq!(
+        collector_request(&state, "POST", endpoint, token, change.clone())
+            .await
+            .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        collector_request(&state, "POST", endpoint, token, change)
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    let website = request(
+        &state,
+        "GET",
+        "/api/v1/account/data",
+        json!(null),
+        &cookie,
+        "",
+        false,
+    )
+    .await
+    .2;
+    assert_eq!(website["records"][0]["value"], value);
+    let blocked = json!({"account":account,"operations":[{"kind":"pref","key":"theme","value":"dark","version":0}]});
+    assert_eq!(
+        collector_request(&state, "POST", endpoint, token, blocked)
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    let empty = json!({"cap":null,"notify":true,"position":0,"groups":[],"buyLimit":2});
+    assert_eq!(
+        post(
+            &state,
+            "/api/v1/account/data",
+            json!({"operations":[watch("1002000",empty.clone(),1)]}),
+            &cookie,
+            &csrf
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        collector_request(&state, "GET", endpoint, token, json!(null))
+            .await
+            .1["records"][0]["value"],
+        empty
+    );
+    let wrong = json!({"account":"other","operations":[watch("1002000",json!(null),2)]});
+    assert_eq!(
+        collector_request(&state, "POST", endpoint, token, wrong)
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        collector_request(
+            &state,
+            "POST",
+            "/api/v1/collector/account-disconnect",
+            token,
+            json!({"account":account})
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let after = collector_request(&state, "GET", endpoint, token, json!(null))
+        .await
+        .1;
+    assert_eq!(after["linked"], false);
+    assert_eq!(after["records"], json!([]));
+    assert_eq!(
+        collector_request(
+            &state,
+            "POST",
+            endpoint,
+            token,
+            json!({"account":account,"operations":[watch("1002000",json!(null),2)]})
+        )
+        .await
+        .0,
+        StatusCode::UNAUTHORIZED
+    );
     db.close().await;
 }

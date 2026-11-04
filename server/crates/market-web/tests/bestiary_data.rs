@@ -1109,7 +1109,10 @@ async fn map_views_quests_and_npc_pages_come_from_the_import() {
         .unwrap();
 
     // Hidden portals keep their WZ type: Henesys's in03 to An Empty House.
-    let henesys_view = queries::map_view(pool, 10001000, queries::Layers::PORTALS).await.unwrap().unwrap();
+    let henesys_view = queries::map_view(pool, 10001000, queries::Layers::PORTALS)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(henesys_view
         .portals
         .iter()
@@ -1174,7 +1177,10 @@ async fn map_views_quests_and_npc_pages_come_from_the_import() {
     // Scenes: the picture covers the minimap box (NiaDB's terrain view).
     let scene = view_scene(pool, 1000).await;
     if let Some(scene) = scene {
-        assert_eq!((scene.x, scene.y, scene.width, scene.height), (0, 0, 3928, 2050));
+        assert_eq!(
+            (scene.x, scene.y, scene.width, scene.height),
+            (0, 0, 3928, 2050)
+        );
     }
 
     // The world map: Maple Island and Victoria Island; Ossyria and
@@ -1183,13 +1189,24 @@ async fn map_views_quests_and_npc_pages_come_from_the_import() {
     let ids: Vec<&str> = world.regions.iter().map(|r| r.id.as_str()).collect();
     assert_eq!(ids, ["MapleIsland", "VictoriaIsland"]);
     let victoria = &world.regions[1];
-    assert!(victoria.spots.iter().all(|s| s.map.id != 10006000), "Forgotten Hollow");
-    let henesys = victoria.spots.iter().find(|s| s.map.id == 10001000).unwrap();
+    assert!(
+        victoria.spots.iter().all(|s| s.map.id != 10006000),
+        "Forgotten Hollow"
+    );
+    let henesys = victoria
+        .spots
+        .iter()
+        .find(|s| s.map.id == 10001000)
+        .unwrap();
     assert_eq!(henesys.kind, 0, "a town marker");
     assert_eq!(henesys.map.names.zh, "射手村");
     assert!(henesys.map_count > 10, "Henesys and its shops and houses");
     assert_eq!(world.here.as_ref().map(|m| m.id), Some(10001001));
-    assert_eq!(world.here_spots, vec![henesys.key.clone()], "Henesys Townstreet is on Henesys's spot");
+    assert_eq!(
+        world.here_spots,
+        vec![henesys.key.clone()],
+        "Henesys Townstreet is on Henesys's spot"
+    );
     assert_eq!(
         queries::map_page(pool, 10001000)
             .await
@@ -1214,9 +1231,18 @@ async fn map_views_quests_and_npc_pages_come_from_the_import() {
         queries::MobResolution::Many(_) => None,
     };
     assert_eq!(one(queries::resolve_mob(pool, "4").await.unwrap()), Some(4));
-    assert_eq!(one(queries::resolve_mob(pool, "蓝蜗牛").await.unwrap()), Some(3));
-    assert_eq!(one(queries::resolve_mob(pool, "orange mushroom").await.unwrap()), Some(9));
-    assert!(one(queries::resolve_mob(pool, "蜗").await.unwrap()).is_none(), "several snails");
+    assert_eq!(
+        one(queries::resolve_mob(pool, "蓝蜗牛").await.unwrap()),
+        Some(3)
+    );
+    assert_eq!(
+        one(queries::resolve_mob(pool, "orange mushroom").await.unwrap()),
+        Some(9)
+    );
+    assert!(
+        one(queries::resolve_mob(pool, "蜗").await.unwrap()).is_none(),
+        "several snails"
+    );
     assert!(!queries::mob_spawn_maps(pool, 4).await.unwrap().is_empty());
 }
 

@@ -35,8 +35,13 @@ fn item_bootstrap_reuses_public_data_and_escapes_script_delimiters() {
     page.item.name_en = "</script><script>alert('shop')</script>&\u{2028}".into();
     let ctx = zh();
     let rendered = pages::page_data_script(&ctx, "item", pages::item_data(&page)).unwrap();
-    let raw = rendered.split("<script id=\"catalog-snapshot\" type=\"application/json\">")
-        .nth(1).unwrap().split("</script>").next().unwrap();
+    let raw = rendered
+        .split("<script id=\"catalog-snapshot\" type=\"application/json\">")
+        .nth(1)
+        .unwrap()
+        .split("</script>")
+        .next()
+        .unwrap();
     assert!(!raw.contains('<'));
     assert!(!raw.contains('&'));
     let snapshot: serde_json::Value = serde_json::from_str(raw).unwrap();
@@ -265,20 +270,32 @@ fn item_page_head_sources_and_shell() {
             && html.contains(r#"class="dhead""#)
             && html.contains(r#"class="dock""#)
     );
-    assert!(html.contains("1234") && !html.contains("1.2K"), "Chinese pages show mesos below 1万 in full");
+    assert!(
+        html.contains("1234") && !html.contains("1.2K"),
+        "Chinese pages show mesos below 1万 in full"
+    );
     assert!(html.contains("▼ 6.1%"));
     assert!(html.contains("数据 1小时前更新"), "freshness from as_of");
     assert!(html.contains(r#"href="/mob/2""#));
-    assert!(!html.contains("人确认") && !html.contains("60%"), "neither confirmations nor a rate");
+    assert!(
+        !html.contains("人确认") && !html.contains("60%"),
+        "neither confirmations nor a rate"
+    );
     assert!(html.contains("任务奖励") && html.contains("瑞恩的问答 7") && html.contains("×10"));
-    assert!(html.contains("瑞恩 · Lv.5 · 每日 · 战士 随机 14.3%"), "NPC, level, repeat and how it is given");
+    assert!(
+        html.contains("瑞恩 · Lv.5 · 每日 · 战士 随机 14.3%"),
+        "NPC, level, repeat and how it is given"
+    );
     assert!(html.contains("任务要用") && html.contains("×3"));
     assert!(!html.contains("60%"));
     assert!(html.contains("射手训练场Ⅰ · 蜗牛猎场Ⅰ"));
     assert!(html.contains("NPC 不卖"));
     assert!(html.contains("回收") && html.contains("<b>20</b>") && !html.contains("回收价"));
     assert!(!html.contains("打还是买"), "no farm-or-buy verdict");
-    assert!(!html.contains("无等级限制"), "no level tag without a level requirement");
+    assert!(
+        !html.contains("无等级限制"),
+        "no level tag without a level requirement"
+    );
     assert!(html.contains("https://maplestory.io/api/GMS/83/mob/100100/render/stand"));
     assert!(
         html.contains(r#"href="/item/4000019?lang=en""#),
@@ -295,7 +312,13 @@ fn equipment_strip_follows_the_game_tooltip() {
         .into_string()
         .contains("data-equipment-strip"));
     page.equipment = Some(EquipmentReference {
-        req: Some(Requirements { level: 30, str: 0, dex: 30, int: 0, luk: 65 }),
+        req: Some(Requirements {
+            level: 30,
+            str: 0,
+            dex: 30,
+            int: 0,
+            luk: 65,
+        }),
         jobs: Some(8),
         weapon: true,
         kind: Some("拳套"),
@@ -308,7 +331,10 @@ fn equipment_strip_follows_the_game_tooltip() {
     assert!(html.contains(r#"<dl class="eq-strip" data-equipment-strip>"#));
     assert!(html.contains(r#"<span class="zero">力量 <b>0</b></span>"#));
     assert!(html.contains("运气 <b>65</b>"));
-    assert!(html.contains(">新手</span>") && !html.contains(r#"class="on">新手"#), "beginners cannot wear a thief claw");
+    assert!(
+        html.contains(">新手</span>") && !html.contains(r#"class="on">新手"#),
+        "beginners cannot wear a thief claw"
+    );
     assert!(html.contains(r#"<span class="on">飞侠</span>"#));
     assert!(!html.contains("海盗"), "MSCW has no pirates");
     assert!(html.contains("攻击速度 <b>快</b>"));
@@ -910,14 +936,20 @@ fn route_page_outcomes() {
     assert!(found.contains("甲 → 丙"));
     assert!(found.contains("2 步"));
     assert!(found.contains("走传送口"));
-    assert!(!found.contains("east00"), "internal portal names stay hidden");
+    assert!(
+        !found.contains("east00"),
+        "internal portal names stay hidden"
+    );
     assert!(found.contains(r#"<span class="no">2</span>"#));
     assert!(
         found.contains(r#"<li class="step scroll">"#),
         "return scroll steps look different"
     );
     assert!(found.contains(r#"value="射手训练场""#));
-    assert!(!found.contains("现有 393 条"), "no explanatory note under the route");
+    assert!(
+        !found.contains("现有 393 条"),
+        "no explanatory note under the route"
+    );
 
     let no_path = route(RouteOutcome::NoPath {
         from: map(1, "甲"),

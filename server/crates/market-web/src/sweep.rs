@@ -60,11 +60,15 @@ fn ok() -> Reply {
     Ok(Json(json!({"ok":true})).into_response())
 }
 pub(crate) fn public_id(s: &str) -> bool {
-    s.len() == 24 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    s.len() == 24
+        && s.bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 fn price_percentile(group: &Value) -> Option<&str> {
-    group["reminder"]["percentile"].as_str().filter(|p| matches!(*p, "10" | "25" | "50"))
+    group["reminder"]["percentile"]
+        .as_str()
+        .filter(|p| matches!(*p, "10" | "25" | "50"))
 }
 /// Percentile rules are converted to a fixed cap before reaching a collector.
 fn sweepable(group: &Value) -> bool {
@@ -81,9 +85,15 @@ fn plan(watches: &[(String, Value)]) -> Value {
         .iter()
         .filter_map(|(key, value)| {
             let item: i64 = key.parse().ok()?;
-            let groups: Vec<Value> = value["groups"].as_array()?.iter().filter(|g| sweepable(g)).cloned().collect();
+            let groups: Vec<Value> = value["groups"]
+                .as_array()?
+                .iter()
+                .filter(|g| sweepable(g))
+                .cloned()
+                .collect();
             let limit = value.get("buyLimit").and_then(Value::as_u64).unwrap_or(1);
-            (!groups.is_empty()).then(|| (item, json!({"item_id":item,"limit":limit,"groups":groups})))
+            (!groups.is_empty())
+                .then(|| (item, json!({"item_id":item,"limit":limit,"groups":groups})))
         })
         .collect();
     items.sort_by_key(|(item, _)| *item);
@@ -101,19 +111,31 @@ type Kept = HashMap<(i64, String), f64>;
 /// `kept` groups reuse their earlier cap. Never fall back to a stale manual cap.
 /// Starting a run fails on an unpriced rule. A live edit (`live`) must not fail
 /// the account write: the group stays out of buying and is listed in `unpriced`.
-fn freeze_prices(mut plan: Value, caps: &Value, kept: &Kept, live: bool) -> Result<Value, Response> {
+fn freeze_prices(
+    mut plan: Value,
+    caps: &Value,
+    kept: &Kept,
+    live: bool,
+) -> Result<Value, Response> {
     let source = plan["watches"].clone();
     let mut percent = false;
     let mut unpriced = Vec::new();
     for watch in plan["watches"].as_array_mut().into_iter().flatten() {
         let item = watch["item_id"].as_i64().unwrap_or_default();
-        let Some(groups) = watch["groups"].as_array_mut() else { continue };
+        let Some(groups) = watch["groups"].as_array_mut() else {
+            continue;
+        };
         groups.retain_mut(|group| {
-            let Some(percentile) = price_percentile(group).map(str::to_owned) else { return true };
+            let Some(percentile) = price_percentile(group).map(str::to_owned) else {
+                return true;
+            };
             percent = true;
             let id = group["id"].as_str().unwrap_or_default().to_owned();
-            let cap = kept.get(&(item, id.clone())).copied().or_else(|| caps[item.to_string()][&percentile].as_f64()
-                .filter(|n| n.is_finite() && *n > 0.0 && *n <= 1e15));
+            let cap = kept.get(&(item, id.clone())).copied().or_else(|| {
+                caps[item.to_string()][&percentile]
+                    .as_f64()
+                    .filter(|n| n.is_finite() && *n > 0.0 && *n <= 1e15)
+            });
             let Some(cap) = cap else {
                 unpriced.push(json!({"item_id":item,"group_id":id}));
                 return false;
@@ -125,39 +147,86 @@ fn freeze_prices(mut plan: Value, caps: &Value, kept: &Kept, live: bool) -> Resu
         });
     }
     if !unpriced.is_empty() {
-        if !live { return Err(conflict("sweep_price_unavailable")); }
+        if !live {
+            return Err(conflict("sweep_price_unavailable"));
+        }
         // Collectors reject a watch without groups.
-        if let Some(list) = plan["watches"].as_array_mut() { list.retain(|w| w["groups"].as_array().is_some_and(|g| !g.is_empty())); }
+        if let Some(list) = plan["watches"].as_array_mut() {
+            list.retain(|w| w["groups"].as_array().is_some_and(|g| !g.is_empty()));
+        }
         plan["unpriced"] = json!(unpriced);
     }
-    if percent { plan["source_watches"] = source; }
+    if percent {
+        plan["source_watches"] = source;
+    }
     Ok(plan)
 }
-async fn priced_plan(db: &sqlx::PgPool, plan: Value, kept: &Kept, live: bool) -> Result<Value, Response> {
-    let items: Vec<i32> = watches(&plan).filter(|w| {
-        let item = w["item_id"].as_i64().unwrap_or_default();
-        w["groups"].as_array().is_some_and(|groups| groups.iter().any(|g| price_percentile(g).is_some()
-            && !kept.contains_key(&(item, g["id"].as_str().unwrap_or_default().to_owned()))))
-    }).filter_map(|w| w["item_id"].as_i64().map(|id| id as i32)).collect();
-    let quotes = if items.is_empty() { Value::Null }
-        else { crate::views::watch_listings(db, &items, Utc::now().timestamp() as f64).await.map_err(internal)? };
+async fn priced_plan(
+    db: &sqlx::PgPool,
+    plan: Value,
+    kept: &Kept,
+    live: bool,
+) -> Result<Value, Response> {
+    let items: Vec<i32> = watches(&plan)
+        .filter(|w| {
+            let item = w["item_id"].as_i64().unwrap_or_default();
+            w["groups"].as_array().is_some_and(|groups| {
+                groups.iter().any(|g| {
+                    price_percentile(g).is_some()
+                        && !kept
+                            .contains_key(&(item, g["id"].as_str().unwrap_or_default().to_owned()))
+                })
+            })
+        })
+        .filter_map(|w| w["item_id"].as_i64().map(|id| id as i32))
+        .collect();
+    let quotes = if items.is_empty() {
+        Value::Null
+    } else {
+        crate::views::watch_listings(db, &items, Utc::now().timestamp() as f64)
+            .await
+            .map_err(internal)?
+    };
     freeze_prices(plan, &quotes["percentile_caps"], kept, live)
 }
 fn find_group<'a>(watches: &'a Value, item: i64, id: &str) -> Option<&'a Value> {
-    watches.as_array()?.iter().find(|w| w["item_id"].as_i64() == Some(item))?["groups"].as_array()?.iter().find(|g| g["id"] == id)
+    watches
+        .as_array()?
+        .iter()
+        .find(|w| w["item_id"].as_i64() == Some(item))?["groups"]
+        .as_array()?
+        .iter()
+        .find(|g| g["id"] == id)
 }
 /// Frozen caps of percentile groups whose rule is unchanged since `run` priced
 /// them, so market moves do not raise them. `notify` and `name` do not affect buying.
 fn kept_caps(run: &Value, source: &Value) -> Kept {
-    let rule = |g: &Value| { let mut g = g.clone(); if let Some(o) = g.as_object_mut() { o.remove("notify"); o.remove("name"); } g };
+    let rule = |g: &Value| {
+        let mut g = g.clone();
+        if let Some(o) = g.as_object_mut() {
+            o.remove("notify");
+            o.remove("name");
+        }
+        g
+    };
     let mut kept = Kept::new();
     for watch in watches(source) {
         let item = watch["item_id"].as_i64().unwrap_or_default();
-        for g in watch["groups"].as_array().into_iter().flatten().filter(|g| price_percentile(g).is_some()) {
+        for g in watch["groups"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|g| price_percentile(g).is_some())
+        {
             let id = g["id"].as_str().unwrap_or_default();
-            let same = find_group(source_watches(run), item, id).is_some_and(|before| rule(before) == rule(g));
-            let cap = find_group(&run["watches"], item, id).filter(|f| f.get("price_percentile").is_some()).and_then(|f| f["cap"].as_f64());
-            if let (true, Some(cap)) = (same, cap) { kept.insert((item, id.to_owned()), cap); }
+            let same = find_group(source_watches(run), item, id)
+                .is_some_and(|before| rule(before) == rule(g));
+            let cap = find_group(&run["watches"], item, id)
+                .filter(|f| f.get("price_percentile").is_some())
+                .and_then(|f| f["cap"].as_f64());
+            if let (true, Some(cap)) = (same, cap) {
+                kept.insert((item, id.to_owned()), cap);
+            }
         }
     }
     kept
@@ -165,7 +234,11 @@ fn kept_caps(run: &Value, source: &Value) -> Kept {
 /// (limit in units, highest sweepable cap) of a planned item.
 fn plan_item(plan: &Value, item: i64) -> Option<(i64, f64)> {
     let watch = watches(plan).find(|w| w["item_id"].as_i64() == Some(item))?;
-    let cap = watch["groups"].as_array()?.iter().filter_map(|g| g["cap"].as_f64()).fold(0.0, f64::max);
+    let cap = watch["groups"]
+        .as_array()?
+        .iter()
+        .filter_map(|g| g["cap"].as_f64())
+        .fold(0.0, f64::max);
     Some((watch["limit"].as_i64().unwrap_or(1), cap))
 }
 /// Throwing stars and bullets are priced and counted per bundle.
@@ -173,14 +246,29 @@ fn per_bundle(item: i64) -> bool {
     matches!(item / 10000, 207 | 233)
 }
 fn units_per(item: i64, bundle: i64) -> i64 {
-    if per_bundle(item) { 1 } else { bundle }
+    if per_bundle(item) {
+        1
+    } else {
+        bundle
+    }
 }
 fn within_cap(item: i64, price: i64, bundle: i64, cap: f64) -> bool {
-    let unit = if per_bundle(item) { price as f64 } else { price as f64 / bundle as f64 };
+    let unit = if per_bundle(item) {
+        price as f64
+    } else {
+        price as f64 / bundle as f64
+    };
     unit <= cap
 }
 /// Purchases granted, or the reason none can be.
-fn granted(quantity: i64, stock: i64, units_left: Option<i64>, per: i64, budget_left: i64, price: i64) -> Result<i64, &'static str> {
+fn granted(
+    quantity: i64,
+    stock: i64,
+    units_left: Option<i64>,
+    per: i64,
+    budget_left: i64,
+    price: i64,
+) -> Result<i64, &'static str> {
     let by_units = units_left.map(|left| left.max(0) / per).unwrap_or(quantity);
     let by_budget = budget_left.max(0) / price;
     match quantity.min(stock).min(by_units).min(by_budget) {
@@ -229,16 +317,29 @@ async fn lock(tx: &mut PgConnection, account: i64, run: &str) -> Result<Run, Res
     if !public_id(run) {
         return Err(invalid());
     }
-    let found: Option<Run> = sqlx::query_as(&format!("{RUN} WHERE r.public_id=$1 AND r.account_id=$2 FOR UPDATE OF r"))
-        .bind(run).bind(account).fetch_optional(&mut *tx).await.map_err(internal)?;
+    let found: Option<Run> = sqlx::query_as(&format!(
+        "{RUN} WHERE r.public_id=$1 AND r.account_id=$2 FOR UPDATE OF r"
+    ))
+    .bind(run)
+    .bind(account)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(internal)?;
     let mut run = found.ok_or_else(|| error(StatusCode::NOT_FOUND, "not_found"))?;
     refresh(tx, &mut run).await.map_err(internal)?;
     Ok(run)
 }
 async fn lock_running(tx: &mut PgConnection, account: i64) -> Result<Option<Run>, Response> {
-    let found: Option<Run> = sqlx::query_as(&format!("{RUN} WHERE r.account_id=$1 AND r.status='running' FOR UPDATE OF r"))
-        .bind(account).fetch_optional(&mut *tx).await.map_err(internal)?;
-    let Some(mut run) = found else { return Ok(None) };
+    let found: Option<Run> = sqlx::query_as(&format!(
+        "{RUN} WHERE r.account_id=$1 AND r.status='running' FOR UPDATE OF r"
+    ))
+    .bind(account)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(internal)?;
+    let Some(mut run) = found else {
+        return Ok(None);
+    };
     refresh(tx, &mut run).await.map_err(internal)?;
     Ok(Some(run))
 }
@@ -246,14 +347,24 @@ fn ensure_running(run: &Run) -> Result<(), Response> {
     if run.status == "running" {
         return Ok(());
     }
-    Err((StatusCode::CONFLICT, Json(json!({"error":"sweep_stopped","reason":run.stop_reason}))).into_response())
+    Err((
+        StatusCode::CONFLICT,
+        Json(json!({"error":"sweep_stopped","reason":run.stop_reason})),
+    )
+        .into_response())
 }
 async fn stop(tx: &mut PgConnection, run: &mut Run, reason: &str) -> Result<(), Response> {
     if run.status != "running" {
         return Ok(());
     }
-    sqlx::query("UPDATE sweep_runs SET status='stopped',stop_reason=$2,stopped_at=now() WHERE id=$1")
-        .bind(run.id).bind(reason).execute(&mut *tx).await.map_err(internal)?;
+    sqlx::query(
+        "UPDATE sweep_runs SET status='stopped',stop_reason=$2,stopped_at=now() WHERE id=$1",
+    )
+    .bind(run.id)
+    .bind(reason)
+    .execute(&mut *tx)
+    .await
+    .map_err(internal)?;
     run.status = "stopped".into();
     run.stop_reason = Some(reason.into());
     notify(tx, run.account_id, "sweep").await.map_err(internal)
@@ -273,13 +384,20 @@ impl Totals {
 async fn totals(tx: &mut PgConnection, run: i64, device: Option<i64>) -> Result<Totals, Response> {
     let (spent, reserved, unknown) = sqlx::query_as("SELECT coalesce(sum(spent) FILTER (WHERE status='bought'),0)::bigint,coalesce(sum(cost) FILTER (WHERE status='held'),0)::bigint,coalesce(sum(cost) FILTER (WHERE status IN ('unknown','expired')),0)::bigint FROM sweep_reservations WHERE run_id=$1 AND ($2::bigint IS NULL OR device_id=$2)")
         .bind(run).bind(device).fetch_one(&mut *tx).await.map_err(internal)?;
-    Ok(Totals { spent, reserved, unknown })
+    Ok(Totals {
+        spent,
+        reserved,
+        unknown,
+    })
 }
 /// Units counted per item, on the same basis as the budget.
 async fn item_units(tx: &mut PgConnection, run: i64) -> Result<HashMap<i64, i64>, Response> {
     let rows: Vec<(i32, i64)> = sqlx::query_as("SELECT item_id,sum(CASE status WHEN 'bought' THEN bought_quantity*units_per WHEN 'not_bought' THEN 0 ELSE quantity*units_per END)::bigint FROM sweep_reservations WHERE run_id=$1 GROUP BY item_id")
         .bind(run).fetch_all(&mut *tx).await.map_err(internal)?;
-    Ok(rows.into_iter().map(|(item, units)| (i64::from(item), units)).collect())
+    Ok(rows
+        .into_iter()
+        .map(|(item, units)| (i64::from(item), units))
+        .collect())
 }
 async fn current_plan(tx: &mut PgConnection, account: i64) -> Result<Value, Response> {
     let watches: Vec<(String, Value)> = sqlx::query_as("SELECT key,value FROM account_data WHERE account_id=$1 AND kind='watch' AND value IS NOT NULL ORDER BY key")
@@ -326,7 +444,10 @@ async fn item_progress(tx: &mut PgConnection, run: &Run) -> Result<(Vec<Value>, 
     // and of held/unknown units that still consume a purchase allowance.
     let bought: Vec<(i32, i64)> = sqlx::query_as("SELECT item_id,sum(bought_quantity*units_per)::bigint FROM sweep_reservations WHERE run_id=$1 AND status='bought' GROUP BY item_id")
         .bind(run.id).fetch_all(&mut *tx).await.map_err(internal)?;
-    let bought: HashMap<i64, i64> = bought.into_iter().map(|(id, count)| (i64::from(id), count)).collect();
+    let bought: HashMap<i64, i64> = bought
+        .into_iter()
+        .map(|(id, count)| (i64::from(id), count))
+        .collect();
     let items: Vec<Value> = watches(&run.plan)
         .map(|w| {
             let item = w["item_id"].as_i64().unwrap_or_default();
@@ -373,19 +494,26 @@ async fn web_reply(state: &AppState, account: i64) -> Reply {
         }
         None => None,
     };
-    let devices = devices::device_list(&mut tx, account).await.map_err(internal)?;
+    let devices = devices::device_list(&mut tx, account)
+        .await
+        .map_err(internal)?;
     tx.commit().await.map_err(internal)?;
     Ok(Json(json!({"run":run,"devices":devices})).into_response())
 }
 async fn web_session(state: &AppState, headers: &HeaderMap) -> Result<i64, Response> {
-    let s = session(state, headers).await?.ok_or_else(|| error(StatusCode::UNAUTHORIZED, "login_required"))?;
+    let s = session(state, headers)
+        .await?
+        .ok_or_else(|| error(StatusCode::UNAUTHORIZED, "login_required"))?;
     if !state.limiter.allow(&format!("account-sweep:{}", s.id), 300) {
         return Err(error(StatusCode::TOO_MANY_REQUESTS, "rate_limited"));
     }
     Ok(s.id)
 }
 fn write_limit(state: &AppState, account: i64) -> Result<(), Response> {
-    if state.limiter.allow(&format!("account-sweep-write:{account}"), 30) {
+    if state
+        .limiter
+        .allow(&format!("account-sweep-write:{account}"), 30)
+    {
         Ok(())
     } else {
         Err(error(StatusCode::TOO_MANY_REQUESTS, "rate_limited"))
@@ -400,12 +528,26 @@ fn valid_limits(budget: i64, minutes: i64) -> Result<(), Response> {
 }
 /// Starts a run of the account (whose row the caller locked) with the given invitees.
 #[allow(clippy::too_many_arguments)]
-async fn begin_run(db: &sqlx::PgPool, tx: &mut PgConnection, account: i64, budget: i64, minutes: i64, started_by: Option<i64>, invitees: &[i64], scan: &ScanMode) -> Result<(), Response> {
+async fn begin_run(
+    db: &sqlx::PgPool,
+    tx: &mut PgConnection,
+    account: i64,
+    budget: i64,
+    minutes: i64,
+    started_by: Option<i64>,
+    invitees: &[i64],
+    scan: &ScanMode,
+) -> Result<(), Response> {
     // An overdue run must not block a new one; the notice below covers it.
     sqlx::query("UPDATE sweep_runs SET status='finished',stop_reason='time_up',stopped_at=ends_at WHERE account_id=$1 AND status='running' AND ends_at<=now()")
         .bind(account).execute(&mut *tx).await.map_err(internal)?;
-    let running: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sweep_runs WHERE account_id=$1 AND status='running')")
-        .bind(account).fetch_one(&mut *tx).await.map_err(internal)?;
+    let running: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM sweep_runs WHERE account_id=$1 AND status='running')",
+    )
+    .bind(account)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(internal)?;
     if running {
         return Err(conflict("sweep_running"));
     }
@@ -419,12 +561,20 @@ async fn begin_run(db: &sqlx::PgPool, tx: &mut PgConnection, account: i64, budge
         .bind(auth::new_credentials().public_id).bind(account).bind(&plan).bind(budget).bind(started_by).bind(minutes as i32)
         .fetch_one(&mut *tx).await.map_err(internal)?;
     sqlx::query("INSERT INTO sweep_run_devices(run_id,device_id) SELECT $1,unnest($2::bigint[])")
-        .bind(run).bind(invitees).execute(&mut *tx).await.map_err(internal)?;
+        .bind(run)
+        .bind(invitees)
+        .execute(&mut *tx)
+        .await
+        .map_err(internal)?;
     notify(tx, account, "sweep").await.map_err(internal)
 }
 async fn lock_account(tx: &mut PgConnection, account: i64) -> Result<(), Response> {
     sqlx::query("SELECT id FROM accounts WHERE id=$1 FOR UPDATE")
-        .bind(account).execute(tx).await.map_err(internal).map(|_| ())
+        .bind(account)
+        .execute(tx)
+        .await
+        .map_err(internal)
+        .map(|_| ())
 }
 
 async fn web_get(State(state): State<AppState>, headers: HeaderMap) -> Reply {
@@ -450,25 +600,38 @@ enum ScanMode {
     #[default]
     Market,
     Priority,
-    Recent { recent_minutes: i64 },
+    Recent {
+        recent_minutes: i64,
+    },
 }
 impl ScanMode {
     fn validate(&self) -> Result<(), Response> {
         match self {
             Self::Market | Self::Priority => Ok(()),
-            Self::Recent { recent_minutes } if [10, 30, 60, 360, 1440].contains(recent_minutes) => Ok(()),
+            Self::Recent { recent_minutes } if [10, 30, 60, 360, 1440].contains(recent_minutes) => {
+                Ok(())
+            }
             _ => Err(invalid()),
         }
     }
-    fn recent(&self) -> bool { matches!(self, Self::Recent { .. }) }
+    fn recent(&self) -> bool {
+        matches!(self, Self::Recent { .. })
+    }
 }
-async fn web_start(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<WebStart>) -> Reply {
+async fn web_start(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<WebStart>,
+) -> Reply {
     let s = accounts::sensitive(&state, &headers, &input.current_password).await?;
     write_limit(&state, s.id)?;
     let mut ids = input.devices.clone();
     ids.sort();
     ids.dedup();
-    if !(1..=8).contains(&input.devices.len()) || ids.len() != input.devices.len() || !ids.iter().all(|d| public_id(d)) {
+    if !(1..=8).contains(&input.devices.len())
+        || ids.len() != input.devices.len()
+        || !ids.iter().all(|d| public_id(d))
+    {
         return Err(invalid());
     }
     valid_limits(input.budget, input.minutes)?;
@@ -483,14 +646,28 @@ async fn web_start(State(state): State<AppState>, headers: HeaderMap, Json(input
     if matches!(input.scan, ScanMode::Priority) {
         let capable: i64 = sqlx::query_scalar("SELECT count(*) FROM account_devices WHERE id=ANY($1) AND state @> '{\"sweep\":{\"shared_sweep\":true}}'")
             .bind(&ready).fetch_one(&mut *tx).await.map_err(internal)?;
-        if capable != ready.len() as i64 { return Err(conflict("collector_update_required")); }
+        if capable != ready.len() as i64 {
+            return Err(conflict("collector_update_required"));
+        }
     }
     if input.scan.recent() {
         let capable: i64 = sqlx::query_scalar("SELECT count(*) FROM account_devices WHERE id=ANY($1) AND state @> '{\"sweep\":{\"recent_scan\":true}}'")
             .bind(&ready).fetch_one(&mut *tx).await.map_err(internal)?;
-        if capable != ready.len() as i64 { return Err(conflict("collector_update_required")); }
+        if capable != ready.len() as i64 {
+            return Err(conflict("collector_update_required"));
+        }
     }
-    begin_run(&state.db, &mut tx, s.id, input.budget, input.minutes, None, &ready, &input.scan).await?;
+    begin_run(
+        &state.db,
+        &mut tx,
+        s.id,
+        input.budget,
+        input.minutes,
+        None,
+        &ready,
+        &input.scan,
+    )
+    .await?;
     tx.commit().await.map_err(internal)?;
     web_reply(&state, s.id).await
 }
@@ -498,7 +675,11 @@ async fn web_start(State(state): State<AppState>, headers: HeaderMap, Json(input
 struct RunRef {
     run: String,
 }
-async fn web_stop(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<RunRef>) -> Reply {
+async fn web_stop(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<RunRef>,
+) -> Reply {
     let s = writable(&state, &headers).await?;
     write_limit(&state, s.id)?;
     let mut tx = state.db.begin().await.map_err(internal)?;
@@ -513,7 +694,11 @@ struct Apply {
     #[serde(default)]
     current_password: String,
 }
-async fn web_apply(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<Apply>) -> Reply {
+async fn web_apply(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<Apply>,
+) -> Reply {
     let s = accounts::sensitive(&state, &headers, &input.current_password).await?;
     write_limit(&state, s.id)?;
     let mut tx = state.db.begin().await.map_err(internal)?;
@@ -528,17 +713,35 @@ async fn web_apply(State(state): State<AppState>, headers: HeaderMap, Json(input
 /// Account row is locked by all watch writers. Only future reservations use
 /// the new version; granted reservations retain their original price/quantity.
 /// Unchanged percentile groups keep this run's cap; unpriced ones are retried.
-pub(crate) async fn sync_plan(db: &sqlx::PgPool, tx: &mut PgConnection, account: i64) -> Result<(), Response> {
-    let Some(run) = lock_running(tx, account).await? else { return Ok(()) };
-    if run.status != "running" { return Ok(()) }
+pub(crate) async fn sync_plan(
+    db: &sqlx::PgPool,
+    tx: &mut PgConnection,
+    account: i64,
+) -> Result<(), Response> {
+    let Some(run) = lock_running(tx, account).await? else {
+        return Ok(());
+    };
+    if run.status != "running" {
+        return Ok(());
+    }
     let source = current_plan(tx, account).await?;
-    if &source["watches"] == source_watches(&run.plan) && run.plan.get("unpriced").is_none() { return Ok(()) }
+    if &source["watches"] == source_watches(&run.plan) && run.plan.get("unpriced").is_none() {
+        return Ok(());
+    }
     let kept = kept_caps(&run.plan, &source);
     let mut next = priced_plan(db, source, &kept, true).await?;
-    if let Some(scan) = run.plan.get("scan") { next["scan"] = scan.clone(); }
-    if next == run.plan { return Ok(()) }
+    if let Some(scan) = run.plan.get("scan") {
+        next["scan"] = scan.clone();
+    }
+    if next == run.plan {
+        return Ok(());
+    }
     sqlx::query("UPDATE sweep_runs SET plan=$2,plan_version=plan_version+1 WHERE id=$1")
-        .bind(run.id).bind(next).execute(&mut *tx).await.map_err(internal)?;
+        .bind(run.id)
+        .bind(next)
+        .execute(&mut *tx)
+        .await
+        .map_err(internal)?;
     notify(tx, account, "sweep").await.map_err(internal)
 }
 
@@ -552,19 +755,38 @@ struct Seat {
     /// The lease token matches, expired or not.
     holder: bool,
 }
-async fn seat(tx: &mut PgConnection, run: i64, device: i64, lease: &str) -> Result<Option<Seat>, Response> {
+async fn seat(
+    tx: &mut PgConnection,
+    run: i64,
+    device: i64,
+    lease: &str,
+) -> Result<Option<Seat>, Response> {
     sqlx::query_as("SELECT state,message,plan_version,coalesce(state='active' AND lease_hash=$3 AND lease_expires_at>clock_timestamp(),false) AS leased,coalesce(state='active' AND lease_hash=$3,false) AS holder FROM sweep_run_devices WHERE run_id=$1 AND device_id=$2 FOR UPDATE")
         .bind(run).bind(device).bind(auth::token_hash(lease)).fetch_optional(&mut *tx).await.map_err(internal)
 }
-async fn leased(tx: &mut PgConnection, run: i64, device: i64, lease: &str) -> Result<Seat, Response> {
-    seat(tx, run, device, lease).await?.filter(|s| s.leased).ok_or_else(|| conflict("lease_lost"))
+async fn leased(
+    tx: &mut PgConnection,
+    run: i64,
+    device: i64,
+    lease: &str,
+) -> Result<Seat, Response> {
+    seat(tx, run, device, lease)
+        .await?
+        .filter(|s| s.leased)
+        .ok_or_else(|| conflict("lease_lost"))
 }
-async fn device_view(tx: &mut PgConnection, run: &Run, device: i64) -> Result<Option<Value>, Response> {
+async fn device_view(
+    tx: &mut PgConnection,
+    run: &Run,
+    device: i64,
+) -> Result<Option<Value>, Response> {
     let seat: Option<(String, String, Option<i32>)> = sqlx::query_as("SELECT state,message,plan_version FROM sweep_run_devices WHERE run_id=$1 AND device_id=$2 AND state IN ('invited','active')")
         .bind(run.id).bind(device).fetch_optional(&mut *tx).await.map_err(internal)?;
     let (state, message, version) = match seat {
         Some(seat) => seat,
-        None if run.plan["scan"]["mode"] == "priority" => ("observing".to_owned(), String::new(), None),
+        None if run.plan["scan"]["mode"] == "priority" => {
+            ("observing".to_owned(), String::new(), None)
+        }
         None => return Ok(None),
     };
     let all = totals(tx, run.id, None).await?;
@@ -611,21 +833,43 @@ struct DeviceStart {
     scan: ScanMode,
 }
 /// Started at the computer itself: no password, and only this device takes part.
-async fn device_start(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<DeviceStart>) -> Reply {
+async fn device_start(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<DeviceStart>,
+) -> Reply {
     let d = devices::device(&state, &headers).await?;
     valid_limits(input.budget, input.minutes)?;
     input.scan.validate()?;
     let mut tx = state.db.begin().await.map_err(internal)?;
     lock_account(&mut tx, d.account).await?;
     let ready = if let Some(ids) = &input.devices {
-        let mut unique = ids.clone(); unique.sort(); unique.dedup();
-        if ids.is_empty() || ids.len() > 8 || unique.len() != ids.len() { return Err(invalid()); }
+        let mut unique = ids.clone();
+        unique.sort();
+        unique.dedup();
+        if ids.is_empty() || ids.len() > 8 || unique.len() != ids.len() {
+            return Err(invalid());
+        }
         let ready: Vec<i64> = sqlx::query_scalar("SELECT id FROM account_devices WHERE account_id=$1 AND public_id=ANY($2) AND revoked_at IS NULL AND last_seen_at>now()-interval '75 seconds' AND state @> '{\"sweep\":{\"shared_sweep\":true,\"executor\":{\"ready\":true}}}'")
             .bind(d.account).bind(ids).fetch_all(&mut *tx).await.map_err(internal)?;
-        if ready.len() != ids.len() { return Err(conflict("device_unavailable")); }
+        if ready.len() != ids.len() {
+            return Err(conflict("device_unavailable"));
+        }
         ready
-    } else { vec![d.id] };
-    begin_run(&state.db, &mut tx, d.account, input.budget, input.minutes, Some(d.id), &ready, &input.scan).await?;
+    } else {
+        vec![d.id]
+    };
+    begin_run(
+        &state.db,
+        &mut tx,
+        d.account,
+        input.budget,
+        input.minutes,
+        Some(d.id),
+        &ready,
+        &input.scan,
+    )
+    .await?;
     tx.commit().await.map_err(internal)?;
     device_reply(&state, &d).await
 }
@@ -637,17 +881,34 @@ struct TargetQuery {
     #[serde(default)]
     live: bool,
 }
-async fn device_targets(State(state): State<AppState>, headers: HeaderMap, Query(query): Query<TargetQuery>) -> Reply {
+async fn device_targets(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<TargetQuery>,
+) -> Reply {
     let d = devices::device(&state, &headers).await?;
     let mut tx = state.db.begin().await.map_err(internal)?;
-    let run = lock_running(&mut tx, d.account).await?.ok_or_else(|| conflict("sweep_stopped"))?;
+    let run = lock_running(&mut tx, d.account)
+        .await?
+        .ok_or_else(|| conflict("sweep_stopped"))?;
     ensure_running(&run)?;
     let member: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sweep_run_devices WHERE run_id=$1 AND device_id=$2 AND state='active' AND lease_expires_at>clock_timestamp())")
         .bind(run.id).bind(d.id).fetch_one(&mut *tx).await.map_err(internal)?;
-    if !member { return Err(conflict("lease_lost")); }
-    let minutes = if query.live { 10 } else if run.plan["scan"]["mode"] == "priority" { 180 }
-        else { run.plan["scan"]["recent_minutes"].as_i64().ok_or_else(invalid)? };
-    let ids: Vec<i32> = watches(&run.plan).filter_map(|w| w["item_id"].as_i64().map(|n| n as i32)).collect();
+    if !member {
+        return Err(conflict("lease_lost"));
+    }
+    let minutes = if query.live {
+        10
+    } else if run.plan["scan"]["mode"] == "priority" {
+        180
+    } else {
+        run.plan["scan"]["recent_minutes"]
+            .as_i64()
+            .ok_or_else(invalid)?
+    };
+    let ids: Vec<i32> = watches(&run.plan)
+        .filter_map(|w| w["item_id"].as_i64().map(|n| n as i32))
+        .collect();
     tx.commit().await.map_err(internal)?;
     let now = Utc::now().timestamp() as f64;
     let cutoff = now - (minutes * 60) as f64;
@@ -655,14 +916,27 @@ async fn device_targets(State(state): State<AppState>, headers: HeaderMap, Query
         crate::views::sweep_live_quotes(&state.db, &ids, cutoff, d.id).await
     } else {
         crate::views::sweep_quotes(&state.db, &ids, cutoff).await
-    }.map_err(internal)?;
-    let rows: Vec<Value> = rows.into_iter().filter(|r| {
-        let item = r["item_id"].as_i64().unwrap_or_default();
-        r["source"] == "packet" && r["location"]["room"].as_i64().is_some_and(|n| (1..=20).contains(&n))
-            && r["location"]["channel"].as_i64().is_some_and(|n| (1..=40).contains(&n))
-            && r["stock"].as_i64().is_some_and(|n| n > 0)
-            && plan_item(&run.plan, item).is_some_and(|(_, cap)| r["unit_price"].as_f64().is_some_and(|p| p > 0.0 && p <= cap))
-    }).collect();
+    }
+    .map_err(internal)?;
+    let rows: Vec<Value> = rows
+        .into_iter()
+        .filter(|r| {
+            let item = r["item_id"].as_i64().unwrap_or_default();
+            r["source"] == "packet"
+                && r["location"]["room"]
+                    .as_i64()
+                    .is_some_and(|n| (1..=20).contains(&n))
+                && r["location"]["channel"]
+                    .as_i64()
+                    .is_some_and(|n| (1..=40).contains(&n))
+                && r["stock"].as_i64().is_some_and(|n| n > 0)
+                && plan_item(&run.plan, item).is_some_and(|(_, cap)| {
+                    r["unit_price"]
+                        .as_f64()
+                        .is_some_and(|p| p > 0.0 && p <= cap)
+                })
+        })
+        .collect();
     Ok(Json(json!({"run":run.public_id,"plan_version":run.plan_version,"generated_at":now,"live":query.live,"listings":rows})).into_response())
 }
 #[derive(Deserialize)]
@@ -675,7 +949,9 @@ async fn join(State(state): State<AppState>, headers: HeaderMap, Json(input): Js
     let mut tx = state.db.begin().await.map_err(internal)?;
     let run = lock(&mut tx, d.account, &input.run).await?;
     ensure_running(&run)?;
-    let open = seat(&mut tx, run.id, d.id, "").await?.is_some_and(|s| s.state == "invited" || s.state == "active");
+    let open = seat(&mut tx, run.id, d.id, "")
+        .await?
+        .is_some_and(|s| s.state == "invited" || s.state == "active");
     if !open {
         return Err(conflict("not_invited"));
     }
@@ -687,7 +963,9 @@ async fn join(State(state): State<AppState>, headers: HeaderMap, Json(input): Js
     sqlx::query("UPDATE sweep_run_devices SET state='active',lease_hash=$3,lease_expires_at=clock_timestamp()+make_interval(secs=>$4),plan_version=$5 WHERE run_id=$1 AND device_id=$2")
         .bind(run.id).bind(d.id).bind(auth::token_hash(&lease)).bind(LEASE_SECONDS as f64).bind(run.plan_version)
         .execute(&mut *tx).await.map_err(internal)?;
-    notify(&mut tx, d.account, "sweep").await.map_err(internal)?;
+    notify(&mut tx, d.account, "sweep")
+        .await
+        .map_err(internal)?;
     tx.commit().await.map_err(internal)?;
     Ok(Json(json!({"lease":lease,"expires_in":LEASE_SECONDS})).into_response())
 }
@@ -697,7 +975,11 @@ struct Refuse {
     #[serde(default)]
     reason: String,
 }
-async fn refuse(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<Refuse>) -> Reply {
+async fn refuse(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<Refuse>,
+) -> Reply {
     let d = devices::device(&state, &headers).await?;
     if !devices::valid_text(&input.reason, 80) {
         return Err(invalid());
@@ -710,7 +992,9 @@ async fn refuse(State(state): State<AppState>, headers: HeaderMap, Json(input): 
     if changed.rows_affected() != 1 {
         return Err(conflict("not_invited"));
     }
-    notify(&mut tx, d.account, "sweep").await.map_err(internal)?;
+    notify(&mut tx, d.account, "sweep")
+        .await
+        .map_err(internal)?;
     tx.commit().await.map_err(internal)?;
     ok()
 }
@@ -731,25 +1015,42 @@ struct Heartbeat {
     #[serde(default)]
     status: Status,
 }
-async fn heartbeat(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<Heartbeat>) -> Reply {
+async fn heartbeat(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<Heartbeat>,
+) -> Reply {
     let d = devices::device(&state, &headers).await?;
-    if !devices::valid_text(&input.status.message, 80) || input.status.checked.is_some_and(|n| n > MAX_AMOUNT as u64)
-        || input.status.pending.is_some_and(|n| n > 100_000) {
+    if !devices::valid_text(&input.status.message, 80)
+        || input.status.checked.is_some_and(|n| n > MAX_AMOUNT as u64)
+        || input.status.pending.is_some_and(|n| n > 100_000)
+    {
         return Err(invalid());
     }
     let mut tx = state.db.begin().await.map_err(internal)?;
     let run = lock(&mut tx, d.account, &input.run).await?;
     ensure_running(&run)?;
     let seat = leased(&mut tx, run.id, d.id, &input.lease).await?;
-    let (previous_checked, previous_pending): (Option<i64>, Option<i32>) = sqlx::query_as("SELECT checked,recent_pending FROM sweep_run_devices WHERE run_id=$1 AND device_id=$2")
-        .bind(run.id).bind(d.id).fetch_one(&mut *tx).await.map_err(internal)?;
+    let (previous_checked, previous_pending): (Option<i64>, Option<i32>) = sqlx::query_as(
+        "SELECT checked,recent_pending FROM sweep_run_devices WHERE run_id=$1 AND device_id=$2",
+    )
+    .bind(run.id)
+    .bind(d.id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(internal)?;
     let checked = input.status.checked.map(|n| n as i64);
     // `pending` is stored as sent: a beat without it clears the value (the device left recent-match mode).
     let pending = input.status.pending.map(|n| n as i32);
     sqlx::query("UPDATE sweep_run_devices SET lease_expires_at=clock_timestamp()+make_interval(secs=>$3),message=$4,checked=coalesce($5,checked),recent_pending=$6,progress_at=now() WHERE run_id=$1 AND device_id=$2")
         .bind(run.id).bind(d.id).bind(LEASE_SECONDS as f64).bind(&input.status.message).bind(checked).bind(pending).execute(&mut *tx).await.map_err(internal)?;
-    if seat.message != input.status.message || checked.is_some() && checked != previous_checked || pending != previous_pending {
-        notify(&mut tx, d.account, "sweep").await.map_err(internal)?;
+    if seat.message != input.status.message
+        || checked.is_some() && checked != previous_checked
+        || pending != previous_pending
+    {
+        notify(&mut tx, d.account, "sweep")
+            .await
+            .map_err(internal)?;
     }
     let t = totals(&mut tx, run.id, None).await?;
     tx.commit().await.map_err(internal)?;
@@ -762,7 +1063,11 @@ struct Leave {
     #[serde(default)]
     reason: String,
 }
-async fn leave(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<Leave>) -> Reply {
+async fn leave(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<Leave>,
+) -> Reply {
     let d = devices::device(&state, &headers).await?;
     if !devices::valid_text(&input.reason, 80) {
         return Err(invalid());
@@ -770,16 +1075,25 @@ async fn leave(State(state): State<AppState>, headers: HeaderMap, Json(input): J
     let mut tx = state.db.begin().await.map_err(internal)?;
     let run = lock(&mut tx, d.account, &input.run).await?;
     // Only this device's newest lease can end its part, even after expiry.
-    if !seat(&mut tx, run.id, d.id, &input.lease).await?.is_some_and(|s| s.holder) {
+    if !seat(&mut tx, run.id, d.id, &input.lease)
+        .await?
+        .is_some_and(|s| s.holder)
+    {
         return Err(conflict("lease_lost"));
     }
     sqlx::query("UPDATE sweep_run_devices SET state='left',message=$3,lease_hash=NULL WHERE run_id=$1 AND device_id=$2")
         .bind(run.id).bind(d.id).bind(&input.reason).execute(&mut *tx).await.map_err(internal)?;
-    notify(&mut tx, d.account, "sweep").await.map_err(internal)?;
+    notify(&mut tx, d.account, "sweep")
+        .await
+        .map_err(internal)?;
     tx.commit().await.map_err(internal)?;
     ok()
 }
-async fn device_stop(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<RunRef>) -> Reply {
+async fn device_stop(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<RunRef>,
+) -> Reply {
     let d = devices::device(&state, &headers).await?;
     let mut tx = state.db.begin().await.map_err(internal)?;
     let mut run = lock(&mut tx, d.account, &input.run).await?;
@@ -815,7 +1129,9 @@ struct Reserve {
 fn valid_reserve(r: &Reserve) -> bool {
     let l = &r.location;
     r.listing.len() == 64
-        && r.listing.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        && r.listing
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
         && (1_000_000..=5_999_999).contains(&r.item_id)
         && (1..=MAX_AMOUNT).contains(&r.price)
         && (1..=1_000_000).contains(&r.bundle)
@@ -824,11 +1140,17 @@ fn valid_reserve(r: &Reserve) -> bool {
         && (0..=22).contains(&l.room)
         && (1..=255).contains(&l.channel)
         && (1..=i64::from(u32::MAX)).contains(&l.shop_id)
-        && l.owner.as_deref().is_none_or(|o| devices::valid_text(o, 24))
+        && l.owner
+            .as_deref()
+            .is_none_or(|o| devices::valid_text(o, 24))
         && (1..=6).contains(&l.category)
         && (1..=200).contains(&l.slot)
 }
-async fn reserve(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<Reserve>) -> Reply {
+async fn reserve(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<Reserve>,
+) -> Reply {
     let d = devices::device(&state, &headers).await?;
     if !valid_reserve(&input) {
         return Err(invalid());
@@ -840,22 +1162,46 @@ async fn reserve(State(state): State<AppState>, headers: HeaderMap, Json(input):
     if input.plan_version != run.plan_version || seat.plan_version != Some(run.plan_version) {
         return Err(conflict("plan_changed"));
     }
-    let (limit, cap) = plan_item(&run.plan, input.item_id).ok_or_else(|| conflict("item_not_in_plan"))?;
+    let (limit, cap) =
+        plan_item(&run.plan, input.item_id).ok_or_else(|| conflict("item_not_in_plan"))?;
     if !within_cap(input.item_id, input.price, input.bundle, cap) {
         return Err(conflict("price_over_cap"));
     }
-    let refused = |reason: &str| -> Reply { Ok(Json(json!({"granted":0,"reason":reason})).into_response()) };
-    let duplicate: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sweep_reservations WHERE run_id=$1 AND listing=$2)")
-        .bind(run.id).bind(&input.listing).fetch_one(&mut *tx).await.map_err(internal)?;
+    let refused =
+        |reason: &str| -> Reply { Ok(Json(json!({"granted":0,"reason":reason})).into_response()) };
+    let duplicate: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM sweep_reservations WHERE run_id=$1 AND listing=$2)",
+    )
+    .bind(run.id)
+    .bind(&input.listing)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(internal)?;
     if duplicate {
         return refused("duplicate");
     }
     let budget_left = run.budget - totals(&mut tx, run.id, None).await?.used();
     let per = units_per(input.item_id, input.bundle);
-    let units_left = if limit == 0 { None } else {
-        Some(limit - item_units(&mut tx, run.id).await?.get(&input.item_id).copied().unwrap_or(0))
+    let units_left = if limit == 0 {
+        None
+    } else {
+        Some(
+            limit
+                - item_units(&mut tx, run.id)
+                    .await?
+                    .get(&input.item_id)
+                    .copied()
+                    .unwrap_or(0),
+        )
     };
-    let count = match granted(input.quantity, input.stock, units_left, per, budget_left, input.price) {
+    let count = match granted(
+        input.quantity,
+        input.stock,
+        units_left,
+        per,
+        budget_left,
+        input.price,
+    ) {
         Ok(n) => n,
         Err(reason) => return refused(reason),
     };
@@ -869,7 +1215,9 @@ async fn reserve(State(state): State<AppState>, headers: HeaderMap, Json(input):
         sqlx::query("UPDATE sweep_runs SET status='finished',stop_reason='budget_spent',stopped_at=now() WHERE id=$1")
             .bind(run.id).execute(&mut *tx).await.map_err(internal)?;
     }
-    notify(&mut tx, d.account, "sweep").await.map_err(internal)?;
+    notify(&mut tx, d.account, "sweep")
+        .await
+        .map_err(internal)?;
     tx.commit().await.map_err(internal)?;
     Ok(Json(json!({"reservation":id,"granted":count,"expires_in":LEASE_SECONDS})).into_response())
 }
@@ -903,12 +1251,19 @@ struct Held {
     recent: bool,
 }
 /// No lease needed: results arrive after a purchase even if the lease is gone.
-async fn settle(State(state): State<AppState>, headers: HeaderMap, Json(input): Json<Settle>) -> Reply {
+async fn settle(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<Settle>,
+) -> Reply {
     let d = devices::device(&state, &headers).await?;
     if !public_id(&input.reservation)
         || !matches!(input.status.as_str(), "bought" | "not_bought" | "unknown")
         || input.reason.len() > 40
-        || !input.reason.bytes().all(|b| b.is_ascii_lowercase() || b == b'_')
+        || !input
+            .reason
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b == b'_')
     {
         return Err(invalid());
     }
@@ -920,14 +1275,33 @@ async fn settle(State(state): State<AppState>, headers: HeaderMap, Json(input): 
     let held: Held = sqlx::query_as("SELECT id,status,quantity,price,bought_quantity,spent,reason,created_at>clock_timestamp()-interval '10 minutes' AS recent FROM sweep_reservations WHERE public_id=$1 FOR UPDATE")
         .bind(&input.reservation).fetch_one(&mut *tx).await.map_err(internal)?;
     if held.status != "held" && held.status != "expired" {
-        let same = (held.status.as_str(), held.bought_quantity, held.spent, held.reason.as_str())
-            == (input.status.as_str(), input.quantity, input.spent, input.reason.as_str());
-        return if same { ok() } else { Err(conflict("already_settled")) };
+        let same = (
+            held.status.as_str(),
+            held.bought_quantity,
+            held.spent,
+            held.reason.as_str(),
+        ) == (
+            input.status.as_str(),
+            input.quantity,
+            input.spent,
+            input.reason.as_str(),
+        );
+        return if same {
+            ok()
+        } else {
+            Err(conflict("already_settled"))
+        };
     }
     if held.status == "expired" && !held.recent {
         return Err(conflict("reservation_expired"));
     }
-    if !valid_result(&input.status, input.quantity, input.spent, held.quantity, held.price) {
+    if !valid_result(
+        &input.status,
+        input.quantity,
+        input.spent,
+        held.quantity,
+        held.price,
+    ) {
         return Err(invalid());
     }
     sqlx::query("UPDATE sweep_reservations SET status=$2,bought_quantity=$3,spent=$4,reason=$5,settled_at=now() WHERE id=$1")
@@ -938,7 +1312,9 @@ async fn settle(State(state): State<AppState>, headers: HeaderMap, Json(input): 
         sqlx::query("UPDATE sweep_run_devices SET state='left',message='unknown',lease_hash=NULL WHERE run_id=$1 AND device_id=$2 AND state IN ('invited','active')")
             .bind(run.id).bind(d.id).execute(&mut *tx).await.map_err(internal)?;
     }
-    notify(&mut tx, d.account, "sweep").await.map_err(internal)?;
+    notify(&mut tx, d.account, "sweep")
+        .await
+        .map_err(internal)?;
     tx.commit().await.map_err(internal)?;
     ok()
 }
@@ -951,25 +1327,45 @@ mod tests {
     }
     #[test]
     fn plan_keeps_only_sweepable_groups_sorted_by_item() {
-        let keep = group("keep", true, json!(500000), json!({"percentile":"all","equipment":"bonus"}));
+        let keep = group(
+            "keep",
+            true,
+            json!(500000),
+            json!({"percentile":"all","equipment":"bonus"}),
+        );
         let watches = vec![
-            ("1082002".to_string(), json!({"cap":null,"notify":true,"position":0,"buyLimit":2,"groups":[
-                keep.clone(),
-                group("off", false, json!(500000), json!({})),
-                group("nocap", true, json!(null), json!({})),
-                group("zero", true, json!(0), json!({})),
-                group("p25", true, json!(1000), json!({"percentile":"25"})),
-                group("missing", true, json!(1000), json!({"equipment":"missing"})),
-            ]})),
-            ("1002000".to_string(), json!({"cap":null,"notify":true,"position":1,"groups":[group("a", true, json!(10), json!({}))]})),
-            ("2000000".to_string(), json!({"cap":5,"notify":true,"position":2})),
-            ("2000001".to_string(), json!({"cap":5,"notify":true,"position":3,"groups":[group("b", false, json!(10), json!({}))]})),
+            (
+                "1082002".to_string(),
+                json!({"cap":null,"notify":true,"position":0,"buyLimit":2,"groups":[
+                    keep.clone(),
+                    group("off", false, json!(500000), json!({})),
+                    group("nocap", true, json!(null), json!({})),
+                    group("zero", true, json!(0), json!({})),
+                    group("p25", true, json!(1000), json!({"percentile":"25"})),
+                    group("missing", true, json!(1000), json!({"equipment":"missing"})),
+                ]}),
+            ),
+            (
+                "1002000".to_string(),
+                json!({"cap":null,"notify":true,"position":1,"groups":[group("a", true, json!(10), json!({}))]}),
+            ),
+            (
+                "2000000".to_string(),
+                json!({"cap":5,"notify":true,"position":2}),
+            ),
+            (
+                "2000001".to_string(),
+                json!({"cap":5,"notify":true,"position":3,"groups":[group("b", false, json!(10), json!({}))]}),
+            ),
         ];
         let p = plan(&watches);
-        assert_eq!(p, json!({"watches":[
-            {"item_id":1002000,"limit":1,"groups":[group("a", true, json!(10), json!({}))]},
-            {"item_id":1082002,"limit":2,"groups":[keep,group("p25", true, json!(1000), json!({"percentile":"25"}))]},
-        ]}));
+        assert_eq!(
+            p,
+            json!({"watches":[
+                {"item_id":1002000,"limit":1,"groups":[group("a", true, json!(10), json!({}))]},
+                {"item_id":1082002,"limit":2,"groups":[keep,group("p25", true, json!(1000), json!({"percentile":"25"}))]},
+            ]})
+        );
         assert_eq!(plan_item(&p, 1082002), Some((2, 500000.0)));
         assert_eq!(plan_item(&p, 2000000), None);
         assert!(empty(&plan(&watches[2..])));
@@ -977,7 +1373,12 @@ mod tests {
     #[test]
     fn percentile_caps_are_frozen_and_preserve_the_source_rules() {
         for percentile in ["10", "25", "50"] {
-            let rule = group("percent", true, json!(999999), json!({"percentile":percentile,"stats":[{"stat":"weapon_attack","min":60}]}));
+            let rule = group(
+                "percent",
+                true,
+                json!(999999),
+                json!({"percentile":percentile,"stats":[{"stat":"weapon_attack","min":60}]}),
+            );
             let raw = plan(&[("1082002".into(), json!({"buyLimit":0,"groups":[rule]}))]);
             let caps = json!({"1082002":{"10":123.5,"25":200,"50":300}});
             let frozen = freeze_prices(raw.clone(), &caps, &Kept::new(), false).unwrap();
@@ -985,23 +1386,52 @@ mod tests {
             let g = &frozen["watches"][0]["groups"][0];
             assert_eq!(g["price_percentile"], percentile);
             assert_eq!(g["reminder"]["percentile"], "all");
-            assert_eq!(g["reminder"]["stats"], raw["watches"][0]["groups"][0]["reminder"]["stats"]);
-            assert_eq!(plan_item(&frozen, 1082002), Some((0, caps["1082002"][percentile].as_f64().unwrap())));
+            assert_eq!(
+                g["reminder"]["stats"],
+                raw["watches"][0]["groups"][0]["reminder"]["stats"]
+            );
+            assert_eq!(
+                plan_item(&frozen, 1082002),
+                Some((0, caps["1082002"][percentile].as_f64().unwrap()))
+            );
             assert!(freeze_prices(raw.clone(), &json!({}), &Kept::new(), false).is_err());
-            assert!(freeze_prices(raw.clone(), &json!({"1082002":{percentile:0}}), &Kept::new(), false).is_err());
+            assert!(freeze_prices(
+                raw.clone(),
+                &json!({"1082002":{percentile:0}}),
+                &Kept::new(),
+                false
+            )
+            .is_err());
         }
-        let fixed = plan(&[("2000000".into(), json!({"groups":[group("fixed", true, json!(130), json!({}))]}))]);
-        assert_eq!(freeze_prices(fixed.clone(), &json!({}), &Kept::new(), false).unwrap(), fixed);
+        let fixed = plan(&[(
+            "2000000".into(),
+            json!({"groups":[group("fixed", true, json!(130), json!({}))]}),
+        )]);
+        assert_eq!(
+            freeze_prices(fixed.clone(), &json!({}), &Kept::new(), false).unwrap(),
+            fixed
+        );
     }
     #[test]
     fn live_edits_keep_unchanged_caps_and_skip_unpriced_groups() {
         let p25 = group("p25", true, json!(999999), json!({"percentile":"25"}));
         let fixed = group("fixed", true, json!(130), json!({}));
-        let source = |p25: &Value| plan(&[
-            ("1082002".into(), json!({"groups":[p25]})),
-            ("2000000".into(), json!({"groups":[group("p10", true, json!(5), json!({"percentile":"10"})), fixed.clone()]})),
-        ]);
-        let run = freeze_prices(source(&p25), &json!({"1082002":{"25":100},"2000000":{"10":7}}), &Kept::new(), false).unwrap();
+        let source = |p25: &Value| {
+            plan(&[
+                ("1082002".into(), json!({"groups":[p25]})),
+                (
+                    "2000000".into(),
+                    json!({"groups":[group("p10", true, json!(5), json!({"percentile":"10"})), fixed.clone()]}),
+                ),
+            ])
+        };
+        let run = freeze_prices(
+            source(&p25),
+            &json!({"1082002":{"25":100},"2000000":{"10":7}}),
+            &Kept::new(),
+            false,
+        )
+        .unwrap();
         // Toggling a reminder or renaming keeps the cap even after the market rose.
         let renamed = json!({"id":"p25","name":"新名","cap":999999,"notify":false,"buy":true,"reminder":{"percentile":"25"}});
         let kept = kept_caps(&run, &source(&renamed));
@@ -1012,14 +1442,28 @@ mod tests {
         assert_eq!(plan_item(&next, 1082002), Some((1, 100.0)));
         assert_eq!(next["watches"][0]["groups"][0]["name"], "新名");
         // A changed rule is re-priced.
-        let changed = group("p25", true, json!(999999), json!({"percentile":"25","minPrice":1}));
+        let changed = group(
+            "p25",
+            true,
+            json!(999999),
+            json!({"percentile":"25","minPrice":1}),
+        );
         let kept = kept_caps(&run, &source(&changed));
         assert!(!kept.contains_key(&(1082002, "p25".to_owned())));
-        assert_eq!(plan_item(&freeze_prices(source(&changed), &rose, &kept, true).unwrap(), 1082002), Some((1, 140.0)));
+        assert_eq!(
+            plan_item(
+                &freeze_prices(source(&changed), &rose, &kept, true).unwrap(),
+                1082002
+            ),
+            Some((1, 140.0))
+        );
         // Without quotes a live edit leaves the group out, an item with no group left drops out, and start still fails.
         let none = json!({"2000000":{"10":9}});
         let live = freeze_prices(source(&changed), &none, &kept, true).unwrap();
-        assert_eq!(live["unpriced"], json!([{"item_id":1082002,"group_id":"p25"}]));
+        assert_eq!(
+            live["unpriced"],
+            json!([{"item_id":1082002,"group_id":"p25"}])
+        );
         assert_eq!(plan_item(&live, 1082002), None);
         assert_eq!(live["watches"].as_array().unwrap().len(), 1);
         assert_eq!(source_watches(&live), &source(&changed)["watches"]);
@@ -1029,7 +1473,12 @@ mod tests {
     }
     #[test]
     fn stars_and_bullets_count_per_bundle() {
-        assert!(per_bundle(2070000) && per_bundle(2330005) && !per_bundle(2060000) && !per_bundle(1082002));
+        assert!(
+            per_bundle(2070000)
+                && per_bundle(2330005)
+                && !per_bundle(2060000)
+                && !per_bundle(1082002)
+        );
         assert_eq!(units_per(2070000, 800), 1);
         assert_eq!(units_per(4000000, 100), 100);
         assert!(within_cap(2070000, 9000, 800, 9000.0) && !within_cap(2070000, 9001, 800, 9000.0));
@@ -1054,7 +1503,9 @@ mod tests {
         assert!(valid_result("bought", 2, 900, 2, 450));
         assert!(!valid_result("bought", 0, 0, 2, 450) && !valid_result("bought", 3, 0, 2, 450));
         assert!(!valid_result("bought", 1, 451, 2, 450));
-        assert!(valid_result("not_bought", 0, 0, 2, 450) && !valid_result("not_bought", 1, 0, 2, 450));
+        assert!(
+            valid_result("not_bought", 0, 0, 2, 450) && !valid_result("not_bought", 1, 0, 2, 450)
+        );
         assert!(valid_result("unknown", 0, 0, 2, 450) && !valid_result("unknown", 3, 0, 2, 450));
         assert!(!valid_result("held", 0, 0, 2, 450));
     }

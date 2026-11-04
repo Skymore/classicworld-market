@@ -7,7 +7,14 @@ use crate::{
 };
 use axum::body::Bytes;
 use sqlx::PgPool;
-use std::{collections::VecDeque, sync::{Arc, Mutex as RegistryMutex, atomic::{AtomicU64, Ordering}}, time::Instant};
+use std::{
+    collections::VecDeque,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, Mutex as RegistryMutex,
+    },
+    time::Instant,
+};
 use tokio::sync::{Mutex, OnceCell, Semaphore};
 
 #[derive(PartialEq)]
@@ -20,9 +27,15 @@ impl Revision {
     fn covers(&self, requested: &Self) -> bool {
         match (self, requested) {
             (Self::Market(current), Self::Market(requested)) => current >= requested,
-            (Self::Items(current), Self::Items(requested)) => current.len() == requested.len()
-                && current.iter().zip(requested).all(|((id, version), (wanted, minimum))|
-                    id == wanted && version >= minimum),
+            (Self::Items(current), Self::Items(requested)) => {
+                current.len() == requested.len()
+                    && current
+                        .iter()
+                        .zip(requested)
+                        .all(|((id, version), (wanted, minimum))| {
+                            id == wanted && version >= minimum
+                        })
+            }
             _ => false,
         }
     }
@@ -32,8 +45,12 @@ async fn revision(db: &PgPool, items: Option<&[i32]>) -> sqlx::Result<Revision> 
     match items {
         None => views::version(db).await.map(Revision::Market),
         Some(ids) => sqlx::query_as(
-            "SELECT item_id,read_revision FROM item_stats WHERE item_id=ANY($1) ORDER BY item_id")
-            .bind(ids).fetch_all(db).await.map(Revision::Items),
+            "SELECT item_id,read_revision FROM item_stats WHERE item_id=ANY($1) ORDER BY item_id",
+        )
+        .bind(ids)
+        .fetch_all(db)
+        .await
+        .map(Revision::Items),
     }
 }
 
@@ -99,7 +116,10 @@ impl PublicLane {
         if entries.len() == 32 {
             // A caller owns an Arc until it releases the entry lock. Never
             // evict a building entry or detach waiters from a shared rebuild.
-            if let Some(index) = entries.iter().position(|(_, slot)| Arc::strong_count(slot) == 1) {
+            if let Some(index) = entries
+                .iter()
+                .position(|(_, slot)| Arc::strong_count(slot) == 1)
+            {
                 retired = entries.remove(index);
                 counters.evictions.fetch_add(1, Ordering::Relaxed);
             } else {
@@ -137,35 +157,66 @@ impl Default for PublicReadCache {
 }
 
 impl PublicReadCache {
-    pub async fn get<F>(&self, db: &PgPool, key: &str, build: F) -> sqlx::Result<Option<serde_json::Value>>
-    where F: std::future::Future<Output = sqlx::Result<Option<serde_json::Value>>> {
+    pub async fn get<F>(
+        &self,
+        db: &PgPool,
+        key: &str,
+        build: F,
+    ) -> sqlx::Result<Option<serde_json::Value>>
+    where
+        F: std::future::Future<Output = sqlx::Result<Option<serde_json::Value>>>,
+    {
         self.get_scoped(db, key, None, build).await
     }
 
-    pub async fn get_items<F>(&self, db: &PgPool, key: &str, items: &[i32], build: F)
-        -> sqlx::Result<Option<serde_json::Value>>
-    where F: std::future::Future<Output = sqlx::Result<Option<serde_json::Value>>> {
+    pub async fn get_items<F>(
+        &self,
+        db: &PgPool,
+        key: &str,
+        items: &[i32],
+        build: F,
+    ) -> sqlx::Result<Option<serde_json::Value>>
+    where
+        F: std::future::Future<Output = sqlx::Result<Option<serde_json::Value>>>,
+    {
         self.get_scoped(db, key, Some(items), build).await
     }
 
-    async fn get_scoped<F>(&self, db: &PgPool, key: &str, items: Option<&[i32]>, build: F)
-        -> sqlx::Result<Option<serde_json::Value>>
-    where F: std::future::Future<Output = sqlx::Result<Option<serde_json::Value>>> {
+    async fn get_scoped<F>(
+        &self,
+        db: &PgPool,
+        key: &str,
+        items: Option<&[i32]>,
+        build: F,
+    ) -> sqlx::Result<Option<serde_json::Value>>
+    where
+        F: std::future::Future<Output = sqlx::Result<Option<serde_json::Value>>>,
+    {
         let requested = Instant::now();
         // Slow full histories cannot occupy crafting/watch rebuild permits or
         // displace their cache entries. Each class remains independently bounded.
-        let lane = if key == "crafting" { 1 } else if key.starts_with("watch:") { 2 } else { 0 };
+        let lane = if key == "crafting" {
+            1
+        } else if key.starts_with("watch:") {
+            2
+        } else {
+            0
+        };
         let counters = &self.counters[lane];
         counters.requests.fetch_add(1, Ordering::Relaxed);
         let requested_revision = revision(db, items).await?;
-        counters.lookup_us.fetch_add(requested.elapsed().as_micros() as u64, Ordering::Relaxed);
+        counters
+            .lookup_us
+            .fetch_add(requested.elapsed().as_micros() as u64, Ordering::Relaxed);
         let waiting = Instant::now();
         let slot = self.lanes[lane].slot(key, counters);
         let mut entry = match slot.as_ref() {
             Some(slot) => Some(slot.lock().await),
             None => None,
         };
-        counters.key_wait_us.fetch_add(waiting.elapsed().as_micros() as u64, Ordering::Relaxed);
+        counters
+            .key_wait_us
+            .fetch_add(waiting.elapsed().as_micros() as u64, Ordering::Relaxed);
         let mut cause = &counters.cold;
         if let Some(hit) = entry.as_deref().and_then(Option::as_ref) {
             // Every watched item's revision must be at least the one this
@@ -176,11 +227,20 @@ impl PublicReadCache {
                 counters.hits.fetch_add(1, Ordering::Relaxed);
                 return Ok(hit.value.clone());
             }
-            cause = if current { &counters.expired } else { &counters.invalidated };
+            cause = if current {
+                &counters.expired
+            } else {
+                &counters.invalidated
+            };
         }
         let waiting = Instant::now();
-        let _permit = self.rebuilds[lane].acquire().await.expect("public cache gate open");
-        counters.permit_wait_us.fetch_add(waiting.elapsed().as_micros() as u64, Ordering::Relaxed);
+        let _permit = self.rebuilds[lane]
+            .acquire()
+            .await
+            .expect("public cache gate open");
+        counters
+            .permit_wait_us
+            .fetch_add(waiting.elapsed().as_micros() as u64, Ordering::Relaxed);
         // Capture current revisions after waiting, without holding a database
         // connection in the queue. No listener or invalidation message can be lost.
         let started = Instant::now();
@@ -188,10 +248,16 @@ impl PublicReadCache {
         counters.rebuilds.fetch_add(1, Ordering::Relaxed);
         cause.fetch_add(1, Ordering::Relaxed);
         let result = build.await;
-        counters.build_us.fetch_add(started.elapsed().as_micros() as u64, Ordering::Relaxed);
+        counters
+            .build_us
+            .fetch_add(started.elapsed().as_micros() as u64, Ordering::Relaxed);
         let value = result?;
         if let Some(entry) = entry.as_deref_mut() {
-            *entry = Some(PublicEntry { revision, built: Instant::now(), value: value.clone() });
+            *entry = Some(PublicEntry {
+                revision,
+                built: Instant::now(),
+                value: value.clone(),
+            });
         }
         Ok(value)
     }
@@ -203,14 +269,29 @@ impl PublicReadCache {
             let take = |v: &AtomicU64| v.swap(0, Ordering::Relaxed);
             let key_wait_ms = take(&c.key_wait_us) as f64 / 1000.;
             let permit_wait_ms = take(&c.permit_wait_us) as f64 / 1000.;
-            (["item", "crafting", "watch"][lane], CacheMetrics {
-                requests: take(&c.requests), hits: take(&c.hits), rebuilds: take(&c.rebuilds),
-                evictions: take(&c.evictions), bypasses: take(&c.bypasses), cold: take(&c.cold),
-                expired: take(&c.expired), invalidated: take(&c.invalidated),
-                entries: self.lanes[lane].entries.lock().expect("public cache registry").len(),
-                lookup_ms: take(&c.lookup_us) as f64 / 1000., key_wait_ms, permit_wait_ms,
-                wait_ms: key_wait_ms + permit_wait_ms, build_ms: take(&c.build_us) as f64 / 1000.,
-            })
+            (
+                ["item", "crafting", "watch"][lane],
+                CacheMetrics {
+                    requests: take(&c.requests),
+                    hits: take(&c.hits),
+                    rebuilds: take(&c.rebuilds),
+                    evictions: take(&c.evictions),
+                    bypasses: take(&c.bypasses),
+                    cold: take(&c.cold),
+                    expired: take(&c.expired),
+                    invalidated: take(&c.invalidated),
+                    entries: self.lanes[lane]
+                        .entries
+                        .lock()
+                        .expect("public cache registry")
+                        .len(),
+                    lookup_ms: take(&c.lookup_us) as f64 / 1000.,
+                    key_wait_ms,
+                    permit_wait_ms,
+                    wait_ms: key_wait_ms + permit_wait_ms,
+                    build_ms: take(&c.build_us) as f64 / 1000.,
+                },
+            )
         })
     }
 }
@@ -299,14 +380,22 @@ mod hint_tests {
     use super::*;
     #[tokio::test]
     async fn period_hint_coalesces_and_expires_without_market_invalidation() {
-        let cache=MarketListCache::default();
-        let calls=AtomicU64::new(0);
-        let build=|| async { calls.fetch_add(1,Ordering::Relaxed); tokio::task::yield_now().await; Ok(b"hint".to_vec()) };
-        let (a,b)=tokio::join!(cache.period_hint(build()),cache.period_hint(build()));
-        assert_eq!(a.unwrap(),b.unwrap());assert_eq!(calls.load(Ordering::Relaxed),1);
-        cache.period_hint(build()).await.unwrap();assert_eq!(calls.load(Ordering::Relaxed),1);
-        cache.period_hint.lock().await.as_mut().unwrap().0=Instant::now()-std::time::Duration::from_secs(301);
-        cache.period_hint(build()).await.unwrap();assert_eq!(calls.load(Ordering::Relaxed),2);
+        let cache = MarketListCache::default();
+        let calls = AtomicU64::new(0);
+        let build = || async {
+            calls.fetch_add(1, Ordering::Relaxed);
+            tokio::task::yield_now().await;
+            Ok(b"hint".to_vec())
+        };
+        let (a, b) = tokio::join!(cache.period_hint(build()), cache.period_hint(build()));
+        assert_eq!(a.unwrap(), b.unwrap());
+        assert_eq!(calls.load(Ordering::Relaxed), 1);
+        cache.period_hint(build()).await.unwrap();
+        assert_eq!(calls.load(Ordering::Relaxed), 1);
+        cache.period_hint.lock().await.as_mut().unwrap().0 =
+            Instant::now() - std::time::Duration::from_secs(301);
+        cache.period_hint(build()).await.unwrap();
+        assert_eq!(calls.load(Ordering::Relaxed), 2);
     }
 }
 
@@ -344,28 +433,43 @@ impl Default for MarketListCache {
 }
 
 impl MarketListCache {
-    pub async fn projection(&self, db: &PgPool, hours: Hours, public: bool, ids: Option<&[i32]>)
-        -> sqlx::Result<serde_json::Value> {
-        let slot=usize::from(matches!(hours, Hours::All));
-        let mut entry=self.projections[slot].lock().await;
-        let revision=views::version(db).await?;
-        if entry.as_ref().is_none_or(|(version,_,_)| *version!=revision) {
+    pub async fn projection(
+        &self,
+        db: &PgPool,
+        hours: Hours,
+        public: bool,
+        ids: Option<&[i32]>,
+    ) -> sqlx::Result<serde_json::Value> {
+        let slot = usize::from(matches!(hours, Hours::All));
+        let mut entry = self.projections[slot].lock().await;
+        let revision = views::version(db).await?;
+        if entry
+            .as_ref()
+            .is_none_or(|(version, _, _)| *version != revision)
+        {
             // Decode the full table once per committed version, never once per
             // visitor or watch combination. Only two bounded snapshots remain.
-            let list=self.get(db,hours,public).await?;
-            let market=serde_json::from_slice(&list.body).expect("cached market JSON");
-            let overview=crate::delivery::overview(&market);
-            *entry=Some((list.version,market,overview));
+            let list = self.get(db, hours, public).await?;
+            let market = serde_json::from_slice(&list.body).expect("cached market JSON");
+            let overview = crate::delivery::overview(&market);
+            *entry = Some((list.version, market, overview));
         }
-        let (_,market,overview)=entry.as_ref().unwrap();
-        Ok(match ids { Some(ids)=>crate::delivery::selected(market,ids), None=>overview.clone() })
+        let (_, market, overview) = entry.as_ref().unwrap();
+        Ok(match ids {
+            Some(ids) => crate::delivery::selected(market, ids),
+            None => overview.clone(),
+        })
     }
 
     pub async fn period_hint<F>(&self, build: F) -> sqlx::Result<Vec<u8>>
-    where F: std::future::Future<Output = sqlx::Result<Vec<u8>>> {
+    where
+        F: std::future::Future<Output = sqlx::Result<Vec<u8>>>,
+    {
         let mut entry = self.period_hint.lock().await;
         if let Some((at, body)) = entry.as_ref() {
-            if at.elapsed().as_secs() < 300 { return Ok(body.clone()); }
+            if at.elapsed().as_secs() < 300 {
+                return Ok(body.clone());
+            }
         }
         let body = build.await?;
         *entry = Some((Instant::now(), body.clone()));

@@ -34,15 +34,24 @@ const SESSION_SECONDS: u32 = 30 * 86400;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/v1/register", post(register))
-        .route("/api/v1/remote-debug/client", post(crate::remote_debug::client))
-        .route("/api/v1/remote-debug/operator", post(crate::remote_debug::operator))
+        .route(
+            "/api/v1/remote-debug/client",
+            post(crate::remote_debug::client),
+        )
+        .route(
+            "/api/v1/remote-debug/operator",
+            post(crate::remote_debug::operator),
+        )
         .route("/api/v1/login", post(login))
         .route("/api/v1/logout", post(logout))
         // The collector posts to /observations; /upload is the plan's name.
         .route("/api/v1/observations", post(upload))
         .route("/api/v1/upload", post(upload))
-        .route("/api/v1/collector/diagnostics", post(crate::diagnostics::upload)
-            .layer(DefaultBodyLimit::max(crate::diagnostics::MAX_REPORT)))
+        .route(
+            "/api/v1/collector/diagnostics",
+            post(crate::diagnostics::upload)
+                .layer(DefaultBodyLimit::max(crate::diagnostics::MAX_REPORT)),
+        )
         .route(
             "/api/v1/collector/player-departure",
             post(crate::presence::upload),
@@ -381,8 +390,13 @@ async fn upload(
         Ok(outcome) => Ok(outcome),
         Err(crate::upload_queue::QueueError::Ingest(error)) => Err(error),
         Err(crate::upload_queue::QueueError::Full) => {
-            let mut response = error(StatusCode::SERVICE_UNAVAILABLE, "Upload queue busy; retry later");
-            response.headers_mut().insert(header::RETRY_AFTER, HeaderValue::from_static("1"));
+            let mut response = error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Upload queue busy; retry later",
+            );
+            response
+                .headers_mut()
+                .insert(header::RETRY_AFTER, HeaderValue::from_static("1"));
             return response;
         }
     };
@@ -534,32 +548,67 @@ async fn repair_owner(State(state): State<AppState>, headers: HeaderMap, body: B
     }
 }
 
-async fn market_overview(State(state): State<AppState>, ClientAddr(addr): ClientAddr,
-    headers: HeaderMap, RawQuery(query): RawQuery) -> Response {
+async fn market_overview(
+    State(state): State<AppState>,
+    ClientAddr(addr): ClientAddr,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
     market_projection(state, addr, headers, query, true).await
 }
 
-async fn market_selected(State(state): State<AppState>, ClientAddr(addr): ClientAddr,
-    headers: HeaderMap, RawQuery(query): RawQuery) -> Response {
+async fn market_selected(
+    State(state): State<AppState>,
+    ClientAddr(addr): ClientAddr,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
     market_projection(state, addr, headers, query, false).await
 }
 
-async fn market_projection(state: AppState, addr: String, headers: HeaderMap, query: Option<String>, overview: bool) -> Response {
-    let key = match read_key(&state, &headers, &addr, "read").await { Ok(key) => key, Err(response) => return response };
+async fn market_projection(
+    state: AppState,
+    addr: String,
+    headers: HeaderMap,
+    query: Option<String>,
+    overview: bool,
+) -> Response {
+    let key = match read_key(&state, &headers, &addr, "read").await {
+        Ok(key) => key,
+        Err(response) => return response,
+    };
     let Some(hours) = Hours::parse(query_param(&query, "hours").as_deref()) else {
         return error(StatusCode::BAD_REQUEST, "hours must be 72 or all");
     };
-    let version = match views::version(&state.db).await { Ok(v) => v, Err(err) => return internal(err) };
-    if let Err(response) = spend_read(&state, &key, state.market_lists.projection_ready(hours, version)) {
+    let version = match views::version(&state.db).await {
+        Ok(v) => v,
+        Err(err) => return internal(err),
+    };
+    if let Err(response) = spend_read(
+        &state,
+        &key,
+        state.market_lists.projection_ready(hours, version),
+    ) {
         return response;
     }
     let Some(ids) = views::parse_item_ids(&query_param(&query, "ids").unwrap_or_default()) else {
         return error(StatusCode::BAD_REQUEST, "Invalid item IDs");
     };
-    match state.market_lists.projection(&state.db, hours, state.settings.public_read, if overview {None} else {Some(&ids)}).await {
-        Ok(value) => {
-            crate::delivery::revalidate(&headers, &format!("projection:{overview}:{}:{ids:?}", hours.key()), value)
-        }
+    match state
+        .market_lists
+        .projection(
+            &state.db,
+            hours,
+            state.settings.public_read,
+            if overview { None } else { Some(&ids) },
+        )
+        .await
+    {
+        Ok(value) => crate::delivery::revalidate(
+            &headers,
+            &format!("projection:{overview}:{}:{ids:?}", hours.key()),
+            value,
+        ),
         Err(err) => internal(err),
     }
 }
@@ -906,11 +955,15 @@ async fn crafting_prices(
     if let Err(response) = reader(&state, &headers, &addr, "crafting").await {
         return response;
     }
-    match state.public_reads.get(&state.db, "crafting", async {
-        let now = unix_now();
-        let prices = crate::crafting::prices(&state.db, now).await?;
-        Ok(Some(json!({"as_of": now, "prices": prices})))
-    }).await {
+    match state
+        .public_reads
+        .get(&state.db, "crafting", async {
+            let now = unix_now();
+            let prices = crate::crafting::prices(&state.db, now).await?;
+            Ok(Some(json!({"as_of": now, "prices": prices})))
+        })
+        .await
+    {
         Ok(Some(value)) => Json(value).into_response(),
         Ok(None) => unreachable!("crafting snapshot always exists"),
         Err(err) => internal(err),
@@ -984,9 +1037,15 @@ async fn watch_listings(
     let mut ids = ids;
     ids.sort_unstable();
     let key = format!("watch:{ids:?}");
-    match state.public_reads.get_items(&state.db, &key, &ids, async {
-        views::watch_listings(&state.db, &ids, unix_now()).await.map(Some)
-    }).await {
+    match state
+        .public_reads
+        .get_items(&state.db, &key, &ids, async {
+            views::watch_listings(&state.db, &ids, unix_now())
+                .await
+                .map(Some)
+        })
+        .await
+    {
         Ok(Some(value)) => crate::delivery::revalidate(&headers, &key, value),
         Ok(None) => unreachable!("watch snapshot always exists"),
         Err(err) => internal(err),

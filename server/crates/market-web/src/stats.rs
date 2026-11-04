@@ -442,8 +442,12 @@ pub async fn refresh_if_due(db: &PgPool, now: f64) -> sqlx::Result<bool> {
     // holding the upload lock for the duration of the entire refresh.
     let mut coordinator = db.begin().await?;
     let acquired: bool = sqlx::query_scalar("SELECT pg_try_advisory_xact_lock($1)")
-        .bind(WRITE_LOCK + 1).fetch_one(&mut *coordinator).await?;
-    if !acquired { return Ok(false); }
+        .bind(WRITE_LOCK + 1)
+        .fetch_one(&mut *coordinator)
+        .await?;
+    if !acquired {
+        return Ok(false);
+    }
     let mut tx = db.begin().await?;
     lock_writes(&mut tx).await?;
     let (as_of, refreshed_at, old_cutoff, refreshed_as_of): (Option<f64>, Option<f64>, Option<f64>, Option<f64>) =
@@ -480,27 +484,42 @@ pub async fn refresh_if_due(db: &PgPool, now: f64) -> sqlx::Result<bool> {
         // Discover IDs without rescanning observation history. Uploads already
         // maintain last_seen_at and market_state's exact counters atomically.
         let items: Vec<i32> = sqlx::query_scalar("SELECT item_id FROM item_stats ORDER BY item_id")
-            .fetch_all(&mut *tx).await?;
+            .fetch_all(&mut *tx)
+            .await?;
         tx.commit().await?;
         let started = std::time::Instant::now();
         for batch in items.chunks(16) {
             let mut batch_tx = db.begin().await?;
             lock_writes(&mut batch_tx).await?;
-            let as_of: f64 = sqlx::query_scalar(
-                "SELECT extract(epoch FROM as_of)::float8 FROM market_state")
-                .fetch_one(&mut *batch_tx).await?;
-            recompute_items(&mut batch_tx, batch, as_of, now + started.elapsed().as_secs_f64(), &HashMap::new()).await?;
+            let as_of: f64 =
+                sqlx::query_scalar("SELECT extract(epoch FROM as_of)::float8 FROM market_state")
+                    .fetch_one(&mut *batch_tx)
+                    .await?;
+            recompute_items(
+                &mut batch_tx,
+                batch,
+                as_of,
+                now + started.elapsed().as_secs_f64(),
+                &HashMap::new(),
+            )
+            .await?;
             sqlx::query("UPDATE market_state SET version=version+1")
-                .execute(&mut *batch_tx).await?;
+                .execute(&mut *batch_tx)
+                .await?;
             batch_tx.commit().await?;
             // Let an upload waiting for the writer lock proceed between batches.
             tokio::task::yield_now().await;
         }
         tx = db.begin().await?;
         lock_writes(&mut tx).await?;
-        sqlx::query("UPDATE market_state SET refreshed_at=to_timestamp($1),
-            refreshed_cutoff=to_timestamp($2),refreshed_as_of=as_of")
-            .bind(now).bind(cutoff).execute(&mut *tx).await?;
+        sqlx::query(
+            "UPDATE market_state SET refreshed_at=to_timestamp($1),
+            refreshed_cutoff=to_timestamp($2),refreshed_as_of=as_of",
+        )
+        .bind(now)
+        .bind(cutoff)
+        .execute(&mut *tx)
+        .await?;
         crate::realtime::notify_market(&mut tx, None).await?;
     } else {
         // Nothing left the window; only move the window start.
@@ -514,14 +533,19 @@ pub async fn refresh_if_due(db: &PgPool, now: f64) -> sqlx::Result<bool> {
     // to exact state counts until their summary has been renewed.
     let expired: Vec<(i64, i64)> = sqlx::query_as(
         "SELECT collector_id,shop_id FROM contribution_shop_rollups
-         WHERE valid_until<=now() ORDER BY valid_until LIMIT 256")
-        .fetch_all(&mut *coordinator).await?;
+         WHERE valid_until<=now() ORDER BY valid_until LIMIT 256",
+    )
+    .fetch_all(&mut *coordinator)
+    .await?;
     for batch in expired.chunks(16) {
         let mut tx = db.begin().await?;
         lock_writes(&mut tx).await?;
         for &(collector, shop) in batch {
             sqlx::query("SELECT refresh_contribution_rollup($1,$2)")
-                .bind(collector).bind(shop).execute(&mut *tx).await?;
+                .bind(collector)
+                .bind(shop)
+                .execute(&mut *tx)
+                .await?;
         }
         tx.commit().await?;
     }

@@ -19,25 +19,28 @@ use crate::AppState;
 const CACHE: &str = "public, max-age=3600";
 
 pub async fn period_default(State(state): State<AppState>, headers: HeaderMap) -> Response {
-    let body = state.market_lists.period_hint(async {
-    let now = crate::unix_now();
-    let row: sqlx::Result<(i64, i64, i64)> = sqlx::query_as(
-        "SELECT count(DISTINCT item_id) FILTER (WHERE detected_at>=to_timestamp($1)),
+    let body = state
+        .market_lists
+        .period_hint(async {
+            let now = crate::unix_now();
+            let row: sqlx::Result<(i64, i64, i64)> = sqlx::query_as(
+                "SELECT count(DISTINCT item_id) FILTER (WHERE detected_at>=to_timestamp($1)),
          count(*) FILTER (WHERE detected_at>=to_timestamp($1)), count(DISTINCT item_id)
          FROM sales WHERE detected_at<=to_timestamp($2)",
-    )
-    .bind(now - 72.0 * 3600.0)
-    .bind(now)
-    .fetch_one(&state.db)
-    .await;
-    row.map(|(recent, sales, total)| {
-        serde_json::to_vec(&serde_json::json!({
+            )
+            .bind(now - 72.0 * 3600.0)
+            .bind(now)
+            .fetch_one(&state.db)
+            .await;
+            row.map(|(recent, sales, total)| {
+                serde_json::to_vec(&serde_json::json!({
             "recent_priced_items":recent,"recent_sales":sales,"historical_priced_items":total,
             "threshold":30,"default_hours":if recent<30 && total>recent {"all"} else {"72"}
         }))
         .expect("period hint serialize")
-    })
-    }).await;
+            })
+        })
+        .await;
     let mut response = json_response(body, &headers, "period default");
     response
         .headers_mut()

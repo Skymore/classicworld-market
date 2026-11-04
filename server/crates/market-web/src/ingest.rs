@@ -76,12 +76,16 @@ pub async fn ingest_batch(
     db: &PgPool,
     inputs: &[Received<'_>],
 ) -> sqlx::Result<Vec<Result<IngestOutcome, IngestError>>> {
-    if inputs.is_empty() { return Ok(Vec::new()); }
+    if inputs.is_empty() {
+        return Ok(Vec::new());
+    }
     let mut timing = WriteTiming::new("upload");
     timing.units = inputs.len();
     // CPU-only preparation does not extend the global writer lock.
-    let prepared: Vec<_> = inputs.iter().map(|input|
-        (input.upload.fingerprint(), gzip(input.raw))).collect();
+    let prepared: Vec<_> = inputs
+        .iter()
+        .map(|input| (input.upload.fingerprint(), gzip(input.raw)))
+        .collect();
     timing.mark(Phase::Prepare);
     let mut tx = db.begin().await?;
     timing.mark(Phase::Pool);
@@ -99,7 +103,10 @@ pub async fn ingest_batch(
                 if let Some(pending) = pending {
                     items.extend(pending.items);
                     for (id, seen) in pending.seen_at {
-                        seen_at.entry(id).and_modify(|old| *old = old.max(seen)).or_insert(seen);
+                        seen_at
+                            .entry(id)
+                            .and_modify(|old| *old = old.max(seen))
+                            .or_insert(seen);
                     }
                     latest = Some(match latest {
                         Some((as_of, now)) => (as_of.max(pending.as_of), now.max(pending.now)),
@@ -221,12 +228,20 @@ async fn ingest_one(
     touched.extend(&in_upload);
     let touched: Vec<i32> = touched.into_iter().collect();
     let seen_at: HashMap<i32, f64> = in_upload.iter().map(|&id| (id, seen)).collect();
-    Ok((IngestOutcome::Created(Ingested {
-        observation,
-        touched_items: touched.len(),
-        sales_added: changes.sales_added,
-        sales_removed: changes.sales_removed,
-    }), Some(PendingStats { items: touched, seen_at, as_of, now: input.now })))
+    Ok((
+        IngestOutcome::Created(Ingested {
+            observation,
+            touched_items: touched.len(),
+            sales_added: changes.sales_added,
+            sales_removed: changes.sales_removed,
+        }),
+        Some(PendingStats {
+            items: touched,
+            seen_at,
+            as_of,
+            now: input.now,
+        }),
+    ))
 }
 
 /// Fill a missing location for this collector's own immutable observation.

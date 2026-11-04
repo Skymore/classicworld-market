@@ -26,24 +26,27 @@ pub mod alerts;
 pub mod api;
 pub mod auth;
 pub mod bestiary;
+pub mod catalog_cache;
 pub mod collector_updates;
-pub mod diagnostics;
-pub mod remote_debug;
 pub mod config;
 pub mod contributors;
+pub mod crafting;
 mod delivery;
 pub mod devices;
-pub mod crafting;
+pub mod diagnostics;
+mod encoding;
 pub mod external;
 pub mod ingest;
-pub mod presence;
-pub mod push;
-pub mod roster;
 pub mod legacy;
 pub mod market_cache;
+pub mod presence;
+pub mod push;
 pub mod realtime;
+pub mod remote_debug;
+pub mod roster;
 pub mod scan_assignments;
 pub mod search;
+mod static_files;
 pub mod stats;
 pub mod sweep;
 pub mod traffic;
@@ -51,9 +54,6 @@ pub mod upload_queue;
 pub mod views;
 pub mod web;
 mod write_timing;
-mod encoding;
-mod static_files;
-pub mod catalog_cache;
 
 /// Behaviour switches of `shared_server.create_app`.
 #[derive(Debug, Clone)]
@@ -103,7 +103,10 @@ mod public_host_tests {
             assert!(!settings.public_origin_matches(&format!("https://{host}/")));
         }
         assert!(!settings.public_origin_matches("https://unrelated.ruit.me"));
-        let private = Settings { hostname: "private.example".into(), ..settings };
+        let private = Settings {
+            hostname: "private.example".into(),
+            ..settings
+        };
         assert!(private.public_origin_matches("https://private.example"));
         assert!(!private.public_origin_matches("https://ms.ruit.me"));
     }
@@ -233,8 +236,11 @@ async fn request_timing(
     request: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> axum::response::Response {
-    let route = request.extensions().get::<axum::extract::MatchedPath>()
-        .map(|p| p.as_str().to_owned()).unwrap_or_default();
+    let route = request
+        .extensions()
+        .get::<axum::extract::MatchedPath>()
+        .map(|p| p.as_str().to_owned())
+        .unwrap_or_default();
     let started = Instant::now();
     let mut response = next.run(request).await;
     let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
@@ -243,7 +249,12 @@ async fn request_timing(
             response.headers_mut().insert("server-timing", value);
         }
         if elapsed_ms >= 250.0 {
-            tracing::warn!(route, elapsed_ms, status = response.status().as_u16(), "slow API request");
+            tracing::warn!(
+                route,
+                elapsed_ms,
+                status = response.status().as_u16(),
+                "slow API request"
+            );
         }
     }
     response

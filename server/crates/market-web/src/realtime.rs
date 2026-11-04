@@ -120,7 +120,8 @@ pub async fn listen(
     accounts: broadcast::Sender<(i64, &'static str)>,
 ) {
     // LISTEN holds its connection for the process lifetime, not a read slot.
-    let db = sqlx::postgres::PgPoolOptions::new().max_connections(1)
+    let db = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
         .connect_lazy_with(db.connect_options().as_ref().clone());
     loop {
         let result = async {
@@ -179,33 +180,36 @@ pub async fn events(
         return response;
     }
     let receiver = state.events.subscribe();
-    let updates = stream::unfold((receiver, true, tokio::time::Instant::now()), |(mut receiver, first, last)| async move {
-        // The first event, sent on connect, is a full revalidation.
-        let mut pending = Pending(None);
-        if !first {
-            pending = Pending::known();
-            match receiver.recv().await {
-                Ok(change) => pending.add(change),
-                Err(broadcast::error::RecvError::Lagged(_)) => pending.add(None),
-                Err(broadcast::error::RecvError::Closed) => return None,
-            }
-            // A burst is one invalidation, including its last committed change.
-            // Bound refresh fan-out for existing clients as well as new ones.
-            tokio::time::sleep_until(last + Duration::from_secs(1)).await;
-            loop {
-                match receiver.try_recv() {
+    let updates = stream::unfold(
+        (receiver, true, tokio::time::Instant::now()),
+        |(mut receiver, first, last)| async move {
+            // The first event, sent on connect, is a full revalidation.
+            let mut pending = Pending(None);
+            if !first {
+                pending = Pending::known();
+                match receiver.recv().await {
                     Ok(change) => pending.add(change),
-                    Err(broadcast::error::TryRecvError::Lagged(_)) => pending.add(None),
-                    Err(_) => break,
+                    Err(broadcast::error::RecvError::Lagged(_)) => pending.add(None),
+                    Err(broadcast::error::RecvError::Closed) => return None,
+                }
+                // A burst is one invalidation, including its last committed change.
+                // Bound refresh fan-out for existing clients as well as new ones.
+                tokio::time::sleep_until(last + Duration::from_secs(1)).await;
+                loop {
+                    match receiver.try_recv() {
+                        Ok(change) => pending.add(change),
+                        Err(broadcast::error::TryRecvError::Lagged(_)) => pending.add(None),
+                        Err(_) => break,
+                    }
                 }
             }
-        }
-        // Public item ids only. Personal alerts stay behind their bearer API.
-        Some((
-            Ok::<_, Infallible>(Event::default().event("market").data(pending.data())),
-            (receiver, false, tokio::time::Instant::now()),
-        ))
-    });
+            // Public item ids only. Personal alerts stay behind their bearer API.
+            Some((
+                Ok::<_, Infallible>(Event::default().event("market").data(pending.data())),
+                (receiver, false, tokio::time::Instant::now()),
+            ))
+        },
+    );
     let mut response = Sse::new(updates)
         .keep_alive(KeepAlive::new().interval(Duration::from_secs(15)))
         .into_response();
@@ -258,12 +262,19 @@ pub async fn account_events(State(state): State<AppState>, headers: HeaderMap) -
         }
     } else {
         match session(&state, &headers).await {
-            Ok(Some(s)) => (s.id, None, cookie(&headers, SESSION).map(crate::auth::token_hash)),
+            Ok(Some(s)) => (
+                s.id,
+                None,
+                cookie(&headers, SESSION).map(crate::auth::token_hash),
+            ),
             Ok(None) => return error(StatusCode::UNAUTHORIZED, "login_required"),
             Err(e) => return e,
         }
     };
-    if !state.limiter.allow(&format!("account-events:{account}"), 30) {
+    if !state
+        .limiter
+        .allow(&format!("account-events:{account}"), 30)
+    {
         return error(StatusCode::TOO_MANY_REQUESTS, "rate_limited");
     }
     if let Some(id) = device {
@@ -326,7 +337,15 @@ mod tests {
     fn account_change_payloads_are_strict() {
         assert_eq!(account_change("42 sweep"), Some((42, "sweep")));
         assert_eq!(account_change("7 devices"), Some((7, "devices")));
-        for bad in ["42", "42 market", "x data", "0 data", "-3 data", "42  data", ""] {
+        for bad in [
+            "42",
+            "42 market",
+            "x data",
+            "0 data",
+            "-3 data",
+            "42  data",
+            "",
+        ] {
             assert_eq!(account_change(bad), None, "{bad}");
         }
     }

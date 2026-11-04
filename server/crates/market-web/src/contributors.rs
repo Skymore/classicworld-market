@@ -97,22 +97,30 @@ fn bearer(headers: &HeaderMap) -> Option<&str> {
         .ok()?
         .strip_prefix("Bearer ")
 }
-pub(crate) async fn collector(state: &AppState, headers: &HeaderMap) -> Result<auth::Collector, Response> {
+pub(crate) async fn collector(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Result<auth::Collector, Response> {
     auth::authenticate(&state.db, bearer(headers))
         .await
         .map_err(internal)?
         .ok_or_else(|| error(StatusCode::UNAUTHORIZED, "collector_required"))
 }
 pub(crate) fn origin_ok(state: &AppState, headers: &HeaderMap) -> bool {
-    headers.get(header::ORIGIN).and_then(|h| h.to_str().ok())
+    headers
+        .get(header::ORIGIN)
+        .and_then(|h| h.to_str().ok())
         .is_some_and(|origin| state.settings.public_origin_matches(origin))
 }
 
 // Google callbacks are registered on the primary host. Keep their host-only
 // session cookies there; password accounts work independently on every alias.
 fn google_enabled(state: &AppState, headers: &HeaderMap) -> bool {
-    state.google.is_some() && headers.get(header::HOST).and_then(|h| h.to_str().ok())
-        .is_none_or(|host| host == state.settings.hostname)
+    state.google.is_some()
+        && headers
+            .get(header::HOST)
+            .and_then(|h| h.to_str().ok())
+            .is_none_or(|host| host == state.settings.hostname)
 }
 #[derive(FromRow)]
 pub(crate) struct Session {
@@ -248,11 +256,15 @@ async fn watch_revision(State(state): State<AppState>, headers: HeaderMap) -> Re
         Ok(c) => c,
         Err(e) => return e,
     };
-    let account: Option<i64> = match sqlx::query_scalar("SELECT account_id FROM collectors WHERE id=$1")
-        .bind(c.id).fetch_one(&state.db).await {
-        Ok(v) => v,
-        Err(e) => return internal(e),
-    };
+    let account: Option<i64> =
+        match sqlx::query_scalar("SELECT account_id FROM collectors WHERE id=$1")
+            .bind(c.id)
+            .fetch_one(&state.db)
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => return internal(e),
+        };
     let rows: Vec<(String, String, i64)> = match sqlx::query_as("SELECT kind,key,version FROM account_data WHERE account_id=$1 AND (kind='watch' OR (kind='pref' AND key='watch.sweepSettings')) ORDER BY kind,key")
         .bind(account).fetch_all(&state.db).await {
         Ok(v) => v,
@@ -452,7 +464,8 @@ pub(crate) async fn board(db: &PgPool, days: i32) -> sqlx::Result<Value> {
         .await?;
     // A row/price/stock state counts only once per person, across linked devices.
     // Rank by distinct shops, so repeatedly reopening one shop cannot farm rank.
-    let rows = sqlx::query_as::<_, BoardRow>(r#"
+    let rows = sqlx::query_as::<_, BoardRow>(
+        r#"
         WITH public_collectors AS MATERIALIZED (
           SELECT c.id, CASE WHEN a.id IS NULL THEN c.id ELSE -a.id END actor,
                  coalesce(a.nickname,c.nickname) nickname
@@ -474,7 +487,11 @@ pub(crate) async fn board(db: &PgPool, days: i32) -> sqlx::Result<Value> {
         WHERE q.shops>0 AND v.days>0
         ORDER BY shops DESC,quotes DESC,days DESC,
           CASE WHEN p.actor<0 THEN 'a:'||(-p.actor) ELSE 'c:'||p.actor END LIMIT 100
-    "#).bind(days).fetch_all(&mut *tx).await?;
+    "#,
+    )
+    .bind(days)
+    .fetch_all(&mut *tx)
+    .await?;
     tx.commit().await?;
     Ok(json!({"period":if days==0{"all"}else if days==30{"month"}else{"week"},"contributors":rows}))
 }
@@ -491,8 +508,14 @@ async fn google_start(
 ) -> Response {
     if let Some(host) = headers.get(header::HOST).and_then(|h| h.to_str().ok()) {
         if host != state.settings.hostname && state.settings.public_hostname_matches(host) {
-            let mut url = url::Url::parse(&format!("https://{}/auth/google/start", state.settings.hostname)).unwrap();
-            if let Some(link) = q.link { url.query_pairs_mut().append_pair("link", &link); }
+            let mut url = url::Url::parse(&format!(
+                "https://{}/auth/google/start",
+                state.settings.hostname
+            ))
+            .unwrap();
+            if let Some(link) = q.link {
+                url.query_pairs_mut().append_pair("link", &link);
+            }
             return Redirect::to(url.as_str()).into_response();
         }
     }

@@ -74,9 +74,14 @@ async fn departures_retire_only_matching_inventory_and_late_uploads_stay_expired
             .await
             .unwrap();
         assert_eq!(live, if id == "returned" { 1 } else { 0 });
-        let watch=market_web::views::personal_watch_listings(&db.pool,who.id,&[4010001],now+2.).await.unwrap();
-        assert_eq!(watch["listings"].as_array().unwrap().len(),if id=="returned" {1} else {0});
-
+        let watch =
+            market_web::views::personal_watch_listings(&db.pool, who.id, &[4010001], now + 2.)
+                .await
+                .unwrap();
+        assert_eq!(
+            watch["listings"].as_array().unwrap().len(),
+            if id == "returned" { 1 } else { 0 }
+        );
     }
     let archived: Vec<i64> =
         sqlx::query_scalar("SELECT price FROM expired_listings ORDER BY price")

@@ -508,7 +508,9 @@ async fn generate(
     response
         .headers_mut()
         .insert("x-accel-buffering", "no".parse().unwrap());
-    response.headers_mut().insert("content-encoding", "identity".parse().unwrap());
+    response
+        .headers_mut()
+        .insert("content-encoding", "identity".parse().unwrap());
     response
         .headers_mut()
         .insert("cache-control", "no-cache, no-transform".parse().unwrap());

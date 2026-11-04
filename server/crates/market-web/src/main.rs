@@ -23,7 +23,8 @@ async fn main() -> Result<()> {
     MIGRATOR.run(&db).await.context("running migrations")?;
     // The refresh coordinator and its batch transaction use two connections.
     // Neither should queue for, or occupy, the public read pool.
-    let maintenance_db = PgPoolOptions::new().max_connections(2)
+    let maintenance_db = PgPoolOptions::new()
+        .max_connections(2)
         .connect_lazy_with(db.connect_options().as_ref().clone());
     tokio::spawn(refresh_stats(maintenance_db, config.stats_refresh));
     tokio::spawn(market_web::traffic::prune(db.clone()));
@@ -39,13 +40,24 @@ async fn main() -> Result<()> {
             tick.tick().await;
             for (lane, sample) in read_cache.take_metrics() {
                 if sample.requests > 0 {
-                    tracing::info!(lane, requests=sample.requests, hits=sample.hits,
-                        rebuilds=sample.rebuilds, evictions=sample.evictions, bypasses=sample.bypasses,
-                        cold=sample.cold, expired=sample.expired, invalidated=sample.invalidated,
-                        entries=sample.entries, key_wait_ms=sample.key_wait_ms,
-                        permit_wait_ms=sample.permit_wait_ms,
-                        lookup_ms=sample.lookup_ms, wait_ms=sample.wait_ms, build_ms=sample.build_ms,
-                        "public cache interval");
+                    tracing::info!(
+                        lane,
+                        requests = sample.requests,
+                        hits = sample.hits,
+                        rebuilds = sample.rebuilds,
+                        evictions = sample.evictions,
+                        bypasses = sample.bypasses,
+                        cold = sample.cold,
+                        expired = sample.expired,
+                        invalidated = sample.invalidated,
+                        entries = sample.entries,
+                        key_wait_ms = sample.key_wait_ms,
+                        permit_wait_ms = sample.permit_wait_ms,
+                        lookup_ms = sample.lookup_ms,
+                        wait_ms = sample.wait_ms,
+                        build_ms = sample.build_ms,
+                        "public cache interval"
+                    );
                 }
             }
         }

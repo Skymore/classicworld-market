@@ -11,7 +11,9 @@ use tower::ServiceExt;
 
 #[tokio::test]
 async fn account_totals_deduplicate_on_write_and_do_not_read_device_history() {
-    let Some(db) = TestDb::new().await else { return };
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
     let state = AppState::new(db.pool.clone(), Settings::default());
     let a = auth::register(&db.pool, "account-rollup-a").await.unwrap();
     let b = auth::register(&db.pool, "account-rollup-b").await.unwrap();
@@ -20,100 +22,169 @@ async fn account_totals_deduplicate_on_write_and_do_not_read_device_history() {
     ).fetch_one(&db.pool).await.unwrap();
     let now = unix_now();
     // Linking must include old captures; repeated devices must not double count.
-    upload(&state, &a.token, "old-a", 101, now-60.0).await;
-    upload(&state, &b.token, "old-b", 101, now-60.0).await;
-    upload(&state, &b.token, "unique-b", 102, now-60.0).await;
-    sqlx::query("UPDATE collectors SET account_id=$1").bind(owner)
-        .execute(&db.pool).await.unwrap();
+    upload(&state, &a.token, "old-a", 101, now - 60.0).await;
+    upload(&state, &b.token, "old-b", 101, now - 60.0).await;
+    upload(&state, &b.token, "unique-b", 102, now - 60.0).await;
+    sqlx::query("UPDATE collectors SET account_id=$1")
+        .bind(owner)
+        .execute(&db.pool)
+        .await
+        .unwrap();
     let credentials = auth::new_credentials();
-    contributors::new_session(&db.pool, owner, &credentials.token).await.unwrap();
+    contributors::new_session(&db.pool, owner, &credentials.token)
+        .await
+        .unwrap();
     let cookie = [("cookie", format!("cwm_account={}", credentials.token))];
     let mut history = db.pool.begin().await.unwrap();
     sqlx::query("LOCK contribution_states IN ACCESS EXCLUSIVE MODE")
-        .execute(&mut *history).await.unwrap();
-    let response = tokio::time::timeout(std::time::Duration::from_secs(2),
-        request(&state, "GET", "/api/v1/account", Value::Null, &cookie)).await
-        .expect("profile must read account summaries, even when device history is locked");
+        .execute(&mut *history)
+        .await
+        .unwrap();
+    let response = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        request(&state, "GET", "/api/v1/account", Value::Null, &cookie),
+    )
+    .await
+    .expect("profile must read account summaries, even when device history is locked");
     assert_eq!(response.0, StatusCode::OK);
     assert_eq!(response.2["stats"], json!({"shops":2,"quotes":2}));
     history.rollback().await.unwrap();
 
-    upload(&state, &a.token, "live-a", 103, now-30.0).await;
+    upload(&state, &a.token, "live-a", 103, now - 30.0).await;
     let ids: Vec<i64> = sqlx::query_scalar("SELECT id FROM collectors ORDER BY id")
-        .fetch_all(&db.pool).await.unwrap();
+        .fetch_all(&db.pool)
+        .await
+        .unwrap();
     async fn check(db: &sqlx::PgPool, ids: &[i64], at: f64) {
-        let cached: Vec<(i64,i64)> = sqlx::query_as(
-            "SELECT * FROM contribution_shop_counts($1,0,to_timestamp($2)) ORDER BY shop_id")
-            .bind(ids).bind(at).fetch_all(db).await.unwrap();
+        let cached: Vec<(i64, i64)> = sqlx::query_as(
+            "SELECT * FROM contribution_shop_counts($1,0,to_timestamp($2)) ORDER BY shop_id",
+        )
+        .bind(ids)
+        .bind(at)
+        .fetch_all(db)
+        .await
+        .unwrap();
         let exact: Vec<(i64,i64)> = sqlx::query_as(
             "SELECT shop_id,count(*) FROM (SELECT DISTINCT shop_id,slot,item_id,variant_id,price,bundle,stock
              FROM contribution_states WHERE collector_id=ANY($1) AND first_seen<=to_timestamp($2)) s
              GROUP BY shop_id ORDER BY shop_id")
             .bind(ids).bind(at).fetch_all(db).await.unwrap();
-        assert_eq!(cached,exact,"at={at} ids={ids:?}");
+        assert_eq!(cached, exact, "at={at} ids={ids:?}");
     }
     check(&db.pool, &ids, unix_now()).await;
     // Only future first-seen times expire cumulative totals; weekly expiry does not.
-    upload(&state, &a.token, "future-a", 104, now+60.0).await;
-    for at in [now-90.0,unix_now(),now+59.999,now+60.0,now+31.0*86400.0] {
-        check(&db.pool,&ids,at).await;
+    upload(&state, &a.token, "future-a", 104, now + 60.0).await;
+    for at in [
+        now - 90.0,
+        unix_now(),
+        now + 59.999,
+        now + 60.0,
+        now + 31.0 * 86400.0,
+    ] {
+        check(&db.pool, &ids, at).await;
     }
     sqlx::query("UPDATE collectors SET active=false WHERE id=$1")
-        .bind(ids[1]).execute(&db.pool).await.unwrap();
-    check(&db.pool,&ids[..1],unix_now()).await;
+        .bind(ids[1])
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    check(&db.pool, &ids[..1], unix_now()).await;
     // Removing a duplicate device retains the remaining copy; deleting states
     // and unlinking a device both update the derived account totals.
-    sqlx::query("DELETE FROM contribution_states WHERE collector_id=$1 AND shop_id IN
-        (SELECT id FROM shops WHERE shop_id=101)")
-        .bind(ids[0]).execute(&db.pool).await.unwrap();
-    check(&db.pool,&ids,unix_now()).await;
+    sqlx::query(
+        "DELETE FROM contribution_states WHERE collector_id=$1 AND shop_id IN
+        (SELECT id FROM shops WHERE shop_id=101)",
+    )
+    .bind(ids[0])
+    .execute(&db.pool)
+    .await
+    .unwrap();
+    check(&db.pool, &ids, unix_now()).await;
     sqlx::query("UPDATE collectors SET account_id=NULL WHERE id=$1")
-        .bind(ids[1]).execute(&db.pool).await.unwrap();
-    check(&db.pool,&ids[..1],unix_now()).await;
-    check(&db.pool,&ids[1..],unix_now()).await;
+        .bind(ids[1])
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    check(&db.pool, &ids[..1], unix_now()).await;
+    check(&db.pool, &ids[1..], unix_now()).await;
     // Exercise upgrading an existing populated database, rather than only
     // installing empty tables and then recording new observations.
-    sqlx::raw_sql(include_str!("../../../tools/rollback_account_contribution_rollups.sql"))
-        .execute(&db.pool).await.unwrap();
+    sqlx::raw_sql(include_str!(
+        "../../../tools/rollback_account_contribution_rollups.sql"
+    ))
+    .execute(&db.pool)
+    .await
+    .unwrap();
     let mut upgrade = db.pool.begin().await.unwrap();
-    sqlx::raw_sql(include_str!("../../../migrations/0044_account_contribution_rollups.sql"))
-        .execute(&mut *upgrade).await.unwrap();
+    sqlx::raw_sql(include_str!(
+        "../../../migrations/0044_account_contribution_rollups.sql"
+    ))
+    .execute(&mut *upgrade)
+    .await
+    .unwrap();
     upgrade.commit().await.unwrap();
-    check(&db.pool,&ids[..1],unix_now()).await;
-    check(&db.pool,&ids[1..],unix_now()).await;
+    check(&db.pool, &ids[..1], unix_now()).await;
+    check(&db.pool, &ids[1..], unix_now()).await;
     db.close().await;
 }
 
 #[tokio::test]
 async fn expired_rollup_reads_only_its_shop_states() {
-    let Some(db) = TestDb::new().await else { return };
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
     let state = AppState::new(db.pool.clone(), Settings::default());
     let credentials = auth::register(&db.pool, "expiry-plan").await.unwrap();
     let now = unix_now();
-    upload(&state, &credentials.token, "small", 101, now-60.0).await;
+    upload(&state, &credentials.token, "small", 101, now - 60.0).await;
     // Unrelated history must not be read to recount one expired shop.
-    sqlx::query("INSERT INTO shops(shop_key,public_key,world,shop_id,title,first_seen_at,last_seen_at)
+    sqlx::query(
+        "INSERT INTO shops(shop_key,public_key,world,shop_id,title,first_seen_at,last_seen_at)
         SELECT 'history-'||n,'history-'||n,'ClassicWorld',1000+n,'History',now(),now()
-        FROM generate_series(1,500) n")
-        .execute(&db.pool).await.unwrap();
-    sqlx::query("INSERT INTO contribution_states
+        FROM generate_series(1,500) n",
+    )
+    .execute(&db.pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO contribution_states
         SELECT collector_id,s.id,slot,item_id,variant_id,price,bundle,n,
                first_seen,week_windows,month_windows
         FROM contribution_states CROSS JOIN shops s CROSS JOIN generate_series(10,19) n
-        WHERE s.shop_key LIKE 'history-%'")
-        .execute(&db.pool).await.unwrap();
-    sqlx::query("UPDATE contribution_shop_rollups SET valid_until=now()-interval '1 second'
-        WHERE shop_id=(SELECT min(shop_id) FROM contribution_states)")
-        .execute(&db.pool).await.unwrap();
-    sqlx::query("ANALYZE contribution_states").execute(&db.pool).await.unwrap();
-    sqlx::query("ANALYZE contribution_shop_rollups").execute(&db.pool).await.unwrap();
+        WHERE s.shop_key LIKE 'history-%'",
+    )
+    .execute(&db.pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "UPDATE contribution_shop_rollups SET valid_until=now()-interval '1 second'
+        WHERE shop_id=(SELECT min(shop_id) FROM contribution_states)",
+    )
+    .execute(&db.pool)
+    .await
+    .unwrap();
+    sqlx::query("ANALYZE contribution_states")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    sqlx::query("ANALYZE contribution_shop_rollups")
+        .execute(&db.pool)
+        .await
+        .unwrap();
     let ids: Vec<i64> = sqlx::query_scalar("SELECT id FROM collectors")
-        .fetch_all(&db.pool).await.unwrap();
-    for period in [0,7,30] {
-        let (shops,quotes): (i64,i64) = sqlx::query_as(
-            "SELECT count(*),sum(quotes)::bigint FROM contribution_shop_counts($1,$2,now())")
-            .bind(&ids).bind(period).fetch_one(&db.pool).await.unwrap();
-        assert_eq!((shops,quotes),(501,5001));
+        .fetch_all(&db.pool)
+        .await
+        .unwrap();
+    for period in [0, 7, 30] {
+        let (shops, quotes): (i64, i64) = sqlx::query_as(
+            "SELECT count(*),sum(quotes)::bigint FROM contribution_shop_counts($1,$2,now())",
+        )
+        .bind(&ids)
+        .bind(period)
+        .fetch_one(&db.pool)
+        .await
+        .unwrap();
+        assert_eq!((shops, quotes), (501, 5001));
         // The public dispatcher is PL/pgSQL; inspect the SQL device branch
         // directly so EXPLAIN still exposes its exact history scan count.
         let plan: Value = sqlx::query_scalar(
@@ -121,36 +192,57 @@ async fn expired_rollup_reads_only_its_shop_states() {
             .bind(&ids).bind(period).fetch_one(&db.pool).await.unwrap();
         fn examined(node: &Value) -> u64 {
             let own = if node["Relation Name"] == "contribution_states" {
-                assert_ne!(node["Node Type"],"Seq Scan","{node}");
-                node["Actual Rows"].as_u64().unwrap_or(0)*node["Actual Loops"].as_u64().unwrap_or(0)
-            } else { 0 };
-            own + node["Plans"].as_array().map(|p|p.iter().map(examined).sum()).unwrap_or(0)
+                assert_ne!(node["Node Type"], "Seq Scan", "{node}");
+                node["Actual Rows"].as_u64().unwrap_or(0)
+                    * node["Actual Loops"].as_u64().unwrap_or(0)
+            } else {
+                0
+            };
+            own + node["Plans"]
+                .as_array()
+                .map(|p| p.iter().map(examined).sum())
+                .unwrap_or(0)
         }
-        assert_eq!(examined(&plan[0]["Plan"]),1,"{plan}");
+        assert_eq!(examined(&plan[0]["Plan"]), 1, "{plan}");
     }
     db.close().await;
 }
 
 #[tokio::test]
 async fn shop_rollups_match_exact_states_across_devices_and_window_boundaries() {
-    let Some(db) = TestDb::new().await else { return };
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
     let state = AppState::new(db.pool.clone(), Settings::default());
     let a = auth::register(&db.pool, "rollup-a").await.unwrap();
     let b = auth::register(&db.pool, "rollup-b").await.unwrap();
     let now = unix_now();
-    for (index, offset) in [-29.0*86400.0, -8.0*86400.0, -60.0, 60.0].into_iter().enumerate() {
-        upload(&state, &a.token, &format!("a-{index}"), 101, now+offset).await;
-        upload(&state, &b.token, &format!("b-{index}"), 101, now+offset).await;
+    for (index, offset) in [-29.0 * 86400.0, -8.0 * 86400.0, -60.0, 60.0]
+        .into_iter()
+        .enumerate()
+    {
+        upload(&state, &a.token, &format!("a-{index}"), 101, now + offset).await;
+        upload(&state, &b.token, &format!("b-{index}"), 101, now + offset).await;
     }
-    upload(&state, &b.token, "b-unique", 102, now-60.0).await;
-    upload(&state, &a.token, "a-future", 103, now+60.0).await;
+    upload(&state, &b.token, "b-unique", 102, now - 60.0).await;
+    upload(&state, &a.token, "a-future", 103, now + 60.0).await;
     let ids: Vec<i64> = sqlx::query_scalar("SELECT id FROM collectors ORDER BY id")
-        .fetch_all(&db.pool).await.unwrap();
+        .fetch_all(&db.pool)
+        .await
+        .unwrap();
     for selected in [&ids[..1], &ids[..]] {
         for period in [0, 7, 30] {
-            for offset in [-36.0*86400.0, -86400.0, 0.0, 59.999, 60.0,
-                7.0*86400.0+60.0,7.0*86400.0+60.001,31.0*86400.0] {
-                let at = now+offset;
+            for offset in [
+                -36.0 * 86400.0,
+                -86400.0,
+                0.0,
+                59.999,
+                60.0,
+                7.0 * 86400.0 + 60.0,
+                7.0 * 86400.0 + 60.001,
+                31.0 * 86400.0,
+            ] {
+                let at = now + offset;
                 let cached: Vec<(i64,i64)> = sqlx::query_as(
                     "SELECT * FROM contribution_shop_counts($1,$2,to_timestamp($3)) ORDER BY shop_id")
                     .bind(selected).bind(period).bind(at).fetch_all(&db.pool).await.unwrap();
@@ -160,7 +252,12 @@ async fn shop_rollups_match_exact_states_across_devices_and_window_boundaries() 
                        WHEN 7 THEN week_windows @> to_timestamp($3) ELSE month_windows @> to_timestamp($3) END) states
                      GROUP BY shop_id ORDER BY shop_id")
                     .bind(selected).bind(period).bind(at).fetch_all(&db.pool).await.unwrap();
-                assert_eq!(cached,exact,"period={period} offset={offset} devices={}",selected.len());
+                assert_eq!(
+                    cached,
+                    exact,
+                    "period={period} offset={offset} devices={}",
+                    selected.len()
+                );
             }
         }
     }

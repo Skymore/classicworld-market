@@ -110,9 +110,13 @@ pub async fn item_preview(db: &PgPool, id: i32, all: bool) -> sqlx::Result<Optio
         "SELECT ('{' || CASE WHEN $2 THEN a.list_fields ELSE s.list_fields END || '}')::jsonb,
             round(s.lowest_ask)::bigint,s.listings_count,s.shops_count,s.as_of
          FROM item_stats s JOIN item_stats_all a USING(item_id) WHERE item_id=$1",
-    ).bind(id).bind(all).fetch_optional(db);
+    )
+    .bind(id)
+    .bind(all)
+    .fetch_optional(db);
     let record = sqlx::query_scalar::<_, Value>("SELECT record FROM item_records WHERE item_id=$1")
-        .bind(id).fetch_optional(db);
+        .bind(id)
+        .fetch_optional(db);
     let (summary, record, offers) = tokio::try_join!(summary, record, npc_offers(db, id))?;
     let stats = summary.map(|(fields, low, listings, shops, as_of)| {
         let price = |key: &str| fields[key].as_f64().map(|v| v.round() as i64);
@@ -122,10 +126,12 @@ pub async fn item_preview(db: &PgPool, id: i32, all: bool) -> sqlx::Result<Optio
             "listings_count":listings,"shops_count":shops,"as_of":as_of,"change_24h":null})
     });
     let equipment = super::equipment::equipment_reference(&item, record.as_ref());
-    Ok(Some(serde_json::json!({"item":item,"stats":stats,"npc_offers":offers,
+    Ok(Some(
+        serde_json::json!({"item":item,"stats":stats,"npc_offers":offers,
         "npc_sell":record.as_ref().and_then(npc_sell_price),"equipment":equipment,
         "market":{"as_of":stats.as_ref().map(|s| &s["as_of"]),
-            "base_stats":record.as_ref().map(reference_stats).unwrap_or_default()}})))
+            "base_stats":record.as_ref().map(reference_stats).unwrap_or_default()}}),
+    ))
 }
 
 /// `now` sets the 72-hour listing window, as `/api/v1/item/<id>` does. The
@@ -159,11 +165,7 @@ fn equipment_group_key(variant: &Variant) -> (Vec<(&str, i64)>, Option<i64>, usi
         .map(|s| (s.key.as_str(), s.value))
         .collect();
     stats.sort_unstable();
-    (
-        stats,
-        variant.remaining_upgrades,
-        variant.unknown_fields,
-    )
+    (stats, variant.remaining_upgrades, variant.unknown_fields)
 }
 
 pub async fn item_page_selected(
@@ -235,7 +237,8 @@ pub async fn item_page_selected(
          AND ($5::bigint[] IS NULL OR coalesce(variant_id,0)=ANY($5))")
         .bind(id).bind(all).bind(now-72.0*3600.0).bind(now).bind(variant_ids.as_deref()).fetch_one(db);
     let (mut page, row) = tokio::try_join!(
-        item_page_scoped(db, id, now, variant_ids.as_deref()), summary,
+        item_page_scoped(db, id, now, variant_ids.as_deref()),
+        summary,
     )?;
     if let Some(p) = &mut page {
         p.selected_variant = selected_variant;
@@ -783,10 +786,14 @@ async fn item_market(
         let as_of = as_of.await?.flatten();
         let (days, sale_points) = if as_of.is_some() {
             seven_days(
-                db, id,
-                DateTime::from_timestamp(now as i64, 0).expect("valid current time").date_naive(),
+                db,
+                id,
+                DateTime::from_timestamp(now as i64, 0)
+                    .expect("valid current time")
+                    .date_naive(),
                 variant_ids,
-            ).await?
+            )
+            .await?
         } else {
             (Vec::new(), Vec::new())
         };
@@ -794,28 +801,31 @@ async fn item_market(
     };
     let item_ids = [id];
     let ((as_of, days, sale_points), listings, sales, expired, external, listing_days) = tokio::try_join!(
-        history, listings, sales, expired,
+        history,
+        listings,
+        sales,
+        expired,
         crate::external::quote_rows(db, &item_ids, Window::recent(now).cutoff),
         listing_days(db, id, now, variant_ids),
     )?;
     let listing = |r: ListingRow| Listing {
-            owner_name: r.owner_name,
-            invalidated_at: r.invalidated_at,
-            grouping: Some(ListingIdentity {
-                shop_key: r.shop_key,
-                slot: r.slot,
-                visit_id: r.visit_key,
-                bundle: r.bundle,
-                source: r.source,
-            }),
-            shop: r.title,
-            channel: r.channel,
-            room: r.room,
-            unit_price: r.unit_price,
-            stock: Some(r.stock),
-            seen_at: r.observed_at,
-            variant: r.variant.variant(),
-        };
+        owner_name: r.owner_name,
+        invalidated_at: r.invalidated_at,
+        grouping: Some(ListingIdentity {
+            shop_key: r.shop_key,
+            slot: r.slot,
+            visit_id: r.visit_key,
+            bundle: r.bundle,
+            source: r.source,
+        }),
+        shop: r.title,
+        channel: r.channel,
+        room: r.room,
+        unit_price: r.unit_price,
+        stock: Some(r.stock),
+        seen_at: r.observed_at,
+        variant: r.variant.variant(),
+    };
     let expired_listings = expired.into_iter().map(listing).collect();
     let mut listings: Vec<Listing> = listings.into_iter().map(listing).collect();
     for row in external {
@@ -934,8 +944,7 @@ fn merge_shop_sales(rows: Vec<(Option<SaleGroup>, Sale)>) -> Vec<Sale> {
 // plan. A normal join estimates the date/variant parameters as selective, then
 // hashes the entire observation window (and spills it) for every item request.
 // OFFSET 0 prevents flattening; the item index bounds the observation lookups.
-const LISTING_DAYS_SQL: &str =
-    "WITH quotes AS (
+const LISTING_DAYS_SQL: &str = "WITH quotes AS (
        SELECT DISTINCT ON ((o.observed_at AT TIME ZONE 'UTC')::date,o.shop_id,r.slot)
          (o.observed_at AT TIME ZONE 'UTC')::date AS day,
          market_unit_price(r.item_id,r.price,r.bundle) AS price
@@ -954,18 +963,37 @@ const LISTING_DAYS_SQL: &str =
        min(price),max(price),count(*)::int FROM quotes GROUP BY day";
 
 async fn listing_days(
-    db: &PgPool, id: i32, now: f64, variant_ids: Option<&[i64]>,
+    db: &PgPool,
+    id: i32,
+    now: f64,
+    variant_ids: Option<&[i64]>,
 ) -> sqlx::Result<Vec<Day>> {
-    let last = DateTime::from_timestamp(now as i64, 0).expect("valid current time").date_naive();
+    let last = DateTime::from_timestamp(now as i64, 0)
+        .expect("valid current time")
+        .date_naive();
     let first = (1..MARKET_DAYS).fold(last, |d, _| d.pred_opt().unwrap_or(d));
     type Row = (NaiveDate, Option<f64>, Option<f64>, Option<f64>, i32);
     let rows: Vec<Row> = sqlx::query_as(LISTING_DAYS_SQL)
-        .bind(id).bind(first).bind(now).bind(variant_ids).fetch_all(db).await?;
-    Ok(first.iter_days().take(MARKET_DAYS as usize).map(|date| {
-        let row = rows.iter().find(|r| r.0 == date);
-        Day { date, median: row.and_then(|r| r.1), low: row.and_then(|r| r.2),
-            high: row.and_then(|r| r.3), count: row.map_or(0, |r| r.4) }
-    }).collect())
+        .bind(id)
+        .bind(first)
+        .bind(now)
+        .bind(variant_ids)
+        .fetch_all(db)
+        .await?;
+    Ok(first
+        .iter_days()
+        .take(MARKET_DAYS as usize)
+        .map(|date| {
+            let row = rows.iter().find(|r| r.0 == date);
+            Day {
+                date,
+                median: row.and_then(|r| r.1),
+                low: row.and_then(|r| r.2),
+                high: row.and_then(|r| r.3),
+                count: row.map_or(0, |r| r.4),
+            }
+        })
+        .collect())
 }
 
 /// `item_daily` and the single sale prices of the seven days ending `last`.
@@ -2734,7 +2762,10 @@ async fn search_maps_in_region(
              FROM mob_spawns sp JOIN mobs m ON m.id = sp.mob_id
              WHERE sp.map_id = r.id AND {public}) l ON true
          ORDER BY r.ord",
-        order = format!("{rank}, CASE WHEN $1 = '' THEN 0 ELSE length({}) END, m.id", name!("m")),
+        order = format!(
+            "{rank}, CASE WHEN $1 = '' THEN 0 ELSE length({}) END, m.id",
+            name!("m")
+        ),
         name = name!("m"),
         name_en = name_en!("m"),
         streets = streets!("m"),

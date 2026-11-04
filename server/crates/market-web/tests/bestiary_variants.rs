@@ -92,10 +92,24 @@ async fn attribute_subpages_scope_before_sale_limits_and_recompute_every_price_i
     assert_eq!((stats.sales_24h, stats.typical), (3, Some(200)));
     assert_eq!(page.market.sale_points.len(), 3);
     assert_eq!(page.market.days.iter().map(|d| d.count).sum::<i32>(), 3);
-    let enhanced = item_page_selected(&db.pool, 1002000, now, true, &ItemSelection {
-        variant: Some(4), ..Default::default()
-    }).await.unwrap().unwrap();
-    assert_eq!(enhanced.market.listings.len(), 3, "enhanced links select the same group");
+    let enhanced = item_page_selected(
+        &db.pool,
+        1002000,
+        now,
+        true,
+        &ItemSelection {
+            variant: Some(4),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        enhanced.market.listings.len(),
+        3,
+        "enhanced links select the same group"
+    );
     assert_eq!(enhanced.stats.unwrap().typical, Some(200));
     let recent = item_page_selected(&db.pool, 1002000, now, false, &selection)
         .await
