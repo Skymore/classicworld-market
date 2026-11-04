@@ -25,6 +25,26 @@ def modules(root, initial):
     return found
 
 
+def stage_web(root, destination):
+    # Vite lists CSS and other assets on their importing entries, not as
+    # separate manifest rows. Keep the whole current build, not just JS files.
+    web = root / 'web'
+    vite = json.loads((web / 'react/.vite/manifest.json').read_text(encoding='utf-8'))
+    files = {row['file'] for row in vite.values()}
+    files.update(name for row in vite.values() for field in ('css', 'assets') for name in row.get(field, []))
+    for name in files:
+        path = (web / 'react' / name).resolve()
+        if not path.is_relative_to((web / 'react').resolve()) or not path.is_file():
+            raise ValueError('Missing or invalid frontend build asset: ' + name)
+    chunks = {Path(name).name for name in files if name.startswith('chunks/')}
+    def ignore_web(folder, names):
+        ignored = set(shutil.ignore_patterns('images', 'releases', 'tests', '*.map')(folder, names))
+        if Path(folder) == web / 'react/chunks':
+            ignored.update(name for name in names if name not in chunks)
+        return ignored
+    shutil.copytree(web, destination, ignore=ignore_web)
+
+
 def stage(root, scanner, destination):
     core = modules(root, ['unified_client', 'shared_client', 'market_movement'])
     scan = modules(scanner, ['full_market_scan', 'channel_state_collector',
@@ -43,15 +63,7 @@ def stage(root, scanner, destination):
         shutil.copy2(root / name, destination / name)
     # A desktop update installs fresh web entry points. Historical website
     # chunks are only needed by old browser pages, not by this new install.
-    vite = json.loads((root / 'web/react/.vite/manifest.json').read_text(encoding='utf-8'))
-    chunks = {Path(row['file']).name for row in vite.values()
-              if row['file'].startswith('chunks/')}
-    def ignore_web(folder, names):
-        ignored = set(shutil.ignore_patterns('images', 'releases', 'tests', '*.map')(folder, names))
-        if Path(folder) == root / 'web/react/chunks':
-            ignored.update(name for name in names if name not in chunks)
-        return ignored
-    shutil.copytree(root / 'web', destination / 'web', ignore=ignore_web)
+    stage_web(root, destination / 'web')
     shutil.copytree(scanner / 'tools/market_bot_templates', destination / 'tools/market_bot_templates')
     shutil.copytree(root / 'desktop_ui', destination / 'desktop_ui')
     shutil.copytree(root / 'assets/sweep', destination / 'assets/sweep')

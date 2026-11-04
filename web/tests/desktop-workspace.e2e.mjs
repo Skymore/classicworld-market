@@ -6,6 +6,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const {chromium}=createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE||'playwright');
 const root=path.resolve(fileURLToPath(new URL('../..',import.meta.url)));
+const webRoot=process.env.DESKTOP_WEB_ROOT||path.join(root,'web');
 const out=path.join(root,'market_data/desktop-workspace-review');await mkdir(out,{recursive:true});
 const shots=process.env.SWEEP_SCREENSHOT_DIR||'/tmp/cwm-sweep-shots';await mkdir(shots,{recursive:true});
 const products=[{item_id:1002000,name_zh:'褐色皮帽',name_en:'Brown Skullcap',typical:12000},{item_id:1452003,name_zh:'战斗弓',name_en:'Battle Bow',typical:95000},{item_id:2000000,name_zh:'红药水',name_en:'Red Potion',typical:50}];
@@ -69,7 +70,7 @@ const server=createServer(async(req,res)=>{
   return json(res,{kind:'search',page:{query:target.searchParams.get('q')||'',kind:null,region:'',area:'',areas:[],filters:{},offset:0,items:{rows:products.map(p=>({id:p.item_id,names:{zh:p.name_zh,en:p.name_en}})),more:false},mobs:{rows:[],more:false},maps:{rows:[],more:false}}});
  }
  if(u.pathname.startsWith('/api/'))return json(res,{});
- const file=u.pathname==='/'?path.join(root,'desktop_ui/index.html'):u.pathname.startsWith('/assets/')?path.join(root,'desktop_ui',u.pathname):u.pathname.startsWith('/web/')?path.join(root,u.pathname):path.join(root,'web/index.html');
+ const file=u.pathname==='/'?path.join(root,'desktop_ui/index.html'):u.pathname.startsWith('/assets/')?path.join(root,'desktop_ui',u.pathname):u.pathname.startsWith('/web/')?path.join(webRoot,u.pathname.slice('/web/'.length)):path.join(webRoot,'index.html');
  try{res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.json')?'application/json':file.endsWith('.svg')?'image/svg+xml':'text/html; charset=utf-8');res.setHeader('Content-Security-Policy',"frame-ancestors http://127.0.0.1:*");res.end(await readFile(file));}catch{res.writeHead(404);res.end();}
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));origin=`http://127.0.0.1:${server.address().port}`;
@@ -87,6 +88,9 @@ try{
  assert.match(await page.locator('iframe[title="关注整页"]').getAttribute('src'),/[?&]embed=1(&|$)/,'whole pages open in embed mode');
  console.log('waiting website watch');await watch.locator('.watch-page [data-card="1002000"]').waitFor();console.log('watch loaded');
  assert.equal(await watch.locator('.watch-page [data-card]').count(),3,'shared account watches loaded by the entire website page');
+ assert.equal(await watch.locator('.wl-tools').evaluate(e=>getComputedStyle(e).display),'flex','packaged watch-list styles are loaded');
+ assert.equal(await watch.locator('.wg-actions').first().evaluate(e=>getComputedStyle(e).display),'flex','rule actions keep their layout in the packaged app');
+ assert(await watch.locator('.wl-tools select').evaluate(e=>e.getBoundingClientRect().height>=40),'list controls keep their styled height');
  assert.equal(await watch.locator('[data-sweep-panel]').count(),0,'the embedded page has no web sweep panel');
  // The embedded page reports its hits to the collector window; the badge stays while another tab is shown.
  await page.locator('[data-watch-hits]').filter({hasText:/^1$/}).waitFor();
