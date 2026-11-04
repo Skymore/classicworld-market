@@ -97,8 +97,8 @@
       "_shared-BvadJZDP.js"
     ]
   },
-  "_main-BGI4UT0W.js": {
-    "file": "chunks/main-BGI4UT0W.js",
+  "_main-DwuUaSTR.js": {
+    "file": "chunks/main-DwuUaSTR.js",
     "name": "main",
     "imports": [
       "_shared-BvadJZDP.js",
@@ -292,7 +292,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BGI4UT0W.js"
+      "_main-DwuUaSTR.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -514,7 +514,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BGI4UT0W.js"
+      "_main-DwuUaSTR.js"
     ]
   }
 }

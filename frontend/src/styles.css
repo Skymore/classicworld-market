@@ -744,8 +744,8 @@ a.offer-group-head[aria-current]{border-left-color:var(--maple)}
 .og-expand:hover,.og-collapse:hover{text-decoration:underline}
 .og-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:40px;padding:4px 10px;border-top:1px solid var(--rule);font-size:12px;color:var(--bar-text);font-variant-numeric:tabular-nums}
 .og-pager.top{border-top:0;border-bottom:1px solid var(--rule)}
-.og-pages{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
-.og-pages button{min-width:32px;height:32px;padding:0 6px;border:2px solid var(--rule);background:var(--sheet-hi);color:var(--bar-text);font:inherit;font-size:13px;cursor:pointer}
+.og-pages{display:flex;flex-wrap:nowrap;align-items:center;gap:3px;min-width:0}
+.og-pages button{min-width:28px;height:32px;padding:0 4px;border:2px solid var(--rule);background:var(--sheet-hi);color:var(--bar-text);font:inherit;font-size:13px;cursor:pointer}
 .og-pages button[aria-current]{background:var(--bar);border-color:var(--bar);color:var(--bar-ink);font-weight:700}
 .og-pages button:disabled{opacity:.4;cursor:default}
 .og-pages i{font-style:normal;color:var(--ink-3)}
