@@ -944,6 +944,8 @@ fn merge_shop_sales(rows: Vec<(Option<SaleGroup>, Sale)>) -> Vec<Sale> {
 // plan. A normal join estimates the date/variant parameters as selective, then
 // hashes the entire observation window (and spills it) for every item request.
 // OFFSET 0 prevents flattening; the item index bounds the observation lookups.
+// `$5` is the first observation id of the window: ids only grow, so it skips
+// the item's older history instead of looking up every observation it has.
 const LISTING_DAYS_SQL: &str = "WITH quotes AS (
        SELECT DISTINCT ON ((o.observed_at AT TIME ZONE 'UTC')::date,o.shop_id,r.slot)
          (o.observed_at AT TIME ZONE 'UTC')::date AS day,
@@ -953,7 +955,7 @@ const LISTING_DAYS_SQL: &str = "WITH quotes AS (
          SELECT observed_at,shop_id,visit_key FROM observations
          WHERE id=r.observation_id OFFSET 0
        ) o ON true
-       WHERE r.item_id=$1 AND r.stock>0 AND r.price>0 AND r.bundle>0
+       WHERE r.item_id=$1 AND r.observation_id >= $5 AND r.stock>0 AND r.price>0 AND r.bundle>0
          AND o.observed_at >= ($2::date)::timestamp AT TIME ZONE 'UTC'
          AND o.observed_at <= to_timestamp($3)
          AND ($4::bigint[] IS NULL OR coalesce(r.variant_id,0)=ANY($4))
@@ -961,6 +963,74 @@ const LISTING_DAYS_SQL: &str = "WITH quotes AS (
                 o.observed_at DESC,o.visit_key DESC
      ) SELECT day,percentile_cont(0.5) WITHIN GROUP (ORDER BY price),
        min(price),max(price),count(*)::int FROM quotes GROUP BY day";
+
+type ListingDayRow = (NaiveDate, Option<f64>, Option<f64>, Option<f64>, i32);
+type ListingDaysKey = (String, i32, Option<Vec<i64>>, NaiveDate);
+
+/// Completed days of `listing_days`, refreshed after `COMPLETED_DAYS_TTL` so
+/// late uploads still land. Each day deduplicates on its own, so the cached
+/// days plus a live query for today equal one query over the whole week.
+type CompletedDays = HashMap<ListingDaysKey, (std::time::Instant, Vec<ListingDayRow>)>;
+static COMPLETED_DAYS: std::sync::LazyLock<std::sync::Mutex<CompletedDays>> =
+    std::sync::LazyLock::new(Default::default);
+const COMPLETED_DAYS_TTL: std::time::Duration = std::time::Duration::from_secs(15 * 60);
+const COMPLETED_DAYS_MAX: usize = 4096;
+
+/// Cache keys include the database so separate databases never share entries.
+fn database(db: &PgPool) -> String {
+    db.connect_options()
+        .get_database()
+        .unwrap_or_default()
+        .to_owned()
+}
+
+/// First observation id observed on or after each day. Later uploads only get
+/// larger ids, so a found bound stays exact; an empty day is not remembered.
+static FIRST_OBSERVATION: std::sync::LazyLock<std::sync::Mutex<HashMap<(String, NaiveDate), i64>>> =
+    std::sync::LazyLock::new(Default::default);
+
+async fn first_observation_since(db: &PgPool, day: NaiveDate) -> sqlx::Result<i64> {
+    if let Some(id) = FIRST_OBSERVATION
+        .lock()
+        .expect("observation bound")
+        .get(&(database(db), day))
+    {
+        return Ok(*id);
+    }
+    let found: Option<i64> = sqlx::query_scalar(
+        "SELECT min(id) FROM observations WHERE observed_at >= ($1::date)::timestamp AT TIME ZONE 'UTC'",
+    )
+    .bind(day)
+    .fetch_one(db)
+    .await?;
+    let Some(id) = found else {
+        return Ok(i64::MAX);
+    };
+    let mut bounds = FIRST_OBSERVATION.lock().expect("observation bound");
+    if bounds.len() >= 32 {
+        bounds.clear();
+    }
+    bounds.insert((database(db), day), id);
+    Ok(id)
+}
+
+async fn listing_day_rows(
+    db: &PgPool,
+    id: i32,
+    from: NaiveDate,
+    until: f64,
+    variant_ids: Option<&[i64]>,
+) -> sqlx::Result<Vec<ListingDayRow>> {
+    let bound = first_observation_since(db, from).await?;
+    sqlx::query_as(LISTING_DAYS_SQL)
+        .bind(id)
+        .bind(from)
+        .bind(until)
+        .bind(variant_ids)
+        .bind(bound)
+        .fetch_all(db)
+        .await
+}
 
 async fn listing_days(
     db: &PgPool,
@@ -972,14 +1042,32 @@ async fn listing_days(
         .expect("valid current time")
         .date_naive();
     let first = (1..MARKET_DAYS).fold(last, |d, _| d.pred_opt().unwrap_or(d));
-    type Row = (NaiveDate, Option<f64>, Option<f64>, Option<f64>, i32);
-    let rows: Vec<Row> = sqlx::query_as(LISTING_DAYS_SQL)
-        .bind(id)
-        .bind(first)
-        .bind(now)
-        .bind(variant_ids)
-        .fetch_all(db)
-        .await?;
+    let key: ListingDaysKey = (database(db), id, variant_ids.map(<[i64]>::to_vec), last);
+    let cached = COMPLETED_DAYS
+        .lock()
+        .expect("listing day cache")
+        .get(&key)
+        .filter(|(at, _)| at.elapsed() < COMPLETED_DAYS_TTL)
+        .map(|(_, rows)| rows.clone());
+    let mut rows = match cached {
+        Some(rows) => rows,
+        None => {
+            // Everything before today's midnight (UTC).
+            let midnight = last
+                .and_hms_opt(0, 0, 0)
+                .expect("midnight")
+                .and_utc()
+                .timestamp();
+            let rows = listing_day_rows(db, id, first, midnight as f64 - 1e-6, variant_ids).await?;
+            let mut cache = COMPLETED_DAYS.lock().expect("listing day cache");
+            if cache.len() >= COMPLETED_DAYS_MAX {
+                cache.clear();
+            }
+            cache.insert(key, (std::time::Instant::now(), rows.clone()));
+            rows
+        }
+    };
+    rows.extend(listing_day_rows(db, id, last, now, variant_ids).await?);
     Ok(first
         .iter_days()
         .take(MARKET_DAYS as usize)

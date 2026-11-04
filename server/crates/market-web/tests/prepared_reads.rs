@@ -145,6 +145,7 @@ async fn warmed_detail_and_watch_plans_only_read_selected_observations_and_shops
     .bind(first)
     .bind(now)
     .bind(None::<Vec<i64>>)
+    .bind(0_i64)
     .fetch_one(&pool)
     .await
     .unwrap();
