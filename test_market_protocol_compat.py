@@ -40,6 +40,6 @@ class ProtocolCompatibility(unittest.TestCase):
 
     def test_new_map_opcode_uses_same_structural_validation(self):
         data=bytearray(7600);struct.pack_into('<H',data,0,0x1a9)
-        struct.pack_into('<I',data,10,8);data[19]=1;struct.pack_into('<I',data,247,80002008)
+        struct.pack_into('<I',data,10,8);data[19]=1;data[229]=1;struct.pack_into('<I',data,247,80002008)
         self.assertEqual(inspect_map(data)[0]['room'],8)
         data[19]=0;self.assertIsNone(inspect_map(data)[0])

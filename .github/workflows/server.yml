@@ -59,8 +59,13 @@ jobs:
 
   client:
     runs-on: windows-latest
+    env:
+      # Releases stage scanner modules beside the collector; tests mirror that.
+      PYTHONPATH: ${{ github.workspace }}/scanner
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
