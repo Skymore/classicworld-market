@@ -1,5 +1,6 @@
 """Passive map observations. Unknown packet layouts invalidate the old location."""
 import struct
+from character_snapshot import character_shift
 import json
 from bisect import bisect_right
 from market_channels import MAX_CHANNEL
@@ -24,7 +25,8 @@ def inspect_map_context(plain, packet_length=None):
     offset = None
     parser = None
     if size >= 512 and len(plain) >= 251 and plain[14:24] == bytes.fromhex('00000000000100000000'):
-        offset, parser = 247, 'channel_entry_v1'
+        try: offset, parser = 247+character_shift(plain), 'channel_entry_v1'
+        except ValueError: return None, evidence
     elif size == 103 and len(plain) >= 103 and plain[14:19] == bytes(5) and plain[32:36] == bytes(4):
         offset, parser = 36, 'portal_entry_v1'
     if offset is not None:

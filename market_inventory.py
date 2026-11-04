@@ -9,6 +9,7 @@ import collections
 import json
 import struct
 import time
+from character_snapshot import character_shift
 
 
 def stack(data, pos, category, capacity):
@@ -56,9 +57,10 @@ def header(data):
     if (len(data) < 512 or data[14:24] != bytes.fromhex('00000000000100000000')
             or int.from_bytes(data[:2], 'little') not in (0x1a6, 0x1a9)):
         raise ValueError('Not a supported character snapshot')
-    mesos = struct.unpack_from('<Q', data, 341)[0]
-    capacities = struct.unpack_from('<6H', data, 353)
-    if mesos > 10**12 or not all(1 <= n <= 1000 for n in capacities) or data[365:368] != bytes(3):
+    shift = character_shift(data)
+    mesos = struct.unpack_from('<Q', data, 341+shift)[0]
+    capacities = struct.unpack_from('<6H', data, 353+shift)
+    if mesos > 10**12 or not all(1 <= n <= 1000 for n in capacities) or data[365+shift:368+shift] != bytes(3):
         raise ValueError('Unsupported character inventory header')
     return mesos, capacities
 
