@@ -61,12 +61,22 @@ class InventoryCheckTests(unittest.TestCase):
                 self.assertIn('confirmed', (Path(folder)/'sweep/inventory-checks.jsonl').read_text())
 
     def test_mismatch_closes_inventory_but_does_not_continue(self):
-        for packet in (None, dict(categories=[], mesos=500), dict(categories=[2,3,4],mesos=499)):
+        for packet in (dict(categories=[], mesos=500), dict(categories=[2,3,4],mesos=499)):
             with self.subTest(packet=packet), tempfile.TemporaryDirectory() as folder:
                 window = Window()
                 checker = InventoryChecker(folder, Screen(), lambda: window.elapsed)
                 with patch('inventory_check.read_inventory', return_value=packet), self.assertRaises(InventoryCheckError):
                     checker.run(window)
+                self.assertFalse(window.opened)
+                self.assertEqual(window.keys, ['i', 'i'])
+
+    def test_missing_startup_snapshot_reconnects_only_after_inventory_closed(self):
+        from free_market_route import PositionSyncError
+        for reason, error in [('scan_start', PositionSyncError), ('purchase', InventoryCheckError)]:
+            with self.subTest(reason=reason), tempfile.TemporaryDirectory() as folder:
+                window = Window()
+                with patch('inventory_check.read_inventory', return_value=None), self.assertRaises(error):
+                    InventoryChecker(folder, Screen(), lambda: window.elapsed).run(window, reason)
                 self.assertFalse(window.opened)
                 self.assertEqual(window.keys, ['i', 'i'])
 
