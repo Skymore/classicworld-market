@@ -22,6 +22,7 @@ def character():
     data = bytearray(600)
     struct.pack_into('<H', data, 0, 0x1a9)
     data[14:24] = bytes.fromhex('00000000000100000000')
+    data[229] = 1
     struct.pack_into('<Q', data, 341, 54321)
     struct.pack_into('<6H', data, 353, 30, 35, 30, 40, 150, 300)
     data += record(2, 2000001, 100) + record(5, 2000001, 89) + record(7, 2000003, 8) + bytes(2)
@@ -50,6 +51,17 @@ class InventoryTests(unittest.TestCase):
         for data in (character()[:690], character()+character()[600:], bytes(1400)):
             with self.assertRaises((ValueError, struct.error)):
                 snapshot(data)
+
+    def test_multiple_skill_point_books_shift_inventory_fields(self):
+        data=character()
+        data[229]=2
+        data[235:235]=struct.pack('<BI',2,3)
+        self.inventory.observe(data,'second-book')
+        self.assertEqual(self.quantities()[2000001],189)
+        self.assertEqual(self.inventory.view()['mesos'],54321)
+        data[235]=0  # Duplicate book must not produce a usable balance.
+        self.inventory.observe(data,'bad-books')
+        self.assertIsNone(self.inventory.view())
 
     def test_verified_move_and_quantity_update(self):
         self.inventory.observe(update(struct.pack('<BBhh', 2, 2, 2, 7)), 'one')

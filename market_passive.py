@@ -7,6 +7,7 @@ import struct
 import sys
 import threading
 import time
+import uuid
 from pathlib import Path
 from classicworld_codec import advance, frame_header
 from market_proxy import Session
@@ -91,11 +92,18 @@ class Collector:
         self.inventory=Inventory()
     def write_status(self, path, state):
         """UI diagnostics are best effort; file readers must not stop capture."""
-        temporary=path.with_suffix('.json.tmp')
+        temporary=path.with_name(path.name+'.'+uuid.uuid4().hex+'.tmp')
         try:
             with temporary.open('w',encoding='utf-8') as out:
                 json.dump(state,out);out.flush();os.fsync(out.fileno())
-            temporary.replace(path)
+            for attempt in range(4):
+                try:
+                    temporary.replace(path)
+                    break
+                except PermissionError:
+                    if attempt == 3:
+                        raise
+                    time.sleep(.01)
             self._status_warnings.pop(path.name,None)
             return True
         except OSError as error:
@@ -105,6 +113,11 @@ class Collector:
                 print(json.dumps(dict(time=time.time(),event='status_write_deferred',
                     file=path.name,error=type(error).__name__,winerror=getattr(error,'winerror',None))),flush=True)
             return False
+        finally:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
     def event(self,kind,**fields):
         entry=dict(time=time.time(),event=kind,**fields)
         if kind=='shop_list':self.last_shop_at=entry['time']

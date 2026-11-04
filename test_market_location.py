@@ -9,8 +9,15 @@ class LocationTests(unittest.TestCase):
         struct.pack_into('<H', p, 0, 0x1a6)
         struct.pack_into('<I', p, 10, 8)
         p[19] = 1
+        p[229] = 1
         struct.pack_into('<I', p, 247, 80002008)
         return p
+
+    def test_second_skill_point_book_moves_map_field(self):
+        packet=self.packet();packet[229]=2
+        packet[235:235]=struct.pack('<BI',2,3)
+        location,_=inspect_map(packet)
+        self.assertEqual((location['channel'],location['room']),(9,8))
 
     def test_channel_and_room(self):
         location, _ = inspect_map(self.packet())

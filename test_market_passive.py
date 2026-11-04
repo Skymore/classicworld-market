@@ -52,13 +52,33 @@ class PassiveTests(unittest.TestCase):
                 collector.tick(now=13)
                 collector.tick(now=13.1)
                 collector.tick(now=13.2)
-                self.assertEqual(replace.call_count,2)  # Inventory and capture status, one retry each.
+                self.assertEqual(replace.call_count,8)  # Two bounded attempts, four replacements each.
                 self.assertEqual(collector.last_status,10)
                 self.assertEqual(path.read_bytes(),previous)
             collector.captured=42
             collector.tick(now=16)
             self.assertEqual(json.loads(path.read_text())['packets'],42)
             self.assertEqual(collector.last_status,16)
+
+    def test_status_writer_uses_unique_temporary_and_recovers_reader_lock(self):
+        with tempfile.TemporaryDirectory() as folder:
+            collector=Collector(folder)
+            target=Path(folder)/'inventory_state.json'
+            legacy=target.with_suffix('.json.tmp')
+            legacy.write_text('another writer')
+            replace=Path.replace
+            calls=[]
+            def transient(path, dest):
+                calls.append(path)
+                if len(calls)==1:
+                    raise PermissionError('reader still closing')
+                return replace(path,dest)
+            with patch.object(Path,'replace',transient):
+                self.assertTrue(collector.write_status(target,{'holdings':None}))
+            self.assertEqual(json.loads(target.read_text()),{'holdings':None})
+            self.assertEqual(legacy.read_text(),'another writer')
+            self.assertNotEqual(calls[0],legacy)
+            self.assertFalse(calls[0].exists())
 
     def test_native_diagnostics_write_failure_is_nonfatal(self):
         with tempfile.TemporaryDirectory() as folder:
