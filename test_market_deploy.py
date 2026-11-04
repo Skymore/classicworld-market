@@ -19,7 +19,7 @@ class DeploymentTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()  # CI temp may be an 8.3 short path
 
     def bundle(self):
         source = self.root / "source"
