@@ -20,8 +20,11 @@ where the Chinese servers have none). Items without a Mapledex simplified name g
 name from `search.json`, else the traditional name through t2s, else our
 translation; quests without a DVG name get the name kept in
 `zh-translations.json`. A translation is used only while its `en` still
-matches the English name. `import_catalog` reads the result; it never
-replaces an existing simplified name.
+matches the English name. Maps take DVG's name even where Mapledex has a
+simplified one (`replaces_mapledex`), except `KEEP_MAPLEDEX_MAP`; map names
+then go through `MAP_SERIES` and `map_name`. `import_catalog` reads the
+result; it never replaces an existing simplified name unless the entry says
+`replaces_mapledex`.
 """
 import argparse
 import datetime
@@ -66,6 +69,42 @@ MAPLEDEX_WRONG = {
     ("map", 1001), ("map", 1002), ("map", 1010), ("map", 1011), ("map", 1012), ("map", 1013),
     ("map", 10001005),
 }
+# Checked by hand: DVG's name breaks the naming of the maps around it, or is a
+# typo, so the map keeps Mapledex's simplified name. Every other map takes
+# DVG's name when DVG has one for the same English.
+KEEP_MAPLEDEX_MAP = {
+    10: "蘑菇村, as 蘑菇村村民家 next door (DVG: 小蘑菇)",
+    20: "蘑菇村, as 蘑菇村村民家 next door (DVG: 小蘑菇)",
+    10000001: "明珠港防具店, as 南港防具店 (DVG: 明珠港防御武器店)",
+    10001001: "射手村民宅, as 蘑菇村村民家 and 彩虹村村民家 (DVG: 射手村街道)",
+    10001020: "射手村西部小山, as 射手村东部小山 and 射手村西部树林 (DVG: 射手村西边小山)",
+    10002002: "魔法密林杂货店, as the other towns' 杂货店 (DVG: 魔法密林百货商店)",
+    10003002: "废都药店, as 废都武器店 and the other Kerning City shops (DVG: 废弃都市药店)",
+    10003062: "换乘区: DVG's 环乘区 is a typo",
+    80001100: "魔法师2转考验场, as DVG's 弓箭手2转考验场 (DVG: 魔法师树洞迷宫)",
+    80001200: "飞侠2转考验场, as DVG's 弓箭手2转考验场 (DVG: 飞侠施工现场)",
+    80001300: "战士2转考验场, as DVG's 弓箭手2转考验场 (DVG: 战士岩山)",
+}
+# Checked by hand: one map of a series named unlike the rest of it, in DVG
+# too. Its name follows the series.
+MAP_SERIES = {
+    10002022: "猴子迷宫Ⅰ",  # 猴子迷宫Ⅱ (DVG: 猴林迷宫I)
+    10002082: "北部森林训练场Ⅷ",  # 北部森林训练场Ⅰ–Ⅸ (DVG: 树洞迷宫：北部森林 VIII)
+    10003102: "三号线一号车库",  # 三号线一号地区B1 (DVG: 三号线1号车库)
+    10003105: "三号线二号车库",  # 三号线二号地区B1 (DVG: 三号线2号车库)
+    10003109: "三号线三号车库",  # 三号线三号地区B1 (DVG: 三号线3号车库)
+    10004120: "幽深的峡谷Ⅲ",  # 幽深的峡谷Ⅰ, Ⅱ (DVG: 幽深峡谷Ⅲ)
+}
+ROMAN = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X")
+# A series number spelled in Latin letters ("蜗牛狩猎场 I", "森林迷宫II").
+LATIN_NUMBER = re.compile(r"(?<=[\u3400-\u9fff）>])\s*(X|IX|VIII|VII|VI|V|IV|III|II|I)$")
+
+
+def map_name(zh):
+    """Map names written one way: series numbers as Ⅰ Ⅱ Ⅲ (89 of DVG's names;
+    26 use Latin letters) and a space before `<` (33 of DVG's; 18 have none)."""
+    zh = LATIN_NUMBER.sub(lambda m: chr(0x2160 + ROMAN.index(m.group(1))), zh)
+    return re.sub(r"(?<=\S)<", " <", zh)
 
 
 def read_json(path):
@@ -401,7 +440,9 @@ def build(dvg_dir, output, items_db):
 
     for plural, kind in (("maps", "map"), ("npcs", "npc")):
         for entity_id, ours in wanted[plural].items():
-            if ours["cw"]:
+            if ours["cw"] and kind != "map":
+                continue
+            if ours["cw"] and entity_id in KEEP_MAPLEDEX_MAP:
                 continue
             entry = None
             if entity_id in dvg[plural]:
@@ -414,10 +455,22 @@ def build(dvg_dir, output, items_db):
                     seen = dvg[plural][entity_id]
                     result["dvg_not_used"].append({"kind": kind, "id": entity_id, "reason": reason,
                                                    "en": ours["en"], "dvg": seen["zh"], "dvg_en": seen["en"]})
+            if ours["cw"]:
+                # Mapledex already names the map: DVG's name, written the
+                # site's way, replaces it when they differ.
+                if entry is None:
+                    continue
+                entry["zh"] = MAP_SERIES.get(entity_id) or map_name(entry["zh"])
+                if entry["zh"] == ours["cw"]:
+                    continue
+                entry["mapledex"] = ours["cw"]
+                entry["replaces_mapledex"] = True
             if entry is None and ours["tw"]:
                 entry = {"zh": t2s.convert(ours["tw"]), "source": "mapledex-tw", "en": ours["en"], "tw": ours["tw"]}
             if entry is None and ours["en"]:
                 entry = translated(plural, entity_id, ours["en"])
+            if entry and kind == "map" and not ours["cw"]:
+                entry["zh"] = MAP_SERIES.get(entity_id) or map_name(entry["zh"])
             if entry:
                 result[plural][str(entity_id)] = entry
     for entity_id, ours in wanted["items"].items():
@@ -453,11 +506,14 @@ def build(dvg_dir, output, items_db):
     write_json(output, result)
     for plural in ("maps", "npcs", "quests", "items"):
         missing = sum(1 for o in wanted[plural].values() if not o.get("cw"))
-        by = {s: sum(1 for e in result[plural].values() if e["source"] == s)
+        entries = [e for e in result[plural].values() if "mapledex" not in e]
+        by = {s: sum(1 for e in entries if e["source"] == s)
               for s in ("dvg", "mapledex-tw", "cms", "translated")}
+        replaced = len(result[plural]) - len(entries)
         print(f"{plural}: {missing} without a simplified name; {by['dvg']} from DVG, "
               f"{by['mapledex-tw']} from Mapledex tw, {by['cms']} from CMS, {by['translated']} translated, "
-              f"{missing - sum(by.values())} left in English")
+              f"{missing - sum(by.values())} left in English"
+              + (f"; {replaced} Mapledex names replaced" if replaced else ""))
     for skipped in result["dvg_not_used"]:
         print(f"DVG name not used ({skipped['reason']}): {skipped['kind']} {skipped['id']} "
               f"{skipped['en']!r} / DVG {skipped['dvg']!r} {skipped['dvg_en']!r}")

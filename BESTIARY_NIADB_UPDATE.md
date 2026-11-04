@@ -12,7 +12,7 @@
 - AI 助手不再返回遗忘洞穴的地图、任务和怪物（开放日后自动恢复，不用重跑）。
 - 船、出租车和传送口类型（迁移 `0042_portal_types_and_transport.sql`）：南港坐船去明珠港，彩虹岛的地图终于能连上金银岛；路线可以勾选坐出租车；隐藏传送口在地图上画成虚线圈。`portals.json` 带上了传送口类型，所以第 4 步的 `import_portals` 必须重跑。
 - 场景图和世界地图（迁移 `0041_world_map_and_scenes.sql`）：地图视图改画整张场景图；路线页把路线画在世界地图上；新增"找怪物"：输入怪物，给出离出发地最近的刷怪地图和路线。
-- 地图列表（2026-11-04）：图鉴·地图页左边是世界地图，右边是带图的地图卡片（`web/images/map-thumbs/`），滚动加载，点世界地图上的地点只看那里的地图；`/world` 跳到这一页。黄蘑菇屋、后巷半地下室没有传送口能进的旧副本（10001008、10003008）标为未开放；椰子收获的 3 个场地、自由市场的 20 个房间各合成一张卡。第 4 步重跑 `import_catalog` 就会写入，不需要迁移。
+- 地图列表（2026-11-04）：图鉴·地图页左边是世界地图，右边是带图的地图卡片（`web/images/map-thumbs/`），滚动加载，点世界地图上的地点只看那里的地图；`/world` 跳到这一页。黄蘑菇屋、后巷半地下室没有传送口能进的旧副本（10001008、10003008）标为未开放；椰子收获的 3 个场地、自由市场的 20 个房间各合成一张卡。地图名统一用国服名（DVG），同一系列叫法和编号写法一致（蜗牛狩猎场Ⅰ–Ⅲ、石巨人寺院Ⅰ–Ⅳ）；"城镇"只标回城点是自己、又没有怪的地图（开放地图里 17 张，商店、蘑菇山、借阅台不再算）。第 4 步重跑 `import_catalog` 就会写入，不需要迁移。
 - 中文名（2026-11-03）：以前只有英文名的 689 件物品、8 个 NPC 和 59 个任务改用国服名（DVG 国服 Classic World 资料站，冰峰雪域任务用国服客户端的任务名），国服没有的少数几条用按国服用词写的译名。来源都在 `data/reference/zh-names.json`，第 4 步重跑 `import_catalog` 就会写入，不需要迁移。
 
 需要三样东西：新代码（含迁移 `0038_niadb_bestiary.sql`、`0039_quests.sql`、`0040_map_view.sql`、`0041_world_map_and_scenes.sql`、`0042_portal_types_and_transport.sql`）、仓库里的参考数据和图片（`data/reference/`、`web/images/minimaps/`、`web/images/mobs/head/`、`web/images/scenes/`、`web/images/worldmap/`、`web/images/map-thumbs/`，随网站一起部署）、用新代码重跑 `import_catalog` 和 `import_portals`。
@@ -85,7 +85,7 @@ cargo run --release -p market-web --bin import_catalog -- `
 
 - 导入在一个事务里，出错整体回滚。
 - `--niadb-version` 写 `drops.json` 里 `fetched_at` 的日期（第 1 步第一行打印的）。
-- 预期输出（2026-11-02 的数据，新抓的会略多）：`mobs 206 NiaDB (… 7 replace a different Mapledex mob … 63 unreleased; 110 simplified names from DVG …)`、`maps 453 NiaDB (… 122 unreleased; 452 with a simplified name, 200 from DVG …)`、`spawns 915 NiaDB (… spawn points with positions …)`、`world 134 world map spots`、`drops 1704 NiaDB: 1655 items … 49 meso ranges`、`portals 447`、`quests 401 NiaDB (…)`、`items` 与上一次相同。
+- 预期输出（2026-11-02 的数据，新抓的会略多）：`mobs 206 NiaDB (… 7 replace a different Mapledex mob … 63 unreleased; 110 simplified names from DVG …)`、`maps 453 NiaDB (… 122 unreleased; 452 with a simplified name, 272 from DVG …)`、`spawns 915 NiaDB (… spawn points with positions …)`、`world 134 world map spots`、`drops 1704 NiaDB: 1655 items … 49 meso ranges`、`portals 447`、`quests 401 NiaDB (…)`、`items` 与上一次相同。
 - `mobs`、`maps` 少于 200、`drops` 少于 1000：按第 7 步恢复并报告用户。
 
 接着导入传送口（新地图的传送口在仓库的 `portals.json` 里）：

@@ -1974,7 +1974,7 @@ pub async fn load_edges(db: &PgPool) -> sqlx::Result<Vec<Edge>> {
 }
 
 /// Hints for the open maps whose name another open map shares, in either
-/// language (蘑菇村 10 and 20; "Shortcut" for 捷径 I and II in English).
+/// language (蘑菇村 10 and 20; "Shortcut" for 捷径Ⅰ and Ⅱ in English).
 /// `catalog_cache` keeps the result until the next import.
 pub async fn map_hints(db: &PgPool) -> sqlx::Result<HashMap<i32, MapHint>> {
     let maps: Vec<MapRef> = sqlx::query_as(concat!(

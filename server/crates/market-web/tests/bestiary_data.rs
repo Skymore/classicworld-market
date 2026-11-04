@@ -215,6 +215,26 @@ fn niadb_bestiary_decides_what_exists() {
     assert!(!mob(3).unwrap().unreleased);
     assert!(map(20000000).unwrap().unreleased, "Orbis is not open yet");
     assert!(!map(10001000).unwrap().unreleased);
+    let towns: Vec<i32> = data
+        .maps
+        .iter()
+        .filter(|m| m.is_town && !m.unreleased)
+        .map(|m| m.id)
+        .collect();
+    assert_eq!(towns.len(), 17, "{towns:?}");
+    assert!(map(10001000).unwrap().is_town, "Henesys");
+    assert!(
+        !map(10001041).unwrap().is_town,
+        "Henesys Weapon Store returns to Henesys"
+    );
+    assert!(
+        !map(10002005).unwrap().is_town,
+        "The Circulation Desk returns to Ellinia"
+    );
+    assert!(
+        !map(10001021).unwrap().is_town,
+        "Mushroom Garden has monsters"
+    );
     assert!(map(10004130).is_some(), "Excavation Site I, new in NiaDB");
     assert!(
         map(10006000).unwrap().unreleased,
@@ -494,7 +514,7 @@ fn zh_names_fill_map_and_npc_gaps() {
         counts,
         ZhNameCounts {
             maps: ZhSourceCounts {
-                dvg: 200,
+                dvg: 272,
                 mapledex_tw: 1,
                 cms: 0,
                 translated: 0
@@ -525,9 +545,20 @@ fn zh_names_fill_map_and_npc_gaps() {
         (16, 1, 0),
         "Mapledex-only test maps, DVG placeholders, NiaDB maps DVG lacks and NPC 1024 ????"
     );
-    // Mapledex names stay, except the ones tools/zh_names.py found are
-    // another map's (MAPLEDEX_WRONG there).
-    let replaced = [1001, 1002, 1010, 1011, 1012, 1013, 10001005];
+    // Mapledex names stay unless tools/zh_names.py replaces them: another
+    // map's name (MAPLEDEX_WRONG there), or DVG's name for the same map.
+    let file: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(repo_data("reference/zh-names.json")).unwrap(),
+    )
+    .unwrap();
+    let replaced: Vec<i32> = file["maps"]
+        .as_object()
+        .unwrap()
+        .iter()
+        .filter(|(_, entry)| entry["replaces_mapledex"] == true)
+        .map(|(id, _)| id.parse().unwrap())
+        .collect();
+    assert_eq!(replaced.len(), 7 + 72);
     for (map, (id, name)) in data.maps.iter().zip(&mapledex_names) {
         assert_eq!(map.id, *id);
         if name.is_some() && !replaced.contains(id) {
@@ -544,6 +575,23 @@ fn zh_names_fill_map_and_npc_gaps() {
     };
     assert_eq!(map_zh(1001).as_deref(), Some("小树林"), "not 蜗牛打猎场Ⅰ");
     assert_eq!(map_zh(1010).as_deref(), Some("彩虹村"));
+    assert_eq!(
+        map_zh(40).as_deref(),
+        Some("蜗牛狩猎场Ⅰ"),
+        "DVG's 蜗牛狩猎场 I"
+    );
+    assert_eq!(
+        map_zh(41).as_deref(),
+        Some("蜗牛狩猎场Ⅱ"),
+        "not Mapledex's 蜗牛打猎场Ⅱ"
+    );
+    assert_eq!(map_zh(10002082).as_deref(), Some("北部森林训练场Ⅷ"));
+    assert_eq!(map_zh(10003061).as_deref(), Some("地铁一号线 <第1地区>"));
+    assert_eq!(
+        map_zh(10003062).as_deref(),
+        Some("换乘区"),
+        "not DVG's typo 环乘区"
+    );
 
     let map = |id: i32| data.maps.iter().find(|m| m.id == id).unwrap();
     let npc = |id: i32| data.npcs.iter().find(|n| n.id == id).unwrap();
@@ -555,8 +603,8 @@ fn zh_names_fill_map_and_npc_gaps() {
             map(20000055).name_zh.as_deref(),
             map(20000055).name_tw.as_deref()
         ),
-        (Some("天空阶梯 II"), Some("天空階梯 II")),
-        "Mapledex traditional, converted"
+        (Some("天空阶梯Ⅱ"), Some("天空階梯 II")),
+        "Mapledex traditional, converted and numbered as the other maps"
     );
     assert_eq!(map(900000000).name_zh, None, "DVG's 测试 is not a name");
     assert_eq!(npc(231).name_zh.as_deref(), Some("比安卡"));
@@ -1017,7 +1065,7 @@ async fn full_import_is_idempotent_and_upgrades_an_r3_database() {
     .fetch_one(&fresh.pool)
     .await
     .unwrap();
-    assert_eq!(zh_counts["maps"]["dvg"], 200);
+    assert_eq!(zh_counts["maps"]["dvg"], 272);
     assert_eq!(zh_counts["npcs"]["dvg"], 59);
     assert_eq!(
         (

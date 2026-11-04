@@ -299,7 +299,7 @@ export function MapViewPanel({ view, title, mobs }: { view: any; title: string; 
     <figure className="mapvis">
       {shown.length > 1 && (
         <div className="mv-tools" role="group" aria-label={words("显示", "Show")}>
-          {shown.map(([key, zh, en, n]) => (
+          {shown.map(([key, zh, en]) => (
             <button
               type="button"
               key={key}
@@ -307,7 +307,7 @@ export function MapViewPanel({ view, title, mobs }: { view: any; title: string; 
               aria-pressed={layers[key]}
               onClick={() => toggle(key)}
             >
-              {words(zh, en)} <small>{n}</small>
+              {words(zh, en)}
             </button>
           ))}
         </div>

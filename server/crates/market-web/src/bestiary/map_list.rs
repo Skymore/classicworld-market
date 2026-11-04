@@ -1,7 +1,7 @@
 //! Maps the map list shows as one card: rooms of one place that are the same
 //! map in every way (same NPCs, same exits). Reviewed by hand with every
 //! other same-name and numbered group, which stay separate (蚂蚁洞Ⅰ–Ⅳ, the
-//! subway's areas, 蘑菇村 10 and 20, the two 蘑菇山, 捷径 I and II).
+//! subway's areas, 蘑菇村 10 and 20, the two 蘑菇山, 捷径Ⅰ and Ⅱ).
 
 use super::format::Lang;
 

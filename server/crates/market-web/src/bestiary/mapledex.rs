@@ -1167,6 +1167,17 @@ impl Dataset {
         for id in ids {
             counts.spawns += self.add_nia_spawns(id, &nia[&id].monsters, &mob_ids);
         }
+        self.mark_towns();
+    }
+
+    /// The client's town flag also covers a town's shops and halls, its
+    /// jump-quest floors and a few fields with monsters (蘑菇山). A town here is
+    /// a flagged map that is its own return point and has no monsters.
+    fn mark_towns(&mut self) {
+        let hunted: HashSet<i32> = self.spawns.iter().map(|s| s.map_id).collect();
+        for map in &mut self.maps {
+            map.is_town &= map.return_map_id.is_none() && !hunted.contains(&map.id);
+        }
     }
 
     /// One row per NiaDB spawn point of a listed mob, in NiaDB's order.

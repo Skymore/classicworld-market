@@ -18,9 +18,23 @@
    "en": "East Entrance to Mushroom Town"
   },
   "40": {
-   "zh": "蜗牛狩猎场 I",
+   "zh": "蜗牛狩猎场Ⅰ",
    "source": "dvg",
    "en": "Snail Hunting Ground I"
+  },
+  "41": {
+   "zh": "蜗牛狩猎场Ⅱ",
+   "source": "dvg",
+   "en": "Snail Hunting Ground II",
+   "mapledex": "蜗牛打猎场Ⅱ",
+   "replaces_mapledex": true
+  },
+  "42": {
+   "zh": "蜗牛狩猎场Ⅲ",
+   "source": "dvg",
+   "en": "Snail Hunting Ground III",
+   "mapledex": "蜗牛打猎场Ⅲ",
+   "replaces_mapledex": true
   },
   "50": {
    "zh": "岔路",
@@ -42,6 +56,20 @@
    "zh": "危险森林",
    "source": "dvg",
    "en": "Dangerous Forest",
+   "replaces_mapledex": true
+  },
+  "1005": {
+   "zh": "森林中央狩猎场Ⅰ",
+   "source": "dvg",
+   "en": "Hunting Ground Middle of the Forest I",
+   "mapledex": "草丛打猎场Ⅰ",
+   "replaces_mapledex": true
+  },
+  "1006": {
+   "zh": "森林中央狩猎场Ⅱ",
+   "source": "dvg",
+   "en": "Hunting Ground Middle of the Forest II",
+   "mapledex": "草丛打猎场Ⅱ",
    "replaces_mapledex": true
   },
   "1010": {
@@ -94,6 +122,48 @@
    "source": "dvg",
    "en": "Utah's Pig Farm"
   },
+  "10001102": {
+   "zh": "石巨人寺院入口",
+   "source": "dvg",
+   "en": "The Entrance of Golem's Temple",
+   "mapledex": "石人寺院入口",
+   "replaces_mapledex": true
+  },
+  "10001103": {
+   "zh": "石巨人寺院Ⅰ",
+   "source": "dvg",
+   "en": "Golem's Temple I",
+   "mapledex": "石人寺院Ⅰ",
+   "replaces_mapledex": true
+  },
+  "10001104": {
+   "zh": "石巨人寺院Ⅱ",
+   "source": "dvg",
+   "en": "Golem's Temple II",
+   "mapledex": "石人寺院Ⅱ",
+   "replaces_mapledex": true
+  },
+  "10001105": {
+   "zh": "石巨人寺院Ⅲ",
+   "source": "dvg",
+   "en": "Golem's Temple III",
+   "mapledex": "石人寺院Ⅲ",
+   "replaces_mapledex": true
+  },
+  "10001106": {
+   "zh": "石巨人寺院Ⅳ",
+   "source": "dvg",
+   "en": "Golem's Temple IV",
+   "mapledex": "石人寺院Ⅳ",
+   "replaces_mapledex": true
+  },
+  "10002003": {
+   "zh": "魔法图书馆",
+   "source": "dvg",
+   "en": "Magic Library",
+   "mapledex": "魔法密林图书馆",
+   "replaces_mapledex": true
+  },
   "10002004": {
    "zh": "玛尔的森林",
    "source": "dvg",
@@ -104,8 +174,22 @@
    "source": "dvg",
    "en": "The Circulation Desk"
   },
+  "10002021": {
+   "zh": "猴子森林Ⅰ",
+   "source": "dvg",
+   "en": "Monkey Forest I",
+   "mapledex": "猴子森林I",
+   "replaces_mapledex": true
+  },
+  "10002022": {
+   "zh": "猴子迷宫Ⅰ",
+   "source": "dvg",
+   "en": "Tree Dungeon, Monkey Forest I",
+   "mapledex": "猴林迷宫I",
+   "replaces_mapledex": true
+  },
   "10002082": {
-   "zh": "树洞迷宫：北部森林 VIII",
+   "zh": "北部森林训练场Ⅷ",
    "source": "dvg",
    "en": "Tree Dungeon, Forest Up North VIII"
   },
@@ -118,6 +202,13 @@
    "zh": "起飞前 <前往天空之城>",
    "source": "dvg",
    "en": "Before Takeoff <To Orbis>"
+  },
+  "10003003": {
+   "zh": "盗贼藏身处",
+   "source": "dvg",
+   "en": "Thieves' Hideout",
+   "mapledex": "废都酒吧",
+   "replaces_mapledex": true
   },
   "10003004": {
    "zh": "尼奥拉医院",
@@ -134,18 +225,165 @@
    "source": "dvg",
    "en": "Backalley Semi-Basement"
   },
+  "10003050": {
+   "zh": "废都森林Ⅰ",
+   "source": "dvg",
+   "en": "Kerning City Middle Forest I",
+   "mapledex": "废都森林I",
+   "replaces_mapledex": true
+  },
+  "10003051": {
+   "zh": "废都森林Ⅱ",
+   "source": "dvg",
+   "en": "Kerning City Middle Forest II",
+   "mapledex": "废都森林II",
+   "replaces_mapledex": true
+  },
+  "10003052": {
+   "zh": "废都森林Ⅲ",
+   "source": "dvg",
+   "en": "Kerning City Middle Forest III",
+   "mapledex": "废都森林III",
+   "replaces_mapledex": true
+  },
+  "10003061": {
+   "zh": "地铁一号线 <第1地区>",
+   "source": "dvg",
+   "en": "Line 1 <Area 1>",
+   "mapledex": "地铁一号线<第1地区>",
+   "replaces_mapledex": true
+  },
+  "10003063": {
+   "zh": "地铁一号线 <第2地区>",
+   "source": "dvg",
+   "en": "Line 1 <Area 2>",
+   "mapledex": "地铁一号线<第2地区>",
+   "replaces_mapledex": true
+  },
+  "10003064": {
+   "zh": "地铁一号线 <第3地区>",
+   "source": "dvg",
+   "en": "Line 1 <Area 3>",
+   "mapledex": "地铁一号线<第3地区>",
+   "replaces_mapledex": true
+  },
+  "10003065": {
+   "zh": "地铁一号线 <第4地区>",
+   "source": "dvg",
+   "en": "Line 1 <Area 4>",
+   "mapledex": "地铁一号线<第4地区>",
+   "replaces_mapledex": true
+  },
+  "10003066": {
+   "zh": "地铁二号线 <第1地区>",
+   "source": "dvg",
+   "en": "Line 2 <Area 1>",
+   "mapledex": "地铁二号线<第1地区>",
+   "replaces_mapledex": true
+  },
+  "10003067": {
+   "zh": "地铁二号线 <第2地区>",
+   "source": "dvg",
+   "en": "Line 2 <Area 2>",
+   "mapledex": "地铁二号线<第2地区>",
+   "replaces_mapledex": true
+  },
+  "10003068": {
+   "zh": "地铁二号线 <第3地区>",
+   "source": "dvg",
+   "en": "Line 2 <Area 3>",
+   "mapledex": "地铁二号线<第3地区>",
+   "replaces_mapledex": true
+  },
+  "10003090": {
+   "zh": "沼泽地Ⅰ",
+   "source": "dvg",
+   "en": "The Swamp of Despair I",
+   "mapledex": "沼泽地1",
+   "replaces_mapledex": true
+  },
+  "10003091": {
+   "zh": "沼泽地Ⅱ",
+   "source": "dvg",
+   "en": "The Swamp of Despair II",
+   "mapledex": "沼泽地2",
+   "replaces_mapledex": true
+  },
+  "10003092": {
+   "zh": "沼泽地Ⅲ",
+   "source": "dvg",
+   "en": "The Swamp of Despair III",
+   "mapledex": "沼泽地3",
+   "replaces_mapledex": true
+  },
+  "10003093": {
+   "zh": "鳄鱼潭Ⅰ",
+   "source": "dvg",
+   "en": "Dangerous Croko I",
+   "mapledex": "鳄鱼潭1",
+   "replaces_mapledex": true
+  },
+  "10003094": {
+   "zh": "鳄鱼潭Ⅱ",
+   "source": "dvg",
+   "en": "Dangerous Croko II",
+   "mapledex": "鳄鱼潭2",
+   "replaces_mapledex": true
+  },
+  "10003095": {
+   "zh": "猴子沼泽地Ⅰ",
+   "source": "dvg",
+   "en": "Monkey Swamp I",
+   "mapledex": "猴子沼泽地1",
+   "replaces_mapledex": true
+  },
+  "10003096": {
+   "zh": "猴子沼泽地Ⅱ",
+   "source": "dvg",
+   "en": "Monkey Swamp II",
+   "mapledex": "猴子沼泽地2",
+   "replaces_mapledex": true
+  },
+  "10003097": {
+   "zh": "猴子沼泽地Ⅲ",
+   "source": "dvg",
+   "en": "Monkey Swamp III",
+   "mapledex": "猴子沼泽地3",
+   "replaces_mapledex": true
+  },
   "10003098": {
    "zh": "隐士的小屋",
    "source": "dvg",
    "en": "The Hermit's Cabin"
   },
+  "10003102": {
+   "zh": "三号线一号车库",
+   "source": "dvg",
+   "en": "B1 <Subway Depot>",
+   "mapledex": "三号线1号车库",
+   "replaces_mapledex": true
+  },
+  "10003105": {
+   "zh": "三号线二号车库",
+   "source": "dvg",
+   "en": "B2 <Subway Depot>",
+   "mapledex": "三号线2号车库",
+   "replaces_mapledex": true
+  },
+  "10003109": {
+   "zh": "三号线三号车库",
+   "source": "dvg",
+   "en": "B3 <Subway Depot>",
+   "mapledex": "三号线3号车库",
+   "replaces_mapledex": true
+  },
   "10003110": {
-   "zh": "浑浊的沼泽 I",
+   "zh": "浑浊的沼泽Ⅰ",
    "source": "dvg",
    "en": "The Murky Swamp I"
   },
   "10003111": {
-   "zh": "浑浊的沼泽 II",
+   "zh": "浑浊的沼泽Ⅱ",
    "source": "dvg",
    "en": "The Murky Swamp II"
   },
@@ -158,6 +396,13 @@
    "zh": "干涸之地",
    "source": "dvg",
    "en": "Parched Land"
+  },
+  "10004120": {
+   "zh": "幽深的峡谷Ⅲ",
+   "source": "dvg",
+   "en": "Deep Valley III",
+   "mapledex": "幽深峡谷Ⅲ",
+   "replaces_mapledex": true
   },
   "10004130": {
    "zh": "遗迹发掘地Ⅰ",
@@ -219,10 +464,115 @@
    "source": "dvg",
    "en": "Camp 3"
   },
+  "10005011": {
+   "zh": "黑森林打猎场Ⅰ",
+   "source": "dvg",
+   "en": "Hunting Ground in the Deep Forest I",
+   "mapledex": "黑森林打猎场I",
+   "replaces_mapledex": true
+  },
+  "10005012": {
+   "zh": "黑森林打猎场Ⅱ",
+   "source": "dvg",
+   "en": "Hunting Ground in the Deep Forest II",
+   "mapledex": "黑森林打猎场II",
+   "replaces_mapledex": true
+  },
+  "10005050": {
+   "zh": "森林迷宫Ⅰ",
+   "source": "dvg",
+   "en": "Sleepy Dungeon I",
+   "mapledex": "森林迷宫I",
+   "replaces_mapledex": true
+  },
+  "10005051": {
+   "zh": "森林迷宫Ⅱ",
+   "source": "dvg",
+   "en": "Sleepy Dungeon II",
+   "mapledex": "森林迷宫II",
+   "replaces_mapledex": true
+  },
+  "10005052": {
+   "zh": "森林迷宫Ⅲ",
+   "source": "dvg",
+   "en": "Sleepy Dungeon III",
+   "mapledex": "森林迷宫III",
+   "replaces_mapledex": true
+  },
+  "10005053": {
+   "zh": "森林迷宫Ⅳ",
+   "source": "dvg",
+   "en": "Sleepy Dungeon IV",
+   "mapledex": "森林迷宫IV",
+   "replaces_mapledex": true
+  },
+  "10005054": {
+   "zh": "森林迷宫Ⅴ",
+   "source": "dvg",
+   "en": "Sleepy Dungeon V",
+   "mapledex": "森林迷宫V",
+   "replaces_mapledex": true
+  },
+  "10005066": {
+   "zh": "幽深蚂蚁洞Ⅰ",
+   "source": "dvg",
+   "en": "Deep Ant Tunnel I",
+   "mapledex": "幽深蚂蚁洞1",
+   "replaces_mapledex": true
+  },
+  "10005067": {
+   "zh": "幽深蚂蚁洞Ⅱ",
+   "source": "dvg",
+   "en": "Deep Ant Tunnel II",
+   "mapledex": "幽深蚂蚁洞2",
+   "replaces_mapledex": true
+  },
+  "10005090": {
+   "zh": "龙的饭桌",
+   "source": "dvg",
+   "en": "Drake's Meal Table",
+   "mapledex": "龙穴",
+   "replaces_mapledex": true
+  },
   "10005091": {
    "zh": "野生卡古的地盘",
    "source": "dvg",
    "en": "Wild Kargo's Area"
+  },
+  "10005101": {
+   "zh": "寺院通道Ⅰ",
+   "source": "dvg",
+   "en": "Sanctuary Entrance I",
+   "mapledex": "寺院通道1",
+   "replaces_mapledex": true
+  },
+  "10005102": {
+   "zh": "寺院通道Ⅱ",
+   "source": "dvg",
+   "en": "Sanctuary Entrance II",
+   "mapledex": "寺院通道2",
+   "replaces_mapledex": true
+  },
+  "10005103": {
+   "zh": "寺院通道Ⅲ",
+   "source": "dvg",
+   "en": "Sanctuary Entrance III",
+   "mapledex": "寺院通道3",
+   "replaces_mapledex": true
+  },
+  "10005104": {
+   "zh": "寺院通道Ⅳ",
+   "source": "dvg",
+   "en": "Sanctuary Entrance IV",
+   "mapledex": "寺院通道4",
+   "replaces_mapledex": true
+  },
+  "10005105": {
+   "zh": "被诅咒的寺院",
+   "source": "dvg",
+   "en": "The Cursed Sanctuary",
+   "mapledex": "被孽咒的寺院",
+   "replaces_mapledex": true
   },
   "10006000": {
    "zh": "遗忘空洞",
@@ -240,12 +590,12 @@
    "en": "Cave Fairy Department Store"
   },
   "10006010": {
-   "zh": "原始森林 I",
+   "zh": "原始森林Ⅰ",
    "source": "dvg",
    "en": "Primeval Forest I"
   },
   "10006020": {
-   "zh": "原始森林 II",
+   "zh": "原始森林Ⅱ",
    "source": "dvg",
    "en": "Primeval Forest II"
   },
@@ -255,7 +605,7 @@
    "en": "Collision of Ice and Fire"
   },
   "10006030": {
-   "zh": "原始森林 III",
+   "zh": "原始森林Ⅲ",
    "source": "dvg",
    "en": "Primeval Forest III"
   },
@@ -265,17 +615,17 @@
    "en": "The Valley of Death"
   },
   "10006040": {
-   "zh": "遗忘入口 I",
+   "zh": "遗忘入口Ⅰ",
    "source": "dvg",
    "en": "Forgotten Entrance I"
   },
   "10006050": {
-   "zh": "遗忘入口 II",
+   "zh": "遗忘入口Ⅱ",
    "source": "dvg",
    "en": "Forgotten Entrance II"
   },
   "10006060": {
-   "zh": "遗忘入口 III",
+   "zh": "遗忘入口Ⅲ",
    "source": "dvg",
    "en": "Forgotten Entrance III"
   },
@@ -300,22 +650,22 @@
    "en": "Forbidden Entrance"
   },
   "10006090": {
-   "zh": "险峻下坡 I",
+   "zh": "险峻下坡Ⅰ",
    "source": "dvg",
    "en": "Perilous Descent I"
   },
   "10006100": {
-   "zh": "险峻下坡 II",
+   "zh": "险峻下坡Ⅱ",
    "source": "dvg",
    "en": "Perilous Descent II"
   },
   "10006110": {
-   "zh": "险峻下坡 III",
+   "zh": "险峻下坡Ⅲ",
    "source": "dvg",
    "en": "Perilous Descent III"
   },
   "10006120": {
-   "zh": "腐朽隧道 I",
+   "zh": "腐朽隧道Ⅰ",
    "source": "dvg",
    "en": "Decayed Tunnel I"
   },
@@ -325,12 +675,12 @@
    "en": "Someone Else's Grave"
   },
   "10006130": {
-   "zh": "腐烂隧道 II",
+   "zh": "腐烂隧道Ⅱ",
    "source": "dvg",
    "en": "Decayed Tunnel II"
   },
   "10006140": {
-   "zh": "腐烂隧道 III",
+   "zh": "腐烂隧道Ⅲ",
    "source": "dvg",
    "en": "Decayed Tunnel III"
   },
@@ -359,6 +709,34 @@
    "source": "dvg",
    "en": "Another Sanctuary"
   },
+  "10007020": {
+   "zh": "红螃蟹海滩Ⅰ",
+   "source": "dvg",
+   "en": "Lorang Lorang",
+   "mapledex": "红螃蟹海滩1",
+   "replaces_mapledex": true
+  },
+  "10007021": {
+   "zh": "红螃蟹海滩Ⅱ",
+   "source": "dvg",
+   "en": "Lorang Lorang Lorang",
+   "mapledex": "红螃蟹海滩2",
+   "replaces_mapledex": true
+  },
+  "10007030": {
+   "zh": "青螃蟹海滩Ⅰ",
+   "source": "dvg",
+   "en": "Lorang and Clang",
+   "mapledex": "青螃蟹海滩1",
+   "replaces_mapledex": true
+  },
+  "10007031": {
+   "zh": "青螃蟹海滩Ⅱ",
+   "source": "dvg",
+   "en": "Clang and Lorang",
+   "mapledex": "青螃蟹海滩2",
+   "replaces_mapledex": true
+  },
   "20000000": {
    "zh": "天空之城",
    "source": "dvg",
@@ -380,17 +758,17 @@
    "en": "Orbis Ticketing Booth"
   },
   "20000011": {
-   "zh": "港口通道<开往魔法密林>",
+   "zh": "港口通道 <开往魔法密林>",
    "source": "dvg",
    "en": "Station Tunnel <To Ellinia>"
   },
   "20000012": {
-   "zh": "码头<开往魔法密林>",
+   "zh": "码头 <开往魔法密林>",
    "source": "dvg",
    "en": "Station<To Ellinia>"
   },
   "20000013": {
-   "zh": "候船室<开往魔法密林>",
+   "zh": "候船室 <开往魔法密林>",
    "source": "dvg",
    "en": "Before Takeoff <To Ellinia>"
   },
@@ -410,7 +788,7 @@
    "en": "To Orbis"
   },
   "20000023": {
-   "zh": "船仓<开往天空之城>",
+   "zh": "船仓 <开往天空之城>",
    "source": "dvg",
    "en": "Cabin <To Orbis>"
   },
@@ -440,7 +818,7 @@
    "en": "Top of the Hill"
   },
   "20000041": {
-   "zh": "公会总部<名人堂>",
+   "zh": "公会总部 <名人堂>",
    "source": "dvg",
    "en": "Guild Head Quarters<Hall of Fame>"
   },
@@ -470,7 +848,7 @@
    "en": "Stairway to the Sky I"
   },
   "20000055": {
-   "zh": "天空阶梯 II",
+   "zh": "天空阶梯Ⅱ",
    "source": "mapledex-tw",
    "en": "Stairway to the Sky II",
    "tw": "天空階梯 II"
@@ -491,7 +869,7 @@
    "en": "Garden of Yellow I"
   },
   "20000061": {
-   "zh": "黄色花园 II",
+   "zh": "黄色花园Ⅱ",
    "source": "dvg",
    "en": "Garden of Yellow II"
   },
@@ -556,42 +934,42 @@
    "en": "Entrance to Orbis Tower"
   },
   "20000091": {
-   "zh": "通天塔<15层>",
+   "zh": "通天塔 <15层>",
    "source": "dvg",
    "en": "Orbis Tower <15th Floor>"
   },
   "20000092": {
-   "zh": "通天塔<14层>",
+   "zh": "通天塔 <14层>",
    "source": "dvg",
    "en": "Orbis Tower <14th Floor>"
   },
   "20000093": {
-   "zh": "通天塔<13层>",
+   "zh": "通天塔 <13层>",
    "source": "dvg",
    "en": "Orbis Tower <13th Floor>"
   },
   "20000094": {
-   "zh": "通天塔<12层>",
+   "zh": "通天塔 <12层>",
    "source": "dvg",
    "en": "Orbis Tower <12th Floor>"
   },
   "20000095": {
-   "zh": "通天塔<11层>",
+   "zh": "通天塔 <11层>",
    "source": "dvg",
    "en": "Orbis Tower <11th Floor>"
   },
   "20000096": {
-   "zh": "通天塔<10层>",
+   "zh": "通天塔 <10层>",
    "source": "dvg",
    "en": "Orbis Tower <10th Floor>"
   },
   "20000097": {
-   "zh": "通天塔<9层>",
+   "zh": "通天塔 <9层>",
    "source": "dvg",
    "en": "Orbis Tower <9th Floor>"
   },
   "20000098": {
-   "zh": "通天塔<8层>",
+   "zh": "通天塔 <8层>",
    "source": "dvg",
    "en": "Orbis Tower <8th Floor>"
   },
@@ -601,37 +979,37 @@
    "en": "Orbis Tower <Hidden Room>"
   },
   "20000100": {
-   "zh": "通天塔<7层>",
+   "zh": "通天塔 <7层>",
    "source": "dvg",
    "en": "Orbis Tower <7th Floor>"
   },
   "20000101": {
-   "zh": "通天塔<6层>",
+   "zh": "通天塔 <6层>",
    "source": "dvg",
    "en": "Orbis Tower <6th Floor>"
   },
   "20000102": {
-   "zh": "通天塔<5层>",
+   "zh": "通天塔 <5层>",
    "source": "dvg",
    "en": "Orbis Tower <5th Floor>"
   },
   "20000103": {
-   "zh": "通天塔<4层>",
+   "zh": "通天塔 <4层>",
    "source": "dvg",
    "en": "Orbis Tower <4th Floor>"
   },
   "20000104": {
-   "zh": "通天塔<3层>",
+   "zh": "通天塔 <3层>",
    "source": "dvg",
    "en": "Orbis Tower <3rd Floor>"
   },
   "20000105": {
-   "zh": "通天塔<2层>",
+   "zh": "通天塔 <2层>",
    "source": "dvg",
    "en": "Orbis Tower <2nd Floor>"
   },
   "20000106": {
-   "zh": "通天塔<1层>",
+   "zh": "通天塔 <1层>",
    "source": "dvg",
    "en": "Orbis Tower <1st Floor>"
   },
@@ -796,12 +1174,12 @@
    "en": "The Passage"
   },
   "20001071": {
-   "zh": "试炼之洞窟 I",
+   "zh": "试炼之洞窟Ⅰ",
    "source": "dvg",
    "en": "The Cave of Trial I"
   },
   "20001072": {
-   "zh": "试炼之洞窟 II",
+   "zh": "试炼之洞窟Ⅱ",
    "source": "dvg",
    "en": "The Cave of Trial II"
   },
@@ -819,6 +1197,132 @@
    "zh": "扎昆入口",
    "source": "dvg",
    "en": "The Door to Zakum"
+  },
+  "80000000": {
+   "zh": "第一次同行 <第1阶段>",
+   "source": "dvg",
+   "en": "1st Accompaniment <1st Stage>",
+   "mapledex": "组队训练场<1阶段>",
+   "replaces_mapledex": true
+  },
+  "80000100": {
+   "zh": "第一次同行 <第2阶段>",
+   "source": "dvg",
+   "en": "1st Accompaniment <2nd Stage>",
+   "mapledex": "组队训练场<2阶段>",
+   "replaces_mapledex": true
+  },
+  "80000200": {
+   "zh": "第一次同行 <第3阶段>",
+   "source": "dvg",
+   "en": "1st Accompaniment <3rd Stage>",
+   "mapledex": "组队训练场<3阶段>",
+   "replaces_mapledex": true
+  },
+  "80000300": {
+   "zh": "第一次同行 <第4阶段>",
+   "source": "dvg",
+   "en": "1st Accompaniment <4th stage>",
+   "mapledex": "组队训练场<4阶段>",
+   "replaces_mapledex": true
+  },
+  "80000400": {
+   "zh": "第一次同行 <最后阶段>",
+   "source": "dvg",
+   "en": "1st Accompaniment <Last Stage>",
+   "mapledex": "组队训练场<最后阶段>",
+   "replaces_mapledex": true
+  },
+  "80000500": {
+   "zh": "第一次同行 <奖励>",
+   "source": "dvg",
+   "en": "1st Accompaniment <Bonus>",
+   "mapledex": "组队训练场<奖金地点>",
+   "replaces_mapledex": true
+  },
+  "80000600": {
+   "zh": "第一次同行 <出口>",
+   "source": "dvg",
+   "en": "1st Accompaniment <Exit>",
+   "mapledex": "组队训练场<出口>",
+   "replaces_mapledex": true
+  },
+  "80002001": {
+   "zh": "自由市场 <1>",
+   "source": "dvg",
+   "en": "Free Market <1>",
+   "mapledex": "自由市场<1>",
+   "replaces_mapledex": true
+  },
+  "80002002": {
+   "zh": "自由市场 <2>",
+   "source": "dvg",
+   "en": "Free Market <2>",
+   "mapledex": "自由市场<2>",
+   "replaces_mapledex": true
+  },
+  "80002003": {
+   "zh": "自由市场 <3>",
+   "source": "dvg",
+   "en": "Free Market <3>",
+   "mapledex": "自由市场<3>",
+   "replaces_mapledex": true
+  },
+  "80002004": {
+   "zh": "自由市场 <4>",
+   "source": "dvg",
+   "en": "Free Market <4>",
+   "mapledex": "自由市场<4>",
+   "replaces_mapledex": true
+  },
+  "80002005": {
+   "zh": "自由市场 <5>",
+   "source": "dvg",
+   "en": "Free Market <5>",
+   "mapledex": "自由市场<5>",
+   "replaces_mapledex": true
+  },
+  "80002006": {
+   "zh": "自由市场 <6>",
+   "source": "dvg",
+   "en": "Free Market <6>",
+   "mapledex": "自由市场<6>",
+   "replaces_mapledex": true
+  },
+  "80002007": {
+   "zh": "自由市场 <7>",
+   "source": "dvg",
+   "en": "Free Market <7>",
+   "mapledex": "自由市场<7>",
+   "replaces_mapledex": true
+  },
+  "80002008": {
+   "zh": "自由市场 <8>",
+   "source": "dvg",
+   "en": "Free Market <8>",
+   "mapledex": "自由市场<8>",
+   "replaces_mapledex": true
+  },
+  "80002009": {
+   "zh": "自由市场 <9>",
+   "source": "dvg",
+   "en": "Free Market <9>",
+   "mapledex": "自由市场<9>",
+   "replaces_mapledex": true
+  },
+  "80002010": {
+   "zh": "自由市场 <10>",
+   "source": "dvg",
+   "en": "Free Market <10>",
+   "mapledex": "自由市场<10>",
+   "replaces_mapledex": true
+  },
+  "80002011": {
+   "zh": "自由市场 <11>",
+   "source": "dvg",
+   "en": "Free Market <11>",
+   "mapledex": "自由市场<11>",
+   "replaces_mapledex": true
   },
   "80002012": {
    "zh": "自由市场 <12>",
@@ -871,7 +1375,7 @@
    "en": "Primrose Hill"
   },
   "80003100": {
-   "zh": "捷径 I",
+   "zh": "捷径Ⅰ",
    "source": "dvg",
    "en": "Shortcut"
   },
@@ -886,7 +1390,7 @@
    "en": "Back to Town"
   },
   "80003400": {
-   "zh": "捷径 II",
+   "zh": "捷径Ⅱ",
    "source": "dvg",
    "en": "Shortcut"
   },
