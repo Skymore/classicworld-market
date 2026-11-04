@@ -28,6 +28,9 @@ async fn stamp(db: &PgPool) -> sqlx::Result<Stamp> {
     .await
 }
 
+/// Map id to what tells it apart from open maps of the same name.
+pub type MapHints = HashMap<i32, MapHint>;
+
 pub struct Routes {
     /// Every edge, the taxi included (`taxi=1`).
     pub all: Graph,
@@ -39,7 +42,7 @@ pub struct Routes {
 pub struct CatalogCache {
     routes: Mutex<Option<(Stamp, Arc<Routes>)>>,
     areas: Mutex<Option<(Stamp, Arc<Vec<AreaChoice>>)>>,
-    hints: Mutex<Option<(Stamp, Arc<HashMap<i32, MapHint>>)>>,
+    hints: Mutex<Option<(Stamp, Arc<MapHints>)>>,
 }
 
 impl CatalogCache {
@@ -77,7 +80,7 @@ impl CatalogCache {
     }
 
     /// `queries::map_hints`: what tells apart open maps of the same name.
-    pub async fn map_hints(&self, db: &PgPool) -> sqlx::Result<Arc<HashMap<i32, MapHint>>> {
+    pub async fn map_hints(&self, db: &PgPool) -> sqlx::Result<Arc<MapHints>> {
         let mut slot = self.hints.lock().await;
         let current = stamp(db).await?;
         if let Some((cached, hints)) = slot.as_ref() {
