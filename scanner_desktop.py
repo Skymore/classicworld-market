@@ -714,7 +714,8 @@ class DesktopController:
                     continue
                 attempts += 1
                 from free_market_route import PositionSyncError
-                if isinstance(error, PositionSyncError):
+                from packet_keybindings import PacketKeyBindingError
+                if isinstance(error, PositionSyncError) or (isinstance(error, PacketKeyBindingError) and error.recoverable):
                     self._position_failures += 1
                 phase, message = failure_state(error, self._position_failures)
                 self._journal.event('recovery_wait', attempt=attempts, state=phase, error=type(error).__name__, reason=str(error)[:500],

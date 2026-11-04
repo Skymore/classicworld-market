@@ -49,7 +49,7 @@ class HealthTests(unittest.TestCase):
 
     def test_packet_key_failure_reports_data_reason_without_ui_advice(self):
         from packet_keybindings import PacketKeyBindingError
-        phase,message=failure_state(PacketKeyBindingError('waiting_for_active_preset'))
+        phase,message=failure_state(PacketKeyBindingError('waiting_for_active_preset'),3)
         self.assertEqual(phase,'needs_attention')
         self.assertIn('当前预设',message)
         self.assertNotIn('遮挡',message)

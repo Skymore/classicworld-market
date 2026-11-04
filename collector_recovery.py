@@ -128,6 +128,8 @@ def failure_state(error, position_failures=0):
     from keyboard_bindings import KeyBindingError, KeyBindingMenuError
     from packet_keybindings import PacketKeyBindingError
     if isinstance(error,PacketKeyBindingError):
+        if error.recoverable and position_failures < 3:
+            return 'rebuilding','键位收包已变化，正在重新连接并同步。'
         detail={
             'connection_unavailable':'收包连接不可用',
             'waiting_for_keymap':'尚未收到完整键表',
