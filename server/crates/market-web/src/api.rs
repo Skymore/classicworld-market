@@ -309,11 +309,7 @@ async fn login(
     body: Bytes,
 ) -> Response {
     if let Some(origin) = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) {
-        let allowed = [
-            format!("https://{}", state.settings.hostname),
-            "http://127.0.0.1:8766".to_string(),
-        ];
-        if !allowed.iter().any(|a| a == origin) {
+        if !state.settings.public_origin_matches(origin) && origin != "http://127.0.0.1:8766" {
             return error(StatusCode::FORBIDDEN, "Invalid origin");
         }
     }

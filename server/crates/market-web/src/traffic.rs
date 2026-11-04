@@ -127,7 +127,6 @@ async fn event(
     peer: Option<Extension<ConnectInfo<SocketAddr>>>,
     Json(input): Json<Event>,
 ) -> Response {
-    let public_origin = format!("https://{}", state.settings.hostname);
     let origin = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok());
     let local_origin = local(&headers, peer)
         && origin.is_some_and(|origin| {
@@ -136,7 +135,7 @@ async fn event(
                     && matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]"))
             })
         });
-    if origin != Some(public_origin.as_str()) && !local_origin {
+    if !origin.is_some_and(|origin| state.settings.public_origin_matches(origin)) && !local_origin {
         return StatusCode::FORBIDDEN.into_response();
     }
     if !state.settings.public_read
@@ -170,6 +169,12 @@ async fn event(
     }
     let day = Utc::now().date_naive();
     let hash = Sha256::digest(format!("{day}:{}", input.visitor)).to_vec();
+    let referrer_source = source(&input.referrer, &state.settings.hostname);
+    let referrer_source = if state.settings.public_hostname_matches(&referrer_source) {
+        String::new()
+    } else {
+        referrer_source
+    };
     let result = sqlx::query(
         "INSERT INTO site_pageviews(event_id,day,visitor_hash,path,source,device,country_code)
         VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(event_id) DO NOTHING",
@@ -178,7 +183,7 @@ async fn event(
     .bind(day)
     .bind(hash)
     .bind(path)
-    .bind(source(&input.referrer, &state.settings.hostname))
+    .bind(referrer_source)
     .bind(input.device)
     .bind(country(&headers))
     .execute(&state.db)

@@ -74,6 +74,41 @@ impl Default for Settings {
     }
 }
 
+impl Settings {
+    /// These aliases belong to the deployed market, not to custom/private hosts.
+    pub fn public_hostname_matches(&self, host: &str) -> bool {
+        host == self.hostname
+            || (self.hostname == "mxd.ruit.me"
+                && ["meso.ruit.me", "ms.ruit.me", "mscw.ruit.me"].contains(&host))
+    }
+
+    pub fn public_origin_matches(&self, origin: &str) -> bool {
+        origin
+            .strip_prefix("https://")
+            .is_some_and(|host| self.public_hostname_matches(host))
+    }
+}
+
+#[cfg(test)]
+mod public_host_tests {
+    use super::Settings;
+
+    #[test]
+    fn market_aliases_accept_only_exact_https_origins() {
+        let settings = Settings::default();
+        for host in ["mxd.ruit.me", "meso.ruit.me", "ms.ruit.me", "mscw.ruit.me"] {
+            assert!(settings.public_origin_matches(&format!("https://{host}")));
+            assert!(!settings.public_origin_matches(&format!("http://{host}")));
+            assert!(!settings.public_origin_matches(&format!("https://{host}.evil.example")));
+            assert!(!settings.public_origin_matches(&format!("https://{host}/")));
+        }
+        assert!(!settings.public_origin_matches("https://unrelated.ruit.me"));
+        let private = Settings { hostname: "private.example".into(), ..settings };
+        assert!(private.public_origin_matches("https://private.example"));
+        assert!(!private.public_origin_matches("https://ms.ruit.me"));
+    }
+}
+
 #[derive(Clone)]
 pub struct AppState {
     pub remote_debug: Arc<remote_debug::Hub>,

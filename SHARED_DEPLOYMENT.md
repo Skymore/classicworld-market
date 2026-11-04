@@ -1,5 +1,16 @@
 # 本机共享部署：mxd.ruit.me
 
+## 直接访问的别名域名
+
+`meso.ruit.me`、`ms.ruit.me`、`mscw.ruit.me` 与 `mxd.ruit.me` 提供同一网站，保留各自域名、路径和查询参数，不跳转主站。
+这三个域名的 DNS 代理到同一个 Cloudflare Tunnel，并在本机 `shared_data/tunnel.yml` 中分别映射到 `http://127.0.0.1:8766`。
+Cloudflare 的 `Market domain aliases` 跳转规则应停用；下方图鉴缓存规则的 host 条件应包含这四个域名。
+修改本机 ingress 后只重启 tunnel 子进程，不重启数据库、上传服务或整个 supervisor。
+
+服务只认可这四个域名的精确 HTTPS Origin；自定义 `PUBLIC_HOSTNAME` 的私有部署不接受这些别名。
+账号密码登录和账号写入支持各域名，登录 cookie 保持仅对当前主机有效。Google 登录沿用已注册的主站回调，
+别名页不显示 Google 账号操作；直接访问别名的 `/auth/google/start` 会转到主站完成认证，不共享 cookie 到整个 `ruit.me`。
+
 ## 网站流量统计
 
 网站通过 `/api/v1/traffic/event` 记录匿名页面访问，PostgreSQL 的
@@ -158,7 +169,7 @@ Cloudflare 隧道凭据放在用户 `.cloudflared`，项目的 `shared_data/tunn
 2. 表达式（Edit expression）：
 
    ```
-   (http.host eq "mxd.ruit.me")
+   (http.host in {"mxd.ruit.me" "meso.ruit.me" "ms.ruit.me" "mscw.ruit.me"})
    and (starts_with(http.request.uri.path, "/item/") or starts_with(http.request.uri.path, "/mob/")
         or starts_with(http.request.uri.path, "/map/") or starts_with(http.request.uri.path, "/npc/")
         or http.request.uri.path in {"/world" "/route"})

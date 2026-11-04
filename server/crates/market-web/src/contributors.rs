@@ -105,7 +105,14 @@ pub(crate) async fn collector(state: &AppState, headers: &HeaderMap) -> Result<a
 }
 pub(crate) fn origin_ok(state: &AppState, headers: &HeaderMap) -> bool {
     headers.get(header::ORIGIN).and_then(|h| h.to_str().ok())
-        == Some(format!("https://{}", state.settings.hostname).as_str())
+        .is_some_and(|origin| state.settings.public_origin_matches(origin))
+}
+
+// Google callbacks are registered on the primary host. Keep their host-only
+// session cookies there; password accounts work independently on every alias.
+fn google_enabled(state: &AppState, headers: &HeaderMap) -> bool {
+    state.google.is_some() && headers.get(header::HOST).and_then(|h| h.to_str().ok())
+        .is_none_or(|host| host == state.settings.hostname)
 }
 #[derive(FromRow)]
 pub(crate) struct Session {
@@ -157,7 +164,7 @@ async fn me(State(state): State<AppState>, headers: HeaderMap) -> Response {
         Err(e) => return e,
     };
     let Some(s) = s else {
-        return Json(json!({"signed_in":false,"google_enabled":state.google.is_some()}))
+        return Json(json!({"signed_in":false,"google_enabled":google_enabled(&state, &headers)}))
             .into_response();
     };
     let devices: i64 =
@@ -177,7 +184,7 @@ async fn me(State(state): State<AppState>, headers: HeaderMap) -> Response {
         Ok(s) => s,
         Err(e) => return internal(e),
     };
-    Json(json!({"signed_in":true,"public_id":s.public_id,"username":s.username,"has_password":s.username.is_some(),"google_linked":s.google_linked,"nickname":s.nickname,"temporary":s.nickname_temporary,"listed":s.listed,"csrf":s.csrf,"collectors":devices,"stats":stats,"google_enabled":state.google.is_some()})).into_response()
+    Json(json!({"signed_in":true,"public_id":s.public_id,"username":s.username,"has_password":s.username.is_some(),"google_linked":s.google_linked,"nickname":s.nickname,"temporary":s.nickname_temporary,"listed":s.listed,"csrf":s.csrf,"collectors":devices,"stats":stats,"google_enabled":google_enabled(&state, &headers)})).into_response()
 }
 async fn save_account(
     State(state): State<AppState>,
@@ -234,7 +241,7 @@ async fn collector_profile(State(state): State<AppState>, headers: HeaderMap) ->
         Ok(s) => s,
         Err(e) => return internal(e),
     };
-    match result {Ok((name,listed,linked,temporary))=>Json(json!({"nickname":name,"temporary":temporary,"listed":listed,"linked":linked,"stats":stats,"google_enabled":state.google.is_some()})).into_response(),Err(e)=>internal(e)}
+    match result {Ok((name,listed,linked,temporary))=>Json(json!({"nickname":name,"temporary":temporary,"listed":listed,"linked":linked,"stats":stats,"google_enabled":google_enabled(&state, &headers)})).into_response(),Err(e)=>internal(e)}
 }
 async fn watch_revision(State(state): State<AppState>, headers: HeaderMap) -> Response {
     let c = match collector(&state, &headers).await {
@@ -480,7 +487,15 @@ async fn google_start(
     State(state): State<AppState>,
     ClientAddr(addr): ClientAddr,
     Query(q): Query<StartQuery>,
+    headers: HeaderMap,
 ) -> Response {
+    if let Some(host) = headers.get(header::HOST).and_then(|h| h.to_str().ok()) {
+        if host != state.settings.hostname && state.settings.public_hostname_matches(host) {
+            let mut url = url::Url::parse(&format!("https://{}/auth/google/start", state.settings.hostname)).unwrap();
+            if let Some(link) = q.link { url.query_pairs_mut().append_pair("link", &link); }
+            return Redirect::to(url.as_str()).into_response();
+        }
+    }
     if !state.limiter.allow(&format!("google:{addr}"), 10) {
         return error(StatusCode::TOO_MANY_REQUESTS, "rate_limited");
     }
@@ -495,7 +510,7 @@ async fn link_google(
         Ok(s) => s,
         Err(e) => return e,
     };
-    if state.google.is_none() {
+    if !google_enabled(&state, &headers) {
         return error(StatusCode::SERVICE_UNAVAILABLE, "google_unavailable");
     }
     begin_google(
