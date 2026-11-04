@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.6.76：修复 VMware 键盘中继在共享文件占用时退出；通信使用完整性校验，丢弃未写完的状态，断线仍释放按键。\n'
         'v0.6.75：增加由运维显式配置的 VMware 虚拟键盘输入支持，避免受测游戏的注入按键句柄积累；连接或焦点丢失时释放按键。普通客户端保持原输入方式，不自动开启远程入口。\n'
         'v0.6.74：离店和菜单 Esc 改用窗口消息，减少游戏处理注入按键时的句柄与内存积累；移动、跳跃和其他菜单键保持原输入路径。此版本尚未消除移动输入引发的积累。\n'
         'v0.6.71：进店复用点击定位图，不再重复截图；离店回包可直接结束图像回退和按钮关闭等待，避免迟到回包后继续截图或再次操作。保留 v0.6.70 的同店继续扫货、手动更新和更新后停止扫描。安装包仅携带当前前端组件，减少下载体积。\n'
