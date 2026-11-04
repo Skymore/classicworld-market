@@ -15,6 +15,7 @@ def map_entry():
     body[14:24] = bytes.fromhex('00000000000100000000')
     body[158:162] = body[162:166] = (999).to_bytes(4, 'little')
     body[170:176] = b'MySelf'
+    body[229] = 1  # One SP book; the following map is at offset 247.
     body[247:251] = (80002001).to_bytes(4, 'little')
     return bytes(body)
 

@@ -17,7 +17,7 @@ from shared_protocol import from_snapshot
 from market_location import LocationTimeline
 from collector_update import VERSION
 import truststore
-from collector_http import request_json
+from collector_http import request_json, network_diagnostic
 from collector_recovery import retry_delay
 from collector_network import HTTPHandler, HTTPSHandler
 from collector_upload_diagnostics import rejection
@@ -67,18 +67,31 @@ UPLOAD_WINDOW = 30 * 86400
 FINAL_STATES = ('rejected_final', 'rejected_clock')
 
 
+def upload_failure_event(error):
+    # Upload-ledger failures do not imply capture files cannot be written.
+    # The capture writer reports its own storage_error when that actually fails.
+    diagnostic = dict(getattr(error, 'request_diagnostic', None) or network_diagnostic(error))
+    if isinstance(error, sqlite3.Error):
+        diagnostic.update(sqlite_code=getattr(error, 'sqlite_errorcode', None),
+                          sqlite_name=getattr(error, 'sqlite_errorname', None))
+    if isinstance(error, urllib.error.HTTPError):diagnostic['http_status'] = error.code
+    return dict(type='upload_error', diagnostic=diagnostic,
+                route=getattr(error, 'upload_route', None))
+
+
 def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None):
     destination=(endpoint or config['endpoint']).rstrip('/')
     if destination!='https://mxd.ruit.me' and not destination.startswith('http://127.0.0.1:'):
         raise ValueError('Unsupported endpoint; collector only sends to mxd.ruit.me')
     ledger.parent.mkdir(parents=True,exist_ok=True)
     connection=sqlite3.connect(ledger)
+    total=0
     try:
         connection.execute('CREATE TABLE IF NOT EXISTS sent (path TEXT PRIMARY KEY, status TEXT, updated REAL)')
         # Separate table so older collectors can still write the sent ledger.
         connection.execute('CREATE TABLE IF NOT EXISTS retries (path TEXT PRIMARY KEY, attempts INTEGER NOT NULL, retried REAL)')
         timeline=LocationTimeline(folder/'map_observations.jsonl')
-        total=0
+        deferred={}
         paths = sorted([*folder.glob('shop_*.json'), *folder.glob('presence_*.json'), *folder.glob('roster_*.json')])
         records = {row[0]: (row[1], row[2]) for row in connection.execute('SELECT path,status,updated FROM sent')}
         attempts = dict(connection.execute('SELECT path,attempts FROM retries'))
@@ -135,6 +148,7 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
             except (ValueError,KeyError,TypeError,OSError):
                 # A file could still be being written; retry next pass.
                 continue
+            if route in deferred:continue
             # Legacy rejected_400 rows have no count; they failed at least once.
             tries = attempts.get(path.name, 1 if previous else 0)
             if previous:
@@ -170,13 +184,30 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
                     os.replace(temporary, diagnostic)
                     print(f'Upload rejected ({error.code}): {detail["reason"]}; file={path.name}',flush=True)
                     if on_event:on_event(dict(type='upload_rejected', **detail))
-                else:raise
+                elif error.code == 408 or 500 <= error.code < 600:
+                    error.upload_route = route
+                    deferred[route] = error
+                    continue
+                else:
+                    # Authentication and the collector-wide 429 quota apply to
+                    # every route. Stop immediately and retain Retry-After.
+                    error.upload_route = route
+                    raise
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+                error.upload_route = route
+                deferred[route] = error
+                continue
             updated = time.time()
             connection.execute('INSERT INTO sent VALUES (?,?,?) ON CONFLICT(path) DO UPDATE SET status=excluded.status,updated=excluded.updated',
                                (path.name,state,updated));connection.commit()
             records[path.name] = (state, updated)
+            if total and total % 10 == 0:report_queue()
         report_queue()
+        if deferred:raise next(iter(deferred.values()))
         return total
+    except Exception as error:
+        error.uploaded_count = total
+        raise
     finally:connection.close()
 
 
@@ -336,6 +367,7 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None, prepare_up
         while not stopping.is_set():
             capture_changed.clear()
             retry=False
+            count=0
             try:
                 count=upload_once(folder,config,ledger,stop=stopping,on_event=on_event)
                 for extra in config.get('extra_folders',[]):
@@ -343,23 +375,24 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None, prepare_up
                     source=Path(extra)
                     extra_ledger=args.home/('upload_'+hashlib.sha256(str(source.resolve()).encode()).hexdigest()[:12]+'.sqlite')
                     count+=upload_once(source,config,extra_ledger,stop=stopping)
-                if count:
-                    print(f'Uploaded {count} observations.',flush=True)
-                    if on_event:on_event({'type':'uploaded','count':count})
                 attempts=0
             except Exception as error:
+                count+=getattr(error,'uploaded_count',0)
                 if args.once:
                     raise
                 retry=True
                 attempts+=1
-                print(f'Upload unavailable ({type(error).__name__}); will retry.',flush=True)
-                if on_event:on_event({'type':'upload_error'})
-                if isinstance(error, (OSError, sqlite3.Error)) and not isinstance(error, (urllib.error.URLError, TimeoutError, ConnectionError, InterruptedError)):
-                    if on_event:on_event({'type':'storage_error'})
+                detail=upload_failure_event(error)
+                print('Upload deferred: '+json.dumps(detail,ensure_ascii=True),flush=True)
                 # Auth failures require intervention. Transient HTTP failures
                 # retain the queue and respect Retry-After, even if new captures
                 # arrive continuously and keep the filesystem event signalled.
                 delay = 300 if isinstance(error, urllib.error.HTTPError) and error.code in (401,403) else retry_delay(attempts,error)
+            finally:
+                if count:
+                    print(f'Uploaded {count} observations.',flush=True)
+                    if on_event:on_event({'type':'uploaded','count':count})
+                if retry and on_event:on_event(detail)
             if args.once or stopping.is_set():break
             if retry:stopping.wait(delay)
             else:capture_changed.wait(5)

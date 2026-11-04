@@ -8,9 +8,9 @@ from contextlib import closing
 from email.utils import formatdate
 from pathlib import Path
 from unittest.mock import patch
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
-from shared_client import upload_once
+from shared_client import upload_once, upload_failure_event
 from collector_upload_diagnostics import rejection
 from collector_http import request_json
 
@@ -185,6 +185,81 @@ class UploadRetryTests(unittest.TestCase):
     def test_gateway_body_is_not_logged(self):
         error = HTTPError('', 400, '', {}, io.BytesIO(b'<html>secret-token</html>'))
         self.assertEqual(rejection(error, {})['reason'], 'http_400')
+
+    def mixed_captures(self):
+        for n in range(3):
+            (self.root/f'presence_{n}.json').write_text(json.dumps(dict(
+                version=1, world='ClassicWorld', parser='cw_player_departure_v1',
+                event_id=str(n)*32, name='Example', character_id=123,
+                seen_at=10, observed_at=11, location=dict(channel=26, room=1))))
+        (self.root/'roster_1.json').write_text(json.dumps(dict(
+            version=1, world='ClassicWorld', parser='cw_room_roster_v1', complete=True,
+            event_id='a'*32, started_at=10, observed_at=11, character_ids=[123],
+            location=dict(channel=26, room=1))))
+        self.capture('shop_new.json')
+
+    def test_slow_route_does_not_starve_other_routes_or_lose_pending_files(self):
+        self.mixed_captures()
+        calls=[]
+        failure=URLError(TimeoutError())
+        def send(url, *args, **kwargs):
+            calls.append(url)
+            if url.endswith('player-departure'):raise failure
+            return {'ok':True}
+        with patch('shared_client.request_json', side_effect=send):
+            with self.assertRaises(URLError) as caught:self.run_upload()
+        self.assertIs(caught.exception, failure)
+        self.assertEqual(caught.exception.uploaded_count, 1)
+        self.assertEqual(sum(u.endswith('player-departure') for u in calls), 1)
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(self.events[-1]['pending'], 3)
+        self.assertEqual(self.status('shop_new.json'), 'sent')
+        with patch('shared_client.request_json', return_value={'ok':True}) as send:
+            self.assertEqual(self.run_upload(), 0)
+            self.assertEqual(send.call_count, 3)
+        self.assertEqual(self.events[-1]['pending'], 0)
+
+    def test_global_quota_and_auth_stop_all_routes_preserving_retry_headers(self):
+        self.mixed_captures()
+        for code in (401,403,429):
+            failure=HTTPError('',code,'',{'Retry-After':'60'},None)
+            with patch('shared_client.request_json', side_effect=failure) as send:
+                with self.assertRaises(HTTPError) as caught:self.run_upload()
+                self.assertIs(caught.exception, failure)
+                self.assertEqual(send.call_count, 1)
+                self.assertEqual(caught.exception.headers['Retry-After'], '60')
+
+    def test_cancellation_is_not_deferred_as_a_network_failure(self):
+        self.mixed_captures()
+        with patch('shared_client.request_json', side_effect=InterruptedError) as send:
+            with self.assertRaises(InterruptedError):self.run_upload()
+            self.assertEqual(send.call_count, 1)
+
+    def test_http_server_failure_isolated_and_acknowledged_count_preserved(self):
+        self.mixed_captures()
+        def send(url, *args, **kwargs):
+            if url.endswith('room-roster'):raise HTTPError('',503,'',{},None)
+            return {'ok':True}
+        with patch('shared_client.request_json', side_effect=send):
+            with self.assertRaises(HTTPError) as caught:self.run_upload()
+        self.assertEqual(caught.exception.uploaded_count, 1)
+        self.assertEqual(self.events[-1]['pending'], 1)
+
+    def test_real_ledger_lock_reports_sqlite_code_without_stopping_capture(self):
+        self.capture('shop_new.json')
+        self.seed('shop_old.json','sent')
+        with closing(sqlite3.connect(self.ledger)) as holder:
+            holder.execute('BEGIN EXCLUSIVE')
+            with closing(sqlite3.connect(self.ledger, timeout=0)) as blocked:
+                try:blocked.execute('SELECT * FROM sent')
+                except sqlite3.OperationalError as error:event=upload_failure_event(error)
+                else:self.fail('Expected SQLite lock')
+            holder.rollback()
+        self.assertEqual(event['type'], 'upload_error')
+        self.assertEqual(event['diagnostic']['sqlite_name'], 'SQLITE_BUSY')
+        self.assertNotIn(str(self.root),json.dumps(event))
+        with patch('shared_client.request_json',return_value={'ok':True}):
+            self.assertEqual(self.run_upload(),1)
 
 
 if __name__ == '__main__':
