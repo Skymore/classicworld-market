@@ -114,8 +114,10 @@ async fn expired_rollup_reads_only_its_shop_states() {
             "SELECT count(*),sum(quotes)::bigint FROM contribution_shop_counts($1,$2,now())")
             .bind(&ids).bind(period).fetch_one(&db.pool).await.unwrap();
         assert_eq!((shops,quotes),(501,5001));
+        // The public dispatcher is PL/pgSQL; inspect the SQL device branch
+        // directly so EXPLAIN still exposes its exact history scan count.
         let plan: Value = sqlx::query_scalar(
-            "EXPLAIN (ANALYZE,FORMAT JSON) SELECT * FROM contribution_shop_counts($1,$2,now())")
+            "EXPLAIN (ANALYZE,FORMAT JSON) SELECT * FROM contribution_device_shop_counts($1,$2,now())")
             .bind(&ids).bind(period).fetch_one(&db.pool).await.unwrap();
         fn examined(node: &Value) -> u64 {
             let own = if node["Relation Name"] == "contribution_states" {
