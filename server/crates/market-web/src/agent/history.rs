@@ -765,7 +765,7 @@ mod tests {
         assert_eq!(count, 0);
         mock_job.abort();
         db.close().await;
-        sqlx::query(&format!("DROP DATABASE {database}"))
+        sqlx::query(&format!("DROP DATABASE {database} WITH (FORCE)"))
             .execute(&admin)
             .await
             .unwrap();
