@@ -11,7 +11,7 @@
 ## Git
 
 - 共享目录 `C:\Users\liwin\Documents\MapleStory` 始终停在 `main`、跟随 `gitlab/main`；开发在独立 worktree 里做。推送后同步共享目录和 `scanner` 子模块。
-- `gitlab` 远端有两个推送地址（GitLab 与 GitHub 镜像 `Skymore/classicworld-market`），`git push gitlab main` 同时推两处；GitHub 失败要报告并补推。不要推送 `deploy` 分支，它在 GitHub 上会触发旧的自动部署。
+- `gitlab` 远端有两个推送地址（GitLab 与 GitHub 镜像 `Skymore/classicworld-market`），`git push gitlab main` 同时推两处；GitHub 失败要报告并补推。远端只保留 `main`；不要推送 `deploy` 分支，它会触发 GitHub 旧的自动部署（runner 计划任务 `ClassicWorld Market Deploy Runner` 已停用，未删除）。
 - 动手前先 `git fetch gitlab`，以最新 `main` 和 `shared_data/deploy/current.json` 里的线上提交为基线。
 - 源码、测试、数据文件和前端构建产物一起提交。逐项合并，不整目录覆盖，不带上无关草稿。
 
