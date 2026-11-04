@@ -123,6 +123,11 @@ def memory_exhausted(error):
 
 
 def failure_state(error, position_failures=0):
+    from vmware_keyboard_bridge import transport_failure
+    if transport_failure(error):
+        if position_failures < 3:
+            return 'rebuilding','虚拟键盘连接中断，正在重新同步。'
+        return 'needs_attention','虚拟键盘连接连续失败，扫描已暂停。请检查虚拟机共享目录和键盘中继。'
     if memory_exhausted(error):
         return 'needs_attention', '系统内存不足，扫描已暂停。请关闭占用内存的程序或重启游戏后重新开始。'
     from keyboard_bindings import KeyBindingError, KeyBindingMenuError

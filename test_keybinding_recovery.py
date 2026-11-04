@@ -1,4 +1,12 @@
 import unittest
+
+class VirtualKeyboardRecoveryTests(unittest.TestCase):
+    def test_wrapped_relay_failure_has_bounded_recovery(self):
+        from vmware_keyboard_bridge import BridgeTransportError
+        from collector_recovery import failure_state
+        error=RuntimeError('route failed');error.__cause__=BridgeTransportError('ack timeout')
+        self.assertEqual(failure_state(error,1)[0],'rebuilding')
+        self.assertEqual(failure_state(error,3)[0],'needs_attention')
 from collector_recovery import failure_state
 from packet_keybindings import PacketKeyBindingError
 

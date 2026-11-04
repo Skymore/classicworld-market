@@ -715,7 +715,8 @@ class DesktopController:
                 attempts += 1
                 from free_market_route import PositionSyncError
                 from packet_keybindings import PacketKeyBindingError
-                if isinstance(error, PositionSyncError) or (isinstance(error, PacketKeyBindingError) and error.recoverable):
+                from vmware_keyboard_bridge import transport_failure
+                if isinstance(error, PositionSyncError) or (isinstance(error, PacketKeyBindingError) and error.recoverable) or transport_failure(error):
                     self._position_failures += 1
                 phase, message = failure_state(error, self._position_failures)
                 self._journal.event('recovery_wait', attempt=attempts, state=phase, error=type(error).__name__, reason=str(error)[:500],
@@ -744,6 +745,8 @@ class DesktopController:
         assignments = None
         failure = RuntimeError('Scan worker returned without completing service')
         try:
+            from vmware_keyboard_bridge import recover_failed_bridge
+            recover_failed_bridge()
             self._folder = RUNS / 'supervised' / datetime.now().strftime('%Y%m%d_%H%M%S_%f')
             self._folder.mkdir(parents=True, exist_ok=False)
             ready_events = []
