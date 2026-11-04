@@ -1,0 +1,62 @@
+[
+  {
+    "id": 10005060,
+    "mode": "desktop",
+    "url": "http://127.0.0.1:18781/web/images/scenes/small/10005060.webp",
+    "width": 685,
+    "height": 520,
+    "fullscreen": "http://127.0.0.1:18781/web/images/scenes/10005060.webp",
+    "mobMarkers": 26,
+    "errors": []
+  },
+  {
+    "id": 10003065,
+    "mode": "desktop",
+    "url": "http://127.0.0.1:18781/web/images/scenes/small/10003065.webp",
+    "width": 880,
+    "height": 228,
+    "fullscreen": "http://127.0.0.1:18781/web/images/scenes/10003065.webp",
+    "mobMarkers": 59,
+    "errors": []
+  },
+  {
+    "id": 1013,
+    "mode": "desktop",
+    "url": "http://127.0.0.1:18781/web/images/scenes/1013.webp",
+    "width": 800,
+    "height": 600,
+    "fullscreen": "http://127.0.0.1:18781/web/images/scenes/1013.webp",
+    "mobMarkers": 0,
+    "errors": []
+  },
+  {
+    "id": 10005060,
+    "mode": "phone",
+    "url": "http://127.0.0.1:18781/web/images/scenes/small/10005060.webp",
+    "width": 326,
+    "height": 247,
+    "fullscreen": "http://127.0.0.1:18781/web/images/scenes/10005060.webp",
+    "mobMarkers": 26,
+    "errors": []
+  },
+  {
+    "id": 10003065,
+    "mode": "phone",
+    "url": "http://127.0.0.1:18781/web/images/scenes/10003065.webp",
+    "width": 640,
+    "height": 165,
+    "fullscreen": "http://127.0.0.1:18781/web/images/scenes/10003065.webp",
+    "mobMarkers": 59,
+    "errors": []
+  },
+  {
+    "id": 1013,
+    "mode": "phone",
+    "url": "http://127.0.0.1:18781/web/images/scenes/1013.webp",
+    "width": 800,
+    "height": 600,
+    "fullscreen": "http://127.0.0.1:18781/web/images/scenes/1013.webp",
+    "mobMarkers": 0,
+    "errors": []
+  }
+]

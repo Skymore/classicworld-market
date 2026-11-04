@@ -6,6 +6,7 @@
     python3 tools/niadb_map_assets.py worldmap   # needs Pillow, ~1 min
     python3 tools/niadb_map_assets.py scenes     # needs Pillow, ~20 min
     python3 tools/niadb_map_assets.py scene-copies  # needs Pillow, offline
+    python3 tools/niadb_map_assets.py client-scenes <directory>  # checked client PNGs + world rectangles
 
 `fetch` saves, for every map in data/reference/niadb/maps.json with
 `hasMinimapImage`, https://meowdb.com/msclassic/maps/minimaps/<id>.png as
@@ -45,6 +46,11 @@ data/reference/niadb/scenes.json records each scene's world rectangle.
 
 `scene-copies` makes the phone copies from the scene pictures already in
 web/images/scenes/, without downloading anything.
+
+`client-scenes` imports checked, full-size client renders named <id>.png
+with <id>.json world rectangles {x, y, w, h}. Rejects mismatched aspect
+ratios (>2%) and preserves existing scenes. Align renders with the client
+minimaps before importing, as described in MAP_SCENES_FROM_CLIENT.md.
 
 `thumbs` makes the map list's card pictures, web/images/map-thumbs/<id>.webp
 (480x300, WebP quality 80), for every map with a scene or a minimap on disk:
@@ -296,14 +302,15 @@ def save_scene(image, size, target):
     image.convert("RGB").resize(size, Image.LANCZOS).save(target, "WEBP", quality=SCENE_QUALITY, method=6)
 
 
-def save_small_scene(image, source_size, map_id):
+def save_small_scene(image, source_size, map_id, directory=None):
     """The phone copy, from the source picture or the full-size one; none when
     it would be no smaller than the full-size picture."""
     size = fitted(source_size, SCENE_SMALL_FIT)
     if size == fitted(source_size, SCENE_FIT):
         return None
-    SCENES_SMALL.mkdir(parents=True, exist_ok=True)
-    save_scene(image, size, SCENES_SMALL / f"{map_id}.webp")
+    directory = SCENES_SMALL if directory is None else Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    save_scene(image, size, directory / f"{map_id}.webp")
     return size
 
 
@@ -319,6 +326,83 @@ def scene_copies():
             if save_small_scene(image, scene["source_size"], key):
                 made += 1
     print(f"{made} phone copies in {SCENES_SMALL}")
+
+
+def client_scenes(directory):
+    """Import verified client renders; never replace an existing scene."""
+    from PIL import Image
+
+    directory = Path(directory)
+    if not directory.is_dir():
+        raise ValueError(f"Client scene directory does not exist: {directory}")
+    index_path = NIADB / "scenes.json"
+    index = read_json(index_path)
+    sources_path = SCENES / "sources.json"
+    sources = read_json(sources_path)
+    done = index["maps"]
+    made, existing, rejected = [], [], {}
+    SCENES.mkdir(parents=True, exist_ok=True)
+    SCENES_SMALL.mkdir(parents=True, exist_ok=True)
+    for png in sorted(directory.glob("*.png")):
+        if not png.stem.isdecimal():
+            continue
+        map_id = int(png.stem)
+        key = str(map_id)
+        target, small = SCENES / f"{key}.webp", SCENES_SMALL / f"{key}.webp"
+        if key in done or target.exists() or small.exists():
+            existing.append(map_id)
+            continue
+        try:
+            rect = read_json(png.with_suffix(".json"))
+            if not isinstance(rect, dict) or any(type(rect.get(k)) is not int for k in ("x", "y", "w", "h")):
+                raise ValueError("world rectangle needs integer x, y, w, h")
+            if rect["w"] <= 0 or rect["h"] <= 0:
+                raise ValueError("world rectangle must have positive width and height")
+            with Image.open(png) as image:
+                if image.format != "PNG":
+                    raise ValueError("source image must be PNG")
+                source_size = image.size
+                error = abs((image.width / image.height) / (rect["w"] / rect["h"]) - 1)
+                if error > 0.02:
+                    raise ValueError(f"image and world rectangle aspect ratios differ by {error:.1%}")
+                size = fitted(source_size, SCENE_FIT)
+                # Encode both copies before publishing either file. The raw
+                # source stays outside the repository and is never modified.
+                with tempfile.TemporaryDirectory(prefix="client-scene-") as temporary:
+                    encoded = Path(temporary) / "scene.webp"
+                    save_scene(image, size, encoded)
+                    phone = Path(temporary) / f"{key}.webp"
+                    if save_small_scene(image, source_size, key, directory=temporary) is None:
+                        save_scene(image, fitted(source_size, SCENE_SMALL_FIT), phone)
+                    shutil.copyfile(encoded, target)
+                    try:
+                        shutil.copyfile(phone, small)
+                    except Exception:
+                        target.unlink(missing_ok=True)
+                        small.unlink(missing_ok=True)
+                        raise
+            done[key] = {"key": "client", **{k: rect[k] for k in ("x", "y", "w", "h")},
+                         "source_size": list(source_size), "size": list(size), "source": "client Map.wz"}
+            made.append(map_id)
+        except (OSError, ValueError, TypeError) as error:
+            rejected[map_id] = str(error)
+            print(f"client scene {map_id}: rejected: {error}")
+    if made:
+        today = datetime.date.today().isoformat()
+        index["maps"] = dict(sorted(done.items(), key=lambda kv: int(kv[0])))
+        index["note"] = ("Written by tools/niadb_map_assets.py scenes and client-scenes: each map's scene picture "
+                         "(web/images/scenes/<id>.webp) and its world rectangle (x, y, w, h). "
+                         "Entries marked client come from checked client Map.wz renders.")
+        index["client_rendered"] = today
+        write_json(index_path, index)
+        sources["maps"] = sorted(set(sources["maps"]) | set(made))
+        sources["note"] = ("Rendered map scenes from NiaDB and checked client Map.wz renders, "
+                           "scaled to fit 1760x1040; small/ has copies fitted into 1100x650. "
+                           "Game art belongs to NEXON and its affiliates.")
+        sources["client_rendered"] = today
+        write_json(sources_path, sources)
+    print(f"{len(made)} client scenes imported; {len(existing)} existing scenes kept; {len(rejected)} rejected")
+    return {"imported": made, "existing": existing, "rejected": rejected}
 
 
 THUMBS = ROOT / "web" / "images" / "map-thumbs"
@@ -460,6 +544,8 @@ def main():
     c = sub.add_parser("scenes", help="download and scale the rendered map scenes")
     c.add_argument("--pause", type=float, default=1.5, help="seconds between requests")
     sub.add_parser("scene-copies", help="make the missing phone copies of the scenes on disk")
+    client = sub.add_parser("client-scenes", help="import checked client PNG renders and world rectangles")
+    client.add_argument("directory", type=Path)
     t = sub.add_parser("thumbs", help="make the map list's card pictures from the scenes and minimaps on disk")
     t.add_argument("--all", action="store_true", help="remake every thumbnail")
     args = ap.parse_args()
@@ -467,6 +553,10 @@ def main():
         scenes(args.pause)
     elif args.command == "scene-copies":
         scene_copies()
+    elif args.command == "client-scenes":
+        result = client_scenes(args.directory)
+        if result["rejected"]:
+            raise SystemExit(1)
     elif args.command == "thumbs":
         thumbs(args.all)
     elif args.command == "fetch":

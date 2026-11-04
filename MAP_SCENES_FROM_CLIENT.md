@@ -21,6 +21,23 @@
 - `client-scenes\<地图 id>.png`：渲染图，原始大小，不要缩放。
 - `client-scenes\<地图 id>.json`：这张图覆盖的世界矩形，`{"x": 左, "y": 上, "w": 宽, "h": 高}`（世界坐标）。一般就是该地图 `info` 节点的 `VRLeft`、`VRTop`、`VRRight - VRLeft`、`VRBottom - VRTop`；地图没有 VR 时，用下表"小地图覆盖的世界矩形"。
 
+也可以用仓库里的批量驱动调用 WzComparerR2 的 MapRender2 引擎（不是游戏窗口截图）：
+
+```powershell
+./tools/render_client_scenes.ps1 -WzComparerDirectory "<解压后的 WzComparerR2 目录>" `
+  -ClientDataDirectory "<客户端的 Data 目录>" -OutputDirectory "<scratch>/client-scenes"
+```
+
+驱动默认读取下表的 66 个 id，可用 `-MapIds 10005060,10003065,1013` 指定地图，已有 PNG/JSON 对会跳过。使用官方
+[WzComparerR2 netfx 20261004.1](https://github.com/Kagamia/WzComparerR2/releases/download/ci-build/WcR2_With_Plugins_20261004.1.zip)，ZIP SHA256 为
+`144a482826f6e8a7a199b96ba6417325a5ff1311237cc79dcc4214c76dc0dbcb`。
+工具和 scratch 必须在客户端目录之外；不把 WZ、工具二进制或原始 PNG 放进网站包。
+
+客户端有 20 张地图的 VR 比小地图世界矩形小，会裁掉边缘地形。因此批量驱动对有小地图的地图使用
+`miniMap` 的世界矩形（与下表一致），无小地图的室内使用 VR；截图尺寸与记录的矩形严格对应。
+体能测试的 5 张地图没有有效 VR，同样使用小地图矩形。只显示背景、地块和物件，隐藏怪物、NPC、
+传送口、反应物及编辑标记，输出不含界面。
+
 ### 3. 核对
 
 每张图都要过两项，不过的不用，在报告里列出：

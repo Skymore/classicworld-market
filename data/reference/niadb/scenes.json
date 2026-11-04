@@ -1,5 +1,5 @@
 {
- "note": "Written by tools/niadb_map_assets.py scenes: each map's scene picture (web/images/scenes/<id>.webp) and the world rectangle it covers (x, y, w, h).",
+ "note": "Written by tools/niadb_map_assets.py scenes and client-scenes: each map's scene picture (web/images/scenes/<id>.webp) and its world rectangle (x, y, w, h). Entries marked client come from checked client Map.wz renders.",
  "source": "https://meowdb.com/msclassic/api/assets/maps/<key>?v=12",
  "fetched": "2026-11-03",
  "maps": {
@@ -318,6 +318,22 @@
     942
    ]
   },
+  "1013": {
+   "key": "client",
+   "x": -400,
+   "y": -300,
+   "w": 800,
+   "h": 600,
+   "source_size": [
+    800,
+    600
+   ],
+   "size": [
+    800,
+    600
+   ],
+   "source": "client Map.wz"
+  },
   "1014": {
    "key": "000001014-scene-band-1027",
    "x": -1019,
@@ -392,6 +408,22 @@
     800,
     600
    ]
+  },
+  "10000002": {
+   "key": "client",
+   "x": -400,
+   "y": -300,
+   "w": 800,
+   "h": 600,
+   "source_size": [
+    800,
+    600
+   ],
+   "size": [
+    800,
+    600
+   ],
+   "source": "client Map.wz"
   },
   "10000003": {
    "key": "010000003-scene-npc-ground-1029",
@@ -768,6 +800,22 @@
     915
    ]
   },
+  "10001042": {
+   "key": "client",
+   "x": -400,
+   "y": -300,
+   "w": 800,
+   "h": 600,
+   "source_size": [
+    800,
+    600
+   ],
+   "size": [
+    800,
+    600
+   ],
+   "source": "client Map.wz"
+  },
   "10001043": {
    "key": "010001043-scene-npc-ground-1029",
    "x": -400,
@@ -798,6 +846,22 @@
     600
    ]
   },
+  "10001045": {
+   "key": "client",
+   "x": -400,
+   "y": -300,
+   "w": 800,
+   "h": 600,
+   "source_size": [
+    800,
+    600
+   ],
+   "size": [
+    800,
+    600
+   ],
+   "source": "client Map.wz"
+  },
   "10001050": {
    "key": "010001050-scene-band-1027",
    "x": -118,
@@ -812,6 +876,22 @@
     1760,
     343
    ]
+  },
+  "10001051": {
+   "key": "client",
+   "x": -400,
+   "y": -425,
+   "w": 800,
+   "h": 735,
+   "source_size": [
+    800,
+    735
+   ],
+   "size": [
+    800,
+    735
+   ],
+   "source": "client Map.wz"
   },
   "10001052": {
    "key": "010001052-scene-band-1027",
@@ -1053,6 +1133,38 @@
     600
    ]
   },
+  "10002002": {
+   "key": "client",
+   "x": -400,
+   "y": -300,
+   "w": 800,
+   "h": 600,
+   "source_size": [
+    800,
+    600
+   ],
+   "size": [
+    800,
+    600
+   ],
+   "source": "client Map.wz"
+  },
+  "10002003": {
+   "key": "client",
+   "x": -400,
+   "y": -520,
+   "w": 800,
+   "h": 820,
+   "source_size": [
+    800,
+    820
+   ],
+   "size": [
+    800,
+    820
+   ],
+   "source": "client Map.wz"
+  },
   "10002004": {
    "key": "010002004-scene-band-1027",
    "x": -536,
@@ -1128,6 +1240,22 @@
     1040
    ]
   },
+  "10002022": {
+   "key": "client",
+   "x": -580,
+   "y": -2189,
+   "w": 1166,
+   "h": 3058,
+   "source_size": [
+    1166,
+    3058
+   ],
+   "size": [
+    397,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
   "10002023": {
    "key": "010002023-scene-band-1027",
    "x": -378,
@@ -1142,6 +1270,22 @@
     792,
     1040
    ]
+  },
+  "10002024": {
+   "key": "client",
+   "x": -496,
+   "y": -2189,
+   "w": 1082,
+   "h": 2878,
+   "source_size": [
+    1082,
+    2878
+   ],
+   "size": [
+    391,
+    1040
+   ],
+   "source": "client Map.wz"
   },
   "10002025": {
    "key": "010002025-scene-band-1027",
@@ -1202,6 +1346,70 @@
     1219,
     1040
    ]
+  },
+  "10002031": {
+   "key": "client",
+   "x": -496,
+   "y": -2189,
+   "w": 1082,
+   "h": 2878,
+   "source_size": [
+    1082,
+    2878
+   ],
+   "size": [
+    391,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10002032": {
+   "key": "client",
+   "x": -496,
+   "y": -2189,
+   "w": 1082,
+   "h": 2878,
+   "source_size": [
+    1082,
+    2878
+   ],
+   "size": [
+    391,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10002033": {
+   "key": "client",
+   "x": -496,
+   "y": -2189,
+   "w": 1082,
+   "h": 2878,
+   "source_size": [
+    1082,
+    2878
+   ],
+   "size": [
+    391,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10002034": {
+   "key": "client",
+   "x": -496,
+   "y": -2189,
+   "w": 1082,
+   "h": 2878,
+   "source_size": [
+    1082,
+    2878
+   ],
+   "size": [
+    391,
+    1040
+   ],
+   "source": "client Map.wz"
   },
   "10002040": {
    "key": "010002040-scene-band-1027",
@@ -1368,6 +1576,150 @@
     1040
    ]
   },
+  "10002072": {
+   "key": "client",
+   "x": -496,
+   "y": -2849,
+   "w": 1082,
+   "h": 3538,
+   "source_size": [
+    1082,
+    3538
+   ],
+   "size": [
+    318,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10002073": {
+   "key": "client",
+   "x": -496,
+   "y": -2249,
+   "w": 1082,
+   "h": 2938,
+   "source_size": [
+    1082,
+    2938
+   ],
+   "size": [
+    383,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10002074": {
+   "key": "client",
+   "x": -496,
+   "y": -2189,
+   "w": 1082,
+   "h": 2878,
+   "source_size": [
+    1082,
+    2878
+   ],
+   "size": [
+    391,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10002075": {
+   "key": "client",
+   "x": -496,
+   "y": -2189,
+   "w": 1082,
+   "h": 2878,
+   "source_size": [
+    1082,
+    2878
+   ],
+   "size": [
+    391,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10002076": {
+   "key": "client",
+   "x": -496,
+   "y": -2249,
+   "w": 1082,
+   "h": 2938,
+   "source_size": [
+    1082,
+    2938
+   ],
+   "size": [
+    383,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10002080": {
+   "key": "client",
+   "x": -496,
+   "y": -2189,
+   "w": 1082,
+   "h": 2878,
+   "source_size": [
+    1082,
+    2878
+   ],
+   "size": [
+    391,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10002081": {
+   "key": "client",
+   "x": -496,
+   "y": -2189,
+   "w": 1082,
+   "h": 2878,
+   "source_size": [
+    1082,
+    2878
+   ],
+   "size": [
+    391,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10002082": {
+   "key": "client",
+   "x": -496,
+   "y": -2189,
+   "w": 1082,
+   "h": 2878,
+   "source_size": [
+    1082,
+    2878
+   ],
+   "size": [
+    391,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10002083": {
+   "key": "client",
+   "x": -496,
+   "y": -2189,
+   "w": 1082,
+   "h": 2878,
+   "source_size": [
+    1082,
+    2878
+   ],
+   "size": [
+    391,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
   "10002090": {
    "key": "010002090-scene-batch-2",
    "x": -405,
@@ -1397,6 +1749,22 @@
     1148,
     1040
    ]
+  },
+  "10003000": {
+   "key": "client",
+   "x": -2500,
+   "y": -1443,
+   "w": 5180,
+   "h": 2119,
+   "source_size": [
+    5180,
+    2119
+   ],
+   "size": [
+    1760,
+    720
+   ],
+   "source": "client Map.wz"
   },
   "10003001": {
    "key": "010003001-scene-npc-ground-1029",
@@ -1713,6 +2081,22 @@
     605
    ]
   },
+  "10003065": {
+   "key": "client",
+   "x": -694,
+   "y": -464,
+   "w": 4090,
+   "h": 1060,
+   "source_size": [
+    4090,
+    1060
+   ],
+   "size": [
+    1760,
+    456
+   ],
+   "source": "client Map.wz"
+  },
   "10003066": {
    "key": "010003066-scene-band-1027",
    "x": -585,
@@ -1727,6 +2111,38 @@
     1760,
     578
    ]
+  },
+  "10003067": {
+   "key": "client",
+   "x": -694,
+   "y": -464,
+   "w": 4090,
+   "h": 1060,
+   "source_size": [
+    4090,
+    1060
+   ],
+   "size": [
+    1760,
+    456
+   ],
+   "source": "client Map.wz"
+  },
+  "10003068": {
+   "key": "client",
+   "x": -694,
+   "y": -464,
+   "w": 4090,
+   "h": 1060,
+   "source_size": [
+    4090,
+    1060
+   ],
+   "size": [
+    1760,
+    456
+   ],
+   "source": "client Map.wz"
   },
   "10003070": {
    "key": "010003070-scene-band-1027",
@@ -2898,6 +3314,102 @@
     620
    ]
   },
+  "10005010": {
+   "key": "client",
+   "x": -1373,
+   "y": -2700,
+   "w": 1756,
+   "h": 3475,
+   "source_size": [
+    1756,
+    3475
+   ],
+   "size": [
+    526,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005011": {
+   "key": "client",
+   "x": -653,
+   "y": -1620,
+   "w": 1666,
+   "h": 2095,
+   "source_size": [
+    1666,
+    2095
+   ],
+   "size": [
+    827,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005012": {
+   "key": "client",
+   "x": -743,
+   "y": -1455,
+   "w": 1846,
+   "h": 1990,
+   "source_size": [
+    1846,
+    1990
+   ],
+   "size": [
+    965,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005020": {
+   "key": "client",
+   "x": -1733,
+   "y": -2943,
+   "w": 2116,
+   "h": 3298,
+   "source_size": [
+    2116,
+    3298
+   ],
+   "size": [
+    667,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005030": {
+   "key": "client",
+   "x": -563,
+   "y": -1993,
+   "w": 2206,
+   "h": 2528,
+   "source_size": [
+    2206,
+    2528
+   ],
+   "size": [
+    908,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005031": {
+   "key": "client",
+   "x": -563,
+   "y": -1993,
+   "w": 1486,
+   "h": 2528,
+   "source_size": [
+    1486,
+    2528
+   ],
+   "size": [
+    611,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
   "10005040": {
    "key": "010005040-scene-npc-ground-1029",
    "x": -158,
@@ -3018,6 +3530,198 @@
     1040
    ]
   },
+  "10005051": {
+   "key": "client",
+   "x": -698,
+   "y": -300,
+   "w": 1396,
+   "h": 2785,
+   "source_size": [
+    1396,
+    2785
+   ],
+   "size": [
+    521,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005052": {
+   "key": "client",
+   "x": -608,
+   "y": -870,
+   "w": 1396,
+   "h": 3355,
+   "source_size": [
+    1396,
+    3355
+   ],
+   "size": [
+    433,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005053": {
+   "key": "client",
+   "x": -428,
+   "y": -150,
+   "w": 1396,
+   "h": 2635,
+   "source_size": [
+    1396,
+    2635
+   ],
+   "size": [
+    551,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005054": {
+   "key": "client",
+   "x": -608,
+   "y": -450,
+   "w": 2026,
+   "h": 3535,
+   "source_size": [
+    2026,
+    3535
+   ],
+   "size": [
+    596,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005060": {
+   "key": "client",
+   "x": -630,
+   "y": -240,
+   "w": 3240,
+   "h": 2460,
+   "source_size": [
+    3240,
+    2460
+   ],
+   "size": [
+    1370,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005061": {
+   "key": "client",
+   "x": -450,
+   "y": -540,
+   "w": 2880,
+   "h": 2400,
+   "source_size": [
+    2880,
+    2400
+   ],
+   "size": [
+    1248,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005062": {
+   "key": "client",
+   "x": -405,
+   "y": -510,
+   "w": 3600,
+   "h": 2280,
+   "source_size": [
+    3600,
+    2280
+   ],
+   "size": [
+    1642,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005063": {
+   "key": "client",
+   "x": -900,
+   "y": -540,
+   "w": 3510,
+   "h": 2760,
+   "source_size": [
+    3510,
+    2760
+   ],
+   "size": [
+    1323,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005064": {
+   "key": "client",
+   "x": -450,
+   "y": -900,
+   "w": 3510,
+   "h": 1380,
+   "source_size": [
+    3510,
+    1380
+   ],
+   "size": [
+    1760,
+    692
+   ],
+   "source": "client Map.wz"
+  },
+  "10005065": {
+   "key": "client",
+   "x": -540,
+   "y": -360,
+   "w": 3330,
+   "h": 3120,
+   "source_size": [
+    3330,
+    3120
+   ],
+   "size": [
+    1110,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005066": {
+   "key": "client",
+   "x": -720,
+   "y": -300,
+   "w": 3330,
+   "h": 2520,
+   "source_size": [
+    3330,
+    2520
+   ],
+   "size": [
+    1374,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005067": {
+   "key": "client",
+   "x": -450,
+   "y": -1140,
+   "w": 3330,
+   "h": 2640,
+   "source_size": [
+    3330,
+    2640
+   ],
+   "size": [
+    1312,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
   "10005070": {
    "key": "010005070-scene-npc-ground-1029",
    "x": -270,
@@ -3032,6 +3736,278 @@
     1560,
     1040
    ]
+  },
+  "10005071": {
+   "key": "client",
+   "x": -810,
+   "y": -300,
+   "w": 1710,
+   "h": 2760,
+   "source_size": [
+    1710,
+    2760
+   ],
+   "size": [
+    644,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005072": {
+   "key": "client",
+   "x": -900,
+   "y": -600,
+   "w": 1620,
+   "h": 2520,
+   "source_size": [
+    1620,
+    2520
+   ],
+   "size": [
+    669,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005073": {
+   "key": "client",
+   "x": -810,
+   "y": -420,
+   "w": 1710,
+   "h": 2340,
+   "source_size": [
+    1710,
+    2340
+   ],
+   "size": [
+    760,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005074": {
+   "key": "client",
+   "x": -540,
+   "y": -720,
+   "w": 1440,
+   "h": 2640,
+   "source_size": [
+    1440,
+    2640
+   ],
+   "size": [
+    567,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005075": {
+   "key": "client",
+   "x": -450,
+   "y": -420,
+   "w": 2340,
+   "h": 1860,
+   "source_size": [
+    2340,
+    1860
+   ],
+   "size": [
+    1308,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005076": {
+   "key": "client",
+   "x": -585,
+   "y": -840,
+   "w": 2969,
+   "h": 4530,
+   "source_size": [
+    2969,
+    4530
+   ],
+   "size": [
+    682,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005077": {
+   "key": "client",
+   "x": -720,
+   "y": -660,
+   "w": 2880,
+   "h": 3060,
+   "source_size": [
+    2880,
+    3060
+   ],
+   "size": [
+    979,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005078": {
+   "key": "client",
+   "x": -270,
+   "y": -1200,
+   "w": 1440,
+   "h": 1980,
+   "source_size": [
+    1440,
+    1980
+   ],
+   "size": [
+    756,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005080": {
+   "key": "client",
+   "x": -920,
+   "y": -499,
+   "w": 1836,
+   "h": 1800,
+   "source_size": [
+    1836,
+    1800
+   ],
+   "size": [
+    1061,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005090": {
+   "key": "client",
+   "x": -450,
+   "y": -2640,
+   "w": 2250,
+   "h": 3300,
+   "source_size": [
+    2250,
+    3300
+   ],
+   "size": [
+    709,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005091": {
+   "key": "client",
+   "x": -381,
+   "y": -571,
+   "w": 1390,
+   "h": 1941,
+   "source_size": [
+    1390,
+    1941
+   ],
+   "size": [
+    745,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005100": {
+   "key": "client",
+   "x": -585,
+   "y": -930,
+   "w": 1710,
+   "h": 3120,
+   "source_size": [
+    1710,
+    3120
+   ],
+   "size": [
+    570,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005101": {
+   "key": "client",
+   "x": -573,
+   "y": -600,
+   "w": 2226,
+   "h": 1190,
+   "source_size": [
+    2226,
+    1190
+   ],
+   "size": [
+    1760,
+    941
+   ],
+   "source": "client Map.wz"
+  },
+  "10005102": {
+   "key": "client",
+   "x": -393,
+   "y": -1260,
+   "w": 2046,
+   "h": 1730,
+   "source_size": [
+    2046,
+    1730
+   ],
+   "size": [
+    1230,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005103": {
+   "key": "client",
+   "x": -400,
+   "y": -900,
+   "w": 2510,
+   "h": 1320,
+   "source_size": [
+    2510,
+    1320
+   ],
+   "size": [
+    1760,
+    926
+   ],
+   "source": "client Map.wz"
+  },
+  "10005104": {
+   "key": "client",
+   "x": -490,
+   "y": -960,
+   "w": 2150,
+   "h": 1380,
+   "source_size": [
+    2150,
+    1380
+   ],
+   "size": [
+    1620,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "10005105": {
+   "key": "client",
+   "x": -424,
+   "y": -1058,
+   "w": 1566,
+   "h": 1378,
+   "source_size": [
+    1566,
+    1378
+   ],
+   "size": [
+    1182,
+    1040
+   ],
+   "source": "client Map.wz"
   },
   "10006000": {
    "key": "010006000-scene-band-1027",
@@ -5238,6 +6214,86 @@
     582
    ]
   },
+  "90040000": {
+   "key": "client",
+   "x": -745,
+   "y": -780,
+   "w": 1757,
+   "h": 1291,
+   "source_size": [
+    1757,
+    1291
+   ],
+   "size": [
+    1415,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "90040001": {
+   "key": "client",
+   "x": -1195,
+   "y": -2446,
+   "w": 2027,
+   "h": 2837,
+   "source_size": [
+    2027,
+    2837
+   ],
+   "size": [
+    743,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "90040002": {
+   "key": "client",
+   "x": -475,
+   "y": -1004,
+   "w": 3467,
+   "h": 1335,
+   "source_size": [
+    3467,
+    1335
+   ],
+   "size": [
+    1760,
+    678
+   ],
+   "source": "client Map.wz"
+  },
+  "90040003": {
+   "key": "client",
+   "x": -1015,
+   "y": -2257,
+   "w": 2567,
+   "h": 1988,
+   "source_size": [
+    2567,
+    1988
+   ],
+   "size": [
+    1343,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
+  "90040004": {
+   "key": "client",
+   "x": -745,
+   "y": -2492,
+   "w": 2297,
+   "h": 2883,
+   "source_size": [
+    2297,
+    2883
+   ],
+   "size": [
+    829,
+    1040
+   ],
+   "source": "client Map.wz"
+  },
   "90040010": {
    "key": "090040010-scene-band-1027",
    "x": -1108,
@@ -5493,5 +6549,6 @@
     679
    ]
   }
- }
+ },
+ "client_rendered": "2026-11-04"
 }

@@ -38,6 +38,8 @@
 !/tools/niadb_bestiary.py
 !/tools/dvg_lists.py
 !/tools/niadb_map_assets.py
+!/tools/render_client_scenes.cs
+!/tools/render_client_scenes.ps1
 !/web/
 !/design/
 !/server/
