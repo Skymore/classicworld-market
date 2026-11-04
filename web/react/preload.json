@@ -1,6 +1,6 @@
 {
  "shell": [
-  "chunks/main-Bjldgqpp.js",
+  "chunks/main-BGI4UT0W.js",
   "chunks/shared-BvadJZDP.js",
   "chunks/react-dom-DhoePxSb.js",
   "chunks/watch-ids-Dvu9Uema.js",
@@ -20,8 +20,8 @@
  ],
  "catalogue": {
   "modules": [
-   "chunks/catalogue-Cwwv1VWY.js",
-   "chunks/catalogue-D5hkbi9r.js",
+   "chunks/catalogue-B6_zn0G8.js",
+   "chunks/catalogue-CK3ZZGC3.js",
    "chunks/offer-filters-DueU8uc7.js",
    "chunks/crafting-CXB4nJ1A.js"
   ],
@@ -31,7 +31,7 @@
  },
  "search": {
   "modules": [
-   "chunks/catalogue-search-CBUqyRsO.js",
+   "chunks/catalogue-search-CPvuaODl.js",
    "chunks/dialog-BmN04NTf.js",
    "chunks/dist-CJKr9frC.js",
    "chunks/price-state-CaBh6gQI.js",

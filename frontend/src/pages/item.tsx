@@ -353,6 +353,7 @@ export default function Item({ page }: { page: any }) {
     [raw, saveFilters] = useUserValue(`item.offerFilters.${item.id}`, "{}");
   const [tab, setTab] = useState("trend"),
     [more, setMore] = useState<Set<string>>(new Set()),
+    [groupPages, setGroupPages] = useState<Record<string, number>>({}),
     [filterOpen, setFilterOpen] = useState(false),
     [maxDraft, setMaxDraft] = useState(""),
     [, tick] = useState(0);
@@ -763,11 +764,33 @@ export default function Item({ page }: { page: any }) {
           : []),
       ]
     : [];
-  const groupedTotal = offerGroups.reduce((n, group) => n + group.offers.length, 0);
-  // Whole groups until the first page of offers is filled.
+  // Each set previews its first offers in the chosen order; opening it pages through the rest.
+  const GROUP_PREVIEW = 3, GROUP_PAGE = 20;
+  const groupOpen = (key: string) => !!selectedVariant || offerGroups.length === 1 || groupPages[key] != null;
+  // Whole groups until the first page of previewed offers is filled.
   let shownGroups = 0;
   for (let shown = 0; shownGroups < offerGroups.length && (more.has("groups") || shown < firstPage); shownGroups++)
-    shown += offerGroups[shownGroups].offers.length;
+    shown += Math.min(GROUP_PREVIEW, offerGroups[shownGroups].offers.length);
+  const turnGroup = (event: { currentTarget: Element }, key: string, page: number | null) => {
+    const section = event.currentTarget.closest(".offer-group");
+    setGroupPages((old) => {
+      const next = { ...old };
+      if (page == null) delete next[key];
+      else next[key] = page;
+      return next;
+    });
+    if (section && section.getBoundingClientRect().top < 0) section.scrollIntoView({ block: "start" });
+  };
+  const pageList = (page: number, pages: number) => {
+    if (pages <= 7) return Array.from({ length: pages }, (_, i) => i);
+    const out: (number | null)[] = [0];
+    const from = Math.max(1, Math.min(page - 1, pages - 4)), to = Math.min(pages - 2, Math.max(page + 1, 3));
+    if (from > 1) out.push(null);
+    for (let i = from; i <= to; i++) out.push(i);
+    if (to < pages - 2) out.push(null);
+    out.push(pages - 1);
+    return out;
+  };
   const count = (offers: any[]) => offers.reduce((n: number, row: any) => n + (row.merged_count || 1), 0);
   // The header carries the shared stats; a row keeps what still varies: enhancements and defence rolls.
   const groupDetail = (row: any, group: any) => {
@@ -1314,7 +1337,21 @@ export default function Item({ page }: { page: any }) {
                 </p>
               ) : grouped ? (
                 <div className="recent-offers offer-groups" data-offer-list>
-                  {offerGroups.slice(0, shownGroups).map((group) => (
+                  {offerGroups.slice(0, shownGroups).map((group) => {
+                    const total = group.offers.length,
+                      open = groupOpen(group.key),
+                      pages = Math.max(1, Math.ceil(total / GROUP_PAGE)),
+                      page = Math.min(groupPages[group.key] ?? 0, pages - 1),
+                      visible = open
+                        ? group.offers.slice(page * GROUP_PAGE, page * GROUP_PAGE + GROUP_PAGE)
+                        : group.offers.slice(0, GROUP_PREVIEW),
+                      closable = groupPages[group.key] != null;
+                    const collapse = closable && (
+                      <button type="button" className="og-collapse" data-group-collapse onClick={(e) => turnGroup(e, group.key, null)}>
+                        {words("收起", "Collapse")} <Icon name="chev" />
+                      </button>
+                    );
+                    return (
                     <section className="offer-group" key={group.key} data-offer-group={group.variant ? "" : "unstated"}>
                       {group.variant ? (
                         <SiteLink
@@ -1345,7 +1382,7 @@ export default function Item({ page }: { page: any }) {
                           </span>
                           <span className="attr-count">{words(`${count(group.offers)} 件`, `${count(group.offers)}`)}</span>
                           <span className="og-low">
-                            {words("最低 ", "from ")}
+                            {words("· 最低 ", "· from ")}
                             <b><Price value={lowest(group.offers)} /></b>
                           </span>
                         </SiteLink>
@@ -1354,17 +1391,60 @@ export default function Item({ page }: { page: any }) {
                           <span className="og-stats">{words("属性未采集", "Stats not captured")}</span>
                           <span className="attr-count">{words(`${count(group.offers)} 件`, `${count(group.offers)}`)}</span>
                           <span className="og-low">
-                            {words("最低 ", "from ")}
+                            {words("· 最低 ", "· from ")}
                             <b><Price value={lowest(group.offers)} /></b>
                           </span>
                         </div>
                       )}
-                      {group.offers.map((row) => quote(row, groupDetail(row, group)))}
+                      {open && pages > 1 && (
+                        <div className="og-pager top">
+                          <span>
+                            {words(
+                              `第 ${page * GROUP_PAGE + 1}–${page * GROUP_PAGE + visible.length} 条 · 共 ${total} 条`,
+                              `${page * GROUP_PAGE + 1}–${page * GROUP_PAGE + visible.length} of ${total}`,
+                            )}
+                          </span>
+                          {collapse}
+                        </div>
+                      )}
+                      {visible.map((row) => quote(row, groupDetail(row, group)))}
+                      {!open && total > GROUP_PREVIEW && (
+                        <button type="button" className="og-expand" data-group-expand onClick={(e) => turnGroup(e, group.key, 0)}>
+                          {words(`查看全部 ${total} 条`, `View all ${total}`)} <Icon name="chev" />
+                        </button>
+                      )}
+                      {open && (pages > 1 || closable) && (
+                        <div className="og-pager">
+                          {pages > 1 ? (
+                            <span className="og-pages" role="navigation" aria-label={words("分页", "Pages")}>
+                              <button type="button" disabled={page === 0} aria-label={words("上一页", "Previous")} onClick={(e) => turnGroup(e, group.key, page - 1)}>‹</button>
+                              {pageList(page, pages).map((n, i) =>
+                                n == null ? (
+                                  <i key={"gap" + i}>…</i>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    key={n}
+                                    data-group-page={n + 1}
+                                    aria-current={n === page ? "page" : undefined}
+                                    onClick={(e) => turnGroup(e, group.key, n)}
+                                  >
+                                    {n + 1}
+                                  </button>
+                                ),
+                              )}
+                              <button type="button" disabled={page === pages - 1} aria-label={words("下一页", "Next")} onClick={(e) => turnGroup(e, group.key, page + 1)}>›</button>
+                            </span>
+                          ) : <span />}
+                          {collapse}
+                        </div>
+                      )}
                     </section>
-                  ))}
+                    );
+                  })}
                   {shownGroups < offerGroups.length && (
                     <button className="more" data-more="groups" onClick={() => show("groups")}>
-                      {words(`显示全部 ${groupedTotal} 条报价 `, `Show all ${groupedTotal} offers `)}
+                      {words(`显示其余 ${offerGroups.length - shownGroups} 种属性 `, `Show ${offerGroups.length - shownGroups} more stat sets `)}
                       <Icon name="chev" />
                     </button>
                   )}

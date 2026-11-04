@@ -278,6 +278,23 @@ try {
     assert.deepEqual(await visibleRows(),['dex2-b'],'a selected group survives its original offer disappearing');
     await page.locator('[data-all-attributes]').click();await page.locator('[data-selected-attributes]').waitFor({state:'detached'});
     assert.equal(new URL(page.url()).searchParams.has('variant'),false);
+    // A large stat set previews three offers in the chosen order and pages through the rest inside the set.
+    offers=[...Array.from({length:45},(_,i)=>({id:`bulk-${String(i).padStart(2,'0')}`,stats:stats('str',1,10),variantId:200+i,price:10000+i*100,age:60+i})),{id:'other',stats:stats('dex',2,12),variantId:300,price:19000,age:5000}]
+      .map((r,i)=>({...r,ch:String(1+i%20),room:1+Math.floor(i/20),stock:1,equipment:true,captured:true,enhancements:0}));
+    revision++;broadcast();await waitRevision();
+    const bulk=page.locator('.offer-group').filter({has:page.locator('[data-equipment-group]').filter({hasText:/力|STR/})}).first();
+    const bulkRows=()=>bulk.locator('[data-quote]').evaluateAll(els=>els.map(el=>el.querySelector('.record-shop,.lshop').textContent.trim().replace('›','')));
+    assert.deepEqual(await bulkRows(),['bulk-00','bulk-01','bulk-02'],'three offers per set by default');
+    await bulk.locator('[data-group-expand]').click();
+    assert.equal((await bulkRows()).length,20,'opening a set shows one page of twenty');
+    assert.match(await bulk.locator('.og-pager.top').textContent(),/1–20/);
+    await bulk.locator('[data-group-page="3"]').click();
+    assert.equal((await bulkRows()).length,5,'the last page holds the remainder');
+    await bulk.screenshot({path:path.join(output,`offer-group-page-${mobile?'mobile':'desktop'}.png`)});
+    await bulk.locator('[data-group-collapse]').first().click();
+    assert.equal((await bulkRows()).length,3,'collapsing returns to the preview');
+    assert.equal(await page.locator('.offer-group').count(),2,'other sets keep their own preview');
+    await page.screenshot({path:path.join(output,`offer-group-paging-${mobile?'mobile':'desktop'}.png`)});
     assert.deepEqual(errors, []); await page.close();
     console.log(`PASS ${mobile?'mobile Chinese':'desktop English'}: adjacent button, draft/apply/reset, combined filters, sort independence, reload, realtime dialog, room map, pagination and layout`);
   }

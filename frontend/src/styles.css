@@ -726,21 +726,35 @@ html[data-lang="en"] .price-filter-dialog .equipment-types {
 .ibox>[data-market=where]{min-width:0}
 .attr-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px;padding:0 10px;font-size:12px;color:var(--ink-3);border-bottom:1px solid var(--rule)}
 .attr-head .toggle{min-height:32px}
-.offer-group+.offer-group{border-top:2px solid var(--rule)}
-.offer-group-head{display:flex;align-items:baseline;gap:4px 10px;min-height:30px;padding:5px 10px;background:var(--sheet-hi);color:var(--ink);font-size:13px;font-variant-numeric:tabular-nums;text-decoration:none}
-a.offer-group-head:hover{background:var(--bar-soft)}
-a.offer-group-head[aria-current]{box-shadow:inset 3px 0 0 var(--maple)}
-.og-stats{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;min-width:0;margin-right:auto}
-.og-stats>span{white-space:nowrap}
-.og-stats>span>small:first-child{margin-right:3px;font-size:11px;color:var(--ink-3)}
+.offer-groups{padding:8px 8px 0}
+.offer-group{margin-bottom:8px;border:2px solid var(--edge);background:var(--sheet-hi);scroll-margin-top:72px}
+.offer-group-head{display:flex;align-items:baseline;gap:4px 8px;min-height:36px;padding:7px 10px;background:var(--bar-soft);border-left:5px solid var(--bar);border-bottom:2px solid var(--edge);color:var(--bar-text);font-size:13px;font-variant-numeric:tabular-nums;text-decoration:none}
+a.offer-group-head:hover{filter:brightness(.97)}
+a.offer-group-head[aria-current]{border-left-color:var(--maple)}
+.og-stats{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px;min-width:0;margin-right:auto}
+.og-stats>span{white-space:nowrap;font-size:15px;font-weight:700}
+.og-stats>span>small:first-child{margin-right:3px;font-size:11px;font-weight:400;color:var(--bar-text)}
 .og-stats .up{color:var(--maple-ink);font-weight:700}
-.og-stats small+small,.og-stats .up+small{margin-left:2px;font-size:11px;color:var(--ink-3)}
+.og-stats small+small,.og-stats .up+small{margin-left:2px;font-size:11px;font-weight:400;color:var(--ink-3)}
 .attr-none{color:var(--ink-3)}
-.offer-group-head .attr-count,.offer-group-head .og-low{flex:none;font-size:12px;color:var(--ink-3);white-space:nowrap}
-.offer-group-head .og-low b{color:var(--ink-2);font-weight:600}
+.offer-group-head .attr-count,.offer-group-head .og-low{flex:none;font-size:12px;color:var(--bar-text);white-space:nowrap}
+.offer-group-head .attr-count+.og-low{margin-left:-4px}
+.offer-group-head .og-low b{font-size:15px;color:var(--ink);font-weight:700}
+.og-expand{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;min-height:38px;border:0;border-top:1px solid var(--rule);background:transparent;color:var(--bar-text);font:inherit;font-size:13px;cursor:pointer}
+.og-expand:hover,.og-collapse:hover{text-decoration:underline}
+.og-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:40px;padding:4px 10px;border-top:1px solid var(--rule);font-size:12px;color:var(--bar-text);font-variant-numeric:tabular-nums}
+.og-pager.top{border-top:0;border-bottom:1px solid var(--rule)}
+.og-pages{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.og-pages button{min-width:32px;height:32px;padding:0 6px;border:2px solid var(--rule);background:var(--sheet-hi);color:var(--bar-text);font:inherit;font-size:13px;cursor:pointer}
+.og-pages button[aria-current]{background:var(--bar);border-color:var(--bar);color:var(--bar-ink);font-weight:700}
+.og-pages button:disabled{opacity:.4;cursor:default}
+.og-pages i{font-style:normal;color:var(--ink-3)}
+.og-collapse{flex:none;display:inline-flex;align-items:center;gap:2px;min-height:32px;border:0;background:transparent;color:var(--bar-text);font:inherit;font-size:12px;cursor:pointer}
+.og-expand svg{transform:rotate(90deg)}
+.og-collapse svg{transform:rotate(-90deg)}
 /* Inside a group the header carries the stats, so each offer fits one line where the width allows. */
 .offer-groups .listing-offer{border-top:1px solid var(--rule)}
-.offer-groups .offer-group-head+.listing-offer{border-top:0}
+.offer-groups .offer-group-head+.listing-offer,.offer-groups .og-pager.top+.listing-offer{border-top:0}
 .offer-groups .market-record.variant-record{min-height:40px;padding:5px 10px;align-items:center}
 .offer-groups .variant-record .w-main{flex-direction:row;flex-wrap:wrap;align-items:center;gap:2px 10px}
 .offer-groups .variant-record .record-meta{min-width:0;max-width:100%}
