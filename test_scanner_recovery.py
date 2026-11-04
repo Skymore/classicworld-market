@@ -16,6 +16,26 @@ from collector_watchdog import HealthMonitor, should_restart
 
 
 class HealthTests(unittest.TestCase):
+    def test_allocation_failure_stops_recovery_without_game_focus_retry(self):
+        import cv2
+        errors = [MemoryError(), OSError(12, 'out of memory')]
+        native = OSError('paging file too small')
+        native.winerror = 1455
+        errors.append(native)
+        cv_error = cv2.error('allocation failed')
+        cv_error.code = -4
+        errors.append(cv_error)
+        for error in errors:
+            with self.subTest(error=type(error).__name__):
+                phase, message = failure_state(error)
+                self.assertEqual(phase, 'needs_attention')
+                self.assertIn('内存不足', message)
+                self.assertNotIn('恢复前台', message)
+        ordinary = cv2.error('bad input')
+        ordinary.code = -215
+        self.assertEqual(failure_state(ordinary)[0], 'waiting_game')
+        self.assertNotIn('内存不足', failure_state(PermissionError('denied'))[1])
+
     def test_packet_channel_failure_has_bounded_capture_recovery(self):
         from channel_packet_state import PacketChannelConfirmationError
         from free_market_route import PositionSyncError

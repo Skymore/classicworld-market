@@ -7,7 +7,7 @@ import time
 import math
 import uuid
 
-from collector_recovery import ScanIntent, RecoveryLog, atomic_json, read_json
+from collector_recovery import ScanIntent, RecoveryLog, atomic_json, read_json, system_memory_status
 
 CRASH_LIMIT, CRASH_WINDOW = 3, 180  # Non-zero exits within this many seconds.
 STOP_NOTICE = 'scan-watchdog-stop.json'  # Shown once by the next desktop launch.
@@ -145,6 +145,7 @@ def run(home, argv, *, command=None, emergency=None, release=None, startup_grace
                                       free_disk_bytes=psutil.disk_usage(str(home)).free, restarts=restarts,
                                       phase=health.get('phase'), pending_uploads=health.get('pending_uploads'),
                                       last_progress_at=health.get('last_progress_at'))
+                        sample.update(system_memory_status())
                         atomic_json(Path(home)/'scan-resources.json', sample)
                         journal.event('resources', **sample)
                     except (OSError, psutil.Error):

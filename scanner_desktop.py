@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 from collector_update import VERSION
-from collector_recovery import ScanIntent, RecoveryLog, atomic_json, failure_state, retry_delay, prune_diagnostics, read_json
+from collector_recovery import ScanIntent, RecoveryLog, atomic_json, failure_state, retry_delay, prune_diagnostics, read_json, memory_exhausted, system_memory_status
 from collector_watchdog import STOP_NOTICE as WATCHDOG_STOP
 
 RUNS = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'ClassworldFMBot/screen_scanner'
@@ -718,7 +718,7 @@ class DesktopController:
                     self._position_failures += 1
                 phase, message = failure_state(error, self._position_failures)
                 self._journal.event('recovery_wait', attempt=attempts, state=phase, error=type(error).__name__, reason=str(error)[:500],
-                                    resource=getattr(error, 'resource_diagnostic', None))
+                                    resource=(system_memory_status() if memory_exhausted(error) else getattr(error, 'resource_diagnostic', None)))
                 self._journal.event('recovery_end', outcome='waiting', state=phase)
                 self._change(phase=phase, message=message, retries=attempts, failure=message)
                 if phase == 'needs_attention':
