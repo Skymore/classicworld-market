@@ -1331,6 +1331,14 @@ export default function PriceTable() {
                         data-list={tab}
                         ref={list as RefObject<HTMLTableSectionElement>}
                         onClick={openRow}
+                        onMouseDown={(event) => {
+                          // Windows otherwise starts autoscroll and swallows auxclick.
+                          if (
+                            event.button === 1 &&
+                            !(event.target as Element).closest("a,button")
+                          )
+                            event.preventDefault();
+                        }}
                         onAuxClick={(event) => {
                           if (event.button === 1) openRow(event);
                         }}
