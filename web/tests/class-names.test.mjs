@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const root = new URL('../../frontend/', import.meta.url);
 const require = createRequire(new URL('package.json', root));
@@ -68,7 +69,7 @@ test('cn keeps the plain join that tailwind-merge produced', { skip: !twMerge &&
   assert.doesNotMatch(utils, /from "tailwind-merge"/);
   const cn = (...inputs) => clsx(inputs).split(/\s+/).filter(Boolean).join(' ');
   const tokens = new Set();
-  for (const file of files(new URL('src/', root).pathname))
+  for (const file of files(fileURLToPath(new URL('src/', root))))
     for (const literal of classLiterals(readFileSync(file, 'utf8')))
       for (const token of literal.split(/\s+/)) if (token) tokens.add(token);
   assert.ok(tokens.has('btn') && tokens.has('ui-dialog-content') && tokens.has('sortmenu'), 'found the component classes');

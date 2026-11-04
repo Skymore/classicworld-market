@@ -98,7 +98,7 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 const lastRoute = () => [...catalog].reverse().find((u) => u.startsWith('/route?'));
 try {
-  browser = await chromium.launch();
+  browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   // Map page: three links on one row at phone and desktop widths, no scene switch.
   for (const width of [320, 360, 390, 1280]) {
     const phone = width < 641;
