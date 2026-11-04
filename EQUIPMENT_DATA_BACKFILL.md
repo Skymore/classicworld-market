@@ -45,18 +45,9 @@ python -c "import json;d=json.load(open('data/reference/niadb/items.json',encodi
 
 - 四行里缺任何一行，或者 `items` 的 `source` 指向的文件已经不在：停下，把查询结果报告用户，不要猜参数。
 
-### 3. 备份数据库
+### 3. 数据库备份规则
 
-重跑会重写 `items`、`item_records`、怪物、地图、掉落、NPC、NPC 商店等表，属于批量修改，按 `AGENTS.md` 先备份：
-
-```powershell
-$ts = Get-Date -Format yyyyMMdd-HHmmss
-$backup = "shared_data\backups\catalog-$ts.pgdump"
-& "$pg\pg_dump.exe" --format=custom --file $backup --dbname $env:DATABASE_URL
-(Get-Item $backup).Length
-```
-
-文件存在、大小不为 0，再继续。
+重跑会重写 `items`、`item_records`、怪物、地图、掉落、NPC、NPC 商店等表，属于批量修改。按用户 2026-11-04 的最新要求（见 `AGENTS.md`），批量导入不自动备份数据库，直接继续第 4 步。只有用户明确要求备份时才执行；既有备份继续保留。记下第 2 步的四个来源和版本，出问题时用它们重新导入。
 
 ### 4. 重跑 import_catalog
 
@@ -92,12 +83,8 @@ cd ..
 ### 6. 出问题时
 
 - 第 4 步失败：事务已回滚，不需要恢复。把命令输出发给用户。
-- 第 4 步成功但数量或网站数据不对：先停 web 子进程，用备份恢复，再启动 web 子进程，然后报告用户。不要动数据库服务、上传服务和隧道。
-
-```powershell
-& "$pg\pg_restore.exe" --clean --if-exists --dbname $env:DATABASE_URL $backup
-```
+- 第 4 步成功但数量或网站数据不对：用第 2 步记下的参数和上一版参考数据重跑导入，核对后报告用户。若需恢复已有数据库备份，先确认它的时间和影响范围，避免覆盖之后的采集或账号数据。不要动数据库服务、上传服务和隧道。
 
 ## 完成后报告
 
-向用户报告：共享目录的提交号、第 2 步的四个来源和版本、备份文件名、第 4 步打印的数量（含 `records` 一行）、第 5 步两条查询的结果，以及页面上是否看到暴击率基础值。
+向用户报告：共享目录的提交号、第 2 步的四个来源和版本、第 4 步打印的数量（含 `records` 一行）、第 5 步两条查询的结果，以及页面上是否看到暴击率基础值。说明本次按用户规则未备份；仅在用户明确要求并实际备份时附备份文件名。

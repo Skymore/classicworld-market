@@ -1,65 +1,159 @@
-# ClassicWorld Market
+# 枫叶市集（ClassicWorld Market）
 
-当前 Windows 采集器：**v0.5.10**。从[官网下载页](https://mxd.ruit.me/web/download.html?lang=zh)获取，解压后先阅读包内「开始使用.txt」。v0.5.9 及以前需手动升级这一次；新版保留静默更新与每小时检查，更新入口已迁到官网域名，不再依赖 GitHub。源码托管和安装包发布正在迁往 GitLab、Cloudflare R2；市场数据库与个人配置不进入代码仓库。
+冒险岛经典世界（MapleStory Classic World）自由市场的报价采集、价格统计与图鉴网站。
 
-本地优先的冒险岛市场观察、报价统计与物品图鉴项目。本机已验证 Windows 原生只读收包、上传和网页实时更新；v0.5.5 自动配置受限防火墙规则并检查收包。玩家手动逛摊，商品观察写入 SQLite，网页按商品聚合。
+- 公开站：<https://mxd.ruit.me>（别名 `meso.ruit.me`、`ms.ruit.me`、`mscw.ruit.me`）
+- Windows 采集器：从[官网下载页](https://mxd.ruit.me/web/download.html?lang=zh)获取。当前版本以 `collector_update.py` 的 `VERSION` 为准（写本文时为 v0.6.88）。
+- 源码托管在 GitLab（`main` 是网站唯一发布来源）；安装包发布在 Cloudflare R2（`download.ruit.me`）。市场数据库、凭据和个人配置不进入仓库。
 
-## 已实现
+玩家使用见 [采集客户端指南](SHARED_CLIENT_GUIDE.md)；参与开发前先读 [AGENTS.md](AGENTS.md) 的合并与发布规则。
 
-- 原始商品消息、摊位快照、历史观察及聚合报价。
-- 频道/自由市场洞的自动识别，未知位置不猜填。
-- 商品图标、分类、图鉴参考属性；装备包内属性的实验解析。
-- 普通物品参考售价与依据；售光仅标为推定成交。
-- 公开共享网页、结构化数据上传、多人快照去重与 Windows 采集器构建。
-- 当前画面键鼠逛摊 MVP，尚未完成连续实机验证。
-- 网页中英切换、商品特别关注与新报价提醒，包含 25 / 30 级弓弩预设。
-- 朋友版自动打开本机个人提醒页，含24小时历史与独立提醒开关；共享报价作参考，低价发现按随机采集身份隔离，无需另建账号。
-- 背包清单、出售预设和定价计划；当前数量由玩家维护。
+## 组成
 
-## Windows 朋友版
+| 部分 | 位置 | 说明 |
+|---|---|---|
+| 网站服务 | `server/` | Rust 工作区：`market-core`（协议校验、定价、读取器算法，可编译为 WASM）、`market-reader-wasm`（浏览器屏幕读取器）、`market-web`（axum + sqlx + PostgreSQL，启动时执行 `migrations/`）。详见 [server/README.md](server/README.md)。 |
+| 网页前端 | `frontend/` → `web/react/` | React + TypeScript + Vite，负责全部页面。构建产物随源码一起提交。详见 [frontend/README.md](frontend/README.md)。 |
+| 共享网页资源 | `web/` | 主题样式、共享 JS 模块、Service Worker、浏览器采集页（`web/collect/`）及浏览器测试（`web/tests/`）。 |
+| Windows 采集器 | 根目录 `unified_client.py`、`collector_*.py`、`market_*.py`、`sweep_*.py`、`desktop_ui/` | 只读收包、上传、自动扫描、扫货、自动更新、诊断上传。入口为 `ClassicWorldCollector.exe`。 |
+| 自动扫描器 | `scanner/`（Git 子模块 `cwscreenscanner`） | 自由市场导航、开店/离店、频道切换。由采集器内嵌，单独说明见 [scanner/README.md](scanner/README.md)。 |
+| 发布与部署 | `deploy_market.py`、`shared_supervisor.py`、`publish_collector_release.py`、`upload_collector_release.py`、`announce_collector_update.py` | 网站不可变发布包、本机 supervisor、采集器发行。详见 [共享部署说明](SHARED_DEPLOYMENT.md)。 |
+| 游戏操作录制 | `record_gameplay.py`、`gameplay_*.py` | 独立的画面与按键示范录制器，见 [GAMEPLAY_RECORDER.md](GAMEPLAY_RECORDER.md)。 |
+| 数据工具 | `tools/` | NiaDB 图鉴导入、中文名、地图场景渲染、接口性能抽样等。 |
+| 旧版 Python 服务 | `market_dashboard.py`、`shared_server.py`、`market_proxy.py` | 早期 SQLite 共享站、8765 私人网页和 Proxifier 代理模式。生产已改用 Rust 服务，仅作兼容与回退保留。 |
 
-v0.5.5 使用 Windows 原生只读采集：完整解压发行 ZIP，双击 ClassicWorldCollector.exe 并允许管理员权限，无需 Proxifier。原生后端已通过游戏内换频道／开摊、上传和页面自动更新核对；启动时配置仅当前程序、TCP来源端口8500–8999的入站规则，并区分真实收包状态。首次使用前先退出旧代理和游戏，看到 capture_started 后重新进入游戏，手动逛摊即可；随机采集身份自动保存。具体步骤和限制见 [客户端指南](SHARED_CLIENT_GUIDE.md)。
+## 数据流
 
-安装包通过 Windows Winsock 接收网络包副本，并用随附的 WinDivert 驱动只读补充加速器的本机连接和 IPv6；驱动无法加载或出错时继续用原生收包，采集状态记为“加速器连接不可用”。只有确认属于 MapleStory.exe 的连接才交给解码器，不调用发包接口。旧本机 WinDivert 方式仍保留为开发兼容选项。游戏连接必须从握手开始观察；遇到缺包停止解析，提示重连。
+```
+采集器（玩家电脑，只读收包）
+  └─ HTTPS ─▶ mxd.ruit.me/api/v1/… ─▶ Cloudflare Tunnel
+                 └─▶ 站长本机 127.0.0.1:8766  market-web（Rust）
+                        └─▶ PostgreSQL（shared_data/postgres）
+```
 
-## 开发启动（Windows / Python 3.12）
+`shared_supervisor.py` 在站长电脑上维持数据库、web、上传和 tunnel 子进程；数据库端口不对公网开放。共享库只接收结构化商品观察，原始网络数据留在采集者本机；上传失败的观察在本地保留并重试。站长电脑休眠或断网期间网站不可用。
+
+## 获取源码
+
+```powershell
+git clone --recurse-submodules <GitLab 仓库地址>
+# 已有克隆：
+git submodule update --init --recursive
+```
+
+## 本地开发
+
+### 网站服务
+
+需要一个可用的 PostgreSQL。在 `server/` 下：
+
+```powershell
+$env:DATABASE_URL = "postgres://market:<密码>@127.0.0.1:5432/market"
+$env:BIND = "127.0.0.1:8080"
+cargo run -p market-web
+curl.exe -s http://127.0.0.1:8080/readyz   # {"status":"ok","database":"ok"}
+```
+
+图鉴数据导入（`import_catalog`、`import_portals`）、WASM 读取器构建和测试见 [server/README.md](server/README.md)。
+
+### 网页前端
+
+```powershell
+cd frontend
+pnpm install --frozen-lockfile
+pnpm dev      # 开发服务器
+pnpm build    # 类型检查并输出到 web/react/
+```
+
+### Windows 采集器（Python 3.12）
 
 ```powershell
 py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements-market.txt
-.\.venv\Scripts\python.exe market_dashboard.py
+.\.venv\Scripts\python.exe -m pip install -r requirements-shared.txt
+.\scanner\fetch_windivert.ps1   # 下载并校验官方 WinDivert 2.2.2 驱动、签名与源码
+.\build_shared_client.ps1 `
+  -WinDivert scanner\vendor\windivert\WinDivert-2.2.2-A\x64 `
+  -WinDivertSource scanner\vendor\downloads\WinDivert-2.2.2-source.zip
 ```
 
-打开 http://127.0.0.1:8765/ 。初始无采集数据和物品数据库是正常情况。
+产物为 `dist/ClassicWorldCollector-windows-x64-v<版本>.zip`。构建会运行打包后程序的 `--version`、`--self-test` 和 `--scanner-self-test`，并把 `SHARED_CLIENT_GUIDE.md`、`COLLECTOR_QUICK_START.txt` 和许可文件放进安装包。发行步骤见 [共享部署说明](SHARED_DEPLOYMENT.md#采集器发行)。
 
-另一个终端运行：
+依赖文件：
+
+| 文件 | 用途 |
+|---|---|
+| `requirements-shared.txt` | 采集器与扫描器的完整运行和构建依赖（含 `requirements-market.txt` 与扫描器依赖） |
+| `requirements-market.txt` | 收包解码的最小依赖 |
+| `requirements-release.txt` | 仅维护者发布到 R2 使用 |
+| `requirements-gameplay.txt` / `-build.txt` | 游戏操作录制器 |
+| `requirements.txt` | 早期截图 OCR 实验 |
+
+## 测试
 
 ```powershell
-.\.venv\Scripts\python.exe market_proxy.py --market-only --folder network_captures/market_live
+# Rust（集成测试需要指向可丢弃测试库的 DATABASE_URL）
+cd server; cargo test --workspace; cd ..
+
+# 前端与网页模块
+cd frontend; pnpm check; cd ..
+node --test web/tests/*.test.mjs
+
+# 采集器与扫描器（PYTHONPATH 需包含仓库根目录和 scanner）
+python -m unittest test_scanner_recovery test_scanner_desktop test_unified_client test_shared_bundle test_player_presence test_room_roster test_market_passive scanner.test_cloud_scan scanner.test_scanner_regressions scanner.test_fast_scanning
 ```
 
-在自备的 Proxifier 中配置 SOCKS5 `127.0.0.1:1088`，仅将 `MapleStory.exe` 的 TCP 8500–8599 端口导向它，其他连接直连。代理启动后重新建立游戏频道连接，再手动逛摊。停止代理前先退出游戏会话，避免断开正在转发的连接。项目不包含 Proxifier 安装程序、许可证或个人配置。
+其余 `test_*.py` 按改动的模块运行。浏览器端到端用例为 `web/tests/*.e2e.mjs`，前端发布前必跑项见 [AGENTS.md](AGENTS.md)。部分解码回归依赖未提交的个人抓包，只能在本机运行。
 
-便捷启动器仍需要本机配置 `tools/MarketPassive.ppx`；新安装建议先按上述命令单独启动。自动点击另见 [说明](MARKET_BROWSER_MVP.md)，依赖在 `requirements-bot.txt`。旧截图 OCR 实验依赖在 `requirements.txt`。
+## 发布
 
-## 数据与共享
+改动合入并推送 `gitlab/main` 后，由本机 supervisor 部署；GitLab CI 尚未配置，合入 `main` 不会自动上线。完整流程、校验要求和禁止事项见 [AGENTS.md](AGENTS.md) 与 [共享部署说明](SHARED_DEPLOYMENT.md)。
 
-`network_captures/`、`market_data/`、`item_database/`、`data/`、运行日志、临时截图及个人配置均不进入 Git。仓库只发布源码与项目说明，不包含市场或图鉴数据库。`market_snapshot.py` 可在本机导出、验证和恢复个人快照，生成的数据仍留在本地。图鉴源数据需另行获取；部分历史研究脚本依赖本机抓包，不属于开箱即用入口。
+## 文档索引
 
-私人网页 8765 只供本机使用。公开共享站为 https://mxd.ruit.me ，独立共享服务监听 8766，经 Cloudflare Tunnel 提供 HTTPS 访问。采集器自动保存独立随机 ID，不需要访问码。共享库只接收结构化商品观察，原始网络文件留在采集者本机。GitHub 保存源码和构建发布；历史快照、实时数据库和成员凭据留在本机。
+**使用与运维**
 
-朋友使用见 [采集客户端指南](SHARED_CLIENT_GUIDE.md)，站长管理采集身份、撤销凭据和部署见 [共享部署说明](SHARED_DEPLOYMENT.md)。多人观察保留原始证据，当前报价采用同摊位最新完整快照，库存不累加；摊位 ID 重用仍有限制，详见部署说明。
+- [SHARED_CLIENT_GUIDE.md](SHARED_CLIENT_GUIDE.md)：采集客户端指南（随安装包分发）
+- [COLLECTOR_QUICK_START.txt](COLLECTOR_QUICK_START.txt)：安装包内的「开始使用」
+- [SHARED_DEPLOYMENT.md](SHARED_DEPLOYMENT.md)：站长部署、域名、缓存、发行与远程调试运维
+- [AGENTS.md](AGENTS.md)：仓库协作与发布规则
 
-默认数据流为：朋友采集客户端 → `https://mxd.ruit.me/api/v1/observations` → Cloudflare Tunnel → 站长本机 `127.0.0.1:8766` → `shared_data/market.sqlite`。SQLite 使用 WAL 模式，由共享 HTTP 服务管理读写；无需向公网开放数据库端口。只启动市场网页不会上传数据。站长电脑与共享服务需要保持在线，客户端未成功上传的观察保留在本地并重试。GitHub 不接收这些实时观察数据。
+**服务端与网页**
 
-## 验证
+- [server/README.md](server/README.md)：服务端运行、测试、图鉴导入、屏幕读取器
+- [server/AGENT_API.md](server/AGENT_API.md)：冒险助手与只读数据工具
+- [frontend/README.md](frontend/README.md)：React 前端结构与回归
+- [WEB_PUSH.md](WEB_PUSH.md)：关注提醒的 Web Push
+- [WATCH_LISTS.md](WATCH_LISTS.md)：关注清单
+- [PRICE_TRENDS.md](PRICE_TRENDS.md)：价格走势口径
+- [PLAYER_PRESENCE.md](PLAYER_PRESENCE.md)：玩家离场与报价失效
 
-```powershell
-.\.venv\Scripts\python.exe -m unittest test_market_dashboard test_market_health test_market_pricing test_market_location test_market_equipment
-```
+**采集、扫描与扫货**
 
-部分解码回归测试依赖未上传的个人抓包，应在本机运行。装备字段仍需同实例游戏截图验证；挂牌不等于成交，自动化也不保证符合运营方规则或不会被检测。
+- [SWEEP.md](SWEEP.md)：设备登录、多端同步与扫货（服务端、采集端、网页三方契约）
+- [SWEEP_LIVE_PRIORITY.md](SWEEP_LIVE_PRIORITY.md)：扫货实时目标
+- [SCANNER_COORDINATION.md](SCANNER_COORDINATION.md)：扫描任务分配协议
+- [SCANNER_RECOVERY.md](SCANNER_RECOVERY.md)：扫描自动恢复与验证
+- [SHOP_RECOVERY_V087.md](SHOP_RECOVERY_V087.md)：v0.6.87–0.6.88 商店恢复修复
+- 扫描器子模块：[README](scanner/README.md)、[KEYBOARD_BINDINGS](scanner/KEYBOARD_BINDINGS.md)、[LOCAL_FIXES](scanner/LOCAL_FIXES.md)、[SHOP_ENTRY_RECOVERY](scanner/SHOP_ENTRY_RECOVERY.md)、[VMWARE_KEYBOARD](scanner/VMWARE_KEYBOARD.md)、[MARKET_BROWSER_MVP](scanner/MARKET_BROWSER_MVP.md)
+
+**图鉴数据任务（给 Windows agent 的操作手册）**
+
+- [BESTIARY_NIADB_UPDATE.md](BESTIARY_NIADB_UPDATE.md)：图鉴改用 NiaDB 后的生产库更新
+- [EQUIPMENT_DATA_BACKFILL.md](EQUIPMENT_DATA_BACKFILL.md)：补装备暴击基础值
+- [MAP_SCENES_FROM_CLIENT.md](MAP_SCENES_FROM_CLIENT.md)：从客户端渲染地图场景图；结果见 [MAP_SCENES_CLIENT_REPORT.md](MAP_SCENES_CLIENT_REPORT.md)
+
+**其他**
+
+- [GAMEPLAY_RECORDER.md](GAMEPLAY_RECORDER.md)：游戏操作录制器
+- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)：第三方来源与许可
+- `network_research.md`：网络协议研究笔记，只保存在本机，不进入 Git
+
+## 数据与隐私
+
+仓库采用默认忽略（见 `.gitignore`），只提交源码和审查过的资源。`network_captures/`、`market_data/`、`item_database/`、`shared_data/`、`data/`（`data/reference/` 除外）、日志、截图、凭据和个人配置都不进入 Git。玩家个人配置保存在 `%LOCALAPPDATA%/ClassicWorldMarket`。
+
+挂牌不等于成交；推定成交和装备属性解析都有已知边界，详见各功能文档。自动化不保证符合运营方规则或不被检测。
 
 ## 源码与许可
 
-[第三方说明](THIRD_PARTY_NOTICES.md) 保留 MapleLib GPL 和 msnet MIT 来源。项目尚未选择统一的原创代码开源许可证；公开发布前应处理许可与游戏素材授权。
+[第三方说明](THIRD_PARTY_NOTICES.md) 保留 MapleLib（GPL-3.0-or-later）、msnet（MIT）、meso.watch 读取器等来源。项目尚未为原创代码选择统一许可证；公开发布前须处理许可与游戏素材授权。
