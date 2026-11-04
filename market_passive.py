@@ -277,6 +277,11 @@ class Sniffer:
         from game_transport import capture_priority
         self.handle=self.dll.WinDivertOpen(capture_filter.encode(),0,capture_priority(),SNIFF_RECV_ONLY)
         if self.handle==ctypes.c_void_p(-1).value:raise ctypes.WinError(ctypes.get_last_error())
+        from game_transport import configure_capture_queue
+        try:configure_capture_queue(self.dll,self.handle)
+        except Exception:
+            self.close()
+            raise
         # Intentionally never bind or call WinDivertSend.
     def recv(self):
         from game_transport import tcp_packet

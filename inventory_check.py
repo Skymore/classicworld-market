@@ -127,6 +127,9 @@ class InventoryChecker:
             if not closed:
                 raise InventoryCheckError('无法确认背包已关闭')
             if result is None:
+                if reason == 'scan_start' and packet is None:
+                    from free_market_route import PositionSyncError
+                    raise PositionSyncError('Inventory snapshot unavailable after reconnect')
                 raise InventoryCheckError('背包数据尚未完成核对')
             self.record(reason, 'confirmed', mesos=result['mesos'], items=len(result['items']))
             return result
