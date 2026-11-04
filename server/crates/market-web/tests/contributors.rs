@@ -10,6 +10,81 @@ use serde_json::{json, Value};
 use tower::ServiceExt;
 
 #[tokio::test]
+async fn account_totals_deduplicate_on_write_and_do_not_read_device_history() {
+    let Some(db) = TestDb::new().await else { return };
+    let state = AppState::new(db.pool.clone(), Settings::default());
+    let a = auth::register(&db.pool, "account-rollup-a").await.unwrap();
+    let b = auth::register(&db.pool, "account-rollup-b").await.unwrap();
+    let owner: i64 = sqlx::query_scalar(
+        "INSERT INTO accounts(public_id,google_sub) VALUES('rollup-owner','rollup-google') RETURNING id",
+    ).fetch_one(&db.pool).await.unwrap();
+    let now = unix_now();
+    // Linking must include old captures; repeated devices must not double count.
+    upload(&state, &a.token, "old-a", 101, now-60.0).await;
+    upload(&state, &b.token, "old-b", 101, now-60.0).await;
+    upload(&state, &b.token, "unique-b", 102, now-60.0).await;
+    sqlx::query("UPDATE collectors SET account_id=$1").bind(owner)
+        .execute(&db.pool).await.unwrap();
+    let credentials = auth::new_credentials();
+    contributors::new_session(&db.pool, owner, &credentials.token).await.unwrap();
+    let cookie = [("cookie", format!("cwm_account={}", credentials.token))];
+    let mut history = db.pool.begin().await.unwrap();
+    sqlx::query("LOCK contribution_states IN ACCESS EXCLUSIVE MODE")
+        .execute(&mut *history).await.unwrap();
+    let response = tokio::time::timeout(std::time::Duration::from_secs(2),
+        request(&state, "GET", "/api/v1/account", Value::Null, &cookie)).await
+        .expect("profile must read account summaries, even when device history is locked");
+    assert_eq!(response.0, StatusCode::OK);
+    assert_eq!(response.2["stats"], json!({"shops":2,"quotes":2}));
+    history.rollback().await.unwrap();
+
+    upload(&state, &a.token, "live-a", 103, now-30.0).await;
+    let ids: Vec<i64> = sqlx::query_scalar("SELECT id FROM collectors ORDER BY id")
+        .fetch_all(&db.pool).await.unwrap();
+    async fn check(db: &sqlx::PgPool, ids: &[i64], at: f64) {
+        let cached: Vec<(i64,i64)> = sqlx::query_as(
+            "SELECT * FROM contribution_shop_counts($1,0,to_timestamp($2)) ORDER BY shop_id")
+            .bind(ids).bind(at).fetch_all(db).await.unwrap();
+        let exact: Vec<(i64,i64)> = sqlx::query_as(
+            "SELECT shop_id,count(*) FROM (SELECT DISTINCT shop_id,slot,item_id,variant_id,price,bundle,stock
+             FROM contribution_states WHERE collector_id=ANY($1) AND first_seen<=to_timestamp($2)) s
+             GROUP BY shop_id ORDER BY shop_id")
+            .bind(ids).bind(at).fetch_all(db).await.unwrap();
+        assert_eq!(cached,exact,"at={at} ids={ids:?}");
+    }
+    check(&db.pool, &ids, unix_now()).await;
+    // Only future first-seen times expire cumulative totals; weekly expiry does not.
+    upload(&state, &a.token, "future-a", 104, now+60.0).await;
+    for at in [now-90.0,unix_now(),now+59.999,now+60.0,now+31.0*86400.0] {
+        check(&db.pool,&ids,at).await;
+    }
+    sqlx::query("UPDATE collectors SET active=false WHERE id=$1")
+        .bind(ids[1]).execute(&db.pool).await.unwrap();
+    check(&db.pool,&ids[..1],unix_now()).await;
+    // Removing a duplicate device retains the remaining copy; deleting states
+    // and unlinking a device both update the derived account totals.
+    sqlx::query("DELETE FROM contribution_states WHERE collector_id=$1 AND shop_id IN
+        (SELECT id FROM shops WHERE shop_id=101)")
+        .bind(ids[0]).execute(&db.pool).await.unwrap();
+    check(&db.pool,&ids,unix_now()).await;
+    sqlx::query("UPDATE collectors SET account_id=NULL WHERE id=$1")
+        .bind(ids[1]).execute(&db.pool).await.unwrap();
+    check(&db.pool,&ids[..1],unix_now()).await;
+    check(&db.pool,&ids[1..],unix_now()).await;
+    // Exercise upgrading an existing populated database, rather than only
+    // installing empty tables and then recording new observations.
+    sqlx::raw_sql(include_str!("../../../tools/rollback_account_contribution_rollups.sql"))
+        .execute(&db.pool).await.unwrap();
+    let mut upgrade = db.pool.begin().await.unwrap();
+    sqlx::raw_sql(include_str!("../../../migrations/0044_account_contribution_rollups.sql"))
+        .execute(&mut *upgrade).await.unwrap();
+    upgrade.commit().await.unwrap();
+    check(&db.pool,&ids[..1],unix_now()).await;
+    check(&db.pool,&ids[1..],unix_now()).await;
+    db.close().await;
+}
+
+#[tokio::test]
 async fn expired_rollup_reads_only_its_shop_states() {
     let Some(db) = TestDb::new().await else { return };
     let state = AppState::new(db.pool.clone(), Settings::default());
