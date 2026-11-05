@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from scanner_desktop import DesktopAPI, DesktopController, desktop_entry_url, purchase_text, status_text
 import collector_dashboard
+import scanner_desktop
 
 
 class FocusGameTests(unittest.TestCase):
@@ -231,6 +232,41 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(self.controller.snapshot()['phase'], 'stopped')
         self.assertEqual(self.controller.snapshot()['run_shops'],12)
         self.assertEqual(self.controller.snapshot()['run_items'],90)
+
+    def test_undersized_client_waits_without_claiming_a_room(self):
+        small = threading.Event()
+        small.set()
+        started = threading.Event()
+        def run(folder, hwnd, begin, stop, callback, assignments, ready_callback):
+            started.set()
+            stop.wait(2)
+            return {'reason': 'cancelled'}
+        cloud = Mock(return_value=Mock())
+        self.modules.update(channel_capture=lambda path, stop, ready_event: (ready_event.set(), stop.wait(2)),
+            position_capture=lambda path, stop, ready_event: (ready_event.set(), stop.wait(2)),
+            DEFAULT_STATE=None, POSITION_STATE=None, CloudScan=cloud, run=run)
+        controller = DesktopController(self.runtime, modules=self.modules,
+            windows=lambda: [{'id': 12, 'title': 'MapleStory', 'pid': 42}], ready=lambda _: True,
+            emergency=lambda: False, too_small=lambda _: small.is_set())
+        with patch('scanner_desktop.focus_game'), patch('scanner_desktop.release_keys'), \
+             patch('scanner_desktop.RUNS', Path(self.temp.name)/'runs'):
+            controller.start(12)
+            time.sleep(.5)
+            self.assertFalse(started.is_set())
+            cloud.assert_not_called()
+            self.assertEqual(controller.snapshot()['phase'], 'waiting_game')
+            self.assertIn('1024×600', controller.snapshot()['message'])
+            small.clear()
+            self.assertTrue(started.wait(2))
+            controller.command('stop')
+            controller._worker.join(3)
+        self.assertFalse(controller._worker.is_alive())
+
+    def test_client_size_limit_matches_scanner(self):
+        import re
+        source = (Path(__file__).parent/'scanner'/'market_browser_bot.py').read_text(encoding='utf-8')
+        limit = re.search(r'^MIN_CLIENT_SIZE = \((\d+), (\d+)\)', source, re.M)
+        self.assertEqual(tuple(map(int, limit.groups())), scanner_desktop.MIN_CLIENT_SIZE)
 
     def test_purchase_halt_revokes_auto_recovery_across_relaunch(self):
         from sweep_purchase import PurchaseHalt, PurchaseResult

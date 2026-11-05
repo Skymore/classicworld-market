@@ -159,6 +159,40 @@ def game_ready(hwnd):
     return user.GetForegroundWindow() == hwnd and not user.IsIconic(hwnd) and game_connected()
 
 
+# Same limit as scanner/market_browser_bot.MIN_CLIENT_SIZE, which the scan
+# enforces only after a room has been claimed.
+MIN_CLIENT_SIZE = (1024, 600)
+
+
+def client_too_small(hwnd):
+    """True only for a confirmed undersized client; unknown sizes never block.
+
+    Measured with per-thread monitor DPI awareness so a DPI-unaware launcher
+    does not read a scaled-down size and wait forever.
+    """
+    if not hasattr(ctypes, 'windll'):
+        return False
+    from ctypes import wintypes
+    user = ctypes.windll.user32
+    set_context = getattr(user, 'SetThreadDpiAwarenessContext', None)
+    if set_context is None:
+        return False
+    set_context.argtypes = [ctypes.c_void_p]
+    set_context.restype = ctypes.c_void_p
+    user.GetClientRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+    user.GetClientRect.restype = wintypes.BOOL
+    previous = set_context(ctypes.c_void_p(-4))  # PER_MONITOR_AWARE_V2
+    if not previous:
+        return False
+    try:
+        rect = wintypes.RECT()
+        if not user.GetClientRect(hwnd, ctypes.byref(rect)):
+            return False
+        return rect.right < MIN_CLIENT_SIZE[0] or rect.bottom < MIN_CLIENT_SIZE[1]
+    finally:
+        set_context(ctypes.c_void_p(previous))
+
+
 def status_text(value):
     for pattern, template in [
         (r'full_scanning_room_(\d+)_channel_(\d+)', '正在扫描 {0} 洞 · {1}频道'),
@@ -198,12 +232,13 @@ def purchase_text(entry):
 
 class DesktopController:
     def __init__(self, collector, *, modules=None, windows=game_windows, sweep=None,
-                 ready=game_ready, emergency=emergency_stop):
+                 ready=game_ready, emergency=emergency_stop, too_small=client_too_small):
         self.collector = collector
         self.sweep = sweep
         self._modules = modules or scanner_modules(getattr(collector, 'backend', 'windows'))
         self._windows = windows
         self._game_ready, self._emergency = ready, emergency
+        self._client_too_small = too_small
         self._intent = ScanIntent(collector.home)
         self._journal = RecoveryLog(collector.home)
         self._cancel = threading.Event()
@@ -674,9 +709,14 @@ class DesktopController:
                     self._hwnd = choices[0]['id']
                     self._change(selected=self._hwnd, windows=choices)
                 present = any(w['id'] == self._hwnd for w in choices)
-                if not present or not self._game_ready(self._hwnd):
+                # A scan that claims a room and then finds an undersized client
+                # only releases it and backs off; wait here without a lease.
+                small = present and self._client_too_small(self._hwnd)
+                if not present or small or not self._game_ready(self._hwnd):
                     self._step_deadline = None
-                    self._change(phase='waiting_game', message='正在恢复游戏前台并等待连接。' if present else '等待游戏连接。')
+                    message = ('游戏窗口已最小化或太小，请恢复并调到至少 1024×600。' if small
+                               else '正在恢复游戏前台并等待连接。' if present else '等待游戏连接。')
+                    self._change(phase='waiting_game', message=message)
                     if present:
                         self._restore_foreground()
                     self._cancel.wait(.2)
