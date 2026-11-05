@@ -58,7 +58,7 @@ export default function Collect() {
       <div className="c-grid">
         <section className="stall c-share" aria-labelledby="h-share">
           <div className="stall-bar">
-            <h2 id="h-share">共享游戏窗口</h2>
+            <h2 id="h-share">采集来源</h2>
             <span className="bar-meta" id="state">
               {state.phase}
             </span>

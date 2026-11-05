@@ -304,6 +304,7 @@ async function readVideo(file) {
     if (tail) await send(tail, start + duration * 1000 + 2500);
     update({ progress: 1 });
     say('录像读完：' + file.name, 'ok');
+    s.finished = true;
     stop();
   }
 }
@@ -319,7 +320,7 @@ function stop() {
   if (s.waiting) { const done = s.waiting; s.waiting = null; done(); }
   update({active:false,canStart:true,mode:''});
   update({phase:s.video?'录像已读完':'已停止'});
-  say(s.video?'已停止读取录像':'已停止读取');
+  if (!s.finished) say(s.video?'已停止读取录像':'已停止读取');
 }
 
 function grab(s, at) {

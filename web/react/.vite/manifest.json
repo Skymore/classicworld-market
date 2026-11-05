@@ -6,12 +6,8 @@
       "_shared-BvadJZDP.js"
     ]
   },
-  "_catalogue-B4u_F2q4.css": {
-    "file": "chunks/catalogue-B4u_F2q4.css",
-    "src": "_catalogue-B4u_F2q4.css"
-  },
-  "_catalogue-tpqvfr2t.js": {
-    "file": "chunks/catalogue-tpqvfr2t.js",
+  "_catalogue-AoYxeW-m.js": {
+    "file": "chunks/catalogue-AoYxeW-m.js",
     "name": "catalogue",
     "imports": [
       "_shared-BvadJZDP.js",
@@ -33,6 +29,10 @@
     "css": [
       "chunks/catalogue-B4u_F2q4.css"
     ]
+  },
+  "_catalogue-B4u_F2q4.css": {
+    "file": "chunks/catalogue-B4u_F2q4.css",
+    "src": "_catalogue-B4u_F2q4.css"
   },
   "_chevron-right-BmTeiEZr.js": {
     "file": "chunks/chevron-right-BmTeiEZr.js",
@@ -113,8 +113,8 @@
       "_shared-BvadJZDP.js"
     ]
   },
-  "_main-BnKxsF9v.js": {
-    "file": "chunks/main-BnKxsF9v.js",
+  "_main-xtvabYEQ.js": {
+    "file": "chunks/main-xtvabYEQ.js",
     "name": "main",
     "imports": [
       "_shared-BvadJZDP.js",
@@ -315,7 +315,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BnKxsF9v.js"
+      "_main-xtvabYEQ.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -367,7 +367,7 @@
     ]
   },
   "src/pages/catalogue-search.tsx": {
-    "file": "chunks/catalogue-search-DYBHvvgg.js",
+    "file": "chunks/catalogue-search-Cgim3suD.js",
     "name": "catalogue-search",
     "src": "src/pages/catalogue-search.tsx",
     "isDynamicEntry": true,
@@ -375,20 +375,20 @@
       "_shared-BvadJZDP.js",
       "_dialog-C-FZ5S7y.js",
       "_price-state-BUUp4F1a.js",
-      "_catalogue-tpqvfr2t.js"
+      "_catalogue-AoYxeW-m.js"
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-DF0aMoGy.js",
+    "file": "chunks/catalogue-C77MhlgH.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_catalogue-tpqvfr2t.js"
+      "_catalogue-AoYxeW-m.js"
     ]
   },
   "src/pages/collect.tsx": {
-    "file": "chunks/collect-Bd_wAIRc.js",
+    "file": "chunks/collect-DApfv6oX.js",
     "name": "collect",
     "src": "src/pages/collect.tsx",
     "isDynamicEntry": true,
@@ -539,7 +539,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BnKxsF9v.js"
+      "_main-xtvabYEQ.js"
     ]
   }
 }

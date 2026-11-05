@@ -40,7 +40,10 @@ function StallMap({ data }: { data: any }) {
   const top = inside ? ((stall.y - scene.y) / scene.h) * 100 : 0;
   return (
     <div className="sv-map" style={{ aspectRatio: `${scene.w} / ${scene.h}` }}>
-      <img src={scene.url} alt={words(`${data.room}洞地图`, `Map of FM${data.room}`)} loading="lazy" />
+      <img
+        src={String(scene.url).replace(/\/scenes\/(\d+\.webp)$/, "/scenes/small/$1")}
+        alt={words(`${data.room}洞地图`, `Map of FM${data.room}`)}
+      />
       {inside && (
         <span
           className="sv-pin"
