@@ -202,6 +202,10 @@ async fn stall_follows_the_newest_reading_and_the_shop_view_lists_the_family() {
     assert_eq!(view["stall"]["permit"], 5140002);
     assert_eq!(view["room"], 6);
     assert_eq!(view["items"].as_array().unwrap().len(), 2);
+    // Every stall of the room, the shop itself included.
+    let neighbors = view["neighbors"].as_array().unwrap();
+    assert_eq!(neighbors.len(), 1);
+    assert_eq!(neighbors[0]["shop_key"], json!(key));
     // A screen upload may not claim a stall; an unknown parser is refused.
     let mut screen = visit("screen", 3052, now, false);
     screen["source"] = json!("screen");

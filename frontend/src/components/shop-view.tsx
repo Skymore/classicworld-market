@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Store, UserRound, X } from "lucide-react";
 import { readPeriod } from "/web/js/lib/period.js?v=20261022-regressions-1";
 import { loadCatalog } from "../lib/catalog";
 import { useWords, usePreferences } from "../providers";
@@ -13,17 +13,17 @@ import "./shop-view.css";
 /** One shop the player can step to: its key and the row they came from. */
 export type ShopStop = { key: string; row: any };
 
-/** Store permits set how a stall looks in the game. */
-const PERMITS: Record<number, { zh: string; en: string; color: string }> = {
-  5140000: { zh: "普通摊位", en: "Regular store", color: "#b98a52" },
-  5140001: { zh: "蓝色树摊", en: "Sky-blue tree store", color: "#4fa3d9" },
-  5140002: { zh: "粉色树摊", en: "Pink tree store", color: "#e57aa8" },
-  5140003: { zh: "橙色树摊", en: "Orange tree store", color: "#e8892c" },
-  5140004: { zh: "绿色树摊", en: "Green tree store", color: "#4f9e4a" },
-  5140005: { zh: "特别摊位", en: "Special store", color: "#8a62c4" },
+/** How each store permit looks in the game (UI ChatBalloon miniroom/PSSkin):
+ *  the regular store is a sign over its owner's head, the others whole stalls.
+ *  Sizes are world pixels; 5140005 has no skin of its own number. */
+const SKINS: Record<number, { skin: number; w: number; h: number; lift: number }> = {
+  5140000: { skin: 0, w: 112, h: 63, lift: 62 },
+  5140001: { skin: 1, w: 156, h: 159, lift: 0 },
+  5140002: { skin: 2, w: 156, h: 159, lift: 0 },
+  5140003: { skin: 3, w: 156, h: 159, lift: 0 },
+  5140004: { skin: 4, w: 156, h: 159, lift: 0 },
+  5140005: { skin: 6, w: 156, h: 159, lift: 0 },
 };
-const permitOf = (id?: number | null) =>
-  id == null ? null : PERMITS[id] || { zh: "摊位", en: "Store", color: "#8b8b8b" };
 const isEquipment = (row: any) => Math.floor(Number(row?.item_id) / 1000000) === 1;
 /** A shop row's captured equipment, in either of the API's shapes. */
 const pieceOf = (row: any) =>
@@ -33,40 +33,61 @@ const pieceOf = (row: any) =>
       ? { ...row.variant, status: "candidate" }
       : null;
 
-function StallMap({ data }: { data: any }) {
+/** The room's scene with every stall read there, each drawn with its store
+ *  permit's picture; the shop on show stands out, the others open on a tap. */
+function StallMap({ data, onPick }: { data: any; onPick: (stall: any) => void }) {
   const words = useWords();
   const scene = data.map?.scene;
-  const stall = data.stall;
-  const permit = permitOf(stall?.permit);
   if (!scene?.url || !scene.w || !scene.h)
     return (
       <div className="sv-map sv-nomap">
         {data.room ? words("这一洞还没有地图", "No picture of this room yet") : words("位置未记录", "Place not recorded")}
       </div>
     );
-  const inside =
-    stall && stall.x >= scene.x && stall.x <= scene.x + scene.w && stall.y >= scene.y && stall.y <= scene.y + scene.h;
+  const stalls: any[] = [...(data.neighbors || [])];
+  if (data.stall && !stalls.some((n) => n.shop_key === data.shop_key))
+    stalls.push({ ...data.stall, shop_key: data.shop_key, title: data.title, owner_name: data.owner_name });
+  const inside = (n: any) => n.x >= scene.x && n.x <= scene.x + scene.w && n.y >= scene.y && n.y <= scene.y + scene.h;
+  // Drawn to the map's own scale, standing on the spot the owner stands on.
+  const place = (n: any) => {
+    const look = SKINS[n.permit] || SKINS[5140000];
+    return {
+      look,
+      style: {
+        left: ((n.x - scene.x) / scene.w) * 100 + "%",
+        top: ((n.y - look.lift - scene.y) / scene.h) * 100 + "%",
+        width: (look.w / scene.w) * 100 + "%",
+      },
+    };
+  };
+  // The shop on show last, so it draws on top.
+  const shown = stalls.filter(inside).sort((a, b) => Number(a.shop_key === data.shop_key) - Number(b.shop_key === data.shop_key));
   return (
     <div className="sv-map" style={{ aspectRatio: `${scene.w} / ${scene.h}` }}>
       <img
+        className="sv-scene"
         src={String(scene.url).replace(/\/scenes\/(\d+\.webp)$/, "/scenes/small/$1")}
         alt={words(`${data.room}洞地图`, `Map of FM${data.room}`)}
       />
-      {inside && (
-        <span
-          className="sv-pin"
-          style={
-            {
-              left: ((stall.x - scene.x) / scene.w) * 100 + "%",
-              top: ((stall.y - scene.y) / scene.h) * 100 + "%",
-              "--stall": permit!.color,
-            } as any
-          }
-          title={words(permit!.zh, permit!.en)}
-        >
-          <i aria-hidden="true" />
-        </span>
-      )}
+      {shown.map((n) => {
+        const here = n.shop_key === data.shop_key;
+        const label = [n.title, n.owner_name].filter(Boolean).join(" · ");
+        const { look, style } = place(n);
+        return (
+          <button
+            key={n.shop_key}
+            type="button"
+            className={"sv-stall" + (here ? " here" : "")}
+            style={style}
+            title={label}
+            aria-label={here ? words(`当前摊位 ${label}`, `This shop: ${label}`) : words(`看摊位 ${label}`, `Open shop ${label}`)}
+            aria-current={here || undefined}
+            onClick={() => !here && onPick(n)}
+          >
+            <img src={`/web/images/stalls/skin-${look.skin}.png`} alt="" style={{ aspectRatio: `${look.w} / ${look.h}` }} />
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -74,7 +95,7 @@ function StallMap({ data }: { data: any }) {
 /** The selected good inside the shop view. Equipment gets the full game
  *  tooltip (the quick preview's card: requirements, jobs, stats against the
  *  catalogue, this offer); other goods their name, bundle, stock and price. */
-function Info({ row, itemId, shop }: { row: any; itemId: number; shop: any }) {
+function Info({ row, itemId }: { row: any; itemId: number }) {
   const words = useWords();
   const { language } = usePreferences();
   const name = language === "en" ? row.name_en || row.name_zh : row.name_zh || row.name_en;
@@ -97,10 +118,7 @@ function Info({ row, itemId, shop }: { row: any; itemId: number; shop: any }) {
   );
   if (piece) {
     const data = pieceData(piece, {
-      channel: shop.channel ?? null,
-      room: shop.room ?? null,
-      shop: shop.title || null,
-      owner: shop.owner_name || null,
+      inShop: true,
       price: row.price,
       set: row.bundle > 1,
       stock: Number.isFinite(row.stock) ? row.stock : null,
@@ -146,7 +164,18 @@ function Info({ row, itemId, shop }: { row: any; itemId: number; shop: any }) {
   );
 }
 
-function ShopCard({ stop, itemId }: { stop: ShopStop; itemId: number }) {
+function ShopCard({
+  stop,
+  itemId,
+  stepping,
+  onPick,
+}: {
+  stop: ShopStop;
+  itemId: number;
+  /** More than one shop sells this item: the left/right steps do something. */
+  stepping: boolean;
+  onPick: (stall: any) => void;
+}) {
   const words = useWords();
   const query = useMarketQuery<any>("/api/v1/shop?key=" + encodeURIComponent(stop.key));
   const row = stop.row;
@@ -167,32 +196,29 @@ function ShopCard({ stop, itemId }: { stop: ShopStop; itemId: number }) {
   );
   const [chosen, choose] = useState<number | null>(null);
   const at = chosen != null && chosen < items.length ? chosen : start;
-  const permit = permitOf(data.stall?.permit);
   const newest = Math.max(0, ...items.map((r: any) => r.time || 0)) || data.last_seen || row.observed;
   return (
     <div className="sv-card">
       <div className="sv-top">
-        <StallMap data={data} />
+        <StallMap data={data} onPick={onPick} />
         <div className="sv-who">
-          <h2 id="sv-title">{data.title || words("未命名商店", "Untitled shop")}</h2>
-          <span>
-            {data.owner_name && <b>{data.owner_name}</b>}
-            {data.owner_name && " · "}
-            <RelativeTime at={newest} />
-          </span>
+          <h2 id="sv-title">
+            <Store aria-hidden="true" />
+            <span>{data.title || words("未命名商店", "Untitled shop")}</span>
+          </h2>
+          {data.owner_name && (
+            <span className="sv-owner">
+              <UserRound aria-hidden="true" />
+              <b>{data.owner_name}</b>
+            </span>
+          )}
           <span className="loc sv-loc">
             <b>{data.channel == null ? words("频道 —", "CH —") : words(`${data.channel}频道`, "CH " + data.channel)}</b>
             <span>{data.room == null ? words("洞 —", "FM —") : words(`${data.room}洞`, "FM" + data.room)}</span>
           </span>
-          <span className="sv-caption">
-            {permit ? (
-              <>
-                <i className="sv-swatch" style={{ background: permit.color }} />
-                {words(permit.zh, permit.en)}
-              </>
-            ) : (
-              words("摊位位置未采集", "Stall not captured")
-            )}
+          <span className="sv-time">
+            <RelativeTime at={newest} />
+            {query.data && !data.stall && <> · {words("摊位位置未采集", "Stall not captured")}</>}
           </span>
         </div>
       </div>
@@ -204,7 +230,7 @@ function ShopCard({ stop, itemId }: { stop: ShopStop; itemId: number }) {
         <p className="sv-none">{words("这家店现在没有在售的货。", "Nothing is on sale in this shop now.")}</p>
       ) : (
         <>
-          <Info key={at} row={items[at]} itemId={itemId} shop={data} />
+          <Info key={at} row={items[at]} itemId={itemId} />
           <div className="sv-window">
             <div className="sv-window-bar">
               <span>{words("商店物品", "Store items")}</span>
@@ -235,6 +261,12 @@ function ShopCard({ stop, itemId }: { stop: ShopStop; itemId: number }) {
           </div>
         </>
       )}
+      {(stepping || (data.neighbors || []).length > 1) && (
+        <ul className="sv-hints">
+          {stepping && <li>{words("← → 或左右滑动：看卖同一件商品的其他店", "← → or swipe: other shops selling this item")}</li>}
+          {(data.neighbors || []).length > 1 && <li>{words("点地图上的摊位：看那家店的货", "Tap a stall on the map: see what it sells")}</li>}
+        </ul>
+      )}
     </div>
   );
 }
@@ -254,8 +286,25 @@ export default function ShopView({
   const words = useWords();
   const dialog = useRef<HTMLDialogElement>(null);
   const [index, setIndex] = useState(at);
+  // A stall picked on the map that does not sell this item: shown until the next step.
+  const [visit, setVisit] = useState<ShopStop | null>(null);
   const n = stops.length;
-  const step = (d: number) => n > 1 && setIndex((i) => (((i + d) % n) + n) % n);
+  const step = (d: number) => {
+    if (n < 2) return;
+    setVisit(null);
+    setIndex((i) => (((i + d) % n) + n) % n);
+  };
+  const pick = (stall: any) => {
+    const known = stops.findIndex((s) => s.key === stall.shop_key);
+    if (known >= 0) {
+      setVisit(null);
+      setIndex(known);
+    } else
+      setVisit({
+        key: stall.shop_key,
+        row: { shop: stall.title, owner_name: stall.owner_name },
+      });
+  };
   useEffect(() => {
     const element = dialog.current;
     if (element && !element.open) element.show();
@@ -275,7 +324,7 @@ export default function ShopView({
     };
   }, [n]);
   const touch = useRef<{ x: number; y: number } | null>(null);
-  const stop = stops[index];
+  const stop = visit || stops[index];
   if (!stop) return null;
   return (
     <>
@@ -305,7 +354,7 @@ export default function ShopView({
             <ChevronLeft aria-hidden="true" />
           </button>
           <span className="sv-count" aria-live="polite">
-            {words(`第 ${index + 1} / ${n} 家`, `Shop ${index + 1} of ${n}`)}
+            {visit ? words("同洞其他摊位", "Another stall here") : words(`第 ${index + 1} / ${n} 家`, `Shop ${index + 1} of ${n}`)}
           </span>
           <button type="button" className="sv-step" disabled={n < 2} onClick={() => step(1)} aria-label={words("下一家", "Next shop")}>
             <ChevronRight aria-hidden="true" />
@@ -314,7 +363,7 @@ export default function ShopView({
             <X aria-hidden="true" />
           </button>
         </div>
-        <ShopCard key={stop.key} stop={stop} itemId={itemId} />
+        <ShopCard key={stop.key} stop={stop} itemId={itemId} stepping={n > 1} onPick={pick} />
       </dialog>
     </>
   );

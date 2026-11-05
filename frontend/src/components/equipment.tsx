@@ -324,6 +324,8 @@ export type PieceOffer = {
   at?: number | null;
   expired?: boolean;
   sale?: boolean;
+  /** Shown inside the shop view, whose header already names the place, shop and owner. */
+  inShop?: boolean;
 };
 
 // Under the stats: the row's location, price, stock and time, so the phone
@@ -335,11 +337,11 @@ function Offer({ offer, words }: { offer: PieceOffer; words: Words }) {
       : [offer.place || words("位置未知", "Unknown location")];
   return (
     <div className={"eq-offer" + (offer.expired ? " expired" : "")} data-piece-offer>
-      <div className="eq-offer-loc">
+      {!offer.inShop && <div className="eq-offer-loc">
         {where.filter(Boolean).map((part, i) => (i ? <span key={i}>{part}</span> : <b key={i}>{part}</b>))}
         {offer.expired && <span className="eq-offer-tag">{words("已失效", "Expired")}</span>}
-      </div>
-      {(offer.shop || offer.owner) && (
+      </div>}
+      {!offer.inShop && (offer.shop || offer.owner) && (
         <div className="eq-offer-shop">
           {offer.shop && <span>{offer.shop}</span>}
           {offer.owner && <span>{words("摊主 ", "Owner ")}{offer.owner}</span>}

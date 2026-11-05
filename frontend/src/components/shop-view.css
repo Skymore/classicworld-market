@@ -15,18 +15,25 @@
 /* Map thumbnail beside the shop's name and place. */
 .sv-top{display:grid;grid-template-columns:minmax(0,11fr) minmax(0,9fr);gap:8px;align-items:start}
 .sv-map{position:relative;width:100%;max-width:100%;border:2px solid var(--edge);border-radius:2px;background:var(--hole);overflow:hidden}
-.sv-map img{display:block;width:100%;height:100%;object-fit:fill}
+.sv-map .sv-scene{display:block;width:100%;height:100%;object-fit:fill}
 .sv-nomap{display:grid;place-items:center;aspect-ratio:3/2;padding:4px;color:var(--hole-ink);font-size:12px;text-align:center}
-.sv-pin{position:absolute;transform:translate(-50%,-100%);pointer-events:none}
-.sv-pin i{display:block;width:12px;height:12px;background:var(--stall);border:2px solid var(--edge);border-radius:2px;box-shadow:0 0 0 2px #fff,0 0 0 3px var(--maple);animation:sv-ping 1.4s ease-out infinite}
-@keyframes sv-ping{0%{box-shadow:0 0 0 2px #fff,0 0 0 3px var(--maple)}70%{box-shadow:0 0 0 2px #fff,0 0 0 11px transparent}100%{box-shadow:0 0 0 2px #fff,0 0 0 3px transparent}}
-@media (prefers-reduced-motion:reduce){.sv-pin i{animation:none}}
+/* Each stall drawn as the game draws it, to the map's scale; the shop on show glows. */
+.sv-stall{position:absolute;transform:translate(-50%,-100%);display:block;padding:0;border:0;background:none;cursor:pointer;line-height:0}
+.sv-stall img{display:block;width:100%;height:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.45))}
+.sv-stall::after{content:"";position:absolute;inset:-4px}
+.sv-stall:hover img,.sv-stall:focus-visible img{filter:drop-shadow(0 0 2px #fff) drop-shadow(0 0 3px var(--mark))}
+.sv-stall:focus-visible{outline:none}
+.sv-stall.here{z-index:3;cursor:default}
+.sv-stall.here img{filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px var(--maple)) drop-shadow(0 0 4px var(--maple));animation:sv-glow 1.4s ease-in-out infinite alternate}
+@keyframes sv-glow{from{opacity:1}to{opacity:.72}}
+@media (prefers-reduced-motion:reduce){.sv-stall.here img{animation:none}}
 .sv-who{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}
-.sv-who h2{font-size:15px;font-weight:700;line-height:1.25;overflow-wrap:anywhere}
+.sv-who h2{display:flex;align-items:flex-start;gap:5px;font-size:15px;font-weight:700;line-height:1.25;overflow-wrap:anywhere}
+.sv-who svg{flex:none;width:14px;height:14px;margin-top:2px;stroke-width:2;color:var(--ink-3)}
+.sv-owner{display:flex;align-items:center;gap:5px}
+.sv-owner svg{margin-top:0}
 .sv-who>span{font-size:12px;color:var(--ink-3)}
 .sv-who b{color:var(--ink-2)}
-.sv-caption{display:flex;align-items:center;gap:5px}
-.sv-swatch{flex:none;width:12px;height:12px;border:1px solid var(--edge);border-radius:2px}
 /* The selected good, in the game's tooltip colours (as the quick preview). */
 .sv-info{background:#1b2231;color:#eef1f6;border:2px solid #8199bb;border-radius:2px;padding:6px 8px;font-size:12.5px;line-height:1.5;font-variant-numeric:tabular-nums}
 .sv-info-head{display:flex;align-items:center;gap:8px}
@@ -56,6 +63,8 @@
 .sv-good small{font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .sv-slot{position:relative;display:block}
 .sv-slot i{position:absolute;right:1px;bottom:-1px;font-style:normal;font-size:10px;font-weight:700;color:#fff;text-shadow:0 0 2px #000,0 0 2px #000,0 0 2px #000;font-variant-numeric:tabular-nums}
+.sv-hints{list-style:none;margin:0;padding:0 2px;display:grid;gap:2px;font-size:12px;color:var(--ink-3)}
+.sv-hints li::before{content:"· "}
 .sv-none{padding:14px 8px;color:var(--ink-3);font-size:13px;text-align:center}
 @media (max-width:640px){
   .sv-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px)}
@@ -69,7 +78,7 @@
   .sv-top{grid-area:top}
   .sv-info{grid-area:info}
   .sv-window{grid-area:goods}
-  .sv-card>.sv-none{grid-column:1/-1}
+  .sv-card>.sv-none,.sv-card>.sv-hints{grid-column:1/-1}
 }
 /* Offer rows that open the shop view are buttons as a whole. */
 .market-record[data-shop-row]{cursor:pointer}

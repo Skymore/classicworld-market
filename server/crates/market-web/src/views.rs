@@ -646,9 +646,10 @@ pub async fn shop_view(db: &PgPool, key: &str) -> sqlx::Result<Option<Value>> {
     .fetch_one(db)
     .await?;
     let stall = sqlx::query(
-        "SELECT stall_x,stall_y,stall_permit,extract(epoch FROM stall_seen_at)::float8 AS seen
-         FROM shops WHERE id = ANY($1) AND stall_seen_at IS NOT NULL
-         ORDER BY stall_seen_at DESC LIMIT 1",
+        "SELECT s.stall_x,s.stall_y,s.stall_permit,extract(epoch FROM s.stall_seen_at)::float8 AS seen
+         FROM shops s
+         WHERE s.id = ANY($1) AND s.stall_seen_at IS NOT NULL
+         ORDER BY s.stall_seen_at DESC LIMIT 1",
     )
     .bind(&family)
     .fetch_optional(db)
@@ -657,6 +658,37 @@ pub async fn shop_view(db: &PgPool, key: &str) -> sqlx::Result<Option<Value>> {
         json!({"x": r.get::<i16,_>("stall_x"), "y": r.get::<i16,_>("stall_y"),
                "permit": r.get::<i32,_>("stall_permit"), "seen": r.get::<f64,_>("seen")})
     });
+    // The other stalls of the same room and channel, so the map shows the
+    // whole room: a stall read in the last day, of a shop with goods on sale,
+    // one per owner (their newest instance).
+    let channel: Option<i16> = head.get("channel");
+    let room: Option<i16> = head.get("room");
+    let mut neighbors: Vec<Value> = Vec::new();
+    if let (Some(channel), Some(room)) = (channel, room) {
+        neighbors = sqlx::query(
+            "SELECT DISTINCT ON (COALESCE(s.owner_character_id::text, s.id::text))
+                    s.public_key,s.title,s.owner_name,s.stall_x,s.stall_y,s.stall_permit
+             FROM shops s
+             WHERE s.world=$1 AND s.channel=$2 AND s.room=$3 AND s.stall_seen_at IS NOT NULL
+               AND s.stall_seen_at >= now() - interval '24 hours'
+               AND EXISTS (SELECT 1 FROM listings l WHERE l.shop_id=s.id AND l.stock>0)
+             ORDER BY COALESCE(s.owner_character_id::text, s.id::text), s.stall_seen_at DESC
+             LIMIT 200",
+        )
+        .bind(WORLD)
+        .bind(channel)
+        .bind(room)
+        .fetch_all(db)
+        .await?
+        .iter()
+        .map(|r| {
+            json!({"shop_key": r.get::<String,_>("public_key"), "title": r.get::<String,_>("title"),
+                   "owner_name": r.get::<Option<String>,_>("owner_name"),
+                   "x": r.get::<i16,_>("stall_x"), "y": r.get::<i16,_>("stall_y"),
+                   "permit": r.get::<i32,_>("stall_permit")})
+        })
+        .collect();
+    }
     let scene = head
         .get::<Option<String>, _>("scene_url")
         .map(|url| {
@@ -675,6 +707,7 @@ pub async fn shop_view(db: &PgPool, key: &str) -> sqlx::Result<Option<Value>> {
             "name_en": head.get::<Option<String>,_>("map_name_en"), "scene": scene,
         })),
         "stall": stall,
+        "neighbors": neighbors,
         "items": rows,
     })))
 }
