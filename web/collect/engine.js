@@ -13,7 +13,7 @@ const TOKEN_KEY = 'cwm.collector.token';
 const RETRY_MS = [5000, 15000, 60000, 300000];
 
 export function createCollector() {
-let disposed=false;const lifetime=new AbortController();const listeners=new Set();let state={ver:"读取器加载中…",phase:"未开始",canStart:false,active:false,canSnap:false,error:"",fps:"–",find:"–",read:"–",scale:"–",channel:"未读到",map:"未读到",sent:"0 家店",shopId:"未打开商店",shop:null,rows:[],rejected:[],meter:0,done:false,waiting:"",logs:[],frames:[]};
+let disposed=false;const lifetime=new AbortController();const listeners=new Set();let state={ver:"读取器加载中…",phase:"未开始",canStart:false,active:false,canSnap:false,error:"",fps:"–",find:"–",read:"–",scale:"–",channel:"未读到",map:"未读到",sent:"0 家店",shopId:"未打开商店",shop:null,rows:[],rejected:[],meter:0,done:false,waiting:"",logs:[],frames:[],mode:"",progress:0,position:""};
 const update=patch=>{if(disposed)return;state={...state,...patch};for(const fn of listeners)fn();};
 // ---------------------------------------------------------------- small helpers
 const fmt = (n) => Number(n).toLocaleString('en-US');
@@ -220,23 +220,92 @@ async function start() {
     busy: false, sentAt: -Infinity, lock: undefined, ticks: new Rate(), finds: new Rate(), wasSeen: true,
   };
   session = s;
-  worker.onmessage = (ev) => {
-    const m = ev.data;
-    s.busy = false;
-    if (m.type === 'error') { say(m.message, 'err'); return; }
-    if (m.type !== 'step' || !m.step) return;
+  worker.onmessage = (ev) => onStep(s, ev.data);
+  stream.getVideoTracks()[0].addEventListener('ended', stop);
+  s.ticker.onmessage = () => tick(s);
+  s.ticker.postMessage({ every: TICK_MS });
+  update({active:true,canSnap:true,canStart:false,mode:'screen'});
+  update({phase:'读取中'});
+  say('开始读取：画面只在本机处理');
+}
+
+function onStep(s, m) {
+  s.busy = false;
+  const done = s.waiting; s.waiting = null;
+  if (m.type === 'error') say(m.message, 'err');
+  else if (m.type === 'step' && m.step) {
     renderStep(m.step, m.ms);
     for (const snap of m.step.snapshots) {
       say('商店内容稳定，准备上传：' + shopLabel(snap) + '，' + snap.rows.length + ' 行');
       enqueue(snap);
     }
+  }
+  if (done) done();
+}
+
+// ---------------------------------------------------------------- a recorded video, read on this PC
+// The video is stepped through by seeking: 4 frames a second while a shop window is open, 2 otherwise.
+// A frame's time is the recording's: the file's last change is taken as the end of the recording.
+const VIDEO_STEP_S = 0.5, VIDEO_SHOP_STEP_S = 0.25;
+const clockText = (t) => { t = Math.max(0, Math.floor(t)); const m = Math.floor(t / 60), h = Math.floor(m / 60); return (h ? h + ':' + String(m % 60).padStart(2, '0') : m) + ':' + String(t % 60).padStart(2, '0'); };
+function failVideo(text) { update({ canStart: true }); showError(text); }
+async function readVideo(file) {
+  if (session || !state.canStart || disposed || !file) return;
+  update({ canStart: false }); showError('');
+  let worker;
+  try { worker = await startWorker(); } catch (e) { failVideo(e.message); return; }
+  const url = URL.createObjectURL(file);
+  const video = el('video', { playsinline: '', muted: '', preload: 'auto' });
+  video.muted = true; video.src = url;
+  video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-10px;top:-10px';
+  document.body.append(video);
+  const cleanup = () => { worker.terminate(); video.removeAttribute('src'); video.load(); video.remove(); URL.revokeObjectURL(url); };
+  try {
+    await new Promise((resolve, reject) => { video.onloadedmetadata = resolve; video.onerror = () => reject(new Error('浏览器打不开这个视频，请用 MP4 或 WebM')); });
+  } catch (e) { cleanup(); failVideo(e.message); return; }
+  const duration = Number.isFinite(video.duration) ? video.duration : 0;
+  if (!duration || !video.videoWidth) { cleanup(); failVideo('这个视频没有画面或长度'); return; }
+  const start = Math.min(Date.now(), file.lastModified || Date.now()) - duration * 1000;
+  if (Date.now() - start > 29 * 86400 * 1000) { cleanup(); failVideo('录像超过 29 天，服务器不收这么旧的报价'); return; }
+  const s = {
+    worker, source: { frame: () => ({ image: video, w: video.videoWidth, h: video.videoHeight }), stop: cleanup },
+    stream: { getTracks: () => [] }, ticker: { terminate() {} }, video: true,
+    canvas: null, ctx: null, view: null, viewAt: -Infinity, thumb: null,
+    busy: false, sentAt: -Infinity, lock: undefined, ticks: new Rate(), finds: new Rate(), wasSeen: true, waiting: null,
   };
-  stream.getVideoTracks()[0].addEventListener('ended', stop);
-  s.ticker.onmessage = () => tick(s);
-  s.ticker.postMessage({ every: TICK_MS });
-  update({active:true,canSnap:true,canStart:false});
-  update({phase:'读取中'});
-  say('开始读取：画面只在本机处理');
+  session = s;
+  worker.onmessage = (ev) => onStep(s, ev.data);
+  const send = (img, ts) => new Promise((resolve) => {
+    s.waiting = resolve; s.busy = true;
+    worker.postMessage({ type: 'frame', buffer: img.data.buffer, width: img.width, height: img.height, ts }, [img.data.buffer]);
+  });
+  update({ active: true, canSnap: true, mode: 'video', phase: '读取录像', progress: 0, position: '0:00 / ' + clockText(duration) });
+  say('开始读取录像 ' + file.name + '（' + clockText(duration) + '）：画面只在本机处理');
+  let t = 0, last = -Infinity;
+  while (session === s && t <= duration) {
+    await new Promise((resolve) => { video.onseeked = resolve; video.currentTime = Math.min(t, Math.max(0, duration - 0.05)); });
+    if (session !== s) break;
+    const img = grab(s, t * 1000);
+    if (!img) break;
+    let found;
+    try { found = findWindow(img.data, img.width, img.height, s.lock); } catch (e) { say('找窗口出错：' + e.message, 'err'); break; }
+    const w = found.window;
+    if (w && w.rows.length >= 3) s.lock = w.ui_scale;
+    keepFrame(s.canvas, t * 1000).catch(() => {});
+    const seen = found.cues.game_seen, edge = seen !== s.wasSeen;
+    s.wasSeen = seen;
+    if (w || edge || t - last >= 1) { last = t; await send(img, start + t * 1000); }
+    update({ phase: !seen ? '黑屏' : w ? '商店已打开' : '读取录像', progress: t / duration, position: clockText(t) + ' / ' + clockText(duration) });
+    t += w ? VIDEO_SHOP_STEP_S : VIDEO_STEP_S;
+  }
+  if (session === s) {
+    // A shop still open when the video ends stayed as it was: one more frame past the 2 s wait.
+    const tail = grab(s, duration * 1000);
+    if (tail) await send(tail, start + duration * 1000 + 2500);
+    update({ progress: 1 });
+    say('录像读完：' + file.name, 'ok');
+    stop();
+  }
 }
 
 function stop() {
@@ -247,15 +316,16 @@ function stop() {
   s.worker.terminate();
   s.source.stop();
   s.stream.getTracks().forEach((t) => t.stop());
-  update({active:false,canStart:true});
-  update({phase:'已停止'});
-  say('已停止读取');
+  if (s.waiting) { const done = s.waiting; s.waiting = null; done(); }
+  update({active:false,canStart:true,mode:''});
+  update({phase:s.video?'录像已读完':'已停止'});
+  say(s.video?'已停止读取录像':'已停止读取');
 }
 
-function grab(s) {
+function grab(s, at) {
   const f = s.source.frame();
   if (!f) return null;
-  const now = clock();
+  const now = at ?? clock();
   // The picture's box is looked at again every 2 s (black bars appear, the window is resized).
   if (!s.view || now - s.viewAt > 2000 || s.view.src !== f.w + 'x' + f.h) {
     const tw = 192, th = Math.max(8, Math.round(192 * f.h / f.w));
@@ -300,8 +370,7 @@ function tick(s) {
   s.worker.postMessage({ type: 'frame', buffer: img.data.buffer, width: img.width, height: img.height, ts: Date.now() }, [img.data.buffer]);
 }
 
-async function uploadVideo(data){try{const response=await fetch('/api/v1/upload/video',{method:'POST',body:data,signal:lifetime.signal});say(response.ok?'录像已上传':'录像上传失败（HTTP '+response.status+'）：服务端还没有这个接口',response.ok?'ok':'err');}catch(error){say('录像上传失败：'+error.message,'err');}}
-async function initialize(){try{await init({module_or_path:new URL('./pkg/market_reader_wasm_bg.wasm?v=20261023-channels-v2',import.meta.url)});if(disposed)return;update({ver:'读取器 '+version()});if(!navigator.mediaDevices?.getDisplayMedia)showError('这个浏览器不能共享屏幕。请用电脑上的 Chrome、Edge 或 Firefox。');else update({canStart:true});}catch(error){update({ver:'读取器加载失败'});showError('WASM 读取器加载失败：'+error.message+'。请先运行 server/tools/build_reader_wasm.sh。');}}
+async function initialize(){try{await init({module_or_path:new URL('./pkg/market_reader_wasm_bg.wasm?v=20261023-channels-v2',import.meta.url)});if(disposed)return;update({ver:'读取器 '+version()});update({canStart:true});}catch(error){update({ver:'读取器加载失败'});showError('WASM 读取器加载失败：'+error.message+'。请先运行 server/tools/build_reader_wasm.sh。');}}
 void initialize();
-return {subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn);},getSnapshot:()=>state,start,stop,showRing,downloadRing,uploadVideo,dispose(){stop();disposed=true;lifetime.abort();clearTimeout(uploads.timer);ring.forEach(frame=>frame.image.close());state.frames.forEach(frame=>frame.image.close());listeners.clear();}};
+return {subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn);},getSnapshot:()=>state,start,stop,showRing,downloadRing,readVideo,canShare:!!navigator.mediaDevices?.getDisplayMedia,dispose(){stop();disposed=true;lifetime.abort();clearTimeout(uploads.timer);ring.forEach(frame=>frame.image.close());state.frames.forEach(frame=>frame.image.close());listeners.clear();}};
 }

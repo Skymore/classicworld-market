@@ -177,3 +177,39 @@ async fn older_equipment_parser_can_enrich_owner_without_rewriting_equipment() {
     assert_eq!(before, after);
     db.close().await;
 }
+#[tokio::test]
+async fn stall_follows_the_newest_reading_and_the_shop_view_lists_the_family() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let a = db.collector("a").await;
+    let now = unix_now();
+    let mut first = visit("stall-1", 3052, now - 60., true);
+    first["stall"] = json!({"x":444,"y":-416,"permit":5140002,"parser":"cw_stall_v1"});
+    first["items"] = json!([{"item_id":4010001,"slot":1,"price":500,"bundle":1,"stock":8},
+                            {"item_id":2040001,"slot":2,"price":9000,"bundle":1,"stock":1}]);
+    send(&db, &a, &first, false).await.unwrap();
+    // An older reading arriving late never moves the stall back.
+    let mut late = visit("stall-0", 3052, now - 120., true);
+    late["stall"] = json!({"x":10,"y":34,"permit":5140000,"parser":"cw_stall_v1"});
+    send(&db, &a, &late, false).await.unwrap();
+    let key: String = sqlx::query_scalar("SELECT public_key FROM shops WHERE shop_id=3052")
+        .fetch_one(&db.pool)
+        .await
+        .unwrap();
+    let view = market_web::views::shop_view(&db.pool, &key).await.unwrap().unwrap();
+    assert_eq!(view["stall"]["x"], 444);
+    assert_eq!(view["stall"]["permit"], 5140002);
+    assert_eq!(view["room"], 6);
+    assert_eq!(view["items"].as_array().unwrap().len(), 2);
+    // A screen upload may not claim a stall; an unknown parser is refused.
+    let mut screen = visit("screen", 3052, now, false);
+    screen["source"] = json!("screen");
+    screen["stall"] = json!({"x":1,"y":2,"permit":5140002,"parser":"cw_stall_v1"});
+    assert!(validate(&screen, now).is_err());
+    let mut odd = visit("odd", 3052, now, true);
+    odd["stall"] = json!({"x":1,"y":2,"permit":5000004,"parser":"cw_stall_v1"});
+    assert!(validate(&odd, now).is_err());
+    assert!(market_web::views::shop_view(&db.pool, "missing").await.unwrap().is_none());
+    db.close().await;
+}

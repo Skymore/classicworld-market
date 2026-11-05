@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Store, UserRound } from "lucide-react";
+import { MapPin, Store, UserRound } from "lucide-react";
 import { useWords } from "../providers";
 import { Slot, ItemNames, Price, RelativeTime, InfoTip } from "./shared";
 import { SiteLink } from "./shell";
@@ -96,6 +96,7 @@ export function OfferRow({
   hideIdentity = false,
   plain = false,
   detail,
+  onShop,
 }: {
   row: any;
   item?: any;
@@ -105,6 +106,8 @@ export function OfferRow({
   plain?: boolean;
   /** Replaces the captured-stat summary, e.g. when a group header already shows the shared stats. */
   detail?: string;
+  /** Opens the shop view for this row's shop (local shops only). */
+  onShop?: () => void;
 }) {
   const words = useWords();
   const equip = detail ?? equipmentSummary(row, document.documentElement.lang === "en");
@@ -148,6 +151,18 @@ export function OfferRow({
         )}
         <span className="record-meta">
           <Location value={row.location} shop={row.shop || null} owner={row.owner_name} />
+          {onShop && row.shop_key && !String(row.shop_key).includes(":") && (
+            <button
+              type="button"
+              className="record-stall"
+              data-no-preview=""
+              aria-label={words("看这家店的位置和全部货品", "Show this shop: where it is and everything it sells")}
+              title={words("摊位", "Shop")}
+              onClick={(event) => { event.preventDefault(); event.stopPropagation(); onShop(); }}
+            >
+              <MapPin aria-hidden="true" />
+            </button>
+          )}
           {row.invalidated_at && <span className="quote-expired" title={new Date(row.invalidated_at).toLocaleString()}>{words("已失效", "Expired")}</span>}
           {row.bundle > 1 && (
             <span className="record-bundle">

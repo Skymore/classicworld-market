@@ -47,6 +47,12 @@ def validate(data, now=None):
             raise ValueError('Invalid shop owner')
         result['owner']=dict(character_id=integer(owner['character_id'],1,2**32-1),
                             name=text(owner['name'],24),parser='cw_shop_owner_v1')
+    stall=data.get('stall')
+    if stall is not None:
+        if not isinstance(stall,dict) or stall.get('parser')!='cw_stall_v1':
+            raise ValueError('Invalid shop stall')
+        result['stall']=dict(x=integer(stall['x'],-32768,32767),y=integer(stall['y'],-32768,32767),
+                             permit=integer(stall['permit'],5140000,5149999),parser='cw_stall_v1')
     if not isinstance(data['items'],list) or len(data['items'])>200:
         raise ValueError('Too many items')
     slots=set()
@@ -96,4 +102,6 @@ def from_snapshot(data, location=None, now=None):
             equipment=decode_equipment(row.get('raw_record_hex',''),row['item_id'])))
     if data.get('owner') is not None:
         payload['owner']=data['owner']
+    if data.get('stall') is not None:
+        payload['stall']=data['stall']
     return validate(payload,now=now)

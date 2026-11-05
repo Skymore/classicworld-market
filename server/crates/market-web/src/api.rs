@@ -78,6 +78,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/enhancement/scrolls/{id}", get(enhancement_scrolls))
         .route("/api/v1/crafting/prices", get(crafting_prices))
         .route("/api/v1/item/{id}", get(item_page))
+        .route("/api/v1/shop", get(shop_view))
         .route("/api/v1/watchlist/catalog", get(watch_catalog))
         .route("/api/v1/watchlist/listings", get(watch_listings))
         .route("/api/v1/collector/alerts", get(crate::alerts::personal))
@@ -924,6 +925,28 @@ async fn item_record(
     };
     match views::item_record(&state.db, id).await {
         Ok(Some(record)) => Json(record).into_response(),
+        Ok(None) => error(StatusCode::NOT_FOUND, "Not found"),
+        Err(err) => internal(err),
+    }
+}
+
+async fn shop_view(
+    State(state): State<AppState>,
+    ClientAddr(addr): ClientAddr,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    if let Err(response) = require_member_unless_public(&state, &headers, "请登录").await {
+        return response;
+    }
+    if !state.limiter.allow(&format!("shop-view:{addr}"), 120) {
+        return error(StatusCode::TOO_MANY_REQUESTS, "Rate limited");
+    }
+    let Some(key) = query_param(&query, "key").filter(|k| !k.is_empty() && k.len() <= 128) else {
+        return error(StatusCode::BAD_REQUEST, "Missing shop key");
+    };
+    match views::shop_view(&state.db, &key).await {
+        Ok(Some(value)) => Json(value).into_response(),
         Ok(None) => error(StatusCode::NOT_FOUND, "Not found"),
         Err(err) => internal(err),
     }

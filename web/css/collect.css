@@ -87,3 +87,19 @@
 .c-file{display:grid;gap:6px;min-width:0;max-width:100%;font-size:13px;color:var(--ink-2)}
 .c-file input{max-width:100%;min-height:44px;font:inherit;font-size:14px;color:var(--ink-2)}
 .c-file input::file-selector-button{min-height:44px;margin-right:10px;padding:0 14px;border:2px solid var(--edge);border-radius:2px;background:var(--sheet-hi);color:var(--ink);font:inherit;font-weight:700;box-shadow:inset 1px 1px 0 var(--bevel-hi),inset -1px -1px 0 var(--bevel-lo),var(--hard);cursor:pointer}
+
+/* 两种来源：共享屏幕 / 读取录像，各一格；正在用的那格描边 */
+.c-sources{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (max-width:420px){.c-sources{grid-template-columns:minmax(0,1fr)}}
+.c-source{display:flex;flex-direction:column;gap:6px;min-width:0;padding:10px;background:var(--sheet-hi);border:1px solid var(--rule);border-radius:2px;box-shadow:inset 1px 1px 0 var(--bevel-hi)}
+.c-source.on{border:2px solid var(--bar);padding:9px}
+.c-source b{font-size:15px}
+.c-source span{flex:1;font-size:13px;color:var(--ink-2)}
+.c-source .btn{align-self:flex-start}
+.c-source label.btn{position:relative;cursor:pointer}
+.c-source label.btn.disabled{opacity:.5;cursor:default}
+.c-source label.btn input{position:absolute;inset:0;opacity:0;cursor:inherit;width:100%;font-size:16px}
+.c-source label.btn:focus-within{outline:2px solid var(--mark);outline-offset:2px}
+.c-running{display:flex;align-items:center;gap:10px}
+.c-running .c-meter{flex:1}
+.c-position{font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}

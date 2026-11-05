@@ -35,6 +35,7 @@ import { Location, OfferRow, SaleKindsHelp } from "../components/list-rows";
 import { EquipmentStrip } from "../components/equipment";
 import { SiteLink } from "../components/shell";
 import OfferFilterDialog from "../components/offer-filters";
+import ShopView, { type ShopStop } from "../components/shop-view";
 import { Well, MobPicture, QuestRows, Secondary, useNames } from "./catalogue";
 import Crafting from "../components/crafting";
 import ItemTrend from "../components/item-trend";
@@ -356,6 +357,7 @@ export default function Item({ page }: { page: any }) {
     [groupPages, setGroupPages] = useState<Record<string, number>>({}),
     [filterOpen, setFilterOpen] = useState(false),
     [maxDraft, setMaxDraft] = useState(""),
+    [shopView, setShopView] = useState<{ stops: ShopStop[]; at: number } | null>(null),
     [, tick] = useState(0);
   const opener = useRef<HTMLButtonElement>(null);
   const itemHead = useRef<HTMLDivElement>(null);
@@ -575,6 +577,27 @@ export default function Item({ page }: { page: any }) {
       )}
     </>
   );
+  // The shops in the order the page shows them (stat groups reorder rows), then
+  // the rest of the list; one stop per shop.
+  const openShop = (row: any) => {
+    const stops: ShopStop[] = [],
+      seen = new Set<string>(),
+      byKey = new Map(list.map((r: any) => [r.key, r]));
+    const shown = [...document.querySelectorAll<HTMLElement>("[data-quote]")]
+      .map((element) => byKey.get(element.dataset.quote || ""))
+      .filter(Boolean);
+    for (const r of [...shown, ...list]) {
+      if (r.invalidated_at || !r.shop_key || String(r.shop_key).includes(":") || seen.has(r.shop_key)) continue;
+      seen.add(r.shop_key);
+      stops.push({ key: r.shop_key, row: r });
+    }
+    let at = stops.findIndex((stop) => stop.key === row.shop_key);
+    if (at < 0) {
+      stops.unshift({ key: row.shop_key, row });
+      at = 0;
+    }
+    setShopView({ stops, at });
+  };
   function quote(row: any, detail?: string) {
     const stale = Date.now() / 1000 - row.observed > 48 * 3600,
       content = (
@@ -582,6 +605,7 @@ export default function Item({ page }: { page: any }) {
           plain
           hideIdentity
           detail={detail}
+          onShop={() => openShop(row)}
           row={{
             ...row,
             id: row.key,
@@ -1660,6 +1684,14 @@ export default function Item({ page }: { page: any }) {
             </Well>
           </div>
         </div>
+        {shopView && (
+          <ShopView
+            stops={shopView.stops}
+            at={shopView.at}
+            itemId={item.id}
+            onClose={() => setShopView(null)}
+          />
+        )}
         <OfferFilterDialog
           open={filterOpen}
           onClose={() => {

@@ -189,6 +189,9 @@ async fn ingest_one(
     }
     insert_rows(tx, observation, upload, &variants).await?;
     bind_owner(tx, shop, observation, upload.owner.as_ref()).await?;
+    if let Some(stall) = upload.stall {
+        bind_stall(tx, shop, stall, observed).await?;
+    }
     sqlx::query("INSERT INTO uploads_raw (collector_id, observation_id, received_at, body) VALUES ($1, $2, to_timestamp($3), $4)")
         .bind(input.collector.id)
         .bind(&upload.observation_id)
@@ -462,6 +465,27 @@ async fn bind_owner(
     .bind(id)
     .bind(name)
     .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
+/// The newest stall reading wins; a late upload never moves a shop back.
+async fn bind_stall(
+    conn: &mut PgConnection,
+    shop: i64,
+    stall: market_core::protocol::Stall,
+    observed: f64,
+) -> sqlx::Result<()> {
+    sqlx::query(
+        "UPDATE shops SET stall_x=$2,stall_y=$3,stall_permit=$4,stall_seen_at=to_timestamp($5)
+        WHERE id=$1 AND (stall_seen_at IS NULL OR stall_seen_at<=to_timestamp($5))",
+    )
+    .bind(shop)
+    .bind(stall.x)
+    .bind(stall.y)
+    .bind(stall.permit as i32)
+    .bind(observed)
+    .execute(conn)
     .await?;
     Ok(())
 }

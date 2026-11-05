@@ -582,6 +582,103 @@ async fn quotes(db: &PgPool, items: &[i32], cutoff: f64) -> sqlx::Result<Vec<Map
     Ok(result)
 }
 
+/// One shop's live goods, its place and its stall (`/api/v1/shop?key=`).
+/// A known owner's shop is one shop whatever title or room it had: the
+/// family's live rows are only ever the newest instance's (ingest keeps it
+/// so). The stall is the newest reading in the family.
+pub async fn shop_view(db: &PgPool, key: &str) -> sqlx::Result<Option<Value>> {
+    let Some(shop) = sqlx::query(
+        "SELECT id, world, owner_character_id FROM shops WHERE public_key=$1
+         ORDER BY last_seen_at DESC LIMIT 1",
+    )
+    .bind(key)
+    .fetch_optional(db)
+    .await?
+    else {
+        return Ok(None);
+    };
+    let id: i64 = shop.get("id");
+    let owner: Option<i64> = shop.get("owner_character_id");
+    let family: Vec<i64> = match owner {
+        Some(owner) => {
+            sqlx::query_scalar("SELECT id FROM shops WHERE world=$1 AND owner_character_id=$2")
+                .bind(shop.get::<String, _>("world"))
+                .bind(owner)
+                .fetch_all(db)
+                .await?
+        }
+        None => vec![id],
+    };
+    let sql = format!(
+        "SELECT {} FROM listings l
+         JOIN LATERAL (
+           SELECT public_key,title,owner_name,shop_id,channel,room,last_seen_at
+           FROM shops WHERE id=l.shop_id OFFSET 0
+         ) sh ON true
+         JOIN LATERAL (
+           SELECT visit_key,observed_at,map_channel,map_id,source
+           FROM observations WHERE id=l.observation_id OFFSET 0
+         ) o ON true
+         JOIN items i ON i.id = l.item_id LEFT JOIN equipment_variants v ON v.id = l.variant_id
+         WHERE l.shop_id = ANY($1) AND l.stock > 0
+         ORDER BY l.slot",
+        row_columns("l")
+    );
+    let rows: Vec<Value> = sqlx::query(&sql)
+        .bind(&family)
+        .fetch_all(db)
+        .await?
+        .iter()
+        .map(|r| Value::Object(row_json(r)))
+        .collect();
+    // The instance the goods come from, else the one asked for.
+    let head = sqlx::query(
+        "SELECT s.public_key,s.title,s.owner_name,s.channel,s.room,
+                extract(epoch FROM s.last_seen_at)::float8 AS last_seen,
+                m.id AS map_id,m.name_zh AS map_name_zh,m.name_en AS map_name_en,
+                m.scene_url,m.scene_x,m.scene_y,m.scene_w,m.scene_h
+         FROM shops s LEFT JOIN maps m ON m.id = 80002000 + s.room
+         WHERE s.id = ANY($1)
+         ORDER BY (EXISTS(SELECT 1 FROM listings l WHERE l.shop_id=s.id AND l.stock>0)) DESC,
+                  s.last_seen_at DESC LIMIT 1",
+    )
+    .bind(&family)
+    .fetch_one(db)
+    .await?;
+    let stall = sqlx::query(
+        "SELECT stall_x,stall_y,stall_permit,extract(epoch FROM stall_seen_at)::float8 AS seen
+         FROM shops WHERE id = ANY($1) AND stall_seen_at IS NOT NULL
+         ORDER BY stall_seen_at DESC LIMIT 1",
+    )
+    .bind(&family)
+    .fetch_optional(db)
+    .await?
+    .map(|r| {
+        json!({"x": r.get::<i16,_>("stall_x"), "y": r.get::<i16,_>("stall_y"),
+               "permit": r.get::<i32,_>("stall_permit"), "seen": r.get::<f64,_>("seen")})
+    });
+    let scene = head
+        .get::<Option<String>, _>("scene_url")
+        .map(|url| {
+            json!({"url": url, "x": head.get::<Option<i32>,_>("scene_x"), "y": head.get::<Option<i32>,_>("scene_y"),
+                   "w": head.get::<Option<i32>,_>("scene_w"), "h": head.get::<Option<i32>,_>("scene_h")})
+        });
+    Ok(Some(json!({
+        "shop_key": head.get::<String,_>("public_key"),
+        "title": head.get::<String,_>("title"),
+        "owner_name": head.get::<Option<String>,_>("owner_name"),
+        "channel": head.get::<Option<i16>,_>("channel"),
+        "room": head.get::<Option<i16>,_>("room"),
+        "last_seen": head.get::<f64,_>("last_seen"),
+        "map": head.get::<Option<i32>,_>("map_id").map(|id| json!({
+            "id": id, "name_zh": head.get::<Option<String>,_>("map_name_zh"),
+            "name_en": head.get::<Option<String>,_>("map_name_en"), "scene": scene,
+        })),
+        "stall": stall,
+        "items": rows,
+    })))
+}
+
 /// Observations of one item in `?item_id=` history.
 pub const HISTORY_LIMIT: i64 = 500;
 

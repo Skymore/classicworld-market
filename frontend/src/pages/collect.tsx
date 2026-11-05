@@ -36,7 +36,7 @@ export default function Collect() {
       <section className="stall c-hero" aria-labelledby="h-page">
         <div className="c-hero-text">
           <h1 id="h-page">浏览器采集</h1>
-          <p>在电脑上共享游戏窗口，逛摊时读到的商店会自动上传到市集。</p>
+          <p>共享游戏窗口，或选一段逛摊录像，读到的商店会上传到市集。</p>
           <p>
             <SiteLink className="btn" href="/web/download.html">
               下载 Windows 采集器
@@ -47,11 +47,11 @@ export default function Collect() {
             <span id="ver">{state.ver}</span>
           </p>
         </div>
-        {!navigator.mediaDevices?.getDisplayMedia && (
+        {!collector.canShare && (
           <div className="verdict c-device">
-            <b>电脑专用</b>
+            <b>只能读录像</b>
             <strong>这个浏览器不能共享屏幕</strong>
-            <small>请在电脑上用 Chrome、Edge 或 Firefox 打开这个页面。</small>
+            <small>共享屏幕请在电脑上用 Chrome、Edge 或 Firefox；录像在这里也能读。</small>
           </div>
         )}
       </section>
@@ -64,31 +64,58 @@ export default function Collect() {
             </span>
           </div>
           <div className="stall-body c-body">
-            <p className="c-note">
-              画面只在本机读取，<b>不会上传视频或截图</b>。读到的商店在内容稳定
-              2 秒后上传：物品、价格、每组数量、频道和洞号。
-            </p>
-            <div className="c-actions">
-              <button
-                className="btn primary"
-                id="start"
-                type="button"
-                disabled={!state.canStart}
-                hidden={state.active}
-                onClick={() => void collector.start()}
-              >
-                共享游戏窗口
-              </button>
-              <button
-                className="btn"
-                id="stop"
-                type="button"
-                hidden={!state.active}
-                onClick={() => collector.stop()}
-              >
-                停止
-              </button>
+            <div className="c-sources">
+              <div className={"c-source" + (state.mode === "screen" ? " on" : "")}>
+                <b>共享屏幕</b>
+                <span>边逛边读，每家店内容稳定 2 秒后上传。</span>
+                <button
+                  className="btn primary"
+                  id="start"
+                  type="button"
+                  disabled={!state.canStart || !collector.canShare}
+                  hidden={state.active}
+                  onClick={() => void collector.start()}
+                >
+                  共享游戏窗口
+                </button>
+              </div>
+              <div className={"c-source" + (state.mode === "video" ? " on" : "")}>
+                <b>读取录像</b>
+                <span>选一段逛摊录像（MP4 / WebM），在本机逐帧读。</span>
+                <label className={"btn" + (!state.canStart || state.active ? " disabled" : "")} hidden={state.active}>
+                  选择录像
+                  <input
+                    id="video-file"
+                    type="file"
+                    accept="video/*"
+                    disabled={!state.canStart || state.active}
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.[0];
+                      event.currentTarget.value = "";
+                      if (file) void collector.readVideo(file);
+                    }}
+                  />
+                </label>
+              </div>
             </div>
+            {state.active && (
+              <div className="c-running">
+                {state.mode === "video" && (
+                  <>
+                    <div className="c-meter" title="录像读取进度">
+                      <i style={{ width: Math.round(state.progress * 100) + "%" }} />
+                    </div>
+                    <span className="c-position">{state.position}</span>
+                  </>
+                )}
+                <button className="btn" id="stop" type="button" onClick={() => collector.stop()}>
+                  停止
+                </button>
+              </div>
+            )}
+            <p className="c-note">
+              画面只在本机读取，<b>不会上传视频或截图</b>，只上传物品、价格、每组数量、频道和洞号。
+            </p>
             <dl className="c-stats" aria-live="polite">
               {[
                 ["fps", "帧率"],

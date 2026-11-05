@@ -296,6 +296,19 @@ pub struct ShopOwner {
     pub name: String,
 }
 
+/// Where the shop stands in its room, in world pixels (the map's own
+/// coordinates), and the store permit that sets how the stall looks.
+/// Packet uploads read both from the owner's map-entry record; a screen
+/// upload has no stall.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Stall {
+    pub x: i16,
+    pub y: i16,
+    pub permit: u32,
+}
+
+pub const STALL_PARSER: &str = "cw_stall_v1";
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Upload {
     pub observation_id: String,
@@ -309,6 +322,7 @@ pub struct Upload {
     pub source: Source,
     pub reader_version: Option<String>,
     pub owner: Option<ShopOwner>,
+    pub stall: Option<Stall>,
 }
 
 impl Upload {
@@ -350,6 +364,12 @@ impl Upload {
                 "owner".into(),
                 json!({"character_id":owner.character_id,
                 "name":owner.name,"parser":"cw_shop_owner_v1"}),
+            );
+        }
+        if let Some(stall) = &self.stall {
+            map.insert(
+                "stall".into(),
+                json!({"x":stall.x,"y":stall.y,"permit":stall.permit,"parser":STALL_PARSER}),
             );
         }
         Value::Object(map)
@@ -464,6 +484,25 @@ pub fn validate(data: &Value, now: f64) -> Result<Upload, ProtocolError> {
         }
         Some(_) => return Err(ProtocolError::WrongType("owner")),
     };
+    let stall = match data.get("stall") {
+        None | Some(Value::Null) => None,
+        Some(Value::Object(o))
+            if source == Source::Packet
+                && o.get("parser").and_then(Value::as_str) == Some(STALL_PARSER) =>
+        {
+            Some(Stall {
+                x: integer(require(o, "x", "stall.x")?, "stall.x", -32768, 32767)? as i16,
+                y: integer(require(o, "y", "stall.y")?, "stall.y", -32768, 32767)? as i16,
+                permit: integer(
+                    require(o, "permit", "stall.permit")?,
+                    "stall.permit",
+                    5_140_000,
+                    5_149_999,
+                )? as u32,
+            })
+        }
+        Some(_) => return Err(ProtocolError::WrongType("stall")),
+    };
     Ok(Upload {
         observation_id,
         observed_at,
@@ -474,6 +513,7 @@ pub fn validate(data: &Value, now: f64) -> Result<Upload, ProtocolError> {
         source,
         reader_version,
         owner,
+        stall,
     })
 }
 

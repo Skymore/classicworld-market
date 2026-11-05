@@ -64,6 +64,8 @@ class Session:
         self.lock = asyncio.Lock()
         self.table = self.bridge = None
         self.signs = {}
+        from market_stall import StallTracker
+        self.stalls = StallTracker()
         self.pending_open = None
         self.pending_test = None
         self.shop_open = False
@@ -236,6 +238,7 @@ class Session:
             self.market_location = None
             self.presence.players.clear()
             self.signs.clear()
+            self.stalls.clear()
             self.pending_open = None
             self.pending_raw_path = None
             location, evidence = inspect_map(plain)
@@ -249,6 +252,8 @@ class Session:
                     port=self.port, location=location, evidence=evidence))+'\n')
             self.event('map_location', location=location, length=len(plain))
         elif op in (0x22A, 0x22B, 0x22D, 0x22E):
+            if op in (0x22A, 0x22D):
+                self.stalls.observe(plain)
             if self.market_location and 1 <= self.market_location.get('room', 0) <= 22:
                 event = self.presence.observe(plain, time.time())
                 if event:
@@ -262,6 +267,7 @@ class Session:
             self.table = opcode_table(plain)
             self.event('opcode_map_ready', entries=len(self.table))
         elif op in (0x23A, 0x23D):
+            self.stalls.observe(plain)
             title = length_string(plain, 18)
             if title and len(plain) >= 20:
                 shop_id = int.from_bytes(plain[10:14], 'little')
@@ -309,6 +315,9 @@ class Session:
             owner = decode_owner(opened, title, shop_id)
             if owner is not None:
                 result['owner'] = owner
+                stall = self.stalls.stall(owner['character_id'], title)
+                if stall is not None:
+                    result['stall'] = stall
             if from_python:
                 result['request_id'] = test['request_id']
                 self.pending_test = None
