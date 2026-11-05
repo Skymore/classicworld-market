@@ -1689,7 +1689,6 @@ export default function Item({ page }: { page: any }) {
             stops={shopView.stops}
             at={shopView.at}
             itemId={item.id}
-            base={market.base_stats || []}
             onClose={() => setShopView(null)}
           />
         )}

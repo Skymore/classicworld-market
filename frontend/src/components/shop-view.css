@@ -41,6 +41,10 @@
 .sv-buy{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:4px;padding-top:4px;border-top:1px dashed #56627d}
 .sv-buy b{font-size:16px;color:#fff}
 .sv-open{display:inline-block;margin-top:2px;color:#9dbbe0;font-size:12px}
+/* Equipment: the quick preview's full card, as large as there. */
+.sv-info-card{padding:0}
+.sv-info-card .eq-card{padding:10px 12px}
+.sv-info-foot{padding:0 12px 8px;text-align:right}
 /* The goods, as the game's store window: icon, bundle count, price. */
 .sv-window{border:2px solid var(--edge);border-radius:2px;background:var(--sheet-lo);box-shadow:inset 1px 1px 0 var(--bevel-hi),inset -1px -1px 0 var(--bevel-lo)}
 .sv-window-bar{display:flex;justify-content:space-between;padding:2px 8px;background:var(--bar);color:var(--bar-ink);font-size:12px;font-weight:700;border-bottom:2px solid var(--edge)}
@@ -56,6 +60,16 @@
 @media (max-width:640px){
   .sv-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px)}
   .sv-goods{grid-template-columns:repeat(5,minmax(0,1fr))}
+}
+/* Wide screens: the card keeps the quick preview's width, on the right;
+   the shop's place and its goods share the left column. */
+@media (min-width:641px){
+  .sv-dialog{width:min(820px,calc(100vw - 24px))}
+  .sv-card{display:grid;grid-template-columns:minmax(0,1fr) 300px;grid-template-areas:"top info" "goods info";align-items:start}
+  .sv-top{grid-area:top}
+  .sv-info{grid-area:info}
+  .sv-window{grid-area:goods}
+  .sv-card>.sv-none{grid-column:1/-1}
 }
 /* Offer rows that open the shop view are buttons as a whole. */
 .market-record[data-shop-row]{cursor:pointer}

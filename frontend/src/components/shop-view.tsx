@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { readPeriod } from "/web/js/lib/period.js?v=20261022-regressions-1";
+import { loadCatalog } from "../lib/catalog";
 import { useWords, usePreferences } from "../providers";
 import { useMarketQuery } from "../lib/query";
 import { Slot, Price, RelativeTime } from "./shared";
 import { SiteLink } from "./shell";
-import { cardStats } from "./equipment";
+import { EquipmentCard, pieceData } from "./equipment";
 import "./shop-view.css";
 
 /** One shop the player can step to: its key and the row they came from. */
@@ -68,15 +71,53 @@ function StallMap({ data }: { data: any }) {
   );
 }
 
-/** The selected good, laid out like the game's tooltip, inside the shop view. */
-function Info({ row, itemId, base }: { row: any; itemId: number; base: any[] }) {
+/** The selected good inside the shop view. Equipment gets the full game
+ *  tooltip (the quick preview's card: requirements, jobs, stats against the
+ *  catalogue, this offer); other goods their name, bundle, stock and price. */
+function Info({ row, itemId, shop }: { row: any; itemId: number; shop: any }) {
   const words = useWords();
   const { language } = usePreferences();
   const name = language === "en" ? row.name_en || row.name_zh : row.name_zh || row.name_en;
-  const piece = isEquipment(row) ? pieceOf(row) : null;
-  // Bonuses only where the catalogue base is known: the page's own item.
-  const stats = piece ? cardStats(Number(row.item_id) === itemId ? base : [], piece) : [];
-  const enhanced = Number(piece?.enhancements) > 0 ? Number(piece.enhancements) : 0;
+  const equipment = isEquipment(row);
+  const piece = equipment ? pieceOf(row) : null;
+  // The same catalogue entry the quick preview reads (and caches).
+  const url = `/item/${Number(row.item_id)}?hours=${readPeriod()}`;
+  const catalog = useQuery<any>({
+    queryKey: ["item-preview", url],
+    enabled: !!piece,
+    queryFn: ({ signal }) => loadCatalog(url, signal, true),
+    meta: { market: true },
+    staleTime: 30000,
+  });
+  const page = catalog.data?.page;
+  const other = Number(row.item_id) !== itemId && (
+    <SiteLink className="sv-open" href={"/item/" + Number(row.item_id)} data-no-preview="">
+      {words("查看物品详情 →", "Open item details →")}
+    </SiteLink>
+  );
+  if (piece) {
+    const data = pieceData(piece, {
+      channel: shop.channel ?? null,
+      room: shop.room ?? null,
+      shop: shop.title || null,
+      owner: shop.owner_name || null,
+      price: row.price,
+      set: row.bundle > 1,
+      stock: Number.isFinite(row.stock) ? row.stock : null,
+      at: row.time ?? null,
+    });
+    return (
+      <div className="sv-info sv-info-card" aria-live="polite">
+        <EquipmentCard
+          item={page?.item || { id: Number(row.item_id), name_zh: row.name_zh, name_en: row.name_en, icon_url: row.icon_url }}
+          equipment={page?.equipment}
+          base={page?.market?.base_stats || []}
+          piece={data ? JSON.parse(data) : undefined}
+        />
+        {other && <div className="sv-info-foot">{other}</div>}
+      </div>
+    );
+  }
   const kind = [row.subcategory, row.level ? words(`等级 ${row.level}`, `Lv ${row.level}`) : null]
     .filter(Boolean)
     .join(" · ");
@@ -85,28 +126,11 @@ function Info({ row, itemId, base }: { row: any; itemId: number; base: any[] }) 
       <div className="sv-info-head">
         <Slot url={row.icon_url} size={32} />
         <div>
-          <b>
-            {name}
-            {enhanced > 0 && <em> (+{enhanced})</em>}
-          </b>
+          <b>{name}</b>
           {kind && <small>{kind}</small>}
         </div>
       </div>
-      {piece ? (
-        <div className="sv-stats">
-          {stats.map((stat) => (
-            <span key={stat.key}>
-              {words(stat.label[0], stat.label[1])} {stat.value}
-              {stat.bonus > 0 && <i> (+{stat.bonus})</i>}
-            </span>
-          ))}
-          {Number.isInteger(piece.remaining_upgrades) && (
-            <span className="dim">{words(`可升级 ${piece.remaining_upgrades} 次`, `${piece.remaining_upgrades} upgrades left`)}</span>
-          )}
-        </div>
-      ) : isEquipment(row) ? (
-        <p className="sv-dim">{words("没有采集到这件的属性", "Stats not captured")}</p>
-      ) : null}
+      {equipment && <p className="sv-dim">{words("没有采集到这件的属性", "Stats not captured")}</p>}
       <div className="sv-buy">
         <span className="dim">
           {row.bundle > 1 ? words(`每组 ${row.bundle} 个`, `${row.bundle} per bundle`) : words("每个", "each")}
@@ -117,16 +141,12 @@ function Info({ row, itemId, base }: { row: any; itemId: number; base: any[] }) 
           <Price value={row.price} />
         </b>
       </div>
-      {Number(row.item_id) !== itemId && (
-        <SiteLink className="sv-open" href={"/item/" + Number(row.item_id)} data-no-preview="">
-          {words("看这个物品 ›", "Open this item ›")}
-        </SiteLink>
-      )}
+      {other}
     </div>
   );
 }
 
-function ShopCard({ stop, itemId, base }: { stop: ShopStop; itemId: number; base: any[] }) {
+function ShopCard({ stop, itemId }: { stop: ShopStop; itemId: number }) {
   const words = useWords();
   const query = useMarketQuery<any>("/api/v1/shop?key=" + encodeURIComponent(stop.key));
   const row = stop.row;
@@ -184,7 +204,7 @@ function ShopCard({ stop, itemId, base }: { stop: ShopStop; itemId: number; base
         <p className="sv-none">{words("这家店现在没有在售的货。", "Nothing is on sale in this shop now.")}</p>
       ) : (
         <>
-          <Info row={items[at]} itemId={itemId} base={base} />
+          <Info key={at} row={items[at]} itemId={itemId} shop={data} />
           <div className="sv-window">
             <div className="sv-window-bar">
               <span>{words("商店物品", "Store items")}</span>
@@ -224,14 +244,11 @@ export default function ShopView({
   stops,
   at,
   itemId,
-  base = [],
   onClose,
 }: {
   stops: ShopStop[];
   at: number;
   itemId: number;
-  /** The page item's catalogue base stats, for (+N) bonuses. */
-  base?: any[];
   onClose: () => void;
 }) {
   const words = useWords();
@@ -297,7 +314,7 @@ export default function ShopView({
             <X aria-hidden="true" />
           </button>
         </div>
-        <ShopCard key={stop.key} stop={stop} itemId={itemId} base={base} />
+        <ShopCard key={stop.key} stop={stop} itemId={itemId} />
       </dialog>
     </>
   );
