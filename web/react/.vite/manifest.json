@@ -6,12 +6,12 @@
       "_shared-BvadJZDP.js"
     ]
   },
-  "_catalogue-CJDQDj_A.css": {
-    "file": "chunks/catalogue-CJDQDj_A.css",
-    "src": "_catalogue-CJDQDj_A.css"
+  "_catalogue-C6v3AUio.css": {
+    "file": "chunks/catalogue-C6v3AUio.css",
+    "src": "_catalogue-C6v3AUio.css"
   },
-  "_catalogue-DkEyW6cJ.js": {
-    "file": "chunks/catalogue-DkEyW6cJ.js",
+  "_catalogue-DKDElIMW.js": {
+    "file": "chunks/catalogue-DKDElIMW.js",
     "name": "catalogue",
     "imports": [
       "_shared-BvadJZDP.js",
@@ -31,7 +31,7 @@
       "src/pages/catalogue-search.tsx"
     ],
     "css": [
-      "chunks/catalogue-CJDQDj_A.css"
+      "chunks/catalogue-C6v3AUio.css"
     ]
   },
   "_chevron-right-BmTeiEZr.js": {
@@ -113,8 +113,8 @@
       "_shared-BvadJZDP.js"
     ]
   },
-  "_main-CewpoYl1.js": {
-    "file": "chunks/main-CewpoYl1.js",
+  "_main-BHZnf0Gi.js": {
+    "file": "chunks/main-BHZnf0Gi.js",
     "name": "main",
     "imports": [
       "_shared-BvadJZDP.js",
@@ -315,7 +315,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CewpoYl1.js"
+      "_main-BHZnf0Gi.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -367,7 +367,7 @@
     ]
   },
   "src/pages/catalogue-search.tsx": {
-    "file": "chunks/catalogue-search-CaVhbxS_.js",
+    "file": "chunks/catalogue-search-DpSOvRgy.js",
     "name": "catalogue-search",
     "src": "src/pages/catalogue-search.tsx",
     "isDynamicEntry": true,
@@ -375,16 +375,16 @@
       "_shared-BvadJZDP.js",
       "_dialog-C-FZ5S7y.js",
       "_price-state-BUUp4F1a.js",
-      "_catalogue-DkEyW6cJ.js"
+      "_catalogue-DKDElIMW.js"
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-kMiTho7D.js",
+    "file": "chunks/catalogue-CJJDGL8p.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_catalogue-DkEyW6cJ.js"
+      "_catalogue-DKDElIMW.js"
     ]
   },
   "src/pages/collect.tsx": {
@@ -539,7 +539,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CewpoYl1.js"
+      "_main-BHZnf0Gi.js"
     ]
   }
 }

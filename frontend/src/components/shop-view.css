@@ -24,9 +24,12 @@
 .sv-stall:hover img,.sv-stall:focus-visible img{filter:drop-shadow(0 0 2px #fff) drop-shadow(0 0 3px var(--mark))}
 .sv-stall:focus-visible{outline:none}
 .sv-stall.here{z-index:3;cursor:default}
+/* A red arrow over the shop on show, so a phone's small map still points at it. */
+.sv-stall.here::before{content:"";position:absolute;left:50%;bottom:calc(100% + 2px);transform:translateX(-50%);border:6px solid transparent;border-top:8px solid var(--maple);border-bottom:0;filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);animation:sv-bob 1s ease-in-out infinite alternate}
+@keyframes sv-bob{from{margin-bottom:0}to{margin-bottom:3px}}
 .sv-stall.here img{filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px var(--maple)) drop-shadow(0 0 4px var(--maple));animation:sv-glow 1.4s ease-in-out infinite alternate}
 @keyframes sv-glow{from{opacity:1}to{opacity:.72}}
-@media (prefers-reduced-motion:reduce){.sv-stall.here img{animation:none}}
+@media (prefers-reduced-motion:reduce){.sv-stall.here img,.sv-stall.here::before{animation:none}}
 .sv-who{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}
 .sv-who h2{display:flex;align-items:flex-start;gap:5px;font-size:15px;font-weight:700;line-height:1.25;overflow-wrap:anywhere}
 .sv-who svg{flex:none;width:14px;height:14px;margin-top:2px;stroke-width:2;color:var(--ink-3)}
