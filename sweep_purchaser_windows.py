@@ -411,9 +411,9 @@ class WindowsPurchaser:
                     elif action.kind == 'quantity':
                         control.quantity(action.quantity*order.bundle, lambda: self.clock() < order.deadline and order.can_buy())
                     elif action.kind in ('accept_quantity', 'confirm'):
-                        control.click(735, 423 if action.kind == 'accept_quantity' else 421)
+                        control.click(735, 423 if action.kind == 'accept_quantity' else 411 if view.kind == 'item_confirm' else 421)
                     elif action.kind == 'cancel':
-                        control.click(783, 423 if view.kind == 'quantity' else 421)
+                        control.click(783, 423 if view.kind == 'quantity' else 411 if view.kind == 'item_confirm' else 421)
                     elif action.kind == 'dismiss' and view.reason == 'shop_closed':
                         control.click(784, 411)
                     elif action.kind == 'dismiss' and view.kind == 'notice' and not flow.submitted:

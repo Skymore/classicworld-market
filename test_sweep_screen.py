@@ -206,6 +206,7 @@ class ScriptedReader:
     def dialog(self,image):
         f=self.frame(image)
         if f['kind']=='rejected':return 'rejected', f['reason']
+        if f['kind']=='item_confirm':return 'item_confirm', None
         return (f['kind'],f.get('number',1)) if f['kind'] in ('quantity','confirm','notice') else (None,None)
     def shop(self,image):return self.frame(image)['kind']=='shop'
     def title(self,image):return 'Potions'

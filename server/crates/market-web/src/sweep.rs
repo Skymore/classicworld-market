@@ -876,6 +876,7 @@ async fn device_start(
 
 /// Current known quotes guide navigation only. The collector reapplies the
 /// complete conditions and verifies a fresh in-game listing before reserving.
+const PRIORITY_TARGET_MINUTES: i64 = 720;
 #[derive(Deserialize, Default)]
 struct TargetQuery {
     #[serde(default)]
@@ -897,10 +898,10 @@ async fn device_targets(
     if !member {
         return Err(conflict("lease_lost"));
     }
-    let minutes = if query.live {
-        10
-    } else if run.plan["scan"]["mode"] == "priority" {
-        180
+    // Priority navigation covers matches seen in the last 12 hours, both for
+    // the revisit pass and for other collectors' live hits.
+    let minutes = if query.live || run.plan["scan"]["mode"] == "priority" {
+        PRIORITY_TARGET_MINUTES
     } else {
         run.plan["scan"]["recent_minutes"]
             .as_i64()

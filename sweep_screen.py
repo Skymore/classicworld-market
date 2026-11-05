@@ -156,7 +156,7 @@ class Reader:
         self.dialog_font = Font(ASSETS/'dialog-font.json')
         self.input_font = Font(ASSETS/'input-font.json')
         self.templates = {name: np.asarray(Image.open(ASSETS/(name+'.png')).convert('RGB'))
-                          for name in ('buy', 'leave', 'quantity-prompt', 'confirm-prompt', 'cancel', 'quantity-cancel', 'ok', 'room-missing')}
+                          for name in ('buy', 'leave', 'quantity-prompt', 'confirm-prompt', 'cancel', 'quantity-cancel', 'ok', 'room-missing', 'item-confirm')}
         catalog = ASSETS/'catalog.json'
         if not catalog.exists():
             catalog = ROOT/'server/crates/market-core/assets/catalog.json'
@@ -385,6 +385,10 @@ class Reader:
                     else self.dialog_font.read(band.min(axis=2) > 240, spaces=False))
             match = re.fullmatch(r'Thetotalpriceis([0-9,]+)mesos\.', text or '')
             return 'confirm', money(match[1]) if match else None
+        # Equipment asks a total-free question with its buttons 10px higher.
+        if (self.matches(image, 'item-confirm', 600, 362) and self.matches(image, 'ok', 714, 404)
+                and self.matches(image, 'cancel', 763, 404)):
+            return 'item_confirm', None
         # A one-button notice is only a UI observation, not evidence of a
         # rejected transaction. The flow may dismiss it BEFORE payment only.
         panel = image[345:390, 565:800, :3].astype(int)

@@ -51,6 +51,13 @@ class EquipmentPurchaseTests(unittest.TestCase):
                          PurchaseResult('bought', 1, 4900))
         self.assertEqual(self.control.actions, [(535, 321), (604, 252), (735, 421)])
 
+    def test_equipment_question_without_total_buys_from_packet_debit(self):
+        frames = [Page(kind='shop', balance=10000), Page(kind='shop', selected=True, balance=10000),
+                  Page(kind='item_confirm'), Page(kind='shop', selected=True, balance=5100)]
+        self.assertEqual(self.run_buy(frames, knife_order(), self.packet()),
+                         PurchaseResult('bought', 1, 4900))
+        self.assertEqual(self.control.actions, [(535, 321), (604, 252), (735, 411)])
+
     def test_quantity_prompt_is_still_typed_and_read_back(self):
         frames = [Page(kind='shop', balance=10000), Page(kind='shop', selected=True, balance=10000),
                   Page(kind='quantity'), Page(kind='quantity', number=1),
@@ -110,6 +117,30 @@ class EquipmentFlowTests(unittest.TestCase):
                 with self.assertRaises(PurchaseHalt):
                     flow.step(view)
                 self.assertFalse(flow.submitted)
+
+
+    def test_total_free_question_is_only_for_one_equipment_piece(self):
+        flow = PurchaseFlow(knife_order(), lambda: 0)
+        flow.phase = 'quantity'
+        self.assertEqual(flow.step(View('item_confirm')).kind, 'confirm')
+        for order in (knife_order(item_id=2000001, category=2, equipment=None), knife_order(quantity=2)):
+            flow = PurchaseFlow(order, lambda: 0)
+            flow.phase = 'quantity'
+            with self.assertRaises(PurchaseHalt):
+                flow.step(View('item_confirm'))
+            self.assertFalse(flow.submitted)
+
+    def test_reader_recognizes_the_live_equipment_question(self):
+        # Template and button positions measured on the 2026-11-05 live frame.
+        import numpy as np
+        reader = Reader()
+        image = np.zeros((768, 1366, 3), np.uint8)
+        for name, x, y in (('item-confirm', 600, 362), ('ok', 714, 404), ('cancel', 763, 404)):
+            template = reader.templates[name]
+            image[y:y+template.shape[0], x:x+template.shape[1]] = template
+        self.assertEqual(reader.dialog(image), ('item_confirm', None))
+        image[404:419, 714:756] = 0  # no OK button: not the purchase question
+        self.assertEqual(reader.dialog(image), (None, None))
 
 
 class EquipmentNameTests(unittest.TestCase):

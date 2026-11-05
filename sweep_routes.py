@@ -60,9 +60,11 @@ class LiveTargets:
         self.shops = shops
 
     def next(self, now):
-        while self.done and next(iter(self.done.values())) < now-1800:
+        from collector_sweep import TARGET_MINUTES
+        window = TARGET_MINUTES*60
+        while self.done and next(iter(self.done.values())) < now-window:
             self.done.popitem(last=False)
-        eligible = [s for s in self.shops if 0 <= now-s['observed'] <= 600
+        eligible = [s for s in self.shops if 0 <= now-s['observed'] <= window
                     and (shop_key(s, s['owner']), fingerprint(s)) not in self.done]
         if not eligible:
             return []
@@ -80,11 +82,21 @@ class LiveTargets:
 
 def with_live_priority(folder, hwnd, ready, stop, status, engine, scan, regular, *, visited=None):
     """The ordinary route releases its room lease before yielding control here."""
+    due = lambda: getattr(engine, 'recent_pass_due', lambda: False)() is True
+
     def checkpoint():
-        if not stop.is_set() and engine.next_live_target():
+        if not stop.is_set() and (engine.next_live_target() or due()):
             raise PriorityPending()
 
     while not stop.is_set():
+        if due():
+            # A rule change (or a fresh run) revisits every match from the last
+            # 12 hours once; shops looked at under the old rules count again.
+            if visited is not None:
+                visited.clear()
+            engine.progress('按新条件回访 12 小时内命中', revisits=1)
+            run_recent(folder, hwnd, ready, stop, status, engine, scan, once=True, visited=visited)
+            continue
         shops = engine.next_live_target()
         if shops:
             room, channel = shops[0]['room'], shops[0]['channel']
@@ -110,6 +122,8 @@ def run_recent(folder, hwnd, ready, stop, status, engine, scan, *, once=False,
     folder = Path(folder)
     visited = {} if visited is None else visited
     total = 0
+    # A completed one-shot pass over the server's matches settles this plan version.
+    pass_key = engine.recent_pass_key() if once and target_shops is None and hasattr(engine, 'recent_pass_key') else None
     while not stop.is_set() and engine.buying():
         if safe_checkpoint:
             safe_checkpoint()
@@ -172,4 +186,6 @@ def run_recent(folder, hwnd, ready, stop, status, engine, scan, *, once=False,
                 total += count
         if once:
             break
+    if pass_key and not stop.is_set() and engine.buying():
+        engine.mark_recent_pass(pass_key)
     return dict(reason='recent_finished', visited=total)

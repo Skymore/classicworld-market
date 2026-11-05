@@ -91,6 +91,9 @@ class PurchaseFlow:
             'unknown' if self.submitted else 'not_bought', reason=reason)
         raise PurchaseHalt(self.outcome)
 
+    def single_equipment(self):
+        return self.order.quantity == 1 and (self.order.category == 1 or self.order.item_id//1000000 == 1)
+
     def _abort(self, view, reason):
         self.outcome = PurchaseResult('not_bought', reason=reason)
         if view.kind == 'notice' and self.phase in ('quantity', 'confirm') and not self.submitted:
@@ -100,7 +103,7 @@ class PurchaseFlow:
         if view.kind == 'shop' and view.shop_verified:
             self.phase = 'done'
             return self.outcome
-        if view.kind in ('quantity', 'confirm'):
+        if view.kind in ('quantity', 'confirm', 'item_confirm'):
             self.phase = 'cleanup'
             self.cleanup_deadline = self.clock()+2
             return Action('cancel')
@@ -119,7 +122,7 @@ class PurchaseFlow:
                 return self.outcome
             if self.clock() >= self.cleanup_deadline:
                 self.halt('timeout')
-            if self.phase == 'notice_cleanup' and view.kind in ('quantity', 'confirm') and not self.cancelled_after_notice:
+            if self.phase == 'notice_cleanup' and view.kind in ('quantity', 'confirm', 'item_confirm') and not self.cancelled_after_notice:
                 self.cancelled_after_notice = True
                 return Action('cancel')
             return None
@@ -173,8 +176,7 @@ class PurchaseFlow:
         if self.phase == 'quantity':
             if view.kind == 'shop':
                 return None  # Buy click has not painted its dialog yet.
-            if (view.kind == 'confirm' and not self.typed and self.order.quantity == 1
-                    and (self.order.category == 1 or self.order.item_id//1000000 == 1)):
+            if (view.kind in ('confirm', 'item_confirm') and not self.typed and self.single_equipment()):
                 # A single equipment piece may go straight to the total
                 # prompt. The exact total below still gates confirmation.
                 self.phase = 'confirm'
@@ -191,9 +193,13 @@ class PurchaseFlow:
         if self.phase == 'confirm':
             if view.kind == 'quantity':
                 return None
-            if view.kind != 'confirm':
+            if view.kind == 'item_confirm' and self.single_equipment():
+                # The game shows no total for one equipment piece. Its price was
+                # read back on the selected row; the packet debit settles it.
+                pass
+            elif view.kind != 'confirm':
                 self.halt('error')
-            if type(view.total) is not int or view.total != self.order.quantity*self.order.price:
+            elif type(view.total) is not int or view.total != self.order.quantity*self.order.price:
                 return self._abort(view, 'price_changed')
             # After this action may have been dispatched, any lost evidence is unknown.
             self.submitted, self.phase = True, 'result'

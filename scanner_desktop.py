@@ -845,23 +845,20 @@ class DesktopController:
                 return self._modules['run'](*args, **kwargs,
                     ready_callback=ready)
             from sweep_routes import run_recent, with_live_priority, PriorityPending
-            recent_visited, initial_finished = {}, False
+            recent_visited = {}
             progress_type = self._modules.get('AssignedProgress')
             progress_options = {'progress': progress_type(self.collector.home/'scan-progress.json')} if progress_type else {}
             def regular(checkpoint=None):
-                nonlocal assignments, initial_finished
+                nonlocal assignments
                 if self.sweep and self.sweep.buying():
-                    mode = self.sweep.scan_mode()
-                    if mode == 'recent' or (mode == 'priority' and not initial_finished):
+                    # Priority mode's 12-hour revisit pass runs in with_live_priority,
+                    # at start and again after each rule change.
+                    if self.sweep.scan_mode() == 'recent':
                         result = run_recent(self._folder, self._hwnd, started, stop, self._on_scan,
-                            self.sweep, scan, once=mode == 'priority', visited=recent_visited,
-                            safe_checkpoint=checkpoint)
-                        initial_finished = True
+                            self.sweep, scan, visited=recent_visited, safe_checkpoint=checkpoint)
                         if not self.sweep.buying():
                             self._user_stop()
-                            return result
-                        if mode == 'recent':
-                            return result
+                        return result
                     self.sweep.progress('全市场扫描')
                 assignments = self._modules['CloudScan'](config, stop, self._on_scan,
                     paused=self._modules['is_paused'], session=self._session, transport=transport,

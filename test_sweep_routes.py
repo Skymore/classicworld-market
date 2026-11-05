@@ -88,7 +88,8 @@ class RecentRouteTests(unittest.TestCase):
         changed = dict(a,offers=[[1,1,9,1,2,None]])
         queue.update([changed])
         self.assertEqual(queue.next(1010), [changed])
-        self.assertEqual(queue.next(1601), [])
+        self.assertEqual(queue.next(1000+12*3600), [changed], 'live hits stay eligible for 12 hours')
+        self.assertEqual(queue.next(1001+12*3600), [])
         queue.update([])
         self.assertEqual(queue.next(1001), [])
 
@@ -128,5 +129,31 @@ class RecentRouteTests(unittest.TestCase):
                                    lambda *a,**kw: {'reason':'room_scan_incomplete'},Mock())
         engine.complete_live_target.assert_not_called()
 
+    def test_rule_change_reruns_twelve_hour_pass_once_per_version(self):
+        version = {'v': 1}
+        engine = Mock()
+        engine.buying.return_value = True
+        engine.next_live_target.return_value = []
+        engine.recent_pass_key.side_effect = lambda: ('run', version['v'])
+        done = set()
+        engine.recent_pass_due.side_effect = lambda: ('run', version['v']) not in done
+        engine.mark_recent_pass.side_effect = done.add
+        engine.recent_targets.return_value = []
+        visited = {('old', 1): ('stamp', 0)}
+        calls = []
+        def regular(checkpoint):
+            calls.append(version['v'])
+            if len(calls) == 1:
+                version['v'] = 2  # rules changed mid-scan
+                checkpoint()
+            return {'reason': 'done'}
+        with tempfile.TemporaryDirectory() as folder:
+            result = with_live_priority(Path(folder), 12, threading.Event(), threading.Event(), Mock(),
+                                        engine, Mock(), regular, visited=visited)
+        self.assertEqual(result, {'reason': 'done'})
+        self.assertEqual(done, {('run', 1), ('run', 2)})
+        self.assertEqual(calls, [1, 2])
+        self.assertEqual(engine.recent_targets.call_count, 2)
+        self.assertEqual(visited, {}, 'shops checked under old rules are revisited')
 
 if __name__=='__main__':unittest.main()

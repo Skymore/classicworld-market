@@ -2068,7 +2068,8 @@ async fn live_targets_accept_market_mode_and_exclude_own_stale_sold_and_expensiv
     for (index, (collector, age, stock, price)) in [
         (&own, 0.0, 10, 90),
         (&other, 0.0, 10, 90),
-        (&other, 601.0, 10, 90),
+        (&other, 43201.0, 10, 90),
+        (&other, 43000.0, 10, 90),
         (&other, 0.0, 0, 90),
         (&other, 0.0, 10, 101),
     ]
@@ -2098,8 +2099,10 @@ async fn live_targets_accept_market_mode_and_exclude_own_stale_sold_and_expensiv
     assert_eq!(status, StatusCode::OK, "{response}");
     assert_eq!(response["live"], true);
     let rows = response["listings"].as_array().unwrap();
-    assert_eq!(rows.len(), 1, "{response}");
+    // Live navigation reaches back 12 hours; older quotes are left out.
+    assert_eq!(rows.len(), 2, "{response}");
     assert_eq!(rows[0]["owner_name"], "Seller1");
+    assert_eq!(rows[1]["owner_name"], "Seller3");
     assert_eq!(rows[0]["location"]["channel"], 40);
     assert_eq!(response["plan_version"], 1);
     sqlx::query("UPDATE listings SET stock=0")

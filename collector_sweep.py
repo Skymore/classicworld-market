@@ -20,6 +20,8 @@ from market_inventory import read_inventory
 from sweep_purchase import REASONS, PurchaseHalt, PurchasePreparationSkipped, PurchaseOrder, PurchaseResult, load_purchaser
 
 # Same keys as the server's reminder validation and market_equipment.FIELDS.
+# Priority sweeps navigate to matches seen by any collector in the last 12 hours.
+TARGET_MINUTES = 720
 STATS = {'weapon_attack', 'magic_attack', 'critical_rate', 'critical_damage', 'str', 'dex', 'int', 'luk',
          'hp', 'mp', 'accuracy', 'avoid', 'speed', 'jump', 'weapon_defense', 'magic_defense'}
 LIMIT = 10**12
@@ -248,6 +250,7 @@ class SweepEngine:
         self.left = set()
         self.seen, self.units, self.spent, self.checked = set(), {}, 0, 0
         self.revisits = None  # Recent-match mode: shops left to revisit (0 = waiting for new hits).
+        self.recent_pass = None  # (run, plan_version) whose priority revisit pass finished.
         self.message = ''
         self.captures = collections.deque(maxlen=32)
         self.captures_seen = 0
@@ -1068,9 +1071,24 @@ class SweepEngine:
         with self.lock:
             if not self.buying() or self.run['id'] != run or response.get('run') != run or response.get('plan_version') != version:
                 return []
-            result = targets(response.get('listings', []), plan, (180 if plan['scan']['mode'] == 'priority' else plan['scan']['recent_minutes']), time.time())
+            result = targets(response.get('listings', []), plan, (TARGET_MINUTES if plan['scan']['mode'] == 'priority' else plan['scan']['recent_minutes']), time.time())
             self.recent_shops = {shop_key(s, s['owner']) for s in result}
             return result
+
+    def recent_pass_key(self):
+        with self.lock:
+            return ((self.run or {}).get('id'), self.plan_version)
+
+    def recent_pass_due(self):
+        """Priority mode revisits every 12-hour match once per plan version."""
+        with self.lock:
+            return (self.buying() and self.scan_mode() == 'priority'
+                    and self.recent_pass != ((self.run or {}).get('id'), self.plan_version))
+
+    def mark_recent_pass(self, key):
+        with self.lock:
+            if key == ((self.run or {}).get('id'), self.plan_version):
+                self.recent_pass = key
 
     def _target_context(self):
         return (self.token, (self.run or {}).get('id'), self.plan_version, self.lease)
@@ -1091,7 +1109,7 @@ class SweepEngine:
                 self.live_targets = LiveTargets()
                 self.live_context = context
                 self.live_generation += 1
-            self.live_targets.update(targets(response.get('listings', []), plan, 10, time.time()))
+            self.live_targets.update(targets(response.get('listings', []), plan, TARGET_MINUTES, time.time()))
 
     def next_live_target(self):
         from sweep_routes import shop_key
