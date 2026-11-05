@@ -169,6 +169,14 @@ class Inventory:
                 and data[17] == 3 and int.from_bytes(data[18:22], 'little')//1000000 == 5
                 and data[22] == 1):
             return
+        # A purchased or looted equipment piece enters the undecoded
+        # equipment bag. One complete add envelope there leaves the tracked
+        # ordinary bags unchanged; anything else stays unsupported.
+        if (count == 1 and len(data) >= 9+4+1+4+1+20 and data[9] == 0 and data[10] == 1
+                and 1 <= int.from_bytes(data[11:13], 'little') <= self.capacities[0]
+                and data[13] == 1 and int.from_bytes(data[14:18], 'little')//1000000 == 1
+                and data[18] == 0):
+            return
         slots, pos = dict(self.slots), 9
         for _ in range(count):
             mode, category, slot = struct.unpack_from('<BBh', data, pos)

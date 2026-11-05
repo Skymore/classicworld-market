@@ -22,7 +22,10 @@ class Ticket7Tests(unittest.TestCase):
         r=Reader()
         self.assertEqual(r.offset(page(),ORDERED),6)
         self.assertTrue(r.row_matches(page()[3],ORDERED[9],complete=True))
-        self.assertFalse(r.row_matches(page()[5],ORDERED[11],complete=True))
+        # The shop omits the catalog's (M)/(F) suffix. An equipment target is
+        # the physical row fixed by the unique alignment, so the alias counts.
+        self.assertTrue(r.row_matches(page()[5],ORDERED[11],complete=True))
+        self.assertFalse(r.row_matches(replace(page()[5],name='Blue Bennis Chainmail'),ORDERED[11],complete=True))
         for changed in (replace(page()[3],name='Orange Potion'),replace(page()[3],price=281),replace(page()[3],bundle=2)):
             rows=page();rows[3]=changed
             self.assertIsNone(r.offset(rows,ORDERED))

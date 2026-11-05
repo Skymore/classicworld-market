@@ -1,7 +1,9 @@
 """Conservative Windows native purchaser, running on the scanner input thread.
 
-Resolution-normalized player stores, fully readable non-equipment listings.
-Quantity is bounded by the reservation and read back before confirmation.
+Resolution-normalized player stores, fully readable listings. Equipment is one
+unique physical row (quantity 1) identified by the unique page alignment against
+the fresh packet, never an equivalent row. Quantity is bounded by the reservation
+and read back before confirmation.
 Scroll position is recovered from the
 entire visible page against RAW packet order, never from category/slot sorting.
 """
@@ -136,16 +138,27 @@ def ordered_snapshot(filename, order, now=time.time):
     return packet['title'], ordered, found[0]
 
 
+def is_equipment(order):
+    return order.category == 1 or order.item_id//1000000 == 1
+
+
 def inventory_position(order):
-    """A complete, fresh position in the current capture stream, or unknown."""
+    """A complete, fresh position in the current capture stream, or unknown.
+
+    The equipment bag is not decoded: its position is the verified packet
+    balance alone (quantity None), and a receipt then requires the exact debit.
+    """
     if order.inventory is None:
         return None
     try:
         state = order.inventory()
         if (not isinstance(state, dict) or not isinstance(state.get('session'), str) or not state['session']
                 or type(state.get('revision')) is not int or state['revision'] < 1
-                or type(state.get('mesos')) is not int or state['mesos'] < 0
-                or order.category not in state.get('categories', [])):
+                or type(state.get('mesos')) is not int or state['mesos'] < 0):
+            return None
+        if is_equipment(order):
+            return state['session'], state['revision'], state['mesos'], None
+        if order.category not in state.get('categories', []):
             return None
         rows = [row for row in state['items'] if row['item_id'] == order.item_id]
         if len(rows) > 1:
@@ -197,7 +210,7 @@ class WindowsPurchaser:
         # title glyphs use an unchanged title bitmap, never guessed OCR.
         return True
 
-    def verify_inventory(self, window, folder, expected=None):
+    def verify_inventory(self, window, folder, expected=None, bag=True):
         from inventory_check import InventoryChecker, InventoryCheckError
         from shop_window_control import game_menu_visible, single_button_notice_visible
         # Directly use the verified Leave control: Escape is commonly ignored
@@ -224,7 +237,10 @@ class WindowsPurchaser:
                 break
         if closed < 2:
             raise InventoryCheckError('购买已完成，但无法确认商店已关闭')
-        InventoryChecker(folder).run(window, 'purchase', expected)
+        if bag:
+            # Equipment is settled by the exact packet debit; its bag is not
+            # decoded, so an inventory comparison could only fail.
+            InventoryChecker(folder).run(window, 'purchase', expected)
         return True
 
     def buy(self, order, window):
@@ -242,7 +258,7 @@ class WindowsPurchaser:
         if (type(order.quantity) is not int or not 1 <= order.quantity <= self.max_quantity
                 or type(order.bundle) is not int or order.bundle < 1
                 or order.quantity*order.bundle > self.max_units
-                or order.category == 1 or order.equipment is not None
+                or is_equipment(order) and (order.quantity, order.bundle) != (1, 1)
                 or order.item_id//10000 in (207, 233)):
             return PurchaseResult('not_bought', reason='error')
         try:
@@ -294,7 +310,9 @@ class WindowsPurchaser:
                         receipt = None
                         if (after is not None and after[0] == before_packet[0] and after[1] > before_packet[1]
                                 and before_packet[2]-after[2] == order.quantity*order.price
-                                and after[3]-before_packet[3] == order.quantity*order.bundle):
+                                and (after[3] is None and before_packet[3] is None and is_equipment(order)
+                                     or after[3] is not None and before_packet[3] is not None
+                                     and after[3]-before_packet[3] == order.quantity*order.bundle)):
                             self.mesos = after[2]
                             receipt = Receipt(order.reservation, flow.listing, order.quantity, order.quantity*order.price)
                         view = View('shop', receipt=receipt, shop_verified=True)

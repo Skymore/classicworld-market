@@ -173,8 +173,14 @@ class PurchaseFlow:
         if self.phase == 'quantity':
             if view.kind == 'shop':
                 return None  # Buy click has not painted its dialog yet.
-            if view.kind != 'quantity':
+            if (view.kind == 'confirm' and not self.typed and self.order.quantity == 1
+                    and (self.order.category == 1 or self.order.item_id//1000000 == 1)):
+                # A single equipment piece may go straight to the total
+                # prompt. The exact total below still gates confirmation.
+                self.phase = 'confirm'
+            elif view.kind != 'quantity':
                 self.halt('error')
+        if self.phase == 'quantity':
             if not self.typed:
                 self.typed = True
                 return Action('quantity', self.order.quantity)

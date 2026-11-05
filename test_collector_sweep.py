@@ -331,9 +331,10 @@ class EngineTests(unittest.TestCase):
 
     def test_purchase_inventory_check_runs_after_settlement_and_reports(self):
         self.joined()
-        self.purchaser.verify_inventory = Mock(side_effect=lambda *args: self.assertEqual(len(self.server.named('settle')), 1))
+        self.purchaser.verify_inventory = Mock(side_effect=lambda *args, **kw: self.assertEqual(len(self.server.named('settle')), 1))
         self.engine.on_shop_open(self.capture(), 'window')
-        self.purchaser.verify_inventory.assert_called_once_with('window', self.folder, None)
+        # ITEM is equipment: its undecoded bag is settled by the packet debit.
+        self.purchaser.verify_inventory.assert_called_once_with('window', self.folder, None, bag=False)
         self.assertEqual(self.server.named('settle')[0]['status'], 'bought')
         self.assertTrue(self.server.named('state'))
 

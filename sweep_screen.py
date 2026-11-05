@@ -276,10 +276,13 @@ class Reader:
         name, wanted = canonical(visible.name), canonical(self.names.get(packet['item_id']))
         if not wanted:
             return False
-        same_name = name == wanted or not complete and name.endswith('...') and wanted.startswith(name[:-3])
-        # Catalog equipment names include a gender suffix omitted by the shop.
-        # Use this display alias only for page anchors, never a buy target.
-        if not complete and packet['item_id']//1000000 == 1:
+        equipment = packet['item_id']//1000000 == 1
+        same_name = name == wanted or (not complete or equipment) and name.endswith('...') and wanted.startswith(name[:-3])
+        # Catalog equipment names include a gender suffix omitted by the shop,
+        # and long names are truncated. An equipment target is the physical
+        # row fixed by the unique page alignment, so its displayed name is
+        # checked as the shop prints it; equivalent rows never apply to it.
+        if equipment:
             display = canonical(re.sub(r' \([MF]\)$', '', self.names.get(packet['item_id'], '')))
             same_name = same_name or name == display or (name.endswith('...') and display.startswith(name[:-3]))
         # Rechargeable ammunition is normalized as one set in captures, while

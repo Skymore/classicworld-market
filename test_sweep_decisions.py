@@ -111,7 +111,7 @@ class SameShopTests(unittest.TestCase):
         fixtures.EngineTests.setUp(self)
         self.joined()
         self.verified = []
-        self.purchaser.verify_inventory = lambda window, folder, expected: self.verified.append(window) or True
+        self.purchaser.verify_inventory = lambda window, folder, expected, bag=True: self.verified.append(window) or True
         guards = []
         def buy(order):
             # The engine-side guards are live for the re-opened capture, as on a first visit.
