@@ -149,16 +149,14 @@ pub fn equipment_reference(
             int: int(m, "reqINT").unwrap_or(0),
             luk: int(m, "reqLUK").unwrap_or(0),
         })
-    } else if let Some(d) = dvg {
-        Some(Requirements {
+    } else {
+        dvg.map(|d| Requirements {
             level: level.unwrap_or(0),
             str: int(d, "str").unwrap_or(0),
             dex: int(d, "dex").unwrap_or(0),
             int: int(d, "int").unwrap_or(0),
             luk: int(d, "luk").unwrap_or(0),
         })
-    } else {
-        None
     };
     let jobs = niadb
         .and_then(niadb_jobs)

@@ -197,7 +197,10 @@ async fn stall_follows_the_newest_reading_and_the_shop_view_lists_the_family() {
         .fetch_one(&db.pool)
         .await
         .unwrap();
-    let view = market_web::views::shop_view(&db.pool, &key).await.unwrap().unwrap();
+    let view = market_web::views::shop_view(&db.pool, &key)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(view["stall"]["x"], 444);
     assert_eq!(view["stall"]["permit"], 5140002);
     assert_eq!(view["room"], 6);
@@ -214,6 +217,9 @@ async fn stall_follows_the_newest_reading_and_the_shop_view_lists_the_family() {
     let mut odd = visit("odd", 3052, now, true);
     odd["stall"] = json!({"x":1,"y":2,"permit":5000004,"parser":"cw_stall_v1"});
     assert!(validate(&odd, now).is_err());
-    assert!(market_web::views::shop_view(&db.pool, "missing").await.unwrap().is_none());
+    assert!(market_web::views::shop_view(&db.pool, "missing")
+        .await
+        .unwrap()
+        .is_none());
     db.close().await;
 }
