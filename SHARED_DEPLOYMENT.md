@@ -28,6 +28,8 @@ Cloudflare Tunnel 只把指定域名的 HTTP 流量映射到 `127.0.0.1:8766`，
 
 Windows 登录计划任务可调用 supervisor，它只在该用户登录后运行；电脑休眠、关机或网络中断期间网站不可用。日志在 `shared_data/*.log`，进程状态在 `shared_data/supervisor_status.json`。生产库地址在 `native-runtime.json` 的 `database_url`（含密码，只放进环境变量，不要打印）。本机 Google 登录配置通过 `GOOGLE_OAUTH_CONFIG` 指向私有文件，不随产物发布。
 
+PostgreSQL 的非默认参数用 `ALTER SYSTEM` 写入 `shared_data/postgres/postgresql.auto.conf`：`shared_buffers = 1GB`（需重启），以及 2026-11-04 为降低整页写入放大设置的 `checkpoint_timeout = 15min`、`max_wal_size = 8GB`、`wal_compression = lz4`（`SELECT pg_reload_conf()` 即生效，`ALTER SYSTEM RESET <参数>` 可恢复）。代价是崩溃恢复会多几分钟，`pg_wal` 最多约 8 GB。
+
 启动、日常守护、发布、迁移及批量导入均不自动备份数据库，只有用户明确要求时才备份（见 [网站发布](#网站发布)）。
 
 ## 网站发布
