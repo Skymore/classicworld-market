@@ -479,10 +479,11 @@ async fn npc_offers(db: &PgPool, item_id: i32) -> sqlx::Result<Vec<NpcOffer>> {
         .collect())
 }
 
-/// DVG's `npc_price` when it has one, else Mapledex's shop `price`.
+/// DVG's `npc_price` when it has one, else NiaDB's, else Mapledex's shop `price`.
 fn npc_sell_price(record: &Value) -> Option<i64> {
     let positive = |v: Option<&Value>| v.and_then(Value::as_f64).filter(|p| *p > 0.0);
     positive(record.get("npc_price"))
+        .or_else(|| positive(record.pointer("/niadb_reference/stats/price")))
         .or_else(|| positive(record.pointer("/mapledex_reference/data/price")))
         .map(|p| p.round() as i64)
 }
@@ -505,16 +506,44 @@ const REFERENCE_KEYS: [(&str, &str); 14] = [
     ("incMMP", "mp"),
 ];
 
-/// NiaDB stat names -> variant keys, for the stats only NiaDB lists.
-const NIADB_KEYS: [(&str, &str); 2] = [
+/// NiaDB stat names -> variant keys, in the tooltip's order.
+const NIADB_KEYS: [(&str, &str); 16] = [
+    ("watk", "weapon_attack"),
+    ("matk", "magic_attack"),
+    ("wdef", "weapon_defense"),
+    ("mdef", "magic_defense"),
+    ("str", "str"),
+    ("dex", "dex"),
+    ("int", "int"),
+    ("luk", "luk"),
+    ("acc", "accuracy"),
+    ("avoid", "avoid"),
+    ("speed", "speed"),
+    ("jump", "jump"),
+    ("hp", "hp"),
+    ("mp", "mp"),
     ("critRate", "critical_rate"),
     ("critDamage", "critical_damage"),
 ];
 
-/// The item's reference stats in variant keys: Mapledex first (it has weapon
-/// attack), then DVG `base_stats` for keys Mapledex lacks, then NiaDB's
-/// critical rate and damage (`import_catalog` stores them as `niadb_reference`).
+/// The item's reference stats in variant keys. NiaDB's stats
+/// (`niadb_reference`, Classic World values) are the whole answer when the
+/// item has them: it leaves out zero stats, so nothing is filled in from the
+/// GMS-era Mapledex, which differs on some weapons. Without NiaDB: Mapledex,
+/// then DVG `base_stats` for keys Mapledex lacks.
 pub(crate) fn reference_stats(record: &Value) -> Vec<(String, i64)> {
+    if let Some(stats) = record
+        .pointer("/niadb_reference/stats")
+        .and_then(Value::as_object)
+    {
+        return NIADB_KEYS
+            .iter()
+            .filter_map(|(source, key)| {
+                let value = stats.get(*source).and_then(Value::as_i64)?;
+                Some((key.to_string(), value))
+            })
+            .collect();
+    }
     let mut out: Vec<(String, i64)> = Vec::new();
     let mut put = |source: &str, value: Option<i64>| {
         let key = REFERENCE_KEYS.iter().find(|(from, _)| *from == source);
@@ -540,18 +569,6 @@ pub(crate) fn reference_stats(record: &Value) -> Vec<(String, i64)> {
     {
         if let Some(key) = stat.get("key").and_then(Value::as_str) {
             put(key, stat.get("value").and_then(Value::as_i64));
-        }
-    }
-    if let Some(stats) = record
-        .pointer("/niadb_reference/stats")
-        .and_then(Value::as_object)
-    {
-        for (source, key) in NIADB_KEYS {
-            if let Some(value) = stats.get(source).and_then(Value::as_i64) {
-                if !out.iter().any(|(k, _)| k == key) {
-                    out.push((key.to_string(), value));
-                }
-            }
         }
     }
     out
@@ -3189,6 +3206,20 @@ mod tests {
                 ("critical_rate".to_string(), 1),
                 ("critical_damage".to_string(), 2),
             ]
+        );
+    }
+
+    #[test]
+    fn reference_stats_prefer_niadb() {
+        // Coconut Knife: Mapledex says 35; a zero NiaDB leaves out is not refilled.
+        let record = json!({
+            "mapledex_reference": {"data": {"incPAD": 35, "incMMP": 5}},
+            "base_stats": [{"key": "incPDD", "value": 3}],
+            "niadb_reference": {"stats": {"watk": 38, "hp": 12, "slots": 7}},
+        });
+        assert_eq!(
+            reference_stats(&record),
+            vec![("weapon_attack".to_string(), 38), ("hp".to_string(), 12)]
         );
     }
 

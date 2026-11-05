@@ -390,6 +390,10 @@ impl ItemReferences {
                 .map(serde_json::from_str::<serde_json::Value>)
             {
                 Some(Ok(serde_json::Value::Object(stats))) if !stats.is_empty() => {
+                    // Classic World's jobs; Mapledex (GMS) differs on some daggers.
+                    if let Some(mask) = super::equipment::niadb_jobs(&stats) {
+                        known.req_job = Some(mask);
+                    }
                     known.niadb_stats = Some(stats);
                 }
                 Some(Ok(_)) | None => {}
@@ -402,10 +406,18 @@ impl ItemReferences {
 
     /// Adds NiaDB's stats to the catalogue record of every equipment item
     /// NiaDB lists, as `niadb_reference.stats`, and returns how many records
-    /// got them. `queries::reference_stats` reads the base critical rate and
-    /// damage from there. Records are replaced on every import, so a re-run
+    /// got them. `queries::reference_stats` and `equipment` read the base
+    /// stats, requirements and jobs from there. The market's item rows take
+    /// NiaDB's job mask too. Records are replaced on every import, so a re-run
     /// leaves the same result.
     pub fn annotate_records(&self, catalog: &mut Catalog) -> usize {
+        for row in &mut catalog.items {
+            if let Some(stats) = self.items.get(&row.id).and_then(|k| k.niadb_stats.as_ref()) {
+                if let Some(mask) = super::equipment::niadb_jobs(stats) {
+                    row.req_job_mask = i16::try_from(mask).ok();
+                }
+            }
+        }
         let mut annotated = 0;
         for (id, record) in &mut catalog.records {
             let stats = self.items.get(id).and_then(|k| k.niadb_stats.as_ref());

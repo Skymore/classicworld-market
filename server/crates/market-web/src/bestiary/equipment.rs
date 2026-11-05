@@ -1,8 +1,8 @@
 //! What the game's equipment tooltip shows for an item: requirements, the
 //! jobs that can wear it, its category, attack speed and upgrade slots.
-//! Read from the catalogue record (`item_records.record`): Mapledex first,
-//! then DVG's `requirements`, then NiaDB's stats. Base stats stay in
-//! `queries::reference_stats`.
+//! Read from the catalogue record (`item_records.record`): NiaDB's stats
+//! first (Classic World values), then Mapledex, then DVG's `requirements`.
+//! Base stats stay in `queries::reference_stats`.
 
 use serde::Serialize;
 use serde_json::{Map, Value};
@@ -88,16 +88,28 @@ fn int(map: &Map<String, Value>, key: &str) -> Option<i64> {
     map.get(key).and_then(Value::as_i64)
 }
 
-/// NiaDB names the job instead of giving the mask.
-fn niadb_job(name: &str) -> Option<i64> {
-    Some(match name {
-        "Warrior" => 1,
-        "Mage" | "Magician" => 2,
-        "Bowman" | "Archer" => 4,
-        "Thief" => 8,
-        "Beginner" => -1,
-        _ => return None,
-    })
+/// NiaDB names the jobs instead of giving the mask ("Warrior/Thief").
+pub fn niadb_job(names: &str) -> Option<i64> {
+    let mut mask = 0;
+    for name in names.split('/') {
+        mask |= match name.trim() {
+            "Warrior" => 1,
+            "Mage" | "Magician" => 2,
+            "Bowman" | "Archer" => 4,
+            "Thief" => 8,
+            "Beginner" => return Some(-1),
+            _ => return None,
+        };
+    }
+    Some(mask)
+}
+
+/// The job mask of NiaDB equipment stats: no `reqJob` means every job.
+pub fn niadb_jobs(stats: &Map<String, Value>) -> Option<i64> {
+    match stats.get("reqJob") {
+        None | Some(Value::Null) => Some(0),
+        Some(value) => niadb_job(value.as_str()?),
+    }
 }
 
 /// `None` for anything but equipment.
@@ -117,10 +129,21 @@ pub fn equipment_reference(
     let dvg = object("/requirements");
     let niadb = object("/niadb_reference/stats");
     let level = item.req_level.map(i64::from);
-    // Mapledex and NiaDB leave out zero requirements; DVG lists all four.
-    let req = if let Some(m) = mapledex {
+    let mapledex_level = mapledex.and_then(|m| int(m, "reqLevel"));
+    // NiaDB has Classic World's numbers; Mapledex is GMS data and differs on
+    // some weapons (Coconut Knife: 35 vs 38 attack). Mapledex and NiaDB leave
+    // out zero requirements; DVG lists all four.
+    let req = if let Some(n) = niadb {
         Some(Requirements {
-            level: int(m, "reqLevel").or(level).unwrap_or(0),
+            level: mapledex_level.or(level).unwrap_or(0),
+            str: int(n, "reqStr").unwrap_or(0),
+            dex: int(n, "reqDex").unwrap_or(0),
+            int: int(n, "reqInt").unwrap_or(0),
+            luk: int(n, "reqLuk").unwrap_or(0),
+        })
+    } else if let Some(m) = mapledex {
+        Some(Requirements {
+            level: mapledex_level.or(level).unwrap_or(0),
             str: int(m, "reqSTR").unwrap_or(0),
             dex: int(m, "reqDEX").unwrap_or(0),
             int: int(m, "reqINT").unwrap_or(0),
@@ -135,35 +158,26 @@ pub fn equipment_reference(
             luk: int(d, "luk").unwrap_or(0),
         })
     } else {
-        niadb.map(|n| Requirements {
-            level: level.unwrap_or(0),
-            str: int(n, "reqStr").unwrap_or(0),
-            dex: int(n, "reqDex").unwrap_or(0),
-            int: int(n, "reqInt").unwrap_or(0),
-            luk: int(n, "reqLuk").unwrap_or(0),
-        })
+        None
     };
-    let jobs = mapledex
-        .and_then(|m| int(m, "reqJob"))
+    let jobs = niadb
+        .and_then(niadb_jobs)
+        .or_else(|| mapledex.and_then(|m| int(m, "reqJob")))
         .or(item.req_job_mask.map(i64::from))
-        .or_else(|| {
-            let name = niadb?.get("reqJob")?.as_str()?;
-            niadb_job(name)
-        })
         // Mapledex leaves the mask out for gear every job can wear.
         .or(mapledex.map(|_| 0));
     let weapon = (130..=170).contains(&(item.id / 10_000));
     let (kind, kind_en) = kind(item.id);
     let attack_speed = weapon
         .then(|| {
-            mapledex
-                .and_then(|m| int(m, "attackSpeed"))
-                .or_else(|| niadb.and_then(|n| int(n, "attackSpeed")))
+            niadb
+                .and_then(|n| int(n, "attackSpeed"))
+                .or_else(|| mapledex.and_then(|m| int(m, "attackSpeed")))
         })
         .flatten();
-    let upgrades = mapledex
-        .and_then(|m| int(m, "tuc"))
-        .or_else(|| niadb.and_then(|n| int(n, "slots")));
+    let upgrades = niadb
+        .and_then(|n| int(n, "slots"))
+        .or_else(|| mapledex.and_then(|m| int(m, "tuc")));
     Some(EquipmentReference {
         req,
         jobs,
@@ -322,6 +336,34 @@ mod tests {
             (Some(1), Some(5), Some(7))
         );
         assert_eq!(r.kind, Some("单手剑"));
+    }
+
+    #[test]
+    fn niadb_wins_over_mapledex() {
+        // Coconut Knife: Mapledex (GMS) says speed 3 and warrior/thief.
+        let record = json!({
+            "mapledex_reference": {"data": {"reqLevel": 20, "reqDEX": 15, "reqLUK": 30,
+                "reqJob": 9, "incPAD": 35, "tuc": 7, "attackSpeed": 3}},
+            "niadb_reference": {"stats": {"reqDex": 15, "reqLuk": 30, "watk": 38, "slots": 7,
+                "attackSpeed": 4, "reqJob": "Thief"}},
+        });
+        let r = equipment_reference(&item(1_332_005, Some(20), Some(9)), Some(&record)).unwrap();
+        assert_eq!(
+            (r.jobs, r.attack_speed, r.upgrades),
+            (Some(8), Some(4), Some(7))
+        );
+        assert_eq!(r.req.unwrap().level, 20);
+        // Iron Dagger: Mapledex has STR 20 where Classic World has DEX 20.
+        let record = json!({
+            "mapledex_reference": {"data": {"reqLevel": 25, "reqSTR": 20, "reqLUK": 40}},
+            "niadb_reference": {"stats": {"reqDex": 20, "reqLuk": 40, "reqJob": "Warrior/Thief"}},
+        });
+        let r = equipment_reference(&item(1_332_007, Some(25), None), Some(&record)).unwrap();
+        let req = r.req.unwrap();
+        assert_eq!((req.str, req.dex, req.luk), (0, 20, 40));
+        assert_eq!(r.jobs, Some(9));
+        assert_eq!(niadb_job("Warrior/Bowman/Thief"), Some(13));
+        assert_eq!(niadb_jobs(&serde_json::Map::new()), Some(0));
     }
 
     #[test]
