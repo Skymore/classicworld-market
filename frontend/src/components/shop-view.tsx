@@ -13,16 +13,18 @@ import "./shop-view.css";
 /** One shop the player can step to: its key and the row they came from. */
 export type ShopStop = { key: string; row: any };
 
-/** How each store permit looks in the game (UI ChatBalloon miniroom/PSSkin):
- *  the regular store is a sign over its owner's head, the others whole stalls.
- *  Sizes are world pixels; 5140005 has no skin of its own number. */
+/** How each store permit looks in the game (UI RoomSession.img
+ *  Balloon/backgrnd_PlayerShop/<permit>, which links 5140001-5140004 to
+ *  ChatBalloon miniroom/PSSkin 1-4 and holds 5140005's own picture): the
+ *  regular store is a sign over its owner's head, the others whole stalls
+ *  standing on the owner's spot. Sizes are world pixels. */
 const SKINS: Record<number, { skin: number; w: number; h: number; lift: number }> = {
-  5140000: { skin: 0, w: 112, h: 63, lift: 62 },
+  5140000: { skin: 0, w: 112, h: 63, lift: 88 },
   5140001: { skin: 1, w: 156, h: 159, lift: 0 },
   5140002: { skin: 2, w: 156, h: 159, lift: 0 },
   5140003: { skin: 3, w: 156, h: 159, lift: 0 },
   5140004: { skin: 4, w: 156, h: 159, lift: 0 },
-  5140005: { skin: 6, w: 156, h: 159, lift: 0 },
+  5140005: { skin: 5, w: 156, h: 159, lift: 0 },
 };
 const isEquipment = (row: any) => Math.floor(Number(row?.item_id) / 1000000) === 1;
 /** A shop row's captured equipment, in either of the API's shapes. */

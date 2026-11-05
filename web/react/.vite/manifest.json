@@ -6,8 +6,12 @@
       "_shared-BvadJZDP.js"
     ]
   },
-  "_catalogue-C_jwMHrW.js": {
-    "file": "chunks/catalogue-C_jwMHrW.js",
+  "_catalogue-DzNnx3BC.css": {
+    "file": "chunks/catalogue-DzNnx3BC.css",
+    "src": "_catalogue-DzNnx3BC.css"
+  },
+  "_catalogue-X_tQnj7u.js": {
+    "file": "chunks/catalogue-X_tQnj7u.js",
     "name": "catalogue",
     "imports": [
       "_shared-BvadJZDP.js",
@@ -29,10 +33,6 @@
     "css": [
       "chunks/catalogue-DzNnx3BC.css"
     ]
-  },
-  "_catalogue-DzNnx3BC.css": {
-    "file": "chunks/catalogue-DzNnx3BC.css",
-    "src": "_catalogue-DzNnx3BC.css"
   },
   "_chevron-right-BmTeiEZr.js": {
     "file": "chunks/chevron-right-BmTeiEZr.js",
@@ -113,8 +113,8 @@
       "_shared-BvadJZDP.js"
     ]
   },
-  "_main-DFwlfEUI.js": {
-    "file": "chunks/main-DFwlfEUI.js",
+  "_main-BIK_V3RV.js": {
+    "file": "chunks/main-BIK_V3RV.js",
     "name": "main",
     "imports": [
       "_shared-BvadJZDP.js",
@@ -315,7 +315,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DFwlfEUI.js"
+      "_main-BIK_V3RV.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -367,7 +367,7 @@
     ]
   },
   "src/pages/catalogue-search.tsx": {
-    "file": "chunks/catalogue-search-B5kCJOZu.js",
+    "file": "chunks/catalogue-search-CGgSx-cm.js",
     "name": "catalogue-search",
     "src": "src/pages/catalogue-search.tsx",
     "isDynamicEntry": true,
@@ -375,16 +375,16 @@
       "_shared-BvadJZDP.js",
       "_dialog-C-FZ5S7y.js",
       "_price-state-BUUp4F1a.js",
-      "_catalogue-C_jwMHrW.js"
+      "_catalogue-X_tQnj7u.js"
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-CykqPkta.js",
+    "file": "chunks/catalogue-Dv4ZTeKK.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_catalogue-C_jwMHrW.js"
+      "_catalogue-X_tQnj7u.js"
     ]
   },
   "src/pages/collect.tsx": {
@@ -539,7 +539,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DFwlfEUI.js"
+      "_main-BIK_V3RV.js"
     ]
   }
 }
