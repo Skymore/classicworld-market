@@ -217,6 +217,10 @@ export default function ItemPreview() {
     const click = (event: MouseEvent) => {
       if (popup.current?.contains(event.target as Node)) return;
       const target = event.target as Element;
+      if (target.closest("[data-shop-row]")) {
+        close();
+        return;
+      }
       const next =
         !target.closest("button,input,select") &&
         previewItem(target, location.origin);

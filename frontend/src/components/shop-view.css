@@ -1,59 +1,63 @@
-/* Shop view: one shop at a time over the item page (not modal, so the
-   equipment tooltip at z-index 110 still draws above it). */
+/* Shop view: one shop at a time over the item page. Compact enough that a
+   phone shows the map, the selected good and the first rows of goods at once. */
 .sv-scrim{position:fixed;inset:0;z-index:100;background:var(--scrim)}
-.sv-dialog{position:fixed;z-index:101;inset:0;margin:auto;width:min(880px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:0;display:flex;flex-direction:column;overflow:hidden;color:var(--ink)}
+.sv-dialog{position:fixed;z-index:101;inset:0;margin:auto;width:min(640px,calc(100vw - 24px));height:fit-content;max-height:calc(100dvh - 24px);padding:0;display:flex;flex-direction:column;overflow:hidden;color:var(--ink)}
 .sv-dialog:not([open]){display:none}
 .sv-dialog:focus{outline:none}
-.sv-bar{flex:none;padding:0 4px;gap:4px}
-.sv-bar button{display:grid;place-items:center;width:44px;height:44px;color:var(--bar-ink);background:none;border:0}
+.sv-bar{flex:none;min-height:40px;padding:0 2px;gap:2px}
+.sv-bar button{display:grid;place-items:center;width:40px;height:38px;color:var(--bar-ink);background:none;border:0}
 .sv-bar button:disabled{opacity:.35}
-.sv-bar button svg{width:22px;height:22px}
+.sv-bar button svg{width:20px;height:20px}
 .sv-bar button:hover:not(:disabled){background:var(--bar-hi)}
-.sv-count{flex:1;text-align:center;font-weight:700;font-size:15px;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sv-close{margin-left:4px;border-left:1px solid var(--bar-lo)!important}
-.sv-card{display:flex;flex-direction:column;min-height:0;overflow:auto;overscroll-behavior:contain}
-.sv-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-bottom:1px solid var(--rule);background:var(--sheet-hi)}
-.sv-who{min-width:0}
-.sv-who h2{font-size:17px;font-weight:700;line-height:1.3;overflow-wrap:anywhere}
-.sv-who span{display:block;font-size:13px;color:var(--ink-3)}
-.sv-who b{color:var(--ink-2)}
-.sv-loc{flex:none}
-.sv-body{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:12px;padding:12px}
-.sv-where{display:flex;flex-direction:column;gap:6px;min-width:0}
+.sv-count{flex:1;text-align:center;font-weight:700;font-size:14px;letter-spacing:.04em;white-space:nowrap}
+.sv-close{border-left:1px solid var(--bar-lo)!important}
+.sv-card{display:flex;flex-direction:column;gap:8px;min-height:0;padding:8px;overflow:auto;overscroll-behavior:contain}
+/* Map thumbnail beside the shop's name and place. */
+.sv-top{display:grid;grid-template-columns:minmax(0,11fr) minmax(0,9fr);gap:8px;align-items:start}
 .sv-map{position:relative;width:100%;max-width:100%;border:2px solid var(--edge);border-radius:2px;background:var(--hole);overflow:hidden}
 .sv-map img{display:block;width:100%;height:100%;object-fit:fill}
-.sv-nomap{display:grid;place-items:center;aspect-ratio:3/2;color:var(--hole-ink);font-size:13px}
-.sv-pin{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;pointer-events:none}
-.sv-pin b{order:-1;margin-bottom:2px;padding:1px 6px;background:var(--maple);color:#fff;font-size:12px;font-weight:700;border:1px solid var(--edge);border-radius:2px;white-space:nowrap}
-.sv-pin i{width:18px;height:18px;background:var(--stall);border:2px solid var(--edge);border-radius:2px;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--maple);animation:sv-ping 1.4s ease-out infinite}
-@keyframes sv-ping{0%{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--maple)}70%{box-shadow:0 0 0 2px #fff,0 0 0 14px transparent}100%{box-shadow:0 0 0 2px #fff,0 0 0 4px transparent}}
+.sv-nomap{display:grid;place-items:center;aspect-ratio:3/2;padding:4px;color:var(--hole-ink);font-size:12px;text-align:center}
+.sv-pin{position:absolute;transform:translate(-50%,-100%);pointer-events:none}
+.sv-pin i{display:block;width:12px;height:12px;background:var(--stall);border:2px solid var(--edge);border-radius:2px;box-shadow:0 0 0 2px #fff,0 0 0 3px var(--maple);animation:sv-ping 1.4s ease-out infinite}
+@keyframes sv-ping{0%{box-shadow:0 0 0 2px #fff,0 0 0 3px var(--maple)}70%{box-shadow:0 0 0 2px #fff,0 0 0 11px transparent}100%{box-shadow:0 0 0 2px #fff,0 0 0 3px transparent}}
 @media (prefers-reduced-motion:reduce){.sv-pin i{animation:none}}
-.sv-caption{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
-.sv-swatch{flex:none;width:14px;height:14px;border:1px solid var(--edge);border-radius:2px}
-/* The goods, laid out like the game's store window: slot, name, price. */
-.sv-window{border:2px solid var(--edge);border-radius:2px;background:var(--sheet-lo);box-shadow:inset 1px 1px 0 var(--bevel-hi),inset -1px -1px 0 var(--bevel-lo);min-width:0;align-self:start}
-.sv-window-bar{display:flex;justify-content:space-between;padding:4px 8px;background:var(--bar);color:var(--bar-ink);font-size:13px;font-weight:700;border-bottom:2px solid var(--edge)}
-.sv-goods{list-style:none;margin:0;padding:4px;display:grid;gap:3px;max-height:min(56dvh,560px);overflow:auto;overscroll-behavior:contain}
-.sv-good{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;padding:4px 6px;background:var(--sheet-hi);border:1px solid var(--rule);border-radius:2px;color:inherit;text-decoration:none}
-a.sv-good:hover{border-color:var(--mark)}
-.sv-good.here{background:var(--lamp);border:2px solid var(--maple);padding:3px 5px}
+.sv-who{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}
+.sv-who h2{font-size:15px;font-weight:700;line-height:1.25;overflow-wrap:anywhere}
+.sv-who>span{font-size:12px;color:var(--ink-3)}
+.sv-who b{color:var(--ink-2)}
+.sv-caption{display:flex;align-items:center;gap:5px}
+.sv-swatch{flex:none;width:12px;height:12px;border:1px solid var(--edge);border-radius:2px}
+/* The selected good, in the game's tooltip colours (as the quick preview). */
+.sv-info{background:#1b2231;color:#eef1f6;border:2px solid #8199bb;border-radius:2px;padding:6px 8px;font-size:12.5px;line-height:1.5;font-variant-numeric:tabular-nums}
+.sv-info-head{display:flex;align-items:center;gap:8px}
+.sv-info-head .slot{background:#2a3346;border-color:#56657c;box-shadow:none}
+.sv-info-head b{display:block;font-size:14px;color:#ffd36b;line-height:1.3;overflow-wrap:anywhere}
+.sv-info-head em{font-style:normal}
+.sv-info-head small{display:block;font-size:11.5px;color:#9aa6bb}
+.sv-stats{display:flex;flex-wrap:wrap;gap:0 12px;margin-top:4px}
+.sv-stats i{font-style:normal;color:#7ee08f}
+.sv-info .dim,.sv-dim{color:#9aa6bb}
+.sv-dim{margin-top:4px}
+.sv-buy{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:4px;padding-top:4px;border-top:1px dashed #56627d}
+.sv-buy b{font-size:16px;color:#fff}
+.sv-open{display:inline-block;margin-top:2px;color:#9dbbe0;font-size:12px}
+/* The goods, as the game's store window: icon, bundle count, price. */
+.sv-window{border:2px solid var(--edge);border-radius:2px;background:var(--sheet-lo);box-shadow:inset 1px 1px 0 var(--bevel-hi),inset -1px -1px 0 var(--bevel-lo)}
+.sv-window-bar{display:flex;justify-content:space-between;padding:2px 8px;background:var(--bar);color:var(--bar-ink);font-size:12px;font-weight:700;border-bottom:2px solid var(--edge)}
+.sv-goods{list-style:none;margin:0;padding:3px;display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:3px}
+.sv-good{display:grid;justify-items:center;gap:1px;width:100%;padding:3px 1px;background:var(--sheet-hi);border:1px solid var(--rule);border-radius:2px;color:var(--ink);cursor:pointer;position:relative}
+.sv-good:hover{border-color:var(--mark)}
+.sv-good.on{background:var(--lamp);border:2px solid var(--maple);padding:2px 0}
+.sv-good.this::before{content:"";position:absolute;left:2px;top:2px;width:6px;height:6px;background:var(--bar);border-radius:1px}
+.sv-good small{font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .sv-slot{position:relative;display:block}
-.sv-slot i{position:absolute;right:1px;bottom:0;font-style:normal;font-size:11px;font-weight:700;color:#fff;text-shadow:0 0 2px #000,0 0 2px #000,0 0 2px #000;font-variant-numeric:tabular-nums}
-.sv-name{min-width:0}
-.sv-name b{display:block;font-weight:700;font-size:14px;line-height:1.3;overflow-wrap:anywhere}
-.sv-equip{display:block;font-size:12px;color:var(--ink-2);line-height:1.35}
-.sv-price{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.sv-price b{display:block;font-size:14px}
-.sv-price small{display:block;font-size:11px;color:var(--ink-3)}
-.sv-none{padding:16px 10px;color:var(--ink-3);font-size:13px;text-align:center}
-.sv-hint{flex:none;padding:6px 12px;border-top:1px solid var(--rule);font-size:12px;color:var(--ink-3);text-align:center}
+.sv-slot i{position:absolute;right:1px;bottom:-1px;font-style:normal;font-size:10px;font-weight:700;color:#fff;text-shadow:0 0 2px #000,0 0 2px #000,0 0 2px #000;font-variant-numeric:tabular-nums}
+.sv-none{padding:14px 8px;color:var(--ink-3);font-size:13px;text-align:center}
 @media (max-width:640px){
   .sv-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px)}
-  .sv-body{grid-template-columns:minmax(0,1fr);padding:8px;gap:8px}
-  .sv-head{padding:8px}
-  .sv-goods{max-height:none;overflow:visible}
-  .sv-hint{display:none}
+  .sv-goods{grid-template-columns:repeat(5,minmax(0,1fr))}
 }
-.market-record .record-stall{flex:none;display:inline-grid;place-items:center;width:28px;height:28px;margin-left:4px;padding:0;border:1px solid var(--edge);border-radius:2px;background:var(--sheet-hi);color:var(--bar-text);box-shadow:inset 1px 1px 0 var(--bevel-hi),inset -1px -1px 0 var(--bevel-lo)}
-.market-record .record-stall:hover{background:var(--bar-soft)}
-.market-record .record-stall svg{width:16px;height:16px}
+/* Offer rows that open the shop view are buttons as a whole. */
+.market-record[data-shop-row]{cursor:pointer}
+.market-record[data-shop-row]:hover{background:var(--lamp)}
+.market-record[data-shop-row]:focus-visible{outline:2px solid var(--mark);outline-offset:-2px}
