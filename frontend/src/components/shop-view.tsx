@@ -230,7 +230,6 @@ function ShopCard({
         <p className="sv-none">{words("这家店现在没有在售的货。", "Nothing is on sale in this shop now.")}</p>
       ) : (
         <>
-          <Info key={at} row={items[at]} itemId={itemId} />
           <div className="sv-window">
             <div className="sv-window-bar">
               <span>{words("商店物品", "Store items")}</span>
@@ -259,6 +258,7 @@ function ShopCard({
               ))}
             </ul>
           </div>
+          <Info key={at} row={items[at]} itemId={itemId} />
         </>
       )}
       {(stepping || (data.neighbors || []).length > 1) && (
