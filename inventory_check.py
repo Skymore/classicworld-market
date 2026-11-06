@@ -51,7 +51,7 @@ class InventoryScreen:
             if x < 0 or y < 0 or x+209 > normalized.shape[1] or y+289 > normalized.shape[0]:
                 continue
             bottom = normalized[y+267:y+285, x+168:x+208]
-            if cv2.minMaxLoc(cv2.matchTemplate(bottom, self.mesos, cv2.TM_CCOEFF_NORMED))[1] < .90:
+            if not self._mesos_marker(bottom):
                 continue
             values = set()
             band = normalized[y+268:y+283, x+26:x+167, :3]
@@ -69,6 +69,19 @@ class InventoryScreen:
                     values.add(value)
             found.append((x, y, values.pop() if len(values) == 1 else None))
         return found[0] if len(found) == 1 else None
+
+    def _mesos_marker(self, bottom):
+        """The MESOS label, tolerating the pointer resting over one half.
+
+        After a click the hand cursor often sits on the panel's lower right
+        corner. A visible half must then match more strictly than the whole.
+        """
+        def score(template):
+            return cv2.minMaxLoc(cv2.matchTemplate(bottom, template, cv2.TM_CCOEFF_NORMED))[1]
+        if score(self.mesos) >= .90:
+            return True
+        half = self.mesos.shape[1]//2
+        return score(self.mesos[:, :half]) >= .97 or score(self.mesos[:, half:]) >= .97
 
 
 class InventoryChecker:

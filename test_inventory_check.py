@@ -110,6 +110,24 @@ class InventoryCheckTests(unittest.TestCase):
                     checker.run(window,'purchase',dict(item_id=4010101,quantity=3,mesos=737594))
                 self.assertFalse(window.opened)
 
+    def test_pointer_over_mesos_label_still_locates_inventory(self):
+        import numpy as np
+        from inventory_check import InventoryScreen
+        screen=InventoryScreen()
+        frame=np.random.default_rng(3).integers(0,256,(768,1366,3),dtype=np.uint8)
+        x,y=1100,170
+        title=screen.title;frame[y+4:y+4+title.shape[0],x+5:x+5+title.shape[1]]=title
+        mesos=screen.mesos;mx,my=x+170,y+269
+        frame[my:my+mesos.shape[0],mx:mx+mesos.shape[1]]=mesos
+        self.assertEqual(screen.locate(frame)[:2],(x,y))
+        half=mesos.shape[1]//2
+        for covered in (slice(mx,mx+half),slice(mx+half,mx+mesos.shape[1])):
+            pointer=frame.copy();pointer[my-4:my+mesos.shape[0]+6,covered]=255
+            self.assertEqual(screen.locate(pointer)[:2],(x,y))
+        # Title alone, or a fully covered label, is not an open inventory.
+        hidden=frame.copy();hidden[my:my+mesos.shape[0],mx:mx+mesos.shape[1]]=255
+        self.assertIsNone(screen.locate(hidden))
+
     def test_unrecognized_window_gets_no_blind_second_toggle(self):
         with tempfile.TemporaryDirectory() as folder:
             window = Window(responsive=False)
