@@ -222,7 +222,6 @@ export function EquipmentPeek({ equipment, base }: { equipment: any; base: Base 
   const words = useWords();
   return (
     <section className="peek-section peek-equipment" data-preview-equipment>
-      <h3>{words("装备资料", "Equipment")}</h3>
       {equipment.req && (
         <dl className="peek-stats eq-req-grid">
           <Requirements req={equipment.req} words={words} prefix />

@@ -94,5 +94,4 @@
 .sv-skeleton .sv-good{height:52px;cursor:default}
 .sv-pad{padding:0 12px 10px}
 /* Use, etc and cash goods: the tooltip card (see styles.css for its parts). */
-.tip-card .eq-lines .bad dd{color:#ff8f86}
 .tip-card .eq-top+.eq-offer{margin-top:0;border-top:0}

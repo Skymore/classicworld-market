@@ -114,11 +114,10 @@ function OfferLine({ row }: { row: any }) {
 }
 
 /** The game tooltip of a use, etc, set-up or cash item: name, tags, icon
- *  with its description, then what the client's data says it does. */
+ *  and its description, as in the game; then this offer. */
 function ItemTip({ row, item, tip }: { row: any; item: any; tip: any }) {
   const words = useWords();
-  const { desc, flags, lines } = useTip(tip);
-  const colon = words("：", ": ");
+  const { desc, flags } = useTip(tip);
   return (
     <div className="eq-card tip-card" data-item-tip={item.id}>
       <h2 className="eq-title">{words(item.name_zh || item.name_en, item.name_en || item.name_zh)}</h2>
@@ -129,16 +128,6 @@ function ItemTip({ row, item, tip }: { row: any; item: any; tip: any }) {
         <Slot empty url={item.icon_url || row.icon_url} size={40} />
         {desc ? <Desc text={desc} /> : <p className="tip-desc dim">{row.subcategory}</p>}
       </div>
-      {lines.length > 0 && (
-        <dl className="eq-lines">
-          {lines.map(([label, value, tone], i) => (
-            <div key={i} className={tone || ""}>
-              <dt>{label}{colon}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
       <OfferLine row={row} />
     </div>
   );
