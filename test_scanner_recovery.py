@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 from urllib.error import HTTPError, URLError
 
-from collector_recovery import ScanIntent, failure_state, retry_after, retry_delay
+from collector_recovery import ScanIntent, bounded_recovery_failure, failure_state, retry_after, retry_delay
 from collector_http import request_json, scanner_request
 from collector_watchdog import HealthMonitor, should_restart
 
@@ -46,6 +46,16 @@ class HealthTests(unittest.TestCase):
         self.assertEqual(phase,'needs_attention')
         self.assertIn('频道收包',message)
         self.assertNotIn('前台',message)
+
+    def test_channel_change_not_started_is_not_reported_as_capture_failure(self):
+        from channel_packet_state import PacketChannelConfirmationError
+        error=PacketChannelConfirmationError(5,'channel_change_not_started')
+        self.assertTrue(bounded_recovery_failure(error))
+        self.assertEqual(failure_state(error,2)[0],'rebuilding')
+        phase,message=failure_state(error,3)
+        self.assertEqual(phase,'needs_attention')
+        self.assertIn('没有连接新频道',message)
+        self.assertNotIn('收包',message)
 
     def test_packet_key_failure_reports_data_reason_without_ui_advice(self):
         from packet_keybindings import PacketKeyBindingError
