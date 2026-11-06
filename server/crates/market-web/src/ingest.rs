@@ -502,10 +502,23 @@ async fn reconcile_owner_listings(
             ON sibling.world=s.world AND sibling.owner_character_id=s.owner_character_id
             WHERE s.id=$1 AND s.owner_character_id IS NOT NULL
         ), latest AS (
-            SELECT o.shop_id FROM observations o JOIN family f ON f.id=o.shop_id
+            SELECT o.shop_id,o.observed_at FROM observations o JOIN family f ON f.id=o.shop_id
             ORDER BY o.observed_at DESC,o.visit_key DESC LIMIT 1
-        ) DELETE FROM listings l WHERE l.shop_id IN (SELECT id FROM family)
-          AND l.shop_id <> (SELECT shop_id FROM latest) RETURNING l.item_id",
+        ), retired AS (
+            DELETE FROM listings l WHERE l.shop_id IN (SELECT id FROM family)
+            AND l.shop_id <> (SELECT shop_id FROM latest) RETURNING l.*
+        ), archived AS (
+            -- The host reopened elsewhere; quotes not carried over are expired.
+            INSERT INTO expired_listings(shop_id,observation_id,slot,item_id,variant_id,price,bundle,stock,invalidated_at)
+            SELECT r.shop_id,r.observation_id,r.slot,r.item_id,r.variant_id,r.price,r.bundle,r.stock,
+              (SELECT observed_at FROM latest)
+            FROM retired r WHERE r.stock>0 AND NOT EXISTS(
+              SELECT 1 FROM listings n WHERE n.shop_id=(SELECT shop_id FROM latest)
+                AND n.item_id=r.item_id AND n.variant_id IS NOT DISTINCT FROM r.variant_id
+                AND n.price=r.price AND n.bundle=r.bundle)
+            ON CONFLICT(observation_id,slot) DO UPDATE
+              SET invalidated_at=LEAST(expired_listings.invalidated_at,EXCLUDED.invalidated_at)
+        ) SELECT item_id FROM retired",
     )
     .bind(shop)
     .fetch_all(&mut *conn)
@@ -830,6 +843,28 @@ async fn replay_shop(conn: &mut PgConnection, shop: i64) -> sqlx::Result<ShopCha
         .bind(added.iter().map(|s| s.quantity).collect::<Vec<_>>())
         .bind(added.iter().map(|s| s.window_start).collect::<Vec<_>>())
         .bind(added.iter().map(|s| s.detected_at).collect::<Vec<_>>())
+        .execute(&mut *conn)
+        .await?;
+    }
+
+    // A live quote that the newer complete snapshot no longer shows at the same
+    // slot, price and bundle was withdrawn or repriced: keep it as expired.
+    if let Some(latest) = result.latest {
+        let (observation, visit, ..) = &visits[latest];
+        sqlx::query(
+            "INSERT INTO expired_listings(shop_id,observation_id,slot,item_id,variant_id,price,bundle,stock,invalidated_at)
+             SELECT l.shop_id,l.observation_id,l.slot,l.item_id,l.variant_id,l.price,l.bundle,l.stock,to_timestamp($3)
+             FROM listings l WHERE l.shop_id=$1 AND l.stock>0 AND l.observation_id<>$2
+               AND EXISTS(SELECT 1 FROM observations o WHERE o.id=l.observation_id AND o.shop_id=$1)
+               AND NOT EXISTS(SELECT 1 FROM observation_rows r WHERE r.observation_id=$2 AND r.slot=l.slot
+                 AND r.item_id=l.item_id AND r.variant_id IS NOT DISTINCT FROM l.variant_id
+                 AND r.price=l.price AND r.bundle=l.bundle)
+             ON CONFLICT(observation_id,slot) DO UPDATE
+               SET invalidated_at=LEAST(expired_listings.invalidated_at,EXCLUDED.invalidated_at)",
+        )
+        .bind(shop)
+        .bind(observation)
+        .bind(visit.time)
         .execute(&mut *conn)
         .await?;
     }
