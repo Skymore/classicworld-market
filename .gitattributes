@@ -5,6 +5,7 @@
 /server/migrations/0010_bestiary.sql text eol=crlf
 /server/migrations/0011_bestiary_data.sql text eol=crlf
 /server/migrations/0012_observation_map_context.sql text eol=crlf
+/server/migrations/0046_shop_stall_rooms.sql text eol=crlf
 
 # Generated vendor chunks; review the frontend TypeScript sources.
 web/react/chunks/*.js -diff linguist-generated=true
