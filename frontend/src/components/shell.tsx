@@ -8,6 +8,7 @@ import { usePreferences, useWords } from "../providers";
 import { AssistantDock } from "./assistant-dock";
 import { AssistantIcon } from "./assistant-icon";
 import { Icon, Search } from "./shared";
+import { navSection, sectionHref } from "../lib/page-memory";
 
 const navigation = [
   ["home", "/", "首页", "Home", "home"],
@@ -155,10 +156,56 @@ export function SiteLink({
     </Link>
   );
 }
+const plainClick = (event: React.MouseEvent) =>
+  !event.defaultPrevented &&
+  event.button === 0 &&
+  !event.metaKey &&
+  !event.ctrlKey &&
+  !event.shiftKey &&
+  !event.altKey;
+/** A navigation tab returns to that section's last page with its filters and
+ * scroll position. On the page it already shows, it scrolls back to the top. */
+function useSectionLink() {
+  const navigate = useNavigate();
+  const { language } = usePreferences();
+  return (event: React.MouseEvent, section: string, fallback: string) => {
+    if (!plainClick(event)) return;
+    event.preventDefault();
+    const url = new URL(sectionHref(section, fallback), location.href);
+    if (section === "dex" && language === "en") url.searchParams.set("lang", "en");
+    const here = new URL(location.href);
+    here.searchParams.delete("embed");
+    if (url.pathname + url.search === here.pathname + here.search) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    navigate(url.pathname + url.search + url.hash, { state: { restore: true } });
+  };
+}
+/** A link to a main section that remembers its last page (see useSectionLink). */
+export function SectionLink({
+  section,
+  href,
+  onClick,
+  ...props
+}: React.ComponentProps<"a"> & { section: string; href: string }) {
+  const openSection = useSectionLink();
+  return (
+    <SiteLink
+      {...props}
+      href={sectionHref(section, href)}
+      onClick={(event) => {
+        onClick?.(event);
+        openSection(event, section, href);
+      }}
+    />
+  );
+}
 function Brand({ size }: { size: number }) {
   const words = useWords();
+  const openSection = useSectionLink();
   return (
-    <SiteLink className="brand" href="/">
+    <SiteLink className="brand" href={sectionHref("home", "/")} onClick={(event) => openSection(event, "home", "/")}>
       <Icon name="leaf" size={size} />
       <span>{words("枫叶市集", "Maple Market")}</span>
     </SiteLink>
@@ -183,21 +230,8 @@ export function Navigation({ dock = false }: { dock?: boolean }) {
     event.preventDefault();
     setAssistantOpen(!assistantOpen);
   };
-  const active = path.startsWith("/agent")
-    ? "agent"
-    : path.startsWith("/watch")
-      ? "watch"
-      : ["/tools", "/alerts", "/collect", "/web/download.html", "/contributors", "/traffic"].some(
-            (prefix) => path === prefix || path.startsWith(prefix + "/"),
-          )
-        ? "tools"
-        : path === "/" || path === "/v2" || path.startsWith("/prices") || path.startsWith("/sales")
-          ? "home"
-          : ["/search", "/item", "/mob", "/map", "/npc", "/route"].some(
-                (prefix) => path === prefix || path.startsWith(prefix + "/"),
-              )
-            ? "dex"
-            : null;
+  const active = navSection(path);
+  const openSection = useSectionLink();
   const [hits, setHits] = useState(() => {
     try {
       return Number(localStorage.getItem("watch_hits")) || 0;
@@ -228,11 +262,11 @@ export function Navigation({ dock = false }: { dock?: boolean }) {
       {navigation.map(([key, href, zh, en, icon]) => (
         <SiteLink
           key={key}
-          href={href}
+          href={key === "agent" ? href : sectionHref(key, href)}
           className={active === key ? "on" : ""}
           data-nav-key={key}
           aria-current={active === key ? "page" : undefined}
-          onClick={key === "agent" ? openAssistant : undefined}
+          onClick={key === "agent" ? openAssistant : (event) => openSection(event, key, href)}
           aria-expanded={
             key === "agent" && !path.startsWith("/agent")
               ? assistantOpen

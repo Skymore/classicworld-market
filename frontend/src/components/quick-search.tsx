@@ -4,14 +4,24 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { usePreferences, useWords } from "../providers";
 import { loadCatalog } from "../lib/catalog";
 import { Icon } from "./shared";
+import {
+  forgetSearch,
+  rememberSearch,
+  setSearchText,
+  useRecentSearches,
+  useSearchText,
+} from "../lib/search-memory";
 export default function QuickSearch() {
   const words = useWords(),
     { language } = usePreferences(),
     navigate = useNavigate(),
     route = useLocation(),
     id = useId();
-  const [input, setInput] = useState(""),
-    [query, setQuery] = useState(""),
+  // The text stays while moving between pages; recent searches stay on this device.
+  const input = useSearchText(),
+    setInput = setSearchText,
+    recent = useRecentSearches();
+  const [query, setQuery] = useState(() => input.trim()),
     [open, setOpen] = useState(false);
   const composing = useRef(false),
     form = useRef<HTMLFormElement>(null),
@@ -40,6 +50,7 @@ export default function QuickSearch() {
     if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     const url = new URL(event.currentTarget.href);
+    rememberSearch(input);
     selectedRows.current = null;
     setOpen(false);
     navigate(url.pathname + url.search + url.hash);
@@ -65,7 +76,21 @@ export default function QuickSearch() {
   useEffect(() => {
     selectedRows.current = null;
     setOpen(false);
+    // The full results page shows what was searched.
+    if (route.pathname !== "/search") return;
+    const q = new URLSearchParams(route.search).get("q");
+    if (q !== null) setInput(q);
   }, [route.pathname, route.search]);
+  const showRecent = !input.trim() && recent.length > 0;
+  const focusInput = () =>
+    form.current?.querySelector<HTMLInputElement>("input[name=q]")?.focus();
+  function pickRecent(term: string) {
+    selectedRows.current = null;
+    setInput(term);
+    setQuery(term);
+    setOpen(true);
+    focusInput();
+  }
   useEffect(() => {
     const outside = (event: PointerEvent) => {
       const target = event.target as Element;
@@ -129,6 +154,7 @@ export default function QuickSearch() {
         data-quick-search="1"
         onSubmit={(event) => {
           event.preventDefault();
+          rememberSearch(input);
           selectedRows.current = null;
           setOpen(false);
           navigate(target);
@@ -144,7 +170,7 @@ export default function QuickSearch() {
           if (event.key === "ArrowDown" && open) {
             event.preventDefault();
             form.current
-              ?.querySelector<HTMLAnchorElement>(".quick-search a")
+              ?.querySelector<HTMLElement>(".quick-search a, .quick-recent-row")
               ?.focus();
           }
         }}
@@ -181,7 +207,24 @@ export default function QuickSearch() {
           }}
         />
         {language === "en" && <input type="hidden" name="lang" value="en" />}
-        <kbd>/</kbd>
+        {input ? (
+          <button
+            type="button"
+            className="finder-clear"
+            aria-label={words("清空搜索", "Clear search")}
+            onClick={() => {
+              selectedRows.current = null;
+              setInput("");
+              setQuery("");
+              setOpen(true);
+              focusInput();
+            }}
+          >
+            <Icon name="close" />
+          </button>
+        ) : (
+          <kbd>/</kbd>
+        )}
         <div
           className="quick-search"
           ref={box}
@@ -191,7 +234,39 @@ export default function QuickSearch() {
           aria-label={words("搜索结果", "Search results")}
           aria-busy={result.isFetching}
         >
-          {result.isPending && !selectedRows.current ? (
+          {showRecent ? (
+            <div className="quick-recent">
+              <div className="quick-recent-head">
+                <span>{words("最近搜索", "Recent searches")}</span>
+                <button type="button" onClick={() => forgetSearch()}>
+                  {words("清除", "Clear")}
+                </button>
+              </div>
+              {recent.map((term) => (
+                <div className="quick-recent-item" key={term}>
+                  <button
+                    type="button"
+                    className="quick-recent-row"
+                    onClick={() => pickRecent(term)}
+                  >
+                    <Icon name="search" />
+                    <span>{term}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="quick-recent-remove"
+                    aria-label={words("删除", "Remove") + " " + term}
+                    onClick={() => {
+                      forgetSearch(term);
+                      focusInput();
+                    }}
+                  >
+                    <Icon name="close" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : result.isPending && !selectedRows.current ? (
             <p className="quick-note" role="status">
               {words("正在搜索…", "Searching…")}
             </p>
@@ -252,13 +327,13 @@ export default function QuickSearch() {
               {words("没有匹配结果", "No matching results")}
             </p>
           )}
-          <a
+          {!showRecent && <a
             className="quick-more"
             href={target}
             onClick={activate}
           >
             {words("查看全部结果", "Browse all results")} →
-          </a>
+          </a>}
         </div>
       </form>
     </div>

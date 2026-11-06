@@ -3,7 +3,7 @@ import { mobImg } from "/web/js/lib/format.js";
 import { useWords } from "../providers";
 import { embedded } from "../lib/embed";
 import { Search, Icon, Loading, usePageReady } from "../components/shared";
-import { SiteLink } from "../components/shell";
+import { SiteLink, SectionLink } from "../components/shell";
 
 // main.tsx starts this download at boot on the home page, so the hero never
 // waits for the price table's code or its market payload.
@@ -41,18 +41,18 @@ export default function Home() {
         </div>
         <Search />
         <nav className="portals" aria-label={words("快捷入口", "Shortcuts")}>
-          <SiteLink className="portal" href="/watch">
+          <SectionLink className="portal" section="watch" href="/watch">
             <span className="p-top">
               <Icon name="starSm" />
               {words("关注", "Watch")}
             </span>
-          </SiteLink>
-          <SiteLink className="portal" href="/search?kind=item">
+          </SectionLink>
+          <SectionLink className="portal" section="dex" href="/search?kind=item">
             <span className="p-top">
               <Icon name="mob" />
               {words("图鉴", "Catalogue")}
             </span>
-          </SiteLink>
+          </SectionLink>
         </nav>
         <img
           className="deco-snail"

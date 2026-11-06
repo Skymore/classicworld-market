@@ -6,6 +6,7 @@ import {
   use,
   useEffect,
   useLayoutEffect,
+  useRef,
   type ComponentType,
   type ReactNode,
 } from "react";
@@ -16,7 +17,14 @@ import {
   Route,
   useLocation,
   useNavigate,
+  useNavigationType,
 } from "react-router-dom";
+import {
+  rememberLocation,
+  restoreScroll,
+  cancelScrollRestore,
+  watchScroll,
+} from "./lib/page-memory";
 import ItemPreview, { previewEntry } from "./components/item-preview";
 import {
   Providers,
@@ -50,6 +58,8 @@ function priceTablePath(url: URL) {
   url.pathname = "/";
   return url.pathname + url.search + url.hash;
 }
+// The router restores scroll itself (lib/page-memory), after data renders.
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 const legacyPricePath = priceTablePath(new URL(location.href));
 if (legacyPricePath) history.replaceState(history.state, "", legacyPricePath);
 if (location.pathname === "/") {
@@ -218,12 +228,24 @@ function Application() {
     route: words("怎么走", "Route"),
     selling: words("背包与摆摊", "Bag & shop"),
   };
+  const navigationType = useNavigationType();
+  const lastPath = useRef<string | null>(null);
+  useEffect(watchScroll, []);
   useLayoutEffect(() => {
+    rememberLocation(route);
+    // Refresh, back/forward and the navigation tabs return to the saved
+    // position; a new page starts at the top; filter changes keep it.
+    if (navigationType === "POP" || route.state?.restore) restoreScroll();
+    else if (lastPath.current !== route.pathname) {
+      cancelScrollRestore();
+      window.scrollTo(0, 0);
+    }
+    if (lastPath.current === route.pathname) return;
+    lastPath.current = route.pathname;
     document.documentElement.dataset.reactApp = "1";
     document.documentElement.dataset.page = page;
     delete document.documentElement.dataset.ready;
-    window.scrollTo(0, 0);
-  }, [route.pathname, page]);
+  }, [route.key, route.pathname, route.search, page]);
   useEffect(() => {
     if (["search", "item", "mob", "map", "route"].includes(page)) return;
     document.title = `${titles[page] || titles.home} · ${words("枫叶市集", "Maple Market")}`;

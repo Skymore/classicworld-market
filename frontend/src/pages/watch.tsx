@@ -18,6 +18,7 @@ import Core, {
 import { getSyncState, subscribeSync, userStorage } from "/web/js/lib/user-data.js";
 import { sortWatchQuotes } from "/web/js/lib/quote-order.js?v=20261023-watch-cap-1";
 import { useUserValue } from "../lib/live";
+import { useRemembered } from "../lib/page-memory";
 import { useAccount, useMarketQuery } from "../lib/query";
 import { useWords } from "../providers";
 import {
@@ -81,7 +82,7 @@ export default function Watch() {
   const profile = useAccount().data;
   const [rawLists, writeLists] = useUserValue(LISTS_KEY, "[]");
   const lists = useMemo<WatchList[]>(() => readWatchLists(rawLists).map((list:WatchList)=>({...list,items:list.items.filter(id=>ids.includes(id))})), [rawLists, ids]);
-  const [selectedList, selectList] = useState("all");
+  const [selectedList, selectList] = useRemembered("watch.list", "all");
   useEffect(()=>{if(!["all","default"].includes(selectedList)&&!lists.some(list=>list.id===selectedList))selectList("all");},[lists,selectedList]);
   const visibleIds: number[] = listItems(lists, ids, selectedList);
   const saveLists = (next:WatchList[]) => writeLists(JSON.stringify(next));

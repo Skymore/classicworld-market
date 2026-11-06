@@ -25,6 +25,7 @@ import { spark } from "/web/js/lib/spark.js?v=20261022-regressions-1";
 import { usePreferences, useWords } from "../providers";
 import { useMarketQuery } from "../lib/query";
 import { useUserValue } from "../lib/live";
+import { readMemory, writeMemory } from "../lib/page-memory";
 import { craftableIds, estimateCraft } from "/web/js/lib/crafting.js";
 import type { Market, Product, CraftCatalog, CraftPrice } from "../lib/types";
 import {
@@ -709,7 +710,16 @@ export default function PriceTable() {
     state.craft,
     period.hours,
   ].join("|");
-  useEffect(() => setLimit(PAGE_ROWS), [listKey]);
+  // The rows loaded for these filters come back with the page (lib/page-memory).
+  useEffect(() => {
+    const saved = readMemory<{ key: string; limit: number } | null>("prices.rows", null);
+    setLimit(saved?.key === listKey ? saved.limit : PAGE_ROWS);
+  }, [listKey]);
+  const more = () =>
+    setLimit((value) => {
+      writeMemory("prices.rows", { key: listKey, limit: value + PAGE_ROWS });
+      return value + PAGE_ROWS;
+    });
   // Blocks of PAGE_ROWS rows; the "for every job" heading counts in its block.
   const listed = Math.min(recordMode ? limit : shown, rows.length);
   const blockSizes: number[] = [];
@@ -767,7 +777,7 @@ export default function PriceTable() {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting))
-          setLimit((value) => value + PAGE_ROWS);
+          more();
       },
       { rootMargin: "200px" },
     );
@@ -1362,7 +1372,7 @@ export default function PriceTable() {
                     <button
                       type="button"
                       className="react-price-more"
-                      onClick={() => setLimit((value) => value + PAGE_ROWS)}
+                      onClick={more}
                     >
                       {words("加载更多", "Load more")}
                     </button>

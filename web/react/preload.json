@@ -1,31 +1,31 @@
 {
  "shell": [
-  "chunks/main-D5Ch_PTb.js",
-  "chunks/shared-D9e8SJLa.js",
-  "chunks/react-dom-BGYgt7ht.js",
-  "chunks/watch-ids-DyEI5BGc.js",
-  "chunks/item-tip-DJx8chhj.js",
-  "chunks/list-rows-DX-ffLrj.js",
-  "chunks/shell-Kra6eVQL.js",
-  "chunks/assistant-icon-rKKFAa0R.js",
+  "chunks/main-1Hyf5p20.js",
+  "chunks/shared-OFfPuFD1.js",
+  "chunks/react-dom-ButegFA9.js",
+  "chunks/shell-CQs5Dbf8.js",
+  "chunks/assistant-icon-BC5Byi4C.js",
   "chunks/embed-Dt3d22Ag.js",
-  "chunks/createLucideIcon-nrw1bXdo.js",
-  "chunks/watch-alerts-tqEYT_rG.js",
+  "chunks/watch-ids-Day6iEmy.js",
+  "chunks/item-tip-uif5R3E_.js",
+  "chunks/list-rows-DtX7It_m.js",
+  "chunks/createLucideIcon-B-9Mlh7w.js",
+  "chunks/watch-alerts-Denr2AJy.js",
   "chunks/watchlist-core-CnJpcWvS.js",
   "chunks/item-offer-filters-WhsqKTCQ.js",
-  "chunks/live-B4phop_W.js",
-  "chunks/toasts-D_kqFXZU.js",
-  "chunks/push-AsaXPRxC.js",
-  "chunks/list-copy-ca47EC74.js"
+  "chunks/live-CjqZjK1P.js",
+  "chunks/toasts-6wuQpo_h.js",
+  "chunks/push-B9jZxMhW.js",
+  "chunks/list-copy-B0XSGcLq.js"
  ],
  "catalogue": {
   "modules": [
-   "chunks/catalogue-Dar2tUnB.js",
-   "chunks/catalogue-CBNHATOP.js",
-   "chunks/chevron-right-DyoX5mwS.js",
-   "chunks/maximize-2-DiXSPJHo.js",
-   "chunks/x-CQRxOuyT.js",
-   "chunks/offer-filters-C1AIgQhi.js",
+   "chunks/catalogue-BCI4jVTv.js",
+   "chunks/catalogue-B90h_lWU.js",
+   "chunks/chevron-right-DX8B8byl.js",
+   "chunks/maximize-2-B_sVkAIf.js",
+   "chunks/x-D6oFmj-P.js",
+   "chunks/offer-filters-CKKLcI79.js",
    "chunks/crafting-CXB4nJ1A.js"
   ],
   "styles": [
@@ -35,11 +35,11 @@
  },
  "search": {
   "modules": [
-   "chunks/catalogue-search-D5c0qpd1.js",
-   "chunks/dialog-UZNAUVEF.js",
-   "chunks/dist-DXoxASIp.js",
-   "chunks/price-state-C8OjqxaH.js",
-   "chunks/dist-DDssCpLj.js"
+   "chunks/catalogue-search-DQS1XGv8.js",
+   "chunks/dialog-DyTsyYIc.js",
+   "chunks/dist-BndNeXOB.js",
+   "chunks/price-state-GsbNkF1r.js",
+   "chunks/dist-cgowVHqV.js"
   ],
   "styles": []
  },
