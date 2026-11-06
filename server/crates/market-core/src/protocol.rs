@@ -300,11 +300,96 @@ pub struct ShopOwner {
 /// coordinates), and the store permit that sets how the stall looks.
 /// Packet uploads read both from the owner's map-entry record; a screen
 /// upload has no stall.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Stall {
     pub x: i16,
     pub y: i16,
     pub permit: u32,
+    /// How the owner looks, from the same record; the site draws them.
+    pub look: Option<Look>,
+}
+
+/// A character's look as the map-entry record carries it: visible equips
+/// by slot (cash items over the ones they cover) and the cash weapon.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Look {
+    pub gender: u8,
+    pub skin: u8,
+    pub face: u32,
+    pub hair: u32,
+    pub equips: std::collections::BTreeMap<u8, u32>,
+    pub cash_weapon: u32,
+}
+
+impl Look {
+    pub fn to_json(&self) -> Value {
+        let equips: Map<String, Value> = self
+            .equips
+            .iter()
+            .map(|(slot, item)| (slot.to_string(), json!(item)))
+            .collect();
+        json!({"gender":self.gender,"skin":self.skin,"face":self.face,"hair":self.hair,
+            "equips":equips,"cash_weapon":self.cash_weapon})
+    }
+}
+
+fn look(value: &Value) -> Result<Look, ProtocolError> {
+    let o = value
+        .as_object()
+        .ok_or(ProtocolError::WrongType("stall.look"))?;
+    let equips_value = require(o, "equips", "stall.look.equips")?
+        .as_object()
+        .ok_or(ProtocolError::WrongType("stall.look.equips"))?;
+    if equips_value.len() > 40 {
+        return Err(ProtocolError::WrongType("stall.look.equips"));
+    }
+    let mut equips = std::collections::BTreeMap::new();
+    for (slot, item) in equips_value {
+        let slot: u8 = slot
+            .parse()
+            .ok()
+            .filter(|s| (1..=60).contains(s))
+            .ok_or(ProtocolError::InvalidInteger("stall.look.equips"))?;
+        equips.insert(
+            slot,
+            integer(item, "stall.look.equips", 1_000_000, 1_999_999)? as u32,
+        );
+    }
+    let cash_weapon = match o.get("cash_weapon") {
+        None => 0,
+        Some(v) => integer(v, "stall.look.cash_weapon", 0, 1_799_999)? as u32,
+    };
+    if cash_weapon != 0 && cash_weapon < 1_700_000 {
+        return Err(ProtocolError::InvalidInteger("stall.look.cash_weapon"));
+    }
+    Ok(Look {
+        gender: integer(
+            require(o, "gender", "stall.look.gender")?,
+            "stall.look.gender",
+            0,
+            1,
+        )? as u8,
+        skin: integer(
+            require(o, "skin", "stall.look.skin")?,
+            "stall.look.skin",
+            0,
+            20,
+        )? as u8,
+        face: integer(
+            require(o, "face", "stall.look.face")?,
+            "stall.look.face",
+            20_000,
+            29_999,
+        )? as u32,
+        hair: integer(
+            require(o, "hair", "stall.look.hair")?,
+            "stall.look.hair",
+            30_000,
+            69_999,
+        )? as u32,
+        equips,
+        cash_weapon,
+    })
 }
 
 pub const STALL_PARSER: &str = "cw_stall_v1";
@@ -367,10 +452,12 @@ impl Upload {
             );
         }
         if let Some(stall) = &self.stall {
-            map.insert(
-                "stall".into(),
-                json!({"x":stall.x,"y":stall.y,"permit":stall.permit,"parser":STALL_PARSER}),
-            );
+            let mut value =
+                json!({"x":stall.x,"y":stall.y,"permit":stall.permit,"parser":STALL_PARSER});
+            if let Some(look) = &stall.look {
+                value["look"] = look.to_json();
+            }
+            map.insert("stall".into(), value);
         }
         Value::Object(map)
     }
@@ -499,6 +586,10 @@ pub fn validate(data: &Value, now: f64) -> Result<Upload, ProtocolError> {
                     5_140_000,
                     5_149_999,
                 )? as u32,
+                look: match o.get("look") {
+                    None | Some(Value::Null) => None,
+                    Some(v) => Some(look(v)?),
+                },
             })
         }
         Some(_) => return Err(ProtocolError::WrongType("stall")),
@@ -740,6 +831,53 @@ mod tests {
         let clean = upload.clean_json();
         assert_eq!(clean["location"]["map_id"], 80_002_008);
         assert!(clean.get("source").is_none());
+    }
+
+    #[test]
+    fn stall_look_is_validated_and_fingerprinted_like_python() {
+        let look = json!({"gender":1,"skin":2,"face":21001,"hair":31235,
+            "equips":{"11":1372002,"1":1007136,"10":1092000},"cash_weapon":1702028});
+        let data = with(
+            base(),
+            |v| {
+                v["stall"] =
+                    json!({"x":52,"y":-206,"permit":5140003,"parser":"cw_stall_v1","look":look})
+            },
+        );
+        let upload = validate(&data, NOW).unwrap();
+        let stall = upload.stall.as_ref().unwrap();
+        assert_eq!(stall.look.as_ref().unwrap().equips[&11], 1372002);
+        // shared_protocol.validate + digest of the same payload.
+        assert_eq!(
+            upload.fingerprint(),
+            "28f6d4c656eb59897bdd9e34087e2df56dbb061901e95703aa7cd16b9aff7140"
+        );
+        for bad in [
+            json!({"gender":2,"skin":0,"face":20000,"hair":30000,"equips":{}}),
+            json!({"gender":0,"skin":0,"face":1,"hair":30000,"equips":{}}),
+            json!({"gender":0,"skin":0,"face":20000,"hair":30000,"equips":{"99":1002000}}),
+            json!({"gender":0,"skin":0,"face":20000,"hair":30000,"equips":{"1":5000}}),
+            json!({"gender":0,"skin":0,"face":20000,"hair":30000,"equips":{},"cash_weapon":1302000}),
+        ] {
+            let data =
+                with(
+                    base(),
+                    |v| {
+                        v["stall"] =
+                            json!({"x":1,"y":2,"permit":5140000,"parser":"cw_stall_v1","look":bad})
+                    },
+                );
+            assert!(validate(&data, NOW).is_err(), "{data}");
+        }
+        // Without a look the stall and its fingerprint are as before.
+        let plain =
+            with(
+                base(),
+                |v| v["stall"] = json!({"x":52,"y":-206,"permit":5140003,"parser":"cw_stall_v1"}),
+            );
+        assert!(validate(&plain, NOW).unwrap().clean_json()["stall"]
+            .get("look")
+            .is_none());
     }
 
     #[test]

@@ -23,6 +23,21 @@ def text(value, size):
     return value
 
 
+def stall_look(look):
+    """The owner's look (gender, skin, face, hair, visible equips by slot, cash weapon)."""
+    if not isinstance(look,dict) or not isinstance(look.get('equips'),dict) or len(look['equips'])>40:
+        raise ValueError('Invalid stall look')
+    equips={}
+    for slot,item in look['equips'].items():
+        equips[str(integer(int(slot),1,60))]=integer(item,1000000,1999999)
+    cash=integer(look.get('cash_weapon',0),0,1799999)
+    if cash and cash<1700000:
+        raise ValueError('Invalid stall look')
+    return dict(gender=integer(look['gender'],0,1),skin=integer(look['skin'],0,20),
+                face=integer(look['face'],20000,29999),hair=integer(look['hair'],30000,69999),
+                equips=dict(sorted(equips.items(),key=lambda kv:int(kv[0]))),cash_weapon=cash)
+
+
 def validate(data, now=None):
     now=time.time() if now is None else now
     if not isinstance(data,dict) or data.get('version')!=1:
@@ -53,6 +68,9 @@ def validate(data, now=None):
             raise ValueError('Invalid shop stall')
         result['stall']=dict(x=integer(stall['x'],-32768,32767),y=integer(stall['y'],-32768,32767),
                              permit=integer(stall['permit'],5140000,5149999),parser='cw_stall_v1')
+        look=stall.get('look')
+        if look is not None:
+            result['stall']['look']=stall_look(look)
     if not isinstance(data['items'],list) or len(data['items'])>200:
         raise ValueError('Too many items')
     slots=set()

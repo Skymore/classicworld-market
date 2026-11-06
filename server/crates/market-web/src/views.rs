@@ -646,7 +646,7 @@ pub async fn shop_view(db: &PgPool, key: &str) -> sqlx::Result<Option<Value>> {
     .fetch_one(db)
     .await?;
     let stall = sqlx::query(
-        "SELECT s.stall_x,s.stall_y,s.stall_permit,extract(epoch FROM s.stall_seen_at)::float8 AS seen
+        "SELECT s.stall_x,s.stall_y,s.stall_permit,s.stall_look,extract(epoch FROM s.stall_seen_at)::float8 AS seen
          FROM shops s
          WHERE s.id = ANY($1) AND s.stall_seen_at IS NOT NULL
          ORDER BY s.stall_seen_at DESC LIMIT 1",
@@ -656,7 +656,8 @@ pub async fn shop_view(db: &PgPool, key: &str) -> sqlx::Result<Option<Value>> {
     .await?
     .map(|r| {
         json!({"x": r.get::<i16,_>("stall_x"), "y": r.get::<i16,_>("stall_y"),
-               "permit": r.get::<i32,_>("stall_permit"), "seen": r.get::<f64,_>("seen")})
+               "permit": r.get::<i32,_>("stall_permit"), "seen": r.get::<f64,_>("seen"),
+               "look": r.get::<Option<Value>,_>("stall_look")})
     });
     // The other stalls of the same room and channel, so the map shows the
     // whole room: a stall read in the last day, of a shop with goods on sale,
@@ -667,7 +668,7 @@ pub async fn shop_view(db: &PgPool, key: &str) -> sqlx::Result<Option<Value>> {
     if let (Some(channel), Some(room)) = (channel, room) {
         neighbors = sqlx::query(
             "SELECT DISTINCT ON (COALESCE(s.owner_character_id::text, s.id::text))
-                    s.public_key,s.title,s.owner_name,s.stall_x,s.stall_y,s.stall_permit
+                    s.public_key,s.title,s.owner_name,s.stall_x,s.stall_y,s.stall_permit,s.stall_look
              FROM shops s
              WHERE s.world=$1 AND s.channel=$2 AND s.room=$3 AND s.stall_seen_at IS NOT NULL
                AND s.stall_seen_at >= now() - interval '24 hours'
@@ -685,7 +686,7 @@ pub async fn shop_view(db: &PgPool, key: &str) -> sqlx::Result<Option<Value>> {
             json!({"shop_key": r.get::<String,_>("public_key"), "title": r.get::<String,_>("title"),
                    "owner_name": r.get::<Option<String>,_>("owner_name"),
                    "x": r.get::<i16,_>("stall_x"), "y": r.get::<i16,_>("stall_y"),
-                   "permit": r.get::<i32,_>("stall_permit")})
+                   "permit": r.get::<i32,_>("stall_permit"), "look": r.get::<Option<Value>,_>("stall_look")})
         })
         .collect();
     }

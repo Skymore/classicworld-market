@@ -189,7 +189,7 @@ async fn ingest_one(
     }
     insert_rows(tx, observation, upload, &variants).await?;
     bind_owner(tx, shop, observation, upload.owner.as_ref()).await?;
-    if let Some(stall) = upload.stall {
+    if let Some(stall) = &upload.stall {
         bind_stall(tx, shop, stall, observed).await?;
     }
     sqlx::query("INSERT INTO uploads_raw (collector_id, observation_id, received_at, body) VALUES ($1, $2, to_timestamp($3), $4)")
@@ -473,11 +473,13 @@ async fn bind_owner(
 async fn bind_stall(
     conn: &mut PgConnection,
     shop: i64,
-    stall: market_core::protocol::Stall,
+    stall: &market_core::protocol::Stall,
     observed: f64,
 ) -> sqlx::Result<()> {
+    // A reading without a look (older collectors) keeps the look already known.
     sqlx::query(
-        "UPDATE shops SET stall_x=$2,stall_y=$3,stall_permit=$4,stall_seen_at=to_timestamp($5)
+        "UPDATE shops SET stall_x=$2,stall_y=$3,stall_permit=$4,stall_seen_at=to_timestamp($5),
+            stall_look=COALESCE($6,stall_look)
         WHERE id=$1 AND (stall_seen_at IS NULL OR stall_seen_at<=to_timestamp($5))",
     )
     .bind(shop)
@@ -485,6 +487,7 @@ async fn bind_stall(
     .bind(stall.y)
     .bind(stall.permit as i32)
     .bind(observed)
+    .bind(stall.look.as_ref().map(|l| l.to_json()))
     .execute(conn)
     .await?;
     Ok(())

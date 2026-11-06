@@ -4,9 +4,16 @@ import unittest
 from market_stall import StallTracker, parse_entry, parse_sign
 
 
-def entry(character_id, name, x, y, title=None, permit=5140002, pets=False, op=0x22D):
+LOOK = (struct.pack('<BBIIBI', 1, 2, 21001, 200, 0, 31235)
+        + bytes([1]) + struct.pack('<I', 1007136) + bytes([11]) + struct.pack('<I', 1372002) + bytes([0xFF])
+        + bytes([1]) + struct.pack('<I', 1002019) + bytes([0xFF]) + struct.pack('<I', 1702028))
+
+
+def entry(character_id, name, x, y, title=None, permit=5140002, pets=False, op=0x22D, look=False):
     body = struct.pack('<HI', op, 0x0101C8AC) + struct.pack('<I', character_id) + bytes(8)
     body += struct.pack('<H', len(name)) + name.encode() + bytes(40)
+    if look:
+        body += LOOK + bytes(20)
     body += b'\xff\xff' + bytes(8) + struct.pack('<hhBH', x, y, 4, 10) + b'\x01\x01\x00'
     if pets:
         # A pet record carries its own position after the owner's.
@@ -31,7 +38,15 @@ def sign(character_id, title=None, permit=5140005, op=0x23D):
 class StallTest(unittest.TestCase):
     def test_entry_gives_position_and_permit(self):
         self.assertEqual(parse_entry(entry(47870, 'Hexa', 444, -416, 'Great Deals!')),
-                         dict(character_id=47870, x=444, y=-416, permit=5140002, title='Great Deals!'))
+                         dict(character_id=47870, x=444, y=-416, permit=5140002, title='Great Deals!', look=None))
+
+    def test_entry_gives_the_look(self):
+        stall = parse_entry(entry(47870, 'Hexa', 52, -206, '1-7 door', look=True))
+        self.assertEqual(stall['look'], dict(gender=1, skin=2, face=21001, hair=31235,
+                                              equips={'1': 1007136, '11': 1372002}, cash_weapon=1702028))
+        tracker = StallTracker()
+        tracker.observe(entry(47870, 'Hexa', 52, -206, '1-7 door', look=True))
+        self.assertEqual(tracker.stall(47870, '1-7 door')['look']['hair'], 31235)
 
     def test_pets_do_not_move_the_stall(self):
         stall = parse_entry(entry(9, 'Owner', 794, -416, 'Need Pots', pets=True))

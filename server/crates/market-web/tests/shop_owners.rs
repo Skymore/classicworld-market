@@ -185,6 +185,12 @@ async fn stall_follows_the_newest_reading_and_the_shop_view_lists_the_family() {
     let a = db.collector("a").await;
     let now = unix_now();
     let mut first = visit("stall-1", 3052, now - 60., true);
+    first["stall"] = json!({"x":400,"y":-416,"permit":5140002,"parser":"cw_stall_v1",
+        "look":{"gender":0,"skin":0,"face":20000,"hair":30022,"equips":{"1":1002016,"11":1432001},"cash_weapon":0}});
+    send(&db, &a, &first, false).await.unwrap();
+    // A newer reading from an older collector (no look) keeps the look.
+    first["observation_id"] = json!("stall-2");
+    first["observed_at"] = json!(now - 30.);
     first["stall"] = json!({"x":444,"y":-416,"permit":5140002,"parser":"cw_stall_v1"});
     first["items"] = json!([{"item_id":4010001,"slot":1,"price":500,"bundle":1,"stock":8},
                             {"item_id":2040001,"slot":2,"price":9000,"bundle":1,"stock":1}]);
@@ -203,12 +209,15 @@ async fn stall_follows_the_newest_reading_and_the_shop_view_lists_the_family() {
         .unwrap();
     assert_eq!(view["stall"]["x"], 444);
     assert_eq!(view["stall"]["permit"], 5140002);
+    assert_eq!(view["stall"]["look"]["hair"], 30022);
+    assert_eq!(view["stall"]["look"]["equips"]["11"], 1432001);
     assert_eq!(view["room"], 6);
     assert_eq!(view["items"].as_array().unwrap().len(), 2);
     // Every stall of the room, the shop itself included.
     let neighbors = view["neighbors"].as_array().unwrap();
     assert_eq!(neighbors.len(), 1);
     assert_eq!(neighbors[0]["shop_key"], json!(key));
+    assert_eq!(neighbors[0]["look"]["face"], 20000);
     // A screen upload may not claim a stall; an unknown parser is refused.
     let mut screen = visit("screen", 3052, now, false);
     screen["source"] = json!("screen");

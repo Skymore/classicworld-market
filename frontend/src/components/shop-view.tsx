@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Store, UserRound, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Store, UserRound, X } from "lucide-react";
 import { readPeriod } from "/web/js/lib/period.js?v=20261022-regressions-1";
 import { loadCatalog } from "../lib/catalog";
+import { drawLook, type Drawn, type Look } from "../lib/avatar";
 import { useWords, usePreferences } from "../providers";
 import { useMarketQuery } from "../lib/query";
 import { Slot, Price, RelativeTime } from "./shared";
@@ -36,70 +37,150 @@ const pieceOf = (row: any) =>
       ? { ...row.variant, status: "candidate" }
       : null;
 
-/** The room's scene with every stall read there, each drawn with its store
- *  permit's picture; the shop on show stands out, the others open on a tap. */
+/** Where the shop title sits on each stall picture (world pixels, the
+ *  picture's own box), as the game writes it. */
+const SIGN: Record<number, { x: number; y: number; w: number; h: number }> = {
+  0: { x: 5, y: 4, w: 100, h: 29 },
+  1: { x: 28, y: 33, w: 99, h: 28 },
+};
+
+/** A stall's owner, drawn from their look like the game draws them. */
+function Owner({ look }: { look: Look }) {
+  const [drawn, setDrawn] = useState<Drawn | null>(null);
+  useEffect(() => {
+    let live = true;
+    drawLook(look).then((d) => live && setDrawn(d));
+    return () => {
+      live = false;
+    };
+  }, [JSON.stringify(look)]);
+  if (!drawn) return null;
+  return (
+    <img
+      className="sv-owner-look"
+      src={drawn.url}
+      alt=""
+      style={{ left: drawn.left, top: drawn.top, width: drawn.width, height: drawn.height }}
+    />
+  );
+}
+
+/** The room as the game shows it: the scene with every stall read there,
+ *  drawn with its permit's picture, the shop title on its sign, the owner
+ *  standing at it and their name under their feet. Laid out in world pixels
+ *  and scaled to the card; tapping the map opens it at full size. The shop on
+ *  show sits in a spotlight; the others open on a tap. */
 function StallMap({ data, onPick }: { data: any; onPick: (stall: any) => void }) {
   const words = useWords();
   const scene = data.map?.scene;
+  const box = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  const [big, setBig] = useState(false);
+  useLayoutEffect(() => {
+    const element = box.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => setWidth(element.clientWidth));
+    observer.observe(element);
+    setWidth(element.clientWidth);
+    return () => observer.disconnect();
+  }, [!!scene, big]);
+  const stalls: any[] = [...(data.neighbors || [])];
+  const mine = stalls.find((n) => n.shop_key === data.shop_key);
+  if (data.stall && !mine)
+    stalls.push({ ...data.stall, shop_key: data.shop_key, title: data.title, owner_name: data.owner_name });
+  else if (mine && !mine.look && data.stall?.look) mine.look = data.stall.look;
+  const here = stalls.find((n) => n.shop_key === data.shop_key);
+  // Open at full size centred on the shop on show.
+  useLayoutEffect(() => {
+    if (!big || !box.current || !scene || !here) return;
+    const element = box.current;
+    element.scrollLeft = here.x - scene.x - element.clientWidth / 2;
+    element.scrollTop = here.y - scene.y - element.clientHeight / 2 - 40;
+  }, [big, data.shop_key]);
   if (!scene?.url || !scene.w || !scene.h)
     return (
       <div className="sv-map sv-nomap">
         {data.room ? words("这一洞还没有地图", "No picture of this room yet") : words("位置未记录", "Place not recorded")}
       </div>
     );
-  const stalls: any[] = [...(data.neighbors || [])];
-  if (data.stall && !stalls.some((n) => n.shop_key === data.shop_key))
-    stalls.push({ ...data.stall, shop_key: data.shop_key, title: data.title, owner_name: data.owner_name });
   const inside = (n: any) => n.x >= scene.x && n.x <= scene.x + scene.w && n.y >= scene.y && n.y <= scene.y + scene.h;
-  // Drawn to the map's own scale, standing on the spot the owner stands on.
-  const place = (n: any) => {
-    const look = SKINS[n.permit] || SKINS[5140000];
-    return {
-      look,
-      style: {
-        left: ((n.x - scene.x) / scene.w) * 100 + "%",
-        top: ((n.y - look.lift - scene.y) / scene.h) * 100 + "%",
-        width: (look.w / scene.w) * 100 + "%",
-      },
-    };
+  // Drawn in the game's order: lower on screen in front.
+  const shown = stalls.filter(inside).sort((a, b) => a.y - b.y || a.x - b.x);
+  const scale = big ? 1 : width ? width / scene.w : 0;
+  const lookOf = (n: any) => SKINS[n.permit] || SKINS[5140000];
+  const spot = here && {
+    x: here.x - scene.x,
+    y: here.y - scene.y - (lookOf(here).h + lookOf(here).lift) / 2,
+    r: Math.max(lookOf(here).w, lookOf(here).h + lookOf(here).lift) * 0.75,
   };
-  // The shop on show last, so it draws on top.
-  const shown = stalls.filter(inside).sort((a, b) => Number(a.shop_key === data.shop_key) - Number(b.shop_key === data.shop_key));
   return (
-    <div className="sv-map" style={{ aspectRatio: `${scene.w} / ${scene.h}` }}>
-      <img
-        className="sv-scene"
-        src={String(scene.url).replace(/\/scenes\/(\d+\.webp)$/, "/scenes/small/$1")}
-        alt={words(`${data.room}洞地图`, `Map of FM${data.room}`)}
-      />
-      {shown.map((n) => {
-        const here = n.shop_key === data.shop_key;
-        const label = [n.title, n.owner_name].filter(Boolean).join(" · ");
-        const { look, style } = place(n);
-        return (
-          <button
-            key={n.shop_key}
-            type="button"
-            className={"sv-stall" + (here ? " here" : "")}
-            style={style}
-            title={label}
-            aria-label={here ? words(`当前摊位 ${label}`, `This shop: ${label}`) : words(`看摊位 ${label}`, `Open shop ${label}`)}
-            aria-current={here || undefined}
-            onClick={() => !here && onPick(n)}
+    <div className="sv-mapwrap">
+    <div
+      ref={box}
+      className={"sv-map" + (big ? " big" : "")}
+      style={big ? { height: `min(62vh, ${scene.h + 4}px)` } : { aspectRatio: `${scene.w} / ${scene.h}` }}
+    >
+      <div
+        className="sv-world"
+        style={{ width: scene.w, height: scene.h, transform: `scale(${scale})`, visibility: scale ? undefined : "hidden" }}
+      >
+        <img
+          className="sv-scene"
+          src={big ? scene.url : String(scene.url).replace(/\/scenes\/(\d+\.webp)$/, "/scenes/small/$1")}
+          alt={words(`${data.room}洞地图`, `Map of FM${data.room}`)}
+          onClick={() => setBig(!big)}
+        />
+        {spot && (
+          <i
+            className="sv-spot"
+            aria-hidden="true"
+            style={{
+              background: `radial-gradient(circle at ${spot.x}px ${spot.y}px, transparent ${spot.r}px, rgba(10,14,24,.6) ${spot.r * 1.8}px)`,
+            }}
           >
-            <img src={`/web/images/stalls/skin-${look.skin}.png`} alt="" style={{ aspectRatio: `${look.w} / ${look.h}` }} />
-            {here && (
-              <>
-                <i className="sv-ring" aria-hidden="true" />
-                <svg className="sv-arrow" viewBox="0 0 20 26" aria-hidden="true">
-                  <path d="M10 25C10 25 2 15.5 2 9.5a8 8 0 0 1 16 0C18 15.5 10 25 10 25z" fill="#e0403a" stroke="#fff" strokeWidth="2" strokeLinejoin="round" />
-                  <circle cx="10" cy="9.5" r="3.2" fill="#fff" />
-                </svg>
-              </>
-            )}
-          </button>
-        );
-      })}
+            <b style={{ left: spot.x, top: spot.y, width: spot.r * 2, height: spot.r * 2 }} />
+          </i>
+        )}
+        {shown.map((n) => {
+          const current = n.shop_key === data.shop_key;
+          const label = [n.title, n.owner_name].filter(Boolean).join(" · ");
+          const look = lookOf(n);
+          const sign = SIGN[look.skin ? 1 : 0];
+          return (
+            <button
+              key={n.shop_key}
+              type="button"
+              className={"sv-stall" + (current ? " here" : "")}
+              style={{ left: n.x - scene.x, top: n.y - scene.y }}
+              title={label}
+              aria-label={current ? words(`当前摊位 ${label}`, `This shop: ${label}`) : words(`看摊位 ${label}`, `Open shop ${label}`)}
+              aria-current={current || undefined}
+              onClick={() => !current && onPick(n)}
+            >
+              <span className="sv-booth" style={{ left: -look.w / 2, top: -look.lift - look.h, width: look.w, height: look.h }}>
+                <img src={`/web/images/stalls/skin-${look.skin}.png`} alt="" />
+                {n.title && (
+                  <span className="sv-sign" style={{ left: sign.x, top: sign.y, width: sign.w, height: sign.h }}>
+                    {n.title}
+                  </span>
+                )}
+              </span>
+              {n.look && <Owner look={n.look} />}
+              {n.owner_name && <span className="sv-name">{n.owner_name}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+      <button
+        type="button"
+        className="sv-zoom"
+        onClick={() => setBig(!big)}
+        aria-label={big ? words("缩小地图", "Fit map") : words("放大地图", "Full-size map")}
+        title={big ? words("缩小地图", "Fit map") : words("放大地图", "Full-size map")}
+      >
+        {big ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
+      </button>
     </div>
   );
 }

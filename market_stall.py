@@ -13,6 +13,12 @@ position is the first `ff ff` + eight zero bytes + x, y (int16) + stance
 (4 or 5, standing) + foothold before the balloon; pets sit in between and
 carry their own positions, so the first match is the owner's. Anything that
 does not fit returns nothing.
+
+The same record carries the owner's look ahead of the position: gender,
+skin, face, job (int), a mega byte, hair, then the visible equips as
+(slot, item ID) pairs ending in 0xff, the equips the visible ones cover
+(same form), and the cash weapon. Checked on all 59 entries of the recorded
+sessions; drawn on the site from the client's part pictures.
 """
 import re
 
@@ -60,6 +66,44 @@ def entry_character(body):
     return None
 
 
+def _equips(body, offset):
+    items = {}
+    while offset < len(body):
+        slot = body[offset]
+        if slot == 0xFF:
+            return items, offset + 1
+        if offset + 5 > len(body) or len(items) >= 40:
+            return None, offset
+        item = int.from_bytes(body[offset+1:offset+5], 'little')
+        if not (1 <= slot <= 60 and 1000000 <= item <= 1999999):
+            return None, offset
+        items[slot] = item
+        offset += 5
+    return None, offset
+
+
+def parse_look(body, end):
+    """{gender, skin, face, hair, equips, cash_weapon} of the first look before end, or None."""
+    u32 = lambda o: int.from_bytes(body[o:o+4], 'little')
+    for o in range(14, min(end, len(body)) - 20):
+        if body[o] > 1 or body[o+1] > 20:
+            continue
+        face, job, hair = u32(o + 2), u32(o + 6), u32(o + 11)
+        if not (20000 <= face <= 29999 and job <= 3000 and 30000 <= hair <= 69999):
+            continue
+        visible, p = _equips(body, o + 15)
+        if visible is None:
+            continue
+        covered, p = _equips(body, p)
+        if covered is None or p + 4 > len(body):
+            continue
+        cash = u32(p)
+        return dict(gender=body[o], skin=body[o+1], face=face, hair=hair,
+                    equips={str(slot): item for slot, item in sorted(visible.items())},
+                    cash_weapon=cash if 1700000 <= cash <= 1799999 else 0)
+    return None
+
+
 def parse_entry(body):
     """{character_id, x, y, permit, title} for a store owner's entry, else None."""
     if int.from_bytes(body[:2], 'little') not in ENTRY:
@@ -77,7 +121,8 @@ def parse_entry(body):
     # Free Market rooms span about -700..1700 x and -1100..1800 y.
     if not (-4000 <= x <= 4000 and -4000 <= y <= 4000):
         return None
-    return dict(character_id=character_id, x=x, y=y, permit=permit, title=title)
+    return dict(character_id=character_id, x=x, y=y, permit=permit, title=title,
+                look=parse_look(body, position.start()))
 
 
 def parse_sign(body):
@@ -112,7 +157,7 @@ class StallTracker:
             stall = parse_entry(body)
             character_id = stall['character_id'] if stall else entry_character(body)
             if stall:
-                self.positions[character_id] = (stall['x'], stall['y'])
+                self.positions[character_id] = (stall['x'], stall['y'], stall['look'])
                 self.signs[character_id] = (stall['title'], stall['permit'])
             elif character_id is not None:
                 # A player who entered without a store: any position we had is stale.
@@ -137,4 +182,7 @@ class StallTracker:
         sign = self.signs.get(character_id)
         if position is None or sign is None or sign[0] != title:
             return None
-        return dict(x=position[0], y=position[1], permit=sign[1], parser=PARSER)
+        result = dict(x=position[0], y=position[1], permit=sign[1], parser=PARSER)
+        if position[2] is not None:
+            result['look'] = position[2]
+        return result

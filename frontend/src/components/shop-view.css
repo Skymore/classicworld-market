@@ -15,25 +15,32 @@
 /* Map thumbnail beside the shop's name and place. */
 /* The map takes the full width; the shop's name, owner and place sit under it in one line. */
 .sv-top{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+.sv-mapwrap{position:relative;min-width:0}
 .sv-map{position:relative;width:100%;max-width:100%;border:2px solid var(--edge);border-radius:2px;background:var(--hole);overflow:hidden}
-.sv-map .sv-scene{display:block;width:100%;height:100%;object-fit:fill}
+.sv-map.big{overflow:auto;overscroll-behavior:contain}
 .sv-nomap{display:grid;place-items:center;aspect-ratio:3/2;padding:4px;color:var(--hole-ink);font-size:12px;text-align:center}
-/* Each stall drawn as the game draws it, to the map's scale; the shop on show glows. */
-.sv-stall{position:absolute;transform:translate(-50%,-100%);display:block;padding:0;border:0;background:none;cursor:pointer;line-height:0}
-.sv-stall img{display:block;width:100%;height:auto;filter:saturate(.6) brightness(.82) drop-shadow(0 1px 1px rgba(0,0,0,.45));transition:filter .15s}
-.sv-stall::after{content:"";position:absolute;inset:-4px}
-.sv-stall:hover img,.sv-stall:focus-visible img{filter:drop-shadow(0 0 2px #fff) drop-shadow(0 0 3px var(--mark))}
+/* The room in world pixels, as the game lays it out, scaled to the card
+   (or at full size when opened): stalls, titles on their signs, owners and
+   their name tags. */
+.sv-world{position:absolute;left:0;top:0;transform-origin:0 0}
+.sv-scene{position:absolute;inset:0;display:block;width:100%;height:100%;cursor:zoom-in}
+.sv-map.big .sv-scene{cursor:zoom-out}
+.sv-stall{position:absolute;width:0;height:0;padding:0;border:0;background:none;cursor:pointer}
 .sv-stall:focus-visible{outline:none}
-/* The shop on show: full colour with a white outline, a ring pulsing out from
-   its foot and a big bobbing arrow, so even a phone's small map points at it;
-   the other stalls are dimmed. */
-.sv-stall.here{z-index:3;cursor:default}
-.sv-stall.here img{filter:drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff) drop-shadow(0 0 4px rgba(224,64,58,.9))}
-.sv-ring{position:absolute;left:50%;bottom:0;width:110%;aspect-ratio:4/1;border:2px solid #fff;box-shadow:0 0 0 2px #e0403a;border-radius:50%;transform:translate(-50%,50%);pointer-events:none;animation:sv-ring 1.6s ease-out infinite}
-@keyframes sv-ring{from{opacity:1;scale:.6}to{opacity:0;scale:1.6}}
-.sv-arrow{position:absolute;left:50%;bottom:calc(100% + 2px);width:20px;height:26px;translate:-50% 0;pointer-events:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5));animation:sv-bob .7s ease-in-out infinite alternate}
-@keyframes sv-bob{from{transform:translateY(-3px)}to{transform:translateY(1px)}}
-@media (prefers-reduced-motion:reduce){.sv-ring,.sv-arrow{animation:none}}
+.sv-booth{position:absolute;display:block}
+.sv-booth img{display:block;width:100%;height:100%;filter:drop-shadow(0 1px 1px rgba(0,0,0,.4));transition:filter .15s}
+.sv-stall:not(.here):hover .sv-booth img,.sv-stall:focus-visible .sv-booth img{filter:drop-shadow(0 0 3px #fff) drop-shadow(0 0 4px var(--mark))}
+.sv-sign{position:absolute;overflow:hidden;padding:1px 2px;font:11px/13px Arial,"Microsoft YaHei",sans-serif;color:#333;text-align:left;white-space:normal;overflow-wrap:anywhere;pointer-events:none}
+.sv-owner-look{position:absolute;max-width:none;pointer-events:none}
+.sv-name{position:absolute;left:0;top:2px;translate:-50% 0;padding:2px 4px 3px;border-radius:2px;background:rgba(0,0,0,.6);font:11px/1 Arial,"Microsoft YaHei",sans-serif;color:#fff;white-space:nowrap;pointer-events:none}
+/* The shop on show: everything else dimmed around a spotlight. */
+.sv-spot{position:absolute;inset:0;z-index:5;pointer-events:none}
+.sv-spot b{position:absolute;translate:-50% -50%;border:2px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 0 14px 3px rgba(255,214,90,.75),inset 0 0 10px rgba(255,214,90,.45);animation:sv-spot 1.6s ease-in-out infinite alternate}
+@keyframes sv-spot{from{opacity:1}to{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.sv-spot b{animation:none}}
+.sv-stall.here{z-index:6;cursor:default}
+.sv-zoom{position:absolute;right:6px;top:6px;z-index:8;display:grid;place-items:center;width:30px;height:30px;padding:0;border:1px solid rgba(255,255,255,.6);border-radius:2px;background:rgba(27,34,49,.72);color:#fff;cursor:pointer}
+.sv-zoom svg{width:16px;height:16px}
 .sv-who{display:flex;flex-wrap:wrap;align-items:center;gap:3px 10px;min-width:0}
 .sv-who h2{display:flex;align-items:center;min-width:0;gap:5px;font-size:15px;font-weight:700;line-height:1.25;overflow-wrap:anywhere}
 .sv-who svg{flex:none;width:14px;height:14px;stroke-width:2;color:var(--ink-3)}
