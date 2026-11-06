@@ -189,7 +189,7 @@ fn niadb_bestiary_decides_what_exists() {
     );
     assert_eq!(
         (counts.drops + counts.mesos, counts.drops_unconfirmed),
-        (data.drops.len(), 106)
+        (data.drops.len(), 110)
     );
     assert_eq!(
         (counts.mesos, counts.mesos_untrusted),
@@ -345,7 +345,7 @@ fn niadb_bestiary_decides_what_exists() {
     let blue_snail: Vec<_> = data.drops.iter().filter(|d| d.mob_id == 3).collect();
     assert_eq!(
         (blue_snail[0].item_id, blue_snail[0].upvotes),
-        (Some(4010001), Some(78.25)),
+        (Some(4010001), Some(84.25)),
         "Iron Ore"
     );
     let mobs: std::collections::HashSet<i32> = data.mobs.iter().map(|m| m.id).collect();
@@ -623,12 +623,12 @@ fn zh_names_fill_map_and_npc_gaps() {
 #[test]
 fn reference_items_cover_every_drop() {
     let refs = references();
-    assert_eq!((refs.mapledex_items, refs.niadb_items), (2555, 2350));
-    assert_eq!(refs.len(), 2919);
+    assert_eq!((refs.mapledex_items, refs.niadb_items), (2555, 2400));
+    assert_eq!(refs.len(), 2969);
     assert!(refs.warnings.is_empty(), "{:?}", refs.warnings);
 
     let mut catalog = catalog_of(market_items());
-    assert_eq!(refs.extend(&mut catalog), 2917);
+    assert_eq!(refs.extend(&mut catalog), 2967);
     assert!(catalog.warnings.is_empty(), "{:?}", catalog.warnings);
     let mut data = mapledex();
     let resolution = refs.resolve_drops(&catalog, &mut data.drops);
@@ -993,7 +993,7 @@ async fn full_import_is_idempotent_and_upgrades_an_r3_database() {
             first.npc_shops,
             first.portals
         ),
-        (2919, 453, 1655, 1636, 1655, 281, 281, 315, 877, 426 + 21),
+        (2969, 453, 1669, 1669, 1669, 281, 281, 315, 877, 426 + 21),
     );
     assert_eq!(
         (first.maps_zh, first.npcs_zh),
