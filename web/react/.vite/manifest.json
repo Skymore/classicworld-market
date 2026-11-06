@@ -6,12 +6,8 @@
       "_shared-D9e8SJLa.js"
     ]
   },
-  "_catalogue-D1s3HuQa.css": {
-    "file": "chunks/catalogue-D1s3HuQa.css",
-    "src": "_catalogue-D1s3HuQa.css"
-  },
-  "_catalogue-D96QgAKA.js": {
-    "file": "chunks/catalogue-D96QgAKA.js",
+  "_catalogue-CEdW_dYr.js": {
+    "file": "chunks/catalogue-CEdW_dYr.js",
     "name": "catalogue",
     "imports": [
       "_shared-D9e8SJLa.js",
@@ -31,8 +27,12 @@
       "src/pages/catalogue-search.tsx"
     ],
     "css": [
-      "chunks/catalogue-D1s3HuQa.css"
+      "chunks/catalogue-YmaKSK6U.css"
     ]
+  },
+  "_catalogue-YmaKSK6U.css": {
+    "file": "chunks/catalogue-YmaKSK6U.css",
+    "src": "_catalogue-YmaKSK6U.css"
   },
   "_chevron-right-DyoX5mwS.js": {
     "file": "chunks/chevron-right-DyoX5mwS.js",
@@ -116,8 +116,8 @@
       "_shared-D9e8SJLa.js"
     ]
   },
-  "_main-xhNhtaYU.js": {
-    "file": "chunks/main-xhNhtaYU.js",
+  "_main-EsogvDMK.js": {
+    "file": "chunks/main-EsogvDMK.js",
     "name": "main",
     "imports": [
       "_shared-D9e8SJLa.js",
@@ -318,7 +318,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-xhNhtaYU.js"
+      "_main-EsogvDMK.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -370,7 +370,7 @@
     ]
   },
   "src/pages/catalogue-search.tsx": {
-    "file": "chunks/catalogue-search-DD5BTt8_.js",
+    "file": "chunks/catalogue-search-C5URwyKj.js",
     "name": "catalogue-search",
     "src": "src/pages/catalogue-search.tsx",
     "isDynamicEntry": true,
@@ -378,16 +378,16 @@
       "_shared-D9e8SJLa.js",
       "_dialog-UZNAUVEF.js",
       "_price-state-C8OjqxaH.js",
-      "_catalogue-D96QgAKA.js"
+      "_catalogue-CEdW_dYr.js"
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-BXi3o7pn.js",
+    "file": "chunks/catalogue-Bwd6fiaf.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_catalogue-D96QgAKA.js"
+      "_catalogue-CEdW_dYr.js"
     ]
   },
   "src/pages/collect.tsx": {
@@ -542,7 +542,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-xhNhtaYU.js"
+      "_main-EsogvDMK.js"
     ]
   }
 }

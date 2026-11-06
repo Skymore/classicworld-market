@@ -20,17 +20,20 @@
 .sv-nomap{display:grid;place-items:center;aspect-ratio:3/2;padding:4px;color:var(--hole-ink);font-size:12px;text-align:center}
 /* Each stall drawn as the game draws it, to the map's scale; the shop on show glows. */
 .sv-stall{position:absolute;transform:translate(-50%,-100%);display:block;padding:0;border:0;background:none;cursor:pointer;line-height:0}
-.sv-stall img{display:block;width:100%;height:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.45))}
+.sv-stall img{display:block;width:100%;height:auto;filter:saturate(.6) brightness(.82) drop-shadow(0 1px 1px rgba(0,0,0,.45));transition:filter .15s}
 .sv-stall::after{content:"";position:absolute;inset:-4px}
 .sv-stall:hover img,.sv-stall:focus-visible img{filter:drop-shadow(0 0 2px #fff) drop-shadow(0 0 3px var(--mark))}
 .sv-stall:focus-visible{outline:none}
+/* The shop on show: full colour with a white outline, a ring pulsing out from
+   its foot and a big bobbing arrow, so even a phone's small map points at it;
+   the other stalls are dimmed. */
 .sv-stall.here{z-index:3;cursor:default}
-/* A red arrow over the shop on show, so a phone's small map still points at it. */
-.sv-stall.here::before{content:"";position:absolute;left:50%;bottom:calc(100% + 2px);transform:translateX(-50%);border:6px solid transparent;border-top:8px solid var(--maple);border-bottom:0;filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);animation:sv-bob 1s ease-in-out infinite alternate}
-@keyframes sv-bob{from{margin-bottom:0}to{margin-bottom:3px}}
-.sv-stall.here img{filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px var(--maple)) drop-shadow(0 0 4px var(--maple));animation:sv-glow 1.4s ease-in-out infinite alternate}
-@keyframes sv-glow{from{opacity:1}to{opacity:.72}}
-@media (prefers-reduced-motion:reduce){.sv-stall.here img,.sv-stall.here::before{animation:none}}
+.sv-stall.here img{filter:drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff) drop-shadow(0 0 4px rgba(224,64,58,.9))}
+.sv-ring{position:absolute;left:50%;bottom:0;width:110%;aspect-ratio:4/1;border:2px solid #fff;box-shadow:0 0 0 2px #e0403a;border-radius:50%;transform:translate(-50%,50%);pointer-events:none;animation:sv-ring 1.6s ease-out infinite}
+@keyframes sv-ring{from{opacity:1;scale:.6}to{opacity:0;scale:1.6}}
+.sv-arrow{position:absolute;left:50%;bottom:calc(100% + 2px);width:20px;height:26px;translate:-50% 0;pointer-events:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5));animation:sv-bob .7s ease-in-out infinite alternate}
+@keyframes sv-bob{from{transform:translateY(-3px)}to{transform:translateY(1px)}}
+@media (prefers-reduced-motion:reduce){.sv-ring,.sv-arrow{animation:none}}
 .sv-who{display:flex;flex-wrap:wrap;align-items:center;gap:3px 10px;min-width:0}
 .sv-who h2{display:flex;align-items:center;min-width:0;gap:5px;font-size:15px;font-weight:700;line-height:1.25;overflow-wrap:anywhere}
 .sv-who svg{flex:none;width:14px;height:14px;stroke-width:2;color:var(--ink-3)}

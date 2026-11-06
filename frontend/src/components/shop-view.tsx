@@ -88,6 +88,15 @@ function StallMap({ data, onPick }: { data: any; onPick: (stall: any) => void })
             onClick={() => !here && onPick(n)}
           >
             <img src={`/web/images/stalls/skin-${look.skin}.png`} alt="" style={{ aspectRatio: `${look.w} / ${look.h}` }} />
+            {here && (
+              <>
+                <i className="sv-ring" aria-hidden="true" />
+                <svg className="sv-arrow" viewBox="0 0 20 26" aria-hidden="true">
+                  <path d="M10 25C10 25 2 15.5 2 9.5a8 8 0 0 1 16 0C18 15.5 10 25 10 25z" fill="#e0403a" stroke="#fff" strokeWidth="2" strokeLinejoin="round" />
+                  <circle cx="10" cy="9.5" r="3.2" fill="#fff" />
+                </svg>
+              </>
+            )}
           </button>
         );
       })}
