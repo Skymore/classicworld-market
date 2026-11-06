@@ -173,6 +173,10 @@ def failure_state(error, position_failures=0):
     from free_market_route import MapResourceError, PositionSyncError
     from channel_packet_state import PacketChannelConfirmationError
     if isinstance(error,PacketChannelConfirmationError):
+        if error.reason=='channel_change_not_started':
+            if position_failures>=3:
+                return 'needs_attention','切换频道后游戏一直没有连接新频道，已停止重复切频道。请查看游戏是否有弹窗或角色卡住，处理后点击停止再开始。'
+            return 'rebuilding','游戏没有切换频道，正在重试。'
         if position_failures>=3:
             return 'needs_attention','频道收包连续失败，已停止重复切频道。请报 Bug 或开启远程调试。'
         return 'rebuilding','未收到目标频道确认，正在重建收包。'
