@@ -6,13 +6,13 @@
       "_shared-D9e8SJLa.js"
     ]
   },
-  "_catalogue-CCv5-so8.js": {
-    "file": "chunks/catalogue-CCv5-so8.js",
+  "_catalogue-DCzUyPkb.js": {
+    "file": "chunks/catalogue-DCzUyPkb.js",
     "name": "catalogue",
     "imports": [
       "_shared-D9e8SJLa.js",
       "_react-dom-BGYgt7ht.js",
-      "_item-market-BznqKqrm.js",
+      "_item-tip-CI6K45oE.js",
       "_list-rows-DSN7pAg2.js",
       "_assistant-icon-rKKFAa0R.js",
       "_shell-IpafLyOY.js",
@@ -27,12 +27,12 @@
       "src/pages/catalogue-search.tsx"
     ],
     "css": [
-      "chunks/catalogue-DtxNBnR-.css"
+      "chunks/catalogue-DkgkIRZ1.css"
     ]
   },
-  "_catalogue-DtxNBnR-.css": {
-    "file": "chunks/catalogue-DtxNBnR-.css",
-    "src": "_catalogue-DtxNBnR-.css"
+  "_catalogue-DkgkIRZ1.css": {
+    "file": "chunks/catalogue-DkgkIRZ1.css",
+    "src": "_catalogue-DkgkIRZ1.css"
   },
   "_chevron-right-DyoX5mwS.js": {
     "file": "chunks/chevron-right-DyoX5mwS.js",
@@ -82,13 +82,16 @@
     "file": "chunks/embed-Dt3d22Ag.js",
     "name": "embed"
   },
-  "_item-market-BznqKqrm.js": {
-    "file": "chunks/item-market-BznqKqrm.js",
-    "name": "item-market"
-  },
   "_item-offer-filters-WhsqKTCQ.js": {
     "file": "chunks/item-offer-filters-WhsqKTCQ.js",
     "name": "item-offer-filters"
+  },
+  "_item-tip-CI6K45oE.js": {
+    "file": "chunks/item-tip-CI6K45oE.js",
+    "name": "item-tip",
+    "imports": [
+      "_shared-D9e8SJLa.js"
+    ]
   },
   "_list-copy-ca47EC74.js": {
     "file": "chunks/list-copy-ca47EC74.js",
@@ -113,14 +116,14 @@
       "_shared-D9e8SJLa.js"
     ]
   },
-  "_main-BF8saN2r.js": {
-    "file": "chunks/main-BF8saN2r.js",
+  "_main-DbdiXOOg.js": {
+    "file": "chunks/main-DbdiXOOg.js",
     "name": "main",
     "imports": [
       "_shared-D9e8SJLa.js",
       "_react-dom-BGYgt7ht.js",
       "_watch-ids-DyEI5BGc.js",
-      "_item-market-BznqKqrm.js",
+      "_item-tip-CI6K45oE.js",
       "_list-rows-DSN7pAg2.js",
       "_embed-Dt3d22Ag.js",
       "_shell-IpafLyOY.js",
@@ -315,7 +318,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BF8saN2r.js"
+      "_main-DbdiXOOg.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -367,7 +370,7 @@
     ]
   },
   "src/pages/catalogue-search.tsx": {
-    "file": "chunks/catalogue-search-DWATOwrS.js",
+    "file": "chunks/catalogue-search-0_hMYtvy.js",
     "name": "catalogue-search",
     "src": "src/pages/catalogue-search.tsx",
     "isDynamicEntry": true,
@@ -375,16 +378,16 @@
       "_shared-D9e8SJLa.js",
       "_dialog-UZNAUVEF.js",
       "_price-state-C8OjqxaH.js",
-      "_catalogue-CCv5-so8.js"
+      "_catalogue-DCzUyPkb.js"
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-2ZX_oc5X.js",
+    "file": "chunks/catalogue-C2Rd0Pll.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_catalogue-CCv5-so8.js"
+      "_catalogue-DCzUyPkb.js"
     ]
   },
   "src/pages/collect.tsx": {
@@ -539,7 +542,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BF8saN2r.js"
+      "_main-DbdiXOOg.js"
     ]
   }
 }

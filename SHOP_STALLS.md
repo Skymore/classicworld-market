@@ -29,7 +29,7 @@
 
 ## 非装备物品的游戏数据
 
-物品接口（`/api/v1/catalog/page`，物品页和快速预览）多一个 `tip`：`desc_zh` 是图鉴记录里的国服中文说明（DVG），`desc_en`、`info`、`spec` 来自 Classic World 客户端的 String.wz 和 Item.wz（1377 件）。数据文件是 `server/crates/market-web/src/bestiary/item-tips.json`，编进服务端，不用改数据库。客户端更新后用 `tools/export_item_tips.cs` 重新导出（只读打开客户端，说明见文件头）。说明里的 `#c…#` 按游戏显示成橙色。
+物品接口（`/api/v1/catalog/page`，物品页和快速预览）多一个 `tip`，全部按 Classic World 客户端：`desc_en`、`info`、`spec` 来自 String.wz 和 Item.wz（1377 件），`desc_zh` 是我们照 CW 英文说明翻的中文（数字与客户端一致，用词参考国服；国服说明数字和内容常与 CW 不同，不再使用）。数据文件是 `server/crates/market-web/src/bestiary/item-tips.json` 和 `item-tips-zh.json`（英文说明 → 中文），编进服务端，不用改数据库。客户端更新后用 `tools/export_item_tips.cs` 重新导出；新出现的说明要补进 `item-tips-zh.json`，单元测试 `every_description_is_translated` 会指出缺哪条。说明里的 `#c…#` 按游戏显示成橙色。快速预览里非装备物品的“道具资料”用同一份数据，代替原来的图鉴基础属性。
 
 ## 读取录像
 

@@ -10,6 +10,7 @@ import { timestamp } from "../lib/item-market";
 import { usePreferences, useWords } from "../providers";
 import { Icon, Slot, RelativeTime } from "./shared";
 import { EquipmentCard, EquipmentPeek } from "./equipment";
+import { TipPeek } from "./item-tip";
 import { ensureStyle } from "../lib/styles";
 type Hit = {
   anchor: HTMLElement;
@@ -462,6 +463,8 @@ export default function ItemPreview() {
                 equipment={page.equipment}
                 base={page.market.base_stats || []}
               />
+            ) : page.tip ? (
+              <TipPeek tip={page.tip} />
             ) : page.market.base_stats?.length ? (
               <section className="peek-section">
                 <h3>{words("图鉴基础属性", "Catalogue base stats")}</h3>

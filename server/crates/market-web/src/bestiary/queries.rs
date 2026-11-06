@@ -129,7 +129,7 @@ pub async fn item_preview(db: &PgPool, id: i32, all: bool) -> sqlx::Result<Optio
     Ok(Some(
         serde_json::json!({"item":item,"stats":stats,"npc_offers":offers,
         "npc_sell":record.as_ref().and_then(npc_sell_price),"equipment":equipment,
-        "tip":super::item_tip::item_tip(id, record.as_ref()),
+        "tip":super::item_tip::item_tip(id),
         "market":{"as_of":stats.as_ref().map(|s| &s["as_of"]),
             "base_stats":record.as_ref().map(reference_stats).unwrap_or_default()}}),
     ))
@@ -333,7 +333,7 @@ async fn item_page_scoped(
     market.base_stats = record.as_ref().map(reference_stats).unwrap_or_default();
     Ok(Some(ItemPage {
         equipment: super::equipment::equipment_reference(&item, record.as_ref()),
-        tip: super::item_tip::item_tip(item.id, record.as_ref()),
+        tip: super::item_tip::item_tip(item.id),
         item,
         selected_variant: None,
         stats,
