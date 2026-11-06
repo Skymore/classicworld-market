@@ -118,8 +118,8 @@
       "_shared-OFfPuFD1.js"
     ]
   },
-  "_main-1Hyf5p20.js": {
-    "file": "chunks/main-1Hyf5p20.js",
+  "_main-Ban1pdym.js": {
+    "file": "chunks/main-Ban1pdym.js",
     "name": "main",
     "imports": [
       "_shared-OFfPuFD1.js",
@@ -129,7 +129,7 @@
       "_item-tip-uif5R3E_.js",
       "_list-rows-DtX7It_m.js",
       "_embed-Dt3d22Ag.js",
-      "_watch-alerts-Denr2AJy.js",
+      "_watch-alerts-DZosPL40.js",
       "_toasts-6wuQpo_h.js"
     ],
     "dynamicImports": [
@@ -291,8 +291,8 @@
       "_shared-OFfPuFD1.js"
     ]
   },
-  "_watch-alerts-Denr2AJy.js": {
-    "file": "chunks/watch-alerts-Denr2AJy.js",
+  "_watch-alerts-DZosPL40.js": {
+    "file": "chunks/watch-alerts-DZosPL40.js",
     "name": "watch-alerts",
     "imports": [
       "_shared-OFfPuFD1.js",
@@ -327,7 +327,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-1Hyf5p20.js"
+      "_main-Ban1pdym.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -519,7 +519,7 @@
     ]
   },
   "src/pages/watch.tsx": {
-    "file": "chunks/watch-CllORuji.js",
+    "file": "chunks/watch-it_3nyni.js",
     "name": "watch",
     "src": "src/pages/watch.tsx",
     "isDynamicEntry": true,
@@ -531,7 +531,7 @@
       "_embed-Dt3d22Ag.js",
       "_watchlist-core-CnJpcWvS.js",
       "_item-offer-filters-WhsqKTCQ.js",
-      "_watch-alerts-Denr2AJy.js",
+      "_watch-alerts-DZosPL40.js",
       "_live-CjqZjK1P.js",
       "_createLucideIcon-B-9Mlh7w.js",
       "_return-to-D3jBfmjA.js",
@@ -552,7 +552,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-1Hyf5p20.js"
+      "_main-Ban1pdym.js"
     ]
   }
 }

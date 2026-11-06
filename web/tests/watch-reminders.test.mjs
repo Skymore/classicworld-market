@@ -33,16 +33,16 @@ test('groups use OR, notifications use their own toggles, deleting last group ma
   assert.equal(watchGroups({cap:100,notify:false})[0].cap,100);
 });
 
-test('dynamic presets use the entire item baseline, keep ties and ignore a saved manual cap', () => {
+test('presets use only the server cutoff, keep ties and ignore a saved manual cap', () => {
   const tied = [...rows, row('tie',100)];
   const setting = { cap: 1, reminder: { percentile: '10' } };
-  assert.equal(reminderSelection(tied,item,setting).cap,100);
-  assert.equal(reminderSelection(tied,item,setting).rows.length,2);
-  assert.equal(reminderSelection(rows,item,{reminder:{percentile:'25'}}).cap,300);
-  assert.equal(reminderSelection(rows,item,{reminder:{percentile:'50'}}).cap,500);
-  assert.equal(reminderSelection(rows.map(r=>({...r,unit_price:r.unit_price*2})),item,setting).cap,200);
+  const reference = { rows: tied, percentiles: { [item]: { '10': 100, '25': 300, '50': 500 } } };
+  assert.equal(reminderSelection(tied,item,setting,reference).cap,100);
+  assert.equal(reminderSelection(tied,item,setting,reference).rows.length,2);
+  assert.equal(reminderSelection(rows,item,{reminder:{percentile:'25'}},reference).cap,300);
+  assert.equal(reminderSelection(rows,item,{reminder:{percentile:'50'}},reference).cap,500);
   assert.equal(reminderSelection(rows,item,{cap:125}).cap,125);
-  assert.equal(reminderSelection([],item,setting).ready,false);
+  assert.equal(reminderSelection(rows,item,setting).ready,false,'no server cutoff: nothing is computed locally');
 });
 test('server percentiles cover prices beyond the response limit and personal feeds use the shared baseline', () => {
   const reference={rows,percentiles:{[item]:{'10':100}}};
@@ -52,7 +52,7 @@ test('server percentiles cover prices beyond the response limit and personal fee
 test('advanced filters are independent per item and do not change the percentile baseline', () => {
   const all=[...rows,...rows.map(r=>({...r,item_id:2000001}))];
   const settings={[item]:{reminder:{percentile:'50',minPrice:250,minStock:5}},2000001:{cap:150}};
-  assert.deepEqual(matchingReminders(all,[item,2000001],settings).map(r=>[r.item_id,r.unit_price]),[[item,300],[item,400],[item,500],[2000001,100]]);
+  assert.deepEqual(matchingReminders(all,[item,2000001],settings,{percentiles:{[item]:{'50':500}}}).map(r=>[r.item_id,r.unit_price]),[[item,300],[item,400],[item,500],[2000001,100]]);
   assert.equal(reminderSelection(rows,item,{cap:100,reminder:{minPrice:500}}).rows.length,0,'a lower bound above the cap must not swap the bounds');
   assert.equal(reminderSelection(rows,item,{cap:0}).rows.length,0);
   const normalized=normalizeReminder({percentile:'75',hours:'1',maxPrice:1,minPrice:500});
@@ -62,7 +62,6 @@ test('expired and sold-out quotes are excluded; known and unknown stock remain d
   const offers=[row('known',100),row('unknown',200,{stock:null}),row('empty',1,{stock:0}),row('expired',1,{invalidated_at:111})];
   assert.deepEqual(reminderSelection(offers,item,{reminder:{stock:'unknown'}}).rows.map(r=>r.id),['unknown']);
   assert.deepEqual(reminderSelection(offers,item,{reminder:{stock:'known',minStock:5}}).rows.map(r=>r.id),['known']);
-  assert.equal(reminderSelection(offers,item,{reminder:{percentile:'50'}}).cap,100);
 });
 test('equipment conditions use captured stats, combine with AND and ignore defence-only bonus rolls', () => {
   const eq=(attack,str,def=20)=>({status:'candidate',stats:[{key:'weapon_attack',value:attack},{key:'str',value:str},{key:'weapon_defense',value:def}]});

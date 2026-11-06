@@ -8,7 +8,7 @@ import {
   activeOffers,
   matchingReminders,
   watchGroups,
-} from "/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1";
+} from "/web/js/lib/watch-reminders.js?v=20261106-server-caps";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api, getJson, qs } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
 import { t, itemName } from "/web/js/lib/i18n.js";

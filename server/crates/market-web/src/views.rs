@@ -1077,6 +1077,24 @@ fn grouped_quotes(rows: &[Value], limit: usize) -> Vec<Value> {
     output
 }
 
+/// Percentile caps round up to the coarsest round number that costs at most 2%
+/// more (299 -> 300, 1234 -> 1240, 145 stays), so offers at the round price
+/// just above the cutoff are included too.
+fn round_cap(price: f64) -> f64 {
+    if !(price >= 1.0) || !price.is_finite() {
+        return price;
+    }
+    let mut step = 10f64.powi(price.log10().floor() as i32);
+    while step >= 1.0 {
+        let up = (price / step).ceil() * step;
+        if up <= price * 1.02 {
+            return up;
+        }
+        step /= 10.0;
+    }
+    price
+}
+
 fn watch_percentiles<'a>(
     rows: impl IntoIterator<Item = &'a Value>,
 ) -> serde_json::Map<String, Value> {
@@ -1095,7 +1113,7 @@ fn watch_percentiles<'a>(
         for p in [10usize, 25, 50] {
             caps.insert(
                 p.to_string(),
-                json!(values[(values.len() * p).div_ceil(100) - 1]),
+                json!(round_cap(values[(values.len() * p).div_ceil(100) - 1])),
             );
         }
         percentiles.insert(id.to_string(), Value::Object(caps));
@@ -1884,6 +1902,14 @@ mod tests {
         );
         gear2["equipment"]["stats"][0]["value"] = json!(51);
         assert_eq!(grouped_quotes(&[gear, gear2], 200).len(), 2);
+    }
+
+    #[test]
+    fn percentile_caps_round_up_by_at_most_two_percent() {
+        for (price, cap) in [(299.0, 300.0), (296.0, 300.0), (300.0, 300.0), (1234.0, 1240.0),
+                             (145.0, 145.0), (29000.0, 29000.0), (98.5, 100.0), (2.5, 2.5), (0.0, 0.0)] {
+            assert_eq!(round_cap(price), cap, "{price}");
+        }
     }
 
     #[test]

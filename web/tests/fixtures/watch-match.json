@@ -30,7 +30,8 @@
   ],
   "percentile_caps": {
     "2000000": {"10": 40, "25": 120, "50": 300},
-    "1452003": {"10": 800, "25": 900, "50": 1000}
+    "1452003": {"10": 800, "25": 900, "50": 1000},
+    "4010001": {"10": 10, "25": 10, "50": 20}
   },
   "base_stats": {
     "1452003": [["str", 3], ["dex", 3], ["weapon_attack", 40], ["weapon_defense", 30]]
@@ -42,14 +43,14 @@
     {"name": "percentile uses the server cutoff and replaces the group cap", "item_id": 2000000, "notifies": true,
       "setting": {"cap": null, "notify": true, "position": 0, "groups": [{"id": "a", "name": "", "cap": 30, "notify": true, "buy": false, "reminder": {"percentile": "25"}}]},
       "expected": ["p1", "p2", "p3"]},
-    {"name": "missing server cutoff falls back to active grouped prices", "item_id": 2000000, "notifies": true,
+    {"name": "missing server cutoff matches nothing", "item_id": 2000000, "notifies": true,
       "percentile_caps": {"2000000": {"25": null}},
       "setting": {"cap": null, "notify": true, "position": 0, "groups": [{"id": "a", "name": "", "cap": null, "notify": true, "buy": false, "reminder": {"percentile": "25"}}]},
-      "expected": ["p1", "p2"]},
-    {"name": "computed percentile excludes invalidated offers from the baseline", "item_id": 4010001, "notifies": true,
+      "expected": []},
+    {"name": "low percentile uses the server cutoff", "item_id": 4010001, "notifies": true,
       "setting": {"cap": null, "notify": true, "position": 0, "groups": [{"id": "a", "name": "", "cap": null, "notify": true, "buy": false, "reminder": {"percentile": "10"}}]},
       "expected": ["o1"]},
-    {"name": "computed median", "item_id": 4010001, "notifies": true,
+    {"name": "median uses the server cutoff", "item_id": 4010001, "notifies": true,
       "setting": {"cap": null, "notify": true, "position": 0, "groups": [{"id": "a", "name": "", "cap": null, "notify": true, "buy": false, "reminder": {"percentile": "50"}}]},
       "expected": ["o1", "o2"]},
     {"name": "percentile without any active offer matches nothing", "item_id": 2000001, "notifies": true,

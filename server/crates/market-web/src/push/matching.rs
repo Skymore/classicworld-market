@@ -382,21 +382,13 @@ fn group_selection<'a>(
     let f = &group.reminder;
     let mut cap = group.cap;
     if let Some(p) = f.percentile {
-        let mut prices: Vec<f64> = reference
-            .rows
-            .iter()
-            .filter(|row| same_item(row, item) && active(row))
-            .map(|row| row["unit_price"].as_f64().unwrap())
-            .collect();
-        prices.sort_by(f64::total_cmp);
-        let index = (prices.len() * p.parse::<usize>().unwrap()).div_ceil(100);
+        // Only the server's (rounded) cutoff, the same value the page and sweep use.
         let key = format!("{item:.0}");
         cap = reference
             .percentiles
             .get(&key)
             .and_then(|caps| caps.get(p))
-            .and_then(Value::as_f64)
-            .or_else(|| index.checked_sub(1).and_then(|i| prices.get(i).copied()));
+            .and_then(Value::as_f64);
         if cap.is_none() {
             return Vec::new();
         }
