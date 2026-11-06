@@ -43,9 +43,8 @@ class InventoryScreen:
         found = []
         for scale in set(scales):
             normalized = cv2.resize(image, (round(width/scale), round(height/scale))) if scale != 1 else image
-            scores = cv2.matchTemplate(normalized, self.title, cv2.TM_CCOEFF_NORMED)
-            _, score, _, point = cv2.minMaxLoc(scores)
-            if score < .90:
+            point = self._title_origin(normalized)
+            if point is None:
                 continue
             x, y = point[0]-5, point[1]-4
             if x < 0 or y < 0 or x+209 > normalized.shape[1] or y+289 > normalized.shape[0]:
@@ -69,6 +68,25 @@ class InventoryScreen:
                     values.add(value)
             found.append((x, y, values.pop() if len(values) == 1 else None))
         return found[0] if len(found) == 1 else None
+
+    def _title_origin(self, frame):
+        """Top-left of the ITEM INVENTORY title, tolerating the pointer.
+
+        After a click the hand cursor can rest on either panel marker. A
+        visible half must match more strictly than the whole, and uniquely.
+        """
+        scores = cv2.matchTemplate(frame, self.title, cv2.TM_CCOEFF_NORMED)
+        _, score, _, point = cv2.minMaxLoc(scores)
+        if score >= .90:
+            return point
+        half = self.title.shape[1]//2
+        for template, offset in ((self.title[:, :half], 0), (self.title[:, half:], half)):
+            scores = cv2.matchTemplate(frame, template, cv2.TM_CCOEFF_NORMED)
+            hits = np.argwhere(scores >= .97)
+            if len(hits) and np.ptp(hits, axis=0).max() <= 2:
+                y, x = hits[np.argmax(scores[tuple(hits.T)])]
+                return int(x)-offset, int(y)
+        return None
 
     def _mesos_marker(self, bottom):
         """The MESOS label, tolerating the pointer resting over one half.

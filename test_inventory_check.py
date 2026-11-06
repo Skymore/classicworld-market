@@ -124,8 +124,15 @@ class InventoryCheckTests(unittest.TestCase):
         for covered in (slice(mx,mx+half),slice(mx+half,mx+mesos.shape[1])):
             pointer=frame.copy();pointer[my-4:my+mesos.shape[0]+6,covered]=255
             self.assertEqual(screen.locate(pointer)[:2],(x,y))
-        # Title alone, or a fully covered label, is not an open inventory.
+        # The pointer may rest on either half of the title instead.
+        tw=title.shape[1]
+        for covered in (slice(x+5,x+5+tw//2),slice(x+5+tw//2,x+5+tw)):
+            pointer=frame.copy();pointer[y:y+4+title.shape[0]+4,covered]=255
+            self.assertEqual(screen.locate(pointer)[:2],(x,y))
+        # Title alone, or a fully covered label or title, is not an open inventory.
         hidden=frame.copy();hidden[my:my+mesos.shape[0],mx:mx+mesos.shape[1]]=255
+        self.assertIsNone(screen.locate(hidden))
+        hidden=frame.copy();hidden[y:y+4+title.shape[0]+4,x:x+5+tw+4]=255
         self.assertIsNone(screen.locate(hidden))
 
     def test_unrecognized_window_gets_no_blind_second_toggle(self):
