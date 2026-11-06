@@ -109,6 +109,13 @@ async fn account_totals_deduplicate_on_write_and_do_not_read_device_history() {
     check(&db.pool, &ids[1..], unix_now()).await;
     // Exercise upgrading an existing populated database, rather than only
     // installing empty tables and then recording new observations.
+    // The rollback refuses a database with later migrations; the later ones
+    // (shop stalls) do not touch contributions, so this throwaway database
+    // stands for one stopped at 0044.
+    sqlx::query("DELETE FROM _sqlx_migrations WHERE version>44")
+        .execute(&db.pool)
+        .await
+        .unwrap();
     sqlx::raw_sql(include_str!(
         "../../../tools/rollback_account_contribution_rollups.sql"
     ))
