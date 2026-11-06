@@ -194,6 +194,7 @@ fn item_page(stats: Option<MarketStats>, market: ItemMarket) -> ItemPage {
     ItemPage {
         selected_variant: None,
         equipment: None,
+        tip: None,
         item: ItemSummary {
             id: 4000019,
             name_zh: Some("蜗牛壳<script>".into()),

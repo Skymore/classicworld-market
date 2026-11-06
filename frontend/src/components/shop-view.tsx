@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Store, UserRound, X } from "lucide-react";
 import { readPeriod } from "/web/js/lib/period.js?v=20261022-regressions-1";
@@ -94,73 +94,200 @@ function StallMap({ data, onPick }: { data: any; onPick: (stall: any) => void })
   );
 }
 
-/** The selected good inside the shop view. Equipment gets the full game
- *  tooltip (the quick preview's card: requirements, jobs, stats against the
- *  catalogue, this offer); other goods their name, bundle, stock and price. */
-function Info({ row, itemId }: { row: any; itemId: number }) {
+/** Item.wz fields in the order the game lists them. `pct` values are
+ *  percentages; `time` is milliseconds. */
+const TIP_STATS: [string, string, string, ("pct" | "time" | "sec")?][] = [
+  ["hp", "恢复HP", "HP Recovery"],
+  ["hpR", "恢复HP", "HP Recovery", "pct"],
+  ["mp", "恢复MP", "MP Recovery"],
+  ["mpR", "恢复MP", "MP Recovery", "pct"],
+  ["STR", "力量", "STR"],
+  ["DEX", "敏捷", "DEX"],
+  ["INT", "智力", "INT"],
+  ["LUK", "运气", "LUK"],
+  ["MHP", "最大HP", "Max HP"],
+  ["MMP", "最大MP", "Max MP"],
+  ["WAT", "攻击力", "Attack Power"],
+  ["pad", "攻击力", "Attack Power"],
+  ["PAD", "攻击力", "Attack Power"],
+  ["mad", "魔法攻击力", "Magic Attack"],
+  ["MAD", "魔法攻击力", "Magic Attack"],
+  ["pdd", "物理防御力", "Weapon Defense"],
+  ["PDD", "物理防御力", "Weapon Defense"],
+  ["mdd", "魔法防御力", "Magic Defense"],
+  ["MDD", "魔法防御力", "Magic Defense"],
+  ["acc", "命中率", "Accuracy"],
+  ["ACC", "命中率", "Accuracy"],
+  ["eva", "回避率", "Avoidability"],
+  ["EVA", "回避率", "Avoidability"],
+  ["speed", "移动速度", "Speed"],
+  ["Speed", "移动速度", "Speed"],
+  ["jump", "跳跃力", "Jump"],
+  ["Jump", "跳跃力", "Jump"],
+  ["crt", "暴击率", "Critical Rate", "pct"],
+  ["CRT", "暴击率", "Critical Rate", "pct"],
+  ["crd", "暴击伤害", "Critical Damage", "pct"],
+  ["CRD", "暴击伤害", "Critical Damage", "pct"],
+  ["time", "持续时间", "Duration", "time"],
+];
+const TIP_FLAGS: [string, string, string][] = [
+  ["only", "唯一道具", "One-of-a-kind"],
+  ["quest", "任务道具", "Quest item"],
+  ["tradeBlock", "不可交换", "Untradeable"],
+  ["accountSharable", "账号内共享", "Account-shareable"],
+  ["timeLimited", "限时道具", "Time-limited"],
+  ["notSale", "不能卖给商店", "Cannot be sold to shops"],
+];
+const duration = (ms: number, words: (zh: string, en: string) => string) => {
+  const s = Math.round(ms / 1000);
+  if (s >= 3600 && s % 3600 === 0) return words(`${s / 3600}小时`, `${s / 3600} hr`);
+  if (s >= 60 && s % 60 === 0) return words(`${s / 60}分钟`, `${s / 60} min`);
+  return words(`${s}秒`, `${s} sec`);
+};
+/** The game's description markup: `#c…#` is highlighted (orange in game). */
+function Desc({ text }: { text: string }) {
+  const parts = text.replace(/\\n/g, "\n").split(/#c([\s\S]*?)#/);
+  return (
+    <p className="tip-desc">
+      {parts.map((part, i) => (i % 2 ? <em key={i}>{part}</em> : part.replace(/#/g, "")))}
+    </p>
+  );
+}
+
+/** Price, bundle, stock and time of a good, under its tooltip. */
+function OfferLine({ row }: { row: any }) {
+  const words = useWords();
+  return (
+    <div className="eq-offer">
+      <div className="eq-offer-meta">
+        <span>
+          <b><Price value={row.price} /></b>
+          {words(" 金币", " mesos")}
+          {row.bundle > 1 && words(`/组（${row.bundle}个）`, `/set of ${row.bundle}`)}
+        </span>
+        {Number.isFinite(row.stock) && <span>{words("库存 ", "Stock ")}{row.stock}</span>}
+        {row.time != null && <span><RelativeTime at={row.time} /></span>}
+      </div>
+    </div>
+  );
+}
+
+/** The game tooltip of a use, etc, set-up or cash item: name, tags, icon
+ *  with its description, then what the client's data says it does. */
+function ItemTip({ row, item, tip }: { row: any; item: any; tip: any }) {
   const words = useWords();
   const { language } = usePreferences();
-  const name = language === "en" ? row.name_en || row.name_zh : row.name_zh || row.name_en;
+  const info = tip?.info || {};
+  const spec = tip?.spec || {};
+  const desc = language === "en" ? tip?.desc_en || tip?.desc_zh : tip?.desc_zh || tip?.desc_en;
+  const colon = words("：", ": ");
+  const lines: [string, string, string?][] = [];
+  if (info.reqLevel) lines.push([words("要求等级", "Req. Level"), String(info.reqLevel)]);
+  if (info.success != null) lines.push([words("成功率", "Success Rate"), info.success + "%"]);
+  for (const [key, zh, en, unit] of TIP_STATS) {
+    const value = Number(spec[key] ?? info["inc" + key]);
+    if (!value) continue;
+    const shown =
+      unit === "time" ? duration(value, words) : unit === "pct" ? `+${value}%` : value > 0 ? `+${value}` : String(value);
+    lines.push([words(zh, en), shown, "up"]);
+  }
+  if (info.cursed) lines.push([words("失败时装备损坏", "Destroys item on failure"), info.cursed + "%", "bad"]);
+  if (info.useCooldown) lines.push([words("冷却时间", "Cooldown"), duration(info.useCooldown * 1000, words)]);
+  if (info.slotMax) lines.push([words("每格上限", "Max per slot"), String(info.slotMax)]);
+  if (info.price > 1 && !info.notSale) lines.push([words("卖给商店", "Sells to shops for"), Number(info.price).toLocaleString() + words(" 金币", " mesos")]);
+  const flags = TIP_FLAGS.filter(([key]) => info[key]);
+  return (
+    <div className="eq-card tip-card" data-item-tip={item.id}>
+      <h2 className="eq-title">{words(item.name_zh || item.name_en, item.name_en || item.name_zh)}</h2>
+      {flags.length > 0 && (
+        <p className="tip-flags">
+          {flags.map(([key, zh, en]) => (
+            <span key={key}>{words(zh, en)}</span>
+          ))}
+        </p>
+      )}
+      <div className="eq-top">
+        <Slot empty url={item.icon_url || row.icon_url} size={40} />
+        {desc ? <Desc text={desc} /> : <p className="tip-desc dim">{row.subcategory}</p>}
+      </div>
+      {lines.length > 0 && (
+        <dl className="eq-lines">
+          {lines.map(([label, value, tone], i) => (
+            <div key={i} className={tone || ""}>
+              <dt>{label}{colon}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <OfferLine row={row} />
+    </div>
+  );
+}
+
+/** The selected good inside the shop view, as the game's tooltip:
+ *  equipment the quick preview's card (requirements, jobs, stats against the
+ *  catalogue, this offer), other goods their description and item data. */
+function Info({ row, itemId, hold }: { row: any; itemId: number; hold: MutableRefObject<number> }) {
+  const words = useWords();
   const equipment = isEquipment(row);
   const piece = equipment ? pieceOf(row) : null;
   // The same catalogue entry the quick preview reads (and caches).
   const url = `/item/${Number(row.item_id)}?hours=${readPeriod()}`;
   const catalog = useQuery<any>({
     queryKey: ["item-preview", url],
-    enabled: !!piece,
     queryFn: ({ signal }) => loadCatalog(url, signal, true),
     meta: { market: true },
     staleTime: 30000,
   });
   const page = catalog.data?.page;
+  // Until its tooltip loads, the box keeps the last one's height, so the
+  // view does not jump while stepping through goods and shops.
+  const box = useRef<HTMLDivElement>(null);
+  const ready = !!catalog.data || catalog.isError;
+  useLayoutEffect(() => {
+    if (ready && box.current) hold.current = box.current.offsetHeight;
+  });
+  const style = ready || !hold.current ? undefined : { minHeight: hold.current };
+  const item = page?.item || { id: Number(row.item_id), name_zh: row.name_zh, name_en: row.name_en, icon_url: row.icon_url };
   const other = Number(row.item_id) !== itemId && (
-    <SiteLink className="sv-open" href={"/item/" + Number(row.item_id)} data-no-preview="">
-      {words("查看物品详情 →", "Open item details →")}
-    </SiteLink>
+    <div className="sv-info-foot">
+      <SiteLink className="sv-open" href={"/item/" + Number(row.item_id)} data-no-preview="">
+        {words("查看物品详情 →", "Open item details →")}
+      </SiteLink>
+    </div>
   );
-  if (piece) {
-    const data = pieceData(piece, {
-      inShop: true,
-      price: row.price,
-      set: row.bundle > 1,
-      stock: Number.isFinite(row.stock) ? row.stock : null,
-      at: row.time ?? null,
-    });
+  if (equipment) {
+    const data = piece
+      ? pieceData(piece, {
+          inShop: true,
+          price: row.price,
+          set: row.bundle > 1,
+          stock: Number.isFinite(row.stock) ? row.stock : null,
+          at: row.time ?? null,
+        })
+      : undefined;
     return (
-      <div className="sv-info sv-info-card" aria-live="polite">
+      <div ref={box} style={style} className="sv-info sv-info-card" aria-live="polite">
         <EquipmentCard
-          item={page?.item || { id: Number(row.item_id), name_zh: row.name_zh, name_en: row.name_en, icon_url: row.icon_url }}
+          item={item}
           equipment={page?.equipment}
           base={page?.market?.base_stats || []}
           piece={data ? JSON.parse(data) : undefined}
         />
-        {other && <div className="sv-info-foot">{other}</div>}
+        {!piece && (
+          <div className="sv-pad">
+            <p className="sv-dim">{words("没有采集到这件的属性", "Stats not captured")}</p>
+            <OfferLine row={row} />
+          </div>
+        )}
+        {other}
       </div>
     );
   }
-  const kind = [row.subcategory, row.level ? words(`等级 ${row.level}`, `Lv ${row.level}`) : null]
-    .filter(Boolean)
-    .join(" · ");
   return (
-    <div className="sv-info" aria-live="polite">
-      <div className="sv-info-head">
-        <Slot url={row.icon_url} size={32} />
-        <div>
-          <b>{name}</b>
-          {kind && <small>{kind}</small>}
-        </div>
-      </div>
-      {equipment && <p className="sv-dim">{words("没有采集到这件的属性", "Stats not captured")}</p>}
-      <div className="sv-buy">
-        <span className="dim">
-          {row.bundle > 1 ? words(`每组 ${row.bundle} 个`, `${row.bundle} per bundle`) : words("每个", "each")}
-          {" · "}
-          {words("库存", "stock")} {row.stock}
-        </span>
-        <b>
-          <Price value={row.price} />
-        </b>
-      </div>
+    <div ref={box} style={style} className="sv-info sv-info-card" aria-live="polite">
+      <ItemTip row={row} item={item} tip={page?.tip} />
       {other}
     </div>
   );
@@ -179,16 +306,32 @@ function ShopCard({
   onPick: (stall: any) => void;
 }) {
   const words = useWords();
-  const query = useMarketQuery<any>("/api/v1/shop?key=" + encodeURIComponent(stop.key));
+  const query = useMarketQuery<any>("/api/v1/shop?key=" + encodeURIComponent(stop.key), true, true, true);
   const row = stop.row;
-  // Until the shop answers, show what the row already knows.
-  const data = query.data || {
+  const known = {
+    shop_key: stop.key,
     title: row.shop,
     owner_name: row.owner_name,
     channel: row.channel ?? row.location?.channel,
     room: row.room ?? row.location?.room,
-    items: [],
   };
+  // Until the shop answers, the last shop stays in place (dimmed) under what
+  // the row already knows, so nothing jumps; in the same room the map
+  // already marks the new stall.
+  const prev = query.isPlaceholderData ? query.data : null;
+  const sameRoom =
+    !!prev && (known.channel ?? prev.channel) === prev.channel && (known.room ?? prev.room) === prev.room;
+  const data = prev
+    ? {
+        ...prev,
+        ...known,
+        channel: known.channel ?? prev.channel,
+        room: known.room ?? prev.room,
+        stall: (prev.neighbors || []).find((n: any) => n.shop_key === stop.key) || null,
+      }
+    : query.data || { ...known, items: [] };
+  const waiting = !!prev;
+  const hold = useRef(0);
   const items: any[] = data.items || [];
   // The good they came from: the same slot, else the same item.
   const start = Math.max(
@@ -196,11 +339,14 @@ function ShopCard({
     items.findIndex((r) => Number(r.item_id) === itemId && r.slot === row.slot),
     items.findIndex((r) => Number(r.item_id) === itemId),
   );
-  const [chosen, choose] = useState<number | null>(null);
-  const at = chosen != null && chosen < items.length ? chosen : start;
-  const newest = Math.max(0, ...items.map((r: any) => r.time || 0)) || data.last_seen || row.observed;
+  // The good picked in this shop (a new shop starts on the one they came for).
+  const [chosen, choose] = useState<{ key: string; at: number } | null>(null);
+  const at = chosen?.key === stop.key && chosen.at < items.length ? chosen.at : start;
+  const newest = waiting
+    ? row.time ?? row.observed
+    : Math.max(0, ...items.map((r: any) => r.time || 0)) || data.last_seen || row.observed;
   return (
-    <div className="sv-card">
+    <div className={"sv-card" + (waiting ? " sv-wait" : "") + (waiting && !sameRoom ? " sv-wait-map" : "")} aria-busy={waiting || !query.data}>
       <div className="sv-top">
         <StallMap data={data} onPick={onPick} />
         <div className="sv-who">
@@ -220,14 +366,25 @@ function ShopCard({
           </span>
           <span className="sv-time">
             <RelativeTime at={newest} />
-            {query.data && !data.stall && <> · {words("摊位位置未采集", "Stall not captured")}</>}
+            {query.data && !waiting && !data.stall && <> · {words("摊位位置未采集", "Stall not captured")}</>}
           </span>
         </div>
       </div>
       {query.isError ? (
         <p className="sv-none">{words("读不到这家店的货。", "Could not load this shop.")}</p>
       ) : !query.data ? (
-        <p className="sv-none">{words("读取中…", "Loading…")}</p>
+        <div className="sv-window sv-skeleton" aria-label={words("读取中…", "Loading…")}>
+          <div className="sv-window-bar">
+            <span>{words("商店物品", "Store items")}</span>
+          </div>
+          <ul className="sv-goods">
+            {Array.from({ length: 10 }, (_, i) => (
+              <li key={i}>
+                <span className="sv-good" />
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : !items.length ? (
         <p className="sv-none">{words("这家店现在没有在售的货。", "Nothing is on sale in this shop now.")}</p>
       ) : (
@@ -246,7 +403,7 @@ function ShopCard({
                     aria-pressed={i === at}
                     aria-label={(r.name_zh || r.name_en || "") + " " + r.price}
                     title={r.name_zh || r.name_en}
-                    onClick={() => choose(i)}
+                    onClick={() => choose({ key: stop.key, at: i })}
                   >
                     <span className="sv-slot">
                       <Slot url={r.icon_url} size={28} />
@@ -260,7 +417,7 @@ function ShopCard({
               ))}
             </ul>
           </div>
-          <Info key={at} row={items[at]} itemId={itemId} />
+          <Info key={stop.key + ":" + at} row={items[at]} itemId={itemId} hold={hold} />
         </>
       )}
       {(stepping || (data.neighbors || []).length > 1) && (
@@ -365,7 +522,7 @@ export default function ShopView({
             <X aria-hidden="true" />
           </button>
         </div>
-        <ShopCard key={stop.key} stop={stop} itemId={itemId} stepping={n > 1} onPick={pick} />
+        <ShopCard stop={stop} itemId={itemId} stepping={n > 1} onPick={pick} />
       </dialog>
     </>
   );

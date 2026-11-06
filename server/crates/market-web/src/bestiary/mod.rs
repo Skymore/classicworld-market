@@ -12,6 +12,7 @@ pub mod equipment;
 pub mod format;
 pub mod http;
 pub mod import;
+pub mod item_tip;
 pub mod map_list;
 pub mod mapledex;
 pub mod model;

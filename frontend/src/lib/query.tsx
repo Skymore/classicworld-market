@@ -1,6 +1,7 @@
 import {
   QueryClient,
   QueryClientProvider,
+  keepPreviousData,
   useQuery,
   type Query,
 } from "@tanstack/react-query";
@@ -185,12 +186,15 @@ export function useMarketQuery<T>(
   url: string,
   enabled = true,
   reactive = true,
+  /** Keep showing the previous URL's data (`isPlaceholderData`) while a new one loads. */
+  keep = false,
 ) {
   const options = marketOptions(url, reactive);
   const query = useQuery<T>({
     ...options,
     queryFn: async (context) => (await options.queryFn(context)) as T,
     enabled,
+    placeholderData: keep ? keepPreviousData : undefined,
   });
   useEffect(() => {
     const data = query.data as

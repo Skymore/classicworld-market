@@ -103,6 +103,9 @@ pub struct ItemPage {
     /// The game tooltip's requirements, jobs and type; equipment only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub equipment: Option<super::equipment::EquipmentReference>,
+    /// The game tooltip of a use, etc, set-up or cash item (`item_tip`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tip: Option<serde_json::Value>,
     /// Quests that give the item (open, inside their event window).
     pub quest_rewards: Vec<QuestReward>,
     /// Quests that ask for it.

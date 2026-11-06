@@ -88,3 +88,14 @@
 .market-record[data-shop-row]{cursor:pointer}
 .market-record[data-shop-row]:hover{background:var(--lamp)}
 .market-record[data-shop-row]:focus-visible{outline:2px solid var(--mark);outline-offset:-2px}
+/* Switching shops: the last one stays in place, dimmed (after a beat, so a
+   quick answer does not flash), until the next answers. */
+.sv-wait .sv-window,.sv-wait .sv-info,.sv-wait-map .sv-map{opacity:.45;pointer-events:none;transition:opacity .2s .12s}
+.sv-skeleton .sv-good{height:52px;cursor:default}
+.sv-pad{padding:0 12px 10px}
+/* Use, etc and cash goods: the game's tooltip (tags, icon and description, data). */
+.tip-flags{display:flex;flex-wrap:wrap;justify-content:center;gap:0 10px;margin:-2px 0 6px;font-size:12px;color:#ffb347}
+.tip-desc{flex:1;min-width:0;margin:0;white-space:pre-line;font-size:12.5px;line-height:1.5;color:#e4e9f1;overflow-wrap:anywhere}
+.tip-desc em{font-style:normal;color:#ffb347}
+.tip-card .eq-lines .bad dd{color:#ff8f86}
+.tip-card .eq-top+.eq-offer{margin-top:0;border-top:0}
