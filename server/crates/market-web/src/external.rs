@@ -322,7 +322,7 @@ pub async fn latest_quote_rows(
 ) -> sqlx::Result<Vec<serde_json::Map<String, Value>>> {
     let rows = sqlx::query(
         "SELECT DISTINCT ON (q.item_id) q.*,extract(epoch FROM q.seen_at)::float8 AS time,
-        i.name_zh,i.name_en,i.icon_url,i.subcategory FROM external_market_listings q
+        i.name_zh,i.name_en,i.icon_url,i.subcategory,i.is_cash FROM external_market_listings q
         JOIN items i ON i.id=q.item_id WHERE q.up AND q.seen_at>=to_timestamp($1)
         ORDER BY q.item_id,q.seen_at DESC,q.source,q.source_key",
     )
@@ -337,7 +337,7 @@ fn quote_values(rows: Vec<sqlx::postgres::PgRow>) -> Vec<serde_json::Map<String,
         let item:i32=r.get("item_id");
         json!({"world":"ClassicWorld","item_id":item,"name_zh":r.get::<Option<String>,_>("name_zh"),
           "name_en":r.get::<String,_>("name_en"),"icon_url":r.get::<Option<String>,_>("icon_url"),
-          "subcategory":r.get::<Option<String>,_>("subcategory"),"category":market_core::item::category_name(i64::from(item)),
+          "subcategory":r.get::<Option<String>,_>("subcategory"),"category":market_core::item::listing_category(i64::from(item),r.try_get::<bool,_>("is_cash").unwrap_or(false)),
           "source":"mesowatch","source_key":r.get::<String,_>("source_key"),"unit_basis":r.get::<String,_>("unit_basis"),
           "unit_price":r.get::<f64,_>("unit_price"),"price":null,"bundle":null,"stock":null,
           "shop":r.get::<Option<String>,_>("seller"),"shop_id":null,"slot":null,"visit_id":null,

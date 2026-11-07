@@ -240,6 +240,24 @@ async fn item_page() {
 }
 
 #[tokio::test]
+async fn cash_equipment_is_filed_under_cash() {
+    let Some((db, router)) = seeded().await else {
+        return;
+    };
+    sqlx::query("UPDATE items SET is_cash = true WHERE id = 1002000")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    let page = get(&router, "/item/1002000").await.body;
+    assert!(
+        page.contains("/search?kind=item&amp;cat=cash")
+            || page.contains("/search?kind=item&cat=cash")
+    );
+    assert!(!page.contains("cat=equip"));
+    db.drop_schema().await;
+}
+
+#[tokio::test]
 async fn mob_page() {
     let Some((db, router)) = seeded().await else {
         return;

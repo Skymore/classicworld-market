@@ -32,7 +32,12 @@
 .sv-stall:not(.here):hover .sv-booth img,.sv-stall:focus-visible .sv-booth img{filter:drop-shadow(0 0 3px #fff) drop-shadow(0 0 4px var(--mark))}
 .sv-sign{position:absolute;overflow:hidden;padding:1px 2px;font:11px/13px Arial,"Microsoft YaHei",sans-serif;color:#333;text-align:left;white-space:normal;overflow-wrap:anywhere;pointer-events:none}
 .sv-owner-look{position:absolute;max-width:none;pointer-events:none}
-.sv-name{position:absolute;left:0;top:2px;translate:-50% 0;padding:2px 4px 3px;border-radius:2px;background:rgba(0,0,0,.6);font:11px/1 Arial,"Microsoft YaHei",sans-serif;color:#fff;white-space:nowrap;pointer-events:none}
+/* The client's plain name tag: translucent black, 1px rounded corners, 12px white Arial. */
+.sv-name{position:absolute;left:0;top:2px;translate:-50% 0;padding:1px 3px 2px;border-radius:2px;background:rgba(0,0,0,.65);font:12px/12px Arial,"Microsoft YaHei",sans-serif;color:#fff;white-space:nowrap;pointer-events:none;-webkit-font-smoothing:none}
+/* A name tag ring's tag: caps and a tiled middle placed by their origins around the name. */
+.sv-tag{padding:0;background:none;border-radius:0}
+.sv-tag i{position:absolute;background-repeat:repeat-x}
+.sv-tag b{position:relative;font-weight:400}
 /* The shop on show: everything else dimmed around a spotlight. */
 .sv-spot{position:absolute;inset:0;z-index:5;pointer-events:none}
 .sv-spot b{position:absolute;translate:-50% -50%;border:2px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 0 14px 3px rgba(255,214,90,.75),inset 0 0 10px rgba(255,214,90,.45);animation:sv-spot 1.6s ease-in-out infinite alternate}

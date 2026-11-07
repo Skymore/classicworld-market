@@ -43,15 +43,13 @@ export function prepareReminderRows(rows, baseStats = {}) {
         Number.isFinite(stat.value) && stat.value > (base.find(([key]) => key === stat.key)?.[1] ?? 0)) };
   });
 }
-// The percentile baseline is all active grouped offers, before this item's cap
-// and advanced conditions. Server cutoffs also cover offers beyond the public limit.
+// Percentile caps come only from the server (all active grouped offers, also
+// beyond the public limit, rounded up there); sweep and alerts use the same values.
 export function reminderSelection(rows, itemId, setting = {}, reference = {}) {
   const f = normalizeReminder(setting.reminder);
-  const baseline = activeOffers(reference.rows ?? rows).filter(row => row.item_id === itemId);
   let cap = Number.isFinite(setting.cap) && setting.cap >= 0 ? setting.cap : null;
   if (f.percentile !== 'all') {
-    const prices = baseline.map(row => row.unit_price).sort((a, b) => a - b);
-    cap = reference.percentiles?.[itemId]?.[f.percentile] ?? prices[Math.ceil(prices.length * Number(f.percentile) / 100) - 1] ?? null;
+    cap = reference.percentiles?.[itemId]?.[f.percentile] ?? null;
     if (cap === null) return { cap, rows: [], ready: false };
   }
   const prepared = prepareReminderRows(rows.filter(row => row.item_id === itemId), reference.baseStats);

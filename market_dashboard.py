@@ -25,6 +25,13 @@ from market_sales import SOLD_OUT_KINDS, sale_id, sales_stats, recent_sales, sal
 
 ROOT = Path(__file__).resolve().parent
 CATEGORIES = {1:'装备',2:'消耗品',3:'装饰',4:'其他',5:'商城物品',6:'其他'}
+
+
+def item_category(item_id, cash=False):
+    # Cash-shop equipment (时装/暖暖) belongs with the other cash-shop items.
+    if cash and item_id//1000000 == 1:
+        return '商城物品'
+    return CATEGORIES.get(item_id//1000000, '未知')
 SALE_METHODS = {'drop':'库存减少推定成交','sold_out':'售光推定成交','found_sold':'售光推定成交'}
 SALE_EVIDENCE = {
     'drop':'两次观察之间库存减少；非订单回执，成交在两次观察之间',
@@ -90,9 +97,10 @@ class Repository:
         names = {}
         if self.catalog.exists():
             with closing(sqlite3.connect(self.catalog)) as db:
-                names = {r[0]:dict(name_zh=r[1], name_en=r[2], icon_url=r[3],
-                                  level=json.loads(r[4]).get('level'),jobs=equipment_jobs(json.loads(r[4])),subcategory=r[5])
-                         for r in db.execute('SELECT item_id,name_zh,name_en,icon_url,record_json,category FROM items')}
+                for iid,zh,en,icon,record,sub in db.execute('SELECT item_id,name_zh,name_en,icon_url,record_json,category FROM items'):
+                    record=json.loads(record)
+                    names[iid]=dict(name_zh=zh, name_en=en, icon_url=icon, level=record.get('level'),
+                                    jobs=equipment_jobs(record), subcategory=sub, cash=record.get('cash') is True)
         with self.connect() as db:
             visits = db.execute('SELECT id,collector,world,observed,shop_key,source,payload FROM visits ORDER BY observed,id').fetchall()
         locations = LocationTimeline(ROOT/'network_captures/market_live/map_observations.jsonl')
@@ -111,7 +119,7 @@ class Repository:
                 # Equipment with different serialized attributes remains separate.
                 variant=r.get('shared_variant') or (hashlib.sha256(bytes.fromhex(raw)[20:]).hexdigest()[:16] if iid//1000000==1 and raw else ('unknown' if iid//1000000==1 else 'standard'))
                 row=dict(visit_id=vid,collector=collector,world=world,time=observed,shop=d['title'],shop_id=d['shop_id'],
-                    item_id=iid,category=CATEGORIES.get(iid//1000000,'未知'),variant=variant,slot=r['slot'],
+                    item_id=iid,category=item_category(iid,names.get(iid,{}).get('cash')),variant=variant,slot=r['slot'],
                     price=price,bundle=bundle,unit_price=price/bundle if bundle else None,stock=stock,
                     name_zh=names.get(iid,{}).get('name_zh') or str(iid),name_en=names.get(iid,{}).get('name_en') or '',
                     icon_url=names.get(iid,{}).get('icon_url'),level=names.get(iid,{}).get('level'),

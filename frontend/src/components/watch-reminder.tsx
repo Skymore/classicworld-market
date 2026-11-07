@@ -6,7 +6,7 @@ import {
   normalizeReminder,
   reminderSelection,
   reminderTokens,
-} from "/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1";
+} from "/web/js/lib/watch-reminders.js?v=20261106-server-caps";
 import { locale } from "/web/js/lib/i18n.js";
 import "./watch-reminder.css";
 

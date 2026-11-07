@@ -46,7 +46,7 @@
 后台每 30 秒一轮（`push::run`），只处理有效会话下有订阅的账号。多个进程同时运行时（例如发布时的候选进程）用 PostgreSQL advisory lock 保证只有一个在跑。
 
 1. 关注来自 `account_data` 的 `kind='watch'`。只看 `notify` 为真的条件组；旧格式没有 `groups` 时用 `cap/notify/reminder` 组成默认组；`groups: []` 不提醒。
-2. 对这些物品调用 `views::watch_listings`，在 `grouped_listings` 上按网页同一套规则找命中（`push/matching.rs`，移植 `watch-reminders.js` 的 `watchGroups`、`reminderSelection`、`prepareReminderRows` 和 `item-offer-filters.js` 的提醒条件；百分位用 `percentile_caps`，没有时按有效报价计算；加成用 `base_stats`）。
+2. 对这些物品调用 `views::watch_listings`，在 `grouped_listings` 上按网页同一套规则找命中（`push/matching.rs`，移植 `watch-reminders.js` 的 `watchGroups`、`reminderSelection`、`prepareReminderRows` 和 `item-offer-filters.js` 的提醒条件；百分位只用 `percentile_caps`（服务端已向上取整），没有时不命中；加成用 `base_stats`）。
 3. “新”报价：观察时间晚于 `max(账号开始时间, 上一轮游标 − 120 秒, 现在 − 10 分钟)`。120 秒重叠覆盖上传延迟。账号第一轮只记游标。游标存 `push_cursors`，重启不丢；账号没有订阅后删除游标，下次订阅重新从安静的第一轮开始。
 4. 去重键：sha256(店铺、物品、单价、包装、装备属性)，不含时间和访问号。发送前写入 `push_deliveries` 占用，24 小时内同一账号不再推；每轮清理 24 小时前的记录。
 5. 合并：一轮里每件物品一条，`tag` = `watch-<item_id>`，`url` = `/item/<item_id>`。

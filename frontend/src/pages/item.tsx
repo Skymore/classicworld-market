@@ -1009,6 +1009,7 @@ export default function Item({ page }: { page: any }) {
                         消耗品: "USE",
                         装饰: "SETUP",
                         其他: "ETC",
+                        商城: "CASH",
                         商城物品: "CASH",
                       } as Record<string, string>
                     )[item.category] || item.category,
@@ -1023,7 +1024,7 @@ export default function Item({ page }: { page: any }) {
                 {item.req_level > 0 && (
                   <span className="tagx">{words(`${item.req_level} 级`, `Lv. ${item.req_level}`)}</span>
                 )}
-                {item.is_cash && (
+                {item.is_cash && CATEGORY[item.category]?.[0] !== "cash" && (
                   <span className="tagx">{words("商城", "Cash")}</span>
                 )}
               </div>

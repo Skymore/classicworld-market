@@ -136,7 +136,7 @@ pub fn head(v: &View) -> Markup {
                         span.tagx { (category_label(&item.category, lang)) }
                         @if lang == Lang::Zh { @if let Some(sub) = sub { span.tagx { (sub) } } }
                         @if let Some(level) = &level { span.tagx { (level) } }
-                        @if item.is_cash { span.tagx { (v.t("商城", "Cash")) } }
+                        @if item.is_cash && category_key(&item.category) != Some("cash") { span.tagx { (v.t("商城", "Cash")) } }
                     }
                 }
                 div.iprice-d {

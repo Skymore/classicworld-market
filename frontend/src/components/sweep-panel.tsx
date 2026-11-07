@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { watchGroups, watchSelection } from "/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1";
+import { watchGroups, watchSelection } from "/web/js/lib/watch-reminders.js?v=20261106-server-caps";
 import { meso } from "/web/js/lib/format.js";
 import { itemName } from "/web/js/lib/i18n.js";
 import { postAccount } from "../pages/account-access";

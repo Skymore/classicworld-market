@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useWords } from '../providers';
 import WatchReminder from './watch-reminder';
-import { watchGroups, reminderSelection, reminderTokens } from '/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1';
+import { watchGroups, reminderSelection, reminderTokens } from '/web/js/lib/watch-reminders.js?v=20261106-server-caps';
 import './watch-groups.css';
 
 // No price, no other condition and no alert: the item is only watched for its prices.

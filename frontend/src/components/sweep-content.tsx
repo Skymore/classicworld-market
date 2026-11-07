@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { getJson, qs, api } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
-import { reminderTokens } from "/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1";
+import { reminderTokens } from "/web/js/lib/watch-reminders.js?v=20261106-server-caps";
 import { itemName, pick } from "/web/js/lib/i18n.js";
 import { meso } from "/web/js/lib/format.js";
 import { useWords } from "../providers";

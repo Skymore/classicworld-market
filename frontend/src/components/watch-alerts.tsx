@@ -17,7 +17,7 @@ import {
   normalizeReminder,
   notificationEligibility,
   reminderSelection,
-} from "/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1";
+} from "/web/js/lib/watch-reminders.js?v=20261106-server-caps";
 import { t, itemName } from "/web/js/lib/i18n.js";
 import { useLiveData, useUserValue } from "../lib/live";
 import { useWords, usePreferences } from "../providers";

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useWords } from '../providers';
-import { watchGroups, reminderTokens } from '/web/js/lib/watch-reminders.js?v=20261027-watch-groups-1';
+import { watchGroups, reminderTokens } from '/web/js/lib/watch-reminders.js?v=20261106-server-caps';
 import { MAX_LISTS, listItems } from '/web/js/lib/watch-lists.js';
 import { sweepable } from './watch-groups';
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
