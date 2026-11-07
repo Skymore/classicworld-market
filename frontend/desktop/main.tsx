@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Copy, Languages, Minus, Square, X } from 'lucide-react';
+import * as Menu from '@radix-ui/react-dropdown-menu';
 import '../../web/css/base.css';
 import './style.css';
 import WorkspaceTab, { useWorkspaceStatus, type Shell } from './workspace';
@@ -8,7 +9,7 @@ import ScanPage from './scan-page';
 import BugReport from './bug-report';
 import { RemoteDebugTools, RemoteDebugBanner } from './remote-debug';
 import SitePage, { SITE_LABELS, type SitePageKey, type WatchSummary } from './site-page';
-import { applyLanguage, language as currentLanguage, tr, type Lang, type LangChoice } from './i18n';
+import { applyLanguage, language as currentLanguage, systemLanguage, tr, type Lang, type LangChoice } from './i18n';
 import { updateLabel } from './format';
 import { healthLabel, initial, isLive, type State, type Theme } from './state';
 
@@ -19,12 +20,25 @@ const SITE_TABS: SitePageKey[] = ['home', 'dex', 'watch', 'tools'];
 const CLIENT_TABS: [ClientTab, string, string][] = [['scan', '扫描采集', 'Scan'], ['sweep', '扫货', 'Sweep'], ['account', '账号', 'Account']];
 const isSite = (tab: Tab): tab is SitePageKey => (SITE_TABS as string[]).includes(tab);
 // One button cycles light → dark → system.
-const THEMES: Record<Theme, { label: [string, string]; next: Theme }> = {
-  light: { label: ['浅色', 'Light'], next: 'dark' }, dark: { label: ['深色', 'Dark'], next: 'system' }, system: { label: ['跟随系统', 'System'], next: 'light' },
-};
-// And one cycles the language: system → 中文 → English → 한국어.
+const THEMES: Record<Theme, [string, string]> = { system: ['跟随系统', 'System'], light: ['浅色', 'Light'], dark: ['深色', 'Dark'] };
 const LANGUAGE_CHOICES: LangChoice[] = ['system', 'zh', 'en', 'ko'];
-const LANGUAGE_NAMES: Record<LangChoice, string> = { system: '', zh: '中文', en: 'English', ko: '한국어' };
+// Each language in its own script, so a player who cannot read the window still finds theirs.
+const LANGUAGE_NAMES: Record<Lang, string> = { zh: '中文', en: 'English', ko: '한국어' };
+/** A header menu of choices (radio items); the trigger is the given button content. */
+function ChoiceMenu<T extends string>({ label, value, options, onChoose, disabled, trigger, ...data }: {
+  label: string; value: T; options: [T, string, string?][]; onChoose(value: T): void; disabled: boolean; trigger: React.ReactNode;
+  [key: `data-${string}`]: string | boolean;
+}) {
+  return <Menu.Root>
+    <Menu.Trigger asChild><button className="icon-btn menu-btn" title={label} aria-label={label} disabled={disabled} {...data}>{trigger}</button></Menu.Trigger>
+    <Menu.Portal><Menu.Content className="choice-menu" align="end" sideOffset={4} aria-label={label}>
+      <Menu.RadioGroup value={value} onValueChange={v => onChoose(v as T)}>
+        {options.map(([key, text, note]) => <Menu.RadioItem key={key} value={key} className="choice-item" data-choice={key}>
+          <span>{text}</span>{note && <small>{note}</small>}</Menu.RadioItem>)}
+      </Menu.RadioGroup>
+    </Menu.Content></Menu.Portal>
+  </Menu.Root>;
+}
 /** A half-filled circle: the theme button. */
 function ThemeIcon() {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -91,10 +105,9 @@ function App() {
     setBusy(true); setError('');
     try { setState(await window.pywebview.api.command(name, value)); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   };
-  const theme = THEMES[state.theme] || THEMES.system;
+  const themeChoice: Theme = THEMES[state.theme] ? state.theme : 'system';
   const choice = state.language && LANGUAGE_CHOICES.includes(state.language) ? state.language : 'system';
-  const nextChoice = LANGUAGE_CHOICES[(LANGUAGE_CHOICES.indexOf(choice) + 1) % LANGUAGE_CHOICES.length];
-  const languageLabel = tr('语言：', 'Language: ') + (choice === 'system' ? tr('跟随系统', 'System') + ` (${LANGUAGE_NAMES[lang]})` : LANGUAGE_NAMES[choice]);
+  const systemLang = systemLanguage();
   const tabButton = (key: Tab, label: string) => {
     const hits = key === 'watch' ? watch?.hits ?? 0 : 0;
     return <button key={key} aria-pressed={tab === key} aria-label={hits ? tr(`${label}，${hits} 件有符合条件的在售`, `${label}, ${hits} with matching offers`) : undefined} onClick={() => setTab(key)}>
@@ -115,8 +128,14 @@ function App() {
       </nav>
       <div className="app-drag pywebview-drag-region" onDoubleClick={() => action('window', 'maximize')} />
       <div className="header-tools">
-        <button className="icon-btn" data-language-toggle title={languageLabel} aria-label={languageLabel} onClick={() => action('language', nextChoice)} disabled={!connected || busy}><Languages size={18} /></button>
-        <button className="icon-btn" title={tr('主题：', 'Theme: ') + tr(...theme.label)} aria-label={tr('主题：', 'Theme: ') + tr(...theme.label)} onClick={() => action('theme', theme.next)} disabled={!connected || busy}><ThemeIcon /></button>
+        <ChoiceMenu label={tr('语言', 'Language')} value={choice} disabled={!connected || busy} data-language-toggle
+          onChoose={value => action('language', value)}
+          options={[['zh', LANGUAGE_NAMES.zh], ['en', LANGUAGE_NAMES.en], ['ko', LANGUAGE_NAMES.ko], ['system', tr('跟随系统', 'System language'), LANGUAGE_NAMES[systemLang]]]}
+          trigger={<><Languages size={17} /><span className="menu-label">{LANGUAGE_NAMES[lang]}</span><i className="menu-caret" aria-hidden="true" /></>} />
+        <ChoiceMenu label={tr('主题', 'Theme')} value={themeChoice} disabled={!connected || busy} data-theme-toggle
+          onChoose={value => action('theme', value)}
+          options={(['system', 'light', 'dark'] as Theme[]).map(key => [key, tr(...THEMES[key])])}
+          trigger={<ThemeIcon />} />
         <div className="window-controls" aria-label={tr('窗口操作', 'Window')}>
           <button title={tr('最小化', 'Minimize')} aria-label={tr('最小化', 'Minimize')} onClick={() => action('window', 'minimize')} disabled={!connected}><Minus size={17} /></button>
           <button title={state.maximized ? tr('还原', 'Restore') : tr('最大化', 'Maximize')} aria-label={state.maximized ? tr('还原', 'Restore') : tr('最大化', 'Maximize')} onClick={() => action('window', 'maximize')} disabled={!connected}>

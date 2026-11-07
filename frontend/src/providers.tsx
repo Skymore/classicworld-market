@@ -9,7 +9,8 @@ import {
 import {
   lang as legacyLanguage,
   setLang,
-  nextLanguage,
+  followBrowser,
+  languageChoice as savedLanguageChoice,
   resolveLanguage,
   ipLanguage,
   loadKorean,
@@ -31,11 +32,17 @@ const subscribeUnits = (callback: () => void) => {
 /** "wan" (万 / 亿) or "km" (K / M), as numbers render now. */
 export type Units = "wan" | "km";
 const unitsNow = (): Units => (usesWan() ? "wan" : "km");
+/** A menu choice: a fixed value, or follow the browser / system. */
+export type LanguageChoice = Language | "system";
+export type ThemeChoice = Theme | "system";
 const Preferences = createContext<{
   language: Language;
   theme: Theme;
-  toggleTheme(): void;
-  changeLanguage(): void;
+  /** What the menus show as chosen. */
+  languageChoice: LanguageChoice;
+  themeChoice: ThemeChoice;
+  chooseLanguage(choice: LanguageChoice): void;
+  chooseTheme(choice: ThemeChoice): void;
   /** Number units now in use, and the saved choice (null: the language default). */
   units: Units;
   unitChoice: Units | null;
@@ -44,8 +51,8 @@ const Preferences = createContext<{
   ready: boolean;
 } | null>(null);
 // Theme and language follow the system / browser. `uiTheme` / `uiLang` hold
-// an explicit choice from the switches, removed again once it matches the
-// system; `?theme=` / `?lang=` hold for the tab (boot.js, sessionStorage).
+// an explicit choice from the header menus (跟随系统 / 跟随浏览器 removes it);
+// `?theme=` / `?lang=` hold for the tab (boot.js, sessionStorage).
 function storedTheme() {
   try {
     return userStorage.getItem("uiTheme");
@@ -121,15 +128,26 @@ export function Providers({
   const [theme, setTheme] = useState<Theme>(() =>
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   );
+  const savedTheme = (): ThemeChoice => {
+    const value = storedTheme();
+    return value === "dark" || value === "light" ? value : "system";
+  };
+  const [themeChoice, setThemeChoice] = useState<ThemeChoice>(savedTheme);
+  const [languageChoice, setLanguageChoice] = useState<LanguageChoice>(
+    () => savedLanguageChoice() as LanguageChoice,
+  );
   useEffect(() => {
     document.documentElement.dataset.lang = language;
     document.documentElement.lang = language === "zh" ? "zh-CN" : language;
   }, [language]);
   useEffect(() => {
-    const update = () =>
+    const update = () => {
       setTheme(
         document.documentElement.dataset.theme === "dark" ? "dark" : "light",
       );
+      setThemeChoice(savedTheme());
+      setLanguageChoice(savedLanguageChoice() as LanguageChoice);
+    };
     const system = darkScheme();
     const followSystem = () => {
       if (!chosenTheme()) {
@@ -143,8 +161,10 @@ export function Providers({
       if (next !== legacyLanguage) setLang(next, { save: false });
     };
     const storage = (event: StorageEvent) => {
-      if (event.key === "units" || event.key === "uiLang" || event.key === null)
+      if (event.key === "units" || event.key === "uiLang" || event.key === null) {
         applyPreferences();
+        update();
+      }
       if (event.key === "uiTheme" || event.key === null) {
         document.documentElement.dataset.theme = chosenTheme() || systemTheme();
         update();
@@ -175,26 +195,25 @@ export function Providers({
       window.removeEventListener("languagechange", followLanguage);
     };
   }, []);
-  function toggleTheme() {
-    const next =
-      document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  function chooseTheme(choice: ThemeChoice) {
     try {
       sessionStorage.removeItem("cwm.view.theme");
     } catch {
       /* private mode */
     }
     try {
-      // Matching the system again means "follow the system".
-      if (next === systemTheme()) userStorage.removeItem("uiTheme");
-      else userStorage.setItem("uiTheme", next);
+      if (choice === "system") userStorage.removeItem("uiTheme");
+      else userStorage.setItem("uiTheme", choice);
     } catch {
       /* keep this session usable */
     }
+    const next = choice === "system" ? systemTheme() : choice;
     document.documentElement.dataset.theme = next;
     setTheme(next);
+    setThemeChoice(choice);
     const url = new URL(location.href);
     if (url.searchParams.has("theme")) {
-      url.searchParams.set("theme", next);
+      url.searchParams.delete("theme");
       history.replaceState(history.state, "", url);
     }
     document.dispatchEvent(new CustomEvent("themechange", { detail: next }));
@@ -208,13 +227,14 @@ export function Providers({
     }
     setUnits(value);
   }
-  function changeLanguage() {
-    // 中文 -> English -> 한국어; saved only while it differs from the browser.
-    const next = nextLanguage(language) as Language;
-    setLang(next);
+  async function chooseLanguage(choice: LanguageChoice) {
+    if (choice === "system") await followBrowser();
+    else setLang(choice);
+    setLanguageChoice(choice);
     const url = new URL(location.href);
     if (server) {
-      url.searchParams.set("lang", next);
+      // Server-rendered pages are rendered again in the new language.
+      url.searchParams.set("lang", legacyLanguage);
       location.assign(url);
     } else if (url.searchParams.has("lang")) {
       url.searchParams.delete("lang");
@@ -226,8 +246,10 @@ export function Providers({
       value={{
         language,
         theme,
-        toggleTheme,
-        changeLanguage,
+        languageChoice,
+        themeChoice,
+        chooseLanguage,
+        chooseTheme,
         units,
         unitChoice,
         changeUnits,

@@ -19,7 +19,7 @@ try {
       window.calls=[];
       window.state={version:'0.6.4',phase:'idle',mode:'scan',message:'准备就绪，选择游戏后即可开始。',room:null,channel:null,visited:0,uploaded:0,run_shops:0,run_items:0,run_started_at:Date.now()/1000-11958,started_at:null,stopped_at:null,capture:'connected',upload:'ready',last_shop_at:null,updates:'up_to_date',selected:12,windows:[{id:12,title:'MapleStory',pid:42},{id:13,title:'MapleStory',pid:43}],theme,activities:[{at:Date.now()/1000,text:'扫描器已就绪。',kind:'info'}],maximized:false};
       const cycle={light:'dark',dark:'system',system:'light'};
-      window.pywebview={api:{ready:async()=>{window.calls.push('ready');return structuredClone(window.state);},command:async(name,value)=>{window.calls.push(value===undefined?name:name+':'+(typeof value==='object'?JSON.stringify(value):value));if(name==='window'&&value==='maximize')window.state.maximized=!window.state.maximized; if(name==='theme'){if(value!==cycle[window.state.theme])throw new Error('theme skipped');window.state.theme=value;}if(name==='mode')window.state.mode=value;if(name==='start')Object.assign(window.state,{phase:'scanning',desired:true,selected:value,room:8,channel:12,visited:3,started_at:Date.now()/1000,message:'正在扫描 8 洞 · 12频道'});if(name==='pause')window.state.phase='paused';if(name==='resume')window.state.phase='scanning';if(name==='stop')Object.assign(window.state,{phase:'stopped',desired:false});if(name==='update')window.state.update_requested=true;return structuredClone(window.state);},workspace:async()=>({linked:false,account:null,device:null,sweep:null})}};
+      window.pywebview={api:{ready:async()=>{window.calls.push('ready');return structuredClone(window.state);},command:async(name,value)=>{window.calls.push(value===undefined?name:name+':'+(typeof value==='object'?JSON.stringify(value):value));if(name==='window'&&value==='maximize')window.state.maximized=!window.state.maximized; if(name==='theme'){if(!['light','dark','system'].includes(value))throw new Error('bad theme');window.state.theme=value;}if(name==='language'){if(!['system','zh','en','ko'].includes(value))throw new Error('bad language');window.state.language=value;}if(name==='mode')window.state.mode=value;if(name==='start')Object.assign(window.state,{phase:'scanning',desired:true,selected:value,room:8,channel:12,visited:3,started_at:Date.now()/1000,message:'正在扫描 8 洞 · 12频道'});if(name==='pause')window.state.phase='paused';if(name==='resume')window.state.phase='scanning';if(name==='stop')Object.assign(window.state,{phase:'stopped',desired:false});if(name==='update')window.state.update_requested=true;return structuredClone(window.state);},workspace:async()=>({linked:false,account:null,device:null,sweep:null})}};
       if(delayed){const api=window.pywebview.api;window.pywebview.api={};window.finishBridge=()=>{window.pywebview.api=api;window.dispatchEvent(new Event('pywebviewready'));};}
     },{theme,delayed:label==='dark'});
     await page.goto(`http://127.0.0.1:${server.address().port}/`);
@@ -152,12 +152,21 @@ try {
     await tabs.getByRole('button',{name:'扫描采集',exact:true}).click();
     await page.getByRole('button',{name:'手动逛摊',exact:true}).click();
     await page.getByText('按你的节奏逛摊').waitFor();
-    // One theme button cycles light → dark → system.
-    const first=theme==='light'?['浅色','dark','深色']:['深色','system','跟随系统'];
-    await page.getByRole('button',{name:'主题：'+first[0],exact:true}).click();
-    await page.getByRole('button',{name:'主题：'+first[2],exact:true}).waitFor();
+    // Theme and language are menus: 跟随系统 / 浅色 / 深色 and 中文 / English / 한국어 / 跟随系统.
+    const next=theme==='light'?'dark':'system';
+    await page.locator('[data-theme-toggle]').click();
+    assert.equal(await page.locator('[role=menuitemradio][data-state=checked]').getAttribute('data-choice'),theme,'the current theme is checked');
+    await page.locator(`[role=menuitemradio][data-choice=${next}]`).click();
+    await page.waitForFunction(t=>window.calls.includes('theme:'+t),next);
     if(theme==='light')assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
-    assert(await page.evaluate(t=>window.calls.includes('theme:'+t),first[1]));
+    await page.locator('[data-language-toggle]').click();
+    assert.equal(await page.locator('[role=menuitemradio][data-state=checked]').getAttribute('data-choice'),'system');
+    if(out)await page.screenshot({path:path.join(out,`language-menu-${label}.png`)});
+    await page.locator('[role=menuitemradio][data-choice=ko]').click();
+    await page.getByRole('button',{name:'자동 스캔'}).waitFor();
+    assert.equal(await page.locator('[data-language-toggle] .menu-label').innerText(),'한국어');
+    await page.locator('[data-language-toggle]').click();await page.locator('[role=menuitemradio][data-choice=system]').click();
+    await page.getByRole('button',{name:'自动扫描'}).waitFor();
     assert.equal(await page.evaluate(()=>window.calls.filter(x=>x==='ready').length),1,'no polling');
     assert(await page.evaluate(()=>['window:minimize','window:maximize'].every(c=>window.calls.includes(c))));
     // The corner grip resizes the frameless window; it is hidden while maximized.
@@ -168,6 +177,6 @@ try {
     const size=await page.evaluate(()=>[innerWidth+100,innerHeight+50]);
     assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.startsWith('window:{"resize":')).at(-1)),`window:{"resize":[${size}]}`);
     await page.getByRole('button',{name:'最大化'}).click();await grip.waitFor({state:'detached'});
-    assert.deepEqual(errors,[]);console.log('PASS desktop',label,'merged header, theme cycle, maximize, compact running row, full-height activity');await page.close();
+    assert.deepEqual(errors,[]);console.log('PASS desktop',label,'merged header, theme and language menus, maximize, compact running row, full-height activity');await page.close();
   }
 } finally {await browser.close();server.closeAllConnections();server.close();}

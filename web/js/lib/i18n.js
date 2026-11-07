@@ -12,10 +12,9 @@ const dicts = { zh: {}, en: {}, ko: {} };
 const known = value => LANGUAGES.includes(value);
 
 // The language follows the browser: `?lang=` for this view (shared links,
-// the collector window), then an explicit choice from the switch (`uiLang`,
-// kept only while it differs from the browser), then the browser's languages,
-// then the visitor's country (`ipLanguage`, asked only when the browser
-// names no language).
+// the collector window), then an explicit choice from the language menu
+// (`uiLang`; 跟随浏览器 removes it), then the browser's languages, then the
+// visitor's country (`ipLanguage`, asked only when the browser names none).
 const stored = () => {
   try { return localStorage.getItem('uiLang'); } catch { return null; }
 };
@@ -64,15 +63,18 @@ export function resolveLanguage() {
   return known(view) ? view : known(stored()) ? stored() : browserLanguage() || lang;
 }
 
-/** Switches language; an explicit choice is saved only while it differs from the browser's. */
+/** The language menu's choice: 'zh' | 'en' | 'ko', or 'system' (follow the browser). */
+export function languageChoice() {
+  const saved = stored();
+  return known(saved) ? saved : 'system';
+}
+
+/** Switches language; `save` keeps it as the visitor's choice. */
 export function setLang(next, { save = true } = {}) {
   lang = known(next) ? next : 'zh';
   if (save) {
     try { sessionStorage.removeItem('cwm.view.lang'); } catch { /* private mode */ }
-    try {
-      if (lang === browserLanguage()) localStorage.removeItem('uiLang');
-      else localStorage.setItem('uiLang', lang);
-    } catch { /* private mode */ }
+    try { localStorage.setItem('uiLang', lang); } catch { /* private mode */ }
   }
   document.documentElement.lang = htmlLang(lang);
   document.documentElement.dataset.lang = lang;
@@ -81,7 +83,15 @@ export function setLang(next, { save = true } = {}) {
   if (lang === 'ko' && !koreanReady()) loadKorean().then(announce); else announce();
 }
 
-/** The next language of the switch: 中文 -> English -> 한국어. */
+/** 跟随浏览器: drops the choice; the browser's language (or the IP guess) applies. */
+export async function followBrowser() {
+  try { sessionStorage.removeItem('cwm.view.lang'); } catch { /* private mode */ }
+  try { localStorage.removeItem('uiLang'); } catch { /* private mode */ }
+  const next = browserLanguage() || (await ipLanguage()) || lang;
+  setLang(next, { save: false });
+}
+
+/** The next language after `current`: 中文 -> English -> 한국어. */
 export const nextLanguage = (current = lang) => LANGUAGES[(LANGUAGES.indexOf(current) + 1) % LANGUAGES.length];
 
 // ---------- Korean ----------

@@ -92,7 +92,7 @@ try{
   await input.fill('战斗弓');await firstChoice.waitFor();await page.locator('#enhance-target').focus();await page.locator('.enhance-choices').waitFor({state:'detached'});
   await input.focus();await firstChoice.waitFor();await page.locator('.enhancement-page h1').click();await page.locator('.enhance-choices').waitFor({state:'detached'});
   for(const theme of ['light','dark']){
-   if(theme==='dark')await page.locator('[data-theme-toggle]:visible').click();
+   if(theme==='dark'){await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal overflow');
    const fonts=await page.locator('.enhancement-page input,.enhancement-page select').evaluateAll(nodes=>nodes.map(node=>parseFloat(getComputedStyle(node).fontSize)));assert(fonts.every(size=>size>=16));
    await page.screenshot({path:path.join(output,`enhancement-${width}-${theme}.png`),fullPage:true});

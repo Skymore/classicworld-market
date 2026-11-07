@@ -54,9 +54,9 @@ try {
           releaseModules();
           if (path === '/collect/') {
             await page.locator('[data-account-link]').first().waitFor({ state: 'attached' });
-            await page.locator('[data-theme-toggle]:visible').first().click();
+            {await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
             await page.waitForFunction(expected => document.documentElement.dataset.theme === expected, theme === 'dark' ? 'light' : 'dark');
-            await page.locator('[data-theme-toggle]:visible').first().click();
+            {await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
           } else if (path === '/web/download.html') {
             await page.locator('.download-page').waitFor();
           } else {

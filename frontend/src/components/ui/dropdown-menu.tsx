@@ -25,3 +25,9 @@ export function DropdownMenuRadioItem({
 }: ComponentProps<typeof Menu.RadioItem>) {
   return <Menu.RadioItem className={cn("ui-sortitem", className)} {...props} />;
 }
+export function DropdownMenuSeparator({
+  className,
+  ...props
+}: ComponentProps<typeof Menu.Separator>) {
+  return <Menu.Separator className={cn("ui-sortsep", className)} {...props} />;
+}

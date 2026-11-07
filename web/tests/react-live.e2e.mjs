@@ -46,7 +46,7 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), theme);
     if (screenshots) await page.screenshot({ path: path.join(screenshots, `item-${mobile ? 'phone' : 'desktop'}-${theme}.png`) });
     const next = theme === 'dark' ? 'light' : 'dark';
-    await page.locator('[data-theme-toggle]:visible').click();
+    {await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), next);
     await page.reload(); await page.locator('#site-react-shell').waitFor({ state: 'attached' });
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), next);
