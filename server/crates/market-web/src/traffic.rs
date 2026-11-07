@@ -66,6 +66,7 @@ fn page_path(value: &str) -> Option<String> {
         "/",
         "/prices",
         "/watch",
+        "/market",
         "/alerts",
         "/account",
         "/privacy",
