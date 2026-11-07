@@ -12,6 +12,24 @@ pub fn category_name(item_id: i64) -> &'static str {
     }
 }
 
+/// Category shown in market lists: cash-shop equipment (时装/暖暖) sits with
+/// the other cash-shop items instead of among the equipment.
+pub fn listing_category(item_id: i64, is_cash: bool) -> &'static str {
+    if is_cash && is_equipment(item_id) {
+        "商城物品"
+    } else {
+        category_name(item_id)
+    }
+}
+
+/// SQL for the listing category's id range of `item` (an item-id column),
+/// matching `listing_category`, for `?category=` filters.
+pub fn listing_kind_sql(item: &str) -> String {
+    format!(
+        "(CASE WHEN {item} / 1000000 = 1 AND EXISTS (SELECT 1 FROM items ck WHERE ck.id = {item} AND ck.is_cash) THEN 5 ELSE {item} / 1000000 END)"
+    )
+}
+
 /// Item-id range of a category name, for `?category=` filters.
 pub fn category_kinds(name: &str) -> &'static [i64] {
     match name {
@@ -56,6 +74,10 @@ mod tests {
     fn categories_and_jobs() {
         assert_eq!(category_name(1_040_020), "装备");
         assert_eq!(category_name(4_010_001), "其他");
+        assert_eq!(listing_category(1_047_185, true), "商城物品");
+        assert_eq!(listing_category(1_040_020, false), "装备");
+        assert_eq!(listing_category(5_000_015, true), "商城物品");
+        assert_eq!(listing_category(2_000_000, true), "消耗品");
         assert_eq!(equipment_jobs(Some(9)), vec!["战士", "飞侠"]);
         assert_eq!(equipment_jobs(Some(0)), vec!["通用"]);
         assert!(equipment_jobs(None).is_empty());
