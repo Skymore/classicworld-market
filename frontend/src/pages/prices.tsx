@@ -83,6 +83,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "../components/ui/dropdown-menu";
+import { langQuery } from "/web/js/lib/i18n.js";
 
 // Equipment any job can wear: the catalogue leaves its job list empty.
 const sharedEquipment = (row: Product) =>
@@ -531,7 +532,7 @@ export default function PriceTable() {
     const item = new URLSearchParams(route.search).get("item");
     if (/^\d{7}$/.test(item || ""))
       location.replace(
-        `/item/${item}?hours=${period.hours}${en ? "&lang=en" : ""}`,
+        `/item/${item}?hours=${period.hours}${langQuery("&")}`,
       );
   }, [route.search, period.hours, en]);
   function update(patch: Partial<PriceState>) {
@@ -821,7 +822,7 @@ export default function PriceTable() {
     const row = target.closest<HTMLElement>("tr[data-open]");
     if (!row || target.closest("a,button")) return;
     const href =
-      `/item/${row.dataset.open}?hours=${period.hours}` + (en ? "&lang=en" : "");
+      `/item/${row.dataset.open}?hours=${period.hours}` + langQuery("&");
     if (event.button === 1 || event.ctrlKey || event.metaKey || event.shiftKey) {
       event.preventDefault();
       window.open(href, "_blank", "noopener");

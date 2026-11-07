@@ -36,7 +36,7 @@ const server = createServer(async (req, res) => {
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 let browser;
 try {
-  browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+  browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   for (const mobile of [false, true]) {
     shops = 1;
     const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 760 } : { width: 1280, height: 800 }, isMobile: mobile, hasTouch: mobile });

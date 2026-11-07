@@ -75,7 +75,7 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 const broadcast = () => { for (const stream of streams) stream.write('event: market\ndata: {}\n\n'); };
 let browser;
 try {
-  browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+  browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   for (const mobile of [true, false]) {
     offers = original; saleRows=[]; captured.clear(); revision++;
     const page = await browser.newPage({ viewport: mobile ? { width: 375, height: 812 } : { width: 1280, height: 900 }, isMobile: mobile, hasTouch: mobile });

@@ -1,31 +1,31 @@
 {
  "shell": [
-  "chunks/main-1Hyf5p20.js",
-  "chunks/shared-OFfPuFD1.js",
-  "chunks/react-dom-ButegFA9.js",
-  "chunks/shell-CQs5Dbf8.js",
-  "chunks/assistant-icon-BC5Byi4C.js",
+  "chunks/main-Dhsp3FGZ.js",
+  "chunks/shared-B1S32Thf.js",
+  "chunks/react-dom-BYVLyx-f.js",
+  "chunks/shell-CpEFq-Um.js",
+  "chunks/assistant-icon-BhLdRLrE.js",
   "chunks/embed-Dt3d22Ag.js",
-  "chunks/watch-ids-Day6iEmy.js",
-  "chunks/item-tip-uif5R3E_.js",
-  "chunks/list-rows-DtX7It_m.js",
-  "chunks/createLucideIcon-B-9Mlh7w.js",
-  "chunks/watch-alerts-Denr2AJy.js",
+  "chunks/watch-ids-CUGUw4-U.js",
+  "chunks/item-tip-DPRlltK3.js",
+  "chunks/list-rows-CT8PFwXq.js",
+  "chunks/createLucideIcon-DXJamh_F.js",
+  "chunks/watch-alerts-zNj_pgW2.js",
   "chunks/watchlist-core-CnJpcWvS.js",
-  "chunks/item-offer-filters-WhsqKTCQ.js",
-  "chunks/live-CjqZjK1P.js",
-  "chunks/toasts-6wuQpo_h.js",
-  "chunks/push-B9jZxMhW.js",
-  "chunks/list-copy-B0XSGcLq.js"
+  "chunks/item-offer-filters-Bqp-qBXH.js",
+  "chunks/live-BFUKn4Ca.js",
+  "chunks/toasts-DhYcCFOd.js",
+  "chunks/push-C8iwPwCB.js",
+  "chunks/list-copy-DPbk8gEN.js"
  ],
  "catalogue": {
   "modules": [
-   "chunks/catalogue-BCI4jVTv.js",
-   "chunks/catalogue-B90h_lWU.js",
-   "chunks/chevron-right-DX8B8byl.js",
-   "chunks/maximize-2-B_sVkAIf.js",
-   "chunks/x-D6oFmj-P.js",
-   "chunks/offer-filters-CKKLcI79.js",
+   "chunks/catalogue-DBUuNkyw.js",
+   "chunks/catalogue-7wqnRaYk.js",
+   "chunks/chevron-right-uPuuKEoH.js",
+   "chunks/maximize-2-bJnoxSp4.js",
+   "chunks/x-Dt-iJA4B.js",
+   "chunks/offer-filters-Q3wyhFtf.js",
    "chunks/crafting-CXB4nJ1A.js"
   ],
   "styles": [
@@ -35,11 +35,11 @@
  },
  "search": {
   "modules": [
-   "chunks/catalogue-search-DQS1XGv8.js",
-   "chunks/dialog-DyTsyYIc.js",
-   "chunks/dist-BndNeXOB.js",
-   "chunks/price-state-GsbNkF1r.js",
-   "chunks/dist-cgowVHqV.js"
+   "chunks/catalogue-search-CNByPNgE.js",
+   "chunks/dialog-lSH4lviG.js",
+   "chunks/dist-Dt9denhZ.js",
+   "chunks/price-state-C8szJS6e.js",
+   "chunks/dist-0unl4Pk5.js"
   ],
   "styles": []
  },

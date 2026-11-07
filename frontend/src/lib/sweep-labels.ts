@@ -1,6 +1,12 @@
 // Shapes and short labels from SWEEP.md, shared by the site and the desktop shell.
 // No imports: the desktop build bundles this file on its own.
 export type Words = (zh: string, en: string) => string;
+/** Chinese, or Korean while a Korean page installed `globalThis.cwmKorean`
+ * (web/js/lib/i18n.js, desktop/i18n.ts). */
+const korean = (zh: string, en: string): string => {
+  const ko = (globalThis as any).cwmKorean;
+  return ko ? ko(zh, en) ?? en : zh;
+};
 
 export interface Holdings {
   observed_at: number;
@@ -219,9 +225,9 @@ export function purchasePlace(
 ) {
   const spot = [
     purchase.channel != null &&
-      (english ? `CH ${purchase.channel}` : `${purchase.channel}频道`),
+      (english ? `CH ${purchase.channel}` : korean(`${purchase.channel}频道`, `CH ${purchase.channel}`)),
     purchase.room != null &&
-      (english ? `FM${purchase.room}` : `${purchase.room}洞`),
+      (english ? `FM${purchase.room}` : korean(`${purchase.room}洞`, `FM${purchase.room}`)),
   ]
     .filter(Boolean)
     .join(" ");
@@ -302,7 +308,7 @@ export function clockTime(
     typeof at === "number" ? (at > 1e12 ? at : at * 1000) : at,
   );
   if (Number.isNaN(date.getTime())) return "—";
-  const locale = english ? "en-US" : "zh-CN";
+  const locale = english ? "en-US" : (globalThis as any).cwmKorean ? "ko-KR" : "zh-CN";
   const time = date.toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
@@ -327,11 +333,12 @@ export function mesos(value: number | null | undefined) {
   const wan =
     root.dataset.units != null
       ? root.dataset.units === "wan"
-      : root.lang.startsWith("zh");
+      : root.lang.startsWith("zh") || root.lang === "ko";
+  const ko = root.lang === "ko";
   const size = Math.abs(value);
   if (wan) {
-    if (size >= 99995000) return scaled(value / 1e8) + "亿";
-    if (size >= 1e4) return scaled(value / 1e4) + "万";
+    if (size >= 99995000) return scaled(value / 1e8) + (ko ? "억" : "亿");
+    if (size >= 1e4) return scaled(value / 1e4) + (ko ? "만" : "万");
   } else {
     if (size >= 999950) return scaled(value / 1e6) + "M";
     if (size >= 1e3) return short(value / 1e3) + "K";

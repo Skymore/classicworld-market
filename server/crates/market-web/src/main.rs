@@ -77,6 +77,11 @@ async fn main() -> Result<()> {
         &config.settings.hostname,
     )?
     .map(std::sync::Arc::new);
+    // Korean names for the pages and /api/v1/i18n/ko (catalogue joined to the client pack).
+    tokio::spawn({
+        let db = state.db.clone();
+        async move { market_web::i18n::load_names(&db).await }
+    });
     tokio::spawn(market_web::realtime::listen(
         state.db.clone(),
         state.events.clone(),

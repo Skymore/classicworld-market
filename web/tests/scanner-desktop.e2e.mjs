@@ -9,7 +9,7 @@ const root = fileURLToPath(new URL('../../desktop_ui/', import.meta.url));
 const out = process.env.DESKTOP_SCREENSHOTS;
 const server = createServer(async (req,res) => { try { const p = new URL(req.url,'http://localhost').pathname; const file=path.join(root,p==='/'?'index.html':p); const raw=await readFile(file); res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(raw); } catch {res.writeHead(404).end();} });
 await new Promise(r => server.listen(0,'127.0.0.1',r));
-const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL || undefined});
+const browser=await chromium.launch({ args: ['--lang=zh-CN'], channel:process.env.PLAYWRIGHT_CHANNEL || undefined});
 const activities=n=>Array.from({length:n},(_,i)=>({at:Date.now()/1000-i*60,text:i===1?'买到 红色药水 ×100 @41 · 3 洞 12 频道 COSTCO':`正在扫描 8 洞 · ${12-i%12}频道`,kind:i===1?'sweep':'info'}));
 try {
   // The window opens at 880x740 (its minimum) and can be maximized; the delayed bridge case starts dark.
@@ -101,7 +101,7 @@ try {
     await page.getByRole('button',{name:'立即终止',exact:true}).click();
     assert.equal(await page.getByRole('region',{name:'远程调试已授权'}).count(),0);
     const tabs=page.getByRole('navigation',{name:'功能'});
-    assert.deepEqual(await tabs.getByRole('button').allInnerTexts(),['扫描采集','关注','价格表','扫货','账号']);
+    assert.deepEqual(await tabs.getByRole('button').allInnerTexts(),['价格表','图鉴','关注','工具','扫描采集','扫货','账号'],'website sections, then the collector-only tabs');
     assert.equal(await page.locator('.desktop-tabs,.theme-switch,.page-heading').count(),0,'old second tab row, theme switch and slogan are gone');
     const header=await page.locator('header').boundingBox();assert.equal(header.height,56);
     assert((await tabs.boundingBox()).y<header.y+header.height,'tabs sit in the header');

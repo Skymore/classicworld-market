@@ -64,11 +64,12 @@ function NotificationsPanel() {
 function PreferencesPanel() {
   const words = useWords();
   const { language, unitChoice, changeUnits } = usePreferences();
-  // English pages always use K / M, so the choice only exists in Chinese.
-  if (language !== "zh") return null;
+  // English pages always use K / M, so the choice exists in Chinese and Korean.
+  if (language === "en") return null;
+  const ko = language === "ko";
   const current = unitChoice || "wan";
   const choices: [typeof current, string, string][] = [
-    ["wan", "万 / 亿", "44.4万 · 1.2亿"],
+    ["wan", ko ? "만 / 억" : "万 / 亿", ko ? "44.4만 · 1.2억" : "44.4万 · 1.2亿"],
     ["km", "K / M", "444.4K · 120M"],
   ];
   return (

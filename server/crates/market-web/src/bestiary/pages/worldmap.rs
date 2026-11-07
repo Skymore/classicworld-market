@@ -28,7 +28,7 @@ pub(crate) fn spot_tip(spot: &WorldSpot, lang: Lang) -> String {
     if spot.map_count > 1 {
         parts.push(match lang {
             Lang::Zh => format!("{} 张地图", spot.map_count),
-            Lang::En => format!("{} maps", spot.map_count),
+            Lang::En | Lang::Ko => format!("{} maps", spot.map_count),
         });
     }
     parts.join(" · ")

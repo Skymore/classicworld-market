@@ -54,7 +54,7 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 try {
-  browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+  browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   if (previousWeb) {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     const entries = [];
@@ -74,7 +74,7 @@ try {
   for (const mobile of [true, false]) {
     const page = await browser.newPage({ viewport: { width: mobile ? 375 : 1280, height: 900 }, isMobile: mobile, hasTouch: mobile, colorScheme: 'light' });
     const errors = []; page.on('pageerror', error => errors.push(error.message));
-    await page.addInitScript(() => { if (!sessionStorage.getItem('fixture-seeded')) { localStorage.setItem('theme', 'dark'); sessionStorage.setItem('fixture-seeded', '1'); } window.documentIdentity = Math.random(); });
+    await page.addInitScript(() => { if (!sessionStorage.getItem('fixture-seeded')) { localStorage.setItem('uiTheme', 'dark'); sessionStorage.setItem('fixture-seeded', '1'); } window.documentIdentity = Math.random(); });
     await page.goto(origin + '/prices?hours=all&lang=zh');
     await page.locator('[data-item-row]:visible').first().waitFor();
     assert.equal(new URL(page.url()).pathname, '/', 'old /prices links open the price table on the home page');

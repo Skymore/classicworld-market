@@ -48,13 +48,13 @@ let browser;
 const nav = (page, phone, key) => page.locator(`${phone ? '.dock' : '.dnav'} [data-nav-key=${key}]`).click();
 const rows = (page, phone) => page.locator(phone ? '.react-price-mobile [data-item-row]' : '.react-price-desktop tr[data-item-row]');
 try {
-  browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+  browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   for (const phone of [true, false]) {
     const page = await browser.newPage(phone
       ? { viewport: { width: 390, height: 760 }, isMobile: true, hasTouch: true }
       : { viewport: { width: 1280, height: 860 } });
     page.setDefaultTimeout(10000);
-    await page.addInitScript(() => { localStorage.setItem('lang', 'zh'); localStorage.setItem('theme', 'light'); });
+    await page.addInitScript(() => { localStorage.setItem('uiLang', 'zh'); localStorage.setItem('uiTheme', 'light'); });
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     const label = phone ? 'phone' : 'desktop';
 

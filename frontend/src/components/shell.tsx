@@ -9,6 +9,7 @@ import { AssistantDock } from "./assistant-dock";
 import { AssistantIcon } from "./assistant-icon";
 import { Icon, Search } from "./shared";
 import { navSection, sectionHref } from "../lib/page-memory";
+import { pick } from "/web/js/lib/i18n.js";
 
 const navigation = [
   ["home", "/", "首页", "Home", "home"],
@@ -95,10 +96,10 @@ function Preferences() {
         data-lang-toggle
         disabled={!ready}
         aria-label={
-          language === "zh" ? "切换语言 / English" : "Switch language / 中文"
+          pick("切换语言 / English", "Switch language / 中文")
         }
         title={
-          language === "zh" ? "切换语言 / English" : "Switch language / 中文"
+          pick("切换语言 / English", "Switch language / 中文")
         }
         onClick={changeLanguage}
       >
@@ -138,7 +139,7 @@ export function SiteLink({
     (prefix) => path === prefix || path.startsWith(prefix + "/"),
   );
   const url = new URL(href, location.href);
-  if (isCatalogue && language === "en") url.searchParams.set("lang", "en");
+  if (isCatalogue && language !== "zh") url.searchParams.set("lang", language);
   const target = url.pathname + url.search + url.hash;
   if (
     server ||
@@ -172,7 +173,7 @@ function useSectionLink() {
     if (!plainClick(event)) return;
     event.preventDefault();
     const url = new URL(sectionHref(section, fallback), location.href);
-    if (section === "dex" && language === "en") url.searchParams.set("lang", "en");
+    if (section === "dex" && language !== "zh") url.searchParams.set("lang", language);
     const here = new URL(location.href);
     here.searchParams.delete("embed");
     if (url.pathname + url.search === here.pathname + here.search) {
@@ -278,7 +279,7 @@ export function Navigation({ dock = false }: { dock?: boolean }) {
               {key === "agent" ? <AssistantIcon /> : <Icon name={icon} />}
             </span>
           )}
-          <span>{language === "en" ? en : zh}</span>
+          <span>{pick(zh, en)}</span>
           {dock && key === "watch" && (
             <span className="badge" data-badge="watch" hidden={!hits}>
               {hits || ""}

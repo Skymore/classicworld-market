@@ -6,7 +6,15 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { lang as legacyLanguage, setLang } from "/web/js/lib/i18n.js";
+import {
+  lang as legacyLanguage,
+  setLang,
+  nextLanguage,
+  resolveLanguage,
+  ipLanguage,
+  loadKorean,
+  koText,
+} from "/web/js/lib/i18n.js";
 import { setUnits, usesWan, unitChoiceNow } from "/web/js/lib/format.js";
 import { userStorage, ready as userDataReady } from "/web/js/lib/user-data.js";
 import { DataProvider } from "./lib/query";
@@ -35,24 +43,40 @@ const Preferences = createContext<{
   server: boolean;
   ready: boolean;
 } | null>(null);
+// Theme and language follow the system / browser. `uiTheme` / `uiLang` hold
+// an explicit choice from the switches, removed again once it matches the
+// system; `?theme=` / `?lang=` hold for the tab (boot.js, sessionStorage).
 function storedTheme() {
   try {
-    return userStorage.getItem("theme");
+    return userStorage.getItem("uiTheme");
   } catch {
     return null;
   }
 }
+function viewTheme() {
+  try {
+    return sessionStorage.getItem("cwm.view.theme");
+  } catch {
+    return null;
+  }
+}
+const darkScheme = () => matchMedia("(prefers-color-scheme: dark)");
+/** The system theme; a system that states none is dark from 19:00 to 07:00. */
+export function systemTheme(): Theme {
+  if (darkScheme().matches) return "dark";
+  if (matchMedia("(prefers-color-scheme: light)").matches) return "light";
+  const hour = new Date().getHours();
+  return hour >= 19 || hour < 7 ? "dark" : "light";
+}
+function chosenTheme(): Theme | null {
+  for (const value of [viewTheme(), storedTheme()])
+    if (value === "dark" || value === "light") return value;
+  return null;
+}
 function applyPreferences() {
-  const saved = storedTheme();
-  document.documentElement.dataset.theme =
-    saved === "dark" || saved === "light"
-      ? saved
-      : matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
-  const language = userStorage.getItem("lang");
-  if ((language === "zh" || language === "en") && language !== legacyLanguage)
-    setLang(language);
+  document.documentElement.dataset.theme = chosenTheme() || systemTheme();
+  const language = resolveLanguage();
+  if (language !== legacyLanguage) setLang(language, { save: false });
   try {
     setUnits(userStorage.getItem("units"));
   } catch {
@@ -65,22 +89,12 @@ export function initializePreferences() {
   return (initialization ??= initialize());
 }
 async function initialize() {
-  const params = new URLSearchParams(location.search);
   await userDataReady;
-  for (const key of ["theme", "lang"]) {
-    const value = params.get(key);
-    if (
-      (key === "theme" && (value === "dark" || value === "light")) ||
-      (key === "lang" && (value === "zh" || value === "en"))
-    ) {
-      try {
-        userStorage.setItem(key, value);
-      } catch {
-        /* keep the active preferences usable */
-      }
-    }
-  }
   applyPreferences();
+  // A browser that names no language: the server's guess from the IP country.
+  const guessed = await ipLanguage();
+  if (guessed && guessed !== legacyLanguage) setLang(guessed, { save: false });
+  if (legacyLanguage === "ko") await loadKorean();
   preferencesInitialized = true;
   window.dispatchEvent(new Event("user-preferences"));
 }
@@ -109,32 +123,30 @@ export function Providers({
   );
   useEffect(() => {
     document.documentElement.dataset.lang = language;
-    document.documentElement.lang = language === "en" ? "en" : "zh-CN";
+    document.documentElement.lang = language === "zh" ? "zh-CN" : language;
   }, [language]);
   useEffect(() => {
     const update = () =>
       setTheme(
         document.documentElement.dataset.theme === "dark" ? "dark" : "light",
       );
-    const system = matchMedia("(prefers-color-scheme: dark)");
+    const system = darkScheme();
     const followSystem = () => {
-      if (!["dark", "light"].includes(storedTheme() || "")) {
-        document.documentElement.dataset.theme = system.matches
-          ? "dark"
-          : "light";
+      if (!chosenTheme()) {
+        document.documentElement.dataset.theme = systemTheme();
         update();
       }
     };
+    // The browser's language changed (Chrome applies it to open tabs).
+    const followLanguage = () => {
+      const next = resolveLanguage();
+      if (next !== legacyLanguage) setLang(next, { save: false });
+    };
     const storage = (event: StorageEvent) => {
-      if (event.key === "units" || event.key === null) applyPreferences();
-      if (event.key === "theme" || event.key === null) {
-        const saved = storedTheme();
-        document.documentElement.dataset.theme =
-          saved === "dark" || saved === "light"
-            ? saved
-            : system.matches
-              ? "dark"
-              : "light";
+      if (event.key === "units" || event.key === "uiLang" || event.key === null)
+        applyPreferences();
+      if (event.key === "uiTheme" || event.key === null) {
+        document.documentElement.dataset.theme = chosenTheme() || systemTheme();
         update();
       }
     };
@@ -148,6 +160,7 @@ export function Providers({
     window.addEventListener("storage", storage);
     window.addEventListener("user-preferences", preferences);
     system.addEventListener("change", followSystem);
+    window.addEventListener("languagechange", followLanguage);
     // Also handle initialization that finished before this effect subscribed.
     let active = true;
     void initializePreferences().then(() => {
@@ -159,13 +172,21 @@ export function Providers({
       window.removeEventListener("storage", storage);
       window.removeEventListener("user-preferences", preferences);
       system.removeEventListener("change", followSystem);
+      window.removeEventListener("languagechange", followLanguage);
     };
   }, []);
   function toggleTheme() {
     const next =
       document.documentElement.dataset.theme === "dark" ? "light" : "dark";
     try {
-      userStorage.setItem("theme", next);
+      sessionStorage.removeItem("cwm.view.theme");
+    } catch {
+      /* private mode */
+    }
+    try {
+      // Matching the system again means "follow the system".
+      if (next === systemTheme()) userStorage.removeItem("uiTheme");
+      else userStorage.setItem("uiTheme", next);
     } catch {
       /* keep this session usable */
     }
@@ -188,12 +209,17 @@ export function Providers({
     setUnits(value);
   }
   function changeLanguage() {
-    const next = language === "zh" ? "en" : "zh";
+    // 中文 -> English -> 한국어; saved only while it differs from the browser.
+    const next = nextLanguage(language) as Language;
     setLang(next);
     const url = new URL(location.href);
-    url.searchParams.set("lang", next);
-    if (server) location.assign(url);
-    else history.replaceState(history.state, "", url);
+    if (server) {
+      url.searchParams.set("lang", next);
+      location.assign(url);
+    } else if (url.searchParams.has("lang")) {
+      url.searchParams.delete("lang");
+      history.replaceState(history.state, "", url);
+    }
   }
   return (
     <Preferences.Provider
@@ -218,7 +244,15 @@ export function usePreferences() {
   if (!value) throw Error("Preferences provider missing");
   return value;
 }
+/** The text for a language. Korean comes from the dictionary keyed by the
+ * Chinese text (and the client's game names), falling back to English. */
+export function words(language: Language, zh: string, en: string) {
+  if (language === "zh") return zh;
+  if (language === "en") return en;
+  return koText(zh, en) ?? en ?? zh;
+}
+/** `words("中文", "English")` for the page language. */
 export function useWords() {
   const { language } = usePreferences();
-  return (zh: string, en: string) => (language === "en" ? en : zh);
+  return (zh: string, en: string) => words(language, zh, en);
 }

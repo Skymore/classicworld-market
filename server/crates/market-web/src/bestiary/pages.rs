@@ -72,6 +72,7 @@ fn channel_label(lang: Lang, channel: i16) -> String {
     match lang {
         Lang::Zh => format!("{channel}频道"),
         Lang::En => format!("CH {channel}"),
+        Lang::Ko => format!("{channel}채널"),
     }
 }
 
@@ -96,7 +97,7 @@ fn map_list(maps: &[MapRef], lang: Lang) -> String {
     if maps.len() > SHOWN {
         text.push_str(&match lang {
             Lang::Zh => format!(" 等 {} 张地图", maps.len()),
-            Lang::En => format!(" and {} more", maps.len() - SHOWN),
+            Lang::En | Lang::Ko => format!(" and {} more", maps.len() - SHOWN),
         });
     }
     text
@@ -140,7 +141,7 @@ fn quest_meta(q: &QuestRef, lang: Lang) -> String {
         let day = end.format("%m-%d");
         parts.push(match lang {
             Lang::Zh => format!("活动至 {day}"),
-            Lang::En => format!("event until {day}"),
+            Lang::En | Lang::Ko => format!("event until {day}"),
         });
     }
     parts.join(" · ")
@@ -161,7 +162,7 @@ fn reward_note(r: &QuestReward, lang: Lang) -> Option<String> {
             let who = job.map(|j| format!("{j} ")).unwrap_or_default();
             Some(match lang {
                 Lang::Zh => format!("{who}随机{chance}"),
-                Lang::En => format!("{who}random{chance}"),
+                Lang::En | Lang::Ko => format!("{who}random{chance}"),
             })
         }
         (_, Some(job), Lang::Zh) => Some(format!("仅{job}")),
@@ -200,7 +201,7 @@ pub fn quest_needs(lang: Lang, needs: &[QuestNeed], defeat: bool) -> Markup {
             @for n in needs {
                 (quest_line(lang, &n.quest, None, match (defeat, lang) {
                     (true, Lang::Zh) => format!("击败 {}", n.quantity),
-                    (true, Lang::En) => format!("defeat {}", n.quantity),
+                    (true, Lang::En | Lang::Ko) => format!("defeat {}", n.quantity),
                     (false, _) => format!("×{}", n.quantity),
                 }))
             }
@@ -227,7 +228,7 @@ pub fn quest_hunts(lang: Lang, hunts: &[QuestHunt]) -> Markup {
             @for h in hunts {
                 (quest_line(lang, &h.quest, None, match lang {
                     Lang::Zh => format!("{} ×{}", h.mob.names.get(lang), h.quantity),
-                    Lang::En => format!("{} ×{}", h.mob.names.get(lang), h.quantity),
+                    Lang::En | Lang::Ko => format!("{} ×{}", h.mob.names.get(lang), h.quantity),
                 }))
             }
         }

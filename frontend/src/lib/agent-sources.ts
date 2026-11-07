@@ -1,3 +1,4 @@
+import { pick } from "/web/js/lib/i18n.js";
 export function evidenceUrl(value: string): boolean {
   // "/" is the price table; older answers still name /prices, which redirects there.
   if (value === "/" || /^\/(?:item\/\d+|mob\/\d+|map\/\d+|prices)$/.test(value)) return true;
@@ -15,12 +16,12 @@ export function evidenceUrl(value: string): boolean {
 }
 
 export function sourceLabel(value: string, en: boolean): string {
-  if (value === "/" || value === "/prices") return en ? "Market" : "市场行情";
-  if (value.startsWith("/")) return (value.startsWith("/map/") ? (en ? "Map " : "地图 ") : value.startsWith("/mob/") ? (en ? "Monster " : "怪物 ") : (en ? "Item " : "物品 ")) + value.split("/").at(-1);
+  if (value === "/" || value === "/prices") return pick("市场行情", "Market");
+  if (value.startsWith("/")) return (value.startsWith("/map/") ? (pick("地图 ", "Map ")) : value.startsWith("/mob/") ? (pick("怪物 ", "Monster ")) : (pick("物品 ", "Item "))) + value.split("/").at(-1);
   try {
     const host = new URL(value).hostname.replace(/^www\./, "");
-    if (host === "github.com") return en ? "Client data" : "客户端资料";
+    if (host === "github.com") return pick("客户端资料", "Client data");
     const official = host === "nexon.com" || host.endsWith(".nexon.com") || host === "maplestory.nexon.net" || host === "steamcommunity.com";
-    return (official ? (en ? "Official · " : "官方 · ") : (en ? "Community · " : "社区 · ")) + host;
-  } catch { return en ? "Source" : "资料来源"; }
+    return (official ? (pick("官方 · ", "Official · ")) : (pick("社区 · ", "Community · "))) + host;
+  } catch { return pick("资料来源", "Source"); }
 }

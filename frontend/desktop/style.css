@@ -9,6 +9,10 @@ button:hover:not(:disabled){filter:brightness(.96)}button:disabled{opacity:.48;c
 .app-header{position:sticky;top:0;z-index:10;flex-shrink:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 12px 0 20px;background:var(--sheet);border-bottom:2px solid var(--edge);box-shadow:var(--hard);user-select:none}
 .app-brand{display:flex;align-items:center;gap:9px;align-self:stretch;flex:none;cursor:default}.app-brand strong{font-size:17px;letter-spacing:.5px}
 .app-tabs{display:flex;align-self:stretch;gap:18px;margin-left:10px}
+/* Website sections, then what only the collector does, split by a thin rule. */
+.app-tabs .tab-group{display:flex;align-self:stretch;gap:16px}
+.app-tabs .tab-group.client{position:relative;padding-left:18px}
+.app-tabs .tab-group.client::before{content:"";position:absolute;left:0;top:32%;bottom:32%;border-left:1px solid var(--rule)}
 .app-tabs button{padding:0 2px;font-size:13px;color:var(--ink-3);border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap}
 .app-tabs button[aria-pressed=true]{color:var(--ink);border-color:var(--maple);font-weight:700}
 .tab-badge{margin-left:5px;padding:0 5px;background:var(--maple);color:#fff;font-size:11px;font-variant-numeric:tabular-nums}

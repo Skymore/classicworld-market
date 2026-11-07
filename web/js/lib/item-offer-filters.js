@@ -1,3 +1,6 @@
+// Chinese, English when `english`, or Korean while a Korean page installed
+// globalThis.cwmKorean (i18n.js). Node tests load this file without imports.
+const say=(english,zh,en)=>{if(english)return en;const ko=globalThis.cwmKorean;return ko?ko(zh,en)??en:zh;};
 export const OFFER_HOURS = ['all', '1', '6', '24', '48', '72', '168'];
 export const OFFER_PERCENTILES = ['all', '10', '25', '50', '75'];
 export const EQUIPMENT_STATS = [
@@ -87,18 +90,18 @@ export function filterOffers(rows, mode, filters, now = Date.now() / 1000) {
 export function offerFilterTokens(filters, en = false) {
   const f = normalizeOfferFilters(filters), tokens = [];
   const add = (key, label) => tokens.push({ key, label });
-  if (f.hours !== 'all') add('hours', en ? `Last ${f.hours === '168' ? '7 days' : f.hours + 'h'}` : f.hours === '168' ? '最近 7 天' : `最近 ${f.hours} 小时`);
-  if (f.percentile !== 'all') add('percentile', en ? `Lowest ${f.percentile}%` : `价格最低 ${f.percentile}%`);
-  if (f.minPrice !== null || f.maxPrice !== null) add('price', en ? `Price ${f.minPrice ?? 0}–${f.maxPrice ?? '∞'}` : `单价 ${f.minPrice ?? 0}–${f.maxPrice ?? '不限'}`);
+  if (f.hours !== 'all') add('hours', f.hours === '168' ? say(en, '最近 7 天', 'Last 7 days') : say(en, `最近 ${f.hours} 小时`, `Last ${f.hours}h`));
+  if (f.percentile !== 'all') add('percentile', say(en, `价格最低 ${f.percentile}%`, `Lowest ${f.percentile}%`));
+  if (f.minPrice !== null || f.maxPrice !== null) add('price', say(en, `单价 ${f.minPrice ?? 0}–${f.maxPrice ?? '不限'}`, `Price ${f.minPrice ?? 0}–${f.maxPrice ?? '∞'}`));
   if (f.stock !== 'all' || f.minStock !== null) {
     const parts = [];
-    if (f.stock !== 'all') parts.push(en ? (f.stock === 'known' ? 'Known stock' : 'Unknown stock') : (f.stock === 'known' ? '库存已知' : '库存未知'));
-    if (f.minStock !== null) parts.push(en ? `Stock ≥ ${f.minStock}` : `库存 ≥ ${f.minStock}`);
+    if (f.stock !== 'all') parts.push(f.stock === 'known' ? say(en, '库存已知', 'Known stock') : say(en, '库存未知', 'Unknown stock'));
+    if (f.minStock !== null) parts.push(say(en, `库存 ≥ ${f.minStock}`, `Stock ≥ ${f.minStock}`));
     add('stock', parts.join(' · '));
   }
-  if (f.equipment !== 'all') add('equipment', (en ? { captured: 'Captured stats', missing: 'Stats unknown', bonus: 'Bonus stats' } : { captured: '已采集属性', missing: '属性未知', bonus: '有加成属性' })[f.equipment]);
-  for (const row of f.stats) add('stat:' + row.stat, `${EQUIPMENT_STATS.find(([key]) => key === row.stat)[en ? 2 : 1]} ≥ ${row.min ?? 1}`);
-  if (f.minUpgrades !== null || f.maxUpgrades !== null) add('upgrades', `${en ? 'Upgrades left' : '可升级次数'} ${f.minUpgrades === f.maxUpgrades ? '= ' + f.minUpgrades : f.maxUpgrades === null ? '≥ ' + f.minUpgrades : f.minUpgrades === null ? '≤ ' + f.maxUpgrades : f.minUpgrades + '–' + f.maxUpgrades}`);
+  if (f.equipment !== 'all') add('equipment', ({ captured: say(en, '已采集属性', 'Captured stats'), missing: say(en, '属性未知', 'Stats unknown'), bonus: say(en, '有加成属性', 'Bonus stats') })[f.equipment]);
+  for (const row of f.stats) add('stat:' + row.stat, `${(([, zh, english]) => say(en, zh, english))(EQUIPMENT_STATS.find(([key]) => key === row.stat))} ≥ ${row.min ?? 1}`);
+  if (f.minUpgrades !== null || f.maxUpgrades !== null) add('upgrades', `${say(en, '可升级次数', 'Upgrades left')} ${f.minUpgrades === f.maxUpgrades ? '= ' + f.minUpgrades : f.maxUpgrades === null ? '≥ ' + f.minUpgrades : f.minUpgrades === null ? '≤ ' + f.maxUpgrades : f.minUpgrades + '–' + f.maxUpgrades}`);
   return tokens;
 }
 

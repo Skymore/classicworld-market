@@ -21,6 +21,7 @@ ABORT_GRACE = 8
 ACTIVITY_LIMIT = 40  # The activity panel fills the window and scrolls.
 MIN_SIZE = (880, 740)  # Smallest window the layout is designed for.
 SWEEP_HANDLED = 'sweep-handled.json'  # Last web sweep run this device started or served.
+LANGUAGES = ('system', 'zh', 'en', 'ko')  # The window's language: the Windows display language or a choice.
 
 
 def scan_shop_callback(sweep):
@@ -275,7 +276,7 @@ class DesktopController:
                            room=None, channel=None, visited=0, uploaded=0, started_at=None, stopped_at=None,
                            run_shops=0, run_items=0, run_started_at=time.time(),
                            capture='connecting', upload='ready', last_shop_at=None, windows=[],
-                           selected=None, theme='system', updates='checking', activities=[], maximized=False,
+                           selected=None, theme='system', language='system', updates='checking', activities=[], maximized=False,
                            desired=False, last_progress_at=None, retries=0, next_retry_at=None,
                            pending_uploads=0, failure=None, update_version=None, update_requested=False,
                            capture_warning=None)
@@ -285,6 +286,8 @@ class DesktopController:
             prefs = json.loads((collector.home/'desktop-settings.json').read_text(encoding='utf-8'))
             if prefs.get('theme') in ('light', 'dark', 'system'):
                 self._state['theme'] = prefs['theme']
+            if prefs.get('language') in LANGUAGES:
+                self._state['language'] = prefs['language']
         except (OSError, ValueError):
             pass
         collector.add_listener(self._collector_event)
@@ -294,6 +297,17 @@ class DesktopController:
         if getattr(collector, 'diagnostics', None):
             collector.diagnostics.snapshot = self.snapshot
         collector.update_gate = self.prepare_update
+
+    def _save_setting(self, key, value):
+        path = self.collector.home/'desktop-settings.json'
+        try:
+            prefs = json.loads(path.read_text(encoding='utf-8'))
+            prefs = prefs if isinstance(prefs, dict) else {}
+        except (OSError, ValueError):
+            prefs = {}
+        prefs[key] = value
+        self.collector.home.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(prefs), encoding='utf-8')
 
     def _update_health(self):
         atomic_json(self.collector.home/'scan-health.json', dict(at=time.time(), pid=os.getpid(),
@@ -456,9 +470,14 @@ class DesktopController:
         if name == 'theme':
             if value not in ('light', 'dark', 'system'):
                 raise ValueError('无效主题')
-            self.collector.home.mkdir(parents=True, exist_ok=True)
-            (self.collector.home/'desktop-settings.json').write_text(json.dumps({'theme': value}), encoding='utf-8')
+            self._save_setting('theme', value)
             self._change(theme=value)
+        elif name == 'language':
+            # 'system' follows the Windows display language (the window's navigator.languages).
+            if value not in LANGUAGES:
+                raise ValueError('无效语言')
+            self._save_setting('language', value)
+            self._change(language=value)
         elif name == 'start':
             self.start(value)
         elif name == 'pause':

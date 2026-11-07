@@ -94,7 +94,7 @@ function stub({ worker = true, pushManager = true, notification = true, permissi
     if (!localStorage.getItem('stub.seeded')) {
       localStorage.setItem('stub.seeded', '1');
       localStorage.setItem('stub.permission', permission);
-      localStorage.setItem('lang', 'zh');
+      localStorage.setItem('uiLang', 'zh');
       localStorage.setItem('watchlist', '[2000000]');
       localStorage.setItem('watchlist_settings', JSON.stringify({ 2000000: { cap: 100, notify: true } }));
       localStorage.setItem('watch.listCollapsed', 'true');
@@ -188,7 +188,7 @@ async function alertOnce(page, id) {
 
 try {
   if (shots) await mkdir(shots, { recursive: true });
-  browser = await chromium.launch({
+  browser = await chromium.launch({ args: ['--lang=zh-CN'], 
     // The headless shell ignores the secure-origin flag; full Chromium honours it.
     channel: process.env.PLAYWRIGHT_CHANNEL || 'chromium',
     args: ['--host-resolver-rules=MAP market.test 127.0.0.1', `--unsafely-treat-insecure-origin-as-secure=${origin}`],

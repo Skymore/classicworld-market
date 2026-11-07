@@ -1,7 +1,7 @@
 import { use, useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { usePreferences, useWords } from "../providers";
+import { usePreferences, useWords, words } from "../providers";
 import {
   Icon,
   Slot,
@@ -18,23 +18,27 @@ import { normalizeOfferFilters } from "/web/js/lib/item-offer-filters.js?v=20261
 import { MapViewPanel, ZoomMap } from "./mapview";
 import { PlaceField, type Choice } from "./route-field";
 import { RouteOverview } from "./worldmap";
+import { secondaryLanguage } from "/web/js/lib/i18n.js";
 export function useNames() {
   const { language } = usePreferences();
   return (names: any) =>
     typeof names === "string"
       ? names
-      : names?.[language] || names?.zh || names?.en || "";
+      : language === "ko"
+        ? words(language, names?.zh || names?.en || "", names?.en || names?.zh || "")
+        : names?.[language] || names?.zh || names?.en || "";
 }
 /** A map's `hint` in the page language only: the server sets it where the
  * name is shared in that language ("通往 蘑菇镇 - 西入口"). */
 export function useMapHint() {
   const { language } = usePreferences();
-  return (hint: any): string => (hint && hint[language]) || "";
+  return (hint: any): string =>
+    (hint && (language === "ko" ? hint.en : hint[language])) || "";
 }
 export function Secondary({ names }: { names: any }) {
   const { language } = usePreferences();
   const name = useNames();
-  const other = names?.[language === "en" ? "zh" : "en"];
+  const other = names?.[secondaryLanguage()];
   return other && other !== name(names) ? (
     <span className="name-secondary">{other}</span>
   ) : null;

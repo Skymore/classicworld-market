@@ -67,20 +67,44 @@
     try { preferences = JSON.parse(read('cwm.user-data.v1.' + active) || '{}').values || {}; } catch (e) { preferences = {}; }
   }
   var preference = function (key) { return preferences ? preferences[key] || null : read(key); };
+  // `?theme=` / `?lang=` hold for this tab (sessionStorage), so links inside
+  // the collector window's embedded page keep the window's theme and language.
+  var view = function (key, value) {
+    try {
+      if (value) sessionStorage.setItem('cwm.view.' + key, value);
+      return sessionStorage.getItem('cwm.view.' + key);
+    } catch (e) { return value || null; }
+  };
+  // Theme and language follow the browser / system. `?theme=` / `?lang=` apply
+  // to this tab only (shared links, the collector window); an explicit choice
+  // from the page's switches (`uiTheme` / `uiLang`) is kept only while it
+  // differs from the system. Older saved `theme` / `lang` values are ignored.
   var asked = query.get('theme');
-  var theme = asked === 'dark' || asked === 'light' ? asked : preference('theme');
-  // Remember shared-link choices before navigating to a page without ?theme=.
-  if (asked === 'dark' || asked === 'light') {
-    try { localStorage.setItem('theme', asked); } catch (e) { /* private mode */ }
-  }
-  if (theme !== 'dark' && theme !== 'light') theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  asked = view('theme', asked === 'dark' || asked === 'light' ? asked : null);
+  var dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  var light = matchMedia('(prefers-color-scheme: light)').matches;
+  var hour = new Date().getHours();
+  // A system that states no preference: dark from 19:00 to 07:00 local time.
+  var system = dark ? 'dark' : light ? 'light' : (hour >= 19 || hour < 7 ? 'dark' : 'light');
+  var theme = asked === 'dark' || asked === 'light' ? asked : preference('uiTheme');
+  if (theme !== 'dark' && theme !== 'light') theme = system;
   html.dataset.theme = theme;
   var w = innerWidth;
   html.dataset.device = w <= 640 ? 'phone' : w >= 1101 ? 'desktop' : 'tablet';
-  // A page that states its own language (<html data-lang>, as the SSR pages and /collect do) keeps it.
-  var lang = query.get('lang') || preference('lang');
-  if (!html.dataset.lang && (lang === 'en' || lang === 'zh')) {
-    html.lang = lang === 'zh' ? 'zh-CN' : 'en';
-    html.dataset.lang = lang;
+  var known = function (l) { return l === 'zh' || l === 'en' || l === 'ko'; };
+  var browser = null;
+  var nav = typeof navigator === 'undefined' ? {} : navigator;
+  var tags = nav.languages && nav.languages.length ? nav.languages : (nav.language ? [nav.language] : []);
+  for (var i = 0; i < tags.length && !browser; i++) {
+    var code = String(tags[i]).toLowerCase();
+    browser = code.indexOf('zh') === 0 ? 'zh' : code.indexOf('ko') === 0 ? 'ko' : code.indexOf('en') === 0 ? 'en' : null;
   }
+  if (!browser && tags.length) browser = 'en';
+  var lang = view('lang', known(query.get('lang')) ? query.get('lang') : null);
+  if (!known(lang)) lang = preference('uiLang');
+  // No browser language: the server-rendered page's own language until the IP guess arrives.
+  if (!known(lang)) lang = browser || html.dataset.lang || 'zh';
+  html.dataset.langResolved = lang;
+  html.lang = lang === 'zh' ? 'zh-CN' : lang;
+  html.dataset.lang = lang;
 }());

@@ -123,5 +123,5 @@ function EN() {
 export default function Page() {
   usePageReady();
   const { language } = usePreferences();
-  return language === "en" ? <EN /> : <ZH />;
+  return language === "zh" ? <ZH /> : <EN />;
 }

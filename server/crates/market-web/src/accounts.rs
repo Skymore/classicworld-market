@@ -769,6 +769,8 @@ pub(crate) fn valid_record(r: &Record) -> bool {
         return [
             "lang",
             "theme",
+            "uiLang",
+            "uiTheme",
             "units",
             "market.offerSort",
             "watch.offerSort",
@@ -781,6 +783,9 @@ pub(crate) fn valid_record(r: &Record) -> bool {
     match r.key.as_str() {
         "lang" => v == "zh" || v == "en",
         "theme" => v == "light" || v == "dark",
+        // Explicit choices; absent means "follow the browser".
+        "uiLang" => v == "zh" || v == "en" || v == "ko",
+        "uiTheme" => v == "light" || v == "dark",
         "units" => v == "wan" || v == "km",
         "market.offerSort" | "watch.offerSort" => v == "price" || v == "recent",
         "market.hours" => v == "72" || v == "all",

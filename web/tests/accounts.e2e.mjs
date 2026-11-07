@@ -61,7 +61,7 @@ async function auth(page,name,register=false){
  await page.waitForFunction(async()=>globalThis.cwmUserData.getSyncState().signed_in);
 }
 try{
- browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
+ browser=await chromium.launch({ args: ['--lang=zh-CN'], channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
  const a=await browser.newContext({viewport:{width:375,height:812},isMobile:true,hasTouch:true});
  await a.addInitScript(()=>{if(!localStorage.getItem('seeded')){localStorage.setItem('watchlist','[4010001]');localStorage.setItem('watchlist_settings','{"4010001":{"cap":100,"notify":true}}');localStorage.setItem('seeded','1');}});
  const pageA=await a.newPage();pageA.on('pageerror',e=>errors.push(e.message));
@@ -118,7 +118,7 @@ try{
  await pageB.evaluate(async()=>{const m=globalThis.cwmUserData;m.userStorage.setItem('watchlist','[]');await m.flush();});
  await pageA.unroute('**/api/v1/account/data');await refresh(pageA);assert.deepEqual((await state(pageA)).ids,[]);
  // Theme choices sync too.
- await pageB.evaluate(async()=>{const m=globalThis.cwmUserData;m.userStorage.setItem('theme','dark');await m.flush();});await refresh(pageA);assert.equal(await pageA.locator('html').getAttribute('data-theme'),'dark');
+ await pageB.evaluate(async()=>{const m=globalThis.cwmUserData;m.userStorage.setItem('uiTheme','dark');await m.flush();});await refresh(pageA);assert.equal(await pageA.locator('html').getAttribute('data-theme'),'dark');
  await pageA.locator('[data-logout]').click();await pageA.locator('[data-auth]').waitFor();assert.deepEqual((await state(pageA)).ids,[4010001],'logout restores the original guest list');
  assert.equal(await getPref(pageA,filterKey),'{"hours":"1"}','logout restores guest filters');
  await auth(pageA,'maple_two',true);assert.deepEqual((await state(pageA)).ids,[],'another account must not inherit account one data or edits');assert.equal((await state(pageA)).pending,0);assert.equal((await state(pageA)).conflicts,0);

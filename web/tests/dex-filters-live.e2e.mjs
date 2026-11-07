@@ -9,13 +9,13 @@ const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODUL
 const origin = process.env.DEX_VERIFY_ORIGIN || 'http://127.0.0.1:18481', shots = process.env.DEX_SCREENSHOT_DIR;
 if (shots) await mkdir(shots, { recursive: true });
 const num = (n) => Number(n).toLocaleString('en-US');
-const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+const browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
 try {
   for (const phone of [false, true]) {
     const tag = phone ? 'phone' : 'desktop';
     const page = await browser.newPage(phone ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } : { viewport: { width: 1280, height: 900 } });
     const errors = []; page.on('pageerror', (error) => errors.push(error.message));
-    await page.addInitScript(() => { localStorage.setItem('lang', 'zh'); localStorage.setItem('theme', 'light'); });
+    await page.addInitScript(() => { localStorage.setItem('uiLang', 'zh'); localStorage.setItem('uiTheme', 'light'); });
     const api = async (url) => (await (await page.request.get(origin + '/api/v1/catalog/page?' + new URLSearchParams({ url }))).json()).page;
     const click = (locator) => (phone ? locator.tap() : locator.click());
     const shot = async (name) => { if (!phone) await page.mouse.move(0, 0); await page.evaluate(() => document.activeElement?.blur?.()); await page.waitForTimeout(300); if (shots) await page.screenshot({ path: path.join(shots, `${name}-${tag}.png`) }); };

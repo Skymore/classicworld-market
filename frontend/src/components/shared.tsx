@@ -19,6 +19,7 @@ import {
 import { usePreferences, useWords } from "../providers";
 import { Button } from "./ui/button";
 import type { Product } from "../lib/types";
+import { pick } from "/web/js/lib/i18n.js";
 
 export function Icon({ name, size }: { name: string; size?: number }) {
   const icon = I[name];
@@ -147,7 +148,7 @@ export function ItemNames({
 }) {
   const { language } = usePreferences();
   const primary =
-    language === "en" ? row.name_en || row.name_zh : row.name_zh || row.name_en;
+    pick(row.name_zh || row.name_en, row.name_en || row.name_zh);
   const secondary = language === "en" ? row.name_zh : row.name_en;
   return (
     <span className="name-stack">
@@ -268,7 +269,7 @@ export function PeriodControl({
   return (
     <label className={item ? "item-period" : "period-control period-inline"}>
       <span className="sr">
-        {language === "en" ? "Statistics period" : "统计范围"}
+        {pick("统计范围", "Statistics period")}
       </span>
       <select
         ref={ref}
@@ -276,12 +277,12 @@ export function PeriodControl({
         disabled={!ready}
         data-item-period={item ? "" : undefined}
         defaultValue={automaticPeriod() ? "auto" : hours}
-        aria-label={language === "en" ? "Statistics period" : "统计范围"}
+        aria-label={pick("统计范围", "Statistics period")}
         onChange={(event) => choose(event.target.value)}
       >
-        <option value="auto">{language === "en" ? "Auto" : "自动"}</option>
-        <option value="72">{language === "en" ? "72 h" : "近 72 小时"}</option>
-        <option value="all">{language === "en" ? "All" : "全部"}</option>
+        <option value="auto">{pick("自动", "Auto")}</option>
+        <option value="72">{pick("近 72 小时", "72 h")}</option>
+        <option value="all">{pick("全部", "All")}</option>
       </select>
     </label>
   );

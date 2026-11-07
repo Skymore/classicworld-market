@@ -167,6 +167,7 @@ fn fresh_text(v: &View) -> String {
         Lang::Zh => format!("数据 {rel}更新"),
         Lang::En if rel == "just now" => "data just updated".to_string(),
         Lang::En => format!("data updated {rel}"),
+        Lang::Ko => format!("데이터 {rel} 갱신"),
     }
 }
 
@@ -195,7 +196,7 @@ fn sources_well(v: &View) -> Markup {
             )
             .to_string(),
         (n, Lang::Zh) => format!("{n} 种怪物"),
-        (n, Lang::En) => format!("{n} monsters"),
+        (n, Lang::En | Lang::Ko) => format!("{n} monsters"),
     };
     html! {
         section.well.src-well {
@@ -280,6 +281,8 @@ fn npc_names(npcs: &[&NpcRef], lang: Lang) -> String {
         (Lang::Zh, _) => format!("{} 等 {} 个", names.join("、"), npcs.len()),
         (Lang::En, 0) => names.join(", "),
         (Lang::En, n) => format!("{} and {n} more", names.join(", ")),
+        (Lang::Ko, 0) => names.join(", "),
+        (Lang::Ko, _) => format!("{} 외 총 {}명", names.join(", "), npcs.len()),
     }
 }
 
@@ -287,12 +290,13 @@ pub(super) fn quest_count(lang: Lang, n: usize) -> String {
     match lang {
         Lang::Zh => format!("{n} 个任务"),
         Lang::En => format!("{n} quests"),
+        Lang::Ko => format!("퀘스트 {n}개"),
     }
 }
 
 fn all_mobs(lang: Lang, n: usize) -> String {
     match lang {
         Lang::Zh => format!("查看全部 {n} 种怪物 "),
-        Lang::En => format!("All {n} monsters "),
+        Lang::En | Lang::Ko => format!("All {n} monsters "),
     }
 }

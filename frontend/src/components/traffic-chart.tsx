@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { usePreferences, useWords } from "../providers";
 import { num } from "./shared";
+import { locale } from "/web/js/lib/i18n.js";
 
 export interface TrafficDay {
   day: string;
@@ -75,7 +76,7 @@ export function TrafficChart({
   const unit =
     metric === "pageviews" ? words("次", "views") : words("人", "visitors");
   const exact = (value: number) =>
-    value.toLocaleString(language === "en" ? "en-US" : "zh-CN");
+    value.toLocaleString(locale());
   function pointIndex(event: PointerEvent<SVGRectElement>) {
     const svg = event.currentTarget.ownerSVGElement;
     if (!svg || !band) return selected;
@@ -297,7 +298,7 @@ export function TrafficChart({
             : words("更新中", "Updating")}{" "}
           {updatedAt > 0 &&
             new Date(updatedAt).toLocaleTimeString(
-              language === "en" ? "en-GB" : "zh-CN",
+              locale("en-GB"),
               {
                 timeZone: "UTC",
                 hour: "2-digit",

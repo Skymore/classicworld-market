@@ -2250,7 +2250,7 @@ pub(crate) fn map_hints_for(
                 let hint = out.entry(*id).or_default();
                 match lang {
                     Lang::Zh => hint.zh = Some(hints[i].clone()),
-                    Lang::En => hint.en = Some(hints[i].clone()),
+                    Lang::En | Lang::Ko => hint.en = Some(hints[i].clone()),
                 }
             }
         }
@@ -2276,7 +2276,7 @@ fn listed(lang: Lang, label: (&str, &str), names: &[&str]) -> String {
             names[..names.len().min(2)].join("、"),
             if more { "等" } else { "" }
         ),
-        Lang::En => format!(
+        Lang::En | Lang::Ko => format!(
             "{} {}{}",
             label.1,
             names[..names.len().min(2)].join(", "),
@@ -2288,7 +2288,7 @@ fn listed(lang: Lang, label: (&str, &str), names: &[&str]) -> String {
 fn id_hint(lang: Lang, id: i32) -> String {
     match lang {
         Lang::Zh => format!("编号 {id}"),
-        Lang::En => format!("ID {id}"),
+        Lang::En | Lang::Ko => format!("ID {id}"),
     }
 }
 

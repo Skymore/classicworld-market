@@ -8,6 +8,7 @@ import { useMarketQuery } from "../lib/query";
 import { usePreferences, useWords } from "../providers";
 import { Icon, ItemNames, Slot } from "./shared";
 import type { CraftCatalog, CraftPrice, CraftRecipe } from "../lib/types";
+import { locale, langQuery, pick } from "/web/js/lib/i18n.js";
 
 export default function Crafting({ itemId }: { itemId: number }) {
   const words = useWords(),
@@ -32,7 +33,7 @@ export default function Crafting({ itemId }: { itemId: number }) {
   const number = (value: number | null) =>
     value == null
       ? words("价格待补", "Price unavailable")
-      : value.toLocaleString(language === "en" ? "en-US" : "zh-CN", {
+      : value.toLocaleString(locale(), {
           maximumFractionDigits: 2,
         });
   const plans = recipes.map((recipe) => ({
@@ -49,7 +50,7 @@ export default function Crafting({ itemId }: { itemId: number }) {
   const discipline = (recipe: CraftRecipe) =>
     language === "en"
       ? recipe.discipline
-      : disciplines[recipe.discipline] || recipe.discipline;
+      : pick(disciplines[recipe.discipline] || recipe.discipline, recipe.discipline);
   return (
     <details className="craft-source" id="crafting" data-crafting={itemId}>
       <summary className="craft-summary">
@@ -96,7 +97,7 @@ export default function Crafting({ itemId }: { itemId: number }) {
                     <a
                       className="craft-material"
                       data-craft-material={material.item_id}
-                      href={`/item/${material.item_id}${language === "en" ? "?lang=en" : ""}`}
+                      href={`/item/${material.item_id}${langQuery()}`}
                       key={material.item_id}
                     >
                       <span className="craft-material-picture">

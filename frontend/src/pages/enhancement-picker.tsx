@@ -42,7 +42,7 @@ export default function Picker({
     }, 0);
   }
   const name = (row: Choice) =>
-    language === "en" ? row.name_en || row.name_zh : row.name_zh || row.name_en;
+    words(row.name_zh || row.name_en || "", row.name_en || row.name_zh || "");
   useEffect(() => {
     if (!open || composing.current || selectedRows.current) return;
     debounce.current = setTimeout(() => setQuery(draft.trim()), 200);

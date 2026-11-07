@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const origin = process.env.WATCH_VERIFY_ORIGIN || 'http://127.0.0.1:18766';
-const browser = await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL || undefined});
+const browser = await chromium.launch({ args: ['--lang=zh-CN'], channel:process.env.PLAYWRIGHT_CHANNEL || undefined});
 try {
   for (const width of [375,1280]) {
     const page=await browser.newPage({viewport:{width,height:900},isMobile:width<640,hasTouch:width<640});
@@ -10,7 +10,7 @@ try {
     page.on('pageerror',e=>errors.push(e.message));
     page.on('request',r=>requests.push(new URL(r.url()).pathname));
     await page.addInitScript(()=>{
-      localStorage.setItem('lang','zh');
+      localStorage.setItem('uiLang','zh');
       localStorage.setItem('watchlist','[2000000]');
       localStorage.setItem('watchlist_settings','{"2000000":{"cap":0,"notify":true}}');
       localStorage.setItem('watch.listCollapsed','true');

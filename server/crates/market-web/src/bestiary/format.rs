@@ -1,49 +1,88 @@
 //! Formatting shared by the pages: the page language and the mockup's number
 //! and time rules (`web/js/lib/format.js` renders the same strings).
 
-/// Page language. Chinese is the default; `?lang=en` renders English.
+/// Page language. Chinese is the default; `?lang=en` renders English and
+/// `?lang=ko` Korean (`crate::i18n`; text without Korean shows in English).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Lang {
     #[default]
     Zh,
     En,
+    Ko,
 }
 
 impl Lang {
     pub fn parse(value: Option<&str>) -> Self {
         match value {
             Some("en") => Self::En,
+            Some("ko") => Self::Ko,
             _ => Self::Zh,
         }
     }
 
-    /// The text for this language; strings live next to the markup.
+    /// The text for this language; strings live next to the markup. Korean
+    /// looks the Chinese text up in `i18n/ko.json` (and the game names).
     pub fn t<'a>(self, zh: &'a str, en: &'a str) -> &'a str {
         match self {
             Self::Zh => zh,
             Self::En => en,
+            Self::Ko => crate::i18n::text(zh, en).unwrap_or(en),
+        }
+    }
+
+    /// Like `t`, for text built at run time.
+    pub fn s(self, zh: impl Into<String>, en: impl Into<String>) -> String {
+        let (zh, en) = (zh.into(), en.into());
+        match self {
+            Self::Zh => zh,
+            Self::En => en,
+            Self::Ko => crate::i18n::text(&zh, &en).map(str::to_string).unwrap_or(en),
         }
     }
 
     pub fn code(self) -> &'static str {
-        self.t("zh", "en")
+        match self {
+            Self::Zh => "zh",
+            Self::En => "en",
+            Self::Ko => "ko",
+        }
     }
 
     pub fn html_lang(self) -> &'static str {
-        self.t("zh-CN", "en")
+        match self {
+            Self::Zh => "zh-CN",
+            Self::En => "en",
+            Self::Ko => "ko",
+        }
     }
 
+    /// The language of a name's secondary line: English under Chinese or
+    /// Korean, Chinese under English.
     pub fn other(self) -> Self {
         match self {
-            Self::Zh => Self::En,
+            Self::Zh | Self::Ko => Self::En,
             Self::En => Self::Zh,
         }
+    }
+
+    /// The language switch's next language: 中文 -> English -> 한국어 -> 中文.
+    pub fn next(self) -> Self {
+        match self {
+            Self::Zh => Self::En,
+            Self::En => Self::Ko,
+            Self::Ko => Self::Zh,
+        }
+    }
+
+    /// Whether numbers use 万/亿 (Chinese) or 만/억 (Korean) instead of K/M.
+    pub fn myriads(self) -> bool {
+        self != Self::En
     }
 }
 
 /// Mesos as `meso()` in web/js/lib/format.js renders them. English uses K / M
-/// (450, 1.2K, 1.5M); Chinese uses 万 / 亿 (9999, 1.2万, 150万, 1.2亿). The
-/// browser switches Chinese pages to K / M when the visitor chose that.
+/// (450, 1.2K, 1.5M); Chinese uses 万 / 亿 (9999, 1.2万, 150万, 1.2亿) and
+/// Korean 만 / 억. The browser switches pages to K / M when the visitor chose that.
 pub fn meso(value: i64, lang: Lang) -> String {
     large(value as f64, lang).unwrap_or_else(|| value.to_string())
 }
@@ -74,6 +113,8 @@ fn large(value: f64, lang: Lang) -> Option<String> {
         Lang::En if abs >= 1_000.0 => Some(one_decimal(value / 1e3) + "K"),
         Lang::Zh if abs >= 99_995_000.0 => Some(scaled(value / 1e8) + "亿"),
         Lang::Zh if abs >= 10_000.0 => Some(scaled(value / 1e4) + "万"),
+        Lang::Ko if abs >= 99_995_000.0 => Some(scaled(value / 1e8) + "억"),
+        Lang::Ko if abs >= 10_000.0 => Some(scaled(value / 1e4) + "만"),
         _ => None,
     }
 }
@@ -119,10 +160,13 @@ pub fn ago(seconds: i64, lang: Lang) -> String {
         (..60, _) => lang.t("刚刚", "just now").to_string(),
         (..3600, Lang::Zh) => format!("{}分钟前", s / 60),
         (..3600, Lang::En) => format!("{}m ago", s / 60),
+        (..3600, Lang::Ko) => format!("{}분 전", s / 60),
         (..86400, Lang::Zh) => format!("{}小时前", s / 3600),
         (..86400, Lang::En) => format!("{}h ago", s / 3600),
+        (..86400, Lang::Ko) => format!("{}시간 전", s / 3600),
         (_, Lang::Zh) => format!("{}天前", s / 86400),
         (_, Lang::En) => format!("{}d ago", s / 86400),
+        (_, Lang::Ko) => format!("{}일 전", s / 86400),
     }
 }
 
@@ -181,5 +225,9 @@ mod tests {
         assert_eq!(Lang::parse(Some("fr")), Lang::Zh);
         assert_eq!(Lang::parse(None).html_lang(), "zh-CN");
         assert_eq!(Lang::En.other(), Lang::Zh);
+        assert_eq!(Lang::parse(Some("ko")).html_lang(), "ko");
+        assert_eq!(Lang::Ko.next(), Lang::Zh);
+        assert_eq!(meso(123_456_789, Lang::Ko), "1.2억");
+        assert_eq!(ago(9 * 60, Lang::Ko), "9분 전");
     }
 }

@@ -5,12 +5,12 @@ import path from 'node:path';
 const {chromium}=createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE||'playwright');
 const origin=process.env.ENHANCEMENT_TEST_ORIGIN||'http://127.0.0.1:18769';
 const {calculateMixedEnhancement,enhancementMetadata,enhancementQuote,enhancementBaseOptions}=await import('data:text/javascript;base64,'+Buffer.from(await readFile(new URL('../js/lib/enhancement.js',import.meta.url))).toString('base64'));
-const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
+const browser=await chromium.launch({ args: ['--lang=zh-CN'], channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
 try{
  for(const width of [375,1280]){
   const page=await browser.newPage({viewport:{width,height:900},isMobile:width===375,hasTouch:width===375});page.setDefaultTimeout(15000);
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.addInitScript(()=>{localStorage.setItem('lang','zh');localStorage.setItem('theme','light');});
+  await page.addInitScript(()=>{localStorage.setItem('uiLang','zh');localStorage.setItem('uiTheme','light');});
   const response=await page.request.get(origin+'/api/v1/enhancement/scrolls/1082000');assert.equal(response.status(),200);
   const records=(await response.json()).scrolls;
   assert(records.some(row=>enhancementMetadata(row).successRate===.1));assert(records.some(row=>enhancementMetadata(row).successRate===.6));

@@ -65,12 +65,12 @@ const since = at => log.filter(entry => entry.at >= at);
 const price = (page, id) => page.locator(`tr[data-open="${id}"] td:nth-child(5)`).textContent();
 let browser;
 try {
-  browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+  browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: 'light' });
     const page = await context.newPage();
     const errors = []; page.on('pageerror', error => errors.push(error.message));
-    await page.addInitScript(() => { localStorage.setItem('lang', 'zh'); localStorage.setItem('theme', 'light'); });
+    await page.addInitScript(() => { localStorage.setItem('uiLang', 'zh'); localStorage.setItem('uiTheme', 'light'); });
     await page.goto(origin + '/?hours=all&lang=zh');
     await page.locator('tr[data-open="2000003"]').waitFor();
     await page.waitForFunction(() => document.documentElement.dataset.liveConnection === 'connected');
@@ -146,7 +146,7 @@ try {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: 'light' });
     const page = await context.newPage();
     const errors = []; page.on('pageerror', error => errors.push(error.message));
-    await page.addInitScript(() => { localStorage.setItem('lang', 'zh'); localStorage.setItem('theme', 'light'); });
+    await page.addInitScript(() => { localStorage.setItem('uiLang', 'zh'); localStorage.setItem('uiTheme', 'light'); });
     await page.goto(origin + '/?hours=all&lang=zh');
     await page.locator('tr[data-open="2000008"]').waitFor();
     await page.waitForFunction(() => document.documentElement.dataset.liveConnection === 'connected');

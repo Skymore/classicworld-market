@@ -44,14 +44,14 @@ const open = async ({ mobile, noObserver = false }) => {
   const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 844 } : { width: 1280, height: 900 }, isMobile: mobile, hasTouch: mobile, colorScheme: 'light' });
   page.errors = []; page.on('pageerror', error => page.errors.push(error.message));
   await page.addInitScript(noObserver => {
-    localStorage.setItem('lang', 'zh'); localStorage.setItem('theme', 'light');
+    localStorage.setItem('uiLang', 'zh'); localStorage.setItem('uiTheme', 'light');
     if (noObserver) delete window.IntersectionObserver;
   }, noObserver);
   return page;
 };
 const rowSelector = mobile => mobile ? '.react-price-mobile [data-item-row]' : '.react-price-desktop tr[data-item-row]';
 try {
-  browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+  browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   for (const mobile of [true, false]) {
     const page = await open({ mobile });
     await page.goto(origin + '/?hours=all&lang=zh');

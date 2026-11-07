@@ -48,13 +48,13 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 const frames = page => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 let browser;
 try {
-  browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+  browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   for (const [width, language, theme] of [[390, 'zh', 'light'], [320, 'en', 'dark'], [1280, 'zh', 'dark']]) {
     generation = 0;
     const page = await browser.newPage({ viewport: { width, height: 760 }, isMobile: width < 641, hasTouch: width < 641 });
     page.setDefaultTimeout(10000);
     const errors = []; page.on('pageerror', error => errors.push(error.message));
-    await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+    await page.addInitScript(theme => localStorage.setItem('uiTheme', theme), theme);
     await page.goto(`${origin}/item/1?lang=${language}&hours=all`);
     const head = page.locator('[data-market=head]'), summary = page.locator('.item-summary');
     await head.waitFor();

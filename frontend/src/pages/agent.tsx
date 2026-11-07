@@ -42,6 +42,7 @@ import {
   usePageContext,
   type PageContext,
 } from "../lib/assistant";
+import { pick } from "/web/js/lib/i18n.js";
 import "./agent.css";
 
 type Meta = {
@@ -170,10 +171,8 @@ function errorText(code: string, en: boolean) {
     ],
   };
   return (
-    pairs[code]?.[en ? 1 : 0] ||
-    (en
-      ? "Could not finish the response. Please try again."
-      : "回复未完成，请稍后重试。")
+    (pairs[code] ? pick(pairs[code][0], pairs[code][1]) : "") ||
+    (pick("回复未完成，请稍后重试。", "Could not finish the response. Please try again."))
   );
 }
 function RichText({

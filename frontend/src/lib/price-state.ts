@@ -1,5 +1,6 @@
 import type { Product } from "./types";
 import { equipmentTypes } from "/web/js/lib/price-filters.js?v=20261023-equipment-filters-1";
+import { locale } from "/web/js/lib/i18n.js";
 export const levelRanges: readonly (readonly [number, number | null])[] = [
   [0, 20],
   [20, 30],
@@ -151,7 +152,7 @@ export function compareProducts(
     x == null || y == null
       ? 0
       : typeof x === "string"
-        ? x.localeCompare(String(y), en ? "en" : "zh-CN")
+        ? x.localeCompare(String(y), locale("en"))
         : x - Number(y);
   return (
     primary * (dir === "asc" ? 1 : -1) ||

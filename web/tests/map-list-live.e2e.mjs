@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const origin = process.env.DEX_VERIFY_ORIGIN || 'http://127.0.0.1:18481';
 const num = (n) => Number(n).toLocaleString('en-US');
-const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+const browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
 try {
   for (const phone of [false, true]) {
     const tag = phone ? 'phone' : 'desktop';
@@ -14,7 +14,7 @@ try {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     page.on('response', (r) => { if (r.status() >= 400) errors.push(r.status() + ' ' + r.url()); });
-    await page.addInitScript(() => { localStorage.setItem('lang', 'zh'); localStorage.setItem('theme', 'light'); });
+    await page.addInitScript(() => { localStorage.setItem('uiLang', 'zh'); localStorage.setItem('uiTheme', 'light'); });
     const api = async (url) => (await (await page.request.get(origin + '/api/v1/catalog/page?' + new URLSearchParams({ url }))).json()).page;
     const click = (locator) => (phone ? locator.tap() : locator.click());
     const settle = async () => { await page.waitForTimeout(200); await page.waitForFunction(() => document.querySelector('[data-react-catalogue=search]')?.getAttribute('aria-busy') === 'false'); };

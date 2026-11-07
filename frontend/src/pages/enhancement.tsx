@@ -12,6 +12,7 @@ import { useMarketQuery } from "../lib/query";
 import { usePreferences, useWords } from "../providers";
 import { Slot, usePageReady } from "../components/shared";
 import Picker from "./enhancement-picker";
+import { locale } from "/web/js/lib/i18n.js";
 import "./tools.css";
 
 interface Choice {
@@ -134,10 +135,10 @@ export default function Enhancement() {
         })
       : null;
   const name = (row: Choice) =>
-    language === "en" ? row.name_en || row.name_zh : row.name_zh || row.name_en;
-  const effectName = effect ? (language === "en" ? effect.en : effect.zh) : "";
+    words(row.name_zh || row.name_en || "", row.name_en || row.name_zh || "");
+  const effectName = effect ? words(effect.zh, effect.en) : "";
   const number = (value: number, digits = 2) =>
-    value.toLocaleString(language === "en" ? "en-US" : "zh-CN", {
+    value.toLocaleString(locale(), {
       maximumFractionDigits: digits,
     });
   const scrollLabel = (id: number) => {
@@ -206,7 +207,7 @@ export default function Enhancement() {
                 >
                   {effects.map((row) => (
                     <option key={row.key} value={row.key}>
-                      {language === "en" ? row.en : row.zh}
+                      {words(row.zh, row.en)}
                     </option>
                   ))}
                 </select>
@@ -274,7 +275,7 @@ export default function Enhancement() {
                     .filter((row: any) => !(row.key in baseFilters))
                     .map((row: any) => (
                       <option key={row.key} value={row.key}>
-                        {language === "en" ? row.en : row.zh}
+                        {words(row.zh, row.en)}
                       </option>
                     ))}
                 </select>
@@ -302,12 +303,12 @@ export default function Enhancement() {
                   <label className="enhance-base-row" key={key}>
                     <span>
                       {words("原始", "Base ")}
-                      {row ? (language === "en" ? row.en : row.zh) : key}
+                      {row ? words(row.zh, row.en) : key}
                     </span>
                     <select
                       aria-label={
                         words("原始", "Base ") +
-                        (row ? (language === "en" ? row.en : row.zh) : key)
+                        (row ? words(row.zh, row.en) : key)
                       }
                       value={value}
                       onChange={(event) =>

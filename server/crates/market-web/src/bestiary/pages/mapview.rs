@@ -89,6 +89,8 @@ fn respawn_note(seconds: i32, lang: Lang) -> Option<String> {
             (Lang::Zh, m) => format!("约 {m} 分钟重生"),
             (Lang::En, 0) => format!("respawns in {seconds}s"),
             (Lang::En, m) => format!("respawns in ~{m} min"),
+            (Lang::Ko, 0) => format!("{seconds}초 후 재생성"),
+            (Lang::Ko, m) => format!("약 {m}분 후 재생성"),
         }
     })
 }

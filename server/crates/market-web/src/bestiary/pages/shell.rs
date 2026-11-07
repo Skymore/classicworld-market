@@ -32,19 +32,22 @@ impl Ctx {
         match self.lang {
             Lang::Zh => path.to_string(),
             Lang::En => with_param(path, "lang=en"),
+            Lang::Ko => with_param(path, "lang=ko"),
         }
     }
 
-    /// This page in the other language. Chinese is the default, so it needs no parameter.
+    /// This page in the next language (中文 -> English -> 한국어). Chinese is the
+    /// default, so it states `lang=zh` only to override a browser preference.
     fn other_lang_href(&self) -> String {
         let here = if self.here.is_empty() {
             "/"
         } else {
             &self.here
         };
-        match self.lang.other() {
-            Lang::Zh => here.to_string(),
+        match self.lang.next() {
+            Lang::Zh => with_param(here, "lang=zh"),
             Lang::En => with_param(here, "lang=en"),
+            Lang::Ko => with_param(here, "lang=ko"),
         }
     }
 }
@@ -195,7 +198,7 @@ fn page_shell(
                                 input type="search" name="q" value=(page.query)
                                     placeholder=(ctx.t("搜索物品、怪物、地图", "Search items, monsters, maps"))
                                     aria-label=(ctx.t("搜索", "Search"));
-                                @if ctx.lang == Lang::En { input type="hidden" name="lang" value="en"; }
+                                @if ctx.lang != Lang::Zh { input type="hidden" name="lang" value=(ctx.lang.code()); }
                                 kbd { "/" }
                             }
                             (fresh_chip(page.fresh.as_deref()))
@@ -265,7 +268,7 @@ fn fresh_chip(text: Option<&str>) -> Markup {
 fn prefs(ctx: &Ctx) -> Markup {
     html! {
         span.prefs {
-            a.iconbtn href=(ctx.other_lang_href()) data-lang-toggle=(ctx.lang.other().code()) hreflang=(ctx.lang.other().code()) aria-label=(ctx.t("切换语言 / English", "Switch language / 中文")) title=(ctx.t("切换语言 / English", "Switch language / 中文")) {
+            a.iconbtn href=(ctx.other_lang_href()) data-lang-toggle=(ctx.lang.next().code()) hreflang=(ctx.lang.next().code()) aria-label=(ctx.t("切换语言 / English", "Switch language / 中文")) title=(ctx.t("切换语言 / English", "Switch language / 中文")) {
                 span.pref-glyph.pref-language aria-hidden="true" {}
             }
             button.iconbtn type="button" data-theme-toggle aria-label=(ctx.t("切换夜市主题", "Toggle night market theme")) title=(ctx.t("切换夜市主题", "Toggle night market theme")) {

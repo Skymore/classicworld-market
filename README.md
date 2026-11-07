@@ -65,6 +65,12 @@ pnpm dev      # 开发服务器
 pnpm build    # 类型检查并输出到 web/react/
 ```
 
+### 语言
+
+网站、首屏服务端渲染和采集器窗口支持中文、English、한국어。语言默认跟随浏览器（采集器跟随 Windows 显示语言），浏览器不给语言时按 `CF-IPCountry` 判断（`/api/v1/i18n/guess`）；主题跟随系统明暗。切换按钮的选择存为 `uiLang` / `uiTheme`，与系统一致时自动清除；`?lang=` / `?theme=` 只在当前标签页内有效。
+
+韩文界面文字在 `server/crates/market-web/src/i18n/ko.json`，以代码里的中文原文为键（模板里的 `${…}` 写成 `{0}`）。改动或新增中文文字后运行 `node tools/i18n/ko-strings.mjs` 列出缺少的条目，补齐后 `--check` 应通过。韩文游戏名称和道具说明由 `tools/export_korean_strings.cs` 从 CW 客户端的 `Data\Etc\Language\ko` 语言包导出到同目录的 `ko-game.json`，服务端启动时与图鉴的中英文名对应，供 `/api/v1/i18n/ko` 下发；客户端更新后重新导出。
+
 ### Windows 采集器（Python 3.12）
 
 ```powershell

@@ -53,7 +53,7 @@ async function advanced(page,id,values){await dismiss(page);await editor(page,id
 async function notificationsEqual(page,tags){await frames(page);const state=await page.evaluate(()=>({tags:window.desktopNotifications,toasts:window.toastCount}));assert.deepEqual(state.tags,tags);assert.equal(state.toasts,tags.length);}
 let browser;
 try{
- browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
+ browser=await chromium.launch({ args: ['--lang=zh-CN'], channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
  for(const mobile of [true,false]){
   shared=products.flatMap(product=>Array.from({length:10},(_,i)=>offer(`old-${product.item_id}-${i}`,(i+1)*(product.item_id===2000001?10:100),{item_id:product.item_id,observed:now()-600})));
   personal=[];rawLimit=5;
@@ -69,7 +69,7 @@ try{
   assert.equal(await page.locator('[data-watch-collapse]').getAttribute('aria-label'),'收起关注列表');
   const compact=async()=>{assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal overflow');const checks=await card.locator('.wg-rule label').evaluateAll(els=>els.map(el=>el.getBoundingClientRect().top));assert.equal(new Set(checks).size,1,'group alert/sweep controls align');};
   await compact();
-  if(mobile){await page.setViewportSize({width:320,height:900});await compact();await page.locator('[data-lang-toggle]:visible').click();await compact();await page.locator('[data-lang-toggle]:visible').click();await page.setViewportSize({width:375,height:900});}
+  if(mobile){await page.setViewportSize({width:320,height:900});await compact();await page.locator('[data-lang-toggle]:visible').click();await compact();await page.locator('[data-lang-toggle]:visible').click();await compact();await page.locator('[data-lang-toggle]:visible').click();await page.setViewportSize({width:375,height:900});}
   if(process.env.WATCH_SCREENSHOT_DIR){await mkdir(process.env.WATCH_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.WATCH_SCREENSHOT_DIR,`compact-${mobile?'phone':'desktop'}.png`)});}
   await card.locator('.wg-rule input[type=checkbox]').first().uncheck();assert.equal(await card.locator('.wg-rule input[type=checkbox]').first().isChecked(),false);await card.locator('.wg-rule input[type=checkbox]').first().check();
   await page.locator('[data-watch-collapse]').click();assert.equal(await page.locator('#watch-list').isVisible(),false);assert(await page.locator('[data-matches-panel]').isVisible());await refresh(page);assert.equal(await page.locator('[data-watch-collapse]').getAttribute('aria-expanded'),'false','SSE preserves collapse');

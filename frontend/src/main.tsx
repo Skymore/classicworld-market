@@ -295,10 +295,10 @@ function Application() {
         /^\/(item|mob|map|npc)\//.test(url.pathname)
       ) {
         if (
-          document.documentElement.dataset.lang === "en" &&
+          ["en", "ko"].includes(document.documentElement.dataset.lang || "") &&
           !url.searchParams.has("lang")
         )
-          url.searchParams.set("lang", "en");
+          url.searchParams.set("lang", document.documentElement.dataset.lang!);
       }
       event.preventDefault();
       // A link in the phone item preview replaces the preview's history entry.
