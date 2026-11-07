@@ -335,7 +335,7 @@ function Info({ row, itemId, hold }: { row: any; itemId: number; hold: MutableRe
   );
 }
 
-function ShopCard({
+export function ShopCard({
   stop,
   itemId,
   stepping,
@@ -346,7 +346,7 @@ function ShopCard({
   itemId: number;
   /** More than one shop sells this item: the left/right steps do something. */
   stepping: boolean;
-  /** Opened from the room browser: the steps go through this room's stalls. */
+  /** In the room browser: swipes go through this room's stalls, then the next room. */
   browse: boolean;
   onPick: (stall: any) => void;
 }) {
@@ -469,7 +469,12 @@ function ShopCard({
         <ul className="sv-hints">
           {stepping &&
             (browse ? (
-              <li>{words("← → 或左右滑动：看这一洞的其他摊位", "← → or swipe: other stalls in this room")}</li>
+              <li>
+                {words(
+                  "左右滑动，或滑到顶/底再上下滑：换一家店；这一洞看完自动到下一洞",
+                  "Swipe sideways, or up/down at the top/bottom: next shop; after the room's last, the next room",
+                )}
+              </li>
             ) : (
               <li>{words("← → 或左右滑动：看卖同一件商品的其他店", "← → or swipe: other shops selling this item")}</li>
             ))}
@@ -484,15 +489,12 @@ function ShopCard({
 export default function ShopView({
   stops,
   at,
-  itemId = 0,
-  browse = false,
+  itemId,
   onClose,
 }: {
   stops: ShopStop[];
   at: number;
-  /** The item the shops were listed for (0: none, the room browser). */
-  itemId?: number;
-  browse?: boolean;
+  itemId: number;
   onClose: () => void;
 }) {
   const words = useWords();
@@ -575,7 +577,7 @@ export default function ShopView({
             <X aria-hidden="true" />
           </button>
         </div>
-        <ShopCard stop={stop} itemId={itemId} stepping={n > 1} browse={browse} onPick={pick} />
+        <ShopCard stop={stop} itemId={itemId} stepping={n > 1} browse={false} onPick={pick} />
       </dialog>
     </>
   );
