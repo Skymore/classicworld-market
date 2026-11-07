@@ -12,6 +12,7 @@ import { Icon, Slot, RelativeTime } from "./shared";
 import { EquipmentCard, EquipmentPeek } from "./equipment";
 import { TipPeek } from "./item-tip";
 import { ensureStyle } from "../lib/styles";
+import { secondaryLanguage } from "/web/js/lib/i18n.js";
 type Hit = {
   anchor: HTMLElement;
   id: number;
@@ -412,7 +413,7 @@ export default function ItemPreview() {
                 </h2>
                 {item.name_zh && item.name_zh !== item.name_en && (
                   <p className="peek-secondary">
-                    {words(item.name_en, item.name_zh)}
+                    {(secondaryLanguage() === "zh" ? item.name_zh : item.name_en)}
                   </p>
                 )}
                 <div className="peek-tags">

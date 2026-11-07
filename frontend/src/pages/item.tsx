@@ -1,7 +1,7 @@
 import { mergeShopOffers } from "/web/js/lib/quote-groups.js?v=20261025-presence-1";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { t } from "/web/js/lib/i18n.js";
+import { t, secondaryLanguage } from "/web/js/lib/i18n.js";
 import { meso } from "/web/js/lib/format.js";
 import { equipmentSummary } from "/web/js/lib/equipment-summary.js?v=20261029-critical-1";
 import {
@@ -997,7 +997,7 @@ export default function Item({ page }: { page: any }) {
               {item.name_zh &&
                 item.name_en &&
                 item.name_zh !== item.name_en && (
-                  <div className="en">{words(item.name_en, item.name_zh)}</div>
+                  <div className="en">{(secondaryLanguage() === "zh" ? item.name_zh : item.name_en)}</div>
                 )}
               <div className="tags">
                 <span className="tagx">
