@@ -6,8 +6,8 @@
       "_shared-DfTKlz2J.js"
     ]
   },
-  "_catalogue-C4KPVP7P.js": {
-    "file": "chunks/catalogue-C4KPVP7P.js",
+  "_catalogue-Dnn3q6dG.js": {
+    "file": "chunks/catalogue-Dnn3q6dG.js",
     "name": "catalogue",
     "imports": [
       "_shared-DfTKlz2J.js",
@@ -18,7 +18,7 @@
       "_assistant-icon-SopR_Fl4.js",
       "_item-offer-filters-Bqp-qBXH.js",
       "_live-CQY9GaNA.js",
-      "_shop-view-CdD2DakA.js",
+      "_shop-view-C2YxmwrS.js",
       "_list-rows-F5_1V7Du.js",
       "_offer-filters-DFbU4T1N.js",
       "_crafting-CXB4nJ1A.js"
@@ -113,8 +113,8 @@
       "_shared-DfTKlz2J.js"
     ]
   },
-  "_main-DRzZPxla.js": {
-    "file": "chunks/main-DRzZPxla.js",
+  "_main-fIoqAflM.js": {
+    "file": "chunks/main-fIoqAflM.js",
     "name": "main",
     "imports": [
       "_shared-DfTKlz2J.js",
@@ -241,8 +241,8 @@
     "file": "chunks/shop-view-BA7Qgy1W.css",
     "src": "_shop-view-BA7Qgy1W.css"
   },
-  "_shop-view-CdD2DakA.js": {
-    "file": "chunks/shop-view-CdD2DakA.js",
+  "_shop-view-C2YxmwrS.js": {
+    "file": "chunks/shop-view-C2YxmwrS.js",
     "name": "shop-view",
     "imports": [
       "_shared-DfTKlz2J.js",
@@ -353,7 +353,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DRzZPxla.js"
+      "_main-fIoqAflM.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -406,7 +406,7 @@
     ]
   },
   "src/pages/catalogue-search.tsx": {
-    "file": "chunks/catalogue-search-DWoFJWMo.js",
+    "file": "chunks/catalogue-search-5IGuZzk-.js",
     "name": "catalogue-search",
     "src": "src/pages/catalogue-search.tsx",
     "isDynamicEntry": true,
@@ -414,16 +414,16 @@
       "_shared-DfTKlz2J.js",
       "_dialog-9VleCyrg.js",
       "_price-state-B4ObkXtQ.js",
-      "_catalogue-C4KPVP7P.js"
+      "_catalogue-Dnn3q6dG.js"
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-CBuPl65y.js",
+    "file": "chunks/catalogue-jhsnIks-.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_catalogue-C4KPVP7P.js"
+      "_catalogue-Dnn3q6dG.js"
     ]
   },
   "src/pages/collect.tsx": {
@@ -481,17 +481,17 @@
     ]
   },
   "src/pages/market.tsx": {
-    "file": "chunks/market-b0-JQ_bk.js",
+    "file": "chunks/market-DvgqNIQy.js",
     "name": "market",
     "src": "src/pages/market.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shared-DfTKlz2J.js",
       "_chevron-right-Bfm48fgh.js",
-      "_shop-view-CdD2DakA.js"
+      "_shop-view-C2YxmwrS.js"
     ],
     "css": [
-      "chunks/market-BDt2lVU-.css"
+      "chunks/market-DTfoMvp8.css"
     ]
   },
   "src/pages/prices.tsx": {
@@ -592,7 +592,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DRzZPxla.js"
+      "_main-fIoqAflM.js"
     ]
   }
 }
