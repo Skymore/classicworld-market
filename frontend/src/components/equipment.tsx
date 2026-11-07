@@ -67,7 +67,7 @@ export type CardStat = {
 };
 
 // The piece's own stats when given (never catalogue defaults), else the
-// item's base stats. `bonus` is how far a piece is above the base value.
+// item's base stats. `bonus` is how far a piece is above (or below) the base value.
 export function cardStats(base: Base, piece?: any): CardStat[] {
   const reference = new Map(base.map(([key, value]) => [statKey(key), value]));
   const source: { key: string; label?: string; value: number; max?: number }[] = piece
@@ -93,7 +93,7 @@ export function cardStats(base: Base, piece?: any): CardStat[] {
         label: known ? [known[1], known[2]] : [stat.label || stat.key, stat.key],
         value: stat.value,
         max: stat.max,
-        bonus: piece && stat.max == null && base != null && stat.value > base ? stat.value - base : 0,
+        bonus: piece && stat.max == null && base != null ? stat.value - base : 0,
       };
     });
 }
@@ -156,12 +156,12 @@ function Lines({ equipment, base, piece, words }: { equipment: any; base: Base; 
         </div>
       )}
       {cardStats(base, piece).map((stat) => (
-        <div key={stat.key} data-stat={stat.key} className={stat.bonus ? "up" : ""}>
+        <div key={stat.key} data-stat={stat.key} className={stat.bonus > 0 ? "up" : stat.bonus < 0 ? "down" : ""}>
           <dt>{words(...stat.label)}{colon}</dt>
           <dd>
             +{stat.value}
             {stat.max != null && `–${stat.max}`}
-            {stat.bonus > 0 && <i>(+{stat.bonus})</i>}
+            {stat.bonus !== 0 && <i>({stat.bonus > 0 ? "+" : ""}{stat.bonus})</i>}
           </dd>
         </div>
       ))}

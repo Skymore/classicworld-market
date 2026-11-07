@@ -157,6 +157,8 @@ function StallMap({ data, onPick }: { data: any; onPick: (stall: any) => void })
               aria-current={current || undefined}
               onClick={() => !current && onPick(n)}
             >
+              {/* The owner stands inside the stall: the stall is drawn over them, as in the game. */}
+              {n.look && <Owner look={n.look} />}
               <span className="sv-booth" style={{ left: -look.w / 2, top: -look.lift - look.h, width: look.w, height: look.h }}>
                 <img src={`/web/images/stalls/skin-${look.skin}.png`} alt="" />
                 {n.title && (
@@ -165,7 +167,6 @@ function StallMap({ data, onPick }: { data: any; onPick: (stall: any) => void })
                   </span>
                 )}
               </span>
-              {n.look && <Owner look={n.look} />}
               {n.owner_name && <span className="sv-name">{n.owner_name}</span>}
             </button>
           );
