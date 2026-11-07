@@ -33,6 +33,12 @@
 
 物品接口（`/api/v1/catalog/page`，物品页和快速预览）多一个 `tip`，全部按 Classic World 客户端：`desc_en`、`info`、`spec` 来自 String.wz 和 Item.wz（1377 件），`desc_zh` 是我们照 CW 英文说明翻的中文（数字与客户端一致，用词参考国服；国服说明数字和内容常与 CW 不同，不再使用）。数据文件是 `server/crates/market-web/src/bestiary/item-tips.json` 和 `item-tips-zh.json`（英文说明 → 中文），编进服务端，不用改数据库。客户端更新后用 `tools/export_item_tips.cs` 重新导出；新出现的说明要补进 `item-tips-zh.json`，单元测试 `every_description_is_translated` 会指出缺哪条。说明里的 `#c…#` 按游戏显示成橙色。快速预览里非装备物品在名称下直接显示标签和说明，代替原来的图鉴基础属性；装备预览去掉了“装备资料”标题，属性行不变。
 
+## 云逛市场
+
+首页"云逛市场"（`/market?ch=频道&fm=洞`）：上方选频道（1–40）和洞（1–20，每格标出最近一天有位置、还有货在卖的摊位数，`/api/v1/market/rooms`），点一下就"传送"到那一洞（`/api/v1/market/room?channel=&room=`）：原尺寸地图画出所有摊位、店名、摊主和名牌，下面列出全部摊位；没带参数时打开摊位最多的一洞。点地图上的摊位或列表里的店名打开店铺弹窗，左右键或左右滑动在这一洞的摊位之间切换。两个接口与店铺弹窗用同一套"同洞摊位"查询（一天内读到位置、有货、每位摊主一家）。
+
+店铺弹窗高度固定：手机上占满全屏（顶栏让出刘海安全区），电脑上 820×760（屏幕不够时减小），换店、换货时窗口不动，内容在里面滚动。
+
 ## 摊主怎么画
 
 人物部件取自客户端 Character.wz：每件装备、每个发型和脸、每种肤色的身体和头的站立帧（stand1/stand2 第 0 帧；发型、脸和帽子用 default），连同图层（z）、原点和锚点（navel、neck、brow、hand），由 `tools/export_avatar_parts.cs` 导出到 `web/images/avatar/<道具 ID>.json`（图片是 PNG data URI），图层顺序和槽位代码在 `zmap.json`。浏览器里 `frontend/src/lib/avatar.ts` 按游戏的方式拼：从脚下的身体开始，每个部件用已知锚点对齐，按 zmap 从后往前画；某个部件图层的槽位都被别的装备占了就不画（帽子遮住的头发、套服盖住的裤子）。双手武器只有 stand2 帧，人物就用 stand2 站姿；现金武器按真实武器的类型取外观。客户端更新后重新导出这个目录。

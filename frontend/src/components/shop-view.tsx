@@ -102,12 +102,21 @@ function OwnerName({ name, look }: { name: string; look?: Look }) {
  *  standing at it and their name under their feet. Laid out in world pixels
  *  and scaled to the card; tapping the map opens it at full size. The shop on
  *  show sits in a spotlight; the others open on a tap. */
-function StallMap({ data, onPick }: { data: any; onPick: (stall: any) => void }) {
+export function StallMap({
+  data,
+  onPick,
+  open = false,
+}: {
+  data: any;
+  onPick: (stall: any) => void;
+  /** Start at full size (the room browser), not fitted to the card. */
+  open?: boolean;
+}) {
   const words = useWords();
   const scene = data.map?.scene;
   const box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
-  const [big, setBig] = useState(false);
+  const [big, setBig] = useState(open);
   useLayoutEffect(() => {
     const element = box.current;
     if (!element) return;
@@ -122,13 +131,15 @@ function StallMap({ data, onPick }: { data: any; onPick: (stall: any) => void })
     stalls.push({ ...data.stall, shop_key: data.shop_key, title: data.title, owner_name: data.owner_name });
   else if (mine && !mine.look && data.stall?.look) mine.look = data.stall.look;
   const here = stalls.find((n) => n.shop_key === data.shop_key);
-  // Open at full size centred on the shop on show.
+  // Open at full size centred on the shop on show (else the room's middle).
   useLayoutEffect(() => {
-    if (!big || !box.current || !scene || !here) return;
+    if (!big || !box.current || !scene) return;
     const element = box.current;
-    element.scrollLeft = here.x - scene.x - element.clientWidth / 2;
-    element.scrollTop = here.y - scene.y - element.clientHeight / 2 - 40;
-  }, [big, data.shop_key]);
+    const x = here ? here.x - scene.x : scene.w / 2;
+    const y = here ? here.y - scene.y - 40 : scene.h / 2;
+    element.scrollLeft = x - element.clientWidth / 2;
+    element.scrollTop = y - element.clientHeight / 2;
+  }, [big, data.shop_key, data.room, data.channel]);
   if (!scene?.url || !scene.w || !scene.h)
     return (
       <div className="sv-map sv-nomap">
@@ -328,12 +339,15 @@ function ShopCard({
   stop,
   itemId,
   stepping,
+  browse,
   onPick,
 }: {
   stop: ShopStop;
   itemId: number;
   /** More than one shop sells this item: the left/right steps do something. */
   stepping: boolean;
+  /** Opened from the room browser: the steps go through this room's stalls. */
+  browse: boolean;
   onPick: (stall: any) => void;
 }) {
   const words = useWords();
@@ -453,7 +467,12 @@ function ShopCard({
       )}
       {(stepping || (data.neighbors || []).length > 1) && (
         <ul className="sv-hints">
-          {stepping && <li>{words("← → 或左右滑动：看卖同一件商品的其他店", "← → or swipe: other shops selling this item")}</li>}
+          {stepping &&
+            (browse ? (
+              <li>{words("← → 或左右滑动：看这一洞的其他摊位", "← → or swipe: other stalls in this room")}</li>
+            ) : (
+              <li>{words("← → 或左右滑动：看卖同一件商品的其他店", "← → or swipe: other shops selling this item")}</li>
+            ))}
           {(data.neighbors || []).length > 1 && <li>{words("点地图上的摊位：看那家店的货", "Tap a stall on the map: see what it sells")}</li>}
         </ul>
       )}
@@ -465,12 +484,15 @@ function ShopCard({
 export default function ShopView({
   stops,
   at,
-  itemId,
+  itemId = 0,
+  browse = false,
   onClose,
 }: {
   stops: ShopStop[];
   at: number;
-  itemId: number;
+  /** The item the shops were listed for (0: none, the room browser). */
+  itemId?: number;
+  browse?: boolean;
   onClose: () => void;
 }) {
   const words = useWords();
@@ -553,7 +575,7 @@ export default function ShopView({
             <X aria-hidden="true" />
           </button>
         </div>
-        <ShopCard stop={stop} itemId={itemId} stepping={n > 1} onPick={pick} />
+        <ShopCard stop={stop} itemId={itemId} stepping={n > 1} browse={browse} onPick={pick} />
       </dialog>
     </>
   );

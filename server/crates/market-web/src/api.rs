@@ -79,6 +79,8 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/crafting/prices", get(crafting_prices))
         .route("/api/v1/item/{id}", get(item_page))
         .route("/api/v1/shop", get(shop_view))
+        .route("/api/v1/market/room", get(market_room))
+        .route("/api/v1/market/rooms", get(market_rooms))
         .route("/api/v1/watchlist/catalog", get(watch_catalog))
         .route("/api/v1/watchlist/listings", get(watch_listings))
         .route("/api/v1/collector/alerts", get(crate::alerts::personal))
@@ -948,6 +950,47 @@ async fn shop_view(
     match views::shop_view(&state.db, &key).await {
         Ok(Some(value)) => Json(value).into_response(),
         Ok(None) => error(StatusCode::NOT_FOUND, "Not found"),
+        Err(err) => internal(err),
+    }
+}
+
+async fn market_room(
+    State(state): State<AppState>,
+    ClientAddr(addr): ClientAddr,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    if let Err(response) = require_member_unless_public(&state, &headers, "请登录").await {
+        return response;
+    }
+    if !state.limiter.allow(&format!("market-room:{addr}"), 120) {
+        return error(StatusCode::TOO_MANY_REQUESTS, "Rate limited");
+    }
+    let number = |name: &str, max: i16| {
+        query_param(&query, name).and_then(|v| v.parse::<i16>().ok()).filter(|v| (1..=max).contains(v))
+    };
+    let (Some(channel), Some(room)) = (number("channel", 60), number("room", 30)) else {
+        return error(StatusCode::BAD_REQUEST, "Choose a channel and a room");
+    };
+    match views::room_view(&state.db, channel, room).await {
+        Ok(value) => Json(value).into_response(),
+        Err(err) => internal(err),
+    }
+}
+
+async fn market_rooms(
+    State(state): State<AppState>,
+    ClientAddr(addr): ClientAddr,
+    headers: HeaderMap,
+) -> Response {
+    if let Err(response) = require_member_unless_public(&state, &headers, "请登录").await {
+        return response;
+    }
+    if !state.limiter.allow(&format!("market-rooms:{addr}"), 60) {
+        return error(StatusCode::TOO_MANY_REQUESTS, "Rate limited");
+    }
+    match views::rooms_overview(&state.db).await {
+        Ok(value) => Json(value).into_response(),
         Err(err) => internal(err),
     }
 }

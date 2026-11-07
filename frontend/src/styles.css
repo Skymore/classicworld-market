@@ -148,6 +148,7 @@
 }
 .hero .portals {
   align-self: center;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .hero .portal {
   min-height: 44px;

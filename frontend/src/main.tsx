@@ -85,6 +85,7 @@ const loadAccount = () => import("./pages/account");
 const Watch = page(loadWatch);
 const Alerts = page(() => import("./pages/alerts"));
 const Tools = page(() => import("./pages/tools"));
+const Market = page(() => import("./pages/market"));
 const Enhancement = page(() => import("./pages/enhancement"));
 const Agent = page(() => import("./pages/agent"));
 const Selling = page(() => import("./pages/selling"), "selling");
@@ -335,6 +336,7 @@ function Application() {
               <Route path="/traffic" element={<Traffic />} />
               <Route path="/watch/*" element={<Watch />} />
               <Route path="/alerts/*" element={<Alerts />} />
+              <Route path="/market" element={<Market />} />
               <Route path="/tools" element={<Tools />} />
               <Route path="/tools/enhancement" element={<Enhancement />} />
               <Route path="/agent/*" element={<Agent />} />

@@ -1,7 +1,9 @@
 /* Shop view: one shop at a time over the item page. Compact enough that a
    phone shows the map, the selected good and the first rows of goods at once. */
 .sv-scrim{position:fixed;inset:0;z-index:100;background:var(--scrim)}
-.sv-dialog{position:fixed;z-index:101;inset:0;margin:auto;width:min(640px,calc(100vw - 24px));height:fit-content;max-height:calc(100dvh - 24px);padding:0;display:flex;flex-direction:column;overflow:hidden;color:var(--ink)}
+/* A fixed height, whatever the shop holds: switching shops never moves the
+   window; the card scrolls inside. Phones get the whole screen. */
+.sv-dialog{position:fixed;z-index:101;inset:0;margin:auto;width:min(640px,calc(100vw - 24px));height:min(760px,calc(100dvh - 24px));max-height:none;padding:0;display:flex;flex-direction:column;overflow:hidden;color:var(--ink)}
 .sv-dialog:not([open]){display:none}
 .sv-dialog:focus{outline:none}
 .sv-bar{flex:none;min-height:40px;padding:0 2px;gap:2px}
@@ -11,7 +13,7 @@
 .sv-bar button:hover:not(:disabled){background:var(--bar-hi)}
 .sv-count{flex:1;text-align:center;font-weight:700;font-size:14px;letter-spacing:.04em;white-space:nowrap}
 .sv-close{border-left:1px solid var(--bar-lo)!important}
-.sv-card{display:flex;flex-direction:column;gap:8px;min-height:0;padding:8px;overflow:auto;overscroll-behavior:contain}
+.sv-card{flex:1;display:flex;flex-direction:column;gap:8px;min-height:0;padding:8px;overflow:auto;overscroll-behavior:contain}
 /* Map thumbnail beside the shop's name and place. */
 /* The map takes the full width; the shop's name, owner and place sit under it in one line. */
 .sv-top{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
@@ -86,14 +88,16 @@
 .sv-hints li::before{content:"· "}
 .sv-none{padding:14px 8px;color:var(--ink-3);font-size:13px;text-align:center}
 @media (max-width:640px){
-  .sv-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px)}
+  .sv-dialog{width:100vw;height:100dvh;border:0;border-radius:0;box-shadow:none}
+  .sv-bar{padding-top:env(safe-area-inset-top)}
+  .sv-card{padding-bottom:calc(8px + env(safe-area-inset-bottom))}
   .sv-goods{grid-template-columns:repeat(5,minmax(0,1fr))}
 }
 /* Wide screens: the card keeps the quick preview's width, on the right;
    the shop's place and its goods share the left column. */
 @media (min-width:641px){
   .sv-dialog{width:min(820px,calc(100vw - 24px))}
-  .sv-card{display:grid;grid-template-columns:minmax(0,1fr) 300px;grid-template-areas:"top info" "goods info";align-items:start}
+  .sv-card{display:grid;grid-template-columns:minmax(0,1fr) 300px;grid-template-areas:"top info" "goods info";align-items:start;align-content:start}
   .sv-top{grid-area:top}
   .sv-info{grid-area:info}
   .sv-window{grid-area:goods}

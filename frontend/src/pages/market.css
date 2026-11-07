@@ -1,0 +1,34 @@
+/* Cloud market: channel and room pickers above the room's map and stall list. */
+.market-page .stall{display:flex;flex-direction:column}
+.mk-pick{display:grid;gap:4px;padding:8px 10px 10px;border-bottom:2px solid var(--edge)}
+.mk-label{font-size:12px;font-weight:700;color:var(--ink-3)}
+.mk-channels{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:3px}
+.mk-rooms{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:3px}
+.mk-ch,.mk-room{min-width:0;padding:0;border:1px solid var(--rule);border-radius:2px;background:var(--sheet-hi);color:var(--ink);font-variant-numeric:tabular-nums;cursor:pointer}
+.mk-ch{height:30px;font-size:13px;font-weight:700}
+.mk-room{display:grid;place-items:center;gap:0;height:42px;line-height:1.15}
+.mk-room b{font-size:13px}
+.mk-room small{font-size:11px;color:var(--ink-3)}
+.mk-ch:hover,.mk-room:hover{border-color:var(--mark)}
+.mk-ch.empty,.mk-room.empty{color:var(--ink-3);background:var(--sheet-lo)}
+.mk-ch.on,.mk-room.on{background:var(--bar);border-color:var(--bar);color:var(--bar-ink)}
+.mk-room.on small{color:var(--bar-ink)}
+.mk-here{display:grid;gap:8px;padding:8px 10px 12px}
+.mk-head{display:flex;align-items:center;gap:6px}
+.mk-head h2{flex:1;min-width:0;text-align:center;font-size:16px;font-weight:700}
+.mk-head h2 small{font-size:13px;font-weight:400;color:var(--ink-3)}
+.mk-step{display:grid;place-items:center;width:40px;height:36px;padding:0;border:1px solid var(--rule);border-radius:2px;background:var(--sheet-hi);color:var(--ink);cursor:pointer}
+.mk-step svg{width:20px;height:20px}
+.mk-stalls{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:4px}
+.mk-stalls button{display:flex;align-items:baseline;gap:8px;width:100%;min-height:40px;padding:6px 8px;border:1px solid var(--rule);border-radius:2px;background:var(--sheet-hi);color:var(--ink);text-align:left;cursor:pointer}
+.mk-stalls button:hover{border-color:var(--mark)}
+.mk-stalls span{flex:1;min-width:0;font-weight:700;overflow-wrap:anywhere}
+.mk-stalls small{flex:none;max-width:45%;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mk-none{padding:14px 8px;color:var(--ink-3);font-size:13px;text-align:center}
+.mk-wait{opacity:.5;transition:opacity .2s .12s}
+@media (max-width:640px){
+  .mk-channels{grid-template-columns:repeat(10,minmax(0,1fr))}
+  .mk-rooms{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .mk-pick{padding:8px}
+  .mk-here{padding:8px}
+}

@@ -586,6 +586,87 @@ async fn quotes(db: &PgPool, items: &[i32], cutoff: f64) -> sqlx::Result<Vec<Map
     Ok(result)
 }
 
+/// The stalls of one room and channel: a stall read in the last day, of a
+/// shop with goods on sale, one per owner (their newest instance).
+async fn room_stalls(db: &PgPool, channel: i16, room: i16) -> sqlx::Result<Vec<Value>> {
+    Ok(sqlx::query(
+        "SELECT DISTINCT ON (COALESCE(s.owner_character_id::text, s.id::text))
+                s.public_key,s.title,s.owner_name,s.stall_x,s.stall_y,s.stall_permit,s.stall_look,
+                extract(epoch FROM s.stall_seen_at)::float8 AS seen
+         FROM shops s
+         WHERE s.world=$1 AND s.channel=$2 AND s.room=$3 AND s.stall_seen_at IS NOT NULL
+           AND s.stall_seen_at >= now() - interval '24 hours'
+           AND EXISTS (SELECT 1 FROM listings l WHERE l.shop_id=s.id AND l.stock>0)
+         ORDER BY COALESCE(s.owner_character_id::text, s.id::text), s.stall_seen_at DESC
+         LIMIT 200",
+    )
+    .bind(WORLD)
+    .bind(channel)
+    .bind(room)
+    .fetch_all(db)
+    .await?
+    .iter()
+    .map(|r| {
+        json!({"shop_key": r.get::<String,_>("public_key"), "title": r.get::<String,_>("title"),
+               "owner_name": r.get::<Option<String>,_>("owner_name"),
+               "x": r.get::<i16,_>("stall_x"), "y": r.get::<i16,_>("stall_y"),
+               "permit": r.get::<i32,_>("stall_permit"), "look": r.get::<Option<Value>,_>("stall_look"),
+               "seen": r.get::<f64,_>("seen")})
+    })
+    .collect())
+}
+
+/// The Free Market room map (`maps` 80002000 + room) with its scene picture.
+async fn room_map(db: &PgPool, room: i16) -> sqlx::Result<Option<Value>> {
+    Ok(sqlx::query(
+        "SELECT id,name_zh,name_en,scene_url,scene_x,scene_y,scene_w,scene_h FROM maps WHERE id = 80002000 + $1::int",
+    )
+    .bind(room)
+    .fetch_optional(db)
+    .await?
+    .map(|m| {
+        let scene = m.get::<Option<String>, _>("scene_url").map(|url| {
+            json!({"url": url, "x": m.get::<Option<i32>,_>("scene_x"), "y": m.get::<Option<i32>,_>("scene_y"),
+                   "w": m.get::<Option<i32>,_>("scene_w"), "h": m.get::<Option<i32>,_>("scene_h")})
+        });
+        json!({"id": m.get::<i32,_>("id"), "name_zh": m.get::<Option<String>,_>("name_zh"),
+               "name_en": m.get::<Option<String>,_>("name_en"), "scene": scene})
+    }))
+}
+
+/// One room of one channel as a visitor would find it
+/// (`/api/v1/market/room?channel=&room=`): the map and its stalls.
+pub async fn room_view(db: &PgPool, channel: i16, room: i16) -> sqlx::Result<Value> {
+    Ok(json!({
+        "channel": channel,
+        "room": room,
+        "map": room_map(db, room).await?,
+        "stalls": room_stalls(db, channel, room).await?,
+    }))
+}
+
+/// How many stalls each room of each channel has on the map
+/// (`/api/v1/market/rooms`), counted as `room_stalls` counts them.
+pub async fn rooms_overview(db: &PgPool) -> sqlx::Result<Value> {
+    let rows = sqlx::query(
+        "SELECT channel, room, count(*)::int AS stalls FROM (
+           SELECT DISTINCT ON (s.channel, s.room, COALESCE(s.owner_character_id::text, s.id::text)) s.channel, s.room
+           FROM shops s
+           WHERE s.world=$1 AND s.channel IS NOT NULL AND s.room IS NOT NULL AND s.stall_seen_at IS NOT NULL
+             AND s.stall_seen_at >= now() - interval '24 hours'
+             AND EXISTS (SELECT 1 FROM listings l WHERE l.shop_id=s.id AND l.stock>0)
+         ) t GROUP BY channel, room ORDER BY channel, room",
+    )
+    .bind(WORLD)
+    .fetch_all(db)
+    .await?;
+    let rooms: Vec<Value> = rows
+        .iter()
+        .map(|r| json!([r.get::<i16,_>("channel"), r.get::<i16,_>("room"), r.get::<i32,_>("stalls")]))
+        .collect();
+    Ok(json!({"rooms": rooms}))
+}
+
 /// One shop's live goods, its place and its stall (`/api/v1/shop?key=`).
 /// A known owner's shop is one shop whatever title or room it had: the
 /// family's live rows are only ever the newest instance's (ingest keeps it
@@ -664,36 +745,13 @@ pub async fn shop_view(db: &PgPool, key: &str) -> sqlx::Result<Option<Value>> {
                "look": r.get::<Option<Value>,_>("stall_look")})
     });
     // The other stalls of the same room and channel, so the map shows the
-    // whole room: a stall read in the last day, of a shop with goods on sale,
-    // one per owner (their newest instance).
+    // whole room.
     let channel: Option<i16> = head.get("channel");
     let room: Option<i16> = head.get("room");
-    let mut neighbors: Vec<Value> = Vec::new();
-    if let (Some(channel), Some(room)) = (channel, room) {
-        neighbors = sqlx::query(
-            "SELECT DISTINCT ON (COALESCE(s.owner_character_id::text, s.id::text))
-                    s.public_key,s.title,s.owner_name,s.stall_x,s.stall_y,s.stall_permit,s.stall_look
-             FROM shops s
-             WHERE s.world=$1 AND s.channel=$2 AND s.room=$3 AND s.stall_seen_at IS NOT NULL
-               AND s.stall_seen_at >= now() - interval '24 hours'
-               AND EXISTS (SELECT 1 FROM listings l WHERE l.shop_id=s.id AND l.stock>0)
-             ORDER BY COALESCE(s.owner_character_id::text, s.id::text), s.stall_seen_at DESC
-             LIMIT 200",
-        )
-        .bind(WORLD)
-        .bind(channel)
-        .bind(room)
-        .fetch_all(db)
-        .await?
-        .iter()
-        .map(|r| {
-            json!({"shop_key": r.get::<String,_>("public_key"), "title": r.get::<String,_>("title"),
-                   "owner_name": r.get::<Option<String>,_>("owner_name"),
-                   "x": r.get::<i16,_>("stall_x"), "y": r.get::<i16,_>("stall_y"),
-                   "permit": r.get::<i32,_>("stall_permit"), "look": r.get::<Option<Value>,_>("stall_look")})
-        })
-        .collect();
-    }
+    let neighbors = match (channel, room) {
+        (Some(channel), Some(room)) => room_stalls(db, channel, room).await?,
+        _ => Vec::new(),
+    };
     let scene = head
         .get::<Option<String>, _>("scene_url")
         .map(|url| {
