@@ -6,8 +6,12 @@
       "_shared-OFfPuFD1.js"
     ]
   },
-  "_catalogue-CuL6JPau.js": {
-    "file": "chunks/catalogue-CuL6JPau.js",
+  "_catalogue-D7yfRSp4.css": {
+    "file": "chunks/catalogue-D7yfRSp4.css",
+    "src": "_catalogue-D7yfRSp4.css"
+  },
+  "_catalogue-WN9FZMDh.js": {
+    "file": "chunks/catalogue-WN9FZMDh.js",
     "name": "catalogue",
     "imports": [
       "_shared-OFfPuFD1.js",
@@ -31,10 +35,6 @@
     "css": [
       "chunks/catalogue-D7yfRSp4.css"
     ]
-  },
-  "_catalogue-D7yfRSp4.css": {
-    "file": "chunks/catalogue-D7yfRSp4.css",
-    "src": "_catalogue-D7yfRSp4.css"
   },
   "_chevron-right-DX8B8byl.js": {
     "file": "chunks/chevron-right-DX8B8byl.js",
@@ -118,8 +118,8 @@
       "_shared-OFfPuFD1.js"
     ]
   },
-  "_main-Bjh9loQK.js": {
-    "file": "chunks/main-Bjh9loQK.js",
+  "_main-Cd0s46fF.js": {
+    "file": "chunks/main-Cd0s46fF.js",
     "name": "main",
     "imports": [
       "_shared-OFfPuFD1.js",
@@ -327,7 +327,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Bjh9loQK.js"
+      "_main-Cd0s46fF.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -380,24 +380,24 @@
     ]
   },
   "src/pages/catalogue-search.tsx": {
-    "file": "chunks/catalogue-search-DVs00yTD.js",
+    "file": "chunks/catalogue-search-JnmFyOap.js",
     "name": "catalogue-search",
     "src": "src/pages/catalogue-search.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shared-OFfPuFD1.js",
-      "_catalogue-CuL6JPau.js",
+      "_catalogue-WN9FZMDh.js",
       "_dialog-DyTsyYIc.js",
       "_price-state-GsbNkF1r.js"
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-BajViY6X.js",
+    "file": "chunks/catalogue-CGNW4aBu.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_catalogue-CuL6JPau.js"
+      "_catalogue-WN9FZMDh.js"
     ]
   },
   "src/pages/collect.tsx": {
@@ -552,7 +552,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Bjh9loQK.js"
+      "_main-Cd0s46fF.js"
     ]
   }
 }
