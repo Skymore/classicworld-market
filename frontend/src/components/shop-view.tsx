@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Store, UserRound, X } from "lucide-react";
 import { readPeriod } from "/web/js/lib/period.js?v=20261022-regressions-1";
 import { loadCatalog } from "../lib/catalog";
-import { drawLook, type Drawn, type Look } from "../lib/avatar";
+import { drawLook, nameTagOf, type Drawn, type Look, type NameTag, type TagPart } from "../lib/avatar";
 import { useWords, usePreferences } from "../providers";
 import { useMarketQuery } from "../lib/query";
 import { Slot, Price, RelativeTime } from "./shared";
@@ -62,6 +62,38 @@ function Owner({ look }: { look: Look }) {
       alt=""
       style={{ left: drawn.left, top: drawn.top, width: drawn.width, height: drawn.height }}
     />
+  );
+}
+
+/** The owner's name under their feet: the game's plain tag, or the special
+ *  tag of the name tag ring they wear. */
+function OwnerName({ name, look }: { name: string; look?: Look }) {
+  const [tag, setTag] = useState<NameTag | null>(null);
+  useEffect(() => {
+    let live = true;
+    setTag(null);
+    if (look) nameTagOf(look).then((t) => live && setTag(t));
+    return () => {
+      live = false;
+    };
+  }, [JSON.stringify(look?.equips)]);
+  if (!tag) return <span className="sv-name">{name}</span>;
+  const part = (p: TagPart, left: string | number, wide = false) => ({
+    left,
+    top: -p.o[1],
+    width: wide ? "100%" : p.w,
+    height: p.h,
+    backgroundImage: `url(${p.p})`,
+  });
+  const argb = tag.clr >>> 0;
+  const color = `rgb(${(argb >> 16) & 255},${(argb >> 8) & 255},${argb & 255})`;
+  return (
+    <span className="sv-name sv-tag" style={{ color }}>
+      <i style={{ ...part(tag.c, -tag.c.o[0], true) }} />
+      <i style={part(tag.w, -tag.w.o[0])} />
+      <i style={part(tag.e, `calc(100% - ${tag.e.o[0]}px)`)} />
+      <b>{name}</b>
+    </span>
   );
 }
 
@@ -167,7 +199,7 @@ function StallMap({ data, onPick }: { data: any; onPick: (stall: any) => void })
                   </span>
                 )}
               </span>
-              {n.owner_name && <span className="sv-name">{n.owner_name}</span>}
+              {n.owner_name && <OwnerName name={n.owner_name} look={n.look} />}
             </button>
           );
         })}
