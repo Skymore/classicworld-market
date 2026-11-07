@@ -9,10 +9,11 @@ import "./market.css";
 
 const CHANNELS = 40;
 const ROOMS = 20;
-const ROW = 36; // wheel row height (px), matches market.css
+const ROW = 22; // wheel row height (px), matches market.css
 
-/** A scroll wheel (phone time-picker style): rows snap to the middle band;
- *  the row resting there is the value. Tapping a row picks it too. */
+/** A one-row scroll wheel in the title bar (phone time-picker style): rows
+ *  snap to the middle, half of the rows above and below show; the row
+ *  resting in the middle is the value. Tapping a row picks it too. */
 function Wheel({
   label,
   rows,
@@ -48,7 +49,6 @@ function Wheel({
   };
   return (
     <div className="mk-wheel">
-      <span className="mk-wheel-label">{label}</span>
       <div className="mk-wheel-box">
         <div ref={box} className="mk-wheel-rows" role="listbox" aria-label={label} onScroll={scrolled}>
           {rows.map((r) => (
@@ -162,7 +162,10 @@ export default function Market() {
     <div className="lwrap market-page">
       <section className="stall mk">
         <h1 className="mk-title">{words("云逛市场", "Cloud market")}</h1>
-        <div className="mk-wheels">
+        <div className="stall-bar sv-bar mk-bar">
+          <button type="button" className="sv-step" onClick={() => step(-1)} aria-label={words("上一家", "Previous shop")}>
+            <ChevronLeft aria-hidden="true" />
+          </button>
           <Wheel
             label={words("频道", "Channel")}
             value={channel}
@@ -184,23 +187,14 @@ export default function Market() {
                 text: (
                   <>
                     {words(`${fm}洞`, "FM" + fm)}
-                    <small>{n ? words(` · ${n} 摊`, ` · ${n}`) : " · —"}</small>
+                    <small>{n ? words(` ${n}摊`, ` ${n}`) : " —"}</small>
                   </>
                 ),
               };
             })}
           />
-        </div>
-        <div className="stall-bar sv-bar mk-bar">
-          <button type="button" className="sv-step" onClick={() => step(-1)} aria-label={words("上一家", "Previous shop")}>
-            <ChevronLeft aria-hidden="true" />
-          </button>
-          <span className="sv-count" aria-live="polite">
-            {!shown
-              ? words(`${channel}频道 · ${room}洞`, `CH ${channel} · FM${room}`)
-              : stalls.length
-                ? words(`${room}洞 第 ${at + 1} / ${stalls.length} 家`, `FM${room} · shop ${at + 1} of ${stalls.length}`)
-                : words(`${room}洞 · 没有摊位`, `FM${room} · no stalls`)}
+          <span className="mk-count" aria-live="polite">
+            {shown ? (stalls.length ? `${at + 1}/${stalls.length}` : "0") : "…"}
           </span>
           <button type="button" className="sv-step" onClick={() => step(1)} aria-label={words("下一家", "Next shop")}>
             <ChevronRight aria-hidden="true" />
@@ -240,7 +234,7 @@ export default function Market() {
           ) : !shown ? (
             <Loading />
           ) : stop ? (
-            <ShopCard stop={stop} itemId={0} stepping browse onPick={pick} />
+            <ShopCard stop={stop} itemId={0} stepping browse compact onPick={pick} />
           ) : (
             <p className="mk-none">
               {words("最近一天没有读到这一洞的摊位，左右滑动去下一洞。", "No stalls read here in the last day; swipe for the next room.")}

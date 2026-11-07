@@ -106,11 +106,14 @@ export function StallMap({
   data,
   onPick,
   open = false,
+  crop,
 }: {
   data: any;
   onPick: (stall: any) => void;
   /** Start at full size (the room browser), not fitted to the card. */
   open?: boolean;
+  /** Fitted map at most this tall: same scale, cut top and bottom around the shop on show. */
+  crop?: number;
 }) {
   const words = useWords();
   const scene = data.map?.scene;
@@ -150,6 +153,9 @@ export function StallMap({
   // Drawn in the game's order: lower on screen in front.
   const shown = stalls.filter(inside).sort((a, b) => a.y - b.y || a.x - b.x);
   const scale = big ? 1 : width ? width / scene.w : 0;
+  const cut = !big && crop && scale ? Math.min(crop, scene.h * scale) : 0;
+  const anchor = here ? here.y - scene.y - 40 : scene.h / 2;
+  const shift = cut ? Math.max(0, Math.min(anchor * scale - cut / 2, scene.h * scale - cut)) : 0;
   const lookOf = (n: any) => SKINS[n.permit] || SKINS[5140000];
   const spot = here && {
     x: here.x - scene.x,
@@ -161,11 +167,22 @@ export function StallMap({
     <div
       ref={box}
       className={"sv-map" + (big ? " big" : "")}
-      style={big ? { height: `min(62vh, ${scene.h + 4}px)` } : { aspectRatio: `${scene.w} / ${scene.h}` }}
+      style={
+        big
+          ? { height: `min(62vh, ${scene.h + 4}px)` }
+          : cut
+            ? { height: cut + 4 }
+            : { aspectRatio: `${scene.w} / ${scene.h}` }
+      }
     >
       <div
         className="sv-world"
-        style={{ width: scene.w, height: scene.h, transform: `scale(${scale})`, visibility: scale ? undefined : "hidden" }}
+        style={{
+          width: scene.w,
+          height: scene.h,
+          transform: `translateY(${-shift}px) scale(${scale})`,
+          visibility: scale ? undefined : "hidden",
+        }}
       >
         <img
           className="sv-scene"
@@ -270,7 +287,17 @@ function ItemTip({ row, item, tip }: { row: any; item: any; tip: any }) {
 /** The selected good inside the shop view, as the game's tooltip:
  *  equipment the quick preview's card (requirements, jobs, stats against the
  *  catalogue, this offer), other goods their description and item data. */
-function Info({ row, itemId, hold }: { row: any; itemId: number; hold: MutableRefObject<number> }) {
+function Info({
+  row,
+  itemId,
+  hold,
+  compact = false,
+}: {
+  row: any;
+  itemId: number;
+  hold: MutableRefObject<number>;
+  compact?: boolean;
+}) {
   const words = useWords();
   const equipment = isEquipment(row);
   const piece = equipment ? pieceOf(row) : null;
@@ -316,6 +343,7 @@ function Info({ row, itemId, hold }: { row: any; itemId: number; hold: MutableRe
           equipment={page?.equipment}
           base={page?.market?.base_stats || []}
           piece={data ? JSON.parse(data) : undefined}
+          compact={compact}
         />
         {!piece && (
           <div className="sv-pad">
@@ -340,6 +368,7 @@ export function ShopCard({
   itemId,
   stepping,
   browse,
+  compact = false,
   onPick,
 }: {
   stop: ShopStop;
@@ -348,6 +377,8 @@ export function ShopCard({
   stepping: boolean;
   /** In the room browser: swipes go through this room's stalls, then the next room. */
   browse: boolean;
+  /** The cloud market: the whole shop on one phone screen (cropped map, one-line name, compact card). */
+  compact?: boolean;
   onPick: (stall: any) => void;
 }) {
   const words = useWords();
@@ -391,9 +422,12 @@ export function ShopCard({
     ? row.time ?? row.observed
     : Math.max(0, ...items.map((r: any) => r.time || 0)) || data.last_seen || row.observed;
   return (
-    <div className={"sv-card" + (waiting ? " sv-wait" : "") + (waiting && !sameRoom ? " sv-wait-map" : "")} aria-busy={waiting || !query.data}>
+    <div
+      className={"sv-card" + (compact ? " compact" : "") + (waiting ? " sv-wait" : "") + (waiting && !sameRoom ? " sv-wait-map" : "")}
+      aria-busy={waiting || !query.data}
+    >
       <div className="sv-top">
-        <StallMap data={data} onPick={onPick} />
+        <StallMap data={data} onPick={onPick} crop={compact ? 170 : undefined} />
         <div className="sv-who">
           <h2 id="sv-title">
             <Store aria-hidden="true" />
@@ -405,10 +439,10 @@ export function ShopCard({
               <b>{data.owner_name}</b>
             </span>
           )}
-          <span className="loc sv-loc">
+          {!compact && <span className="loc sv-loc">
             <b>{data.channel == null ? words("频道 —", "CH —") : words(`${data.channel}频道`, "CH " + data.channel)}</b>
             <span>{data.room == null ? words("洞 —", "FM —") : words(`${data.room}洞`, "FM" + data.room)}</span>
-          </span>
+          </span>}
           <span className="sv-time">
             <RelativeTime at={newest} />
             {query.data && !waiting && !data.stall && <> · {words("摊位位置未采集", "Stall not captured")}</>}
@@ -462,10 +496,10 @@ export function ShopCard({
               ))}
             </ul>
           </div>
-          <Info key={stop.key + ":" + at} row={items[at]} itemId={itemId} hold={hold} />
+          <Info key={stop.key + ":" + at} row={items[at]} itemId={itemId} hold={hold} compact={compact} />
         </>
       )}
-      {(stepping || (data.neighbors || []).length > 1) && (
+      {!compact && (stepping || (data.neighbors || []).length > 1) && (
         <ul className="sv-hints">
           {stepping &&
             (browse ? (

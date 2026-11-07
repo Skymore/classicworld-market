@@ -114,3 +114,13 @@
 .sv-pad{padding:0 12px 10px}
 /* Use, etc and cash goods: the tooltip card (see styles.css for its parts). */
 .tip-card .eq-top+.eq-offer{margin-top:0;border-top:0}
+/* Compact (cloud market): the shop's name, owner and time on one line; lower goods cells. */
+.sv-card.compact{gap:6px;padding:6px}
+.sv-card.compact .sv-top{gap:4px}
+.sv-card.compact .sv-who{flex-wrap:nowrap;gap:6px;white-space:nowrap;overflow:hidden}
+.sv-card.compact .sv-who h2{min-width:0;flex:0 1 auto;font-size:14px}
+.sv-card.compact .sv-who h2 span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sv-card.compact .sv-owner,.sv-card.compact .sv-time{flex:none}
+.sv-card.compact .sv-goods{gap:2px;padding:2px}
+.sv-card.compact .sv-good{padding:2px 1px}
+.sv-card.compact .sv-good small{font-size:10.5px}
