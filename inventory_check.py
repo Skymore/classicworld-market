@@ -1,14 +1,9 @@
-"""Visible inventory checks on the scanner input thread, backed by receive-only data."""
+"""Inventory checks from the receive-only capture; no game input or screen reading."""
 import json
 import time
 from pathlib import Path
 
-import cv2
-import numpy as np
-from PIL import Image
-
 from market_inventory import read_inventory
-from sweep_screen import ASSETS, money, runs, bitmap
 
 
 class InventoryCheckError(Exception):
@@ -25,155 +20,51 @@ def inventory_check_failed(error):
     return False
 
 
-class InventoryScreen:
-    def __init__(self):
-        glyphs = json.loads((ASSETS/'inventory-font.json').read_text())['glyphs']
-        self.glyphs = {tuple(rows): ch for ch, rows in glyphs}
-        self.title = np.asarray(Image.open(ASSETS/'inventory-title.png').convert('RGB'))[:, :85]
-        self.mesos = np.asarray(Image.open(ASSETS/'inventory-mesos.png').convert('RGB'))
+def complete(packet):
+    """A fresh, complete snapshot of the current connection's inventory."""
+    return bool(packet and isinstance(packet.get('session'), str) and packet['session']
+                and type(packet.get('revision')) is int and packet['revision'] > 0
+                and type(packet.get('mesos')) is int and packet['mesos'] >= 0
+                and set(packet.get('categories', [])) >= {2, 3, 4})
 
-    def locate(self, image):
-        image = np.asarray(image.convert('RGB') if hasattr(image, 'convert') else image)
-        # Full-screen clients stretch the same 1366x768 game canvas. Normalize
-        # only the verified aspect ratio; arbitrary window sizes stay unsupported.
-        height, width = image.shape[:2]
-        scales = [1.0]
-        if abs(width/height - 1366/768) < .02:
-            scales.append(height/768)
-        found = []
-        for scale in set(scales):
-            normalized = cv2.resize(image, (round(width/scale), round(height/scale))) if scale != 1 else image
-            point = self._title_origin(normalized)
-            if point is None:
-                continue
-            x, y = point[0]-5, point[1]-4
-            if x < 0 or y < 0 or x+209 > normalized.shape[1] or y+289 > normalized.shape[0]:
-                continue
-            bottom = normalized[y+267:y+285, x+168:x+208]
-            if not self._mesos_marker(bottom):
-                continue
-            values = set()
-            band = normalized[y+268:y+283, x+26:x+167, :3]
-            for threshold in (110, 120, 130, 140, 150, 160):
-                chars = []
-                for _, _, pixels in runs(band.max(axis=2) < threshold):
-                    rows = np.flatnonzero(pixels.any(axis=1))
-                    ch = self.glyphs.get(bitmap(pixels[rows[0]:rows[-1]+1]))
-                    if ch is None:
-                        chars = []
-                        break
-                    chars.append(ch)
-                value = money(''.join(chars))
-                if value is not None:
-                    values.add(value)
-            found.append((x, y, values.pop() if len(values) == 1 else None))
-        return found[0] if len(found) == 1 else None
 
-    def _title_origin(self, frame):
-        """Top-left of the ITEM INVENTORY title, tolerating the pointer.
-
-        After a click the hand cursor can rest on either panel marker. A
-        visible half must match more strictly than the whole, and uniquely.
-        """
-        scores = cv2.matchTemplate(frame, self.title, cv2.TM_CCOEFF_NORMED)
-        _, score, _, point = cv2.minMaxLoc(scores)
-        if score >= .90:
-            return point
-        half = self.title.shape[1]//2
-        for template, offset in ((self.title[:, :half], 0), (self.title[:, half:], half)):
-            scores = cv2.matchTemplate(frame, template, cv2.TM_CCOEFF_NORMED)
-            hits = np.argwhere(scores >= .97)
-            if len(hits) and np.ptp(hits, axis=0).max() <= 2:
-                y, x = hits[np.argmax(scores[tuple(hits.T)])]
-                return int(x)-offset, int(y)
-        return None
-
-    def _mesos_marker(self, bottom):
-        """The MESOS label, tolerating the pointer resting over one half.
-
-        After a click the hand cursor often sits on the panel's lower right
-        corner. A visible half must then match more strictly than the whole.
-        """
-        def score(template):
-            return cv2.minMaxLoc(cv2.matchTemplate(bottom, template, cv2.TM_CCOEFF_NORMED))[1]
-        if score(self.mesos) >= .90:
-            return True
-        half = self.mesos.shape[1]//2
-        return score(self.mesos[:, :half]) >= .97 or score(self.mesos[:, half:]) >= .97
+def matches(packet, expected):
+    if not expected:
+        return True
+    quantity = next((i['quantity'] for i in packet.get('items', []) if i['item_id'] == expected['item_id']), 0)
+    return packet.get('mesos') == expected['mesos'] and quantity == expected['quantity']
 
 
 class InventoryChecker:
+    """Confirm holdings from the capture instead of opening the inventory.
+
+    Opening the bag only proved that a window rendered; its contents always
+    came from the capture. Pointer occlusion and scaled glyphs made that visual
+    step fail on a correct inventory, so it is no longer used. A purchase still
+    requires the exact expected balance and item count from fresh packets.
+    """
     def __init__(self, folder, screen=None, clock=time.monotonic):
         self.folder = Path(folder)
-        self.screen = screen or InventoryScreen()
         self.clock = clock
 
-    def run(self, window, reason='scan_start', expected=None):
-        deadline = self.clock()+8
-        opened = False
-        result = None
+    def run(self, window, reason='scan_start', expected=None, timeout=8):
+        deadline = self.clock()+timeout
+        packet = None
         try:
-            image, bounds = window.capture()
-            original = bounds
-            view = self.screen.locate(image)
-            if view is None:
-                window.press('i')
-            while self.clock() < deadline:
-                window.pause(.12)
-                image, bounds = window.capture()
-                if bounds != original:
-                    raise InventoryCheckError('背包确认时游戏窗口位置变化')
-                view = self.screen.locate(image)
-                if view is None:
-                    continue
-                opened = True
+            while True:
                 packet = read_inventory(self.folder)
-                matches = not expected or (packet and packet.get('mesos') == expected['mesos']
-                    and next((i['quantity'] for i in packet.get('items', []) if i['item_id'] == expected['item_id']), 0) == expected['quantity'])
-                # The panel controls prove inventory opened; complete current
-                # stream data supplies its contents. Re-OCR of scaled currency
-                # is redundant and can falsely stop an already confirmed sale.
-                current_packet = (packet and isinstance(packet.get('session'), str) and packet['session']
-                    and type(packet.get('revision')) is int and packet['revision'] > 0
-                    and type(packet.get('mesos')) is int and packet['mesos'] >= 0)
-                visual_balance = packet and type(view[2]) is int and packet.get('mesos') == view[2]
-                if (packet and set(packet.get('categories', [])) >= {2, 3, 4}
-                        and (current_packet or visual_balance) and matches):
-                    result = packet
+                if complete(packet) and matches(packet, expected):
+                    self.record(reason, 'confirmed', mesos=packet['mesos'], items=len(packet['items']))
+                    return packet
+                if self.clock() >= deadline:
                     break
-            if not opened:
-                raise InventoryCheckError('无法确认背包已打开')
-            # Close only the inventory we recognized. Never use an unverified
-            # Escape which could accept/cancel an unrelated game dialog.
-            window.press('i')
-            closed = False
-            for _ in range(12):
-                window.pause(.1)
-                image, bounds = window.capture()
-                if bounds != original:
-                    raise InventoryCheckError('关闭背包时游戏窗口位置变化')
-                if self.screen.locate(image) is None:
-                    closed = True
-                    break
-            if not closed:
-                raise InventoryCheckError('无法确认背包已关闭')
-            if result is None:
-                if reason == 'scan_start' and packet is None:
-                    from free_market_route import PositionSyncError
-                    raise PositionSyncError('Inventory snapshot unavailable after reconnect')
-                raise InventoryCheckError('背包数据尚未完成核对')
-            self.record(reason, 'confirmed', mesos=result['mesos'], items=len(result['items']))
-            return result
+                # The scanner's pause keeps its foreground and Stop guards.
+                window.pause(.12)
+            if reason == 'scan_start' and packet is None:
+                from free_market_route import PositionSyncError
+                raise PositionSyncError('Inventory snapshot unavailable after reconnect')
+            raise InventoryCheckError('背包数据尚未完成核对')
         except Exception as error:
-            # Keep one bounded local diagnostic for a failed visual check.
-            # It is never included in reports, uploads or release archives.
-            if 'image' in locals():
-                try:
-                    path = self.folder/'sweep/inventory-check-failed.png'
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    (image if hasattr(image, 'save') else Image.fromarray(image)).save(path)
-                except (OSError, TypeError, AttributeError):
-                    pass
             self.record(reason, 'failed', error=str(error)[:160])
             # Startup has not bought anything. Preserve input interruptions so
             # the scanner can wait for the game again instead of revoking intent.
@@ -193,7 +84,4 @@ class InventoryChecker:
 
 def check_at_start(folder, switcher):
     from types import SimpleNamespace
-    def capture():
-        image, _ = switcher.capture()
-        return image, switcher.capture_bounds
-    InventoryChecker(folder).run(SimpleNamespace(capture=capture, press=switcher.press_key, pause=switcher.pause))
+    InventoryChecker(folder).run(SimpleNamespace(pause=switcher.pause))
