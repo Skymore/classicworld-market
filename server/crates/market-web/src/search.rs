@@ -41,6 +41,21 @@ fn add_pattern(patterns: &mut Vec<String>, pattern: String) {
 pub fn patterns(query: &str) -> Vec<String> {
     let normalized = normalize(query);
     let mut patterns = Vec::new();
+    // Korean: names are stored in Chinese and English, so a Korean query
+    // matches the names whose Korean (client language pack) contains it.
+    if normalized.chars().any(|c| ('\u{ac00}'..='\u{d7a3}').contains(&c)) {
+        let names = crate::i18n::names_containing(&normalized, 300);
+        let mut options: Vec<String> = names
+            .iter()
+            .map(|n| literal(&normalize(n).split_whitespace().collect::<String>()))
+            .filter(|n| !n.is_empty())
+            .collect();
+        options.sort();
+        options.dedup();
+        options.push(literal(&normalized.split_whitespace().collect::<String>()));
+        add_pattern(&mut patterns, format!("({})", options.join("|")));
+        return patterns;
+    }
     for term in normalized.split_whitespace() {
         let mut rest = term;
         let mut fragment = String::new();
@@ -113,6 +128,17 @@ pub(crate) fn filter_sql(id: &str, columns: &[&str], parameter: &str) -> String 
         "no search_text for {columns:?}"
     );
     format!("{table}search_text ~ ALL({parameter}::text[])")
+}
+
+#[cfg(test)]
+mod korean_tests {
+    #[test]
+    fn korean_queries_become_name_alternatives() {
+        let patterns = super::patterns("달팽이");
+        assert_eq!(patterns.len(), 1);
+        assert!(patterns[0].contains("snail"), "{patterns:?}");
+        assert!(patterns[0].contains("bluesnail"));
+    }
 }
 
 #[cfg(test)]

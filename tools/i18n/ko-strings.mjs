@@ -63,7 +63,7 @@ export function collect() {
     if (hasHan.test(zh) && !found.has(zh)) found.set(zh, where);
   };
   // Shared modules the React site renders text from (they call `say` / cwmKorean).
-  const shared = ['equipment-summary.js', 'item-offer-filters.js', 'dex-filters.js', 'format.js']
+  const shared = ['equipment-summary.js', 'item-offer-filters.js', 'dex-filters.js', 'format.js', 'period.js']
     .map(name => path.join(root, 'web/js/lib', name));
   for (const dir of ['frontend/src', 'frontend/desktop', ...shared]) {
     const list = dir.endsWith('.js') ? [dir] : files(path.join(root, dir), /\.(tsx?|mjs|js)$/);

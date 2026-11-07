@@ -82,6 +82,35 @@ pub fn name_by_en(en: &str) -> Option<&'static str> {
     GAME.names.get(en).map(String::as_str)
 }
 
+/// Chinese and English names whose Korean contains `query` (spaces ignored),
+/// at most `limit`: lets a Korean search match the stored names.
+pub fn names_containing(query: &str, limit: usize) -> Vec<String> {
+    let query: String = query.split_whitespace().collect();
+    if query.is_empty() {
+        return Vec::new();
+    }
+    let hit = |ko: &str| ko.split_whitespace().collect::<String>().contains(&query);
+    let mut out = Vec::new();
+    let mut push = |name: &str| {
+        if out.len() < limit && !out.iter().any(|n: &String| n == name) {
+            out.push(name.to_string());
+        }
+    };
+    if let Some(names) = NAMES.get() {
+        for (name, ko) in names.zh.iter().chain(names.en.iter()) {
+            if hit(ko) {
+                push(name);
+            }
+        }
+    }
+    for (en, ko) in GAME.names.iter() {
+        if hit(ko) {
+            push(en);
+        }
+    }
+    out
+}
+
 fn add(names: &mut Names, zh: Option<String>, en: Option<String>, ko: &str) {
     if let Some(zh) = zh.filter(|s| !s.is_empty()) {
         names.zh.entry(zh).or_insert_with(|| ko.to_string());
