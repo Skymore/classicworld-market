@@ -28,6 +28,15 @@ async fn main() -> Result<()> {
         .connect_lazy_with(db.connect_options().as_ref().clone());
     tokio::spawn(refresh_stats(maintenance_db, config.stats_refresh));
     tokio::spawn(market_web::traffic::prune(db.clone()));
+    tokio::spawn({
+        let db = db.clone();
+        async move {
+            match market_web::ingest::retire_all_replaced_stalls(&db, unix_now()).await {
+                Ok(n) => tracing::info!(items = n, "retired shops covered by newer stalls"),
+                Err(err) => tracing::warn!(%err, "retiring shops covered by newer stalls failed"),
+            }
+        }
+    });
     tokio::spawn(market_web::diagnostics::prune());
     tokio::spawn(market_web::remote_debug::prune());
 

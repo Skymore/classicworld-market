@@ -38,6 +38,17 @@ observations at or before the departure time. Replay applies the same rule so a
 delayed upload cannot revive a withdrawn quote. A new, later shop observation
 is live again. A departure never creates a sale.
 
+A newer stall of another owner at (nearly) the same spot is a third kind of
+evidence (`evidence_kind = 'stall_replaced'`, migration 0048). Stalls standing
+together on one level are always at least 120px apart (no pair seen together is
+closer), so a newer stall within 100px horizontally and 10px vertically, in the
+same channel and room, proves the older shop closed even when no departure or
+complete roster was read (about 1% of room visits miss their roster). The upload
+that records the newer stall inserts a departure for the older owner at the newer
+stall's time, and the usual expiry retires the older goods. It is skipped when
+the older owner has a newer stall reading anywhere (they moved). The server runs
+the same pass over every stall once at startup.
+
 Expired rows are archived separately from `listings`; existing aggregate,
 watchlist and alert queries continue to see live inventory only. Item pages
 receive a separate `expired_listings` collection (latest 200 invalidated within

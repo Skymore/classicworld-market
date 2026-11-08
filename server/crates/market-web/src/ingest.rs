@@ -219,6 +219,9 @@ async fn ingest_one(
     changes
         .items
         .extend(reconcile_owner_listings(tx, shop).await?);
+    if upload.stall.is_some() {
+        changes.items.extend(retire_replaced_stalls(tx, Some(shop)).await?);
+    }
     // Read the stored time back so last_seen_at has the database precision.
     let seen: f64 = sqlx::query_scalar(
         "SELECT extract(epoch FROM observed_at)::float8 FROM observations WHERE id = $1",
@@ -467,6 +470,67 @@ async fn bind_owner(
     .execute(&mut *conn)
     .await?;
     Ok(())
+}
+
+/// Stalls standing together are always at least 120px apart, so a newer
+/// stall of another owner at (nearly) the same spot proves the older shop
+/// closed, even when no departure or room roster was read. Recorded as a
+/// departure (`stall_replaced`, at the newer stall's time) so the usual
+/// expiry retires its goods. Not when the older owner has a newer stall
+/// reading anywhere: they moved, and their shop lives on there.
+pub(crate) async fn retire_replaced_stalls(
+    conn: &mut PgConnection,
+    shop: Option<i64>,
+) -> sqlx::Result<BTreeSet<i32>> {
+    let mut query = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+        "INSERT INTO player_departures(collector_id,event_id,world,channel,room,character_id,name,seen_at,observed_at,evidence_kind)
+         SELECT (SELECT ob.collector_id FROM observations ob WHERE ob.shop_id=n.id ORDER BY ob.observed_at DESC LIMIT 1),
+                md5('stall:'||n.id::text||':'||o.id::text),o.world,o.channel,o.room,o.owner_character_id,o.owner_name,
+                n.stall_seen_at,n.stall_seen_at,'stall_replaced'
+         FROM shops n JOIN shops o ON o.world=n.world AND o.channel=n.channel AND o.room=n.room AND o.id<>n.id
+         WHERE n.world='ClassicWorld' AND n.stall_seen_at IS NOT NULL AND o.stall_seen_at IS NOT NULL
+           AND o.stall_seen_at < n.stall_seen_at
+           AND o.owner_character_id IS NOT NULL AND o.owner_name IS NOT NULL
+           AND o.owner_character_id IS DISTINCT FROM n.owner_character_id
+           AND abs(o.stall_x-n.stall_x) < 100 AND abs(o.stall_y-n.stall_y) < 10
+           AND EXISTS (SELECT 1 FROM listings l WHERE l.shop_id=o.id)
+           AND NOT EXISTS (SELECT 1 FROM shops f WHERE f.world=o.world AND f.owner_character_id=o.owner_character_id
+                           AND f.stall_seen_at > o.stall_seen_at)",
+    );
+    if let Some(shop) = shop {
+        query.push(" AND n.id=").push_bind(shop);
+    }
+    query.push(" ON CONFLICT DO NOTHING RETURNING character_id");
+    let owners: BTreeSet<i64> = query
+        .build_query_scalar::<i64>()
+        .fetch_all(&mut *conn)
+        .await?
+        .into_iter()
+        .collect();
+    let mut items = BTreeSet::new();
+    for owner in owners {
+        items.extend(crate::presence::expire(conn, None, Some(owner)).await?);
+    }
+    Ok(items)
+}
+
+/// Startup pass over every stall: retire shops covered by a newer stall
+/// before this rule existed (idempotent; uploads keep it current after).
+pub async fn retire_all_replaced_stalls(db: &PgPool, now: f64) -> sqlx::Result<usize> {
+    let mut tx = db.begin().await?;
+    lock_writes(&mut tx).await?;
+    let items: Vec<i32> = retire_replaced_stalls(&mut tx, None).await?.into_iter().collect();
+    if !items.is_empty() {
+        let as_of: f64 = sqlx::query_scalar(
+            "UPDATE market_state SET version=version+1 RETURNING extract(epoch FROM as_of)::float8",
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        recompute_items(&mut tx, &items, as_of, now, &HashMap::new()).await?;
+        crate::realtime::notify_market(&mut tx, Some(&items[..])).await?;
+    }
+    tx.commit().await?;
+    Ok(items.len())
 }
 
 /// The newest stall reading wins; a late upload never moves a shop back.
