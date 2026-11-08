@@ -12,6 +12,9 @@ import { useAccount } from "../lib/query";
 import type { Device, Holdings } from "../lib/sweep-labels";
 import "./selling.css";
 
+/** 客户端里经本机回环打开时直接读本机背包；公网网站（含客户端里的工具页）读账号设备。 */
+const LOCAL_BAG = embedded && ["127.0.0.1", "localhost"].includes(location.hostname);
+
 /** 成交 25% 分位、成交中位，或玩家手填。 */
 type Strategy = "s25" | "s50" | "manual";
 interface Line {
@@ -75,7 +78,7 @@ function defaults(quantity: number): Line {
 function useHoldings(signedIn: boolean) {
   const local = useQuery({
     queryKey: ["selling-local-inventory"],
-    enabled: embedded,
+    enabled: LOCAL_BAG,
     refetchInterval: 5_000,
     queryFn: async ({ signal }) =>
       (await getJson("/api/v1/collector/inventory", { signal })).data as {
@@ -84,12 +87,12 @@ function useHoldings(signedIn: boolean) {
   });
   const devices = useQuery({
     queryKey: DEVICES_KEY,
-    enabled: !embedded && signedIn,
+    enabled: !LOCAL_BAG && signedIn,
     queryFn: ({ signal }) =>
       getAccountJson<{ devices: Device[] }>("/api/v1/account/devices", signal),
   });
-  useAccountTopics(["devices"], DEVICES_KEY, !embedded && signedIn);
-  if (embedded)
+  useAccountTopics(["devices"], DEVICES_KEY, !LOCAL_BAG && signedIn);
+  if (LOCAL_BAG)
     return {
       loading: local.isLoading,
       sources: local.data?.holdings
@@ -144,7 +147,7 @@ export default function Selling() {
   usePageReady();
   const words = useWords();
   const account = useAccount();
-  const signedIn = embedded || Boolean(account.data?.signed_in);
+  const signedIn = LOCAL_BAG || Boolean(account.data?.signed_in);
   const { loading, sources } = useHoldings(signedIn);
   const [deviceId, setDeviceId] = useState("");
   const source = sources.find((s) => s.id === deviceId) || sources[0] || null;

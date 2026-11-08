@@ -13,8 +13,8 @@ const requests = [], now = Date.now() / 1000;
 let holdIdentity = true, holdSync = true, holdMarket = true;
 const profile = { signed_in: true, public_id: 'startup-account', csrf: 'fixture', nickname: '测试账号', stats: {} };
 const records = [
-  { kind: 'pref', key: 'theme', value: 'dark', version: 1 },
-  { kind: 'pref', key: 'lang', value: 'zh', version: 1 },
+  { kind: 'pref', key: 'uiTheme', value: 'dark', version: 1 },
+  { kind: 'pref', key: 'uiLang', value: 'zh', version: 1 },
   { kind: 'watch', key: '4010001', value: { position: 0, cap: null, notify: false }, version: 1 },
 ];
 const json = (res, data) => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(data)); };
@@ -57,17 +57,17 @@ const server = createServer(async (req, res) => {
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+const browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: 'en-US', colorScheme: 'light' });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('https://**/*', route => route.abort());
   await page.addInitScript(() => {
-    localStorage.setItem('theme', 'light'); localStorage.setItem('lang', 'en');
+    localStorage.setItem('uiTheme', 'light'); localStorage.setItem('uiLang', 'en');
     localStorage.setItem('watchlist', '[2000002]');
     localStorage.setItem('cwm.preferences.account.v1', 'startup-account');
-    localStorage.setItem('cwm.user-data.v1.startup-account', JSON.stringify({ values: { theme: 'dark', lang: 'zh', watchlist: '[4010001]' }, records: [], pending: {}, conflicts: {} }));
+    localStorage.setItem('cwm.user-data.v1.startup-account', JSON.stringify({ values: { uiTheme: 'dark', uiLang: 'zh', watchlist: '[4010001]' }, records: [], pending: {}, conflicts: {} }));
   });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   await page.locator('.hero input[name=q]').waitFor({ timeout: 3000 });
@@ -106,7 +106,7 @@ try {
   assert(await input.evaluate(node => node === window.startupInput && node === document.activeElement), 'account completion preserves the search DOM and focus');
   assert.equal(await input.inputValue(), '药水');
   assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
-  assert.equal(await page.evaluate(() => localStorage.getItem('theme')), 'light', 'guest theme stays separate');
+  assert.equal(await page.evaluate(() => localStorage.getItem('uiTheme')), 'light', 'guest theme stays separate');
   assert.equal(requests.filter(url => url === '/api/v1/account').length, 1, 'startup identity is reused by the account query');
   await watchRequest;
   assert(requests.some(url => url.includes('/api/v1/watchlist/listings') && url.includes('4010001')));

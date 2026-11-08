@@ -142,3 +142,20 @@ async function compose(look: Look): Promise<Drawn | null> {
   list.forEach(([part, at], i) => ctx.drawImage(pics[i], at[0] - part.o[0] - minX, at[1] - part.o[1] - minY));
   return { url: canvas.toDataURL(), left: minX, top: minY, width: canvas.width, height: canvas.height };
 }
+
+/* A name tag ring (Character/Ring, info/nameTag) picks one of the client's
+   special name tags: a left cap, a middle piece tiled under the name and a
+   right cap, each placed by its origin from the name's top-left corner, and
+   the text colour. Exported by tools/export_name_tags.cs. Rings whose tag the
+   client lacks, and owners without such a ring, keep the plain tag. */
+export type TagPart = { o: [number, number]; w: number; h: number; p: string };
+export type NameTag = { w: TagPart; c: TagPart; e: TagPart; clr: number };
+type NameTags = { rings: Record<string, number>; tags: Record<string, NameTag> };
+
+export async function nameTagOf(look: Look): Promise<NameTag | null> {
+  const ring = Object.values(look.equips || {}).find((id) => Math.floor(Number(id) / 10000) === 111);
+  if (ring == null) return null;
+  const data = (await load("nametag")) as NameTags | null;
+  const tag = data?.tags[String(data.rings[String(ring)])];
+  return tag?.w && tag.c && tag.e ? tag : null;
+}

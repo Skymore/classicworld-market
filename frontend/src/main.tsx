@@ -85,6 +85,7 @@ const loadAccount = () => import("./pages/account");
 const Watch = page(loadWatch);
 const Alerts = page(() => import("./pages/alerts"));
 const Tools = page(() => import("./pages/tools"));
+const Market = page(() => import("./pages/market"));
 const Enhancement = page(() => import("./pages/enhancement"));
 const Agent = page(() => import("./pages/agent"));
 const Selling = page(() => import("./pages/selling"), "selling");
@@ -295,10 +296,10 @@ function Application() {
         /^\/(item|mob|map|npc)\//.test(url.pathname)
       ) {
         if (
-          document.documentElement.dataset.lang === "en" &&
+          ["en", "ko"].includes(document.documentElement.dataset.lang || "") &&
           !url.searchParams.has("lang")
         )
-          url.searchParams.set("lang", "en");
+          url.searchParams.set("lang", document.documentElement.dataset.lang!);
       }
       event.preventDefault();
       // A link in the phone item preview replaces the preview's history entry.
@@ -335,6 +336,7 @@ function Application() {
               <Route path="/traffic" element={<Traffic />} />
               <Route path="/watch/*" element={<Watch />} />
               <Route path="/alerts/*" element={<Alerts />} />
+              <Route path="/market" element={<Market />} />
               <Route path="/tools" element={<Tools />} />
               <Route path="/tools/enhancement" element={<Enhancement />} />
               <Route path="/agent/*" element={<Agent />} />

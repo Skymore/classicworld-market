@@ -21,6 +21,7 @@ import type { Account } from "../lib/types";
 import { Button } from "../components/ui/button";
 import { queryClient } from "../lib/query";
 import { PUSH_LIST_KEY, dropLocalPush, keepPushAfterSessionChange } from "../lib/push";
+import { pick } from "/web/js/lib/i18n.js";
 
 type Words = (zh: string, en: string) => string;
 const ACCOUNT_MESSAGES: Record<string, [string, string]> = {
@@ -509,7 +510,7 @@ export function SecurityPanel({
       recover(result.recovery_code || null);
       await refresh(true);
       // A password change revokes sessions and their push subscriptions; this browser keeps its own.
-      await keepPushAfterSessionChange(queryClient.getQueryData<Account>(["account"])?.csrf, document.documentElement.lang === "en" ? "en" : "zh");
+      await keepPushAfterSessionChange(queryClient.getQueryData<Account>(["account"])?.csrf, document.documentElement.lang === "zh-CN" ? "zh" : "en");
       void queryClient.invalidateQueries({ queryKey: PUSH_LIST_KEY });
     } catch (error) {
       setStatus(message((error as Error).message));

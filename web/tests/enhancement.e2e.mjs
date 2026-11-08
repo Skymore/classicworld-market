@@ -28,13 +28,13 @@ const server=createServer(async(req,res)=>{
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const origin=`http://127.0.0.1:${server.address().port}`;
-const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
+const browser=await chromium.launch({ args: ['--lang=zh-CN'], channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
 try{
  for(const width of [375,1280]){
   generation=0;
   const page=await browser.newPage({viewport:{width,height:900},isMobile:width===375,hasTouch:width===375});page.setDefaultTimeout(10000);
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.addInitScript(()=>{localStorage.setItem('lang','zh');localStorage.setItem('theme','light');window.documentIdentity=Math.random();});
+  await page.addInitScript(()=>{localStorage.setItem('uiLang','zh');localStorage.setItem('uiTheme','light');window.documentIdentity=Math.random();});
   await page.goto(origin+'/tools');await page.locator('[data-tool=enhancement]').waitFor();
   assert.equal(await page.locator('[data-nav-key=tools]:visible').textContent(),'工具');assert.equal(await page.locator('[data-nav-key=alerts]').count(),0);
   const identity=await page.evaluate(()=>window.documentIdentity);
@@ -92,7 +92,7 @@ try{
   await input.fill('战斗弓');await firstChoice.waitFor();await page.locator('#enhance-target').focus();await page.locator('.enhance-choices').waitFor({state:'detached'});
   await input.focus();await firstChoice.waitFor();await page.locator('.enhancement-page h1').click();await page.locator('.enhance-choices').waitFor({state:'detached'});
   for(const theme of ['light','dark']){
-   if(theme==='dark')await page.locator('[data-theme-toggle]:visible').click();
+   if(theme==='dark'){await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal overflow');
    const fonts=await page.locator('.enhancement-page input,.enhancement-page select').evaluateAll(nodes=>nodes.map(node=>parseFloat(getComputedStyle(node).fontSize)));assert(fonts.every(size=>size>=16));
    await page.screenshot({path:path.join(output,`enhancement-${width}-${theme}.png`),fullPage:true});

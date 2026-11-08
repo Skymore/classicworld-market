@@ -1,6 +1,6 @@
 // A storage facade: guest keys stay untouched; account caches and pending writes
 // are namespaced by a server-confirmed public account ID. Credentials stay in cookies.
-const PREFS=['lang','theme','units','market.offerSort','watch.offerSort','market.hours','watch.sweepSettings','watch.lists'];
+const PREFS=['lang','theme','uiLang','uiTheme','units','market.offerSort','watch.offerSort','market.hours','watch.sweepSettings','watch.lists'];
 const KEYS=['watchlist','watchlist_settings',...PREFS];
 const itemPref=key=>/^item\.(offerFilters|showExpired)\.[1-5]\d{6}$/.test(key);
 const scoped=key=>profile?.sync_scope!=='watch'||['watch.sweepSettings','watch.lists'].includes(key);

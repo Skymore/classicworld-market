@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { tr } from './i18n';
 import type { State } from './state';
 
 export default function BugReport({ state, connected, update }: { state: State; connected: boolean; update: (state: State) => void }) {
@@ -7,14 +8,14 @@ export default function BugReport({ state, connected, update }: { state: State; 
     setScreenshot(''); setError('');
     if (!file) return;
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 20 * 1024 * 1024) {
-      setError('请选择 20 MB 以内的 PNG、JPG 或 WebP 截图'); return;
+      setError(tr('请选择 20 MB 以内的 PNG、JPG 或 WebP 截图', 'Choose a PNG, JPG or WebP screenshot up to 20 MB')); return;
     }
     setBusy(true);
     try {
       const url = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error('截图无法读取'));
+        reader.onerror = () => reject(new Error(tr('截图无法读取', 'The screenshot cannot be read')));
         reader.readAsDataURL(file);
       });
       const image = new Image(); image.src = url; await image.decode();
@@ -25,9 +26,9 @@ export default function BugReport({ state, connected, update }: { state: State; 
       context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(image, 0, 0, canvas.width, canvas.height);
       let data = canvas.toDataURL('image/jpeg', .85);
       if (data.length > 1300000) data = canvas.toDataURL('image/jpeg', .6);
-      if (data.length > 1300000) throw new Error('截图过大，请裁剪后重试');
+      if (data.length > 1300000) throw new Error(tr('截图过大，请裁剪后重试', 'The screenshot is too large; crop it and retry'));
       setScreenshot(data);
-    } catch (e) { setError(e instanceof Error ? e.message : '截图无法读取'); }
+    } catch (e) { setError(e instanceof Error ? e.message : tr('截图无法读取', 'The screenshot cannot be read')); }
     finally { setBusy(false); }
   };
   const submit = async () => {
@@ -37,12 +38,13 @@ export default function BugReport({ state, connected, update }: { state: State; 
     catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   };
-  return <details className="diagnostic-tools"><summary>报 Bug</summary><div className="diagnostic-panel">
-    <label>选择问题截图<input aria-label="选择问题截图" type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={e => { void choose(e.target.files?.[0]); e.target.value = ''; }} /></label>
-    {screenshot && <img className="bug-preview" src={screenshot} alt="待上传的问题截图" />}
-    <p>截图将与诊断日志一起提交，保留 7 天。</p>
-    <button className="ui-btn" disabled={!connected || busy || !screenshot} onClick={submit}>{busy ? '处理中…' : '提交 Bug'}</button>
+  const label = tr('选择问题截图', 'Choose a screenshot of the problem');
+  return <details className="diagnostic-tools"><summary>{tr('报 Bug', 'Report a bug')}</summary><div className="diagnostic-panel">
+    <label>{label}<input aria-label={label} type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={e => { void choose(e.target.files?.[0]); e.target.value = ''; }} /></label>
+    {screenshot && <img className="bug-preview" src={screenshot} alt={tr('待上传的问题截图', 'Screenshot to upload')} />}
+    <p>{tr('截图将与诊断日志一起提交，保留 7 天。', 'The screenshot is sent with the diagnostic logs and kept for 7 days.')}</p>
+    <button className="ui-btn" disabled={!connected || busy || !screenshot} onClick={submit}>{busy ? tr('处理中…', 'Working…') : tr('提交 Bug', 'Send report')}</button>
     <span role="status">{error || state.diagnostics?.message}</span>
-    {state.diagnostics?.report_id && <code>报告编号：{state.diagnostics.report_id}</code>}
+    {state.diagnostics?.report_id && <code>{tr('报告编号：', 'Report ID: ')}{state.diagnostics.report_id}</code>}
   </div></details>;
 }

@@ -99,7 +99,7 @@ pub fn head(v: &View) -> Markup {
     let level = match item.req_level {
         Some(lv) if lv > 0 => Some(match lang {
             Lang::Zh => format!("{lv} 级"),
-            Lang::En => format!("Lv. {lv}"),
+            Lang::En | Lang::Ko => format!("Lv. {lv}"),
         }),
         _ => None,
     };
@@ -136,7 +136,7 @@ pub fn head(v: &View) -> Markup {
                         span.tagx { (category_label(&item.category, lang)) }
                         @if lang == Lang::Zh { @if let Some(sub) = sub { span.tagx { (sub) } } }
                         @if let Some(level) = &level { span.tagx { (level) } }
-                        @if item.is_cash { span.tagx { (v.t("商城", "Cash")) } }
+                        @if item.is_cash && category_key(&item.category) != Some("cash") { span.tagx { (v.t("商城", "Cash")) } }
                     }
                 }
                 div.iprice-d {
@@ -307,7 +307,7 @@ pub fn where_well(v: &View) -> Markup {
 fn more_channels(v: &View, n: usize) -> String {
     match v.ctx.lang {
         Lang::Zh => format!("显示其余 {n} 个频道 "),
-        Lang::En => format!("Show {n} more channels "),
+        Lang::En | Lang::Ko => format!("Show {n} more channels "),
     }
 }
 
@@ -315,7 +315,7 @@ fn more_channels(v: &View, n: usize) -> String {
 fn count(v: &View, n: usize, zh_unit: &str, en_unit: &str) -> String {
     match v.ctx.lang {
         Lang::Zh => format!("{n} {zh_unit}"),
-        Lang::En => format!("{n} {en_unit}"),
+        Lang::En | Lang::Ko => format!("{n} {en_unit}"),
     }
 }
 
@@ -359,7 +359,7 @@ fn channel_group(v: &View, g: &Group, index: usize) -> Markup {
 fn more_listings(v: &View, n: usize) -> String {
     match v.ctx.lang {
         Lang::Zh => format!("还有 {n} 条挂单"),
-        Lang::En => format!("{n} more listings"),
+        Lang::En | Lang::Ko => format!("{n} more listings"),
     }
 }
 
@@ -386,7 +386,7 @@ fn holes(v: &View, g: &Group) -> Markup {
 fn hole_title(v: &View, room: i16, price: f64) -> String {
     match v.ctx.lang {
         Lang::Zh => format!("{room} 洞 最低 {}", meso_f(price, v.ctx.lang)),
-        Lang::En => format!("room {room}, from {}", meso_f(price, v.ctx.lang)),
+        Lang::En | Lang::Ko => format!("room {room}, from {}", meso_f(price, v.ctx.lang)),
     }
 }
 
@@ -452,6 +452,7 @@ pub fn room_label(lang: Lang, room: i16) -> String {
     match lang {
         Lang::Zh => format!("{room}洞"),
         Lang::En => format!("room {room}"),
+        Lang::Ko => format!("{room}번 방"),
     }
 }
 
@@ -696,7 +697,7 @@ fn ladder_pane(v: &View) -> Markup {
                 )
                 .to_string(),
             (n, Lang::Zh) => format!("近 {n} 天没有挂单和成交，画不出价格分布。"),
-            (n, Lang::En) => {
+            (n, Lang::En | Lang::Ko) => {
                 format!("No listings or sales in the last {n} days, so no price bands.")
             }
         };
@@ -752,6 +753,7 @@ fn sales_title(v: &View, n: u32) -> String {
     match v.ctx.lang {
         Lang::Zh => format!("{n} 笔"),
         Lang::En => format!("{n} sales"),
+        Lang::Ko => format!("거래 {n}건"),
     }
 }
 
@@ -867,7 +869,7 @@ pub fn evidence(kind: SaleKind, lang: Lang) -> &'static str {
 fn merged_title(v: &View, s: &Sale) -> Option<String> {
     (s.merged_count > 1).then(|| match v.ctx.lang {
         Lang::Zh => format!("同店 {} 格合计", s.merged_count),
-        Lang::En => format!("{} slots in one shop", s.merged_count),
+        Lang::En | Lang::Ko => format!("{} slots in one shop", s.merged_count),
     })
 }
 
@@ -883,7 +885,7 @@ fn sale_row(v: &View, s: &Sale, with_shop: bool, extra: bool) -> Markup {
                         None if s.merged_count > 1 => {
                             @match v.ctx.lang {
                                 Lang::Zh => { (s.merged_count) " 格" },
-                                Lang::En => { (s.merged_count) " slots" },
+                                Lang::En | Lang::Ko => { (s.merged_count) " slots" },
                             }
                         },
                         None => (v.t("数量未知", "qty unknown")),
@@ -917,7 +919,7 @@ fn sales_list(v: &View, with_shop: bool) -> Markup {
                 button.more type="button" data-more="sales" {
                     @match v.ctx.lang {
                         Lang::Zh => { "显示全部 " (sales.len()) " 条 " },
-                        Lang::En => { "Show all " (sales.len()) " " },
+                        Lang::En | Lang::Ko => { "Show all " (sales.len()) " " },
                     }
                     (PreEscaped(icon(Icon::Chev)))
                 }
@@ -965,7 +967,7 @@ pub fn sales_well(v: &View) -> Markup {
                     small {
                         @match v.ctx.lang {
                             Lang::Zh => { (n) " 笔" },
-                            Lang::En => { (n) " sales" },
+                            Lang::En | Lang::Ko => { (n) " sales" },
                         }
                     }
                 }
@@ -1106,7 +1108,7 @@ pub fn equipment_well(v: &View) -> Option<Markup> {
                         button.more type="button" data-more="equip" {
                             @match v.ctx.lang {
                                 Lang::Zh => { "显示全部 " (offers.len()) " 件 " },
-                                Lang::En => { "Show all " (offers.len()) " " },
+                                Lang::En | Lang::Ko => { "Show all " (offers.len()) " " },
                             }
                             (PreEscaped(icon(Icon::Chev)))
                         }

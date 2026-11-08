@@ -1,4 +1,5 @@
-// Short Chinese time and number texts for the collector window.
+// Short time and number texts for the collector window.
+import { tr } from './i18n';
 // @ts-expect-error The website's plain JS module has no declaration file.
 import { reminderTokens as tokens } from '../../web/js/lib/watch-reminders.js';
 
@@ -12,15 +13,15 @@ export function toMs(at: string | number | null | undefined) {
   return Number.isFinite(ms) ? ms : null;
 }
 
-/** "5 秒前", "3 分钟前", "2 小时前", "4 天前". */
+/** "5 秒前", "3 分钟前", "2 小时前", "4 天前" (or English / Korean). */
 export function ago(at: string | number | null | undefined, now = Date.now()) {
   const ms = toMs(at);
   if (ms == null) return '';
   const secs = Math.max(0, Math.floor((now - ms) / 1000));
-  if (secs < 60) return `${secs} 秒前`;
-  if (secs < 3600) return `${Math.floor(secs / 60)} 分钟前`;
-  if (secs < 86400) return `${Math.floor(secs / 3600)} 小时前`;
-  return `${Math.floor(secs / 86400)} 天前`;
+  if (secs < 60) return tr(`${secs} 秒前`, `${secs}s ago`);
+  if (secs < 3600) return tr(`${Math.floor(secs / 60)} 分钟前`, `${Math.floor(secs / 60)}m ago`);
+  if (secs < 86400) return tr(`${Math.floor(secs / 3600)} 小时前`, `${Math.floor(secs / 3600)}h ago`);
+  return tr(`${Math.floor(secs / 86400)} 天前`, `${Math.floor(secs / 86400)}d ago`);
 }
 
 /** "M/D" of a date. */
@@ -37,5 +38,8 @@ export const itemIcon = (id: number) => `https://mxdgcw.dvg.cn/dbsource/icon/ite
 /** Whole mesos with thousands separators, or "—". */
 export const full = (value: number | null | undefined) => value == null || !Number.isFinite(value) ? '—' : value.toLocaleString('en-US');
 
-export const UPDATE_LABELS: Record<string, string> = { waiting_for_game_exit: '新版本已就绪，退出游戏后更新', ready_to_update: '新版本已就绪', restarting: '正在更新', retry_later: '稍后重试更新' };
-export const updateLabel = (state: string) => UPDATE_LABELS[state] || '自动更新已开启';
+export const UPDATE_LABELS: Record<string, [string, string]> = {
+  waiting_for_game_exit: ['新版本已就绪，退出游戏后更新', 'Update ready; installs after the game closes'],
+  ready_to_update: ['新版本已就绪', 'Update ready'], restarting: ['正在更新', 'Updating'], retry_later: ['稍后重试更新', 'Update will retry later'],
+};
+export const updateLabel = (state: string) => tr(...(UPDATE_LABELS[state] || ['自动更新已开启', 'Automatic updates on']));

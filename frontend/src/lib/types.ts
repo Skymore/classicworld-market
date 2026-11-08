@@ -55,7 +55,7 @@ export interface Account {
   csrf?: string;
   stats?: { shops: number; quotes: number };
 }
-export type Language = "zh" | "en";
+export type Language = "zh" | "en" | "ko";
 export type Theme = "dark" | "light";
 
 export interface CraftRecipe {

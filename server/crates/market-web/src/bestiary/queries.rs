@@ -99,12 +99,16 @@ fn optional_names(zh: Option<String>, en: Option<String>) -> Option<Names> {
 
 // ---------- item ----------
 
+/// The item's category as the 图鉴 files it: cash-shop equipment (时装/暖暖)
+/// under 商城 with the other cash items, as the search filter does.
+const ITEM_CATEGORY_NAME: &str = "CASE WHEN is_cash THEN '商城' ELSE category END AS category";
+
 /// The quick card only needs catalogue fields and the already-computed market
 /// summary. Do not load listings, charts, sales history or drop locations here.
 pub async fn item_preview(db: &PgPool, id: i32, all: bool) -> sqlx::Result<Option<Value>> {
-    let item = sqlx::query_as::<_, ItemSummary>(
-        "SELECT id,name_zh,name_en,category,subcategory,req_level,req_job_mask,icon_url,is_cash FROM items WHERE id=$1",
-    ).bind(id).fetch_optional(db).await?;
+    let item = sqlx::query_as::<_, ItemSummary>(&format!(
+        "SELECT id,name_zh,name_en,{ITEM_CATEGORY_NAME},subcategory,req_level,req_job_mask,icon_url,is_cash FROM items WHERE id=$1",
+    )).bind(id).fetch_optional(db).await?;
     let Some(item) = item else { return Ok(None) };
     let summary = sqlx::query_as::<_, (Value, Option<i64>, i32, i32, DateTime<Utc>)>(
         "SELECT ('{' || CASE WHEN $2 THEN a.list_fields ELSE s.list_fields END || '}')::jsonb,
@@ -298,12 +302,13 @@ async fn item_page_scoped(
     now: f64,
     variant_ids: Option<&[i64]>,
 ) -> sqlx::Result<Option<ItemPage>> {
-    let item = sqlx::query_as::<_, ItemSummary>(
-        "SELECT id, name_zh, name_en, category, subcategory, req_level, req_job_mask, icon_url, is_cash
-         FROM items WHERE id = $1",
-    )
-    .bind(id)
-    .fetch_optional(db);
+    let item_sql = format!(
+        "SELECT id, name_zh, name_en, {ITEM_CATEGORY_NAME}, subcategory, req_level, req_job_mask, icon_url, is_cash
+         FROM items WHERE id = $1"
+    );
+    let item = sqlx::query_as::<_, ItemSummary>(&item_sql)
+        .bind(id)
+        .fetch_optional(db);
     let stats = sqlx::query_as::<_, MarketStats>(
         // Prices are double precision since 0002 (Python parity); pages show whole mesos.
         "SELECT round(typical)::bigint AS typical, round(typical_low)::bigint AS typical_low,
@@ -2268,7 +2273,7 @@ pub(crate) fn map_hints_for(
                 let hint = out.entry(*id).or_default();
                 match lang {
                     Lang::Zh => hint.zh = Some(hints[i].clone()),
-                    Lang::En => hint.en = Some(hints[i].clone()),
+                    Lang::En | Lang::Ko => hint.en = Some(hints[i].clone()),
                 }
             }
         }
@@ -2294,7 +2299,7 @@ fn listed(lang: Lang, label: (&str, &str), names: &[&str]) -> String {
             names[..names.len().min(2)].join("、"),
             if more { "等" } else { "" }
         ),
-        Lang::En => format!(
+        Lang::En | Lang::Ko => format!(
             "{} {}{}",
             label.1,
             names[..names.len().min(2)].join(", "),
@@ -2306,7 +2311,7 @@ fn listed(lang: Lang, label: (&str, &str), names: &[&str]) -> String {
 fn id_hint(lang: Lang, id: i32) -> String {
     match lang {
         Lang::Zh => format!("编号 {id}"),
-        Lang::En => format!("ID {id}"),
+        Lang::En | Lang::Ko => format!("ID {id}"),
     }
 }
 

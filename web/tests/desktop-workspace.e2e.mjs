@@ -38,7 +38,7 @@ const server=createServer(async(req,res)=>{
  if(u.pathname==='/test/desktop'){
   const {action,value}=input;calls.push(input);
   if(action==='ready'||action==='command')return json(res,state);
-  if(action==='page')return json(res,{url:origin+'/'+value.page+'?lang=zh&theme='+value.theme+'&embed=1'});
+  if(action==='page'){const path={home:'/prices',dex:'/search?kind=item',watch:'/watch',tools:'/tools'}[value.page];return json(res,{url:origin+path+(path.includes('?')?'&':'?')+'lang='+value.lang+'&theme='+value.theme+'&embed=1'});}
   if(action==='devices')return json(res,devices());
   if(action==='rename')status.device={...status.device,name:value.name};
   if(action==='login')return json(res,{opened:true});
@@ -74,7 +74,7 @@ const server=createServer(async(req,res)=>{
  try{res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.json')?'application/json':file.endsWith('.svg')?'image/svg+xml':'text/html; charset=utf-8');res.setHeader('Content-Security-Policy',"frame-ancestors http://127.0.0.1:*");res.end(await readFile(file));}catch{res.writeHead(404);res.end();}
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));origin=`http://127.0.0.1:${server.address().port}`;
-const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||undefined,headless:true});
+const browser=await chromium.launch({ args: ['--lang=zh-CN'], channel:process.env.PLAYWRIGHT_CHANNEL||undefined,headless:true});
 try{
  const page=await browser.newPage({viewport:{width:880,height:740}}),errors=[];page.setDefaultTimeout(12000);page.on('pageerror',e=>{errors.push(e.message);console.log('PAGEERROR',e.message)});
  await page.addInitScript(()=>{if(location.pathname!=='/')return;const invoke=(action,value)=>fetch('/test/desktop',{method:'POST',body:JSON.stringify({action,value})}).then(r=>r.json());window.pywebview={api:{ready:()=>invoke('ready'),command:(name,value)=>invoke('command',{name,value}),workspace:invoke}};});
@@ -84,8 +84,8 @@ try{
  const tabs=page.getByRole('navigation',{name:'功能'});
  assert.equal(await tabs.getByRole('button',{name:'扫货模拟'}).count(),0,'the simulation tab is renamed');
  await tabs.getByRole('button',{name:'关注',exact:true}).click();
- const watch=page.frameLocator('iframe[title="关注整页"]');
- assert.match(await page.locator('iframe[title="关注整页"]').getAttribute('src'),/[?&]embed=1(&|$)/,'whole pages open in embed mode');
+ const watch=page.frameLocator('iframe[title="关注"]');
+ assert.match(await page.locator('iframe[title="关注"]').getAttribute('src'),/[?&]embed=1(&|$)/,'whole pages open in embed mode');
  console.log('waiting website watch');await watch.locator('.watch-page [data-card="1002000"]').waitFor();console.log('watch loaded');
  assert.equal(await watch.locator('.watch-page [data-card]').count(),3,'shared account watches loaded by the entire website page');
  assert.equal(await watch.locator('.wl-tools').evaluate(e=>getComputedStyle(e).display),'flex','packaged watch-list styles are loaded');
@@ -111,7 +111,7 @@ try{
  await page.screenshot({path:path.join(out,'website-watch-dark.png')});
  await watch.locator('html').evaluate(e=>e.dataset.theme='light');await page.locator('html').evaluate(e=>e.dataset.theme='light');
  await tabs.getByRole('button',{name:'价格表',exact:true}).click();
- const prices=page.frameLocator('iframe[title="价格表整页"]');
+ const prices=page.frameLocator('iframe[title="价格表"]');
  await prices.locator('[data-item-row]:visible').first().waitFor();
  assert(await prices.locator('[data-item-row]').count()>=3,'entire price page renders its data rows');
  await page.screenshot({path:path.join(out,'website-prices.png')});
@@ -157,7 +157,7 @@ try{
   ['褐色皮帽 低价自用 · ≤ 10,000 · 可升级次数 ≥ 0 2 1','战斗弓 低价自用 · ≤ 10,000 · 可升级次数 ≥ 0 2 0','红药水 低价自用 · ≤ 10,000 · 可升级次数 ≥ 0 2 —']);
  assert.equal(await table.locator('input').count(),0,'rules are read-only on the desktop');
  await table.getByRole('button',{name:'关注',exact:true}).click();
- await page.locator('iframe[title="关注整页"]').waitFor();
+ await page.locator('iframe[title="关注"]').waitFor();
  await tabs.getByRole('button',{name:'扫货',exact:true}).click();
  status.sweep.executor={ready:true,reason:''};
  await executor.filter({hasText:'购买功能就绪'}).waitFor({timeout:7000});

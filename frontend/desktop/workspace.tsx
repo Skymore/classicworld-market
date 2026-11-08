@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Device, Holdings, RunDevice } from '../src/lib/sweep-labels';
 import SweepPane from './sweep-pane';
 import AccountPane from './account-pane';
+import { tr } from './i18n';
 
 // window.pywebview.api.workspace(action, value), implemented by desktop_workspace.py.
 export interface SweepSettings { allow_web_start: boolean; max_spend: number; max_order: number; reserve_mesos: number }
@@ -43,11 +44,12 @@ const POLL_MS = 5000;
 export const invoke = (action: string, value?: unknown) => window.pywebview!.api.workspace(action, value);
 export const errorText = (e: unknown) => {
   const raw = String((e as Error)?.message || e);
-  const codes: Record<string, string> = {
-    login_required: '请先登录', sweep_running: '已有一轮扫货在进行', no_sweep_groups: '没有可扫货的条件组',
-    invalid_request: '数值不正确', sweep_stopped: '本轮已结束', unavailable: '暂时连不上服务器',
+  const codes: Record<string, [string, string]> = {
+    login_required: ['请先登录', 'Sign in first'], sweep_running: ['已有一轮扫货在进行', 'A sweep is already running'],
+    no_sweep_groups: ['没有可扫货的条件组', 'No sweep condition groups'], invalid_request: ['数值不正确', 'Invalid value'],
+    sweep_stopped: ['本轮已结束', 'This run has ended'], unavailable: ['暂时连不上服务器', 'The server is unreachable right now'],
   };
-  return codes[raw] || raw;
+  return codes[raw] ? tr(...codes[raw]) : raw;
 };
 
 /** Status shared by the sweep tab, the account tab and the scan page's status line. */
@@ -94,19 +96,20 @@ export default function WorkspaceTab({ tab, workspace, shell }: { tab: 'sweep' |
     catch (e) { setError(errorText(e)); return null; }
     finally { setBusy(false); }
   };
-  async function login() { if (await run('login')) setNotice('请在浏览器中完成登录'); }
+  async function login() { if (await run('login')) setNotice(tr('请在浏览器中完成登录', 'Finish signing in in your browser')); }
   const linked = Boolean(status?.linked);
-  const meta = !status ? '正在连接…' : tab === 'account' ? (linked ? '已登录' : '未登录')
-    : linked ? [status.account?.nickname, status.device?.name].filter(Boolean).join(' · ') : '未登录';
-  return <section className="native-workspace stall"><div className="stall-bar"><h2>{tab === 'account' ? '账号' : '扫货'}</h2>
+  const signedOut = tr('未登录', 'Signed out');
+  const meta = !status ? tr('正在连接…', 'Connecting…') : tab === 'account' ? (linked ? tr('已登录', 'Signed in') : signedOut)
+    : linked ? [status.account?.nickname, status.device?.name].filter(Boolean).join(' · ') : signedOut;
+  return <section className="native-workspace stall"><div className="stall-bar"><h2>{tab === 'account' ? tr('账号', 'Account') : tr('扫货', 'Sweep')}</h2>
     <span className="bar-meta" data-workspace-meta>{meta}</span></div>
     <div className="workspace-scroll">
       {(error || pollError) && <p className="error-banner" role="alert">{error || pollError}</p>}
       {notice && <p role="status" className="workspace-notice">{notice}</p>}
-      {!status ? <p className="workspace-note">正在连接采集器…</p>
+      {!status ? <p className="workspace-note">{tr('正在连接采集器…', 'Connecting to the collector…')}</p>
         : tab === 'account' ? <AccountPane status={status} busy={busy} run={run} login={login} shell={shell} />
-        : !linked ? <div className="native-account" data-account-pane="signed-out"><h2>登录后扫货</h2><button className="ui-btn primary" disabled={busy} onClick={login}>登录</button></div>
+        : !linked ? <div className="native-account" data-account-pane="signed-out"><h2>{tr('登录后扫货', 'Sign in to sweep')}</h2><button className="ui-btn primary" disabled={busy} onClick={login}>{tr('登录', 'Sign in')}</button></div>
         : status.sweep ? <SweepPane sweep={status.sweep} deviceId={status.device?.id} busy={busy} run={run} shell={shell} />
-        : <p className="workspace-note">扫货暂不可用</p>}
+        : <p className="workspace-note">{tr('扫货暂不可用', 'Sweeping is unavailable right now')}</p>}
     </div></section>;
 }

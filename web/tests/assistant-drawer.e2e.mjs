@@ -42,7 +42,7 @@ const server = createServer(async (req, res) => {
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const browser = await chromium.launch({channel: process.env.PLAYWRIGHT_CHANNEL || undefined});
+const browser = await chromium.launch({ args: ['--lang=zh-CN'], channel: process.env.PLAYWRIGHT_CHANNEL || undefined});
 try {
   // Desktop: launcher, drawer under the header, page context, toggle from the nav.
   {

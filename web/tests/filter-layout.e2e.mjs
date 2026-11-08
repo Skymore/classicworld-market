@@ -6,13 +6,13 @@ const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODUL
 const origin=process.env.FILTER_TEST_ORIGIN || 'http://127.0.0.1:18767';
 const shots=process.env.FILTER_SCREENSHOTS;
 if(shots)await mkdir(shots,{recursive:true});
-const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
+const browser=await chromium.launch({ args: ['--lang=zh-CN'], channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
 try {
   const thumbColors=[];
   for(const width of [1440,800,375,320])for(const theme of ['light','dark']) {
     const page=await browser.newPage({viewport:{width,height:width===320?700:900}});
     const errors=[];page.on('pageerror',error=>errors.push(error.message));
-    await page.addInitScript(theme=>{localStorage.setItem('theme',theme);localStorage.setItem('lang','zh');},theme);
+    await page.addInitScript(theme=>{localStorage.setItem('uiTheme',theme);localStorage.setItem('uiLang','zh');},theme);
     await page.goto(origin+'/prices?job=bowman&lmin=40&lmax=50&lang=zh');
     await page.locator('[data-item-row]:visible').first().waitFor();
     await page.locator('[data-filter-btn]').click();

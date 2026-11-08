@@ -54,7 +54,7 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 try {
-  browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+  browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   if (previousWeb) {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     const entries = [];
@@ -74,7 +74,7 @@ try {
   for (const mobile of [true, false]) {
     const page = await browser.newPage({ viewport: { width: mobile ? 375 : 1280, height: 900 }, isMobile: mobile, hasTouch: mobile, colorScheme: 'light' });
     const errors = []; page.on('pageerror', error => errors.push(error.message));
-    await page.addInitScript(() => { if (!sessionStorage.getItem('fixture-seeded')) { localStorage.setItem('theme', 'dark'); sessionStorage.setItem('fixture-seeded', '1'); } window.documentIdentity = Math.random(); });
+    await page.addInitScript(() => { if (!sessionStorage.getItem('fixture-seeded')) { localStorage.setItem('uiTheme', 'dark'); sessionStorage.setItem('fixture-seeded', '1'); } window.documentIdentity = Math.random(); });
     await page.goto(origin + '/prices?hours=all&lang=zh');
     await page.locator('[data-item-row]:visible').first().waitFor();
     assert.equal(new URL(page.url()).pathname, '/', 'old /prices links open the price table on the home page');
@@ -121,15 +121,15 @@ try {
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'sort labels fit narrow phones');
         if (screenshots) {
           await page.screenshot({ path: path.join(screenshots, `ask-sort-${width}-dark.png`) });
-          await page.locator('[data-theme-toggle]:visible').click();
+          {await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
           await page.screenshot({ path: path.join(screenshots, `ask-sort-${width}-light.png`) });
-          await page.locator('[data-theme-toggle]:visible').click();
+          {await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
         }
       }
-      await page.locator('[data-lang-toggle]:visible').click();
+      {await page.locator('[data-lang-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.lang==='zh'?'[data-lang-choice=en]':'[data-lang-choice=zh]')).click();}
       assert.equal(await page.locator('[data-sort-label]').textContent(), 'Lowest ask ↑');
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-      await page.locator('[data-lang-toggle]:visible').click();
+      {await page.locator('[data-lang-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.lang==='zh'?'[data-lang-choice=en]':'[data-lang-choice=zh]')).click();}
     }
     await sortBy('low', '最低报价 ↓');
     assert.equal(new URL(page.url()).searchParams.get('dir'), 'desc');
@@ -167,10 +167,10 @@ try {
     await rows.first().waitFor();
     assert.deepEqual(await page.locator('.hero .portal .p-top').allTextContents(), ['关注', '图鉴']);
     assert.equal(await page.locator('.hero .portal').first().getAttribute('href'), '/watch');
-    await page.locator('[data-lang-toggle]:visible').click();
+    {await page.locator('[data-lang-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.lang==='zh'?'[data-lang-choice=en]':'[data-lang-choice=zh]')).click();}
     assert.equal(await page.locator('.react-prices .stall-bar [role=tablist]').getAttribute('aria-label'), 'Prices');
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'the home page fits in English');
-    await page.locator('[data-lang-toggle]:visible').click();
+    {await page.locator('[data-lang-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.lang==='zh'?'[data-lang-choice=en]':'[data-lang-choice=zh]')).click();}
     await page.evaluate(() => { const link = document.createElement('a'); link.id = 'old-prices-link'; link.href = '/prices?sort=recent&hours=all'; link.textContent = 'old'; link.style.cssText = 'position:fixed;top:120px;left:12px;z-index:9999'; document.body.append(link); });
     await page.locator('#old-prices-link').click();
     await page.locator('[data-price-records=quotes] .market-record').first().waitFor();
@@ -187,14 +187,14 @@ try {
     await page.waitForFunction(expected => [...document.querySelectorAll('.pr')].some(node => node.textContent.includes(expected)), mobile ? '3.5万' : '3.6万');
     await nav('watch').click(); await page.locator('[data-search]').waitFor();
     await nav('home').click(); await rows.first().waitFor();
-    await page.locator('[data-theme-toggle]:visible').click();
+    {await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
     await nav('dex').click(); await page.locator('#site-react-shell').waitFor({ state: 'attached' });
     await page.locator('[data-react-catalogue=search] #search-item').waitFor();
     assert.equal(await page.evaluate(() => window.documentIdentity), afterReload, 'catalogue links stay inside the React document');
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
     assert.equal(await page.locator('[data-nav-key=tools]:visible').textContent(), '工具');
-    await page.locator('[data-theme-toggle]:visible').click();
+    {await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark', 'server header toggles once');
     await nav('home').click(); await rows.first().waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');

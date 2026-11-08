@@ -64,9 +64,13 @@ class DesktopWorkspaceTests(unittest.TestCase):
     def test_page_uses_only_trusted_local_routes(self):
         (self.workspace.runtime.home/'dashboard.json').write_text('{"url":"http://127.0.0.1:8780/alerts"}')
         self.assertEqual(self.workspace.run('page',{'page':'watch'})['url'],'http://127.0.0.1:8780/watch?lang=zh&theme=light&embed=1')
+        self.assertEqual(self.workspace.run('page',{'page':'watch','lang':'ko','theme':'dark'})['url'],'http://127.0.0.1:8780/watch?lang=ko&theme=dark&embed=1')
         with self.assertRaises(ValueError):self.workspace.run('page',{'page':'https://example.com'})
+        # Public sections come from the website itself, in the window's language.
+        self.assertEqual(self.workspace.run('page',{'page':'dex','lang':'ko'})['url'],'https://mxd.ruit.me/search?kind=item&lang=ko&theme=light&embed=1')
+        self.assertEqual(self.workspace.run('page',{'page':'home','lang':'xx'})['url'],'https://mxd.ruit.me/prices?lang=zh&theme=light&embed=1')
         (self.workspace.runtime.home/'dashboard.json').write_text('{"url":"https://example.com/alerts"}')
-        with self.assertRaises(ValueError):self.workspace.run('page',{'page':'prices'})
+        with self.assertRaises(ValueError):self.workspace.run('page',{'page':'watch'})
 
     def test_catalog_and_no_arbitrary_command(self):
         self.workspace.gateway.fetch.return_value={'items':[]}

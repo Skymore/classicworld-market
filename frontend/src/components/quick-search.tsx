@@ -11,6 +11,7 @@ import {
   useRecentSearches,
   useSearchText,
 } from "../lib/search-memory";
+import { langQuery, secondaryLanguage } from "/web/js/lib/i18n.js";
 export default function QuickSearch() {
   const words = useWords(),
     { language } = usePreferences(),
@@ -59,7 +60,7 @@ export default function QuickSearch() {
     "/search?" +
     new URLSearchParams({
       q: input.trim(),
-      ...(language === "en" ? { lang: "en" } : {}),
+      ...(language !== "zh" ? { lang: language } : {}),
     });
   const result = useQuery<any>({
     queryKey: ["quick-search", query],
@@ -206,7 +207,7 @@ export default function QuickSearch() {
             if (!selectedRows.current) setQuery(event.currentTarget.value.trim());
           }}
         />
-        {language === "en" && <input type="hidden" name="lang" value="en" />}
+        {language !== "zh" && <input type="hidden" name="lang" value={language} />}
         {input ? (
           <button
             type="button"
@@ -280,10 +281,12 @@ export default function QuickSearch() {
           ) : rows.length ? (
             rows.map((row: any) => {
               const name =
-                row.names?.[language] || row.names?.zh || row.names?.en;
-              const other = row.names?.[language === "zh" ? "en" : "zh"];
+                language === "ko"
+                  ? words(row.names?.zh || row.names?.en, row.names?.en || row.names?.zh)
+                  : row.names?.[language] || row.names?.zh || row.names?.en;
+              const other = row.names?.[secondaryLanguage()];
               // Set where another open map has the same name (蘑菇村 10 / 20).
-              const hint = row.kind === "map" ? row.hint?.[language] : "";
+              const hint = row.kind === "map" ? row.hint?.[language === "ko" ? "en" : language] : "";
               const image =
                 row.icon_url ||
                 (row.kind === "mob" && row.image_id
@@ -292,7 +295,7 @@ export default function QuickSearch() {
               return (
                 <a
                   className="quick-row"
-                  href={`/${row.kind}/${row.id}${language === "en" ? "?lang=en" : ""}`}
+                  href={`/${row.kind}/${row.id}${langQuery()}`}
                   key={row.kind + row.id}
                   onClick={activate}
                 >

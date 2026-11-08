@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { groupEquipmentVariants } from '../../frontend/src/lib/item-market.ts';
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const origin = process.env.EQUIPMENT_TEST_ORIGIN || 'http://127.0.0.1:18767';
-const browser = await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL || 'chrome'});
+const browser = await chromium.launch({ args: ['--lang=zh-CN'], channel:process.env.PLAYWRIGHT_CHANNEL || 'chrome'});
 try {
   const probe = await browser.newPage();
   const load = async url => {

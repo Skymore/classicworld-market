@@ -1246,3 +1246,87 @@ async fn market_events_name_the_uploaded_items() {
     listener.abort();
     db.close().await;
 }
+
+#[tokio::test]
+async fn cash_equipment_is_listed_with_cash_items() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let client = Client::new(&db, true);
+    let registered = json_body(client.post("/api/v1/register", &json!({}), &[]).await).await;
+    let token = registered["token"].as_str().unwrap().to_string();
+    let now = unix_now();
+    for (n, stock) in [2, 0].into_iter().enumerate() {
+        let mut upload = observation(&n.to_string(), now - 300.0 + n as f64 * 60.0, stock);
+        upload["items"] = json!([
+            {"item_id": 1047185, "category": 1, "slot": 1, "price": 900, "bundle": 1, "stock": stock},
+            {"item_id": 1040020, "category": 1, "slot": 2, "price": 500, "bundle": 1, "stock": stock}
+        ]);
+        if n == 0 {
+            // The catalogue marks 暖暖 fashion as cash-shop equipment.
+            let response = client
+                .post(
+                    "/api/v1/observations",
+                    &upload,
+                    &[("authorization", &format!("Bearer {token}"))],
+                )
+                .await;
+            assert_eq!(response.status(), StatusCode::CREATED);
+            sqlx::query("UPDATE items SET is_cash = true WHERE id = 1047185")
+                .execute(&db.pool)
+                .await
+                .unwrap();
+            continue;
+        }
+        let response = client
+            .post(
+                "/api/v1/observations",
+                &upload,
+                &[("authorization", &format!("Bearer {token}"))],
+            )
+            .await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+    }
+    let list = json_body(client.get("/api/v1/market?view=list", &[]).await).await;
+    let category = |id: i64| {
+        list["products"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["item_id"] == id)
+            .map(|p| p["category"].clone())
+    };
+    assert_eq!(category(1047185), Some(json!("商城物品")));
+    assert_eq!(category(1040020), Some(json!("装备")));
+    let detail = json_body(client.get("/api/v1/market?item_id=1047185", &[]).await).await;
+    assert_eq!(detail["products"][0]["category"], "商城物品");
+
+    let sold = |body: &Value| -> Vec<i64> {
+        body["sales"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["item_id"].as_i64().unwrap())
+            .collect()
+    };
+    // 商城物品 / 装备
+    let cash = json_body(
+        client
+            .get(
+                "/api/v1/sales/recent?category=%E5%95%86%E5%9F%8E%E7%89%A9%E5%93%81",
+                &[],
+            )
+            .await,
+    )
+    .await;
+    assert_eq!(sold(&cash), [1047185]);
+    assert!(cash["sales"][0]["category"] == "商城物品");
+    let equip = json_body(
+        client
+            .get("/api/v1/sales/recent?category=%E8%A3%85%E5%A4%87", &[])
+            .await,
+    )
+    .await;
+    assert_eq!(sold(&equip), [1040020]);
+    db.close().await;
+}

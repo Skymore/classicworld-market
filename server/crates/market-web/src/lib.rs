@@ -36,6 +36,7 @@ pub mod devices;
 pub mod diagnostics;
 mod encoding;
 pub mod external;
+pub mod i18n;
 pub mod ingest;
 pub mod legacy;
 pub mod market_cache;
@@ -204,6 +205,9 @@ pub fn app_with_web(state: AppState, web_dir: Option<&std::path::Path>) -> Route
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))
         .route("/api/v1/version", get(version))
+        .route("/api/v1/i18n/ko", get(i18n::names_api))
+        .route("/api/v1/i18n/ko-ui", get(i18n::ui_api))
+        .route("/api/v1/i18n/guess", get(i18n::guess_api))
         .merge(api_headers(api::router()))
         .merge(api_headers(agent::router()))
         .merge(api_headers(contributors::router()))
@@ -228,7 +232,41 @@ pub fn app_with_web(state: AppState, web_dir: Option<&std::path::Path>) -> Route
                 .on_response(DefaultOnResponse::new().latency_unit(LatencyUnit::Micros)),
         )
         .layer(axum::middleware::from_fn(request_timing))
+        .layer(axum::middleware::from_fn(collector_frames))
         .with_state(state)
+}
+
+/// The collector window shows site sections in a frame of its loopback UI
+/// (`?embed=1`, kept on every link inside it). Only those pages may be framed,
+/// and only by a loopback page; everything else keeps `frame-ancestors 'none'`.
+async fn collector_frames(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let embedded = request
+        .uri()
+        .query()
+        .is_some_and(|q| q.split('&').any(|pair| pair == "embed=1"));
+    let mut response = next.run(request).await;
+    if embedded {
+        if let Some(csp) = response
+            .headers()
+            .get(header::CONTENT_SECURITY_POLICY)
+            .and_then(|v| v.to_str().ok())
+            .filter(|v| v.contains("frame-ancestors 'none'"))
+        {
+            let relaxed = csp.replace(
+                "frame-ancestors 'none'",
+                "frame-ancestors 'self' http://127.0.0.1:* http://localhost:*",
+            );
+            if let Ok(value) = HeaderValue::from_str(&relaxed) {
+                response
+                    .headers_mut()
+                    .insert(header::CONTENT_SECURITY_POLICY, value);
+            }
+        }
+    }
+    response
 }
 
 /// Log route templates, never query strings, cookies or request bodies.

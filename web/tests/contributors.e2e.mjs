@@ -33,7 +33,7 @@ const server=createServer(async(req,res)=>{
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin=`http://127.0.0.1:${server.address().port}`;
 let browser;
 try{
- browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
+ browser=await chromium.launch({ args: ['--lang=zh-CN'], channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
  for(const mobile of [true,false]){
   const page=await browser.newPage({viewport:mobile?{width:375,height:812}:{width:1280,height:900},isMobile:mobile,hasTouch:mobile});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -52,7 +52,7 @@ try{
    for(const width of [320,375,402,430]){
     await page.setViewportSize({width,height:812});
     await page.evaluate(()=>{const fresh=document.querySelector('.ptop .fresh');fresh.hidden=false;fresh.querySelector('span').textContent='数据 36分钟前更新';});
-    const controls=await page.locator('.ptop .prefs .iconbtn').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return{right:r.right,width:r.width,height:r.height,top:r.top,text:el.textContent,label:el.getAttribute('aria-label'),title:el.title,icon:!!el.querySelector('.pref-glyph'),viewport:innerWidth};}));
+    const controls=await page.locator('.ptop .prefs .iconbtn').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return{right:r.right,width:r.width,height:r.height,top:r.top,text:el.innerText.trim(),label:el.getAttribute('aria-label'),title:el.title,icon:!!el.querySelector('.pref-glyph'),viewport:innerWidth};}));
     assert.equal(controls.length,3);
     for(const bounds of controls){assert.equal(bounds.width,36);assert.equal(bounds.height,36);assert.equal(bounds.text,'');assert(bounds.label&&bounds.title&&bounds.icon);assert.equal(bounds.top,controls[0].top);assert(bounds.right<=bounds.viewport);}
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`header overflow at ${width}`);
@@ -80,9 +80,9 @@ try{
    await page.setViewportSize({width:390,height:844});
   }
   await page.screenshot({path:path.join(output,`account-overview-${mobile?'mobile':'desktop'}.png`),fullPage:true});
-  await page.locator('[data-theme-toggle]:visible').click();
+  {await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
   await page.screenshot({path:path.join(output,`account-overview-${mobile?'mobile':'desktop'}-dark.png`),fullPage:true});
-  await page.locator('[data-theme-toggle]:visible').click();
+  {await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
   await page.locator('[data-edit-profile]').click();await page.locator('[name=nickname]').fill('Unsaved');await page.locator('[name=listed]').check();
   await page.locator('[data-edit-profile]').click();await page.locator('[data-edit-profile]').click();
   assert.equal(await page.locator('[name=nickname]').inputValue(),profile.nickname,'closing the editor discards the draft');

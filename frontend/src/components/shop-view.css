@@ -1,7 +1,9 @@
 /* Shop view: one shop at a time over the item page. Compact enough that a
    phone shows the map, the selected good and the first rows of goods at once. */
 .sv-scrim{position:fixed;inset:0;z-index:100;background:var(--scrim)}
-.sv-dialog{position:fixed;z-index:101;inset:0;margin:auto;width:min(640px,calc(100vw - 24px));height:fit-content;max-height:calc(100dvh - 24px);padding:0;display:flex;flex-direction:column;overflow:hidden;color:var(--ink)}
+/* A fixed height, whatever the shop holds: switching shops never moves the
+   window; the card scrolls inside. Phones get the whole screen. */
+.sv-dialog{position:fixed;z-index:101;inset:0;margin:auto;width:min(640px,calc(100vw - 24px));height:min(760px,calc(100dvh - 24px));max-height:none;padding:0;display:flex;flex-direction:column;overflow:hidden;color:var(--ink)}
 .sv-dialog:not([open]){display:none}
 .sv-dialog:focus{outline:none}
 .sv-bar{flex:none;min-height:40px;padding:0 2px;gap:2px}
@@ -11,7 +13,7 @@
 .sv-bar button:hover:not(:disabled){background:var(--bar-hi)}
 .sv-count{flex:1;text-align:center;font-weight:700;font-size:14px;letter-spacing:.04em;white-space:nowrap}
 .sv-close{border-left:1px solid var(--bar-lo)!important}
-.sv-card{display:flex;flex-direction:column;gap:8px;min-height:0;padding:8px;overflow:auto;overscroll-behavior:contain}
+.sv-card{flex:1;display:flex;flex-direction:column;gap:8px;min-height:0;padding:8px;overflow:auto;overscroll-behavior:contain}
 /* Map thumbnail beside the shop's name and place. */
 /* The map takes the full width; the shop's name, owner and place sit under it in one line. */
 .sv-top{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
@@ -32,7 +34,12 @@
 .sv-stall:not(.here):hover .sv-booth img,.sv-stall:focus-visible .sv-booth img{filter:drop-shadow(0 0 3px #fff) drop-shadow(0 0 4px var(--mark))}
 .sv-sign{position:absolute;overflow:hidden;padding:1px 2px;font:11px/13px Arial,"Microsoft YaHei",sans-serif;color:#333;text-align:left;white-space:normal;overflow-wrap:anywhere;pointer-events:none}
 .sv-owner-look{position:absolute;max-width:none;pointer-events:none}
-.sv-name{position:absolute;left:0;top:2px;translate:-50% 0;padding:2px 4px 3px;border-radius:2px;background:rgba(0,0,0,.6);font:11px/1 Arial,"Microsoft YaHei",sans-serif;color:#fff;white-space:nowrap;pointer-events:none}
+/* The client's plain name tag: translucent black, 1px rounded corners, 12px white Arial. */
+.sv-name{position:absolute;left:0;top:2px;translate:-50% 0;padding:1px 3px 2px;border-radius:2px;background:rgba(0,0,0,.65);font:12px/12px Arial,"Microsoft YaHei",sans-serif;color:#fff;white-space:nowrap;pointer-events:none;-webkit-font-smoothing:none}
+/* A name tag ring's tag: caps and a tiled middle placed by their origins around the name. */
+.sv-tag{padding:0;background:none;border-radius:0}
+.sv-tag i{position:absolute;background-repeat:repeat-x}
+.sv-tag b{position:relative;font-weight:400}
 /* The shop on show: everything else dimmed around a spotlight. */
 .sv-spot{position:absolute;inset:0;z-index:5;pointer-events:none}
 .sv-spot b{position:absolute;translate:-50% -50%;border:2px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 0 14px 3px rgba(255,214,90,.75),inset 0 0 10px rgba(255,214,90,.45);animation:sv-spot 1.6s ease-in-out infinite alternate}
@@ -81,14 +88,16 @@
 .sv-hints li::before{content:"· "}
 .sv-none{padding:14px 8px;color:var(--ink-3);font-size:13px;text-align:center}
 @media (max-width:640px){
-  .sv-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px)}
+  .sv-dialog{width:100vw;height:100dvh;border:0;border-radius:0;box-shadow:none}
+  .sv-bar{padding-top:env(safe-area-inset-top)}
+  .sv-card{padding-bottom:calc(8px + env(safe-area-inset-bottom))}
   .sv-goods{grid-template-columns:repeat(5,minmax(0,1fr))}
 }
 /* Wide screens: the card keeps the quick preview's width, on the right;
    the shop's place and its goods share the left column. */
 @media (min-width:641px){
   .sv-dialog{width:min(820px,calc(100vw - 24px))}
-  .sv-card{display:grid;grid-template-columns:minmax(0,1fr) 300px;grid-template-areas:"top info" "goods info";align-items:start}
+  .sv-card{display:grid;grid-template-columns:minmax(0,1fr) 300px;grid-template-areas:"top info" "goods info";align-items:start;align-content:start}
   .sv-top{grid-area:top}
   .sv-info{grid-area:info}
   .sv-window{grid-area:goods}
@@ -105,3 +114,13 @@
 .sv-pad{padding:0 12px 10px}
 /* Use, etc and cash goods: the tooltip card (see styles.css for its parts). */
 .tip-card .eq-top+.eq-offer{margin-top:0;border-top:0}
+/* Compact (cloud market): the shop's name, owner and time on one line; lower goods cells. */
+.sv-card.compact{gap:6px;padding:6px}
+.sv-card.compact .sv-top{gap:4px}
+.sv-card.compact .sv-who{flex-wrap:nowrap;gap:6px;white-space:nowrap;overflow:hidden}
+.sv-card.compact .sv-who h2{min-width:0;flex:0 1 auto;font-size:14px}
+.sv-card.compact .sv-who h2 span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sv-card.compact .sv-owner,.sv-card.compact .sv-time{flex:none}
+.sv-card.compact .sv-goods{gap:2px;padding:2px}
+.sv-card.compact .sv-good{padding:2px 1px}
+.sv-card.compact .sv-good small{font-size:10.5px}

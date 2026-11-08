@@ -6,12 +6,12 @@ const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODUL
 const origin = process.env.REACT_VERIFY_ORIGIN || 'http://127.0.0.1:18766';
 const screenshots = process.env.REACT_SCREENSHOT_DIR;
 if (screenshots) await mkdir(screenshots, { recursive: true });
-const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+const browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
 try {
   for (const mobile of [true, false]) for (const theme of ['light', 'dark']) {
     const page = await browser.newPage({ viewport: { width: mobile ? 375 : 1280, height: 900 }, isMobile: mobile, hasTouch: mobile, colorScheme: theme === 'dark' ? 'light' : 'dark' });
     const errors = []; page.on('pageerror', error => errors.push(error.message));
-    await page.addInitScript(value => { if (!sessionStorage.getItem('react-live-seeded')) { localStorage.setItem('theme', value); localStorage.setItem('lang', 'zh'); sessionStorage.setItem('react-live-seeded', '1'); } window.reactDocumentId = Math.random(); }, theme);
+    await page.addInitScript(value => { if (!sessionStorage.getItem('react-live-seeded')) { localStorage.setItem('uiTheme', value); localStorage.setItem('uiLang', 'zh'); sessionStorage.setItem('react-live-seeded', '1'); } window.reactDocumentId = Math.random(); }, theme);
     await page.goto(origin + '/prices?hours=all&lang=zh');
     await page.locator('[data-item-row]:visible').first().waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.dataset.reactApp), '1');
@@ -46,7 +46,7 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), theme);
     if (screenshots) await page.screenshot({ path: path.join(screenshots, `item-${mobile ? 'phone' : 'desktop'}-${theme}.png`) });
     const next = theme === 'dark' ? 'light' : 'dark';
-    await page.locator('[data-theme-toggle]:visible').click();
+    {await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), next);
     await page.reload(); await page.locator('#site-react-shell').waitFor({ state: 'attached' });
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), next);

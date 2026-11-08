@@ -57,13 +57,13 @@ const rowTop = (page, selector) => page.evaluate(selector => {
 }, selector);
 let browser;
 try {
-  browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+  browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   for (const mobile of [true, false]) {
     const context = await browser.newContext({ viewport: mobile ? { width: 390, height: 844 } : { width: 1280, height: 900 }, isMobile: mobile, hasTouch: mobile, colorScheme: 'light' });
     const page = await context.newPage();
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => {
-      localStorage.setItem('lang', 'zh'); localStorage.setItem('theme', 'light');
+      localStorage.setItem('uiLang', 'zh'); localStorage.setItem('uiTheme', 'light');
       // Without scroll anchoring (as in Safari) a spacer of the wrong height would move the page.
       document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.overflowAnchor = 'none'; });
     });
@@ -119,7 +119,7 @@ try {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: 'light' });
     const page = await context.newPage();
     const errors = []; page.on('pageerror', error => errors.push(error.message));
-    await page.addInitScript(() => { localStorage.setItem('lang', 'zh'); localStorage.setItem('theme', 'light'); });
+    await page.addInitScript(() => { localStorage.setItem('uiLang', 'zh'); localStorage.setItem('uiTheme', 'light'); });
     await page.goto(origin + `/?hours=all&lang=zh${embed ? '&embed=1' : ''}`);
     const row = id => page.locator(`tr[data-open="${id}"] td:nth-child(6)`);
     await row(2000004).waitFor();

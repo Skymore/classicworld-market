@@ -565,9 +565,19 @@ html{scrollbar-gutter:stable}
 .prefs{flex-shrink:0;align-items:center;gap:6px}.prefs>*{flex-shrink:0}
 .prefs .iconbtn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:36px;height:36px;min-width:36px;min-height:36px;padding:0;white-space:nowrap;text-decoration:none}
 .pref-glyph{display:block;width:20px;height:20px;background:currentColor;mask:var(--pref-icon) center/contain no-repeat;-webkit-mask:var(--pref-icon) center/contain no-repeat}
-.pref-language{--pref-icon:url('/web/img/ui/language.svg')}
+.pref-language{--pref-icon:url('/web/img/ui/translate.svg')}
 .pref-theme{--pref-icon:url('/web/img/ui/theme.svg')}
 .pref-account{--pref-icon:url('/web/img/ui/account.svg')}
+/* Language and theme menus: the language button names the current language (icon only on phones). */
+.prefs .iconbtn.pref-menu{width:auto;padding:0 8px 0 7px;gap:5px}
+.pref-menu-label{font-size:13px;font-weight:650}
+.pref-caret{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid currentColor;opacity:.7}
+@media(max-width:640px){.prefs .iconbtn.pref-menu{width:36px;padding:0}.pref-menu-label,.pref-caret{display:none}}
+.pref-dropdown{min-width:172px}
+.pref-dropdown .ui-sortitem{position:relative;justify-content:space-between;gap:16px;padding-left:32px}
+.pref-dropdown .ui-sortitem small{font-weight:500;color:var(--ink-3)}
+.pref-dropdown .ui-sortitem[data-state=checked]::before{content:'';position:absolute;left:12px;top:50%;width:9px;height:5px;margin-top:-4px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg)}
+.ui-sortsep{height:1px;margin:4px 0;background:var(--rule)}
 .ptop .brand{flex-shrink:0}.ptop .fresh{flex:0 1 auto;min-width:8px;overflow:hidden}.ptop .fresh i{flex-shrink:0}
 @media(max-width:380px){.ptop{gap:4px}.ptop .prefs{margin-left:auto}.ptop .fresh span{display:none}.ptop .brand{gap:5px;font-size:17px}}
 

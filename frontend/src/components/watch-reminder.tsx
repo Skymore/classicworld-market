@@ -7,11 +7,12 @@ import {
   reminderSelection,
   reminderTokens,
 } from "/web/js/lib/watch-reminders.js?v=20261106-server-caps";
+import { locale } from "/web/js/lib/i18n.js";
 import "./watch-reminder.css";
 
 const exactPrice = (value: number) =>
   value.toLocaleString(
-    document.documentElement.lang === "en" ? "en-US" : "zh-CN",
+    locale(),
     { maximumFractionDigits: 20 },
   );
 

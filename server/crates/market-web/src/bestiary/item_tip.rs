@@ -38,6 +38,8 @@ pub fn item_tip(id: i32) -> Option<Value> {
     Some(json!({
         "desc_zh": desc.and_then(|d| chinese().get(d)),
         "desc_en": desc,
+        // The client's Korean language pack (i18n/ko-game.json).
+        "desc_ko": crate::i18n::item_desc(id),
         "info": client.get("info"),
         "spec": client.get("spec"),
     }))
@@ -58,6 +60,7 @@ mod tests {
         let elixir = item_tip(2000004).unwrap();
         assert_eq!(elixir["spec"]["hpR"], 35);
         assert!(elixir["desc_zh"].as_str().unwrap().contains("35%"));
+        assert!(elixir["desc_ko"].as_str().unwrap().contains("35%"));
         assert!(item_tip(1302000).is_none());
         assert!(item_tip(2999999).is_none());
     }

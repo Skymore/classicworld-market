@@ -89,7 +89,7 @@ const lastCall=suffix=>calls.filter(c=>c.path.endsWith(suffix)).at(-1);
 const waitFor=async(fn,message)=>{for(let i=0;i<100;i++){if(await fn())return;await new Promise(r=>setTimeout(r,50));}assert.fail(message);};
 let browser;
 try{
- browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
+ browser=await chromium.launch({ args: ['--lang=zh-CN'], channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
  for(const mobile of [false,true]){
   const tag=mobile?'phone':'desktop';
   const context=await browser.newContext({viewport:{width:mobile?390:1280,height:mobile?844:900},isMobile:mobile,hasTouch:mobile});

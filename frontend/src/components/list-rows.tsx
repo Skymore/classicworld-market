@@ -4,7 +4,7 @@ import { useWords } from "../providers";
 import { Slot, ItemNames, Price, RelativeTime, InfoTip } from "./shared";
 import { SiteLink } from "./shell";
 import { pieceData } from "./equipment";
-import { t } from "/web/js/lib/i18n.js";
+import { t, pick } from "/web/js/lib/i18n.js";
 import { equipmentSummary } from "/web/js/lib/equipment-summary.js?v=20261029-critical-1";
 import { priceUnit } from "/web/js/lib/market-source.js?v=20261022-external-1";
 
@@ -44,9 +44,7 @@ export function Location({
     room != null
       ? roomLabel
       : value?.text ||
-        (document.documentElement.lang === "en"
-          ? value?.map_name_en
-          : value?.map_name_zh) ||
+        pick(value?.map_name_zh || value?.map_name_en, value?.map_name_en || value?.map_name_zh) ||
         words("洞未记录", "FM not recorded");
   if (shop !== undefined)
     return (
@@ -206,7 +204,7 @@ export function OfferRow({
           room: row.location?.room ?? null,
           place:
             row.location?.text ||
-            (document.documentElement.lang === "en" ? row.location?.map_name_en : row.location?.map_name_zh) ||
+            pick(row.location?.map_name_zh || row.location?.map_name_en, row.location?.map_name_en || row.location?.map_name_zh) ||
             null,
           shop: row.shop || null,
           owner: row.owner_name || null,

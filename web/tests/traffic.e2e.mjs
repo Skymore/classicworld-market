@@ -47,11 +47,11 @@ const server = createServer(async (req, res) => {
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+const browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
 const poll = async predicate => { for (let i = 0; i < 100; i++) { if (predicate()) return; await new Promise(resolve => setTimeout(resolve, 30)); } assert(predicate(), 'timed out waiting for tracking'); };
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-  await page.addInitScript(() => localStorage.setItem('lang', 'zh'));
+  await page.addInitScript(() => localStorage.setItem('uiLang', 'zh'));
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto(origin + '/?q=never-record-this'); await poll(() => views.length === 1);
   assert.equal(views[0].path, '/');
@@ -124,16 +124,16 @@ try {
       await mkdir(process.env.TRAFFIC_SCREENSHOTS, { recursive: true });
       await page.screenshot({ path: path.join(process.env.TRAFFIC_SCREENSHOTS, `traffic-${width}-light.png`), fullPage: true });
     }
-    await page.locator('[data-theme-toggle]:visible').click();
+    {await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.traffic-map-panel')).backgroundColor), 'rgb(35, 43, 56)');
     if (process.env.TRAFFIC_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.TRAFFIC_SCREENSHOTS, `traffic-${width}-dark.png`), fullPage: true });
-    await page.locator('[data-lang-toggle]:visible').click();
+    {await page.locator('[data-lang-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.lang==='zh'?'[data-lang-choice=en]':'[data-lang-choice=zh]')).click();}
     await page.getByRole('heading', { name: 'Sources', exact: true }).waitFor();
     await page.getByRole('button', { name: '90 days', exact: true }).click();
     await page.waitForFunction(() => document.querySelectorAll('[data-traffic-day]').length === 90);
     assert.equal(await page.locator('[data-traffic-chart-unit]').textContent(), 'Daily page views');
     assert.equal(await page.locator('[data-traffic-page] p').count(),0);
-    await page.locator('[data-theme-toggle]:visible').click();
+    {await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
   }
   await poll(() => views.length === 8);
   assert.equal(views.filter(view => view.path === '/traffic').length, 2, 'public page counts visits but not summary refreshes');

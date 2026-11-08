@@ -55,7 +55,7 @@ async function navigate(page,url){
 }
 let browser;
 try{
- browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
+ browser=await chromium.launch({ args: ['--lang=zh-CN'], channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
  for(const mobile of [false,true]){
   shared=[];personal=[];
   const context=await browser.newContext({viewport:{width:mobile?375:1280,height:900},isMobile:mobile,hasTouch:mobile}); const page=await context.newPage();
@@ -63,7 +63,7 @@ try{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const requests=[];page.on('request',r=>requests.push(new URL(r.url()).pathname));
   await page.addInitScript(()=>{
-   localStorage.setItem('lang','zh');localStorage.setItem('watchlist','[2000000]');
+   localStorage.setItem('uiLang','zh');localStorage.setItem('watchlist','[2000000]');
    localStorage.setItem('watchlist_settings',JSON.stringify({2000000:{cap:100,notify:true}}));
    localStorage.setItem('watch.listCollapsed','true');
    window.desktopNotifications=[];window.permissionRequests=0;

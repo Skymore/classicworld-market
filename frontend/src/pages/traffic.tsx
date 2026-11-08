@@ -19,6 +19,7 @@ import {
   num,
   usePageReady,
 } from "../components/shared";
+import { locale } from "/web/js/lib/i18n.js";
 
 interface Count {
   name: string;
@@ -111,7 +112,7 @@ function RegionMap({ regions }: { regions: Region[] }) {
   });
   const names = useMemo(
     () =>
-      new Intl.DisplayNames([language === "en" ? "en" : "zh-CN"], {
+      new Intl.DisplayNames([locale("en")], {
         type: "region",
       }),
     [language],

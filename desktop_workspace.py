@@ -5,6 +5,9 @@ from urllib.parse import urlsplit
 from account_device import DeviceError, browser_endpoint
 from collector_dashboard import Gateway
 
+# Website sections the collector window shows as tabs (page key -> path).
+SITE_PAGES = {'home': '/prices', 'prices': '/prices', 'dex': '/search?kind=item', 'watch': '/watch', 'selling': '/selling', 'tools': '/tools'}
+
 ERRORS = {'login_required': '请重新登录账号', 'sweep_running': '已有进行中的扫货',
           'rate_limited': '操作太频繁，请稍后再试', 'no_sweep_groups': '请先在关注中勾选可扫货的条件组',
           'device_unavailable': '此电脑暂不能参加扫货', 'invalid_request': '请求无效，请检查后重试',
@@ -64,11 +67,20 @@ class DesktopWorkspace:
         if action == 'status':
             return self.engine().status()
         if action == 'page':
-            if not isinstance(value, dict) or value.get('page') not in ('watch', 'prices', 'selling'):
+            if not isinstance(value, dict) or value.get('page') not in SITE_PAGES:
                 raise ValueError('无效页面')
             theme = value.get('theme') if value.get('theme') in ('light','dark') else 'light'
+            lang = value.get('lang') if value.get('lang') in ('zh','en','ko') else 'zh'
             # embed=1: the site hides its own header, navigation and assistant inside the collector.
-            return {'url': f'http://127.0.0.1:{self.dashboard()}/'+value['page']+'?lang=zh&theme='+theme+'&embed=1'}
+            query = '?lang='+lang+'&theme='+theme+'&embed=1'
+            path = SITE_PAGES[value['page']]
+            if value['page'] in ('watch', 'selling'):
+                # The watch page signs in through the collector's loopback gateway; the stall
+                # planner reads this PC's bag there.
+                return {'url': f'http://127.0.0.1:{self.dashboard()}'+path+query}
+            # Public pages come from the website itself, so they match it feature for feature.
+            site = browser_endpoint(self.runtime.configuration())
+            return {'url': site+path+('&' if '?' in path else '?')+query[1:]}
         if action == 'catalog':
             return self.fetch('/api/v1/watchlist/catalog', 300)
         if action == 'login':

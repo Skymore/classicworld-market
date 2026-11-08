@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Store, UserRound, X } from "lucide-react";
 import { readPeriod } from "/web/js/lib/period.js?v=20261022-regressions-1";
 import { loadCatalog } from "../lib/catalog";
-import { drawLook, type Drawn, type Look } from "../lib/avatar";
+import { drawLook, nameTagOf, type Drawn, type Look, type NameTag, type TagPart } from "../lib/avatar";
 import { useWords, usePreferences } from "../providers";
 import { useMarketQuery } from "../lib/query";
 import { Slot, Price, RelativeTime } from "./shared";
@@ -65,17 +65,61 @@ function Owner({ look }: { look: Look }) {
   );
 }
 
+/** The owner's name under their feet: the game's plain tag, or the special
+ *  tag of the name tag ring they wear. */
+function OwnerName({ name, look }: { name: string; look?: Look }) {
+  const [tag, setTag] = useState<NameTag | null>(null);
+  useEffect(() => {
+    let live = true;
+    setTag(null);
+    if (look) nameTagOf(look).then((t) => live && setTag(t));
+    return () => {
+      live = false;
+    };
+  }, [JSON.stringify(look?.equips)]);
+  if (!tag) return <span className="sv-name">{name}</span>;
+  const part = (p: TagPart, left: string | number, wide = false) => ({
+    left,
+    top: -p.o[1],
+    width: wide ? "100%" : p.w,
+    height: p.h,
+    backgroundImage: `url(${p.p})`,
+  });
+  const argb = tag.clr >>> 0;
+  const color = `rgb(${(argb >> 16) & 255},${(argb >> 8) & 255},${argb & 255})`;
+  return (
+    <span className="sv-name sv-tag" style={{ color }}>
+      <i style={{ ...part(tag.c, -tag.c.o[0], true) }} />
+      <i style={part(tag.w, -tag.w.o[0])} />
+      <i style={part(tag.e, `calc(100% - ${tag.e.o[0]}px)`)} />
+      <b>{name}</b>
+    </span>
+  );
+}
+
 /** The room as the game shows it: the scene with every stall read there,
  *  drawn with its permit's picture, the shop title on its sign, the owner
  *  standing at it and their name under their feet. Laid out in world pixels
  *  and scaled to the card; tapping the map opens it at full size. The shop on
  *  show sits in a spotlight; the others open on a tap. */
-function StallMap({ data, onPick }: { data: any; onPick: (stall: any) => void }) {
+export function StallMap({
+  data,
+  onPick,
+  open = false,
+  crop,
+}: {
+  data: any;
+  onPick: (stall: any) => void;
+  /** Start at full size (the room browser), not fitted to the card. */
+  open?: boolean;
+  /** Fitted map at most this tall: same scale, cut top and bottom around the shop on show. */
+  crop?: number;
+}) {
   const words = useWords();
   const scene = data.map?.scene;
   const box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
-  const [big, setBig] = useState(false);
+  const [big, setBig] = useState(open);
   useLayoutEffect(() => {
     const element = box.current;
     if (!element) return;
@@ -90,13 +134,15 @@ function StallMap({ data, onPick }: { data: any; onPick: (stall: any) => void })
     stalls.push({ ...data.stall, shop_key: data.shop_key, title: data.title, owner_name: data.owner_name });
   else if (mine && !mine.look && data.stall?.look) mine.look = data.stall.look;
   const here = stalls.find((n) => n.shop_key === data.shop_key);
-  // Open at full size centred on the shop on show.
+  // Open at full size centred on the shop on show (else the room's middle).
   useLayoutEffect(() => {
-    if (!big || !box.current || !scene || !here) return;
+    if (!big || !box.current || !scene) return;
     const element = box.current;
-    element.scrollLeft = here.x - scene.x - element.clientWidth / 2;
-    element.scrollTop = here.y - scene.y - element.clientHeight / 2 - 40;
-  }, [big, data.shop_key]);
+    const x = here ? here.x - scene.x : scene.w / 2;
+    const y = here ? here.y - scene.y - 40 : scene.h / 2;
+    element.scrollLeft = x - element.clientWidth / 2;
+    element.scrollTop = y - element.clientHeight / 2;
+  }, [big, data.shop_key, data.room, data.channel]);
   if (!scene?.url || !scene.w || !scene.h)
     return (
       <div className="sv-map sv-nomap">
@@ -107,6 +153,9 @@ function StallMap({ data, onPick }: { data: any; onPick: (stall: any) => void })
   // Drawn in the game's order: lower on screen in front.
   const shown = stalls.filter(inside).sort((a, b) => a.y - b.y || a.x - b.x);
   const scale = big ? 1 : width ? width / scene.w : 0;
+  const cut = !big && crop && scale ? Math.min(crop, scene.h * scale) : 0;
+  const anchor = here ? here.y - scene.y - 40 : scene.h / 2;
+  const shift = cut ? Math.max(0, Math.min(anchor * scale - cut / 2, scene.h * scale - cut)) : 0;
   const lookOf = (n: any) => SKINS[n.permit] || SKINS[5140000];
   const spot = here && {
     x: here.x - scene.x,
@@ -118,11 +167,22 @@ function StallMap({ data, onPick }: { data: any; onPick: (stall: any) => void })
     <div
       ref={box}
       className={"sv-map" + (big ? " big" : "")}
-      style={big ? { height: `min(62vh, ${scene.h + 4}px)` } : { aspectRatio: `${scene.w} / ${scene.h}` }}
+      style={
+        big
+          ? { height: `min(62vh, ${scene.h + 4}px)` }
+          : cut
+            ? { height: cut + 4 }
+            : { aspectRatio: `${scene.w} / ${scene.h}` }
+      }
     >
       <div
         className="sv-world"
-        style={{ width: scene.w, height: scene.h, transform: `scale(${scale})`, visibility: scale ? undefined : "hidden" }}
+        style={{
+          width: scene.w,
+          height: scene.h,
+          transform: `translateY(${-shift}px) scale(${scale})`,
+          visibility: scale ? undefined : "hidden",
+        }}
       >
         <img
           className="sv-scene"
@@ -157,6 +217,8 @@ function StallMap({ data, onPick }: { data: any; onPick: (stall: any) => void })
               aria-current={current || undefined}
               onClick={() => !current && onPick(n)}
             >
+              {/* The owner stands inside the stall: the stall is drawn over them, as in the game. */}
+              {n.look && <Owner look={n.look} />}
               <span className="sv-booth" style={{ left: -look.w / 2, top: -look.lift - look.h, width: look.w, height: look.h }}>
                 <img src={`/web/images/stalls/skin-${look.skin}.png`} alt="" />
                 {n.title && (
@@ -165,8 +227,7 @@ function StallMap({ data, onPick }: { data: any; onPick: (stall: any) => void })
                   </span>
                 )}
               </span>
-              {n.look && <Owner look={n.look} />}
-              {n.owner_name && <span className="sv-name">{n.owner_name}</span>}
+              {n.owner_name && <OwnerName name={n.owner_name} look={n.look} />}
             </button>
           );
         })}
@@ -226,7 +287,17 @@ function ItemTip({ row, item, tip }: { row: any; item: any; tip: any }) {
 /** The selected good inside the shop view, as the game's tooltip:
  *  equipment the quick preview's card (requirements, jobs, stats against the
  *  catalogue, this offer), other goods their description and item data. */
-function Info({ row, itemId, hold }: { row: any; itemId: number; hold: MutableRefObject<number> }) {
+function Info({
+  row,
+  itemId,
+  hold,
+  compact = false,
+}: {
+  row: any;
+  itemId: number;
+  hold: MutableRefObject<number>;
+  compact?: boolean;
+}) {
   const words = useWords();
   const equipment = isEquipment(row);
   const piece = equipment ? pieceOf(row) : null;
@@ -272,6 +343,7 @@ function Info({ row, itemId, hold }: { row: any; itemId: number; hold: MutableRe
           equipment={page?.equipment}
           base={page?.market?.base_stats || []}
           piece={data ? JSON.parse(data) : undefined}
+          compact={compact}
         />
         {!piece && (
           <div className="sv-pad">
@@ -291,16 +363,22 @@ function Info({ row, itemId, hold }: { row: any; itemId: number; hold: MutableRe
   );
 }
 
-function ShopCard({
+export function ShopCard({
   stop,
   itemId,
   stepping,
+  browse,
+  compact = false,
   onPick,
 }: {
   stop: ShopStop;
   itemId: number;
   /** More than one shop sells this item: the left/right steps do something. */
   stepping: boolean;
+  /** In the room browser: swipes go through this room's stalls, then the next room. */
+  browse: boolean;
+  /** The cloud market: the whole shop on one phone screen (cropped map, one-line name, compact card). */
+  compact?: boolean;
   onPick: (stall: any) => void;
 }) {
   const words = useWords();
@@ -344,9 +422,12 @@ function ShopCard({
     ? row.time ?? row.observed
     : Math.max(0, ...items.map((r: any) => r.time || 0)) || data.last_seen || row.observed;
   return (
-    <div className={"sv-card" + (waiting ? " sv-wait" : "") + (waiting && !sameRoom ? " sv-wait-map" : "")} aria-busy={waiting || !query.data}>
+    <div
+      className={"sv-card" + (compact ? " compact" : "") + (waiting ? " sv-wait" : "") + (waiting && !sameRoom ? " sv-wait-map" : "")}
+      aria-busy={waiting || !query.data}
+    >
       <div className="sv-top">
-        <StallMap data={data} onPick={onPick} />
+        <StallMap data={data} onPick={onPick} crop={compact ? 170 : undefined} />
         <div className="sv-who">
           <h2 id="sv-title">
             <Store aria-hidden="true" />
@@ -358,10 +439,10 @@ function ShopCard({
               <b>{data.owner_name}</b>
             </span>
           )}
-          <span className="loc sv-loc">
+          {!compact && <span className="loc sv-loc">
             <b>{data.channel == null ? words("频道 —", "CH —") : words(`${data.channel}频道`, "CH " + data.channel)}</b>
             <span>{data.room == null ? words("洞 —", "FM —") : words(`${data.room}洞`, "FM" + data.room)}</span>
-          </span>
+          </span>}
           <span className="sv-time">
             <RelativeTime at={newest} />
             {query.data && !waiting && !data.stall && <> · {words("摊位位置未采集", "Stall not captured")}</>}
@@ -415,12 +496,22 @@ function ShopCard({
               ))}
             </ul>
           </div>
-          <Info key={stop.key + ":" + at} row={items[at]} itemId={itemId} hold={hold} />
+          <Info key={stop.key + ":" + at} row={items[at]} itemId={itemId} hold={hold} compact={compact} />
         </>
       )}
-      {(stepping || (data.neighbors || []).length > 1) && (
+      {!compact && (stepping || (data.neighbors || []).length > 1) && (
         <ul className="sv-hints">
-          {stepping && <li>{words("← → 或左右滑动：看卖同一件商品的其他店", "← → or swipe: other shops selling this item")}</li>}
+          {stepping &&
+            (browse ? (
+              <li>
+                {words(
+                  "左右滑动，或滑到顶/底再上下滑：换一家店；这一洞看完自动到下一洞",
+                  "Swipe sideways, or up/down at the top/bottom: next shop; after the room's last, the next room",
+                )}
+              </li>
+            ) : (
+              <li>{words("← → 或左右滑动：看卖同一件商品的其他店", "← → or swipe: other shops selling this item")}</li>
+            ))}
           {(data.neighbors || []).length > 1 && <li>{words("点地图上的摊位：看那家店的货", "Tap a stall on the map: see what it sells")}</li>}
         </ul>
       )}
@@ -520,7 +611,7 @@ export default function ShopView({
             <X aria-hidden="true" />
           </button>
         </div>
-        <ShopCard stop={stop} itemId={itemId} stepping={n > 1} onPick={pick} />
+        <ShopCard stop={stop} itemId={itemId} stepping={n > 1} browse={false} onPick={pick} />
       </dialog>
     </>
   );

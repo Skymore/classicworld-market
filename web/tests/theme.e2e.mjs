@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const origin = process.env.THEME_TEST_ORIGIN || 'http://127.0.0.1:18766';
 const colors = { dark: 'rgb(20, 25, 34)', light: 'rgb(230, 225, 214)' };
-const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+const browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
 try {
   for (const mobile of [true, false]) {
     for (const theme of ['dark', 'light']) {
@@ -17,7 +17,7 @@ try {
       page.on('pageerror', error => errors.push(error.message));
       await page.addInitScript(saved => {
         if (!sessionStorage.getItem('theme-test-seeded')) {
-          localStorage.setItem('theme', saved);
+          localStorage.setItem('uiTheme', saved);
           sessionStorage.setItem('theme-test-seeded', '1');
         }
         window.themeFrames = [];
@@ -54,9 +54,9 @@ try {
           releaseModules();
           if (path === '/collect/') {
             await page.locator('[data-account-link]').first().waitFor({ state: 'attached' });
-            await page.locator('[data-theme-toggle]:visible').first().click();
+            {await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
             await page.waitForFunction(expected => document.documentElement.dataset.theme === expected, theme === 'dark' ? 'light' : 'dark');
-            await page.locator('[data-theme-toggle]:visible').first().click();
+            {await page.locator('[data-theme-toggle]:visible').first().click();await page.locator(await page.evaluate(()=>document.documentElement.dataset.theme==='dark'?'[data-theme-choice=light]':'[data-theme-choice=dark]')).click();}
           } else if (path === '/web/download.html') {
             await page.locator('.download-page').waitFor();
           } else {
@@ -74,7 +74,7 @@ try {
         await page.goto(origin + '/search?kind=item&theme=' + next);
         await page.locator('#site-react-shell').waitFor({ state: 'attached' });
         await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
-        assert.equal(await page.evaluate(() => localStorage.getItem('theme')), next);
+        assert.equal(await page.evaluate(() => localStorage.getItem('uiTheme')), next);
         await page.locator('a[href="/account"]:visible').first().click();
         await page.waitForURL('**/account');
         await page.waitForFunction(() => document.documentElement.dataset.ready === '1');

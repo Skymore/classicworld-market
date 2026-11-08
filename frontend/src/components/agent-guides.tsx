@@ -2,6 +2,7 @@ import {useEffect, useState} from "react";
 import {BookOpen, ArrowLeft} from "lucide-react";
 import {Dialog, DialogContent, DialogTitle, DialogDescription} from "./ui/dialog";
 import {evidenceUrl, sourceLabel} from "../lib/agent-sources";
+import { pick } from "/web/js/lib/i18n.js";
 
 type Guide = {id:string;title:string;summary:string;tags:string[];subjects?:string[];category?:string;related_guides?:string[];evidence_note?:string;checked_on:string;checked_timezone:string;source_kind:string;needs_refresh:boolean;content?:string;sources:{title:string;url:string;kind:string;published_on?:string|null}[]};
 
@@ -33,7 +34,7 @@ export function AgentGuides({en}:{en:boolean}) {
       .catch(()=>{if(!abort.signal.aborted)setError(true);}).finally(()=>{if(!abort.signal.aborted)setPending(false);});
     return()=>abort.abort();
   },[open,selected]);
-  const word=(zh:string,english:string)=>en?english:zh;
+  const word=(zh:string,english:string)=>en?english:pick(zh,english);
   const visible=guides.filter(g=>(category==="all"||g.category===category)&&(g.title+g.tags.join(" ")+g.summary).toLowerCase().includes(filter.trim().toLowerCase()));
   return <>
     <button className="chat-guide-toggle" onClick={()=>{setSelected(null);setFilter("");setCategory("all");setOpen(true);}} title={word("浏览内置指南","Browse built-in guides")} aria-label={word("浏览内置指南","Browse built-in guides")}><BookOpen size={16}/><span className="chat-action-label">{word("指南","Guides")}</span></button>

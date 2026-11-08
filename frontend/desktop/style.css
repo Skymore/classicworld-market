@@ -9,6 +9,10 @@ button:hover:not(:disabled){filter:brightness(.96)}button:disabled{opacity:.48;c
 .app-header{position:sticky;top:0;z-index:10;flex-shrink:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 12px 0 20px;background:var(--sheet);border-bottom:2px solid var(--edge);box-shadow:var(--hard);user-select:none}
 .app-brand{display:flex;align-items:center;gap:9px;align-self:stretch;flex:none;cursor:default}.app-brand strong{font-size:17px;letter-spacing:.5px}
 .app-tabs{display:flex;align-self:stretch;gap:18px;margin-left:10px}
+/* Website sections, then what only the collector does, split by a thin rule. */
+.app-tabs .tab-group{display:flex;align-self:stretch;gap:16px}
+.app-tabs .tab-group.client{position:relative;padding-left:18px}
+.app-tabs .tab-group.client::before{content:"";position:absolute;left:0;top:32%;bottom:32%;border-left:1px solid var(--rule)}
 .app-tabs button{padding:0 2px;font-size:13px;color:var(--ink-3);border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap}
 .app-tabs button[aria-pressed=true]{color:var(--ink);border-color:var(--maple);font-weight:700}
 .tab-badge{margin-left:5px;padding:0 5px;background:var(--maple);color:#fff;font-size:11px;font-variant-numeric:tabular-nums}
@@ -141,3 +145,14 @@ button:hover:not(:disabled){filter:brightness(.96)}button:disabled{opacity:.48;c
 .bug-preview{width:100%;max-height:180px;object-fit:contain}.diagnostic-panel input[type=file]{max-width:220px;font-size:11px}.diagnostic-panel{max-height:calc(100vh - 130px);overflow:auto}
 .remote-debug-banner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 20px;background:#8b251c;color:#fff;flex-shrink:0}.remote-debug-banner small{display:block;font-size:11px}.remote-debug-banner pre{white-space:pre-wrap;overflow:auto;max-height:70px;max-width:650px;margin:4px 0;font-size:11px}.remote-debug-banner button{flex-shrink:0}
 .remote-debug-banner button{color:var(--ink)}.remote-debug-banner small,.remote-debug-banner pre{user-select:text}
+
+/* Language and theme menus in the header. */
+.icon-btn.menu-btn{display:inline-flex;align-items:center;gap:5px;padding:0 8px}
+.menu-label{font-size:13px;font-weight:650}
+.menu-caret{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid currentColor;opacity:.7}
+.choice-menu{z-index:50;min-width:168px;padding:4px 0;background:var(--sheet-hi);border:1px solid var(--rule);box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.choice-item{position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:36px;padding:0 12px 0 32px;font-size:13px;color:var(--ink);cursor:pointer;outline:none}
+.choice-item[data-highlighted]{background:var(--sheet-lo)}
+.choice-item[data-state=checked]{color:var(--maple-ink);font-weight:650}
+.choice-item[data-state=checked]::before{content:'';position:absolute;left:12px;top:50%;width:9px;height:5px;margin-top:-4px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg)}
+.choice-item small{color:var(--ink-3);font-weight:400}

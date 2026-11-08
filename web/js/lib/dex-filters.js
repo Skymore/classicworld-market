@@ -73,7 +73,7 @@ export function categoryPatch(cat) {
 }
 
 const levelText = (lo, hi) => (hi == null ? `${lo ?? 0}+` : `${lo ?? 0}–${hi}`);
-const label = (names, en) => (names ? (en ? names.en || names.zh : names.zh || names.en) : '');
+const label = (names, en) => (names ? (en ? names.en || names.zh : globalThis.cwmKorean ? globalThis.cwmKorean(names.zh || names.en, names.en || names.zh) ?? names.en ?? names.zh : names.zh || names.en) : '');
 const facetName = (list, key, en) => label((list || []).find((row) => String(row.key) === String(key))?.names, en) || String(key);
 
 /** Removable tokens for the filters the server applied: `label` and `value`
@@ -81,21 +81,22 @@ const facetName = (list, key, en) => label((list || []).find((row) => String(row
 export function dexTokens(page, en = false) {
   const kind = searchKind(page), tokens = [];
   const add = (key, name, value, patch) => tokens.push({ key, label: name, value, patch });
-  const t = (zh, english) => (en ? english : zh);
+  // Korean while a Korean page installed globalThis.cwmKorean (i18n.js).
+  const t = (zh, english) => (en ? english : globalThis.cwmKorean ? globalThis.cwmKorean(zh, english) ?? english : zh);
   const level = (f) => {
     if (f.lmin != null || f.lmax != null) add('level', t('等级', 'Level'), levelText(f.lmin, f.lmax), { lmin: null, lmax: null });
   };
   const place = () => {
     // The map list's region and towns are chips of their own.
     const region = kind === 'map' ? null : [...regions, ...mapRegions].find(([key]) => key === page.region);
-    if (region) add('region', t('地区', 'Region'), en ? region[2] : region[1], { region: null, area: null });
+    if (region) add('region', t('地区', 'Region'), t(region[1], region[2]), { region: null, area: null });
     const area = (page.areas || []).find((row) => row.key === page.area && row.region === page.region);
     if (area) add('area', t('区域', 'Area'), label(area.names, en), { area: null });
   };
   if (kind === 'item') {
     const f = page.filters || {}, facets = page.facets || {};
     const job = jobs.find(([key]) => key === f.job);
-    if (job) add('job', t('职业', 'Job'), en ? job[2] : job[1], { job: null });
+    if (job) add('job', t('职业', 'Job'), t(job[1], job[2]), { job: null });
     if (f.shared === false) add('shared', '', t('不含通用装备', 'No all-class gear'), { shared: null });
     if (f.type) add('type', t('类型', 'Type'), facetName(facets.types, f.type, en), { type: null, weapon: null });
     if (f.weapon != null) add('weapon', t('武器', 'Weapon'), facetName(facets.weapons, f.weapon, en), { weapon: null });

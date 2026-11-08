@@ -5,7 +5,7 @@ import { bindQuickSearch } from './quick-search.js?v=20261024-search-tap-1';
 // Both the phone top bar + dock and the desktop header are rendered; base.css
 // shows one of them per html[data-device]. Pages render into <main>.
 import { I } from './icons.js';
-import { t, lang, setLang } from './i18n.js';
+import { t, lang, setLang, nextLanguage } from './i18n.js';
 import { ago, esc } from './format.js';
 import { bindLocalNavigation } from './local-nav.js?v=20261023-header-icons-2';
 
@@ -31,7 +31,7 @@ export function renderChrome(root, active) {
   stopQuickSearch = bindQuickSearch(root);
   bindClock();
   root.querySelectorAll('[data-theme-toggle]').forEach((b) => b.addEventListener('click', toggleTheme));
-  root.querySelectorAll('[data-lang-toggle]').forEach((b) => b.addEventListener('click', () => setLang(lang === 'zh' ? 'en' : 'zh')));
+  root.querySelectorAll('[data-lang-toggle]').forEach((b) => b.addEventListener('click', () => setLang(nextLanguage())));
   // "/" focuses the first visible search box (the header one; the hero one on
   // the home page, where the header box is hidden), as the <kbd>/</kbd> promises.
   document.onkeydown = (e) => {

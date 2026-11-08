@@ -67,7 +67,7 @@ export type CardStat = {
 };
 
 // The piece's own stats when given (never catalogue defaults), else the
-// item's base stats. `bonus` is how far a piece is above the base value.
+// item's base stats. `bonus` is how far a piece is above (or below) the base value.
 export function cardStats(base: Base, piece?: any): CardStat[] {
   const reference = new Map(base.map(([key, value]) => [statKey(key), value]));
   const source: { key: string; label?: string; value: number; max?: number }[] = piece
@@ -93,7 +93,7 @@ export function cardStats(base: Base, piece?: any): CardStat[] {
         label: known ? [known[1], known[2]] : [stat.label || stat.key, stat.key],
         value: stat.value,
         max: stat.max,
-        bonus: piece && stat.max == null && base != null && stat.value > base ? stat.value - base : 0,
+        bonus: piece && stat.max == null && base != null ? stat.value - base : 0,
       };
     });
 }
@@ -156,12 +156,12 @@ function Lines({ equipment, base, piece, words }: { equipment: any; base: Base; 
         </div>
       )}
       {cardStats(base, piece).map((stat) => (
-        <div key={stat.key} data-stat={stat.key} className={stat.bonus ? "up" : ""}>
+        <div key={stat.key} data-stat={stat.key} className={stat.bonus > 0 ? "up" : stat.bonus < 0 ? "down" : ""}>
           <dt>{words(...stat.label)}{colon}</dt>
           <dd>
             +{stat.value}
             {stat.max != null && `–${stat.max}`}
-            {stat.bonus > 0 && <i>(+{stat.bonus})</i>}
+            {stat.bonus !== 0 && <i>({stat.bonus > 0 ? "+" : ""}{stat.bonus})</i>}
           </dd>
         </div>
       ))}
@@ -180,22 +180,78 @@ function Lines({ equipment, base, piece, words }: { equipment: any; base: Base; 
   );
 }
 
-// The game tooltip of one item, or of one listed piece of it.
+// Compact requirements: only those that are not zero, on one line.
+function ShortRequirements({ req, words }: { req: any; words: Words }) {
+  const parts = (
+    [
+      ["等级", "Lv", req.level],
+      ["力量", "STR", req.str],
+      ["敏捷", "DEX", req.dex],
+      ["智力", "INT", req.int],
+      ["运气", "LUK", req.luk],
+    ] as [string, string, number][]
+  ).filter(([, , v]) => Number(v) > 0);
+  if (!parts.length) return null;
+  return (
+    <div className="eq-req-short">
+      {words("要求", "Req")}{" "}
+      {parts.map(([zh, en, v]) => (
+        <span key={en}>
+          {words(zh, en)} <b>{v}</b>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// Compact jobs: one tag ("全职业" or the jobs that may wear it).
+function JobTag({ mask, words }: { mask: number; words: Words }) {
+  const allowed = JOBS.filter(([bit]) => jobAllowed(mask, bit));
+  const text =
+    allowed.length === JOBS.length
+      ? words("全职业", "All jobs")
+      : allowed.map(([, zh, en]) => words(zh, en)).join(" / ");
+  return <span className="eq-job-tag">{text}</span>;
+}
+
+// The game tooltip of one item, or of one listed piece of it. `compact`
+// (the cloud market, where a whole shop fits one phone screen) keeps every
+// stat but puts requirements on one line and the jobs in a tag.
 export function EquipmentCard({
   item,
   equipment,
   base,
   piece,
   headingId,
+  compact = false,
 }: {
   item: any;
   equipment?: any;
   base: Base;
   piece?: any;
   headingId?: string;
+  compact?: boolean;
 }) {
   const words = useWords();
   const enhanced = Number(piece?.enhancements) > 0 ? Number(piece.enhancements) : 0;
+  if (compact)
+    return (
+      <div className="eq-card compact" data-equipment-card={item.id}>
+        <h2 className="eq-title" id={headingId}>
+          {words(item.name_zh || item.name_en, item.name_en)}
+          {enhanced > 0 && <em>(+{enhanced})</em>}
+        </h2>
+        <div className="eq-top">
+          <Slot empty url={item.icon_url} size={40} />
+          <div className="eq-short">
+            {equipment?.req && <ShortRequirements req={equipment.req} words={words} />}
+            {equipment?.jobs != null && <JobTag mask={equipment.jobs} words={words} />}
+          </div>
+        </div>
+        <Lines equipment={equipment} base={base} piece={piece} words={words} />
+        {piece?.offer && <Offer offer={piece.offer} words={words} />}
+      </div>
+    );
   return (
     <div className="eq-card" data-equipment-card={item.id}>
       <h2 className="eq-title" id={headingId}>

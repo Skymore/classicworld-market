@@ -47,6 +47,7 @@ impl Rooms {
         match lang {
             Lang::Zh => self.copies.0,
             Lang::En => self.copies.1,
+            Lang::Ko => Lang::Ko.t(self.copies.0, self.copies.1),
         }
     }
 }

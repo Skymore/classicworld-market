@@ -4,11 +4,20 @@ import { ago, fullTime } from "/web/js/lib/format.js";
 import { useAccount } from "../lib/query";
 import { setAssistantOpen, useAssistantOpen } from "../lib/assistant";
 import { embedded } from "../lib/embed";
-import { usePreferences, useWords } from "../providers";
+import { usePreferences, useWords, type LanguageChoice, type ThemeChoice } from "../providers";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+} from "./ui/dropdown-menu";
 import { AssistantDock } from "./assistant-dock";
 import { AssistantIcon } from "./assistant-icon";
 import { Icon, Search } from "./shared";
 import { navSection, sectionHref } from "../lib/page-memory";
+import { browserLanguage, pick } from "/web/js/lib/i18n.js";
 
 const navigation = [
   ["home", "/", "首页", "Home", "home"],
@@ -70,8 +79,91 @@ export function Freshness() {
     </span>
   );
 }
+// Each language in its own script, so a visitor who cannot read the page still finds theirs.
+const LANGUAGE_NAMES: Record<"zh" | "en" | "ko", string> = { zh: "中文", en: "English", ko: "한국어" };
+/** Header menu: 中文 / English / 한국어, then 跟随浏览器 (the default). */
+function LanguageMenu() {
+  const { language, languageChoice, chooseLanguage, ready } = usePreferences();
+  const words = useWords();
+  const label = words("语言", "Language");
+  const browser = (browserLanguage() || language) as keyof typeof LANGUAGE_NAMES;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="iconbtn pref-menu"
+          type="button"
+          data-lang-toggle
+          disabled={!ready}
+          aria-label={`${label}: ${LANGUAGE_NAMES[language]}`}
+          title={label}
+        >
+          <span className="pref-glyph pref-language" aria-hidden="true" />
+          <span className="pref-menu-label">{LANGUAGE_NAMES[language]}</span>
+          <span className="pref-caret" aria-hidden="true" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="pref-dropdown" aria-label={label}>
+        <DropdownMenuRadioGroup
+          value={languageChoice}
+          onValueChange={(value) => void chooseLanguage(value as LanguageChoice)}
+        >
+          {(["zh", "en", "ko"] as const).map((key) => (
+            <DropdownMenuRadioItem key={key} value={key} data-lang-choice={key} lang={key === "zh" ? "zh-CN" : key}>
+              {LANGUAGE_NAMES[key]}
+            </DropdownMenuRadioItem>
+          ))}
+          <DropdownMenuSeparator />
+          <DropdownMenuRadioItem value="system" data-lang-choice="system">
+            {words("跟随浏览器", "Browser language")}
+            <small>{LANGUAGE_NAMES[browser]}</small>
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+/** Header menu: 跟随系统 (the default), 浅色, 深色. */
+function ThemeMenu() {
+  const { theme, themeChoice, chooseTheme, ready } = usePreferences();
+  const words = useWords();
+  const label = words("主题", "Theme");
+  const names: Record<ThemeChoice, string> = {
+    system: words("跟随系统", "System"),
+    light: words("浅色", "Light"),
+    dark: words("深色", "Dark"),
+  };
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="iconbtn"
+          type="button"
+          data-theme-toggle
+          data-theme-now={theme}
+          disabled={!ready}
+          aria-label={`${label}: ${names[themeChoice]}`}
+          title={label}
+        >
+          <span className="pref-glyph pref-theme" aria-hidden="true" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="pref-dropdown" aria-label={label}>
+        <DropdownMenuRadioGroup
+          value={themeChoice}
+          onValueChange={(value) => chooseTheme(value as ThemeChoice)}
+        >
+          {(["system", "light", "dark"] as const).map((key) => (
+            <DropdownMenuRadioItem key={key} value={key} data-theme-choice={key}>
+              {names[key]}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 function Preferences() {
-  const { toggleTheme, changeLanguage, language, ready } = usePreferences();
   const words = useWords();
   const account = useAccount();
   const live = useLiveConnection();
@@ -89,32 +181,8 @@ function Preferences() {
       >
         ●
       </span>
-      <button
-        className="iconbtn"
-        type="button"
-        data-lang-toggle
-        disabled={!ready}
-        aria-label={
-          language === "zh" ? "切换语言 / English" : "Switch language / 中文"
-        }
-        title={
-          language === "zh" ? "切换语言 / English" : "Switch language / 中文"
-        }
-        onClick={changeLanguage}
-      >
-        <span className="pref-glyph pref-language" aria-hidden="true" />
-      </button>
-      <button
-        className="iconbtn"
-        type="button"
-        data-theme-toggle
-        disabled={!ready}
-        aria-label={words("切换夜市主题", "Toggle night market theme")}
-        title={words("切换夜市主题", "Toggle night market theme")}
-        onClick={toggleTheme}
-      >
-        <span className="pref-glyph pref-theme" aria-hidden="true" />
-      </button>
+      <LanguageMenu />
+      <ThemeMenu />
       <SiteLink
         href="/account"
         className="iconbtn account-link"
@@ -138,7 +206,7 @@ export function SiteLink({
     (prefix) => path === prefix || path.startsWith(prefix + "/"),
   );
   const url = new URL(href, location.href);
-  if (isCatalogue && language === "en") url.searchParams.set("lang", "en");
+  if (isCatalogue && language !== "zh") url.searchParams.set("lang", language);
   const target = url.pathname + url.search + url.hash;
   if (
     server ||
@@ -172,7 +240,7 @@ function useSectionLink() {
     if (!plainClick(event)) return;
     event.preventDefault();
     const url = new URL(sectionHref(section, fallback), location.href);
-    if (section === "dex" && language === "en") url.searchParams.set("lang", "en");
+    if (section === "dex" && language !== "zh") url.searchParams.set("lang", language);
     const here = new URL(location.href);
     here.searchParams.delete("embed");
     if (url.pathname + url.search === here.pathname + here.search) {
@@ -278,7 +346,7 @@ export function Navigation({ dock = false }: { dock?: boolean }) {
               {key === "agent" ? <AssistantIcon /> : <Icon name={icon} />}
             </span>
           )}
-          <span>{language === "en" ? en : zh}</span>
+          <span>{pick(zh, en)}</span>
           {dock && key === "watch" && (
             <span className="badge" data-badge="watch" hidden={!hits}>
               {hits || ""}

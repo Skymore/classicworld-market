@@ -6,7 +6,7 @@ const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODUL
 const origin = process.env.FILTER_TEST_ORIGIN || 'http://127.0.0.1:18767';
 const shots = process.env.FILTER_SCREENSHOTS;
 if (shots) await mkdir(shots, { recursive: true });
-const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+const browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
 const fixture = [
   [1002000, '零级帽', '帽子', 0, '弓箭手'],
   [1002001, '二十级帽', '帽子', 20, '弓箭手'],
@@ -30,7 +30,7 @@ try {
     const errors=[]; page.on('pageerror',error=>errors.push(error.message));
     // Filter chips update the URL at once; React Router renders the new state as a transition.
     const pressed=selector=>page.locator(`${selector}[aria-pressed=true]`).waitFor();
-    await page.addInitScript(theme=>{localStorage.setItem('lang','zh');localStorage.setItem('theme',theme);},theme);
+    await page.addInitScript(theme=>{localStorage.setItem('uiLang','zh');localStorage.setItem('uiTheme',theme);},theme);
     // Exercise the actual data before switching to controlled boundary examples.
     await page.goto(origin+'/prices?job=bowman&lmin=40&lmax=50&lang=zh');
     await page.locator('[data-item-row]:visible').first().waitFor();

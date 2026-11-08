@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { getJson, qs, api } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
 import { reminderTokens } from "/web/js/lib/watch-reminders.js?v=20261106-server-caps";
-import { itemName } from "/web/js/lib/i18n.js";
+import { itemName, pick } from "/web/js/lib/i18n.js";
 import { meso } from "/web/js/lib/format.js";
 import { useWords } from "../providers";
 import { Slot } from "./shared";
@@ -26,8 +26,8 @@ export function groupText(group: any) {
   const percentile = group.price_percentile || (group.reminder?.percentile !== 'all' && group.reminder?.percentile);
   return [
     group.name,
-    percentile ? `${isEnglish() ? 'Lowest' : '最低'} ${percentile}%` : null,
-    group.unpriced ? (isEnglish() ? 'No quotes' : '暂无报价') : null,
+    percentile ? `${pick('最低', 'Lowest')} ${percentile}%` : null,
+    group.unpriced ? (pick('暂无报价', 'No quotes')) : null,
     (!percentile || group.price_percentile) && group.cap != null ? `≤ ${Number(group.cap).toLocaleString()}` : null,
     ...reminderTokens(group.reminder, isEnglish()).map((t: any) => t.label),
   ]

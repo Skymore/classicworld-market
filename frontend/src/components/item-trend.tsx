@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useWords, usePreferences } from "../providers";
 import { meso } from "/web/js/lib/format.js";
 import { trendValues } from "/web/js/lib/trend.js?v=20261021-trend-values-2";
+import { locale } from "/web/js/lib/i18n.js";
 export default function ItemTrend({
   days = [],
   listingDays = [],
@@ -81,7 +82,7 @@ function TrendChart({
       day
         ? trendValues(
             { ...day, start: Date.parse(day.date + "T00:00:00Z") / 1000 },
-            language === "en" ? "en-US" : "zh-CN",
+            locale(),
           )
         : null,
     [day, language],
@@ -107,7 +108,7 @@ function TrendChart({
           ...comparisonDay,
           start: Date.parse(comparisonDay.date + "T00:00:00Z") / 1000,
         },
-        language === "en" ? "en-US" : "zh-CN",
+        locale(),
       )
     : null;
   if (comparisonValues && comparisonDay?.count === 0)

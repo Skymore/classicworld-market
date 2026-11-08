@@ -1,3 +1,6 @@
+// Chinese, English when `english`, or Korean while a Korean page installed
+// globalThis.cwmKorean (i18n.js). Node tests load this file without imports.
+const say=(english,zh,en)=>{if(english)return en;const ko=globalThis.cwmKorean;return ko?ko(zh,en)??en:zh;};
 // Only the specific offer's captured values; never catalogue defaults.
 const fields={weapon_attack:['物攻','Weapon ATK'],magic_attack:['魔攻','Magic ATK'],critical_rate:['暴击率','Critical Rate'],critical_damage:['暴击伤害','Critical Damage'],str:['力','STR'],dex:['敏','DEX'],int:['智','INT'],luk:['运','LUK'],weapon_defense:['物防','Weapon DEF'],magic_defense:['魔防','Magic DEF'],hp:['HP','Max HP'],mp:['MP','Max MP'],accuracy:['命中','Accuracy'],avoid:['回避','Avoidability'],speed:['移速','Speed'],jump:['跳跃','Jump']};
 export function equipmentSummary(row,en=false){
@@ -8,8 +11,8 @@ export function equipmentSummary(row,en=false){
  for(const stat of Array.isArray(eq.stats)?eq.stats:[]){
   if(fields[stat?.key]&&Number.isInteger(stat.value)&&stat.value>=0&&stat.value<=65535)values.set(stat.key,stat.value);
  }
- const parts=Object.entries(fields).filter(([key])=>values.get(key)>0).map(([key,label])=>`${label[en?1:0]} +${values.get(key)}`);
- if(Number.isInteger(eq.enhancements)&&eq.enhancements>0&&eq.enhancements<=15)parts.push(`${en?'Enhancements':'强化'} +${eq.enhancements}`);
- if(Number.isInteger(eq.remaining_upgrades)&&eq.remaining_upgrades>=0&&eq.remaining_upgrades<=15&&(parts.length||eq.remaining_upgrades>0))parts.push(`${en?'Upgrades left':'可升'} ${eq.remaining_upgrades}`);
+ const parts=Object.entries(fields).filter(([key])=>values.get(key)>0).map(([key,label])=>`${say(en,label[0],label[1])} +${values.get(key)}`);
+ if(Number.isInteger(eq.enhancements)&&eq.enhancements>0&&eq.enhancements<=15)parts.push(`${say(en,'强化','Enhancements')} +${eq.enhancements}`);
+ if(Number.isInteger(eq.remaining_upgrades)&&eq.remaining_upgrades>=0&&eq.remaining_upgrades<=15&&(parts.length||eq.remaining_upgrades>0))parts.push(`${say(en,'可升','Upgrades left')} ${eq.remaining_upgrades}`);
  return parts.join(' · ');
 }

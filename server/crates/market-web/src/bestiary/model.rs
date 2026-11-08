@@ -31,6 +31,8 @@ impl Names {
         match lang {
             Lang::Zh => &self.zh,
             Lang::En => &self.en,
+            // The client's Korean name, by the Chinese or English one.
+            Lang::Ko => lang.t(&self.zh, &self.en),
         }
     }
 
@@ -1157,7 +1159,7 @@ impl MapHint {
     pub fn get(&self, lang: Lang) -> Option<&str> {
         match lang {
             Lang::Zh => self.zh.as_deref(),
-            Lang::En => self.en.as_deref(),
+            Lang::En | Lang::Ko => self.en.as_deref(),
         }
     }
 }

@@ -2,7 +2,9 @@
 //! so the existing pages and the collector dashboard keep working. Every
 //! request reads precomputed rows; the list is one `item_stats` query.
 
-use market_core::item::{category_kinds, category_name, equipment_jobs, is_equipment};
+use market_core::item::{
+    category_kinds, equipment_jobs, is_equipment, listing_category, listing_kind_sql,
+};
 use market_core::protocol::{equipment_for_display, Equipment, MARKET_MAP_BASE, WORLD};
 use market_core::pyjson::{self, floordiv, sha256_hex, Dumps};
 use market_core::report::{Window, RECENT_HOURS};
@@ -150,6 +152,7 @@ struct ProductRow {
     last_sale_price: Option<f64>,
     last3_avg: Option<f64>,
     trend: Value,
+    is_cash: bool,
 }
 
 async fn products(
@@ -179,7 +182,7 @@ async fn products(
                 {w}.variant_count, {w}.sold_out_count, {w}.sold_out_median, {w}.sales_count,
                 {recommendation}, st.typical, st.typical_low, st.typical_high, st.typical_basis, st.sample_size,
                 st.low_data, st.sales_24h, st.sales_prev_24h, st.change_24h, st.sales_10d,
-                extract(epoch FROM st.last_sale_at)::float8, st.last_sale_price, st.last3_avg, st.trend
+                extract(epoch FROM st.last_sale_at)::float8, st.last_sale_price, st.last3_avg, st.trend, i.is_cash
          FROM item_stats st JOIN items i ON i.id = st.item_id {join} {filter}
          ORDER BY st.item_id"
     );
@@ -219,6 +222,7 @@ async fn products(
             last_sale_price: r.get(29),
             last3_avg: r.get(30),
             trend: r.get(31),
+            is_cash: r.get(32),
         })
         .collect())
 }
@@ -228,7 +232,7 @@ fn summary_product(p: &ProductRow, hours: Hours) -> Map<String, Value> {
     let value = json!({
         "world": WORLD, "item_id": p.item_id, "name_zh": p.name_zh, "name_en": p.name_en,
         "unit_basis": crate::external::unit(p.item_id),
-        "category": category_name(i64::from(p.item_id)), "icon_url": p.icon_url, "level": p.level,
+        "category": listing_category(i64::from(p.item_id), p.is_cash), "icon_url": p.icon_url, "level": p.level,
         "jobs": p.jobs, "subcategory": p.subcategory, "last_seen": p.last_seen,
         "low": p.low, "median": p.median, "high": p.high, "listings": p.listings, "shops": p.shops,
         "sold_out_count": p.sold_out_count, "sold_out_median": p.sold_out_median, "sales_count": p.sales_count,
@@ -286,7 +290,7 @@ pub async fn market_list_rows(
     };
     let rows = sqlx::query(&format!(
         "SELECT st.item_id, COALESCE(NULLIF(i.name_zh, ''), st.item_id::text), i.name_en, i.icon_url,
-                i.subcategory, i.req_level, i.req_job_mask, extract(epoch FROM st.last_seen_at)::float8, {fields}
+                i.subcategory, i.req_level, i.req_job_mask, extract(epoch FROM st.last_seen_at)::float8, {fields}, i.is_cash
          FROM item_stats st JOIN items i ON i.id = st.item_id {join} ORDER BY st.item_id"
     ))
     .fetch_all(db)
@@ -317,7 +321,7 @@ pub async fn market_list_rows(
             name_zh: r.get(1),
             name_en: r.get(2),
             icon_url: r.get(3),
-            category: category_name(i64::from(item_id)),
+            category: listing_category(i64::from(item_id), r.get("is_cash")),
             subcategory: r.get(4),
             level: r.get(5),
             jobs: equipment_jobs(mask.map(i64::from)),
@@ -441,7 +445,7 @@ fn row_columns(r: &str) -> String {
          (SELECT name_en FROM maps WHERE id=o.map_id) AS map_name_en, sh.public_key, {r}.slot, {r}.item_id, {r}.variant_id, v.stats_hash,
          v.stats AS equipment, {r}.price, {r}.bundle, {r}.stock,
          COALESCE(NULLIF(i.name_zh, ''), i.id::text) AS name_zh, i.name_en, i.icon_url, i.subcategory,
-         i.req_level, i.req_job_mask, o.source, NULL::text AS source_key,
+         i.req_level, i.req_job_mask, i.is_cash, o.source, NULL::text AS source_key,
          market_unit_price({r}.item_id,{r}.price,{r}.bundle) AS unit_price,
          market_price_unit({r}.item_id) AS unit_basis,NULL::jsonb AS source_location"
     )
@@ -496,7 +500,7 @@ fn row_json(r: &PgRow) -> Map<String, Value> {
         "visit_id": r.get::<Option<String>, _>("visit_key"), "world": WORLD, "time": r.get::<f64, _>("time"),
         "owner_name": r.try_get::<Option<String>, _>("owner_name").ok().flatten(),
         "shop": r.get::<String, _>("title"), "shop_id": r.get::<Option<i64>, _>("game_shop_id"), "item_id": item,
-        "category": category_name(i64::from(item)), "variant": variant, "slot": r.get::<Option<i32>, _>("slot"),
+        "category": listing_category(i64::from(item), r.try_get::<bool, _>("is_cash").unwrap_or(false)), "variant": variant, "slot": r.get::<Option<i32>, _>("slot"),
         "price": price, "bundle": bundle, "unit_price": r.get::<f64,_>("unit_price"),
         "source": r.get::<String,_>("source"), "unit_basis": r.get::<String,_>("unit_basis"),
         "stock": r.get::<Option<i32>, _>("stock"), "name_zh": r.get::<String, _>("name_zh"),
@@ -582,6 +586,87 @@ async fn quotes(db: &PgPool, items: &[i32], cutoff: f64) -> sqlx::Result<Vec<Map
     Ok(result)
 }
 
+/// The stalls of one room and channel: a stall read in the last day, of a
+/// shop with goods on sale, one per owner (their newest instance).
+async fn room_stalls(db: &PgPool, channel: i16, room: i16) -> sqlx::Result<Vec<Value>> {
+    Ok(sqlx::query(
+        "SELECT DISTINCT ON (COALESCE(s.owner_character_id::text, s.id::text))
+                s.public_key,s.title,s.owner_name,s.stall_x,s.stall_y,s.stall_permit,s.stall_look,
+                extract(epoch FROM s.stall_seen_at)::float8 AS seen
+         FROM shops s
+         WHERE s.world=$1 AND s.channel=$2 AND s.room=$3 AND s.stall_seen_at IS NOT NULL
+           AND s.stall_seen_at >= now() - interval '24 hours'
+           AND EXISTS (SELECT 1 FROM listings l WHERE l.shop_id=s.id AND l.stock>0)
+         ORDER BY COALESCE(s.owner_character_id::text, s.id::text), s.stall_seen_at DESC
+         LIMIT 200",
+    )
+    .bind(WORLD)
+    .bind(channel)
+    .bind(room)
+    .fetch_all(db)
+    .await?
+    .iter()
+    .map(|r| {
+        json!({"shop_key": r.get::<String,_>("public_key"), "title": r.get::<String,_>("title"),
+               "owner_name": r.get::<Option<String>,_>("owner_name"),
+               "x": r.get::<i16,_>("stall_x"), "y": r.get::<i16,_>("stall_y"),
+               "permit": r.get::<i32,_>("stall_permit"), "look": r.get::<Option<Value>,_>("stall_look"),
+               "seen": r.get::<f64,_>("seen")})
+    })
+    .collect())
+}
+
+/// The Free Market room map (`maps` 80002000 + room) with its scene picture.
+async fn room_map(db: &PgPool, room: i16) -> sqlx::Result<Option<Value>> {
+    Ok(sqlx::query(
+        "SELECT id,name_zh,name_en,scene_url,scene_x,scene_y,scene_w,scene_h FROM maps WHERE id = 80002000 + $1::int",
+    )
+    .bind(room)
+    .fetch_optional(db)
+    .await?
+    .map(|m| {
+        let scene = m.get::<Option<String>, _>("scene_url").map(|url| {
+            json!({"url": url, "x": m.get::<Option<i32>,_>("scene_x"), "y": m.get::<Option<i32>,_>("scene_y"),
+                   "w": m.get::<Option<i32>,_>("scene_w"), "h": m.get::<Option<i32>,_>("scene_h")})
+        });
+        json!({"id": m.get::<i32,_>("id"), "name_zh": m.get::<Option<String>,_>("name_zh"),
+               "name_en": m.get::<Option<String>,_>("name_en"), "scene": scene})
+    }))
+}
+
+/// One room of one channel as a visitor would find it
+/// (`/api/v1/market/room?channel=&room=`): the map and its stalls.
+pub async fn room_view(db: &PgPool, channel: i16, room: i16) -> sqlx::Result<Value> {
+    Ok(json!({
+        "channel": channel,
+        "room": room,
+        "map": room_map(db, room).await?,
+        "stalls": room_stalls(db, channel, room).await?,
+    }))
+}
+
+/// How many stalls each room of each channel has on the map
+/// (`/api/v1/market/rooms`), counted as `room_stalls` counts them.
+pub async fn rooms_overview(db: &PgPool) -> sqlx::Result<Value> {
+    let rows = sqlx::query(
+        "SELECT channel, room, count(*)::int AS stalls FROM (
+           SELECT DISTINCT ON (s.channel, s.room, COALESCE(s.owner_character_id::text, s.id::text)) s.channel, s.room
+           FROM shops s
+           WHERE s.world=$1 AND s.channel IS NOT NULL AND s.room IS NOT NULL AND s.stall_seen_at IS NOT NULL
+             AND s.stall_seen_at >= now() - interval '24 hours'
+             AND EXISTS (SELECT 1 FROM listings l WHERE l.shop_id=s.id AND l.stock>0)
+         ) t GROUP BY channel, room ORDER BY channel, room",
+    )
+    .bind(WORLD)
+    .fetch_all(db)
+    .await?;
+    let rooms: Vec<Value> = rows
+        .iter()
+        .map(|r| json!([r.get::<i16,_>("channel"), r.get::<i16,_>("room"), r.get::<i32,_>("stalls")]))
+        .collect();
+    Ok(json!({"rooms": rooms}))
+}
+
 /// One shop's live goods, its place and its stall (`/api/v1/shop?key=`).
 /// A known owner's shop is one shop whatever title or room it had: the
 /// family's live rows are only ever the newest instance's (ingest keeps it
@@ -660,36 +745,13 @@ pub async fn shop_view(db: &PgPool, key: &str) -> sqlx::Result<Option<Value>> {
                "look": r.get::<Option<Value>,_>("stall_look")})
     });
     // The other stalls of the same room and channel, so the map shows the
-    // whole room: a stall read in the last day, of a shop with goods on sale,
-    // one per owner (their newest instance).
+    // whole room.
     let channel: Option<i16> = head.get("channel");
     let room: Option<i16> = head.get("room");
-    let mut neighbors: Vec<Value> = Vec::new();
-    if let (Some(channel), Some(room)) = (channel, room) {
-        neighbors = sqlx::query(
-            "SELECT DISTINCT ON (COALESCE(s.owner_character_id::text, s.id::text))
-                    s.public_key,s.title,s.owner_name,s.stall_x,s.stall_y,s.stall_permit,s.stall_look
-             FROM shops s
-             WHERE s.world=$1 AND s.channel=$2 AND s.room=$3 AND s.stall_seen_at IS NOT NULL
-               AND s.stall_seen_at >= now() - interval '24 hours'
-               AND EXISTS (SELECT 1 FROM listings l WHERE l.shop_id=s.id AND l.stock>0)
-             ORDER BY COALESCE(s.owner_character_id::text, s.id::text), s.stall_seen_at DESC
-             LIMIT 200",
-        )
-        .bind(WORLD)
-        .bind(channel)
-        .bind(room)
-        .fetch_all(db)
-        .await?
-        .iter()
-        .map(|r| {
-            json!({"shop_key": r.get::<String,_>("public_key"), "title": r.get::<String,_>("title"),
-                   "owner_name": r.get::<Option<String>,_>("owner_name"),
-                   "x": r.get::<i16,_>("stall_x"), "y": r.get::<i16,_>("stall_y"),
-                   "permit": r.get::<i32,_>("stall_permit"), "look": r.get::<Option<Value>,_>("stall_look")})
-        })
-        .collect();
-    }
+    let neighbors = match (channel, room) {
+        (Some(channel), Some(room)) => room_stalls(db, channel, room).await?,
+        _ => Vec::new(),
+    };
     let scene = head
         .get::<Option<String>, _>("scene_url")
         .map(|url| {
@@ -763,7 +825,7 @@ fn sales_from() -> String {
          COALESCE(sh.public_key,'mesowatch:'||s.external_shop_id::text) AS public_key,
          r.slot,s.item_id,s.variant_id,v.stats_hash,v.stats AS equipment,r.price,r.bundle,r.stock,
          COALESCE(NULLIF(i.name_zh,''),i.id::text) AS name_zh,i.name_en,i.icon_url,i.subcategory,
-         i.req_level,i.req_job_mask,COALESCE(o.source,s.source) AS source,s.source_key,
+         i.req_level,i.req_job_mask,i.is_cash,COALESCE(o.source,s.source) AS source,s.source_key,
          COALESCE(market_unit_price(r.item_id,r.price,r.bundle),s.unit_price) AS unit_price,
          s.unit_basis,s.source_location,s.unit_price AS sale_unit_price,{SALE_COLUMNS}
          FROM market_sales s
@@ -866,7 +928,10 @@ pub async fn recent_sales(db: &PgPool, q: &SalesQuery, now: f64) -> sqlx::Result
         .unwrap_or_default();
     if q.category.is_some() {
         let n = if q.item_id.is_some() { 4 } else { 3 };
-        filters.push_str(&format!(" AND s.item_id / 1000000 = ANY(${n})"));
+        filters.push_str(&format!(
+            " AND {} = ANY(${n})",
+            listing_kind_sql("s.item_id")
+        ));
     }
     // The page is the first `limit` sales plus any sharing the last one's
     // time; `more` says whether older sales exist past it.
@@ -1906,8 +1971,17 @@ mod tests {
 
     #[test]
     fn percentile_caps_round_up_by_at_most_two_percent() {
-        for (price, cap) in [(299.0, 300.0), (296.0, 300.0), (300.0, 300.0), (1234.0, 1240.0),
-                             (145.0, 145.0), (29000.0, 29000.0), (98.5, 100.0), (2.5, 2.5), (0.0, 0.0)] {
+        for (price, cap) in [
+            (299.0, 300.0),
+            (296.0, 300.0),
+            (300.0, 300.0),
+            (1234.0, 1240.0),
+            (145.0, 145.0),
+            (29000.0, 29000.0),
+            (98.5, 100.0),
+            (2.5, 2.5),
+            (0.0, 0.0),
+        ] {
             assert_eq!(round_cap(price), cap, "{price}");
         }
     }

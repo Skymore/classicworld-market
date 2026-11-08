@@ -8,7 +8,7 @@ export const esc = (s) =>
 const oneDecimal = (x) => (Math.round(x * 10) / 10).toFixed(1).replace(/\.0$/, '');
 
 // Large numbers: Chinese pages use 万 / 亿 unless the visitor chose K / M under
-// 我的 → 偏好设置; English pages always use K / M. `setUnits` is called by the
+// 我的 → 偏好设置 (Korean: 만 / 억); English pages always use K / M. `setUnits` is called by the
 // app with the saved choice ('wan' | 'km' | null for the language default).
 let unitChoice = null;
 export function setUnits(value) {
@@ -17,7 +17,8 @@ export function setUnits(value) {
   unitChoice = next;
   if (typeof document !== 'undefined') document.dispatchEvent(new CustomEvent('unitschange'));
 }
-export const usesWan = () => lang === 'zh' && unitChoice !== 'km';
+// Korean counts in 만 / 억 like Chinese does in 万 / 亿.
+export const usesWan = () => lang !== 'en' && unitChoice !== 'km';
 export const unitChoiceNow = () => unitChoice;
 // Up to 1,000 of a unit keeps one decimal (44.4万); more drops it (1235万).
 const scaled = (x) => (Math.abs(x) >= 1000 ? String(Math.round(x)) : oneDecimal(x));
@@ -30,8 +31,9 @@ function large(v, km) {
     return a >= km ? oneDecimal(v / 1e3) + 'K' : null;
   }
   // 99,995,000 would round to 10000万, so it already takes 亿.
-  if (a >= 99995000) return scaled(v / 1e8) + '亿';
-  return a >= 1e4 ? scaled(v / 1e4) + '万' : null;
+  const [myriad, hundredMillion] = lang === 'ko' ? ['만', '억'] : ['万', '亿'];
+  if (a >= 99995000) return scaled(v / 1e8) + hundredMillion;
+  return a >= 1e4 ? scaled(v / 1e4) + myriad : null;
 }
 
 // Mesos: 1.5K / 44.4万 above a thousand (K / M) or ten thousand (万 / 亿).
@@ -70,9 +72,9 @@ export function loc(ch, room, context = null) {
   if(room == null) {
     const name=context?.[lang==='en'?'map_name_en':'map_name_zh'] || context?.map_name_en || context?.map_name_zh;
     const label=name || (context?.map_id != null ? `${lang==='en'?'Map':'地图'} ${context.map_id}` : (lang==='en'?'Room not recorded':'洞号未记录'));
-    return `<span class="loc" title="${esc(label)}"><b>${lang === 'en' ? `CH ${Number(ch)}` : `${Number(ch)}频道`}</b><span>${esc(label)}</span></span>`;
+    return `<span class="loc" title="${esc(label)}"><b>${lang === 'en' ? `CH ${Number(ch)}` : lang === 'ko' ? `${Number(ch)}채널` : `${Number(ch)}频道`}</b><span>${esc(label)}</span></span>`;
   }
-  return `<span class="loc"><b>${esc(lang === 'en' ? `CH ${ch}` : `${ch}频道`)}</b><span>${t('loc.room', { n: room })}</span></span>`;
+  return `<span class="loc"><b>${esc(lang === 'en' ? `CH ${ch}` : lang === 'ko' ? `${ch}채널` : `${ch}频道`)}</b><span>${t('loc.room', { n: room })}</span></span>`;
 }
 
 export const mobImg = (id, pose) => `https://maplestory.io/api/GMS/83/mob/${id}/render/${pose || 'stand'}`;

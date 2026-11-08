@@ -74,7 +74,7 @@ fn well_head(title: &str, note: Option<String>) -> Markup {
 fn n_of(ctx: &Ctx, n: usize, zh_unit: &str, en_unit: &str) -> String {
     match ctx.lang {
         Lang::Zh => format!("{n} {zh_unit}"),
-        Lang::En => format!("{n} {en_unit}"),
+        Lang::En | Lang::Ko => format!("{n} {en_unit}"),
     }
 }
 
@@ -195,7 +195,7 @@ pub fn mob_page(page: &MobPage, ctx: &Ctx) -> Markup {
                     }
                     @if page.drops.len() > DROPS_SHOWN {
                         button.more type="button" data-more="drops" {
-                            (match lang { Lang::Zh => format!("显示全部 {} 种", page.drops.len()), Lang::En => format!("Show all {}", page.drops.len()) })
+                            (match lang { Lang::Zh => format!("显示全部 {} 种", page.drops.len()), Lang::En | Lang::Ko => format!("Show all {}", page.drops.len()) })
                         }
                     }
                     @if page.drops.is_empty() { (empty(ctx.t("还没有玩家确认这只怪物的掉落。", "No player has confirmed a drop for this monster yet."))) }
@@ -208,7 +208,7 @@ pub fn mob_page(page: &MobPage, ctx: &Ctx) -> Markup {
                     }
                     @if page.spawns.len() > DROPS_SHOWN {
                         button.more type="button" data-more="spawns" {
-                            (match lang { Lang::Zh => format!("显示全部 {} 张", page.spawns.len()), Lang::En => format!("Show all {}", page.spawns.len()) })
+                            (match lang { Lang::Zh => format!("显示全部 {} 张", page.spawns.len()), Lang::En | Lang::Ko => format!("Show all {}", page.spawns.len()) })
                         }
                     }
                     @if page.spawns.is_empty() { (empty(ctx.t("图鉴里没有这只怪物的出现地图。", "The dex has no maps for this monster."))) }
@@ -228,7 +228,7 @@ pub fn mob_page(page: &MobPage, ctx: &Ctx) -> Markup {
 fn spawn_points(lang: Lang, n: i16) -> String {
     match lang {
         Lang::Zh => format!("{n} 个刷怪点"),
-        Lang::En => format!("{n} spawns"),
+        Lang::En | Lang::Ko => format!("{n} spawns"),
     }
 }
 
@@ -236,7 +236,7 @@ fn drop_row(ctx: &Ctx, drop: &MobDrop) -> Markup {
     let lang = ctx.lang;
     let quest = drop.quest_id.map(|q| match lang {
         Lang::Zh => format!(" · 任务 #{q} 期间"),
-        Lang::En => format!(" · during quest #{q}"),
+        Lang::En | Lang::Ko => format!(" · during quest #{q}"),
     });
     match &drop.what {
         DropTarget::Item {
@@ -539,7 +539,7 @@ pub fn route_page(page: &RoutePage, ctx: &Ctx) -> Markup {
                     input type="checkbox" name="taxi" value="1" checked[page.taxi];
                     span { (ctx.t("可以坐出租车", "Allow taxis")) }
                 }
-                @if ctx.lang == Lang::En { input type="hidden" name="lang" value="en"; }
+                @if ctx.lang != Lang::Zh { input type="hidden" name="lang" value=(ctx.lang.code()); }
                 button.btn.primary type="submit" {
                     @if page.mob_mode { (ctx.t("找最近的地图", "Find the nearest map")) } @else { (ctx.t("查路线", "Find route")) }
                 }
@@ -601,11 +601,11 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
             };
             let title = match (query.is_empty(), candidates.is_empty(), lang) {
                 (true, _, Lang::Zh) => format!("请填写{which}"),
-                (true, _, Lang::En) => format!("Enter a {which}"),
+                (true, _, Lang::En | Lang::Ko) => format!("Enter a {which}"),
                 (false, true, Lang::Zh) => format!("没有找到{which}「{query}」"),
-                (false, true, Lang::En) => format!("No {which} matches “{query}”"),
+                (false, true, Lang::En | Lang::Ko) => format!("No {which} matches “{query}”"),
                 (false, false, Lang::Zh) => format!("{which}「{query}」有多个地图，选一个"),
-                (false, false, Lang::En) => format!("Several maps match “{query}”; pick one"),
+                (false, false, Lang::En | Lang::Ko) => format!("Several maps match “{query}”; pick one"),
             };
             html! {
                 section.well {
@@ -662,9 +662,9 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
         RouteOutcome::MobUnresolved { query, candidates } => {
             let title = match (candidates.is_empty(), lang) {
                 (true, Lang::Zh) => format!("没有找到怪物「{query}」"),
-                (true, Lang::En) => format!("No monster matches “{query}”"),
+                (true, Lang::En | Lang::Ko) => format!("No monster matches “{query}”"),
                 (false, Lang::Zh) => format!("「{query}」有多只怪物，选一只"),
-                (false, Lang::En) => format!("Several monsters match “{query}”; pick one"),
+                (false, Lang::En | Lang::Ko) => format!("Several monsters match “{query}”; pick one"),
             };
             html! {
                 section.well {
@@ -684,7 +684,7 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
                 (well_head(ctx.t("暂时查不到路线", "No route found yet"), None))
                 (empty(&match lang {
                     Lang::Zh => format!("从{}到不了有{}的开放地图。", from.names.get(lang), mob.names.get(lang)),
-                    Lang::En => format!("No open map with {} can be reached from {}.", mob.names.get(lang), from.names.get(lang)),
+                    Lang::En | Lang::Ko => format!("No open map with {} can be reached from {}.", mob.names.get(lang), from.names.get(lang)),
                 }))
                 (mob_row(ctx, mob, None, None))
             }
@@ -701,14 +701,14 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
                 (well_head(
                     &match lang {
                         Lang::Zh => format!("{} → 最近的{}：{}", from.names.get(lang), mob.names.get(lang), to.names.get(lang)),
-                        Lang::En => format!("{} → nearest {}: {}", from.names.get(lang), mob.names.get(lang), to.names.get(lang)),
+                        Lang::En | Lang::Ko => format!("{} → nearest {}: {}", from.names.get(lang), mob.names.get(lang), to.names.get(lang)),
                     },
                     Some(n_of(ctx, steps.len(), "步", "steps")),
                 ))
                 @if steps.is_empty() {
                     (empty(&match lang {
                         Lang::Zh => format!("{}就在出发地图上。", mob.names.get(lang)),
-                        Lang::En => format!("{} spawns right on the start map.", mob.names.get(lang)),
+                        Lang::En | Lang::Ko => format!("{} spawns right on the start map.", mob.names.get(lang)),
                     }))
                 }
                 @if let Some(o) = overview { (route_overview(ctx, o)) }
@@ -718,14 +718,14 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
                 (well_head(
                     &match lang {
                         Lang::Zh => format!("{}的刷怪地图", mob.names.get(lang)),
-                        Lang::En => format!("Where {} spawns", mob.names.get(lang)),
+                        Lang::En | Lang::Ko => format!("Where {} spawns", mob.names.get(lang)),
                     },
                     Some(n_of(ctx, places.len(), "张", "maps")),
                 ))
                 @for place in places {
                     @let right = match (place.steps, lang) {
                         (Some(n), Lang::Zh) => format!("{n} 步 · {}", spawn_points(lang, place.spawn_count)),
-                        (Some(n), Lang::En) => format!("{n} steps · {}", spawn_points(lang, place.spawn_count)),
+                        (Some(n), Lang::En | Lang::Ko) => format!("{n} steps · {}", spawn_points(lang, place.spawn_count)),
                         (None, _) => format!("{} · {}", ctx.t("到不了", "unreachable"), spawn_points(lang, place.spawn_count)),
                     };
                     a.drow.here[place.map.id == to.id] href=(ctx.href(&route_href(&from.id.to_string(), &place.map.id.to_string()))) {
@@ -755,11 +755,11 @@ fn step_hint(ctx: &Ctx, step: &Step) -> String {
             .to_string(),
         (EdgeKind::Ship, _, Some(npc)) => match lang {
             Lang::Zh => format!("找圈出的{npc}坐船"),
-            Lang::En => format!("take the ship with {npc}, circled"),
+            Lang::En | Lang::Ko => format!("take the ship with {npc}, circled"),
         },
         (EdgeKind::Taxi, _, Some(npc)) => match lang {
             Lang::Zh => format!("找圈出的{npc}坐出租车"),
-            Lang::En => format!("take the taxi with {npc}, circled"),
+            Lang::En | Lang::Ko => format!("take the taxi with {npc}, circled"),
         },
         (kind, _, _) => edge_text(kind, step.portal_name.as_deref(), lang),
     }
@@ -947,7 +947,7 @@ fn count_text(ctx: &Ctx, kind: SearchKind, n: i64) -> String {
     };
     match ctx.lang {
         Lang::Zh => format!("共 {} {zh}", grouped(n)),
-        Lang::En => format!("{} {en}", grouped(n)),
+        Lang::En | Lang::Ko => format!("{} {en}", grouped(n)),
     }
 }
 
@@ -970,7 +970,7 @@ pub fn search_page(page: &SearchPage, ctx: &Ctx) -> Markup {
                     @for (key, value) in search_pairs(page).iter().filter(|(k, _)| k != "q") {
                         input type="hidden" name=(key) value=(value);
                     }
-                    @if ctx.lang == Lang::En { input type="hidden" name="lang" value="en"; }
+                    @if ctx.lang != Lang::Zh { input type="hidden" name="lang" value=(ctx.lang.code()); }
                 }
                 (kind_tabs(page, ctx))
                 @if page.kind == Some(SearchKind::Item) { (category_links(page, ctx)) }
@@ -1106,7 +1106,7 @@ fn kind_results(page: &SearchPage, kind: SearchKind, ctx: &Ctx) -> Markup {
                 @if total > 0 {
                     @match lang {
                         Lang::Zh => { " · 第 " (number) "/" (pages) " 页" },
-                        Lang::En => { " · page " (number) " of " (pages) },
+                        Lang::En | Lang::Ko => { " · page " (number) " of " (pages) },
                     }
                 }
             }
@@ -1390,7 +1390,7 @@ fn search_empty(page: &SearchPage, ctx: &Ctx, filtered: bool) -> Markup {
     let q = page.query.as_str();
     let text = match (q.is_empty(), filtered, ctx.lang) {
         (false, _, Lang::Zh) => format!("没有找到「{q}」。换个字试试，比如只输入名字的一部分。"),
-        (false, _, Lang::En) => format!("Nothing matches “{q}”. Try part of the name."),
+        (false, _, Lang::En | Lang::Ko) => format!("Nothing matches “{q}”. Try part of the name."),
         (true, true, _) => ctx
             .t("没有符合筛选条件的结果。", "Nothing matches these filters.")
             .to_string(),
@@ -1425,7 +1425,7 @@ fn mixed_results(page: &SearchPage, ctx: &Ctx) -> Markup {
                 (empty_state(ctx, &match lang {
                     _ if page.query.is_empty() => ctx.t("暂无图鉴数据。", "No catalogue data yet.").to_string(),
                     Lang::Zh => format!("没有找到「{}」。换个字试试，比如只输入名字的一部分。", page.query),
-                    Lang::En => format!("Nothing matches “{}”. Try part of the name.", page.query),
+                    Lang::En | Lang::Ko => format!("Nothing matches “{}”. Try part of the name.", page.query),
                 }))
             } @else {
                 (hits_well(page, ctx, SearchKind::Item, ctx.t("物品", "Items"), &page.items, |hit| item_hit(ctx, hit)))
@@ -1465,7 +1465,7 @@ fn hits_well<T>(
                 a.more href=(all) data-kind-all=(kind.key()) {
                     (match ctx.lang {
                         Lang::Zh => format!("查看全部 {} {}", grouped(hits.total), match kind { SearchKind::Item => "件", SearchKind::Mob => "只", SearchKind::Map => "张" }),
-                        Lang::En => format!("Show all {}", grouped(hits.total)),
+                        Lang::En | Lang::Ko => format!("Show all {}", grouped(hits.total)),
                     })
                 }
             }
@@ -1492,7 +1492,7 @@ pub fn not_found_page(what_zh: &str, what_en: &str, ctx: &Ctx) -> Markup {
             div.dbody {
                 (empty_state(ctx, &match ctx.lang {
                     Lang::Zh => format!("没有这个{what_zh}。可能编号写错了，或者图鉴还没收录。可以用搜索找。"),
-                    Lang::En => format!("No such {what_en}. The id may be wrong, or the dex does not have it yet. Try search."),
+                    Lang::En | Lang::Ko => format!("No such {what_en}. The id may be wrong, or the dex does not have it yet. Try search."),
                 }))
             }
         }

@@ -53,6 +53,12 @@ export default function Home() {
               {words("图鉴", "Catalogue")}
             </span>
           </SectionLink>
+          <SiteLink className="portal" href="/market" data-market-portal="">
+            <span className="p-top">
+              <Icon name="map" />
+              {words("云逛市场", "Cloud market")}
+            </span>
+          </SiteLink>
         </nav>
         <img
           className="deco-snail"

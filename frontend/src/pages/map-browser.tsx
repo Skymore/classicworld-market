@@ -7,6 +7,7 @@ import { useMapHint, useNames } from "./catalogue";
 import { ListWorld, levels } from "./worldmap";
 import { Zoomable } from "./zoom";
 import { dexHref } from "/web/js/lib/dex-filters.js";
+import { secondaryLanguage } from "/web/js/lib/i18n.js";
 
 // The map list: region chips over the world map (left) and picture cards
 // (right) in one box. The cards scroll inside the box and more load as they
@@ -33,7 +34,7 @@ function MapTile({ map, onHover }: { map: any; onHover: (map: any | null) => voi
   const own = name(map.names);
   const details: string[] = [];
   for (const part of [
-    map.names?.[language === "en" ? "zh" : "en"],
+    map.names?.[secondaryLanguage()],
     map.street && name(map.street),
     map.copies && name(map.copies),
     hint(map.hint),

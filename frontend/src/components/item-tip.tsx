@@ -27,7 +27,10 @@ export function Desc({ text }: { text: string }) {
 export function useTip(tip: any) {
   const { language } = usePreferences();
   const info = tip?.info || {};
-  const desc: string | undefined = language === "en" ? tip?.desc_en || tip?.desc_zh : tip?.desc_zh || tip?.desc_en;
+  const desc: string | undefined =
+    language === "en" ? tip?.desc_en || tip?.desc_zh
+    : language === "ko" ? tip?.desc_ko || tip?.desc_en || tip?.desc_zh
+    : tip?.desc_zh || tip?.desc_en;
   const flags = TIP_FLAGS.filter(([key]) => info[key]);
   return { desc, flags };
 }
