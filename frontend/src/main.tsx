@@ -226,7 +226,7 @@ function Application() {
     mob: words("怪物图鉴", "Monster"),
     map: words("地图", "Map"),
     route: words("怎么走", "Route"),
-    selling: words("背包与摆摊", "Bag & shop"),
+    selling: words("摆摊", "Shop planner"),
   };
   const navigationType = useNavigationType();
   const lastPath = useRef<string | null>(null);

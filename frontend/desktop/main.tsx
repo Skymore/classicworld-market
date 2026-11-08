@@ -11,8 +11,8 @@ import SitePage, { type WatchSummary } from './site-page';
 import { updateLabel } from './format';
 import { healthLabel, initial, isLive, type State, type Theme } from './state';
 
-type Tab = 'scan' | 'watch' | 'prices' | 'sweep' | 'account';
-const TABS: [Tab, string][] = [['scan', '扫描采集'], ['watch', '关注'], ['prices', '价格表'], ['sweep', '扫货'], ['account', '账号']];
+type Tab = 'scan' | 'watch' | 'prices' | 'selling' | 'sweep' | 'account';
+const TABS: [Tab, string][] = [['scan', '扫描采集'], ['watch', '关注'], ['prices', '价格表'], ['selling', '摆摊'], ['sweep', '扫货'], ['account', '账号']];
 // One button cycles light → dark → system.
 const THEMES: Record<Theme, { label: string; next: Theme }> = {
   light: { label: '浅色', next: 'dark' }, dark: { label: '深色', next: 'system' }, system: { label: '跟随系统', next: 'light' },
@@ -51,9 +51,9 @@ function App() {
   const [tab, setTab] = useState<Tab>('scan');
   const [state, setState] = useState<State>(initial), [connected, setConnected] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(''), [now, setNow] = useState(Date.now());
   const [selected, setSelected] = useState<number | null>(null), [resolved, setResolved] = useState<'light' | 'dark'>('light');
-  const [watch, setWatch] = useState<WatchSummary | null>(null), [pricesOpened, setPricesOpened] = useState(false);
+  const [watch, setWatch] = useState<WatchSummary | null>(null), [pricesOpened, setPricesOpened] = useState(false), [sellingOpened, setSellingOpened] = useState(false);
   const onSummary = useCallback((summary: WatchSummary) => setWatch(summary), []);
-  useEffect(() => { if (tab === 'prices') setPricesOpened(true); }, [tab]);
+  useEffect(() => { if (tab === 'prices') setPricesOpened(true); if (tab === 'selling') setSellingOpened(true); }, [tab]);
   const workspace = useWorkspaceStatus(), sweep = workspace.status?.linked ? workspace.status.sweep : null;
   useEffect(() => {
     let alive = true;
@@ -100,13 +100,14 @@ function App() {
       </div>
     </header>
     <RemoteDebugBanner state={state} update={setState} now={now} />
-    <main className={'desktop-main ' + (tab === 'scan' ? 'scan-main' : tab === 'watch' || tab === 'prices' ? 'workspace-main site-main' : 'workspace-main')}>
+    <main className={'desktop-main ' + (tab === 'scan' ? 'scan-main' : tab === 'watch' || tab === 'prices' || tab === 'selling' ? 'workspace-main site-main' : 'workspace-main')}>
       {tab === 'scan' ? <ScanPage state={state} connected={connected} busy={busy} error={error} now={now} selected={selected} select={setSelected}
           action={action} sweep={sweep} openSweep={() => setTab('sweep')} />
         : tab === 'sweep' || tab === 'account' ? <WorkspaceTab tab={tab} workspace={workspace} shell={shell} /> : null}
       {/* Site pages stay mounted once opened: the watch page reports hits even while another tab is shown. */}
       {connected && <SitePage page="watch" theme={resolved} hidden={tab !== 'watch'} onSummary={onSummary} />}
       {connected && pricesOpened && <SitePage page="prices" theme={resolved} hidden={tab !== 'prices'} />}
+      {connected && sellingOpened && <SitePage page="selling" theme={resolved} hidden={tab !== 'selling'} />}
     </main>
     {connected && !state.maximized && <ResizeGrip />}
     <footer className="app-footer"><span><kbd>F9</kbd> 停止扫描 <b>·</b> 扫描时保持游戏在前台</span>

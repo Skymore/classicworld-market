@@ -40,6 +40,28 @@ class PersonalEventGateway(unittest.TestCase):
      with self.assertRaises(urllib.error.HTTPError) as error:urllib.request.urlopen(base+'/api/v1/collector/watch-listings?ids=bad')
      self.assertEqual(error.exception.code,400)
     finally:server.shutdown();server.server_close();thread.join(3)
+ def test_selling_page_reads_local_bag_and_proxies_validated_prices(self):
+  from collector_dashboard import create_server
+  import threading,urllib.request,urllib.error
+  with tempfile.TemporaryDirectory() as folder:
+   holdings={'observed_at':int(time.time()),'mesos':5,'categories':[2,3,4],'items':[{'item_id':2000002,'quantity':600}]}
+   (Path(folder)/'inventory_state.json').write_text(json.dumps({'alive_at':int(time.time()),'holdings':holdings}),encoding='utf-8')
+   with patch.object(Gateway,'fetch',return_value={'products':[]}) as fetch:
+    server=create_server({'endpoint':'http://127.0.0.1:1234','token':'synthetic-secret-'+'z'*32},Path(folder),port=0)
+    thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+    try:
+     base=f'http://127.0.0.1:{server.server_port}'
+     with urllib.request.urlopen(base+'/selling') as response:self.assertEqual(response.status,200)
+     with urllib.request.urlopen(base+'/api/v1/collector/inventory') as response:
+      self.assertEqual(json.loads(response.read())['holdings'],holdings)
+     urllib.request.urlopen(base+'/api/v1/market/selected?hours=72&ids=2000002').read()
+     fetch.assert_called_with('/api/v1/market/selected?hours=72&ids=2000002',30)
+     urllib.request.urlopen(base+'/api/v1/npc-sell?ids=2000002').read()
+     fetch.assert_called_with('/api/v1/npc-sell?ids=2000002',3600)
+     for bad in ('/api/v1/npc-sell?ids=x','/api/v1/market/selected?hours=5&ids=2000002'):
+      with self.assertRaises(urllib.error.HTTPError) as error:urllib.request.urlopen(base+bad)
+      self.assertEqual(error.exception.code,400)
+    finally:server.shutdown();server.server_close();thread.join(3)
  def test_relay_preserves_events_invalidates_cache_and_keeps_token_out_of_body(self):
   with tempfile.TemporaryDirectory() as folder:
    token='synthetic-private-'+'x'*32

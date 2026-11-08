@@ -327,6 +327,7 @@ function EmbeddedNavigation() {
 /** Pages that live under 工具, with the name their breadcrumb shows. */
 const TOOL_PAGES: [string, string, string][] = [
   ["/tools/enhancement", "强化计算器", "Enhancement calculator"],
+  ["/selling", "摆摊", "Shop planner"],
   ["/alerts", "低价提醒", "Deal alerts"],
   ["/collect", "浏览器采集", "Browser collector"],
   ["/web/download.html", "下载采集器", "Download collector"],

@@ -7,6 +7,7 @@ type Entry = [href: string, key: string, icon: string, zh: string, en: string];
 
 const TOOLS: Entry[] = [
   ["/tools/enhancement", "enhancement", "star", "强化计算器", "Enhancement calculator"],
+  ["/selling", "selling", "tag", "摆摊", "Shop planner"],
 ];
 const COLLECT: Entry[] = [
   ["/collect/", "collect", "search", "浏览器采集", "Browser collector"],

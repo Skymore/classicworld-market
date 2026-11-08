@@ -1,0 +1,80 @@
+/* 摆摊页：左边背包格子，右边摆摊清单；价格选项竖排。 */
+.selling-page{display:flex;flex-direction:column;gap:12px;min-width:0}
+html[data-page=selling] .dwrap{max-width:1280px}
+.selling-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.selling-head h1{font-size:20px;font-weight:800;letter-spacing:.04em}
+.selling-src{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
+.selling-src i{width:8px;height:8px;border-radius:50%;background:var(--ink-3)}
+.selling-src i.on{background:#3f8f4f}
+.selling-device{min-height:36px;background:var(--sheet-hi);color:var(--ink);border:1px solid var(--edge);font:inherit;padding:0 8px}
+.selling-page .selling-layout{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;grid-template-columns:none}
+.selling-page .selling-bag{flex:1 1 340px;max-width:420px}
+.selling-page .selling-plan{flex:999 1 560px;min-width:0}
+.selling-tabs{display:flex;border-bottom:1px solid var(--rule);background:var(--sheet-lo)}
+.selling-tabs button{flex:1;min-height:44px;font-size:14px;color:var(--ink-2)}
+.selling-tabs button.on{color:var(--bar-text);font-weight:700;background:var(--sheet);box-shadow:inset 0 -3px 0 var(--bar)}
+.selling-slots{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;padding:12px}
+.selling-slot{position:relative;aspect-ratio:1;min-height:44px;display:grid;place-items:center;background:var(--sheet-hi);border:1px solid var(--bevel-lo)}
+.selling-slot:hover{border-color:var(--bar)}
+.selling-slot.on{outline:2px solid var(--maple);outline-offset:-2px;background:var(--maple-tint)}
+.selling-slot.on::before{content:'✓';position:absolute;left:2px;top:2px;width:16px;height:16px;display:grid;place-items:center;background:var(--maple);color:#fff;font-size:11px;border-radius:2px;z-index:1}
+.selling-qty{position:absolute;right:3px;bottom:1px;font-size:11px;font-weight:700;color:var(--ink)}
+.selling-note,.selling-empty{padding:32px 16px;text-align:center;color:var(--ink-3);font-size:14px}
+.selling-empty .btn{margin-top:12px}
+.selling-bagfoot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between;padding:10px 12px;border-top:1px solid var(--rule);font-size:13px;color:var(--ink-2)}
+.selling-bagfoot b{color:var(--ink)}
+.selling-bagfoot .btn,.selling-foot .btn{min-height:36px;font-size:13px;padding:0 12px}
+.selling-strat{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--rule);background:var(--sheet-lo);font-size:13px;color:var(--ink-2)}
+.selling-seg{display:flex;border:1px solid var(--edge);background:var(--sheet-hi)}
+.selling-seg button{min-height:36px;padding:0 14px;font-size:13px}
+.selling-seg button+button{border-left:1px solid var(--rule)}
+.selling-seg button.on{background:var(--bar);color:#fff}
+.selling-row{display:grid;grid-template-columns:minmax(180px,1.1fr) minmax(180px,1fr) 150px 130px;gap:14px;align-items:start;padding:14px 12px;border-bottom:1px solid var(--rule)}
+.selling-row.bad{background:color-mix(in srgb,var(--maple-tint) 50%,transparent)}
+.selling-who{display:flex;gap:10px;align-items:flex-start;min-width:0}
+.selling-who>div{min-width:0;flex:1}
+.selling-who b{display:block;font-size:14px}
+.selling-who small,.selling-amount small,.selling-total small{display:block;font-size:12px;color:var(--ink-3);margin-top:2px}
+.selling-x{width:32px;height:32px;flex:none;font-size:18px;color:var(--ink-3)}
+.selling-x:hover{color:var(--maple-ink)}
+/* 价格选项竖排：成交 25%、成交中位、手动 */
+.selling-prices{display:flex;flex-direction:column;gap:4px}
+.selling-prices button,.selling-prices label{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:38px;padding:0 10px;background:var(--sheet-hi);border:1px solid var(--rule);text-align:left}
+.selling-prices small{font-size:12px;color:var(--ink-3);white-space:nowrap}
+.selling-prices span{font-weight:700;font-size:14px}
+.selling-prices button:hover:not(:disabled){border-color:var(--bar)}
+.selling-prices button.on{background:var(--bar);border-color:var(--edge);color:#fff}
+.selling-prices button.on small{color:var(--bar-soft)}
+.selling-prices button:disabled{opacity:.5;cursor:not-allowed}
+.selling-prices label.on{border:2px solid var(--maple);padding:0 9px}
+.selling-prices input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:inherit;font-size:14px;font-weight:700;text-align:right;padding:0;outline:0}
+.selling-npc{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px;padding:0 10px;border:1px dashed var(--rule);font-size:13px}
+.selling-npc small{font-size:12px;color:var(--ink-3)}
+.selling-npc span{font-weight:700;color:var(--ink-2)}
+.selling-npc.low{border-color:var(--maple)}
+.selling-npc.low span{color:var(--maple-ink)}
+.selling-prices>.selling-warn{font-size:12px;color:var(--maple-ink)}
+.selling-amount label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
+.selling-amount input{width:64px;min-height:34px;border:1px solid var(--edge);background:var(--sheet-hi);color:var(--ink);font:inherit;font-size:14px;text-align:right;padding:0 6px}
+.selling-step{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:13px;color:var(--ink-2)}
+.selling-step button{width:32px;height:34px;border:1px solid var(--edge);background:var(--sheet-hi);font-size:16px}
+.selling-step b{min-width:24px;text-align:center;color:var(--ink)}
+.selling-total{text-align:right}
+.selling-total b{font-size:16px}
+.selling-total .selling-warn{color:var(--maple-ink)}
+.selling-foot{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px;background:var(--sheet-lo)}
+.selling-foot small{display:block;font-size:12px;color:var(--ink-3)}
+.selling-foot b{font-size:22px;font-weight:800;color:var(--bar-text)}
+.selling-foot .grow{flex:1}
+@media(max-width:900px){
+  .selling-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+  .selling-who{grid-column:1/-1}
+  .selling-prices{grid-column:1/-1}
+}
+@media(max-width:640px){
+  .selling-page .selling-bag{max-width:none}
+  .selling-slots{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .selling-prices button,.selling-prices label{min-height:44px}
+  .selling-prices input,.selling-amount input,.selling-device{font-size:16px}
+  .selling-step button{width:40px;height:40px}
+}

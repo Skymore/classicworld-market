@@ -77,6 +77,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/items/{id}", get(item_record))
         .route("/api/v1/enhancement/scrolls/{id}", get(enhancement_scrolls))
         .route("/api/v1/crafting/prices", get(crafting_prices))
+        .route("/api/v1/npc-sell", get(npc_sell))
         .route("/api/v1/item/{id}", get(item_page))
         .route("/api/v1/shop", get(shop_view))
         .route("/api/v1/watchlist/catalog", get(watch_catalog))
@@ -989,6 +990,30 @@ async fn crafting_prices(
     {
         Ok(Some(value)) => Json(value).into_response(),
         Ok(None) => unreachable!("crafting snapshot always exists"),
+        Err(err) => internal(err),
+    }
+}
+
+/// `{"prices":{"<item id>":<mesos>}}`: NPC buy-back prices, up to 100 IDs.
+async fn npc_sell(
+    State(state): State<AppState>,
+    ClientAddr(addr): ClientAddr,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    if let Err(response) = reader(&state, &headers, &addr, "npc-sell").await {
+        return response;
+    }
+    let Some(ids) = views::parse_item_ids(&query_param(&query, "ids").unwrap_or_default()) else {
+        return error(StatusCode::BAD_REQUEST, "Invalid item IDs");
+    };
+    match crate::bestiary::queries::npc_sell_prices(&state.db, &ids).await {
+        Ok(rows) => {
+            let prices: serde_json::Map<String, Value> =
+                rows.into_iter().map(|(id, p)| (id.to_string(), json!(p))).collect();
+            ([(header::CACHE_CONTROL, "public, max-age=3600")], Json(json!({"prices": prices})))
+                .into_response()
+        }
         Err(err) => internal(err),
     }
 }

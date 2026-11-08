@@ -326,7 +326,7 @@ def create_server(config, folder, port=8780, home=None):
                 except Exception:self.send_error(503,'Page temporarily unavailable')
                 return
             try:
-                if parsed.path in ('/', '/alerts','/watch','/prices','/sales','/account','/contributors','/privacy'):
+                if parsed.path in ('/', '/alerts','/watch','/prices','/sales','/account','/contributors','/privacy','/selling'):
                     body = (web_assets.WEB/'index.html').read_bytes()
                     kind = 'text/html; charset=utf-8'
                 elif parsed.path[1:] in ASSETS:
@@ -364,6 +364,19 @@ def create_server(config, folder, port=8780, home=None):
                         ids=query.get('ids',[''])[0]
                         if len(ids)>1100 or len(ids.split(','))>100 or any(not v.isdigit() or not 1000000<=int(v)<=5999999 for v in ids.split(',') if v):raise ValueError('Invalid item IDs')
                         result=gateway.fetch('/api/v1/collector/watch-listings?'+urlencode({'ids':ids}),0)
+                    elif parsed.path == '/api/v1/collector/inventory':
+                        # The stall planner reads this PC's bag directly; nothing is uploaded.
+                        from market_inventory import read_inventory
+                        result={'holdings':read_inventory(gateway.folder)}
+                    elif parsed.path in ('/api/v1/market/selected','/api/v1/npc-sell'):
+                        ids=query.get('ids',[''])[0]
+                        if len(ids)>1100 or len(ids.split(','))>100 or any(not v.isdigit() or not 1000000<=int(v)<=5999999 for v in ids.split(',') if v):raise ValueError('Invalid item IDs')
+                        args={'ids':ids}
+                        if parsed.path=='/api/v1/market/selected':
+                            hours=query.get('hours',['72'])[0]
+                            if hours not in ('72','all'):raise ValueError('Invalid quote window')
+                            args={'hours':hours,'ids':ids}
+                        result=gateway.fetch(parsed.path+'?'+urlencode(args),30 if parsed.path=='/api/v1/market/selected' else 3600)
                     elif parsed.path == '/api/v1/collector/alerts':
                         hours=query.get('hours',['72'])[0]
                         if hours not in ('72','all'):raise ValueError('Invalid quote window')

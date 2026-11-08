@@ -64,7 +64,7 @@ class DesktopWorkspace:
         if action == 'status':
             return self.engine().status()
         if action == 'page':
-            if not isinstance(value, dict) or value.get('page') not in ('watch', 'prices'):
+            if not isinstance(value, dict) or value.get('page') not in ('watch', 'prices', 'selling'):
                 raise ValueError('无效页面')
             theme = value.get('theme') if value.get('theme') in ('light','dark') else 'light'
             # embed=1: the site hides its own header, navigation and assistant inside the collector.

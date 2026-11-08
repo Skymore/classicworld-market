@@ -163,12 +163,12 @@ try{
  await executor.filter({hasText:'购买功能就绪'}).waitFor({timeout:7000});
  assert.equal(await page.locator('[data-sweep-settings]').count(),0);
  const budget=page.locator('[data-sweep-run] [name=budget]');
- await page.locator('[data-sweep-run]').getByRole('button',{name:'1M',exact:true}).click();
+ await page.locator('[data-sweep-run]').getByRole('button',{name:'100万',exact:true}).click();
  assert.equal(await budget.inputValue(),'1000000');
  await budget.fill('2000000');
  assert.equal(await startButton.isDisabled(),false,'legacy local cap zero no longer blocks a shared run');
  await page.locator('[data-sweep-run]').getByRole('button',{name:'6 小时',exact:true}).click();
- assert.match(await text(page.locator('[data-start-summary]')),/^褐色皮帽、战斗弓、红药水 · 预算 2M · (今天|明天) \d\d:\d\d 结束$/);
+ assert.match(await text(page.locator('[data-start-summary]')),/^褐色皮帽、战斗弓、红药水 · 预算 200万 · (今天|明天) \d\d:\d\d 结束$/);
  await page.screenshot({path:path.join(shots,'desktop-sweep-idle.png')});
  await startButton.click();
  assert.deepEqual(calls.filter(c=>c.action==='start').at(-1).value,{budget:2000000,minutes:360,devices:['dev-a']});
@@ -188,7 +188,7 @@ try{
  await page.screenshot({path:path.join(shots,'desktop-sweep-running.png')});
  await tabs.getByRole('button',{name:'扫描采集',exact:true}).click();
  const line=page.locator('[data-sweep-status-line]');await line.waitFor();
- assert.equal(await text(line),'扫货中 已花 1.1K / 2M · 正在扫 3 洞 · 本轮已买 2 件 查看');
+ assert.equal(await text(line),'扫货中 已花 1100 / 200万 · 正在扫 3 洞 · 本轮已买 2 件 查看');
  await page.screenshot({path:path.join(shots,'desktop-scan-status-line.png')});
  await line.getByRole('button',{name:'查看'}).click();
  await page.locator('[data-native-stop]').click();await startButton.waitFor();

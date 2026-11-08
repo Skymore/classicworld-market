@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 
+const LABELS = { watch: '关注', prices: '价格表', selling: '摆摊' };
+
 export interface WatchSummary { hits: number; watches: number; synced: boolean }
 
 /** A whole website page in embed mode (desktop_workspace.py adds embed=1); reloads when the theme changes.
  * The watch page stays mounted while hidden so its hit badge keeps updating. */
 export default function SitePage({ page, theme, hidden = false, onSummary }: {
-  page: 'watch' | 'prices'; theme: 'light' | 'dark'; hidden?: boolean; onSummary?(summary: WatchSummary): void;
+  page: 'watch' | 'prices' | 'selling'; theme: 'light' | 'dark'; hidden?: boolean; onSummary?(summary: WatchSummary): void;
 }) {
   const [url, setUrl] = useState(''), [error, setError] = useState('');
   const [attempt, retry] = useState(0);
@@ -31,7 +33,7 @@ export default function SitePage({ page, theme, hidden = false, onSummary }: {
   }, [url, onSummary]);
   const style = hidden ? { display: 'none' } : undefined;
   return error ? <div className="error-banner" style={style}>{error}<button onClick={() => retry(attempt + 1)}>重试</button></div> : url ?
-    <iframe ref={frame} className="desktop-site-page" style={style} title={page === 'watch' ? '关注整页' : '价格表整页'} src={url}
+    <iframe ref={frame} className="desktop-site-page" style={style} title={LABELS[page] + '整页'} src={url}
       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads" /> :
-    hidden ? null : <p className="workspace-note">正在打开{page === 'watch' ? '关注' : '价格表'}…</p>;
+    hidden ? null : <p className="workspace-note">正在打开{LABELS[page]}…</p>;
 }

@@ -481,6 +481,24 @@ async fn npc_offers(db: &PgPool, item_id: i32) -> sqlx::Result<Vec<NpcOffer>> {
         .collect())
 }
 
+/// NPC buy-back prices for many items at once (the stall planner's bag).
+/// Reads only the three price paths, never whole records.
+pub async fn npc_sell_prices(db: &PgPool, ids: &[i32]) -> sqlx::Result<Vec<(i32, i64)>> {
+    let rows: Vec<(i32, Value)> = sqlx::query_as(
+        "SELECT item_id, jsonb_build_object('npc_price', record->'npc_price',
+            'niadb_reference', jsonb_build_object('stats', jsonb_build_object('price', record#>'{niadb_reference,stats,price}')),
+            'mapledex_reference', jsonb_build_object('data', jsonb_build_object('price', record#>'{mapledex_reference,data,price}')))
+         FROM item_records WHERE item_id = ANY($1) ORDER BY item_id",
+    )
+    .bind(ids)
+    .fetch_all(db)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|(id, record)| npc_sell_price(&record).map(|price| (id, price)))
+        .collect())
+}
+
 /// DVG's `npc_price` when it has one, else NiaDB's, else Mapledex's shop `price`.
 fn npc_sell_price(record: &Value) -> Option<i64> {
     let positive = |v: Option<&Value>| v.and_then(Value::as_f64).filter(|p| *p > 0.0);
