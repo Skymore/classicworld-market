@@ -1,36 +1,36 @@
 {
  "shell": [
-  "chunks/main-DxtUs8W9.js",
-  "chunks/shared-CyCO-lgP.js",
-  "chunks/assistant-icon-XxRE44Op.js",
-  "chunks/shell-Bt4br1bJ.js",
+  "chunks/main-C5eNCPlb.js",
+  "chunks/shared-Cwf5YL9D.js",
+  "chunks/assistant-icon-hY0GfDkf.js",
+  "chunks/shell-M1akjSXI.js",
   "chunks/embed-MErqN2al.js",
-  "chunks/watch-ids-Duq9crSV.js",
+  "chunks/watch-ids-D1BfyfvC.js",
   "chunks/item-market-BznqKqrm.js",
-  "chunks/user-round-BnS-fOi8.js",
-  "chunks/createLucideIcon-DOhB6Mqm.js",
-  "chunks/item-tip-szCvK2Im.js",
-  "chunks/toasts-BTLENdhr.js",
-  "chunks/list-rows-Wsc35shl.js",
+  "chunks/user-round-D3OeLOOV.js",
+  "chunks/createLucideIcon-tgWCcnX0.js",
+  "chunks/item-tip-6-ki30ae.js",
+  "chunks/toasts-DgV-9FJx.js",
+  "chunks/list-rows-Bu5nKRIR.js",
   "chunks/equipment-summary-BAqE_aiN.js",
-  "chunks/push-NWohfBsj.js",
-  "chunks/account-api-CfvkjcI2.js",
-  "chunks/watch-alerts-DvvjnoJU.js",
+  "chunks/push-B4Y7dGVV.js",
+  "chunks/account-api-BBft_6am.js",
+  "chunks/watch-alerts-DvWC7Q0h.js",
   "chunks/watchlist-core-CnJpcWvS.js",
   "chunks/item-offer-filters-Bqp-qBXH.js",
   "chunks/watch-reminders-pyT7no6d.js",
-  "chunks/live-tUNz4TAo.js",
-  "chunks/list-copy-DKMBVUW0.js"
+  "chunks/live-BeLEbRYy.js",
+  "chunks/list-copy-CgzCfLMV.js"
  ],
  "catalogue": {
   "modules": [
-   "chunks/catalogue-BtO9ppk9.js",
-   "chunks/catalogue-CC5cTsDo.js",
-   "chunks/shop-view-ChO5wVY8.js",
-   "chunks/chevron-right-Dg81DoGq.js",
-   "chunks/maximize-2-BVCADB9K.js",
-   "chunks/x-K8epZFBc.js",
-   "chunks/offer-filters-FP7bSFsv.js",
+   "chunks/catalogue-Bu75LEjU.js",
+   "chunks/catalogue-B_rwvxpL.js",
+   "chunks/shop-view-Cg2h0My8.js",
+   "chunks/chevron-right-CY1gq-Mw.js",
+   "chunks/maximize-2-AmDEO5kK.js",
+   "chunks/x-D8pr1BE9.js",
+   "chunks/offer-filters-BdJSp6ek.js",
    "chunks/crafting-CXB4nJ1A.js"
   ],
   "styles": [
@@ -40,9 +40,9 @@
  },
  "search": {
   "modules": [
-   "chunks/catalogue-search-C0sH5XzC.js",
-   "chunks/dialog-DT9PruCZ.js",
-   "chunks/price-state-BZFgu40o.js"
+   "chunks/catalogue-search-DnUyxHEc.js",
+   "chunks/dialog-BG3HsSV-.js",
+   "chunks/price-state-CM6xKDyT.js"
   ],
   "styles": []
  },

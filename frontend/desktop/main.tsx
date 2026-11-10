@@ -4,21 +4,23 @@ import { Copy, Languages, Minus, Square, X } from 'lucide-react';
 import * as Menu from '@radix-ui/react-dropdown-menu';
 import '../../web/css/base.css';
 import './style.css';
-import WorkspaceTab, { useWorkspaceStatus, type Shell } from './workspace';
+import { useWorkspaceStatus } from './workspace';
 import ScanPage from './scan-page';
 import BugReport from './bug-report';
 import { RemoteDebugTools, RemoteDebugBanner } from './remote-debug';
-import SitePage, { SITE_LABELS, type SitePageKey, type WatchSummary } from './site-page';
+import SitePage, { SITE_LABELS, type HostShell, type SitePageKey, type WatchSummary } from './site-page';
 import { applyLanguage, language as currentLanguage, systemLanguage, tr, type Lang, type LangChoice } from './i18n';
 import { updateLabel } from './format';
 import { healthLabel, initial, isLive, type State, type Theme } from './state';
 
 type ClientTab = 'scan' | 'sweep' | 'account';
 type Tab = SitePageKey | ClientTab;
+// Sweep and account are pages too (built with the website, served by this PC), shown in the collector's group.
 // The website's sections, in its navigation order, then what only the collector does.
 const SITE_TABS: SitePageKey[] = ['home', 'dex', 'watch', 'selling', 'tools'];
 const CLIENT_TABS: [ClientTab, string, string][] = [['scan', '扫描采集', 'Scan'], ['sweep', '扫货', 'Sweep'], ['account', '账号', 'Account']];
-const isSite = (tab: Tab): tab is SitePageKey => (SITE_TABS as string[]).includes(tab);
+const PAGE_TABS: SitePageKey[] = [...SITE_TABS, 'sweep', 'account'];
+const isSite = (tab: Tab): tab is SitePageKey => (PAGE_TABS as string[]).includes(tab);
 // One button cycles light → dark → system.
 const THEMES: Record<Theme, [string, string]> = { system: ['跟随系统', 'System'], light: ['浅色', 'Light'], dark: ['深色', 'Dark'] };
 const LANGUAGE_CHOICES: LangChoice[] = ['system', 'zh', 'en', 'ko'];
@@ -113,12 +115,14 @@ function App() {
     return <button key={key} aria-pressed={tab === key} aria-label={hits ? tr(`${label}，${hits} 件有符合条件的在售`, `${label}, ${hits} with matching offers`) : undefined} onClick={() => setTab(key)}>
       {label}{hits > 0 && <b className="tab-badge" data-watch-hits>{hits}</b>}</button>;
   };
-  const shell: Shell = {
-    version: state.version, updates: state.updates, uploaded: state.uploaded, gameLive: isLive(state), gameLabel: healthLabel(state), watch,
-    openWatch: () => setTab('watch'), openWebsite: () => action('website'),
+  const shell: HostShell = {
+    version: state.version, updates: state.updates, uploaded: state.uploaded, gameLive: isLive(state), gameLabel: healthLabel(state),
+    watch: watch && { watches: watch.watches, synced: watch.synced },
   };
   const sitePage = (page: SitePageKey) => <SitePage key={page} page={page} theme={resolved} lang={lang} hidden={tab !== page}
-    onSummary={page === 'watch' ? onSummary : undefined} />;
+    onSummary={page === 'watch' ? onSummary : undefined}
+    shell={page === 'sweep' || page === 'account' ? shell : undefined}
+    onShell={what => what === 'watch' ? setTab('watch') : action('website')} />;
   return <div className="desktop-app">
     <header className="app-header">
       <div className="app-brand pywebview-drag-region"><Leaf /><strong className="pywebview-drag-region">{tr('枫叶市集', 'Maple Market')}</strong></div>
@@ -148,9 +152,9 @@ function App() {
     <main className={'desktop-main ' + (tab === 'scan' ? 'scan-main' : isSite(tab) ? 'workspace-main site-main' : 'workspace-main')}>
       {tab === 'scan' ? <ScanPage state={state} connected={connected} busy={busy} error={error} now={now} selected={selected} select={setSelected}
           action={action} sweep={sweep} openSweep={() => setTab('sweep')} />
-        : tab === 'sweep' || tab === 'account' ? <WorkspaceTab tab={tab} workspace={workspace} shell={shell} /> : null}
+        : null}
       {/* Site pages stay mounted once opened: the watch page reports hits even while another tab is shown. */}
-      {connected && SITE_TABS.filter(page => page === 'watch' || opened.includes(page)).map(sitePage)}
+      {connected && PAGE_TABS.filter(page => page === 'watch' || opened.includes(page)).map(sitePage)}
     </main>
     {connected && !state.maximized && <ResizeGrip />}
     <footer className="app-footer"><span><kbd>F9</kbd> {tr('停止扫描', 'stops scanning')} <b>·</b> {tr('扫描时保持游戏在前台', 'keep the game in front while scanning')}</span>

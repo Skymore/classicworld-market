@@ -24,8 +24,7 @@ export default function Home() {
       <PriceTable />
     </Suspense>
   );
-  // The collector's 价格表 tab embeds this page: only the table belongs there.
-  if (embedded) return table;
+  // The collector's 首页 tab shows this same page; its page bar already has the search box.
   return (
     <>
       <section className="stall hero">
@@ -39,7 +38,7 @@ export default function Home() {
             </SiteLink>
           </p>
         </div>
-        <Search />
+        {!embedded && <Search />}
         <nav className="portals" aria-label={words("快捷入口", "Shortcuts")}>
           <SectionLink className="portal" section="watch" href="/watch">
             <span className="p-top">

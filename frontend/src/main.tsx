@@ -89,6 +89,7 @@ const Market = page(() => import("./pages/market"));
 const Enhancement = page(() => import("./pages/enhancement"));
 const Agent = page(() => import("./pages/agent"));
 const Selling = page(() => import("./pages/selling"), "selling");
+const Client = page(() => import("./pages/client"), "client");
 const Privacy = page(() => import("./pages/privacy"));
 const Download = page(() => import("./pages/download"), "download");
 let catalogueModule: Promise<typeof import("./pages/catalogue")> | undefined;
@@ -151,6 +152,7 @@ const pageRoutes = [
   "/contributors",
   "/traffic",
   "/selling",
+  "/client",
   "/agent",
   "/web/download.html",
   "/search",
@@ -228,6 +230,7 @@ function Application() {
     map: words("地图", "Map"),
     route: words("怎么走", "Route"),
     selling: words("摆摊", "Shop planner"),
+    client: words("采集器", "Collector"),
   };
   const navigationType = useNavigationType();
   const lastPath = useRef<string | null>(null);
@@ -341,6 +344,7 @@ function Application() {
               <Route path="/tools/enhancement" element={<Enhancement />} />
               <Route path="/agent/*" element={<Agent />} />
               <Route path="/selling/*" element={<Selling />} />
+              <Route path="/client/*" element={<Client />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/web/download.html" element={<Download />} />
               {["search", "item", "mob", "map", "npc", "route"].map((path) => (

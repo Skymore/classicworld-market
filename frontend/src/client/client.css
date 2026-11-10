@@ -1,0 +1,108 @@
+/* 采集器的「扫货」「账号」面板。规则来自 frontend/desktop/style.css，全部限定在 .client-pane 里，
+   不影响网站其他页面。这两页只在采集器窗口里打开，占满整个窗口。 */
+html[data-page=client],html[data-page=client] body{height:100%}
+html[data-page=client] .dwrap{max-width:none;height:100vh;padding:12px;box-sizing:border-box}
+html[data-page=client] .app{padding-bottom:0}
+.client-pane .text-link{display:inline-flex;align-items:center;gap:4px;color:var(--bar-text);font-size:12px;font-weight:650;white-space:nowrap}
+.client-pane .inline-link{color:var(--bar-text);font-weight:650;text-decoration:underline;text-underline-offset:2px}
+.client-pane .ui-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:106px;padding:8px 17px;border:2px solid var(--edge);background:var(--sheet-hi);box-shadow:inset 1px 1px var(--bevel-hi),0 2px 0 var(--bevel-lo);font-size:13px;font-weight:650}
+.client-pane .ui-btn.primary{background:var(--maple);color:#fff;box-shadow:inset 1px 1px #e9786e,0 2px 0 #8d3025}
+.client-pane .sq-dot{display:inline-block;flex:none;width:8px;height:8px;background:#3f9b4f;border:1px solid rgba(0,0,0,.35)}
+.client-pane .sq-dot.warn{background:#c18a29}
+.client-pane .sq-dot.off{background:#aab5c3}
+.client-pane .error-banner{display:flex;gap:9px;padding:10px 14px;background:var(--maple-tint);border:1px solid var(--maple-ink);color:var(--maple-ink);font-size:12px}
+.client-pane .error-banner span{overflow-wrap:anywhere}
+.client-pane.native-workspace{display:flex;flex-direction:column;width:100%;height:100%;min-height:0}
+.client-pane .workspace-scroll{min-height:0;overflow:auto;padding:12px}
+.client-pane .workspace-scroll input:not([type=checkbox]),.client-pane .workspace-scroll select{min-width:0;max-width:100%;height:36px;padding:0 8px;border:2px solid var(--edge);background:var(--sheet-hi);color:var(--ink);font:inherit;font-size:14px}
+.client-pane .workspace-scroll input:disabled{opacity:.55}
+.client-pane .workspace-scroll input[type=checkbox]{width:15px;height:15px;accent-color:var(--mark)}
+.client-pane .workspace-note{margin:7px 0;font-size:12px;line-height:1.6;color:var(--ink-3)}
+.client-pane .workspace-notice{padding:8px;background:var(--sheet-hi);font-size:12px}
+.client-pane .native-block{padding:10px 0;border-top:1px solid var(--rule)}
+.client-pane .native-block-head{display:flex;align-items:center;gap:10px;min-height:32px}
+.client-pane .native-block-head b{font-size:13px}
+.client-pane .native-block-head span{font-size:12px;color:var(--ink-3)}
+.client-pane .native-sweep{display:grid}
+.client-pane .sweep-status{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin-bottom:10px;background:var(--rule);border:1px solid var(--rule)}
+.client-pane .sweep-status>span{display:flex;align-items:center;gap:7px;min-width:0;padding:7px 10px;background:var(--sheet-hi);font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.client-pane .sweep-status b{color:var(--ink);font-variant-numeric:tabular-nums}
+.client-pane .sweep-status>span.bad{color:var(--maple-ink);font-weight:600}
+.client-pane .sweep-form{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:8px 0;font-size:12px}
+.client-pane .sweep-form input:not([type=checkbox]){width:150px}
+.client-pane .sweep-label{width:36px;color:var(--ink-3)}
+.client-pane .sweep-hint{min-width:34px;color:var(--ink-3)}
+.client-pane .sweep-sub{min-width:0;font-size:12px;color:var(--ink-3)}
+.client-pane .quick,.client-pane .seg{display:flex}
+.client-pane .quick{gap:6px}
+.client-pane .quick button,.client-pane .seg button{min-height:32px;padding:0 10px;border:2px solid var(--edge);background:var(--sheet-hi);font-size:12px;font-weight:600;color:var(--ink-2)}
+.client-pane .seg button{padding:0 12px}
+.client-pane .seg button+button{margin-left:-2px}
+.client-pane .quick button[aria-pressed=true],.client-pane .seg button[aria-pressed=true]{position:relative;z-index:1;background:var(--maple);color:#fff}
+.client-pane .start-row{display:flex;align-items:center;gap:12px;margin-top:4px}
+.client-pane .start-row .ui-btn{margin-left:auto}
+.client-pane .run-console{display:grid;gap:8px}
+.client-pane .run-row{display:flex;align-items:center;gap:8px}
+.client-pane .run-row>b{font-size:14px}
+.client-pane .run-row .ui-btn{margin-left:auto;min-width:80px}
+.client-pane .run-stop{color:var(--maple-ink)}
+.client-pane .meter{height:12px;border:2px solid var(--edge);background:var(--hole)}
+.client-pane .meter>div{height:100%;background:var(--maple)}
+.client-pane .run-between{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.client-pane .run-between b{font-size:13px;color:var(--ink)}
+.client-pane .run-device{font-size:12px;color:var(--ink-2)}
+.client-pane .run-device b{color:var(--ink)}
+.client-pane .rules-table{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.6fr) 90px 70px;margin-top:4px;font-size:12px;font-variant-numeric:tabular-nums}
+.client-pane .rules-table.running{grid-template-columns:minmax(0,1.1fr) minmax(0,1.6fr) 70px 60px}
+.client-pane .rules-tr{display:contents}
+.client-pane .rules-tr>span{display:flex;align-items:center;gap:7px;min-width:0;min-height:36px;padding:0 6px;border-top:1px solid var(--rule);white-space:nowrap}
+.client-pane .rules-tr>span.r{justify-content:flex-end}
+.client-pane .rules-tr>span b{overflow:hidden;text-overflow:ellipsis}
+.client-pane .item-icon{flex:none;width:22px;height:22px;object-fit:contain;image-rendering:pixelated}
+.client-pane .rules-tr>span.cond{flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;padding-top:5px;padding-bottom:5px;color:var(--ink-2);white-space:normal}
+.client-pane .rules-th>span{min-height:24px;border-top:0;font-size:11px;color:var(--ink-3)}
+.client-pane .rules-tr.full>span,.client-pane .rules-tr.full>span b{color:var(--ink-3)}
+.client-pane .tag{padding:0 4px;border:1px solid currentColor;font-size:10px;font-weight:700}
+.client-pane .buys{display:grid;grid-template-columns:44px minmax(0,1fr) 80px;font-size:12px;font-variant-numeric:tabular-nums}
+.client-pane .buy{display:contents}
+.client-pane .buy>span{display:flex;align-items:center;min-width:0;min-height:36px;padding:3px 6px;border-top:1px solid var(--rule)}
+.client-pane .buy .t{color:var(--ink-3)}
+.client-pane .buy .r{justify-content:flex-end}
+.client-pane .buy .d{display:flex;align-items:center;gap:8px;line-height:1.3}
+.client-pane .buy .d>span{min-width:0}
+.client-pane .buy .d b{font-weight:600}
+.client-pane .buy .d small{display:block;font-size:11px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.client-pane .buy.miss .d b,.client-pane .buy.miss .r b{color:var(--ink-3)}
+.client-pane .buy.unknown .d small{color:var(--maple-ink);font-weight:600}
+.client-pane .sweep-settings summary{display:flex;align-items:center;gap:10px;min-height:32px;list-style:none;cursor:pointer;font-size:12px}
+.client-pane .sweep-settings summary::-webkit-details-marker{display:none}
+.client-pane .sweep-settings summary b{font-size:13px}
+.client-pane .sweep-settings summary span{flex:1;min-width:0;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.client-pane .sweep-settings summary::after{content:"▸";color:var(--ink-3)}
+.client-pane .sweep-settings[open] summary::after{content:"▾"}
+.client-pane .sweep-settings fieldset{min-width:0;margin:6px 0 0;padding:0;border:0}
+.client-pane .sweep-settings .toggle{min-height:36px;padding:0;font-size:12px}
+.client-pane .native-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:8px 0}
+.client-pane .native-fields>label,.client-pane .native-field{display:grid;gap:5px;font-size:12px}
+.client-pane .native-fields small{font-weight:400;color:var(--ink-3)}
+.client-pane .native-fields>label input{width:100%}
+.client-pane .with-check{display:flex;align-items:center;gap:8px}
+.client-pane .with-check input:not([type=checkbox]){flex:1;width:0}
+.client-pane .check{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--ink-2);white-space:nowrap}
+.client-pane .native-save-row{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:4px}
+.client-pane .native-save-row .ui-btn{min-width:80px}
+.client-pane .saved{font-size:12px;color:var(--ink-3)}
+.client-pane .native-account{display:flex;flex-direction:column;align-items:center;gap:16px;padding:65px 20px}
+.client-pane .native-account h2{font-size:23px}
+.client-pane .native-account p{margin:0;font-size:12px;line-height:1.6;color:var(--ink-3)}
+.client-pane .account-head{display:flex;align-items:center;gap:14px;padding:6px 0 12px}
+.client-pane .account-head b{display:block;font-size:17px}
+.client-pane .account-head small{font-size:12px;color:var(--ink-3)}
+.client-pane .account-head .ui-btn{margin-left:auto}
+.client-pane .avatar{display:grid;place-items:center;flex:none;width:44px;height:44px;border:2px solid var(--edge);background:var(--sheet-hi);font-size:20px;font-weight:800;color:var(--maple-ink)}
+.client-pane .device-row{display:flex;align-items:center;gap:10px;min-height:40px;border-top:1px solid var(--rule);font-size:12px}
+.client-pane .device-row b{font-size:13px}
+/* The site's account page styles .device-row as a spread row; here the name leads. */
+.client-pane .device-row{justify-content:flex-start;padding:0;border-bottom:0}
+.client-pane .workspace-scroll{font-size:13px}
+.client-pane .native-block>span,.client-pane .native-block label{font-size:12px}

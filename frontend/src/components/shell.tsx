@@ -388,7 +388,7 @@ function EmbeddedNavigation() {
       if (Number(window.history.state?.idx) > 0) navigate(-1);
       else navigate("/?embed=1", {replace:true});
     }} disabled={route.pathname === "/" && !(Number(window.history.state?.idx) > 0)}>{words("返回", "Back")}</button>
-    <SiteLink className="btn" href="/?embed=1">{words("价格表", "Prices")}</SiteLink>
+    <SiteLink className="btn" href="/?embed=1">{words("首页", "Home")}</SiteLink>
     <Search />
   </nav>;
 }
@@ -412,7 +412,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const words = useWords();
   const route = useLocation();
   // 摆摊 is its own tab in the collector: no in-page navigation or breadcrumb there.
-  const ownTab = (embeddedHost || embeddedLocal) && route.pathname === "/selling";
+  const ownTab =
+    ((embeddedHost || embeddedLocal) && route.pathname === "/selling") ||
+    (embedded && route.pathname.startsWith("/client/"));
   const navigate = useNavigate();
   useEffect(() => {
     if (!embedded) return;

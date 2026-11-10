@@ -26,7 +26,8 @@ const emitTopic=topic=>{for(const fn of topicListeners.get(topic)||[])try{fn(top
 const emitAllTopics=()=>{for(const topic of topicListeners.keys())emitTopic(topic);};
 function closeEvents(){clearTimeout(eventsTimer);eventsTimer=null;events?.close();events=null;eventsOwner=null;eventsLive=false;eventsConnects=0;eventsDelay=1000;}
 function syncEvents(){
- if(!owner||!browser||typeof EventSource==='undefined'){closeEvents();return;}
+ // No stream on the collector's own tabs (/client/...): see realtime.js.
+ if(!owner||!browser||typeof EventSource==='undefined'||location.pathname.startsWith('/client/')){closeEvents();return;}
  if(eventsOwner===owner)return;
  closeEvents();eventsOwner=owner;connectEvents();
 }

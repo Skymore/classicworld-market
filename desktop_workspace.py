@@ -6,7 +6,10 @@ from account_device import DeviceError, browser_endpoint
 from collector_dashboard import Gateway
 
 # Website sections the collector window shows as tabs (page key -> path).
-SITE_PAGES = {'home': '/prices', 'prices': '/prices', 'dex': '/search?kind=item', 'watch': '/watch', 'selling': '/selling', 'tools': '/tools'}
+SITE_PAGES = {'home': '/', 'prices': '/prices', 'dex': '/search?kind=item', 'watch': '/watch', 'selling': '/selling', 'tools': '/tools',
+              'sweep': '/client/sweep', 'account': '/client/account'}
+# Tabs served by this PC's loopback gateway: they act through the collector itself.
+LOCAL_PAGES = ('watch', 'sweep', 'account')
 
 ERRORS = {'login_required': '请重新登录账号', 'sweep_running': '已有进行中的扫货',
           'rate_limited': '操作太频繁，请稍后再试', 'no_sweep_groups': '请先在关注中勾选可扫货的条件组',
@@ -74,8 +77,11 @@ class DesktopWorkspace:
             # embed=1: the site hides its own header, navigation and assistant inside the collector.
             query = '?lang='+lang+'&theme='+theme+'&embed=1'
             path = SITE_PAGES[value['page']]
-            if value['page'] == 'watch':
-                # The watch page signs in through the collector's loopback gateway.
+            if value['page'] in LOCAL_PAGES:
+                # The watch page signs in through the collector's loopback gateway; the sweep
+                # and account tabs (own=1) ask this window to act for them.
+                if value['page'] != 'watch':
+                    query += '&own=1'
                 return {'url': f'http://127.0.0.1:{self.dashboard()}'+path+query}
             if value['page'] == 'selling':
                 # own=1: this page is a collector tab of its own and receives this PC's bag

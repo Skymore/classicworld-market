@@ -332,7 +332,7 @@ def create_server(config, folder, port=8780, home=None):
                 return
             try:
                 current = live.read(parsed.path) if parsed.path.startswith(web_assets.PREFIX) else None
-                if parsed.path in ('/', '/alerts','/watch','/prices','/sales','/account','/contributors','/privacy','/selling'):
+                if parsed.path in ('/', '/alerts','/watch','/prices','/sales','/account','/contributors','/privacy','/selling','/client/sweep','/client/account'):
                     body = live.read(SHELL) or (web_assets.WEB/'index.html').read_bytes()
                     kind = 'text/html; charset=utf-8'
                 elif parsed.path[1:] in ASSETS:

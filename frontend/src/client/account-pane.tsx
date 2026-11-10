@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRight } from 'lucide-react';
-import type { Device } from '../src/lib/sweep-labels';
+import type { Device } from '../lib/sweep-labels';
 import { ago, full, monthDay, updateLabel } from './format';
 import { tr } from './i18n';
 import { useDevices, type Run, type Shell, type WorkspaceStatus } from './workspace';

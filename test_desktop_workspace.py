@@ -68,7 +68,11 @@ class DesktopWorkspaceTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.workspace.run('page',{'page':'https://example.com'})
         # Public sections come from the website itself, in the window's language.
         self.assertEqual(self.workspace.run('page',{'page':'dex','lang':'ko'})['url'],'https://mxd.ruit.me/search?kind=item&lang=ko&theme=light&embed=1')
-        self.assertEqual(self.workspace.run('page',{'page':'home','lang':'xx'})['url'],'https://mxd.ruit.me/prices?lang=zh&theme=light&embed=1')
+        self.assertEqual(self.workspace.run('page',{'page':'home','lang':'xx'})['url'],'https://mxd.ruit.me/?lang=zh&theme=light&embed=1')
+        # The sweep and account tabs are pages too, served by this PC so they can act through the window.
+        (self.workspace.runtime.home/'dashboard.json').write_text('{"url":"http://127.0.0.1:8780/alerts"}')
+        self.assertEqual(self.workspace.run('page',{'page':'sweep'})['url'],'http://127.0.0.1:8780/client/sweep?lang=zh&theme=light&embed=1&own=1')
+        self.assertEqual(self.workspace.run('page',{'page':'account'})['url'],'http://127.0.0.1:8780/client/account?lang=zh&theme=light&embed=1&own=1')
         # The stall planner is the website's page too; own=1 makes it a tab that takes the bag from the window.
         self.assertEqual(self.workspace.run('page',{'page':'selling'})['url'],'https://mxd.ruit.me/selling?lang=zh&theme=light&embed=1&own=1')
         (self.workspace.runtime.home/'dashboard.json').write_text('{"url":"https://example.com/alerts"}')

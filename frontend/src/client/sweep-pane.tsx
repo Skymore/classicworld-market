@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { type Holdings, clockTime, dayClock, duration, mesos, participantLabel, purchaseAmount, purchaseLabel, purchasePlace } from '../src/lib/sweep-labels';
+import { type Holdings, clockTime, dayClock, duration, mesos, participantLabel, purchaseAmount, purchaseLabel, purchasePlace } from '../lib/sweep-labels';
 import { full, itemIcon, reminderTokens, toMs } from './format';
 import { language, tr } from './i18n';
 import { useDevices } from './workspace';
-import { deviceBlocker } from '../src/lib/sweep-labels';
+import { deviceBlocker } from '../lib/sweep-labels';
 import type { DeviceRun, RecentPurchase, Run, RunItem, Shell, SweepRule, WorkspaceStatus } from './workspace';
 
 type Sweep = NonNullable<WorkspaceStatus['sweep']>;

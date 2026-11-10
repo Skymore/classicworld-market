@@ -38,7 +38,8 @@ const server=createServer(async(req,res)=>{
  if(u.pathname==='/test/desktop'){
   const {action,value}=input;calls.push(input);
   if(action==='ready'||action==='command')return json(res,state);
-  if(action==='page'){const path={home:'/prices',dex:'/search?kind=item',watch:'/watch',tools:'/tools'}[value.page];return json(res,{url:origin+path+(path.includes('?')?'&':'?')+'lang='+value.lang+'&theme='+value.theme+'&embed=1'});}
+  if(action==='page'){// '/' is the collector window itself on this test server; /prices leads to the same home page.
+   const path={home:'/prices',dex:'/search?kind=item',watch:'/watch',selling:'/selling',tools:'/tools',sweep:'/client/sweep',account:'/client/account'}[value.page];return json(res,{url:origin+path+(path.includes('?')?'&':'?')+'lang='+value.lang+'&theme='+value.theme+'&embed=1'+(['sweep','account','selling'].includes(value.page)?'&own=1':'')});}
   if(action==='devices')return json(res,devices());
   if(action==='rename')status.device={...status.device,name:value.name};
   if(action==='login')return json(res,{opened:true});
@@ -83,7 +84,7 @@ try{
  assert.equal(await page.locator('[data-sweep-status-line]').count(),0,'no status line without a sweep');
  const tabs=page.getByRole('navigation',{name:'功能'});
  assert.equal(await tabs.getByRole('button',{name:'扫货模拟'}).count(),0,'the simulation tab is renamed');
- await tabs.getByRole('button',{name:'关注',exact:true}).click();
+ await tabs.getByRole('button',{name:/^关注/}).click();
  const watch=page.frameLocator('iframe[title="关注"]');
  assert.match(await page.locator('iframe[title="关注"]').getAttribute('src'),/[?&]embed=1(&|$)/,'whole pages open in embed mode');
  console.log('waiting website watch');await watch.locator('.watch-page [data-card="1002000"]').waitFor();console.log('watch loaded');
@@ -110,13 +111,14 @@ try{
  await watch.locator('html').evaluate(e=>e.dataset.theme='dark');await page.locator('html').evaluate(e=>e.dataset.theme='dark');
  await page.screenshot({path:path.join(out,'website-watch-dark.png')});
  await watch.locator('html').evaluate(e=>e.dataset.theme='light');await page.locator('html').evaluate(e=>e.dataset.theme='light');
- await tabs.getByRole('button',{name:'价格表',exact:true}).click();
- const prices=page.frameLocator('iframe[title="价格表"]');
+ await tabs.getByRole('button',{name:'首页',exact:true}).click();
+ const prices=page.frameLocator('iframe[title="首页"]');
  await prices.locator('[data-item-row]:visible').first().waitFor();
  assert(await prices.locator('[data-item-row]').count()>=3,'entire price page renders its data rows');
  await page.screenshot({path:path.join(out,'website-prices.png')});
  const nav=prices.getByRole('navigation',{name:'页面导航'});
- await nav.waitFor();assert.equal(await prices.locator('.dhead,.ptop,.dock').count(),0);assert.equal(await prices.locator('.hero').count(),0,'the collector tab shows only the price table');
+ await nav.waitFor();assert.equal(await prices.locator('.dhead,.ptop,.dock').count(),0);assert.equal(await prices.locator('.hero').count(),1,'the collector tab shows the website home page');
+ assert.equal(await prices.locator('.hero .finder').count(),0,'one search box: the page bar has it');
  await prices.locator('[data-item-row]:visible').first().locator('a[href^="/item/"]').first().click();
  await prices.locator('html[data-page="item"]').waitFor();
  await nav.getByRole('button',{name:'返回',exact:true}).click();
@@ -129,11 +131,11 @@ try{
  await prices.locator('html').evaluate(()=>location.reload());
  await prices.locator('html[data-embed="1"][data-page="item"]').waitFor();await nav.waitFor();
  await page.screenshot({path:path.join(out,'embedded-item-navigation.png')});
- await nav.getByRole('link',{name:'价格表',exact:true}).click();
+ await nav.getByRole('link',{name:'首页',exact:true}).click();
  await prices.locator('[data-item-row]:visible').first().waitFor();
  await nav.getByRole('searchbox').fill('药水');await nav.locator('.quick-more').click();
  await prices.locator('html[data-page="search"]').waitFor();await nav.waitFor();
- await nav.getByRole('link',{name:'价格表',exact:true}).click();
+ await nav.getByRole('link',{name:'首页',exact:true}).click();
  await prices.locator('[data-item-row]:visible').first().waitFor();
  const priceFrame=page.frames().find(f=>{const url=new URL(f.url());return url.pathname==='/'&&url.searchParams.get('embed')==='1';});
  await priceFrame.goto(origin+'/item/2000000?embed=1&lang=zh');
@@ -146,12 +148,16 @@ try{
  const text=async locator=>(await locator.innerText()).replace(/\s+/g,' ').trim();
  // Sweep tab: status cells, local start with quick budgets and durations, read-only rules, folded settings.
  await tabs.getByRole('button',{name:'扫货',exact:true}).click();
- const executor=page.locator('[data-executor]');await executor.waitFor();
+ // The sweep tab is a page built with the website; it acts through the window (cwm-rpc).
+ const pane=page.frameLocator('iframe[title="扫货"]');
+ assert.match(await page.locator('iframe[title="扫货"]').getAttribute('src'),/\/client\/sweep\?.*embed=1.*own=1/);
+ assert.equal(await pane.locator('.embed-nav,.tool-breadcrumb,.dhead,.dock').count(),0,'no site chrome inside the collector tab');
+ const executor=pane.locator('[data-executor]');await executor.waitFor();
  assert.equal(await text(executor),'购买功能加载失败');
- assert.equal(await page.getByText(/尚未安装|执行器/).count(),0,'no executor-not-installed state');
- assert.match(await text(page.locator('.sweep-status')),/游戏已连接[\s\S]*金币 3,243,300/);
- const startButton=page.locator('[data-native-start]');assert.equal(await startButton.isDisabled(),true,'purchases unavailable, no start');
- const table=page.locator('[data-sweep-rules]');
+ assert.equal(await pane.getByText(/尚未安装|执行器/).count(),0,'no executor-not-installed state');
+ assert.match(await text(pane.locator('.sweep-status')),/游戏已连接[\s\S]*金币 3,243,300/);
+ const startButton=pane.locator('[data-native-start]');assert.equal(await startButton.isDisabled(),true,'purchases unavailable, no start');
+ const table=pane.locator('[data-sweep-rules]');
  assert.match(await text(table.locator('.native-block-head')),/扫货条件\s*3 件 · 在「关注」里修改/);
  assert.deepEqual(await table.locator('[data-rule]').allInnerTexts().then(r=>r.map(t=>t.replace(/\s+/g,' ').trim())),
   ['褐色皮帽 低价自用 · ≤ 10,000 · 可升级次数 ≥ 0 2 1','战斗弓 低价自用 · ≤ 10,000 · 可升级次数 ≥ 0 2 0','红药水 低价自用 · ≤ 10,000 · 可升级次数 ≥ 0 2 —']);
@@ -161,19 +167,20 @@ try{
  await tabs.getByRole('button',{name:'扫货',exact:true}).click();
  status.sweep.executor={ready:true,reason:''};
  await executor.filter({hasText:'购买功能就绪'}).waitFor({timeout:7000});
- assert.equal(await page.locator('[data-sweep-settings]').count(),0);
- const budget=page.locator('[data-sweep-run] [name=budget]');
- await page.locator('[data-sweep-run]').getByRole('button',{name:'100万',exact:true}).click();
+ assert.equal(await pane.locator('[data-sweep-settings]').count(),0);
+ const budget=pane.locator('[data-sweep-run] [name=budget]');
+ await pane.locator('[data-sweep-run]').getByRole('button',{name:'100万',exact:true}).click();
  assert.equal(await budget.inputValue(),'1000000');
  await budget.fill('2000000');
  assert.equal(await startButton.isDisabled(),false,'legacy local cap zero no longer blocks a shared run');
- await page.locator('[data-sweep-run]').getByRole('button',{name:'6 小时',exact:true}).click();
- assert.match(await text(page.locator('[data-start-summary]')),/^褐色皮帽、战斗弓、红药水 · 预算 200万 · (今天|明天) \d\d:\d\d 结束$/);
+ await pane.locator('[data-sweep-run]').getByRole('button',{name:'6 小时',exact:true}).click();
+ assert.match(await text(pane.locator('[data-start-summary]')),/^褐色皮帽、战斗弓、红药水 · 预算 200万 · (今天|明天) \d\d:\d\d 结束$/);
  await page.screenshot({path:path.join(shots,'desktop-sweep-idle.png')});
  await startButton.click();
+ for(let i=0;i<60&&!calls.some(c=>c.action==='start');i++)await page.waitForTimeout(50);  // The click reaches the window as a message.
  assert.deepEqual(calls.filter(c=>c.action==='start').at(-1).value,{budget:2000000,minutes:360,devices:['dev-a']});
  assert.equal(await page.evaluate(()=>localStorage.getItem('desktop.sweepMinutes')),'360','the duration is remembered');
- const runBlock=page.locator('[data-sweep-run]');await runBlock.locator('[data-native-stop]').waitFor();
+ const runBlock=pane.locator('[data-sweep-run]');await runBlock.locator('[data-native-stop]').waitFor();
  assert.match(await text(runBlock),/运行中[\s\S]*本机发起 · (今天|明天) \d\d:\d\d 结束[\s\S]*已花 1,100 \/ 2,000,000[\s\S]*剩余 1,998,900[\s\S]*本机 · 正在扫 3 洞 · 已查 12 店次 · 本机已花 100/);
  assert.equal(await runBlock.getByRole('progressbar').getAttribute('aria-valuenow'),'1100');
  assert.match(await text(table.locator('.native-block-head')),/本轮条件/);
@@ -181,7 +188,7 @@ try{
  assert.match(await text(table.locator('[data-rule="2000000"]')),/已满\s*2[\s\S]*2/);
  assert.equal(await table.locator('[data-rule="2000000"] img.item-icon').getAttribute('src'),'https://mxdgcw.dvg.cn/dbsource/icon/item/2000000.png');
  assert.match(await text(table.locator('[data-rule="1452003"]')),/—/,'no progress yet is unknown, not zero');
- const recentRows=page.locator('[data-sweep-recent] [data-recent-status]');assert.equal(await recentRows.count(),3);
+ const recentRows=pane.locator('[data-sweep-recent] [data-recent-status]');assert.equal(await recentRows.count(),3);
  assert.match(await text(recentRows.nth(0)),/红药水[\s\S]*2 件 @50 · [\s\S]*店主甲[\s\S]*100/);
  assert.match(await text(recentRows.nth(1)),/^\d\d:\d\d\s+战斗弓\s+未买 · 价格变了/,'no quantity on an unbought row');
  assert.match(await text(recentRows.nth(2)),/结果未知，请到游戏里核对/);
@@ -191,13 +198,14 @@ try{
  assert.equal(await text(line),'扫货中 已花 1100 / 200万 · 正在扫 3 洞 · 本轮已买 2 件 查看');
  await page.screenshot({path:path.join(shots,'desktop-scan-status-line.png')});
  await line.getByRole('button',{name:'查看'}).click();
- await page.locator('[data-native-stop]').click();await startButton.waitFor();
+ await pane.locator('[data-native-stop]').click();await startButton.waitFor();
  assert.equal(calls.filter(c=>c.action==='stop').length,1);
- assert.match(await text(page.locator('[data-sweep-message]')),/扫货已停止/);
+ assert.match(await text(pane.locator('[data-sweep-message]')),/扫货已停止/);
 
  // Account tab: rename this device, the read-only device list, the website, sign out and in.
  await tabs.getByRole('button',{name:'账号',exact:true}).click();
- const account=page.locator('[data-account-pane="signed-in"]');await account.waitFor();
+ const acct=page.frameLocator('iframe[title="账号"]');
+ const account=acct.locator('[data-account-pane="signed-in"]');await account.waitFor();
  assert.equal(await page.locator('[data-watch-hits]').innerText(),'1','the hidden watch page keeps reporting');
  assert.match(await text(account.locator('[data-sync]')),/关注 3 件 · 已同步/);
  assert.match(await text(account.locator('[data-this-device]')),/本机\s*v0\.6\.15 · 自动更新已开启/);
@@ -215,15 +223,20 @@ try{
  const opened=()=>calls.some(c=>c.action==='command'&&c.value?.name==='website');
  for(let i=0;i<40&&!opened();i++)await page.waitForTimeout(50);
  assert(opened(),'opens the website');
- assert.equal(await page.getByText(/关联|绑定/).count(),0,'no link/bind code wording');
- await page.getByRole('button',{name:'退出登录',exact:true}).click();
- await page.locator('[data-account-pane="signed-out"]').waitFor();
- await page.getByRole('button',{name:'登录',exact:true}).click();
- await page.getByRole('status').filter({hasText:'请在浏览器中完成登录'}).waitFor();
+ assert.equal(await acct.getByText(/关联|绑定/).count(),0,'no link/bind code wording');
+ await acct.getByRole('button',{name:'退出登录',exact:true}).click();
+ await acct.locator('[data-account-pane="signed-out"]').waitFor();
+ await acct.getByRole('button',{name:'登录',exact:true}).click();
+ await acct.getByRole('status').filter({hasText:'请在浏览器中完成登录'}).waitFor();
  assert.equal(calls.filter(c=>c.action==='login').length,1);
  await tabs.getByRole('button',{name:'扫货',exact:true}).click();
- await page.getByRole('button',{name:'登录',exact:true}).waitFor();
+ await pane.getByRole('button',{name:'登录',exact:true}).waitFor();
  await page.screenshot({path:path.join(shots,'desktop-sweep-signed-out.png')});
  assert.equal(await page.locator('[data-sweep-status-line]').count(),0);
+ const refused=await page.frames().find(f=>new URL(f.url()).pathname==='/client/account').evaluate(()=>new Promise(resolve=>{
+  addEventListener('message',e=>{if(e.data?.type==='cwm-rpc-result'&&e.data.id===987654)resolve(e.data);});
+  parent.postMessage({type:'cwm-rpc',id:987654,action:'start',value:{budget:1,minutes:60,devices:[]}},'*');}));
+ assert.deepEqual([refused.ok,refused.error],[false,'invalid_request'],'the account page cannot start a sweep');
+ assert.equal(calls.filter(c=>c.action==='start').length,1);
  assert.deepEqual(errors,[]);console.log('PASS embedded watch/price pages, same-account sync, upgrade-zero, delete/undo, sweep tab (status cells, quick budget, durations, read-only rules, folded settings, run progress, recent), status line, account rename/devices, sign-out/in');
 }catch(e){console.error(e);throw e;}finally{for(const s of streams)s.end();server.closeAllConnections();server.close();await browser.close();}

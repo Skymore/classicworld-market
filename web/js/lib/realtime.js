@@ -42,7 +42,9 @@ function received(change){pending=mergeMarketChanges(pending,change);schedule();
 if(typeof document!=='undefined')document.addEventListener('visibilitychange',schedule);
 export function subscribeMarket(callback){
  subscribers.add(callback);
- if(!stream && typeof EventSource!=='undefined'){
+ // The collector's own tabs (/client/...) share the loopback origin with the watch page; a browser
+ // keeps at most six connections per origin, so these pages open no event streams.
+ if(!stream && typeof EventSource!=='undefined' && !(typeof location!=='undefined'&&location.pathname.startsWith('/client/'))){
   stream=new EventSource('/api/v1/events');
   stream.addEventListener('collector',event=>{try{const data=JSON.parse(event.data);for(const fn of [...collectors])fn(data);}catch{}});
   stream.addEventListener('market',event=>received(marketChange(event.data)));
