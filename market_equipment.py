@@ -30,7 +30,8 @@ def decode_equipment(raw_hex, item_id):
         if raw[26] not in (0, 1):
             return failure
         offset = 40 + (8 if raw[26] else 0)
-        if raw[offset-5:offset] != bytes.fromhex('ffffffff01'):
+        # Shop rows always carry 01 here; inventory records also carry 00.
+        if raw[offset-5:offset-1] != bytes(4*[255]) or raw[offset-1] not in (0, 1):
             return failure
         mask = struct.unpack_from('<I', raw, offset)[0]
         # Higher-bit encodings have not been observed/validated.
@@ -51,7 +52,9 @@ def decode_equipment(raw_hex, item_id):
         # Only decode the exact tail shape observed in ordinary equipment.
         slots=enhancements=None
         tailmask=int.from_bytes(raw[end:end+4],'little')
-        if tailmask in (0x40000,0x40001,0x40002,0x40003):
+        # Bit 18 is always set; bit 20 (common in the inventory) adds bytes after
+        # the 255 terminator, so the upgrade bytes before it read the same.
+        if tailmask&0x40000 and not tailmask&~0x140003:
             cursor=end+4;slots=enhancements=0
             if tailmask&1:slots=raw[cursor];cursor+=1
             if tailmask&2:enhancements=raw[cursor];cursor+=1

@@ -228,3 +228,18 @@ class EquipmentBagTests(unittest.TestCase):
         inventory = Inventory(); inventory.observe(bytes(data), 'one')
         self.assertIsNotNone(inventory.slots)
         self.assertNotIn('equipment', inventory.view())
+
+
+class InventoryEquipmentEncodingTests(unittest.TestCase):
+    def test_inventory_flag_zero_and_tail_bit_20_decode(self):
+        # Inventory records carry 00 after ffffffff and upgrade tails with bit 20 set.
+        record = bytearray(gear(1, 1322000, ((16, 19),)))
+        record[20] = 0
+        tail = 21 + 4 + 2
+        record[tail:tail+4] = struct.pack('<I', 0x140001)
+        base = character()
+        data = base[:368] + gear(11, 1452001) + bytes(2) + bytes(record) + bytes(2) + bytes(16) + base[600:]
+        inventory = Inventory(); inventory.observe(data, 'one')
+        piece = inventory.view()['equipment'][0]
+        self.assertTrue(piece['decoded'])
+        self.assertEqual((piece['stats'], piece['remaining_upgrades']), ([{'key': 'weapon_attack', 'value': 19}], 7))

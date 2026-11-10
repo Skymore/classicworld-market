@@ -277,13 +277,17 @@ class Inventory:
                     raise ValueError('Unsupported equipment slot')
                 place = (lambda n: (bag, n) if n > 0 else (worn, -n))
                 if mode == 0:
-                    found = equip_header(data, pos-2)
                     # The record length is only known when it runs to the end.
-                    if not found or found[0] != slot or index != count-1:
+                    kind, item, cash = struct.unpack_from('<BIB', data, pos)
+                    if index != count-1 or kind != 1 or item//1000000 != 1 or cash != 0:
                         raise ValueError('Unsupported equipment add')
-                    if bag is not None:
+                    found = equip_header(data, pos-2)
+                    if found and found[0] == slot and bag is not None:
                         target, n = place(slot)
                         target[n] = equip_record(data, pos-2, len(data), n, found[1])
+                    elif bag is not None:
+                        # An unreadable piece leaves the ordinary bags as they are.
+                        bag = worn = None
                     pos = len(data)
                 elif mode == 2:
                     dest = struct.unpack_from('<h', data, pos)[0]

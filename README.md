@@ -3,7 +3,7 @@
 冒险岛经典世界（MapleStory Classic World）自由市场的报价采集、价格统计与图鉴网站。
 
 - 公开站：<https://mxd.ruit.me>（别名 `meso.ruit.me`、`ms.ruit.me`、`mscw.ruit.me`）
-- Windows 采集器：从[官网下载页](https://mxd.ruit.me/web/download.html?lang=zh)获取。当前版本以 `collector_update.py` 的 `VERSION` 为准（写本文时为 v0.7.1）。
+- Windows 采集器：从[官网下载页](https://mxd.ruit.me/web/download.html?lang=zh)获取。当前版本以 `collector_update.py` 的 `VERSION` 为准（写本文时为 v0.7.2）。
 - 源码托管在 GitLab（`main` 是网站唯一发布来源）；安装包发布在 Cloudflare R2（`download.ruit.me`）。市场数据库、凭据和个人配置不进入仓库。
 
 玩家使用见 [采集客户端指南](SHARED_CLIENT_GUIDE.md)；参与开发前先读 [AGENTS.md](AGENTS.md) 的合并与发布规则。
