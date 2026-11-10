@@ -14,7 +14,7 @@ import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
-VERSION = '0.7.4'
+VERSION = '0.7.5'
 LATEST = 'https://mxd.ruit.me/web/releases/stable.json'
 DOWNLOAD_BASES = ('https://mxd.ruit.me/web/releases/', 'https://download.ruit.me/collector/')
 EXE = 'ClassicWorldCollector.exe'
@@ -286,6 +286,15 @@ def install_bundle(bundle, install, backup):
         raise
 
 
+def helper_log(home, step, **fields):
+    """One line per update step in update-helper.log: what the helper did and how long it took."""
+    try:
+        with (Path(home)/'update-helper.log').open('a', encoding='utf-8') as log:
+            log.write(json.dumps(dict(time=time.time(), step=step, **fields))+'\n')
+    except OSError:
+        pass
+
+
 def old_processes(install):
     """Processes still running from, or working inside, the install folder."""
     import psutil
@@ -391,6 +400,8 @@ def apply_plan(path, executable=None):
             spool = record(plan['handoff'])
         except Exception:
             spool = None
+    log_home = plan.get('home', path.parent)
+    helper_log(log_home, 'started', version=plan['version'], recording=spool is not None)
     parent = None
     try:
         parent = psutil.Process(plan['parent_pid'])
@@ -432,15 +443,20 @@ def apply_plan(path, executable=None):
         update_status(home, 'installing', available=plan['version'])
         # The launcher, the window's browser and other children must be gone, or
         # Windows refuses to rename the folder they run in.
+        began = time.monotonic()
         release_install(install)
+        helper_log(home, 'released', seconds=round(time.monotonic()-began, 1))
         install_bundle(bundle, install, backup)
         installed = True
+        helper_log(home, 'installed', seconds=round(time.monotonic()-began, 1))
         check_bundle(install, plan['version'])
         launch(argv)
+        helper_log(home, 'launched', seconds=round(time.monotonic()-began, 1))
         update_status(home, 'updated', available=plan['version'])
         try: prune(install)
         except OSError: pass
     except Exception as error:
+        helper_log(home, 'failed', installed=installed, reason=type(error).__name__)
         if backup.exists():
             if install.exists():
                 failed = install.with_name(install.name+'.failed-'+str(time.time_ns()))
@@ -461,7 +477,9 @@ def apply_plan(path, executable=None):
         if spool: spool.join(timeout=30)
         raise
     # Stay until the new collector has taken over the recording.
-    if spool: spool.join()
+    if spool:
+        spool.join()
+        helper_log(home, 'recording_closed')
     print('更新完成 / Update complete.', flush=True)
 
 
