@@ -156,3 +156,10 @@ button:hover:not(:disabled){filter:brightness(.96)}button:disabled{opacity:.48;c
 .choice-item[data-state=checked]{color:var(--maple-ink);font-weight:650}
 .choice-item[data-state=checked]::before{content:'';position:absolute;left:12px;top:50%;width:9px;height:5px;margin-top:-4px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg)}
 .choice-item small{color:var(--ink-3);font-weight:400}
+/* Eight tabs share an 880 px window with the language and theme menus: the menus keep
+   their width (no wrapped "中文") and the tab gaps give way first. */
+.header-tools{flex:none}
+.icon-btn.menu-btn,.menu-label{white-space:nowrap;flex:none}
+.app-tabs{gap:14px;min-width:0}
+.app-tabs .tab-group{gap:13px}
+.app-tabs .tab-group.client{padding-left:14px}

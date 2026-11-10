@@ -230,6 +230,11 @@ def create_server(config, folder, port=8780, home=None):
     relay = Relay()
     upstream = EventStream(device.open_events, relay.broadcast)
     ui_nonce = secrets.token_urlsafe(32)
+    # Loopback pages use the website's current front end once a complete copy is cached
+    # (site_assets); until then, and offline, the bundled copy.
+    from site_assets import LiveSite, SHELL
+    live = LiveSite(gateway.endpoint, Path(home or folder)/'web-cache', gateway.opener)
+    live.start()
 
     class Handler(BaseHTTPRequestHandler):
         def allow_origin(self):
@@ -326,16 +331,20 @@ def create_server(config, folder, port=8780, home=None):
                 except Exception:self.send_error(503,'Page temporarily unavailable')
                 return
             try:
+                current = live.read(parsed.path) if parsed.path.startswith(web_assets.PREFIX) else None
                 if parsed.path in ('/', '/alerts','/watch','/prices','/sales','/account','/contributors','/privacy','/selling'):
-                    body = (web_assets.WEB/'index.html').read_bytes()
+                    body = live.read(SHELL) or (web_assets.WEB/'index.html').read_bytes()
                     kind = 'text/html; charset=utf-8'
                 elif parsed.path[1:] in ASSETS:
                     asset = parsed.path[1:]
                     body = (ROOT/asset).read_bytes()
                     kind = 'text/css; charset=utf-8' if asset.endswith('.css') else 'text/javascript; charset=utf-8'
                 elif web_assets.page(parsed.path) is not None:
-                    body = web_assets.page(parsed.path)
+                    body = live.read(SHELL) or web_assets.page(parsed.path)
                     kind = 'text/html; charset=utf-8'
+                elif current is not None:
+                    body = current
+                    kind = web_assets.TYPES[Path(parsed.path).suffix.lower()]
                 elif web_assets.asset(parsed.path) is not None:
                     target, kind = web_assets.asset(parsed.path)
                     body = target.read_bytes()
