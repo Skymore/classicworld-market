@@ -24,7 +24,7 @@ function savedMinutes() {
 /** "高物攻 · ≤ 9,000 · 物攻 ≥ 59": the group name, its price cap and the website's condition chips. */
 export function ruleText(group: any) {
   // An unpriced group (no quotes at a live edit) carries its stale manual cap; it is not bought.
-  const price = group?.unpriced ? tr('暂无报价', 'No offers yet') : group?.cap != null && `≤ ${Number(group.cap).toLocaleString('en-US')}`;
+  const price = group?.unpriced ? tr('暂无成交', 'No sales yet') : group?.cap != null && `≤ ${Number(group.cap).toLocaleString('en-US')}`;
   return [group?.name, price, ...reminderTokens(group?.reminder, language() === 'en').map(t => t.label)]
     .filter(Boolean).join(' · ');
 }

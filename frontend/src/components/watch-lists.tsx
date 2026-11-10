@@ -102,7 +102,7 @@ export default function WatchLists({lists, selected, ids, settings, name, onSele
               {item.groups.map((g:any,index:number)=><div className="wl-batch-rule" key={g.id}>
                 <span className="wl-rule-name">{g.name||words(`条件 ${index+1}`,`Rule ${index+1}`)}</span>
                 <select aria-label={words(`${name(item.id)}条件 ${index+1}价格`,`${name(item.id)} rule ${index+1} price`)} value={g.reminder.percentile} onChange={e=>patchGroup(item.id,g.id,{reminder:{...g.reminder,percentile:e.target.value}})}>
-                  <option value="all">{words('最高单价','Max unit price')}</option>{['10','25','50'].map(p=><option key={p} value={p}>{words(`最低 ${p}%`,`Lowest ${p}%`)}</option>)}
+                  <option value="all">{words('最高单价','Max unit price')}</option>{['10','25','50'].map(p=><option key={p} value={p}>{words(`成交 ${p}%`,`Sold ${p}%`)}</option>)}
                 </select>
                 {g.reminder.percentile==='all'&&<input type="number" step="any" min={0.000001} max={1e15} value={g.price} placeholder={words('未设置','Not set')} aria-label={words(`${name(item.id)}条件 ${index+1}最高单价`,`${name(item.id)} rule ${index+1} max unit price`)} onChange={e=>patchGroup(item.id,g.id,{price:e.target.value})}/>}
                 <label><input type="checkbox" checked={g.buy} disabled={!sweepable(g)&&!g.buy} onChange={e=>patchGroup(item.id,g.id,{buy:e.target.checked})}/>{words('扫货','Sweep')}</label>

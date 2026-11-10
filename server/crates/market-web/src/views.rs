@@ -1160,6 +1160,46 @@ fn round_cap(price: f64) -> f64 {
     price
 }
 
+/// Trade prices behind the reminder and sweep percentiles: each item's sales
+/// in the 72-hour window, or its latest `SALE_FALLBACK` sales when it had none.
+const SALE_FALLBACK: i64 = 20;
+async fn sale_prices(db: &PgPool, items: &[i32], now: f64) -> sqlx::Result<Vec<Value>> {
+    let cutoff = Window::recent(now).cutoff;
+    let mut rows: Vec<(i32, f64)> = sqlx::query_as(
+        "SELECT item_id, unit_price FROM market_sales WHERE item_id=ANY($1) AND unit_price>=0
+         AND detected_at>=to_timestamp($2) AND detected_at<=to_timestamp($3)",
+    )
+    .bind(items)
+    .bind(cutoff)
+    .bind(now)
+    .fetch_all(db)
+    .await?;
+    let seen: std::collections::HashSet<i32> = rows.iter().map(|(id, _)| *id).collect();
+    let missing: Vec<i32> = items
+        .iter()
+        .copied()
+        .filter(|id| !seen.contains(id))
+        .collect();
+    if !missing.is_empty() {
+        rows.extend(
+            sqlx::query_as::<_, (i32, f64)>(
+                "SELECT i.id, s.unit_price FROM unnest($1::int4[]) i(id) CROSS JOIN LATERAL (
+                     SELECT unit_price FROM market_sales WHERE item_id=i.id AND unit_price>=0
+                     AND detected_at<=to_timestamp($2) ORDER BY detected_at DESC LIMIT $3) s",
+            )
+            .bind(&missing)
+            .bind(now)
+            .bind(SALE_FALLBACK)
+            .fetch_all(db)
+            .await?,
+        );
+    }
+    Ok(rows
+        .into_iter()
+        .map(|(id, price)| json!({"item_id": id, "unit_price": price}))
+        .collect())
+}
+
 fn watch_percentiles<'a>(
     rows: impl IntoIterator<Item = &'a Value>,
 ) -> serde_json::Map<String, Value> {
@@ -1189,12 +1229,11 @@ fn watch_percentiles<'a>(
 struct WatchRows {
     found: Vec<Value>,
     grouped: Vec<Value>,
-    percentiles: Map<String, Value>,
     total: usize,
     identities: usize,
 }
 
-/// All rows participate in grouping/percentiles. Only possible display rows
+/// All rows participate in grouping. Only possible display rows
 /// need Python-compatible SHA identities and full presentation objects.
 fn select_watch_rows(quotes: Vec<Map<String, Value>>, limit: usize, cheapest: usize) -> WatchRows {
     use std::collections::{HashMap, HashSet};
@@ -1225,7 +1264,6 @@ fn select_watch_rows(quotes: Vec<Map<String, Value>>, limit: usize, cheapest: us
             groups.push((false, vec![index]));
         }
     }
-    let percentiles = watch_percentiles(groups.iter().map(|(_, members)| &rows[members[0]]));
     // Include every tie at the time cutoff; IDs, not input order, break ties.
     let prefix = |count: usize, time: &dyn Fn(usize) -> f64| {
         let mut end = limit.min(count);
@@ -1346,7 +1384,6 @@ fn select_watch_rows(quotes: Vec<Map<String, Value>>, limit: usize, cheapest: us
     WatchRows {
         found,
         grouped,
-        percentiles,
         total,
         identities: ids.iter().filter(|id| id.is_some()).count(),
     }
@@ -1403,7 +1440,6 @@ pub async fn watch_listings(db: &PgPool, items: &[i32], now: f64) -> sqlx::Resul
     let WatchRows {
         found,
         grouped,
-        percentiles,
         total,
         identities,
     } = select_watch_rows(
@@ -1412,6 +1448,7 @@ pub async fn watch_listings(db: &PgPool, items: &[i32], now: f64) -> sqlx::Resul
         (WATCH_CHEAPEST_TOTAL / items.len().max(1)).clamp(5, 40),
     );
     let grouped_at = std::time::Instant::now();
+    let percentiles = watch_percentiles(&sale_prices(db, items, now).await?);
     let mut base_stats = serde_json::Map::new();
     for row in sqlx::query(
         "SELECT item_id, record FROM item_records WHERE item_id=ANY($1) AND item_id<2000000",
@@ -2013,7 +2050,7 @@ mod tests {
     }
 
     #[test]
-    fn bounded_watch_presentation_matches_full_sort_groups_and_percentiles() {
+    fn bounded_watch_presentation_matches_full_sort_and_groups() {
         let mut quotes = Vec::new();
         for group in 0..600 {
             for slot in 1..=3 {
@@ -2070,14 +2107,13 @@ mod tests {
                 selected.grouped,
                 all_groups.iter().take(limit).cloned().collect::<Vec<_>>()
             );
-            assert_eq!(selected.percentiles, watch_percentiles(&all_groups));
             assert!(
                 selected.identities < quotes.len() / 2,
                 "dropped rows still computed display identities"
             );
         }
         let empty = select_watch_rows(Vec::new(), 200, 40);
-        assert!(empty.found.is_empty() && empty.grouped.is_empty() && empty.percentiles.is_empty());
+        assert!(empty.found.is_empty() && empty.grouped.is_empty());
     }
 
     #[test]

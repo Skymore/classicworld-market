@@ -425,20 +425,20 @@ try{
   await waitFor(()=>records[0].value.groups[0].reminder.percentile===p&&records[0].value.groups[0].buy,'percentile sweep sync');
  }
  await percentPage.locator('[data-watch-tab=sweep]').click();
- assert.match(await percentPage.locator('[data-sweep-rule="2000000"]').innerText(),/最低 50%/);
+ assert.match(await percentPage.locator('[data-sweep-rule="2000000"]').innerText(),/成交 50%/);
  assert.doesNotMatch(await percentPage.locator('[data-sweep-rule="2000000"]').innerText(),/≤ 0/);
  state.run=newRun({budget:100000});
  state.run.plan.source_watches=structuredClone(state.run.plan.watches);
  Object.assign(state.run.plan.watches[0].groups[0],{cap:120,price_percentile:'50',reminder:{percentile:'all'}});
  emit('sweep');
  await waitFor(()=>percentPage.locator('[data-sweep-rule="2000000"]').innerText().then(t=>t.includes('≤ 120')),'frozen price shown');
- assert.match(await percentPage.locator('[data-sweep-rule="2000000"]').innerText(),/最低 50%[\s\S]*≤ 120/);
+ assert.match(await percentPage.locator('[data-sweep-rule="2000000"]').innerText(),/成交 50%[\s\S]*≤ 120/);
  assert.equal(await percentPage.locator('[data-sweep-stale]').count(),0,'resolved prices do not mark unchanged rules stale');
  // A live edit without quotes leaves the group out of buying; it is listed, and the rules do not look unsynced.
  state.run={...state.run,plan_version:2,plan:{...state.run.plan,watches:state.run.plan.watches.filter(w=>w.item_id!==2000000),unpriced:[{item_id:2000000,group_id:'g1'}]}};
  emit('sweep');
- await waitFor(()=>percentPage.locator('[data-sweep-rule="2000000"]').innerText().then(t=>t.includes('暂无报价')),'unpriced group shown');
- assert.match(await percentPage.locator('[data-sweep-rule="2000000"]').innerText(),/最低 50% · 暂无报价/);
+ await waitFor(()=>percentPage.locator('[data-sweep-rule="2000000"]').innerText().then(t=>t.includes('暂无成交')),'unpriced group shown');
+ assert.match(await percentPage.locator('[data-sweep-rule="2000000"]').innerText(),/成交 50% · 暂无成交/);
  assert.doesNotMatch(await percentPage.locator('[data-sweep-rule="2000000"]').innerText(),/≤/);
  assert.equal(await percentPage.locator('[data-sweep-stale]').count(),0,'an unpriced group does not keep the rules syncing');
  assert(await noOverflow(percentPage));await percentPage.close();

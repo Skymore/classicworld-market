@@ -26,8 +26,8 @@ export function groupText(group: any) {
   const percentile = group.price_percentile || (group.reminder?.percentile !== 'all' && group.reminder?.percentile);
   return [
     group.name,
-    percentile ? `${pick('最低', 'Lowest')} ${percentile}%` : null,
-    group.unpriced ? (pick('暂无报价', 'No quotes')) : null,
+    percentile ? `${pick('成交', 'Sold')} ${percentile}%` : null,
+    group.unpriced ? (pick('暂无成交', 'No sales')) : null,
     (!percentile || group.price_percentile) && group.cap != null ? `≤ ${Number(group.cap).toLocaleString()}` : null,
     ...reminderTokens(group.reminder, isEnglish()).map((t: any) => t.label),
   ]

@@ -37,7 +37,7 @@ export default function WatchGroups({id,name,setting,rows,reference,onChange,swe
       return <Fragment key={g.id}>
         <div className="wg-rule" data-watch-group={g.id}>
           <div className="wg-description">{index>0&&<i className="wg-or">{words('或','or')}</i>}{label&&<b>{label}</b>}
-            <div className="wg-chips"><span>{g.reminder.percentile!=='all'?words(`最低 ${g.reminder.percentile}%`,`Lowest ${g.reminder.percentile}%`):g.cap===null?words('价格不限','Any price'):`≤ ${g.cap.toLocaleString()}`}</span>{tokens.map((t:any)=><span key={t.key}>{t.label}</span>)}</div>
+            <div className="wg-chips"><span>{g.reminder.percentile!=='all'?words(`成交 ${g.reminder.percentile}%`,`Sold ${g.reminder.percentile}%`):g.cap===null?words('价格不限','Any price'):`≤ ${g.cap.toLocaleString()}`}</span>{tokens.map((t:any)=><span key={t.key}>{t.label}</span>)}</div>
             <small>{tracking?words('只看价格','Prices only'):`${selected.rows.length} ${words('条符合','matching')}`}</small>
           </div>
           <div className="wg-actions"><label><input type="checkbox" checked={g.notify} onChange={e=>patch(g.id,{notify:e.target.checked})}/>{words('提醒','Alert')}</label>

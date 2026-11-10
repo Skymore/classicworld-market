@@ -43,8 +43,8 @@ export function prepareReminderRows(rows, baseStats = {}) {
         Number.isFinite(stat.value) && stat.value > (base.find(([key]) => key === stat.key)?.[1] ?? 0)) };
   });
 }
-// Percentile caps come only from the server (all active grouped offers, also
-// beyond the public limit, rounded up there); sweep and alerts use the same values.
+// Percentile caps come only from the server (72-hour trade prices, rounded up
+// there); sweep and alerts use the same values.
 export function reminderSelection(rows, itemId, setting = {}, reference = {}) {
   const f = normalizeReminder(setting.reminder);
   let cap = Number.isFinite(setting.cap) && setting.cap >= 0 ? setting.cap : null;

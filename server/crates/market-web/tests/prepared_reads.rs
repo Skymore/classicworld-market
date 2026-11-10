@@ -155,7 +155,8 @@ async fn warmed_detail_and_watch_plans_only_read_selected_observations_and_shops
     let watch = views::watch_listings(&pool, &[1002000], now).await.unwrap();
     assert_eq!(watch["total"], 2);
     assert_eq!(watch["listings"].as_array().unwrap().len(), 2);
-    assert_eq!(watch["percentile_caps"]["1002000"]["50"], 100.);
+    // Percentile caps come from trades; quotes alone price nothing.
+    assert!(watch["percentile_caps"].get("1002000").is_none(), "{watch}");
     let watch_sql: String = sqlx::query_scalar(
         "SELECT statement FROM pg_prepared_statements
         WHERE statement LIKE 'SELECT o.visit_key,%' AND statement LIKE '%FROM listings l%'

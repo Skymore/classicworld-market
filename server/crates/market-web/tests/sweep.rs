@@ -398,6 +398,18 @@ async fn percentile_sweep_uses_reminder_prices_and_keeps_the_run_cap() {
         .await
         .unwrap();
     }
+    // Listings alone do not price a percentile rule; trades do.
+    let (status, body) = dev(
+        &s,
+        "POST",
+        "/api/v1/device/sweep/start",
+        &token,
+        json!({"budget":10000,"minutes":60}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["error"], "sweep_price_unavailable");
+    sell(&db, item, &[100, 200, 300, 400], 1.0).await;
     let (_, quotes) = send(
         &s,
         "GET",
@@ -440,10 +452,12 @@ async fn percentile_sweep_uses_reminder_prices_and_keeps_the_run_cap() {
     assert_eq!(status, StatusCode::CONFLICT, "{body}");
     assert_eq!(body["error"], "price_over_cap");
     // Later market changes must neither make unchanged rules stale nor raise this run's price.
-    sqlx::query("UPDATE listings SET price=10000")
-        .execute(&db.pool)
-        .await
-        .unwrap();
+    for sql in [
+        "UPDATE listings SET price=10000",
+        "UPDATE sales SET price=10000",
+    ] {
+        sqlx::query(sql).execute(&db.pool).await.unwrap();
+    }
     let after = run_view(&s, &w).await;
     assert_eq!(after["plan"], view["plan"]);
     assert_eq!(after["plan_stale"], false);
@@ -487,6 +501,23 @@ async fn quote(db: &TestDb, item: i64, prices: &[i64]) {
         .unwrap();
     }
 }
+/// Trades of `item` at `prices`, `hours` ago, recorded on an existing observation.
+async fn sell(db: &TestDb, item: i64, prices: &[i64], hours: f64) {
+    for price in prices {
+        sqlx::query(
+            "INSERT INTO sales(item_id,shop_id,slot,kind,price,bundle,detected_at,observation_id,position)
+             SELECT $1,o.shop_id,s.slot,'found_sold',$2,1,now()-($3::float8*interval '1 hour'),o.id,s.slot
+             FROM (SELECT id,shop_id FROM observations ORDER BY id LIMIT 1) o,
+             LATERAL (SELECT 1000+count(*)::int AS slot FROM sales) s",
+        )
+        .bind(item as i32)
+        .bind(price)
+        .bind(hours)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    }
+}
 fn first_group(run: &Value, item: i64) -> Value {
     run["plan"]["watches"]
         .as_array()
@@ -516,11 +547,12 @@ async fn live_edits_keep_frozen_percentile_caps_of_unchanged_groups() {
     );
     watch(&s, &w, GLOVE, 500, 1, 0).await;
     quote(&db, item, &[100, 200, 300, 400]).await;
+    sell(&db, item, &[100, 200, 300, 400], 1.0).await;
     let (token, _) = ready_device(&s, &w, "本机").await;
     device_start(&s, &token, 100_000).await;
     assert_eq!(cap(&run_view(&s, &w).await, item), 100.0);
-    // The cheap stock is bought: the 25% price rises.
-    sqlx::query("UPDATE listings SET price=price*10")
+    // Trades move up: the 25% price rises.
+    sqlx::query("UPDATE sales SET price=price*10")
         .execute(&db.pool)
         .await
         .unwrap();
@@ -560,6 +592,38 @@ async fn live_edits_keep_frozen_percentile_caps_of_unchanged_groups() {
     assert_eq!(view["plan_version"], 4);
     assert_eq!(cap(&view, item), quotes["percentile_caps"]["2000000"]["10"]);
     assert_eq!(first_group(&view, item)["price_percentile"], "10");
+    db.close().await;
+}
+
+#[tokio::test]
+async fn percentile_caps_use_72_hour_trades_or_the_latest_ones() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let s = AppState::new(db.pool.clone(), Settings::default());
+    let item = 2000001;
+    quote(&db, item, &[50]).await;
+    let caps = |s: AppState| async move {
+        let path = format!("/api/v1/watchlist/listings?ids={item}");
+        send(&s, "GET", &path, &[], Value::Null).await.1["percentile_caps"][item.to_string()]
+            .clone()
+    };
+    assert!(
+        caps(s.clone()).await.is_null(),
+        "listings alone have no caps"
+    );
+    // No trade in 72 hours: the latest trades price the rule.
+    sell(&db, item, &[300, 100], 100.0).await;
+    assert_eq!(
+        caps(s.clone()).await,
+        json!({"10":100.0,"25":100.0,"50":100.0})
+    );
+    // Any trade inside the window replaces the older ones.
+    sell(&db, item, &[900], 1.0).await;
+    assert_eq!(
+        caps(s.clone()).await,
+        json!({"10":900.0,"25":900.0,"50":900.0})
+    );
     db.close().await;
 }
 

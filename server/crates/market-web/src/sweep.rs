@@ -107,7 +107,7 @@ fn source_watches(plan: &Value) -> &Value {
 }
 /// Caps frozen earlier in this run, by (item, group id).
 type Kept = HashMap<(i64, String), f64>;
-/// Freeze the same server-computed grouped-offer percentiles used by reminders;
+/// Freeze the same server-computed trade-price percentiles used by reminders;
 /// `kept` groups reuse their earlier cap. Never fall back to a stale manual cap.
 /// Starting a run fails on an unpriced rule. A live edit (`live`) must not fail
 /// the account write: the group stays out of buying and is listed in `unpriced`.
