@@ -144,6 +144,7 @@ class Collector:
                     return
                 session=Session(self,None,None,None,None,key[0],key[1])
                 flow['session']=session.id
+                flow['session_object']=session  # Saved by market_handoff across an update.
                 self.invalidate_inventory()
                 flow['decoder']=Decoder(self.observer(session))
                 self.event('game_flow_detected',session=session.id)
@@ -443,6 +444,12 @@ def run(folder,seconds=0,backend="windivert",stop_event=None,on_event=None):
     thread=threading.Thread(target=receive,daemon=True);thread.start();started=time.monotonic()
     last_health_check=0;health_state=None
     collector.event('capture_started',mode=collector.mode,message='Disable Proxifier for MapleStory; reconnect once, then browse manually.')
+    # After an update: continue the previous collector's connections (market_handoff).
+    try:
+        from market_handoff import resume
+        resume(collector)
+    except Exception as error:
+        collector.event('handoff_failed',reason=type(error).__name__)
     try:
         while (not seconds or time.monotonic()-started<seconds) and not (stop_event and stop_event.is_set()):
             if overflow.is_set():
@@ -481,6 +488,11 @@ def run(folder,seconds=0,backend="windivert",stop_event=None,on_event=None):
                     local_capture=sniffer.degraded or 'ok',local_dropped=sniffer.local_dropped))
     finally:
         sniffer.close();thread.join(timeout=2)
+        try:
+            from market_handoff import save
+            save(collector)
+        except Exception as error:
+            collector.event('handoff_failed',reason=type(error).__name__)
         collector.inventory.invalidate()
         collector.write_status(collector.folder/'inventory_state.json', dict(alive_at=int(time.time()), holdings=None))
         collector.event('capture_stopped')

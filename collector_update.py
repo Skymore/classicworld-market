@@ -14,7 +14,7 @@ import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
-VERSION = '0.7.3'
+VERSION = '0.7.4'
 LATEST = 'https://mxd.ruit.me/web/releases/stable.json'
 DOWNLOAD_BASES = ('https://mxd.ruit.me/web/releases/', 'https://download.ruit.me/collector/')
 EXE = 'ClassicWorldCollector.exe'
@@ -22,6 +22,7 @@ MAX_ZIP = 80 * 1024 * 1024
 MAX_EXPANDED = 300 * 1024 * 1024
 CHECK_INTERVAL = 60 * 60
 PUSH_COOLDOWN = 60
+HELPERS = set()  # Plans whose helper already runs (started early for the hand-off).
 
 
 def update_status(home, state, **fields):
@@ -221,7 +222,7 @@ def check_bundle(bundle, expected):
             raise ValueError('New collector self-check failed')
 
 
-def write_plan(home, info, install, argv):
+def write_plan(home, info, install, argv, handoff=None):
     updates = Path(home)/'updates'
     updates.mkdir(parents=True, exist_ok=True)
     stage = Path(tempfile.mkdtemp(prefix='release-', dir=updates)).resolve()
@@ -234,6 +235,8 @@ def write_plan(home, info, install, argv):
     parent = psutil.Process()
     plan = dict(version=info['version'], install=str(Path(install).resolve()), bundle=str(bundle),
         silent=True, home=str(Path(home).resolve()),
+        # Capture folder whose game connections the helper keeps alive (market_handoff).
+        handoff=str(Path(handoff).resolve()) if handoff else None,
         parent_pid=parent.pid, parent_created=parent.create_time(), argv=argv,
         hashes={str(p.relative_to(bundle)).replace('\\','/'):hashlib.sha256(p.read_bytes()).hexdigest()
             for p in bundle.rglob('*') if p.is_file()})
@@ -265,19 +268,94 @@ def install_bundle(bundle, install, backup):
             (candidate/relative).parent.mkdir(parents=True,exist_ok=True)
             shutil.copy2(p,candidate/relative)
     # The PyInstaller bootloader may hold the old EXE briefly after its child exits.
-    deadline = time.monotonic()+15
+    deadline = time.monotonic()+30
     while True:
         try:
             install.rename(backup)
             break
         except PermissionError:
-            if time.monotonic() >= deadline: raise
+            if time.monotonic() >= deadline:
+                shutil.rmtree(candidate, ignore_errors=True)
+                raise
             time.sleep(.2)
     try:
         candidate.rename(install)
     except Exception:
         backup.rename(install)
+        shutil.rmtree(candidate, ignore_errors=True)
         raise
+
+
+def old_processes(install):
+    """Processes still running from, or working inside, the install folder."""
+    import psutil
+    install, found = Path(install).resolve(), []
+    for process in psutil.process_iter(['pid', 'exe', 'name']):
+        try:
+            if process.pid == os.getpid():
+                continue
+            exe = process.info['exe']
+            if exe and install in Path(exe).resolve().parents:
+                found.append(process)
+            elif (process.info['name'] or '').lower() == 'msedgewebview2.exe':
+                # The window's embedded browser inherits the install folder as its
+                # working directory and can outlive the window by several seconds.
+                cwd = Path(process.cwd()).resolve()
+                if cwd == install or install in cwd.parents:
+                    found.append(process)
+        except (psutil.Error, OSError):
+            pass
+    return found
+
+
+def release_install(install, timeout=45):
+    """Wait for the old collector's own processes to leave the install folder; end stragglers.
+
+    Only processes found by `old_processes` are touched, never the game.
+    """
+    import psutil
+    deadline = time.monotonic()+timeout
+    while time.monotonic() < deadline and old_processes(install):
+        time.sleep(.25)
+    left = old_processes(install)
+    for process in left:
+        try: process.terminate()
+        except psutil.Error: pass
+    _, alive = psutil.wait_procs(left, timeout=5)
+    for process in alive:
+        try: process.kill()
+        except psutil.Error: pass
+    psutil.wait_procs(alive, timeout=3)
+
+
+BACKUP = r'\.(backup|failed)-(\d+)'
+STAGING = r'\.collector-new-[0-9a-f]{32}'
+
+
+def prune(install, keep=1):
+    """Delete this updater's old backups (each a full copy) and abandoned staging folders."""
+    install = Path(install).resolve()
+    pattern = re.compile(re.escape(install.name)+BACKUP)
+    old = sorted((p for p in install.parent.iterdir() if p.is_dir() and pattern.fullmatch(p.name)),
+                 key=lambda p: int(pattern.fullmatch(p.name).group(2)))
+    stale = [p for p in install.parent.iterdir()
+             if p.is_dir() and p != install and re.fullmatch(STAGING, p.name)
+             and time.time()-p.stat().st_mtime > 86400]
+    for folder in [*old[:len(old)-keep], *stale]:
+        if not old_processes(folder):
+            shutil.rmtree(folder, ignore_errors=True)
+
+
+def start_helper(path, bundle, ready=None, wait=15):
+    """Run the staged release's update helper; optionally wait until it records packets."""
+    path = Path(path)
+    subprocess.Popen([str(Path(bundle)/EXE), '--apply-update', str(path)], cwd=path.parent,
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True,
+        creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+    HELPERS.add(str(path))
+    deadline = time.monotonic()+wait
+    while ready and not Path(ready).exists() and time.monotonic() < deadline:
+        time.sleep(.1)
 
 
 def apply_plan(path, executable=None):
@@ -304,6 +382,15 @@ def apply_plan(path, executable=None):
             cwd=path.parent,stdin=subprocess.DEVNULL,stdout=sys.stdout,stderr=sys.stderr,close_fds=True,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
         return
+    # Record the game's packets from now until the new collector captures them itself,
+    # so its connections survive the restart (market_handoff). Never blocks the update.
+    spool = None
+    if plan.get('handoff'):
+        try:
+            from market_handoff import record
+            spool = record(plan['handoff'])
+        except Exception:
+            spool = None
     parent = None
     try:
         parent = psutil.Process(plan['parent_pid'])
@@ -312,7 +399,7 @@ def apply_plan(path, executable=None):
     except psutil.NoSuchProcess:
         pass
     if parent:
-        try: parent.wait(timeout=90)
+        try: parent.wait(timeout=150)
         except psutil.TimeoutExpired: raise RuntimeError('Collector is still busy; update postponed') from None
     # Never terminate unrelated processes (including a game or second instance).
     backup = install.with_name(install.name+'.backup-'+str(time.time_ns()))
@@ -340,37 +427,48 @@ def apply_plan(path, executable=None):
         else:
             subprocess.Popen([str(install/EXE), *arguments], cwd=install,
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
+    installed = False
     try:
         update_status(home, 'installing', available=plan['version'])
+        # The launcher, the window's browser and other children must be gone, or
+        # Windows refuses to rename the folder they run in.
+        release_install(install)
         install_bundle(bundle, install, backup)
+        installed = True
         check_bundle(install, plan['version'])
         launch(argv)
         update_status(home, 'updated', available=plan['version'])
+        try: prune(install)
+        except OSError: pass
     except Exception as error:
         if backup.exists():
             if install.exists():
                 failed = install.with_name(install.name+'.failed-'+str(time.time_ns()))
                 install.rename(failed)
             backup.rename(install)
-        if silent:
+        if silent and installed:
             # Do not loop on a broken release; later versions still auto-update.
+            # A swap that never happened (files in use) is retried by the next check.
             try:
                 (home/'update-blocked.json').write_text(json.dumps({'version':plan['version']}), encoding='utf-8')
             except OSError:
                 argv.append('--no-update')
-        update_status(home, 'rolled_back', available=plan['version'], reason=type(error).__name__)
+        update_status(home, 'rolled_back' if installed else 'retry_later', available=plan['version'], reason=type(error).__name__)
         if (install/EXE).is_file():
             launch(argv if silent else [*argv, '--no-update'])
         if not silent:
             show_error('更新未完成，已尝试恢复旧版。请继续使用旧版，稍后再试。\nUpdate failed; restarting the previous collector.')
+        if spool: spool.join(timeout=30)
         raise
+    # Stay until the new collector has taken over the recording.
+    if spool: spool.join()
     print('更新完成 / Update complete.', flush=True)
 
 
 def ask_update(tag):
     import ctypes
     return ctypes.windll.user32.MessageBoxW(None,
-        f'发现新版本 {tag}。现在更新并重启采集器吗？\n配置与采集记录会保留。更新后请切一次频道。\n\nUpdate and restart? Your settings and records will be kept.',
+        f'发现新版本 {tag}。现在更新并重启采集器吗？\n配置与采集记录会保留。更新后游戏连接和背包会保留。\n\nUpdate and restart? Your settings and records will be kept.',
         '枫叶市集 · 采集器更新 / Collector update', 0x4 | 0x20 | 0x10000) == 6
 
 
@@ -381,7 +479,7 @@ def show_error(message):
 
 
 def start_checker(home, stop, ready, argv, wakeup=None, endpoint=None, *, interval=CHECK_INTERVAL,
-                  cooldown=PUSH_COOLDOWN, game_running=game_active, prepare_restart=None):
+                  cooldown=PUSH_COOLDOWN, game_running=game_active, prepare_restart=None, handoff=None):
     """Only the packaged top-level collector checks; child processes never do."""
     changed = threading.Event()
     hint_lock = threading.Lock()
@@ -421,6 +519,13 @@ def start_checker(home, stop, ready, argv, wakeup=None, endpoint=None, *, interv
                     info, path, bundle = pending
                     ready.append((path, bundle))
                     update_status(home, 'restarting', available=info['version'])
+                    if handoff:
+                        # The helper starts recording before this capture stops.
+                        try:
+                            from market_handoff import READY
+                            start_helper(path, bundle, Path(handoff)/READY)
+                        except Exception:
+                            pass
                     stop.set()
                     if wakeup: wakeup.set()
                     return
@@ -445,7 +550,7 @@ def start_checker(home, stop, ready, argv, wakeup=None, endpoint=None, *, interv
                         update_status(home, waiting_state, available=pending[0]['version'])
                         continue
                     update_status(home, 'downloading', available=info['version'])
-                    path, bundle = write_plan(home, info, Path(sys.executable).parent, argv)
+                    path, bundle = write_plan(home, info, Path(sys.executable).parent, argv, handoff)
                     update_status(home, waiting_state, available=info['version'])
                     if stop.is_set(): return
                     # Continue hourly checks and push handling while gaming;

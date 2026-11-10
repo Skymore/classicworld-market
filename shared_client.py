@@ -53,7 +53,8 @@ def ensure_identity(config_path,endpoint='https://mxd.ruit.me'):
     except FileExistsError:return json.loads(config_path.read_text(encoding='utf-8'))
     if os.name=='nt':
         import subprocess
-        subprocess.run(['icacls',str(config_path),'/inheritance:r','/grant:r',getpass.getuser()+':F'],capture_output=True,check=True)
+        subprocess.run(['icacls',str(config_path),'/inheritance:r','/grant:r',getpass.getuser()+':F'],capture_output=True,check=True,
+            creationflags=subprocess.CREATE_NO_WINDOW)
     return config
 
 
@@ -257,7 +258,9 @@ def stop_dashboard(process):
     if os.name=='nt':
         # The Windows venv launcher can have a different PID from Python itself.
         # Stop only this spawned dashboard's process tree, never the collector/game.
-        subprocess.run(['taskkill','/PID',str(process.pid),'/T','/F'],capture_output=True)
+        # CREATE_NO_WINDOW: a console tool started by the windowed app would flash a black window.
+        subprocess.run(['taskkill','/PID',str(process.pid),'/T','/F'],capture_output=True,
+            creationflags=subprocess.CREATE_NO_WINDOW)
     else:process.terminate()
     try:process.wait(timeout=5)
     except subprocess.TimeoutExpired:process.kill();process.wait(timeout=5)
@@ -435,7 +438,9 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None, prepare_up
     if getattr(sys,'frozen',False) and os.name=='nt' and not args.no_update and not args.proxy:
         from collector_update import start_checker
         update_options = {'prepare_restart': prepare_update} if prepare_update else {}
-        start_checker(args.home,stopping,update_ready,sys.argv[1:] if update_argv is None else update_argv,capture_changed,endpoint=config['endpoint'],**update_options)
+        start_checker(args.home,stopping,update_ready,sys.argv[1:] if update_argv is None else update_argv,capture_changed,endpoint=config['endpoint'],
+            # Only a process that captures has game connections to keep across the update.
+            handoff=None if args.upload_only else folder,**update_options)
     upload_thread=None
     history_thread=None
     owner_thread=None
@@ -471,8 +476,8 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None, prepare_up
         if owner_thread:owner_thread.join(timeout=20)
         if update_ready and (upload_thread is None or not upload_thread.is_alive()):
             path,bundle=update_ready[0]
-            subprocess.Popen([str(bundle/'ClassicWorldCollector.exe'),'--apply-update',str(path)],
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
+            from collector_update import HELPERS,start_helper
+            if str(path) not in HELPERS:start_helper(path,bundle)
 
 
 if __name__=='__main__':

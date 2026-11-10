@@ -69,8 +69,18 @@ class DesktopWorkspaceTests(unittest.TestCase):
         # Public sections come from the website itself, in the window's language.
         self.assertEqual(self.workspace.run('page',{'page':'dex','lang':'ko'})['url'],'https://mxd.ruit.me/search?kind=item&lang=ko&theme=light&embed=1')
         self.assertEqual(self.workspace.run('page',{'page':'home','lang':'xx'})['url'],'https://mxd.ruit.me/prices?lang=zh&theme=light&embed=1')
+        # The stall planner is the website's page too; own=1 makes it a tab that takes the bag from the window.
+        self.assertEqual(self.workspace.run('page',{'page':'selling'})['url'],'https://mxd.ruit.me/selling?lang=zh&theme=light&embed=1&own=1')
         (self.workspace.runtime.home/'dashboard.json').write_text('{"url":"https://example.com/alerts"}')
         with self.assertRaises(ValueError):self.workspace.run('page',{'page':'watch'})
+
+    def test_inventory_is_read_from_this_pc_only(self):
+        import json,time
+        self.assertEqual(self.workspace.run('inventory'),{'holdings':None})
+        holdings={'observed_at':int(time.time()),'mesos':5,'categories':[2,3,4],'items':[]}
+        (self.workspace.runtime.folder/'inventory_state.json').write_text(json.dumps({'alive_at':int(time.time()),'holdings':holdings}))
+        self.assertEqual(self.workspace.run('inventory'),{'holdings':holdings})
+        self.workspace.gateway.fetch.assert_not_called()
 
     def test_catalog_and_no_arbitrary_command(self):
         self.workspace.gateway.fetch.return_value={'items':[]}

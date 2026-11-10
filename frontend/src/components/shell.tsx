@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ago, fullTime } from "/web/js/lib/format.js";
 import { useAccount } from "../lib/query";
 import { setAssistantOpen, useAssistantOpen } from "../lib/assistant";
-import { embedded, embeddedLocal } from "../lib/embed";
+import { embedded, embeddedHost, embeddedLocal } from "../lib/embed";
 import { usePreferences, useWords, type LanguageChoice, type ThemeChoice } from "../providers";
 import {
   DropdownMenu,
@@ -412,7 +412,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const words = useWords();
   const route = useLocation();
   // 摆摊 is its own tab in the collector: no in-page navigation or breadcrumb there.
-  const ownTab = embeddedLocal && route.pathname === "/selling";
+  const ownTab = (embeddedHost || embeddedLocal) && route.pathname === "/selling";
   const navigate = useNavigate();
   useEffect(() => {
     if (!embedded) return;

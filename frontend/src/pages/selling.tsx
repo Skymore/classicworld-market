@@ -8,7 +8,7 @@ import { Slot, usePageReady } from "../components/shared";
 import { SiteLink } from "../components/shell";
 import { isEnglish, useItemRows } from "../components/sweep-content";
 import { getAccountJson, useAccountTopics } from "../lib/account-api";
-import { embedded, embeddedLocal } from "../lib/embed";
+import { embedded, embeddedHost, embeddedLocal } from "../lib/embed";
 import { mainStat } from "../lib/item-market";
 import { useAccount } from "../lib/query";
 import type { Device, EquipmentPiece, Holdings } from "../lib/sweep-labels";
@@ -142,8 +142,31 @@ function defaults(quantity: number): Line {
   return { strat: null, manual: "", bundle, groups: Math.max(1, Math.floor(quantity / bundle)) };
 }
 
-/** 背包：客户端里读本机，网页上读账号下在线设备上传的背包。 */
+/** 采集器窗口用页面消息传来的本机背包（`own=1` 的栏目）。只接受父窗口的消息，内容只用于显示。 */
+function useHostBag() {
+  const [bag, setBag] = useState<{ holdings: Holdings | null } | null>(null);
+  useEffect(() => {
+    if (!embeddedHost) return;
+    const receive = (event: MessageEvent) => {
+      if (event.source !== window.parent || event.data?.type !== "cwm-bag") return;
+      const holdings = event.data.holdings;
+      setBag({
+        holdings:
+          holdings && Array.isArray(holdings.items) && Array.isArray(holdings.categories) && Number(holdings.observed_at) > 0
+            ? holdings
+            : null,
+      });
+    };
+    window.addEventListener("message", receive);
+    window.parent.postMessage({ type: "cwm-bag-request" }, "*");
+    return () => window.removeEventListener("message", receive);
+  }, []);
+  return bag;
+}
+
+/** 背包：采集器里由窗口传入本机背包，网页上读账号下在线设备上传的背包。 */
 function useHoldings(signedIn: boolean) {
+  const host = useHostBag();
   const local = useQuery({
     queryKey: ["selling-local-inventory"],
     enabled: embeddedLocal,
@@ -155,11 +178,16 @@ function useHoldings(signedIn: boolean) {
   });
   const devices = useQuery({
     queryKey: DEVICES_KEY,
-    enabled: !embeddedLocal && signedIn,
+    enabled: !embeddedLocal && !embeddedHost && signedIn,
     queryFn: ({ signal }) =>
       getAccountJson<{ devices: Device[] }>("/api/v1/account/devices", signal),
   });
-  useAccountTopics(["devices"], DEVICES_KEY, !embeddedLocal && signedIn);
+  useAccountTopics(["devices"], DEVICES_KEY, !embeddedLocal && !embeddedHost && signedIn);
+  if (embeddedHost)
+    return {
+      loading: host === null,
+      sources: host?.holdings ? [{ id: "local", name: "", holdings: host.holdings }] : [],
+    };
   if (embeddedLocal)
     return {
       loading: local.isLoading,
@@ -228,7 +256,7 @@ export default function Selling() {
   usePageReady();
   const words = useWords();
   const account = useAccount();
-  const signedIn = embeddedLocal || Boolean(account.data?.signed_in);
+  const signedIn = embeddedLocal || embeddedHost || Boolean(account.data?.signed_in);
   const { loading, sources } = useHoldings(signedIn);
   const [deviceId, setDeviceId] = useState("");
   const source = sources.find((s) => s.id === deviceId) || sources[0] || null;

@@ -3,7 +3,11 @@
 export const embedded =
   new URLSearchParams(location.search).get("embed") === "1";
 if (embedded) document.documentElement.dataset.embed = "1";
-/** Embedded and served by the collector's own loopback gateway (its 关注 and 摆摊 tabs):
- * the collector's tab bar is the navigation, and local endpoints such as the bag exist. */
+/** A collector tab of its own (`own=1`): the collector's tab bar is the navigation, and the
+ * collector window passes local data such as the bag to the page by message. */
+export const embeddedHost =
+  embedded && new URLSearchParams(location.search).get("own") === "1";
+/** Embedded and served by the collector's own loopback gateway (older collectors' 摆摊 tab):
+ * local endpoints such as the bag exist. */
 export const embeddedLocal =
-  embedded && ["127.0.0.1", "localhost"].includes(location.hostname);
+  embedded && !embeddedHost && ["127.0.0.1", "localhost"].includes(location.hostname);

@@ -211,6 +211,71 @@ class CollectorUpdate(unittest.TestCase):
                 self.assertEqual(json.loads((root/'update-blocked.json').read_text())['version'],'v0.5.11')
                 self.assertEqual(launch.call_args.args[0],[str((old/update.EXE).resolve()),'--self-test','--no-browser'])
                 if os.name=='nt':self.assertEqual(launch.call_args.kwargs['creationflags'],subprocess.CREATE_NO_WINDOW)
+    def staged(self, root, **plan):
+        bundle=root/'unpacked'/'ClassicWorldCollector';bundle.mkdir(parents=True)
+        old=root/'installed';old.mkdir();(old/update.EXE).write_bytes(b'old');(bundle/update.EXE).write_bytes(b'new')
+        (old/'install-manifest.json').write_text(json.dumps({'files':[update.EXE,'install-manifest.json']}))
+        path=root/'plan.json';path.write_text(json.dumps(dict(version='v0.5.11',bundle=str(bundle),install=str(old),
+            silent=True,home=str(root),parent_pid=987654321,parent_created=0,argv=['--self-test'],
+            hashes={update.EXE:hashlib.sha256(b'new').hexdigest()},**plan)))
+        return path,bundle,old
+
+    def test_swap_blocked_by_open_files_restarts_old_and_is_retried_not_blocked(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);plan,bundle,old=self.staged(root)
+            with patch.object(update,'release_install'),patch.object(update,'install_bundle',side_effect=PermissionError('in use')),\
+                patch.object(update.subprocess,'Popen') as launch,patch.object(update,'show_error',side_effect=AssertionError('no dialog')):
+                with self.assertRaises(PermissionError):update.apply_plan(plan,executable=bundle/update.EXE)
+            # Nothing was replaced, so this release stays installable.
+            self.assertFalse((root/'update-blocked.json').exists())
+            self.assertEqual(json.loads((root/'update-status.json').read_text())['state'],'retry_later')
+            self.assertEqual(launch.call_args.args[0],[str((old/update.EXE).resolve()),'--self-test','--no-browser'])
+
+    def test_old_processes_are_released_before_the_swap_and_backups_pruned(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);plan,bundle,old=self.staged(root)
+            for stamp in (1,2):(root/f'installed.backup-{stamp}').mkdir()
+            (root/'installed.rollback-keep').mkdir();(root/'other.backup-1').mkdir()
+            order=[]
+            real=update.install_bundle
+            with patch.object(update,'release_install',side_effect=lambda install:order.append('release')),\
+                patch.object(update,'install_bundle',side_effect=lambda *a:(order.append('swap'),real(*a))),\
+                patch.object(update,'check_bundle'),patch.object(update,'old_processes',return_value=[]),\
+                patch.object(update.subprocess,'Popen'):
+                update.apply_plan(plan,executable=bundle/update.EXE)
+            self.assertEqual(order,['release','swap'])
+            self.assertEqual((old/update.EXE).read_bytes(),b'new')
+            names=sorted(p.name for p in root.iterdir() if p.is_dir() and p.name not in ('installed','unpacked'))
+            # Only the newest backup of this install remains; unrelated folders are untouched.
+            self.assertEqual(len([n for n in names if n.startswith('installed.backup-')]),1)
+            self.assertNotIn('installed.backup-1',names);self.assertNotIn('installed.backup-2',names)
+            self.assertIn('installed.rollback-keep',names);self.assertIn('other.backup-1',names)
+
+    def test_helper_records_before_capture_stops_when_a_hand_off_is_requested(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);captures=root/'captures';captures.mkdir()
+            stop=threading.Event();ready=[];events=[]
+            def helper(path,bundle,marker=None,wait=15):
+                events.append(('helper',stop.is_set(),Path(marker)))
+            with patch.object(update,'read_release',return_value=metadata()),\
+                patch.object(update,'write_plan',return_value=(root/'plan.json',root/'bundle')) as plan,\
+                patch.object(update,'start_helper',side_effect=helper):
+                update.start_checker(root,stop,ready,[],prepare_restart=lambda:True,handoff=captures).join(5)
+            self.assertTrue(stop.is_set())
+            self.assertEqual(plan.call_args.args[4],captures)
+            # Started while the capture was still running, waiting on the recorder's marker.
+            self.assertEqual(events,[('helper',False,captures/'handoff-spool.ready')])
+
+    def test_helper_keeps_recording_until_the_new_collector_takes_over(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);plan,bundle,old=self.staged(root,handoff=str(root/'captures'))
+            spool=threading.Thread(target=lambda:None);spool.start()
+            with patch('market_handoff.record',return_value=spool) as record,patch.object(update,'release_install'),\
+                patch.object(update,'check_bundle'),patch.object(update,'old_processes',return_value=[]),\
+                patch.object(update.subprocess,'Popen'):
+                update.apply_plan(plan,executable=bundle/update.EXE)
+            record.assert_called_once_with(str(root/'captures'))
+
     @unittest.skipUnless(os.name=='nt','Windows packaged updater')
     def test_packaged_helper_replaces_program_preserves_records_and_restarts(self):
         marker=Path('dist/bundle-path.txt')

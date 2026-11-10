@@ -10,8 +10,9 @@ class UpdateHandoff(unittest.TestCase):
             home=Path(temp);config=home/'member.json'
             config.write_text(json.dumps({'member_id':'test','token':'synthetic-only','endpoint':'http://127.0.0.1:1'}))
             plan=home/'plan.json';bundle=home/'bundle'
-            def ready(home,stop,updates,argv,changed,endpoint):
-                updates.append((plan,bundle));stop.set()
+            seen={}
+            def ready(home,stop,updates,argv,changed,endpoint,handoff=None):
+                seen['handoff']=handoff;updates.append((plan,bundle));stop.set()
             args=['collector','--upload-only','--no-dashboard','--home',str(home),'--config',str(config)]
             with patch.object(sys,'argv',args),patch.object(sys,'frozen',True,create=True),\
                  patch('collector_update.start_checker',side_effect=ready),\
@@ -21,5 +22,8 @@ class UpdateHandoff(unittest.TestCase):
                 shared_client.main()
             spawn.assert_called_once()
             self.assertEqual(spawn.call_args.args[0],[str(bundle/'ClassicWorldCollector.exe'),'--apply-update',str(plan)])
+            # The helper starts outside the install folder, and an upload-only process has no capture to hand over.
+            self.assertEqual(spawn.call_args.kwargs['cwd'],home)
+            self.assertIsNone(seen['handoff'])
 
 if __name__=='__main__':unittest.main()

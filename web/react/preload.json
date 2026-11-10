@@ -1,21 +1,21 @@
 {
  "shell": [
-  "chunks/main-kLVL5cD3.js",
+  "chunks/main-DxtUs8W9.js",
   "chunks/shared-CyCO-lgP.js",
   "chunks/assistant-icon-XxRE44Op.js",
-  "chunks/shell-zWP4CAxj.js",
-  "chunks/embed-C6xsuLCf.js",
+  "chunks/shell-Bt4br1bJ.js",
+  "chunks/embed-MErqN2al.js",
   "chunks/watch-ids-Duq9crSV.js",
   "chunks/item-market-BznqKqrm.js",
   "chunks/user-round-BnS-fOi8.js",
   "chunks/createLucideIcon-DOhB6Mqm.js",
   "chunks/item-tip-szCvK2Im.js",
-  "chunks/toasts-DsIwLElG.js",
-  "chunks/list-rows-Bl8j8eSY.js",
+  "chunks/toasts-BTLENdhr.js",
+  "chunks/list-rows-Wsc35shl.js",
   "chunks/equipment-summary-BAqE_aiN.js",
-  "chunks/push-CaSOP1RC.js",
+  "chunks/push-NWohfBsj.js",
   "chunks/account-api-CfvkjcI2.js",
-  "chunks/watch-alerts-CxhmQRhZ.js",
+  "chunks/watch-alerts-DvvjnoJU.js",
   "chunks/watchlist-core-CnJpcWvS.js",
   "chunks/item-offer-filters-Bqp-qBXH.js",
   "chunks/watch-reminders-pyT7no6d.js",
@@ -24,9 +24,9 @@
  ],
  "catalogue": {
   "modules": [
-   "chunks/catalogue-BqrpCuZN.js",
-   "chunks/catalogue-C0HjDve2.js",
-   "chunks/shop-view-CsCiDaOW.js",
+   "chunks/catalogue-BtO9ppk9.js",
+   "chunks/catalogue-CC5cTsDo.js",
+   "chunks/shop-view-ChO5wVY8.js",
    "chunks/chevron-right-Dg81DoGq.js",
    "chunks/maximize-2-BVCADB9K.js",
    "chunks/x-K8epZFBc.js",
@@ -40,7 +40,7 @@
  },
  "search": {
   "modules": [
-   "chunks/catalogue-search-DfhFE60a.js",
+   "chunks/catalogue-search-C0sH5XzC.js",
    "chunks/dialog-DT9PruCZ.js",
    "chunks/price-state-BZFgu40o.js"
   ],

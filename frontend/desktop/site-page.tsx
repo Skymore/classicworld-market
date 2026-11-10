@@ -37,6 +37,23 @@ export default function SitePage({ page, theme, lang, hidden = false, onSummary 
     window.addEventListener('message', receive);
     return () => window.removeEventListener('message', receive);
   }, [url, onSummary]);
+  // The stall planner is the website's page; this window hands it the PC's bag. The message goes
+  // only to the page's own origin and carries the bag alone.
+  useEffect(() => {
+    if (page !== 'selling' || !url || hidden) return;
+    const origin = new URL(url).origin;
+    let alive = true;
+    const send = () => window.pywebview!.api.workspace('inventory').then((r: any) => {
+      if (alive) frame.current?.contentWindow?.postMessage({ type: 'cwm-bag', holdings: r?.holdings ?? null }, origin);
+    }).catch(() => {});
+    const asked = (event: MessageEvent) => {
+      if (event.source === frame.current?.contentWindow && event.origin === origin && event.data?.type === 'cwm-bag-request') send();
+    };
+    window.addEventListener('message', asked);
+    const timer = window.setInterval(send, 3000);
+    send();
+    return () => { alive = false; clearInterval(timer); window.removeEventListener('message', asked); };
+  }, [page, url, hidden]);
   const style = hidden ? { display: 'none' } : undefined;
   const label = tr(...SITE_LABELS[page]);
   return error ? <div className="error-banner" style={style}>{error}<button onClick={() => retry(attempt + 1)}>{tr('重试', 'Retry')}</button></div> : url ?

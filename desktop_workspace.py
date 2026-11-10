@@ -74,13 +74,20 @@ class DesktopWorkspace:
             # embed=1: the site hides its own header, navigation and assistant inside the collector.
             query = '?lang='+lang+'&theme='+theme+'&embed=1'
             path = SITE_PAGES[value['page']]
-            if value['page'] in ('watch', 'selling'):
-                # The watch page signs in through the collector's loopback gateway; the stall
-                # planner reads this PC's bag there.
+            if value['page'] == 'watch':
+                # The watch page signs in through the collector's loopback gateway.
                 return {'url': f'http://127.0.0.1:{self.dashboard()}'+path+query}
+            if value['page'] == 'selling':
+                # own=1: this page is a collector tab of its own and receives this PC's bag
+                # from the window (the `inventory` action) instead of an account sign-in.
+                query += '&own=1'
             # Public pages come from the website itself, so they match it feature for feature.
             site = browser_endpoint(self.runtime.configuration())
             return {'url': site+path+('&' if '?' in path else '?')+query[1:]}
+        if action == 'inventory':
+            # This PC's bag for the stall planner tab; read locally, nothing is uploaded here.
+            from market_inventory import read_inventory
+            return {'holdings': read_inventory(self.runtime.folder)}
         if action == 'catalog':
             return self.fetch('/api/v1/watchlist/catalog', 300)
         if action == 'login':

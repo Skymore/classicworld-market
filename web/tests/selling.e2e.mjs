@@ -44,6 +44,16 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/v1/crafting/prices') data = { prices: [] };
     res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(data));
   }
+  if (url.pathname === '/host.html') {
+    // Stands in for the collector window: it frames the website's page and hands it the PC's bag.
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.end(`<!doctype html><body style="margin:0"><iframe src="/selling?lang=zh&embed=1&own=1" style="width:100vw;height:100vh;border:0"></iframe><script>
+      window.bag = ${JSON.stringify(holdings)};
+      const frame = document.querySelector('iframe');
+      window.send = () => frame.contentWindow.postMessage({ type: 'cwm-bag', holdings: window.bag }, location.origin);
+      addEventListener('message', e => { if (e.source === frame.contentWindow && e.data && e.data.type === 'cwm-bag-request') send(); });
+    </script></body>`);
+  }
   const file = url.pathname.startsWith('/web/') ? path.resolve(root, '.' + url.pathname.slice(4)) : path.join(root, 'index.html');
   if (!file.startsWith(root + path.sep)) { res.writeHead(404); return res.end(); }
   try {
@@ -143,6 +153,23 @@ try {
   if (process.env.SELLING_SHOTS) await client.screenshot({ path: path.join(process.env.SELLING_SHOTS, 'selling-client-offline.png') });
   gameConnected = true;
   console.log('PASS collector tab: local bag, no in-page navigation, last bag kept while the game is disconnected');
+
+  // 新版采集器的「摆摊」栏目：加载网站页面本身（own=1），背包由采集器窗口用页面消息传入，不需要登录。
+  const host = await browser.newPage({ viewport: { width: 1920, height: 1000 } });
+  await host.addInitScript(() => { if (!sessionStorage.getItem('fresh')) { localStorage.clear(); sessionStorage.setItem('fresh', '1'); } });
+  const deviceCalls = [];
+  host.on('request', r => { if (/account\/devices|collector\/inventory/.test(r.url())) deviceCalls.push(r.url()); });
+  await host.goto(origin + '/host.html');
+  const tab = host.frameLocator('iframe');
+  await tab.locator('[data-selling-item="eq:1:1452016"]').click();
+  await tab.locator('[data-selling-row="eq:1:1452016"]').waitFor();
+  assert.equal(await tab.locator('.embed-nav, .tool-breadcrumb').count(), 0);
+  assert.match(await tab.locator('[data-selling-source]').textContent(), /背包更新于/);
+  await host.evaluate(() => { window.bag = null; window.send(); });
+  await tab.locator('[data-selling-source]', { hasText: '游戏未连接' }).waitFor();
+  assert.ok(await tab.locator('[data-selling-item="eq:1:1452016"]').isVisible());
+  assert.deepEqual(deviceCalls, []);
+  console.log('PASS collector tab (website page): bag passed in by the window, no sign-in or local endpoint');
 
   const phone = await browser.newPage({ viewport: { width: 390, height: 800 }, isMobile: true, hasTouch: true });
   await phone.addInitScript(() => localStorage.clear());
