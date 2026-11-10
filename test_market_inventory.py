@@ -171,3 +171,60 @@ class InventoryTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def gear(slot, item, stats=((16, 59), (1, 3)), upgrades=7):
+    # Synthetic equipment record in the current CW layout (no real character data).
+    data = bytearray(struct.pack('<hBIB', slot, 1, item, 0))
+    data += bytes.fromhex('008005bb46e61702') + b'\xff'*4 + b'\x01'
+    data += struct.pack('<I', sum(1 << bit for bit, _ in stats))
+    data += b''.join(struct.pack('<H', value) for _, value in sorted(stats))
+    data += struct.pack('<I', 0x40001) + bytes([upgrades, 255]) + bytes(100)
+    return bytes(data)
+
+
+def geared():
+    base = character()
+    worn = gear(1, 1002043, ((10, 18),)) + gear(11, 1452001)
+    bag = gear(1, 1302000, ((16, 17),), 5) + gear(3, 1040002, ((1, 2), (10, 20))) + bytes(2)
+    return base[:368] + worn + bytes(2) + bag + bytes(16) + base[600:]
+
+
+class EquipmentBagTests(unittest.TestCase):
+    def setUp(self):
+        self.inventory = Inventory()
+        self.inventory.observe(geared(), 'one')
+
+    def bag(self):
+        return {e['slot']: (e['item_id'], {s['key']: s['value'] for s in e['stats']}, e['remaining_upgrades'])
+                for e in self.inventory.view()['equipment']}
+
+    def test_snapshot_reads_worn_and_bag_with_stats(self):
+        self.assertEqual(self.bag(), {1: (1302000, {'weapon_attack': 17}, 5),
+                                      3: (1040002, {'dex': 2, 'weapon_defense': 20}, 7)})
+        self.assertEqual(sorted(self.inventory.worn), [1, 11])
+        # Ordinary bags are unchanged by the equipment sections.
+        self.assertEqual(self.inventory.view()['categories'], [2, 3, 4])
+
+    def test_equip_unequip_remove_and_add(self):
+        self.inventory.observe(update(struct.pack('<BBhh', 2, 1, 1, -11)), 'one')
+        self.assertEqual(self.bag()[1][0], 1452001)
+        self.assertEqual(self.inventory.worn[11]['item_id'], 1302000)
+        self.inventory.observe(update(struct.pack('<BBh', 3, 1, 3)), 'one')
+        self.assertEqual(sorted(self.bag()), [1])
+        self.inventory.observe(update(struct.pack('<BB', 0, 1) + gear(5, 1060002, ((4, 9),))), 'one')
+        self.assertEqual(self.bag()[5], (1060002, {'hp': 9}, 7))
+        self.assertIsNotNone(self.inventory.slots)
+
+    def test_unbounded_equipment_add_rejects_the_update(self):
+        add = struct.pack('<BB', 0, 1) + gear(6, 1060002)
+        self.inventory.observe(update(add, struct.pack('<BBh', 3, 1, 1)), 'one')
+        self.assertIsNone(self.inventory.slots)
+        self.assertNotIn('equipment', self.inventory.view() or {})
+
+    def test_unrecognised_sections_leave_equipment_unknown(self):
+        data = bytearray(geared())
+        data[368+17] ^= 0xff  # break the first record's ffffffff marker
+        inventory = Inventory(); inventory.observe(bytes(data), 'one')
+        self.assertIsNotNone(inventory.slots)
+        self.assertNotIn('equipment', inventory.view())

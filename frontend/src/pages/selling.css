@@ -78,3 +78,4 @@ html[data-page=selling] .dwrap{max-width:1280px}
   .selling-prices input,.selling-amount input,.selling-device{font-size:16px}
   .selling-step button{width:40px;height:40px}
 }
+.selling-who small.selling-stats{color:var(--bar-text);font-weight:700}

@@ -13,6 +13,16 @@ export interface Holdings {
   mesos: number | null;
   categories: number[];
   items: { item_id: number; quantity: number }[];
+  /** The equipment bag (collector v0.7.0+); absent while unread. */
+  equipment?: EquipmentPiece[];
+}
+export interface EquipmentPiece {
+  slot: number;
+  item_id: number;
+  decoded: boolean;
+  stats: { key: string; value: number }[];
+  remaining_upgrades: number | null;
+  enhancements: number | null;
 }
 export interface SweepWatch {
   item_id: number;

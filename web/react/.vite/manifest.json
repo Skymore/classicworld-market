@@ -13,8 +13,8 @@
       "_shared-CyCO-lgP.js"
     ]
   },
-  "_catalogue-CHDzmQw_.js": {
-    "file": "chunks/catalogue-CHDzmQw_.js",
+  "_catalogue-BA8m10SP.js": {
+    "file": "chunks/catalogue-BA8m10SP.js",
     "name": "catalogue",
     "imports": [
       "_shared-CyCO-lgP.js",
@@ -25,7 +25,8 @@
       "_item-offer-filters-Bqp-qBXH.js",
       "_live-tUNz4TAo.js",
       "_shop-view-B3GS0Qd3.js",
-      "_list-rows-3YOiKgsv.js",
+      "_equipment-summary-BAqE_aiN.js",
+      "_list-rows-Cb1E7HIv.js",
       "_offer-filters-FP7bSFsv.js",
       "_crafting-CXB4nJ1A.js"
     ],
@@ -64,6 +65,10 @@
     "file": "chunks/embed-Dt3d22Ag.js",
     "name": "embed"
   },
+  "_equipment-summary-BAqE_aiN.js": {
+    "file": "chunks/equipment-summary-BAqE_aiN.js",
+    "name": "equipment-summary"
+  },
   "_item-market-BznqKqrm.js": {
     "file": "chunks/item-market-BznqKqrm.js",
     "name": "item-market"
@@ -86,13 +91,14 @@
       "_shared-CyCO-lgP.js"
     ]
   },
-  "_list-rows-3YOiKgsv.js": {
-    "file": "chunks/list-rows-3YOiKgsv.js",
+  "_list-rows-Cb1E7HIv.js": {
+    "file": "chunks/list-rows-Cb1E7HIv.js",
     "name": "list-rows",
     "imports": [
       "_shared-CyCO-lgP.js",
       "_shell-CBtwQnc2.js",
-      "_user-round-BnS-fOi8.js"
+      "_user-round-BnS-fOi8.js",
+      "_equipment-summary-BAqE_aiN.js"
     ]
   },
   "_live-tUNz4TAo.js": {
@@ -102,8 +108,8 @@
       "_shared-CyCO-lgP.js"
     ]
   },
-  "_main-CLYfUSJN.js": {
-    "file": "chunks/main-CLYfUSJN.js",
+  "_main-C2tFnxO9.js": {
+    "file": "chunks/main-C2tFnxO9.js",
     "name": "main",
     "imports": [
       "_shared-CyCO-lgP.js",
@@ -114,8 +120,8 @@
       "_user-round-BnS-fOi8.js",
       "_item-tip-szCvK2Im.js",
       "_embed-Dt3d22Ag.js",
-      "_toasts-Bm1AXFz1.js",
-      "_watch-alerts-BIHBDrvz.js"
+      "_toasts-DHD2JT70.js",
+      "_watch-alerts-BkKpat6m.js"
     ],
     "dynamicImports": [
       "src/pages/prices.tsx",
@@ -274,13 +280,13 @@
       "_shell-CBtwQnc2.js"
     ]
   },
-  "_toasts-Bm1AXFz1.js": {
-    "file": "chunks/toasts-Bm1AXFz1.js",
+  "_toasts-DHD2JT70.js": {
+    "file": "chunks/toasts-DHD2JT70.js",
     "name": "toasts",
     "imports": [
       "_shared-CyCO-lgP.js",
       "_assistant-icon-XxRE44Op.js",
-      "_list-rows-3YOiKgsv.js",
+      "_list-rows-Cb1E7HIv.js",
       "_push-54BkReeW.js"
     ]
   },
@@ -310,8 +316,8 @@
       "_createLucideIcon-DOhB6Mqm.js"
     ]
   },
-  "_watch-alerts-BIHBDrvz.js": {
-    "file": "chunks/watch-alerts-BIHBDrvz.js",
+  "_watch-alerts-BkKpat6m.js": {
+    "file": "chunks/watch-alerts-BkKpat6m.js",
     "name": "watch-alerts",
     "imports": [
       "_shared-CyCO-lgP.js",
@@ -319,7 +325,7 @@
       "_item-offer-filters-Bqp-qBXH.js",
       "_watch-reminders-pyT7no6d.js",
       "_live-tUNz4TAo.js",
-      "_toasts-Bm1AXFz1.js",
+      "_toasts-DHD2JT70.js",
       "_list-copy-DKMBVUW0.js"
     ]
   },
@@ -354,7 +360,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CLYfUSJN.js"
+      "_main-C2tFnxO9.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -396,20 +402,20 @@
     ]
   },
   "src/pages/alerts.tsx": {
-    "file": "chunks/alerts-BR39lZgR.js",
+    "file": "chunks/alerts-DW7sPLVq.js",
     "name": "alerts",
     "src": "src/pages/alerts.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shared-CyCO-lgP.js",
-      "_list-rows-3YOiKgsv.js",
+      "_list-rows-Cb1E7HIv.js",
       "_push-54BkReeW.js",
-      "_toasts-Bm1AXFz1.js",
+      "_toasts-DHD2JT70.js",
       "_list-copy-DKMBVUW0.js"
     ]
   },
   "src/pages/catalogue-search.tsx": {
-    "file": "chunks/catalogue-search-CkoL_9LK.js",
+    "file": "chunks/catalogue-search-CD4lMb7a.js",
     "name": "catalogue-search",
     "src": "src/pages/catalogue-search.tsx",
     "isDynamicEntry": true,
@@ -418,16 +424,16 @@
       "_shell-CBtwQnc2.js",
       "_dialog-DT9PruCZ.js",
       "_price-state-BZFgu40o.js",
-      "_catalogue-CHDzmQw_.js"
+      "_catalogue-BA8m10SP.js"
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-DJEWy4In.js",
+    "file": "chunks/catalogue-CtR563GF.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_catalogue-CHDzmQw_.js"
+      "_catalogue-BA8m10SP.js"
     ]
   },
   "src/pages/collect.tsx": {
@@ -499,7 +505,7 @@
     ]
   },
   "src/pages/prices.tsx": {
-    "file": "chunks/prices-CxLznl0G.js",
+    "file": "chunks/prices-DNRBB-7b.js",
     "name": "prices",
     "src": "src/pages/prices.tsx",
     "isDynamicEntry": true,
@@ -510,7 +516,7 @@
       "_watch-ids-Duq9crSV.js",
       "_watchlist-core-CnJpcWvS.js",
       "_live-tUNz4TAo.js",
-      "_list-rows-3YOiKgsv.js",
+      "_list-rows-Cb1E7HIv.js",
       "_list-copy-DKMBVUW0.js",
       "_dialog-DT9PruCZ.js",
       "_price-state-BZFgu40o.js",
@@ -528,7 +534,7 @@
     ]
   },
   "src/pages/selling.tsx": {
-    "file": "chunks/selling-D8zCApEC.js",
+    "file": "chunks/selling-DLw730e0.js",
     "name": "selling",
     "src": "src/pages/selling.tsx",
     "isDynamicEntry": true,
@@ -536,12 +542,14 @@
       "_shared-CyCO-lgP.js",
       "_shell-CBtwQnc2.js",
       "_useQueries-DiBXAAok.js",
+      "_item-market-BznqKqrm.js",
       "_embed-Dt3d22Ag.js",
+      "_equipment-summary-BAqE_aiN.js",
       "_account-api-CfvkjcI2.js",
       "_sweep-content-CEWuypt9.js"
     ],
     "css": [
-      "chunks/selling-Cca2B6YS.css"
+      "chunks/selling-DIr7Bq4l.css"
     ]
   },
   "src/pages/tools.tsx": {
@@ -570,7 +578,7 @@
     ]
   },
   "src/pages/watch.tsx": {
-    "file": "chunks/watch-DCgfR51y.js",
+    "file": "chunks/watch-BECzYa9L.js",
     "name": "watch",
     "src": "src/pages/watch.tsx",
     "isDynamicEntry": true,
@@ -586,10 +594,10 @@
       "_createLucideIcon-DOhB6Mqm.js",
       "_return-to-O0h5OTAe.js",
       "_notification-settings-933XYXbG.js",
-      "_list-rows-3YOiKgsv.js",
+      "_list-rows-Cb1E7HIv.js",
       "_account-api-CfvkjcI2.js",
       "_list-copy-DKMBVUW0.js",
-      "_watch-alerts-BIHBDrvz.js",
+      "_watch-alerts-BkKpat6m.js",
       "_sweep-labels-DSdZbt-B.js",
       "_dialog-DT9PruCZ.js",
       "_offer-filters-FP7bSFsv.js",
@@ -606,7 +614,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CLYfUSJN.js"
+      "_main-C2tFnxO9.js"
     ]
   }
 }

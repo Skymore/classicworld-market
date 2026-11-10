@@ -100,10 +100,12 @@ fn valid_holdings(v: &Value) -> bool {
     };
     // v0.6.34 adds stream identity/revision for local purchase receipts.
     // Accept the bounded pair while retaining the original four-field wire format.
+    // v0.7.0 adds the optional equipment bag (`equipment`).
+    let gear = usize::from(o.contains_key("equipment"));
     let capture = match (o.get("session"), o.get("revision")) {
-        (None, None) => o.len() == 4,
+        (None, None) => o.len() == 4 + gear,
         (Some(session), Some(revision)) => {
-            o.len() == 6
+            o.len() == 6 + gear
                 && session.as_str().is_some_and(|s| {
                     (1..=64).contains(&s.len()) && s.bytes().all(|b| b.is_ascii_hexdigit())
                 })
@@ -138,6 +140,49 @@ fn valid_holdings(v: &Value) -> bool {
                     })
                 })
         })
+        && o.get("equipment").is_none_or(valid_equipment)
+}
+
+/// The equipment bag: one entry per occupied slot with the decoded stats.
+fn valid_equipment(v: &Value) -> bool {
+    let small =
+        |v: Option<&Value>| v.is_some_and(|v| v.is_null() || v.as_u64().is_some_and(|n| n <= 255));
+    v.as_array().is_some_and(|a| {
+        a.len() <= 200
+            && a.iter().all(|e| {
+                e.as_object().is_some_and(|e| {
+                    e.len() == 6
+                        && e.get("slot")
+                            .and_then(Value::as_u64)
+                            .is_some_and(|n| (1..=1000).contains(&n))
+                        && e.get("item_id")
+                            .and_then(Value::as_u64)
+                            .is_some_and(|n| (1000000..=1999999).contains(&n))
+                        && e.get("decoded").is_some_and(Value::is_boolean)
+                        && small(e.get("remaining_upgrades"))
+                        && small(e.get("enhancements"))
+                        && e.get("stats").and_then(Value::as_array).is_some_and(|s| {
+                            s.len() <= 20
+                                && s.iter().all(|s| {
+                                    s.as_object().is_some_and(|s| {
+                                        s.len() == 2
+                                            && s.get("key").and_then(Value::as_str).is_some_and(
+                                                |k| {
+                                                    (1..=32).contains(&k.len())
+                                                        && k.bytes().all(|b| {
+                                                            b.is_ascii_lowercase() || b == b'_'
+                                                        })
+                                                },
+                                            )
+                                            && s.get("value")
+                                                .and_then(Value::as_u64)
+                                                .is_some_and(|n| n <= 65535)
+                                    })
+                                })
+                        })
+                })
+            })
+    })
 }
 
 /// The `DeviceState` a collector reports; only the collector changes it.
@@ -654,6 +699,32 @@ mod tests {
         );
         assert!(!valid_challenge(&format!("{}.", "a".repeat(42))));
     }
+    #[test]
+    fn holdings_accept_the_optional_equipment_bag() {
+        let now = Utc::now().timestamp();
+        let mut h = json!({"observed_at": now, "mesos": 5, "categories": [2, 3, 4],
+            "items": [{"item_id": 2000002, "quantity": 600}]});
+        assert!(valid_holdings(&h));
+        h["equipment"] = json!([{"slot": 1, "item_id": 1302000, "decoded": true,
+            "stats": [{"key": "weapon_attack", "value": 17}], "remaining_upgrades": 5, "enhancements": 0},
+            {"slot": 3, "item_id": 1040002, "decoded": false, "stats": [],
+            "remaining_upgrades": null, "enhancements": null}]);
+        assert!(valid_holdings(&h));
+        h["session"] = json!("ab12");
+        h["revision"] = json!(3);
+        assert!(valid_holdings(&h));
+        for bad in [
+            json!([{"slot": 1, "item_id": 2000002, "decoded": true, "stats": [],
+                "remaining_upgrades": 1, "enhancements": 0}]),
+            json!([{"slot": 1, "item_id": 1302000, "decoded": true,
+                "stats": [{"key": "<b>", "value": 1}], "remaining_upgrades": 1, "enhancements": 0}]),
+            json!("x"),
+        ] {
+            h["equipment"] = bad;
+            assert!(!valid_holdings(&h));
+        }
+    }
+
     #[test]
     fn device_names_are_trimmed_and_bounded() {
         let longest = "长".repeat(40);
