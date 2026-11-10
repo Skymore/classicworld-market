@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ago, fullTime } from "/web/js/lib/format.js";
 import { useAccount } from "../lib/query";
 import { setAssistantOpen, useAssistantOpen } from "../lib/assistant";
-import { embedded } from "../lib/embed";
+import { embedded, embeddedLocal } from "../lib/embed";
 import { usePreferences, useWords, type LanguageChoice, type ThemeChoice } from "../providers";
 import {
   DropdownMenu,
@@ -411,6 +411,8 @@ function toolCrumb(path: string): [string, string] | null {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const words = useWords();
   const route = useLocation();
+  // 摆摊 is its own tab in the collector: no in-page navigation or breadcrumb there.
+  const ownTab = embeddedLocal && route.pathname === "/selling";
   const navigate = useNavigate();
   useEffect(() => {
     if (!embedded) return;
@@ -442,7 +444,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
   return (
     <>
-      {embedded && route.pathname !== "/watch" && <EmbeddedNavigation />}
+      {embedded && route.pathname !== "/watch" && !ownTab && <EmbeddedNavigation />}
       {!embedded && (
         <>
           <header className="ptop">
@@ -464,7 +466,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }
         id="main"
       >
-        {toolCrumb(route.pathname) && (
+        {toolCrumb(route.pathname) && !ownTab && (
           <nav className="tool-breadcrumb" aria-label={words("位置", "Breadcrumb")}>
             <SiteLink href="/tools">{words("工具", "Tools")}</SiteLink>
             <span aria-hidden="true">›</span>

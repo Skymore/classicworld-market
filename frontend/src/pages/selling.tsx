@@ -8,14 +8,11 @@ import { Slot, usePageReady } from "../components/shared";
 import { SiteLink } from "../components/shell";
 import { isEnglish, useItemRows } from "../components/sweep-content";
 import { getAccountJson, useAccountTopics } from "../lib/account-api";
-import { embedded } from "../lib/embed";
+import { embedded, embeddedLocal } from "../lib/embed";
 import { mainStat } from "../lib/item-market";
 import { useAccount } from "../lib/query";
 import type { Device, EquipmentPiece, Holdings } from "../lib/sweep-labels";
 import "./selling.css";
-
-/** 客户端里经本机回环打开时直接读本机背包；公网网站（含客户端里的工具页）读账号设备。 */
-const LOCAL_BAG = embedded && ["127.0.0.1", "localhost"].includes(location.hostname);
 
 /** 成交 25% 分位、成交中位，或玩家手填。 */
 type Strategy = "s25" | "s50" | "manual";
@@ -43,6 +40,8 @@ interface Prices {
   mainValue?: number;
 }
 const PLAN_KEY = "selling.plan.v1";
+/** 上次读到的背包：游戏断开后页面仍可用。 */
+const BAG_KEY = "selling.bag.v1";
 const BAGS: [number, string, string][] = [
   [1, "装备", "Equip"],
   [2, "消耗", "Use"],
@@ -55,7 +54,8 @@ const MAIN_LABEL: Record<string, [string, string]> = {
 };
 const DEVICES_KEY = ["selling-devices"] as const;
 const gearKey = (piece: EquipmentPiece) => `eq:${piece.slot}:${piece.item_id}`;
-const itemOf = (key: string) => Number(key.startsWith("eq:") ? key.split(":")[2] : key);
+const isGearKey = (key: string) => key.startsWith("eq:");
+const itemOf = (key: string) => Number(isGearKey(key) ? key.split(":")[2] : key);
 
 function readPlan(): Plan {
   try {
@@ -70,6 +70,14 @@ function readPlan(): Plan {
     /* 没有或损坏的方案从空开始 */
   }
   return { global: "s50", order: [], lines: {} };
+}
+function readBag(): Holdings | null {
+  try {
+    const raw = JSON.parse(localStorage.getItem(BAG_KEY) || "null");
+    return raw && Array.isArray(raw.items) && Array.isArray(raw.categories) && Number(raw.observed_at) > 0 ? raw : null;
+  } catch {
+    return null;
+  }
 }
 const n = (value: number | null | undefined) =>
   value == null ? "—" : Math.ceil(value).toLocaleString("en-US");
@@ -99,21 +107,23 @@ export function salePrices(product: any): Prices {
 /**
  * 一件装备的参考价：同名装备里主属性相同（武器比攻击）的成交；没有主属性的装备比
  * 全部属性。没有可比成交时用同名全部成交并标明属性不同。近 30 天够 3 笔就只用近 30 天。
+ * 清单里已不在背包的装备（没有属性）按同名全部成交。
  */
-export function gearPrices(piece: EquipmentPiece, sales: any[] | undefined, now = Date.now() / 1000): Prices {
+export function gearPrices(piece: EquipmentPiece | undefined, itemId: number, sales: any[] | undefined, now = Date.now() / 1000): Prices {
   const rows = (sales || []).filter(
     (s) => positive(s.sale_unit_price) && s.equipment?.status === "candidate" && Array.isArray(s.equipment.stats),
   );
   const value = (stats: { key: string; value: number }[], key: string) => stats.find((s) => s.key === key)?.value ?? 0;
-  const main = mainStat(piece.item_id);
-  const mine = (key: string) => value(piece.stats, key);
+  const main = mainStat(itemId);
+  const known = Boolean(piece?.decoded);
+  const mine = (key: string) => value(piece?.stats || [], key);
   const keys = (stats: { key: string; value: number }[]) =>
     stats.filter((s) => s.value > 0).map((s) => `${s.key}=${s.value}`).sort().join(",");
-  const same = !piece.decoded
+  const same = !known
     ? []
     : main
       ? rows.filter((s) => value(s.equipment.stats, main) === mine(main))
-      : rows.filter((s) => keys(s.equipment.stats) === keys(piece.stats));
+      : rows.filter((s) => keys(s.equipment.stats) === keys(piece!.stats));
   let pool = same.length ? same : rows;
   const recent = pool.filter((s) => Number(s.time) >= now - 30 * 86400);
   if (recent.length >= 3) pool = recent;
@@ -123,7 +133,7 @@ export function gearPrices(piece: EquipmentPiece, sales: any[] | undefined, now 
     s50: prices.length ? Math.ceil(percentile(prices, 0.5)) : null,
     count: prices.length,
     basis: !prices.length ? "none" : same.length ? "same" : "all",
-    main: piece.decoded ? main : null,
+    main: known ? main : null,
     mainValue: main ? mine(main) : undefined,
   };
 }
@@ -136,7 +146,7 @@ function defaults(quantity: number): Line {
 function useHoldings(signedIn: boolean) {
   const local = useQuery({
     queryKey: ["selling-local-inventory"],
-    enabled: LOCAL_BAG,
+    enabled: embeddedLocal,
     refetchInterval: 5_000,
     queryFn: async ({ signal }) =>
       (await getJson("/api/v1/collector/inventory", { signal })).data as {
@@ -145,12 +155,12 @@ function useHoldings(signedIn: boolean) {
   });
   const devices = useQuery({
     queryKey: DEVICES_KEY,
-    enabled: !LOCAL_BAG && signedIn,
+    enabled: !embeddedLocal && signedIn,
     queryFn: ({ signal }) =>
       getAccountJson<{ devices: Device[] }>("/api/v1/account/devices", signal),
   });
-  useAccountTopics(["devices"], DEVICES_KEY, !LOCAL_BAG && signedIn);
-  if (LOCAL_BAG)
+  useAccountTopics(["devices"], DEVICES_KEY, !embeddedLocal && signedIn);
+  if (embeddedLocal)
     return {
       loading: local.isLoading,
       sources: local.data?.holdings
@@ -160,7 +170,7 @@ function useHoldings(signedIn: boolean) {
   const sources = (devices.data?.devices || [])
     .filter((d) => d.online && d.state?.sweep?.game?.connected !== false && d.state?.sweep?.holdings)
     .map((d) => ({ id: d.id, name: d.name, holdings: d.state!.sweep!.holdings! }));
-  return { loading: devices.isLoading, sources, error: devices.error };
+  return { loading: devices.isLoading, sources };
 }
 
 /** 背包里物品的报价，每次最多 100 个物品。 */
@@ -218,12 +228,27 @@ export default function Selling() {
   usePageReady();
   const words = useWords();
   const account = useAccount();
-  const signedIn = LOCAL_BAG || Boolean(account.data?.signed_in);
+  const signedIn = embeddedLocal || Boolean(account.data?.signed_in);
   const { loading, sources } = useHoldings(signedIn);
   const [deviceId, setDeviceId] = useState("");
   const source = sources.find((s) => s.id === deviceId) || sources[0] || null;
-  const holdings = source?.holdings || null;
+  const live = source?.holdings || null;
+  const liveJson = live ? JSON.stringify(live) : "";
+  const [saved, setSaved] = useState<Holdings | null>(readBag);
+  useEffect(() => {
+    if (!liveJson) return;
+    setSaved(JSON.parse(liveJson));
+    try {
+      localStorage.setItem(BAG_KEY, liveJson);
+    } catch {
+      /* 存不下时断线后不显示旧背包 */
+    }
+  }, [liveJson]);
+  // 游戏断开时继续显示上次读到的背包，并标明时间。
+  const holdings = live || saved;
+  const stale = !live && Boolean(saved);
   const [bag, setBag] = useState(1);
+  const [filter, setFilter] = useState("");
   const [plan, setPlan] = useState<Plan>(readPlan);
   useEffect(() => {
     try {
@@ -247,7 +272,7 @@ export default function Selling() {
   ];
   const products = useProducts(allIds);
   const npcSell = useNpcSell(allIds);
-  const gearSales = useGearSales(plan.order.filter((key) => key.startsWith("eq:")).map(itemOf));
+  const gearSales = useGearSales(plan.order.filter(isGearKey).map(itemOf));
   const rowOf = useItemRows(
     allIds.filter((id) => !products.has(id)),
     products,
@@ -259,18 +284,23 @@ export default function Selling() {
   const icon = (id: number) => rowOf(id)?.icon_url as string | undefined;
   const summary = (piece: EquipmentPiece) =>
     piece.decoded
-      ? equipmentSummary({ item_id: piece.item_id, equipment: { ...piece, status: "candidate" } }, isEnglish())
+      ? equipmentSummary({ item_id: piece.item_id, equipment: { ...piece, status: "candidate" } }, isEnglish()) ||
+        words("无附加属性", "No bonus stats")
       : words("属性未解析", "Stats not decoded");
 
-  const gearReadable = Array.isArray(holdings?.equipment);
-  const bagItems: { key: string; item_id: number; quantity: number; piece?: EquipmentPiece }[] =
-    bag === 1
+  type BagItem = { key: string; item_id: number; quantity: number; piece?: EquipmentPiece };
+  const itemsOf = (tab: number): BagItem[] =>
+    tab === 1
       ? [...gear.entries()].map(([key, piece]) => ({ key, item_id: piece.item_id, quantity: 1, piece }))
       : (holdings?.items || [])
-          .filter((i) => Math.floor(i.item_id / 1_000_000) === bag && i.quantity > 0)
+          .filter((i) => Math.floor(i.item_id / 1_000_000) === tab && i.quantity > 0)
           .sort((a, b) => a.item_id - b.item_id)
           .map((i) => ({ key: String(i.item_id), item_id: i.item_id, quantity: i.quantity }));
-  const bagRead = bag === 1 ? gearReadable : (holdings?.categories.includes(bag) ?? false);
+  const readOf = (tab: number) =>
+    tab === 1 ? Array.isArray(holdings?.equipment) : (holdings?.categories.includes(tab) ?? false);
+  const bagItems = itemsOf(bag);
+  const needle = filter.trim().toLowerCase();
+  const shown = needle ? bagItems.filter((i) => name(i.item_id).toLowerCase().includes(needle)) : bagItems;
 
   const update = (key: string, change: Partial<Line>) =>
     setPlan((p) => ({ ...p, lines: { ...p.lines, [key]: { ...p.lines[key], ...change } } }));
@@ -283,7 +313,7 @@ export default function Selling() {
       }
       return {
         ...p,
-        lines: { ...p.lines, [key]: defaults(key.startsWith("eq:") ? 1 : held.get(key) || 1) },
+        lines: { ...p.lines, [key]: defaults(isGearKey(key) ? 1 : held.get(key) || 1) },
         order: [...p.order, key],
       };
     });
@@ -297,7 +327,7 @@ export default function Selling() {
     }));
   const selectPriced = () =>
     setPlan((p) => {
-      const add = bagItems.filter((i) => {
+      const add = shown.filter((i) => {
         const product = products.get(i.item_id);
         return !p.lines[i.key] && (i.piece ? Number(product?.sales_10d) > 0 || positive(product?.typical) : salePrices(product).s50 != null);
       });
@@ -314,11 +344,13 @@ export default function Selling() {
   const rows = plan.order.map((key) => {
     const line = plan.lines[key];
     const id = itemOf(key);
-    const piece = key.startsWith("eq:") ? gear.get(key) : undefined;
-    const isGear = key.startsWith("eq:");
+    const isGear = isGearKey(key);
+    const piece = isGear ? gear.get(key) : undefined;
     const quantity = isGear ? (piece ? 1 : 0) : (held.get(key) ?? 0);
-    const prices = isGear ? (piece ? gearPrices(piece, gearSales.get(id)) : { s25: null, s50: null, count: 0 }) : salePrices(products.get(id));
-    const strat = line.strat || plan.global;
+    const prices = isGear ? gearPrices(piece, id, gearSales.get(id)) : salePrices(products.get(id));
+    const chosen = line.strat || plan.global;
+    // 选中的档位没有数据时，这一行改为等玩家手填。
+    const strat: Strategy = chosen !== "manual" && prices[chosen] == null ? "manual" : chosen;
     const unit = strat === "manual" ? Number(line.manual) || null : prices[strat];
     const bundle = isGear ? 1 : line.bundle,
       groups = isGear ? 1 : line.groups;
@@ -330,9 +362,7 @@ export default function Selling() {
         : selling > quantity
           ? words("超出背包数量", "More than you hold")
           : unit == null
-            ? strat === "manual"
-              ? words("请输入单价", "Enter a unit price")
-              : words("没有成交数据，请手动定价", "No sales; set a price")
+            ? words("请输入单价", "Enter a unit price")
             : "";
     const total = unit != null && !warn ? unit * selling : null;
     const npc = npcSell.get(id) ?? null;
@@ -372,18 +402,29 @@ export default function Selling() {
           : `${name(r.id)}  ${n(r.unit)} × ${r.bundle} × ${r.groups}${words("组", " lots")}`,
       )
       .join("\n");
+  const clock = (seconds: number) => {
+    const at = new Date(seconds * 1000);
+    const time = at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+    return at.toDateString() === new Date().toDateString() ? time : `${at.getMonth() + 1}-${at.getDate()} ${time}`;
+  };
 
-  if (!signedIn && !account.isLoading)
+  if (!signedIn && !account.isLoading && !holdings)
     return (
-      <section className="stall selling-page">
+      <section className="stall selling-page selling-gate">
         <div className="stall-bar">
           <h1>{words("摆摊", "Shop planner")}</h1>
         </div>
         <div className="selling-empty">
-          <p>{words("登录后读取客户端同步的背包。", "Sign in to read the inventory your collector syncs.")}</p>
-          <SiteLink className="btn" href="/account">
-            {words("登录", "Sign in")}
-          </SiteLink>
+          {embedded ? (
+            <p>{words("请用采集器顶部的「摆摊」栏目。", "Use the Shop tab at the top of the collector.")}</p>
+          ) : (
+            <>
+              <p>{words("登录后读取客户端同步的背包。", "Sign in to read the inventory your collector syncs.")}</p>
+              <SiteLink className="btn" href="/account">
+                {words("登录", "Sign in")}
+              </SiteLink>
+            </>
+          )}
         </div>
       </section>
     );
@@ -392,14 +433,15 @@ export default function Selling() {
     <div className="selling-page">
       <div className="selling-head">
         <h1>{words("摆摊", "Shop planner")}</h1>
-        <span className="selling-src" data-selling-source>
-          <i className={holdings ? "on" : ""} aria-hidden="true" />
-          {holdings
-            ? words("背包更新于 ", "Bag updated ") +
-              new Date(holdings.observed_at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-            : loading
-              ? words("正在读取背包…", "Reading bag…")
-              : words("等待游戏数据：打开游戏和采集器", "Waiting for the game and collector")}
+        <span className={"selling-src" + (live ? " on" : stale ? " stale" : "")} data-selling-source>
+          <i aria-hidden="true" />
+          {live
+            ? words("背包更新于 ", "Bag updated ") + clock(live.observed_at)
+            : stale
+              ? words("游戏未连接 · 显示上次读到的背包 ", "Game not connected · showing the bag read ") + clock(saved!.observed_at)
+              : loading
+                ? words("正在读取背包…", "Reading bag…")
+                : words("等待游戏数据：打开游戏和采集器", "Waiting for the game and collector")}
         </span>
         {sources.length > 1 && (
           <select
@@ -415,6 +457,9 @@ export default function Selling() {
             ))}
           </select>
         )}
+        <span className="selling-mesos">
+          {words("金币", "Mesos")} <b>{n(holdings?.mesos)}</b>
+        </span>
       </div>
 
       <div className="selling-layout">
@@ -434,58 +479,63 @@ export default function Selling() {
                 onClick={() => setBag(id)}
               >
                 {words(zh, en)}
+                {readOf(id) && <small>{itemsOf(id).length}</small>}
               </button>
             ))}
           </div>
+          {bagItems.length > 8 && (
+            <div className="selling-filter">
+              <input
+                type="search"
+                value={filter}
+                placeholder={words("筛选名称", "Filter by name")}
+                aria-label={words("筛选名称", "Filter by name")}
+                onChange={(e) => setFilter(e.target.value)}
+              />
+              <button type="button" className="btn" onClick={selectPriced}>
+                {words("全选有成交的", "Select all with sales")}
+              </button>
+            </div>
+          )}
           {!holdings ? (
-            <p className="selling-note">{words("没有背包数据", "No bag data")}</p>
-          ) : !bagRead ? (
+            <p className="selling-note">
+              {words("打开游戏和采集器，进入游戏后这里会显示背包。", "Open the game and the collector; your bag appears here once you are in game.")}
+            </p>
+          ) : !readOf(bag) ? (
             <p className="selling-note">
               {bag === 1
                 ? words("装备栏还没读到：更新采集器后换一次频道", "Equipment not read yet: update the collector, then change channel")
                 : words("这一栏还没读到", "This tab has not been read yet")}
             </p>
-          ) : !bagItems.length ? (
-            <p className="selling-note">{words("这一栏是空的", "This tab is empty")}</p>
+          ) : !shown.length ? (
+            <p className="selling-note">{needle ? words("没有匹配的物品", "No matching items") : words("这一栏是空的", "This tab is empty")}</p>
           ) : (
-            <div className="selling-slots">
-              {bagItems.map((item) => {
+            <ul className="selling-list">
+              {shown.map((item) => {
                 const on = Boolean(plan.lines[item.key]);
-                const npc = npcSell.get(item.item_id);
+                const mid = item.piece ? null : salePrices(products.get(item.item_id)).s50;
                 return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    className={"selling-slot" + (on ? " on" : "")}
-                    aria-pressed={on}
-                    title={[
-                      name(item.item_id),
-                      item.piece ? summary(item.piece) : "",
-                      npc != null ? words("NPC 回收 ", "NPC ") + n(npc) : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                    aria-label={name(item.item_id)}
-                    data-selling-item={item.key}
-                    onClick={() => toggle(item.key)}
-                  >
-                    <Slot url={icon(item.item_id)} size={32} />
-                    {!item.piece && <span className="selling-qty">{item.quantity.toLocaleString()}</span>}
-                  </button>
+                  <li key={item.key}>
+                    <button
+                      type="button"
+                      className={on ? "on" : ""}
+                      aria-pressed={on}
+                      data-selling-item={item.key}
+                      onClick={() => toggle(item.key)}
+                    >
+                      <Slot url={icon(item.item_id)} size={28} />
+                      <span className="selling-item">
+                        <b>{name(item.item_id)}</b>
+                        <small>{item.piece ? summary(item.piece) : `× ${item.quantity.toLocaleString()}`}</small>
+                      </span>
+                      {mid != null && <span className="selling-ref">{n(mid)}</span>}
+                      <i className="selling-tick" aria-hidden="true" />
+                    </button>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           )}
-          <div className="selling-bagfoot">
-            <span>
-              {words("金币", "Mesos")} <b>{n(holdings?.mesos)}</b>
-            </span>
-            {bagItems.length > 0 && (
-              <button type="button" className="btn" onClick={selectPriced}>
-                {words("选中本栏有成交的", "Select items with sales")}
-              </button>
-            )}
-          </div>
         </section>
 
         <section className="stall selling-plan" data-selling-plan>
@@ -513,20 +563,15 @@ export default function Selling() {
           {!rows.length && <p className="selling-empty">{words("在背包里点选要卖的物品", "Pick items from your bag")}</p>}
           {rows.map((r) => (
             <div className={"selling-row" + (r.warn ? " bad" : "")} key={r.key} data-selling-row={r.key}>
+              <Slot url={icon(r.id)} size={32} />
               <div className="selling-who">
-                <Slot url={icon(r.id)} size={32} />
-                <div>
-                  <b>{name(r.id)}</b>
-                  {r.piece && <small className="selling-stats" data-selling-stats>{summary(r.piece)}</small>}
-                  <small>
-                    {r.isGear ? words("装备栏", "Equip tab") : `${words("背包", "Held")} ${r.quantity.toLocaleString()}`}
-                    {" · "}
-                    {basisText(r)}
-                  </small>
-                </div>
-                <button type="button" className="selling-x" onClick={() => toggle(r.key)} aria-label={words("移出清单", "Remove")}>
-                  ×
-                </button>
+                <b>{name(r.id)}</b>
+                {r.piece && <small className="selling-stats" data-selling-stats>{summary(r.piece)}</small>}
+                <small>{basisText(r)}</small>
+                <small className={r.belowNpc ? "selling-warn" : ""} data-selling-npc>
+                  {words("NPC 回收", "NPC buys")} {n(r.npc)}
+                  {r.belowNpc && words("，直接卖 NPC 更划算", "; sell to the NPC")}
+                </small>
               </div>
               <div className="selling-prices" role="radiogroup" aria-label={words("单价", "Unit price")}>
                 {(["s25", "s50"] as const).map((key) => (
@@ -553,11 +598,6 @@ export default function Selling() {
                     onChange={(e) => update(r.key, { strat: "manual", manual: e.target.value.replace(/\D/g, "").slice(0, 10) })}
                   />
                 </label>
-                <div className={"selling-npc" + (r.belowNpc ? " low" : "")} data-selling-npc>
-                  <small>{words("NPC 回收", "NPC buys")}</small>
-                  <span>{n(r.npc)}</span>
-                </div>
-                {r.belowNpc && <small className="selling-warn">{words("不高于 NPC 回收价，直接卖 NPC 更划算", "Not above the NPC price; sell to the NPC")}</small>}
               </div>
               {r.isGear ? (
                 <div className="selling-amount">
@@ -565,16 +605,15 @@ export default function Selling() {
                 </div>
               ) : (
                 <div className="selling-amount">
-                  <label>
-                    {words("每组", "Per lot")}
+                  <div className="selling-step">
+                    <span>{words("每组", "Per lot")}</span>
                     <input
                       inputMode="numeric"
                       value={r.line.bundle}
                       aria-label={words("每组数量", "Per lot")}
                       onChange={(e) => update(r.key, { bundle: Math.max(1, Number(e.target.value.replace(/\D/g, "").slice(0, 5)) || 1) })}
                     />
-                  </label>
-                  <div className="selling-step">
+                    <span>×</span>
                     <button type="button" onClick={() => update(r.key, { groups: Math.max(1, r.line.groups - 1) })} aria-label={words("少一组", "One lot less")}>
                       −
                     </button>
@@ -582,7 +621,7 @@ export default function Selling() {
                     <button type="button" onClick={() => update(r.key, { groups: r.line.groups + 1 })} aria-label={words("多一组", "One lot more")}>
                       +
                     </button>
-                    {words("组", "lots")}
+                    <span>{words("组", "lots")}</span>
                   </div>
                   <small>
                     {words("共", "Total")} {r.selling.toLocaleString()} / {r.quantity.toLocaleString()}
@@ -590,10 +629,13 @@ export default function Selling() {
                 </div>
               )}
               <div className="selling-total">
-                {!r.isGear && <small>{words("每组", "Per lot")} {r.unit == null ? "—" : n(r.unit * r.bundle)}</small>}
                 <b>{n(r.total)}</b>
+                {!r.isGear && r.unit != null && <small>{words("每组", "Per lot")} {n(r.unit * r.bundle)}</small>}
                 {r.warn && <small className="selling-warn">{r.warn}</small>}
               </div>
+              <button type="button" className="selling-x" onClick={() => toggle(r.key)} aria-label={words("移出清单", "Remove")}>
+                ×
+              </button>
             </div>
           ))}
           <div className="selling-foot">

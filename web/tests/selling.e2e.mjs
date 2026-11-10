@@ -26,6 +26,7 @@ const products = [
   { item_id: 1040002, name_zh: '白色背心', name_en: 'White Undershirt', category: '装备', sales_10d: 2, icon_url: '' },
 ];
 const npc = { 2000002: 300, 4004000: 5000, 1452016: 20000 };
+let gameConnected = true;
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname === '/api/v1/events' || url.pathname === '/api/v1/account/events') {
@@ -38,6 +39,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/v1/market/selected') data = { as_of: now, products: products.filter(p => url.searchParams.get('ids').split(',').includes(String(p.item_id))) };
     if (url.pathname === '/api/v1/npc-sell') data = { prices: Object.fromEntries(Object.entries(npc).filter(([id]) => url.searchParams.get('ids').split(',').includes(id))) };
     if (url.pathname === '/api/v1/watchlist/catalog') data = { items: [] };
+    if (url.pathname === '/api/v1/collector/inventory') data = { holdings: gameConnected ? holdings : null };
     if (url.pathname.startsWith('/api/v1/item/')) data = { sales: gearSales[url.pathname.split('/').at(-1)] || [], listings: [] };
     if (url.pathname === '/api/v1/crafting/prices') data = { prices: [] };
     res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(data));
@@ -80,8 +82,8 @@ try {
   await row.waitFor();
   // 默认成交中位 300，每组 100 × 6 组。
   assert.equal(await total(page), '180,000');
-  // 价格竖排：成交 25%、成交中位、手动、NPC 回收自上而下同一列。
-  const boxes = await Promise.all(['button[role=radio] >> nth=0', 'button[role=radio] >> nth=1', 'label', '[data-selling-npc]']
+  // 价格竖排：成交 25%、成交中位、手动自上而下同一列。
+  const boxes = await Promise.all(['button[role=radio] >> nth=0', 'button[role=radio] >> nth=1', 'label']
     .map(s => row.locator('.selling-prices ' + s).boundingBox()));
   for (let i = 1; i < boxes.length; i++) {
     assert.equal(Math.round(boxes[i].x), Math.round(boxes[0].x));
@@ -89,13 +91,13 @@ try {
   }
   assert.match(await row.locator('[data-selling-npc]').textContent(), /300/);
   // 300 不高于 NPC 回收 300：提示卖 NPC。
-  assert.match(await row.textContent(), /NPC 回收价/);
+  assert.match(await row.textContent(), /直接卖 NPC 更划算/);
   // 成交 25%：290.4 向上取整 291。
   await row.getByRole('radio', { name: /成交 25%/ }).click();
   assert.equal(await total(page), '174,600');
   await row.locator('input[inputmode=numeric]').first().fill('450');
   assert.equal(await total(page), '270,000');
-  assert.doesNotMatch(await row.textContent(), /NPC 回收价，/);
+  assert.doesNotMatch(await row.textContent(), /更划算/);
   // 72 小时无成交：退到最近成交价，标注出来。
   await page.getByRole('tab', { name: '其他' }).click();
   await page.locator('[data-selling-item="4004000"]').click();
@@ -107,7 +109,10 @@ try {
   await page.locator('[data-selling-item="2040804"]').click();
   const scroll = page.locator('[data-selling-row="2040804"]');
   assert.ok(await scroll.getByRole('radio', { name: /成交中位/ }).isDisabled());
-  assert.match(await scroll.textContent(), /手动定价/);
+  assert.match(await scroll.textContent(), /请输入单价/);
+  // 没数据的档位不显示成选中，手动输入框突出。
+  assert.equal(await scroll.locator('.selling-prices button.on').count(), 0);
+  assert.equal(await scroll.locator('.selling-prices label.on').count(), 1);
   // 方案存在本机，刷新后还在。
   await page.reload();
   await page.locator('[data-selling-row="2000002"]').waitFor();
@@ -115,6 +120,29 @@ try {
   assert.deepEqual(errors, []);
   if (process.env.SELLING_SHOTS) await page.screenshot({ path: path.join(process.env.SELLING_SHOTS, 'selling-desktop.png'), fullPage: true });
   console.log('PASS desktop: equipment by main stat, unread stats fallback, bag, vertical prices, sold 25%/median, manual, NPC price, saved plan');
+
+  // 采集器的「摆摊」栏目：同一页面经本机回环打开，读本机背包；没有页内导航和面包屑。
+  const client = await browser.newPage({ viewport: { width: 1920, height: 1000 } });
+  await client.addInitScript(() => { if (!sessionStorage.getItem('fresh')) { localStorage.clear(); sessionStorage.setItem('fresh', '1'); } });
+  await client.goto(origin + '/selling?lang=zh&embed=1');
+  await client.locator('[data-selling-item="eq:1:1452016"]').click();
+  await client.getByRole('tab', { name: '消耗' }).click();
+  await client.locator('[data-selling-item="2040804"]').click();
+  await client.locator('[data-selling-item="2000002"]').click();
+  assert.equal(await client.locator('.embed-nav, .tool-breadcrumb').count(), 0);
+  assert.match(await client.locator('[data-selling-source]').textContent(), /背包更新于/);
+  if (process.env.SELLING_SHOTS) await client.screenshot({ path: path.join(process.env.SELLING_SHOTS, 'selling-client.png') });
+  // 游戏断开：继续显示上次读到的背包并标明，清单照常定价。
+  gameConnected = false;
+  await client.waitForFunction(() => /游戏未连接/.test(document.querySelector('[data-selling-source]')?.textContent || ''), null, { timeout: 15000 });
+  assert.ok(await client.locator('[data-selling-item="2000002"]').isVisible());
+  assert.doesNotMatch(await client.locator('[data-selling-row="2000002"]').textContent(), /已经没有了/);
+  await client.reload();
+  await client.locator('[data-selling-row="eq:1:1452016"]').waitFor();
+  assert.match(await client.locator('[data-selling-source]').textContent(), /游戏未连接/);
+  if (process.env.SELLING_SHOTS) await client.screenshot({ path: path.join(process.env.SELLING_SHOTS, 'selling-client-offline.png') });
+  gameConnected = true;
+  console.log('PASS collector tab: local bag, no in-page navigation, last bag kept while the game is disconnected');
 
   const phone = await browser.newPage({ viewport: { width: 390, height: 800 }, isMobile: true, hasTouch: true });
   await phone.addInitScript(() => localStorage.clear());

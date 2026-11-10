@@ -1,0 +1,1 @@
+var e=new URLSearchParams(location.search).get(`embed`)===`1`;e&&(document.documentElement.dataset.embed=`1`);var t=e&&[`127.0.0.1`,`localhost`].includes(location.hostname);export{t as n,e as t};
