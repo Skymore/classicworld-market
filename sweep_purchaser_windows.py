@@ -243,6 +243,24 @@ class WindowsPurchaser:
             InventoryChecker(folder).run(window, 'purchase', expected)
         return True
 
+    def _sold_out_close(self, order, window, before, closed):
+        """Count consecutive store-free frames once the exact debit is in the packet stream."""
+        after = inventory_position(order)
+        if (before is None or after is None or after[0] != before[0] or after[1] <= before[1]
+                or before[2]-after[2] != order.quantity*order.price
+                or not (after[3] is None and before[3] is None and is_equipment(order)
+                        or after[3] is not None and before[3] is not None
+                        and after[3]-before[3] == order.quantity*order.bundle)):
+            return 0
+        raw, bounds = window.capture()
+        if tuple(bounds) != tuple(window.bounds):
+            return 0
+        state = window.vision.window_markers(raw)
+        if state['owner'] or state['leave']:
+            return 0
+        self.mesos = after[2]
+        return closed+1
+
     def buy(self, order, window):
         trace = PurchaseTrace(order, window)
         try:
@@ -274,6 +292,7 @@ class WindowsPurchaser:
             before_packet = None
             last_offset, unchanged, scrolls = None, 0, 0
             unreadable = 0
+            closed = 0
             while True:
                 image = control.capture()
                 title_pixels = image[157:177,440:931]
@@ -377,6 +396,13 @@ class WindowsPurchaser:
                         view = View('shop', flow.listing, stock=stock, mesos=self.mesos,
                                     selected=visible.selected, receipt=receipt, shop_verified=True)
                 else:
+                    if flow.submitted and flow.phase == 'result':
+                        # Buying a store's last stock makes the game close it
+                        # with no dialog. Settle only on this character's exact
+                        # packet debit plus two fresh frames without any store.
+                        closed = self._sold_out_close(order, window, before_packet, closed)
+                        if closed >= 2:
+                            return PurchaseResult('bought', order.quantity, order.quantity*order.price, 'shop_closed')
                     view = View('pending')
                 action = flow.step(view)
                 if isinstance(action, PurchaseResult):

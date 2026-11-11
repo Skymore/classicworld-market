@@ -5,7 +5,7 @@ from unittest.mock import patch
 import unittest
 from sweep_screen import Reader, Row
 from sweep_purchaser_windows import WindowsPurchaser
-from sweep_purchase import PurchaseResult
+from sweep_purchase import PurchaseHalt, PurchaseResult
 from test_sweep_screen import ScriptedReader, ScriptedInput, Page
 import test_sweep_screen as fixtures
 
@@ -66,5 +66,34 @@ class Ticket7Tests(unittest.TestCase):
             else:
                 self.assertEqual(result.status,'not_bought')
                 self.assertNotIn((604,252),control.actions)
+
+    def test_truncated_unique_name_is_a_complete_match(self):
+        r=Reader()
+        row=dict(item_id=2044301,price=129000,bundle=1)
+        self.assertTrue(r.row_matches(Row('Spear Attack Scroll: lnter...',1,129000,True,False),row,complete=True))
+        self.assertFalse(r.row_matches(Row('Spear Attack Scroll: lnter...',1,129001,True,False),row,complete=True))
+        self.assertFalse(r.row_matches(Row('Spear Attack...',1,129000,True,False),row,complete=True))
+
+    def test_last_stock_purchase_settles_when_game_closes_store(self):
+        fixture=fixtures.NativeFlowTests();fixture.setUp()
+        order=replace(fixture.order,visit_current=lambda:True)
+        for debit in (135,134):
+            frames=[Page(kind='shop',offset=0),Page(kind='shop',offset=0,selected=True),Page(kind='quantity',number=None),
+                    Page(kind='quantity',number=1),Page(kind='confirm',number=135),Page(kind='map')]
+            control=ScriptedInput(frames);now=[0.0]
+            def pause(seconds):now[0]+=seconds
+            ordered=[dict(item_id=order.item_id,price=135,bundle=1,stock=1,category=2,slot=19)]
+            buyer=WindowsPurchaser(ScriptedReader(frames),lambda _:control,lambda:now[0])
+            def inventory(_):return ('stream',2,1000-debit,1) if control.index>=5 else ('stream',1,1000,0)
+            window=SimpleNamespace(capture_file='fixture.json',pause=pause,bounds=(0,0,1366,768),
+                                   capture=lambda:(None,(0,0,1366,768)),
+                                   vision=SimpleNamespace(window_markers=lambda _:{'owner':[],'leave':[]}))
+            with patch('sweep_purchaser_windows.ordered_snapshot',return_value=('fixture',ordered,0)), patch('sweep_purchaser_windows.inventory_position',side_effect=inventory):
+                if debit==135:
+                    self.assertEqual(buyer.buy(order,window),PurchaseResult('bought',1,135,'shop_closed'))
+                else:
+                    with self.assertRaises(PurchaseHalt) as halt:
+                        buyer.buy(order,window)
+                    self.assertEqual(halt.exception.result.status,'unknown')
 
 if __name__=='__main__':unittest.main()

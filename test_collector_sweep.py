@@ -347,6 +347,15 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(self.server.named('settle')[0]['status'], 'bought')
         self.assertFalse(self.engine.buying())
 
+    def test_sold_out_store_closed_by_game_skips_leave_and_stays_buying(self):
+        self.joined()
+        self.purchaser.result = lambda order: PurchaseResult('bought', order.quantity, order.quantity*order.price, 'shop_closed')
+        self.purchaser.verify_inventory = Mock()
+        self.engine.on_shop_open(self.capture(), 'window')
+        self.purchaser.verify_inventory.assert_not_called()
+        self.assertEqual(self.server.named('settle')[0]['status'], 'bought')
+        self.assertTrue(self.engine.buying())
+
     def test_unsuccessful_purchase_does_not_open_inventory(self):
         self.joined()
         self.purchaser.result = lambda _: PurchaseResult('not_bought', reason='sold_out')

@@ -270,6 +270,14 @@ class Reader:
     def page(self, image):
         return [self.row(image, i) for i in range(6)]
 
+    def _unique_prefix(self, prefix):
+        cache = self.__dict__.setdefault('_prefix_cache', {})
+        if prefix not in cache:
+            if len(cache) > 1024:
+                cache.clear()
+            cache[prefix] = len({canonical(n) for n in self.names.values() if canonical(n).startswith(prefix)}) == 1
+        return cache[prefix]
+
     def row_matches(self, visible, packet, complete=False):
         if visible is None:
             return False
@@ -277,7 +285,10 @@ class Reader:
         if not wanted:
             return False
         equipment = packet['item_id']//1000000 == 1
-        same_name = name == wanted or (not complete or equipment) and name.endswith('...') and wanted.startswith(name[:-3])
+        truncated = name.endswith('...') and wanted.startswith(name[:-3])
+        # The shop truncates long names. A complete target still accepts one
+        # when no other catalog name shares that prefix.
+        same_name = name == wanted or truncated and (not complete or equipment or self._unique_prefix(name[:-3]))
         # Catalog equipment names include a gender suffix omitted by the shop,
         # and long names are truncated. An equipment target is the physical
         # row fixed by the unique page alignment, so its displayed name is

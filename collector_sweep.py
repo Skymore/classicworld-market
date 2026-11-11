@@ -715,6 +715,13 @@ class SweepEngine:
             # Returning normally lets the scanner close this shop and click another.
             # An unconfirmed purchase/dialog must never receive those extra inputs.
             raise PurchaseHalt(result)
+        if result.status == 'bought' and result.reason == 'shop_closed':
+            # The game closed a sold-out store itself; the packet debit settled it.
+            try:
+                self.report(force=True)
+            except (OSError, DeviceError):
+                pass
+            return result
         verify = getattr(self.purchaser, 'verify_inventory', None)
         if result.status == 'bought' and verify is not None:
             expected = None
