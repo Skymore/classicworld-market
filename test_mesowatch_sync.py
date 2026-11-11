@@ -111,9 +111,28 @@ class SyncTests(unittest.TestCase):
 
     def test_stale_item_is_not_acknowledged(self):
         self.listing['items'][0]['lastSold'] = '2026-11-10T11:59:30Z'
-        with self.assertRaisesRegex(ValueError,'behind its list'):
-            sync_once(self.root,Reader(self.listing,self.docs),self.importer)
-        self.assertEqual(self.imports,[])
+        result = sync_once(self.root,Reader(self.listing,self.docs),self.importer)
+        self.assertEqual((result['imported'],result['pending']), (1,1))
+        self.assertEqual(result['deferred'], ['basil:04010001'])
+        state = read_json(self.root / 'shared_data/mesowatch-sync/state.json')
+        self.assertNotIn('imported_summary',state['items']['basil:04010001'])
+        self.assertNotIn('active_list_hash',state)
+
+    def test_old_export_keeps_good_cache_and_does_not_starve_other_items(self):
+        reader=Reader(self.listing,self.docs)
+        sync_once(self.root,reader,self.importer)
+        for item in self.listing['items']: item['sold']=2
+        self.docs['basil_04010001.json']['generated_at']='2026-11-09T12:00:00Z'
+        result=sync_once(self.root,reader,self.importer,max_items=1)
+        self.assertEqual((result['pending'],result['deferred']), (2,['basil:04010001']))
+        result=sync_once(self.root,reader,self.importer,max_items=1)
+        self.assertEqual((result['imported'],result['pending']), (1,1))
+        cached=read_json(self.root / 'shared_data/mesowatch-sync/snapshot/items/basil_04010001.json')
+        self.assertEqual(cached['generated_at'],'2026-11-10T11:59:00Z')
+        sync_once(self.root,reader,self.importer) # Retry stale tail, release frozen list.
+        self.listing['items'][1]['sold']=3
+        result=sync_once(self.root,reader,self.importer)
+        self.assertEqual((result['imported'],result['pending']), (1,1))
 
     def test_source_event_clock_can_run_ahead_of_matching_export_generation(self):
         self.listing['items'][0]['lastSold'] = '2026-11-10T12:00:33Z'

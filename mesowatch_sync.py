@@ -132,7 +132,9 @@ def sync_once(root, reader, importer=None, max_items=150):
             selected.append((item, signature))
     write_json(home / 'rejected-items.json', rejected)
     importer = importer or (lambda path: import_points(root, path))
-    totals = dict(status='complete', imported=0, downloaded=0, sales_added=0, changed_sales=0,
+    # Repeatedly stale source files must not starve later items in a bounded batch.
+    selected.sort(key=lambda pair: state['items'].get(pair[0]['id'], {}).get('deferred_at', 0))
+    totals = dict(status='complete', imported=0, downloaded=0, sales_added=0, changed_sales=0, deferred=[],
                   pending=len(selected), rejected=len(rejected), source_generated_at=listing['generated_at'])
     for item, signature in selected[:max_items]:
         source_id = item['id']
@@ -147,16 +149,21 @@ def sync_once(root, reader, importer=None, max_items=150):
                     or not isinstance(doc.get('listings'), list)):
                 raise ValueError(f'Incomplete or wrong raw export: {source_id}')
             generated = timestamp(doc.get('generated_at'))
-            if not generated or generated < cached.get('generated_at', 0):
-                raise ValueError(f'Stale item export: {source_id}')
+            if not generated:
+                raise ValueError(f'Missing item export time: {source_id}')
+            stale = generated < cached.get('generated_at', 0)
             # Source event clocks can run ahead of generated_at (observed in
             # real exports). Compare generations and actual contained evidence,
             # not the export timestamp against its own event timestamps.
             newest_sale = max((timestamp(row.get('time')) or 0 for row in doc['sales']), default=0)
             newest_listing = max((timestamp(row.get('lastSeen')) or 0 for row in doc['listings']), default=0)
-            if generated < version and ((timestamp(item.get('lastSold')) or 0) > newest_sale
-                                        or (timestamp(item.get('listedLast')) or 0) > newest_listing):
-                raise ValueError(f'Item export is behind its list: {source_id}')
+            behind = generated < version and ((timestamp(item.get('lastSold')) or 0) > newest_sale
+                                              or (timestamp(item.get('listedLast')) or 0) > newest_listing)
+            if stale or behind:
+                cached['deferred_at'] = time.time()
+                totals['deferred'].append(source_id)
+                write_json(state_path, state)
+                continue
             write_json(raw_path, doc)
             cached.update(downloaded_summary=signature, generated_at=generated)
             write_json(state_path, state)
@@ -170,6 +177,7 @@ def sync_once(root, reader, importer=None, max_items=150):
         if result.get('skipped_items') or result.get('skipped_points'):
             raise ValueError(f'Destination rejected evidence for {source_id}')
         cached['imported_summary'] = signature
+        cached.pop('deferred_at', None)
         cached['imported_at'] = time.time()
         write_json(state_path, state)
         totals['imported'] += 1
@@ -183,6 +191,11 @@ def sync_once(root, reader, importer=None, max_items=150):
         write_json(state_path, state)
     else:
         totals['status'] = 'partial'
+        if totals['pending'] == len(totals['deferred']):
+            # Only stale files remain. Check a fresh list next cycle so one
+            # bad export cannot freeze updates to every other item indefinitely.
+            state.pop('active_list_hash', None)
+            write_json(state_path, state)
     return totals
 
 
@@ -229,7 +242,8 @@ def main():
                 else:
                     import_points(root, '--prune')
                     result = sync_once(root, reader, max_items=max(1, min(150, int(settings.get('max_items', 150)))))
-                result['next_run_at'] = time.time() + (60 if result['pending'] else interval)
+                retry_batch = result['pending'] > len(result.get('deferred', []))
+                result['next_run_at'] = time.time() + (60 if retry_batch else interval)
                 result['last_success_at'] = time.time()
             except Exception as error:
                 result = dict(status='needs_browser_verification' if isinstance(error, BrowserBlocked) else 'failed',

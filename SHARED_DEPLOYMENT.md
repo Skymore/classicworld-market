@@ -57,7 +57,7 @@ PostgreSQL 的非默认参数用 `ALTER SYSTEM` 写入 `shared_data/postgres/pos
 
 下载检查点与入库检查点分开保存；成功下载而导入失败的文件下次复用，导入成功后才确认该物品版本。拒绝回退的清单、版本落后且缺少清单最新证据的单品文件、缺少成交/挂单数组的文件。来源事件时间可能比同一导出的生成时间快几十秒，不据此误判整个文件过期。任一失败不把整份清单标为已完成。数据库导入按物品提交，原始证据写入不持有采集器的全局写锁，只在最终统计重算和提交阶段短暂串行；重试不会重复计数。
 
-状态查看 `shared_data/mesowatch-sync/status.json`，进程日志在 `shared_data/mesowatch.log`。原文在 `snapshot/`，编号/名称不匹配清单在 `rejected-items.json`，成交内容修订在数据库 `external_market_sale_conflicts`。配置 `enabled: false` 后同步进程进入等待；卸载 Chrome 扩展会断开浏览器侧访问。升级扩展时重新生成同一加载目录，然后在 Chrome 扩展页刷新，配对标识保持不变。
+状态查看 `shared_data/mesowatch-sync/status.json`，进程日志在 `shared_data/mesowatch.log`。`deferred` 列出来源返回过期版本的物品：保留较新缓存、不确认导入，其他物品继续；只剩过期文件时下一正常周期重新读取清单，避免冻结其他更新。原文在 `snapshot/`，编号/名称不匹配清单在 `rejected-items.json`，成交内容修订在数据库 `external_market_sale_conflicts`。配置 `enabled: false` 后同步进程进入等待；卸载 Chrome 扩展会断开浏览器侧访问。升级扩展时重新生成同一加载目录，然后在 Chrome 扩展页刷新，配对标识保持不变。
 
 ### 基线与合并
 
