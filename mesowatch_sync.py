@@ -83,7 +83,8 @@ def import_points(root, path):
     binary = Path(settings.get('importer', root / 'shared_data/mesowatch-sync/bin/import_mesowatch.exe'))
     env = dict(os.environ, DATABASE_URL=native['database_url'])
     result = subprocess.run([str(binary), str(path)], env=env, capture_output=True,
-                            text=True, encoding='utf-8', timeout=300)
+                            text=True, encoding='utf-8', timeout=300,
+                            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     if result.returncode:
         # SQL driver errors may contain private connection details. Keep the
         # status/log safe; do not copy arbitrary stderr into supervisor logs.
@@ -147,9 +148,13 @@ def sync_once(root, reader, importer=None, max_items=150):
             generated = timestamp(doc.get('generated_at'))
             if not generated or generated < cached.get('generated_at', 0):
                 raise ValueError(f'Stale item export: {source_id}')
-            # A list published ahead of its item file must be retried later.
-            evidence_time = max((timestamp(item.get(k)) or 0 for k in ('lastSold', 'listedLast')), default=0)
-            if generated < evidence_time:
+            # Source event clocks can run ahead of generated_at (observed in
+            # real exports). Compare generations and actual contained evidence,
+            # not the export timestamp against its own event timestamps.
+            newest_sale = max((timestamp(row.get('time')) or 0 for row in doc['sales']), default=0)
+            newest_listing = max((timestamp(row.get('lastSeen')) or 0 for row in doc['listings']), default=0)
+            if generated < version and ((timestamp(item.get('lastSold')) or 0) > newest_sale
+                                        or (timestamp(item.get('listedLast')) or 0) > newest_listing):
                 raise ValueError(f'Item export is behind its list: {source_id}')
             write_json(raw_path, doc)
             cached.update(downloaded_summary=signature, generated_at=generated)

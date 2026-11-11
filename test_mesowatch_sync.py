@@ -106,6 +106,13 @@ class SyncTests(unittest.TestCase):
             sync_once(self.root,Reader(self.listing,self.docs),self.importer)
         self.assertEqual(self.imports,[])
 
+    def test_source_event_clock_can_run_ahead_of_matching_export_generation(self):
+        self.listing['items'][0]['lastSold'] = '2026-11-10T12:00:33Z'
+        self.docs['basil_04010001.json']['generated_at'] = self.listing['generated_at']
+        self.docs['basil_04010001.json']['sales'] = [dict(id='sale',time='2026-11-10T12:00:33Z',
+                                                           price=100,how='found sold out')]
+        self.assertEqual(sync_once(self.root,Reader(self.listing,self.docs),self.importer)['imported'],2)
+
 
 if __name__ == '__main__':
     unittest.main()
