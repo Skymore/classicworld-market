@@ -26,6 +26,8 @@
 !/tools/market_bot_templates/
 !/tools/ui_screens.mjs
 !/tools/build_app_icon.mjs
+!/tools/mesowatch-extension/
+/tools/mesowatch-extension/config.js
 !/assets/
 /assets/*
 !/assets/app-icon.svg

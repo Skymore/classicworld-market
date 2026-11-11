@@ -43,6 +43,8 @@ def main():
         commands['web']=[str(binary)]
         if not native.get('legacy_dashboard_enabled',True):commands.pop('dashboard',None)
         web_env=web_environment(ROOT,native,web)
+        if native.get('mesowatch',{}).get('enabled',False):
+            commands['mesowatch']=[service_python,'-u',str(ROOT/'mesowatch_sync.py'),'--loop','--root',str(ROOT)]
     children={};logs={};retry={}
     if args.adopt_running:
         import psutil

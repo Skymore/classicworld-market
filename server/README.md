@@ -193,13 +193,13 @@ python tools/parity.py --now 1792390000
 
 ## MesoWatch 原始数据合并
 
-取得来源授权后，将单品原始导出放在 `data/reference/mesowatch-market/<snapshot>/items/`，同目录保留 `list.json`。`python mesowatch_points.py <snapshot>` 生成 `points-import.json`，只将 `sales[]` 和 `listings[]` 转成证据点；汇总报价、分位数、每日中位数均不充当数据样本。原始文件及来源声明留在本地，manifest 保存每个单品的版本和文件哈希。先用离线快照导入，不会自动定时访问来源站点。
+取得来源授权后，将单品原始导出放在 `data/reference/mesowatch-market/<snapshot>/items/`，同目录保留 `list.json`。`python mesowatch_points.py <snapshot>` 生成 `points-import.json`，只将 `sales[]` 和 `listings[]` 转成证据点；汇总报价、分位数、每日中位数均不充当数据样本。原始文件及来源声明留在本地，manifest 保存每个单品的版本和文件哈希。自动同步使用普通 Chrome 的会话，配置见根目录 `SHARED_DEPLOYMENT.md`。
 
-在设置 `DATABASE_URL` 的 `server/` 目录运行 `cargo run --release -p market-web --bin import_mesowatch -- ../data/reference/mesowatch-market/<snapshot>/points-import.json`。导入在事务内完成，再从本地和外部原始证据重算价格、分位数、趋势、成交记录数和建议价；同一来源 ID 的重复导入不增加权重，同 ID 内容改变则报冲突。目标库再次校验物品编号和英文名，不猜配名称不同的记录。
+在设置 `DATABASE_URL` 的 `server/` 目录运行 `cargo run --release -p market-web --bin import_mesowatch -- ../data/reference/mesowatch-market/<snapshot>/points-import.json`。每个物品单独提交事务，原始证据写入不占上传写锁，只在最终重算该物品的价格、趋势和建议价时短暂串行；整批失败时已提交物品保留，重跑凭回执续接。成交查询仅限本批 ID，不扫描全部外部成交。重复成交不增加权重，同 ID 内容改变则保留原记录、跳过新版本并记入 `external_market_sale_conflicts`，不终止整批。目标库再次校验物品编号和英文名，不猜配名称不同的记录。
 
 采集上传 v1 保持完整快照校验。读取接口新增 `evidence_schema_version: 2`、行级 `source` 和 `unit_basis`。外部成交没有观察/摊位/格位外键，`bundle`、库存、实际售出数量和此前观察时间允许未知。飞镖两边统一按组报价，其余按个；源 `qty` 只留原文，不能用来猜实际售出数量。装备参考属性不写成单件装备变体。
 
-外部挂牌仅覆盖来源公开的有限样本，`up` 表示其最近访问仍在售，库存未知仍可作为报价证据。新版单品导出会停用该单品旧版本的挂牌样本。跨来源没有共同成交 ID，不能证明两条记录就是同一交易；统计的是推定成交证据记录，保留来源便于核对，不能宣称全市场去重后的真实成交量。
+外部挂牌仅覆盖来源公开的有限样本，`up` 表示其最近访问仍在售，库存未知仍可作为报价证据。新版单品导出会删除该单品被取代的旧挂牌样本；版本水位永久保留，旧导出和同时间的另一份导出均不能复活旧报价。每轮同步还执行 `import_mesowatch --prune`，最多清理 1000 条以前导入遗留的已失效旧挂牌，不删除成交。跨来源没有共同成交 ID，不能证明两条记录就是同一交易；统计的是推定成交证据记录，保留来源便于核对，不能宣称全市场去重后的真实成交量。
 
 ## 图鉴（R3）
 

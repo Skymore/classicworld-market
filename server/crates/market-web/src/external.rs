@@ -1,7 +1,7 @@
 //! Authorized external evidence, imported without fabricating collector visits.
 use std::collections::{HashMap, HashSet};
 
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{ensure, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -22,7 +22,7 @@ pub struct Points {
     pub listings: Vec<Listing>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Item {
     pub source_item_id: String,
     pub item_id: i32,
@@ -31,7 +31,7 @@ pub struct Item {
     pub listings_generated_at: Option<f64>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Sale {
     pub source_key: String,
     pub source_item_id: String,
@@ -43,7 +43,7 @@ pub struct Sale {
     pub raw: Value,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Listing {
     pub source_key: String,
     pub source_item_id: String,
@@ -64,6 +64,9 @@ pub struct Outcome {
     pub skipped_items: Vec<String>,
     pub skipped_points: usize,
     pub duplicate_import: bool,
+    pub changed_sales: usize,
+    pub listings_removed: u64,
+    pub items_refreshed: usize,
 }
 
 fn name(value: &str) -> String {
@@ -124,16 +127,103 @@ async fn shop(
     Ok(id)
 }
 
-/// Atomic and repeatable. Same source event id with different facts is a conflict.
-/// Names are checked against the destination catalogue as well as by the exporter.
+/// Commit one item at a time, releasing the upload lock between items. A retry
+/// resumes through durable per-item receipts; changed events are quarantined.
 pub async fn import(db: &PgPool, points: &Points, fingerprint: &str, now: f64) -> Result<Outcome> {
+    let mut coordinator = db.begin().await?;
+    sqlx::query("SELECT pg_advisory_xact_lock($1)")
+        .bind(stats::WRITE_LOCK + 2)
+        .execute(&mut *coordinator)
+        .await?;
+    let mut ids = HashSet::new();
+    let mut sources = HashSet::new();
+    for item in &points.items {
+        ensure!(
+            ids.insert(item.item_id) && sources.insert(item.source_item_id.as_str()),
+            "Duplicate item mapping"
+        );
+        ensure!(
+            (item.source_item_id == format!("basil:{:08}", item.item_id)
+                || item.source_item_id == format!("cash:{:08}", item.item_id)),
+            "Source item id mismatch"
+        );
+    }
+    let mut sales: HashMap<&str, Vec<Sale>> = HashMap::new();
+    let mut listings: HashMap<&str, Vec<Listing>> = HashMap::new();
+    let mut total = Outcome {
+        duplicate_import: true,
+        ..Outcome::default()
+    };
+    for sale in &points.sales {
+        if sources.contains(sale.source_item_id.as_str()) {
+            sales
+                .entry(&sale.source_item_id)
+                .or_default()
+                .push(sale.clone());
+        } else {
+            total.skipped_points += 1;
+        }
+    }
+    for listing in &points.listings {
+        if sources.contains(listing.source_item_id.as_str()) {
+            listings
+                .entry(&listing.source_item_id)
+                .or_default()
+                .push(listing.clone());
+        } else {
+            total.skipped_points += 1;
+        }
+    }
+    // Validate the envelope even when there are no mapped items.
+    ensure!(
+        points.version == 1 && points.source == "mesowatch" && points.world == "ClassicWorld",
+        "Unsupported evidence format"
+    );
+    ensure!(valid_time(points.generated_at, now), "Invalid export time");
+    for item in &points.items {
+        let part = Points {
+            version: points.version,
+            source: points.source.clone(),
+            world: points.world.clone(),
+            generated_at: points.generated_at,
+            manifest: json!({"parent_fingerprint": fingerprint, "source_item_id": item.source_item_id,
+                "raw_points_only": points.manifest.get("raw_points_only"),
+                "files": points.manifest.get("files").and_then(Value::as_array).map(|files| files.iter()
+                    .filter(|file| file.get("path").and_then(Value::as_str)
+                        .is_some_and(|path| path == format!("items/{}.json", item.source_item_id.replace(':', "_"))))
+                    .cloned().collect::<Vec<_>>())}),
+            items: vec![item.clone()],
+            sales: sales
+                .remove(item.source_item_id.as_str())
+                .unwrap_or_default(),
+            listings: listings
+                .remove(item.source_item_id.as_str())
+                .unwrap_or_default(),
+        };
+        let receipt = format!("{fingerprint}:{}", item.source_item_id);
+        let result = import_item(db, &part, &receipt, now).await?;
+        total.sales_added += result.sales_added;
+        total.duplicate_sales += result.duplicate_sales;
+        total.listing_points += result.listing_points;
+        total.skipped_points += result.skipped_points;
+        total.changed_sales += result.changed_sales;
+        total.listings_removed += result.listings_removed;
+        total.items_refreshed += result.items_refreshed;
+        total.skipped_items.extend(result.skipped_items);
+        total.duplicate_import &= result.duplicate_import;
+        tokio::task::yield_now().await;
+    }
+    coordinator.commit().await?;
+    Ok(total)
+}
+
+async fn import_item(db: &PgPool, points: &Points, fingerprint: &str, now: f64) -> Result<Outcome> {
     ensure!(
         points.version == 1 && points.source == "mesowatch" && points.world == "ClassicWorld",
         "Unsupported evidence format"
     );
     ensure!(valid_time(points.generated_at, now), "Invalid export time");
     let mut tx = db.begin().await?;
-    stats::lock_writes(&mut tx).await?;
     let duplicate: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM external_market_imports WHERE source='mesowatch' AND fingerprint=$1)")
         .bind(fingerprint).fetch_one(&mut *tx).await?;
     if duplicate {
@@ -142,11 +232,14 @@ pub async fn import(db: &PgPool, points: &Points, fingerprint: &str, now: f64) -
             ..Outcome::default()
         });
     }
-    let catalogue: HashMap<i32, String> = sqlx::query_as("SELECT id,name_en FROM items")
-        .fetch_all(&mut *tx)
-        .await?
-        .into_iter()
-        .collect();
+    let item_ids: Vec<i32> = points.items.iter().map(|i| i.item_id).collect();
+    let catalogue: HashMap<i32, String> =
+        sqlx::query_as("SELECT id,name_en FROM items WHERE id=ANY($1)")
+            .bind(&item_ids)
+            .fetch_all(&mut *tx)
+            .await?
+            .into_iter()
+            .collect();
     let mut outcome = Outcome::default();
     let mut mapped = HashMap::new();
     let mut destination_ids = HashSet::new();
@@ -177,38 +270,50 @@ pub async fn import(db: &PgPool, points: &Points, fingerprint: &str, now: f64) -
             "Duplicate source item id"
         );
     }
+    // A rejected catalogue mapping is not a successful import receipt: a
+    // catalogue correction must be able to retry the exact same evidence.
+    if mapped.is_empty() {
+        return Ok(outcome);
+    }
+    let keys: Vec<&str> = points.sales.iter().map(|s| s.source_key.as_str()).collect();
     let existing: HashMap<String, Value> =
-        sqlx::query_as("SELECT source_key,source_payload FROM sales WHERE source='mesowatch'")
+        sqlx::query_as("SELECT source_key,source_payload FROM sales WHERE source='mesowatch' AND source_key=ANY($1)")
+            .bind(&keys)
             .fetch_all(&mut *tx)
             .await?
             .into_iter()
             .collect();
     let mut seen = HashMap::new();
-    let mut shops: HashMap<String, i64> =
-        sqlx::query_as("SELECT source_key,id FROM external_market_shops WHERE source='mesowatch'")
-            .fetch_all(&mut *tx)
-            .await?
-            .into_iter()
-            .collect();
+    let mut shops = HashMap::new();
     let mut inserts = Vec::new();
+    let source_ids: Vec<&str> = points
+        .items
+        .iter()
+        .map(|i| i.source_item_id.as_str())
+        .collect();
     let mut listing_versions: HashMap<String,f64> = sqlx::query_as(
-        "SELECT source_item_id,extract(epoch FROM generated_at)::float8 FROM external_market_item_state WHERE source='mesowatch'")
-        .fetch_all(&mut *tx).await?.into_iter().collect();
+        "SELECT source_item_id,extract(epoch FROM generated_at)::float8 FROM external_market_item_state WHERE source='mesowatch' AND source_item_id=ANY($1)")
+        .bind(&source_ids).fetch_all(&mut *tx).await?.into_iter().collect();
+    let mut accepted_listings = HashSet::new();
+    let mut touched = HashSet::new();
+    let mut last_seen: HashMap<i32, f64> = HashMap::new();
     for item in mapped.values() {
         if let Some(generated) = item.listings_generated_at {
             ensure!(valid_time(generated, now), "Invalid listing export time");
             if listing_versions
                 .get(&item.source_item_id)
-                .is_some_and(|old| *old > generated)
+                .is_some_and(|old| *old >= generated)
             {
                 continue;
             }
             listing_versions.insert(item.source_item_id.clone(), generated);
+            accepted_listings.insert(item.source_item_id.as_str());
+            touched.insert(item.item_id);
             sqlx::query("INSERT INTO external_market_item_state(source,source_item_id,generated_at) VALUES ('mesowatch',$1,to_timestamp($2))
                 ON CONFLICT(source,source_item_id) DO UPDATE SET generated_at=EXCLUDED.generated_at")
                 .bind(&item.source_item_id).bind(generated).execute(&mut *tx).await?;
-            sqlx::query("UPDATE external_market_listings SET up=false WHERE source='mesowatch' AND source_item_id=$1 AND source_generated_at<=to_timestamp($2)")
-                .bind(&item.source_item_id).bind(generated).execute(&mut *tx).await?;
+            outcome.listings_removed += sqlx::query("DELETE FROM external_market_listings WHERE source='mesowatch' AND source_item_id=$1 AND source_generated_at<to_timestamp($2)")
+                .bind(&item.source_item_id).bind(generated).execute(&mut *tx).await?.rows_affected();
         }
     }
     for sale in &points.sales {
@@ -226,7 +331,9 @@ pub async fn import(db: &PgPool, points: &Points, fingerprint: &str, now: f64) -
             "Unknown sale evidence"
         );
         ensure!(
-            !sale.source_key.is_empty() && sale.source_key.len() <= 256,
+            sale.source_key
+                .starts_with(&format!("{}:", sale.source_item_id))
+                && sale.source_key.len() <= 256,
             "Invalid source key"
         );
         let payload = serde_json::to_value(sale)?;
@@ -235,7 +342,11 @@ pub async fn import(db: &PgPool, points: &Points, fingerprint: &str, now: f64) -
             .or_else(|| seen.get(&sale.source_key))
         {
             if old != &payload {
-                bail!("Source event changed: {}", sale.source_key);
+                sqlx::query("INSERT INTO external_market_sale_conflicts(source,source_key,payload_hash,original_payload,incoming_payload) VALUES ('mesowatch',$1,$2,$3,$4) ON CONFLICT(source,source_key,payload_hash) DO NOTHING")
+                    .bind(&sale.source_key).bind(digest(&payload)).bind(old).bind(&payload)
+                    .execute(&mut *tx).await?;
+                outcome.changed_sales += 1;
+                continue;
             }
             outcome.duplicate_sales += 1;
             continue;
@@ -253,6 +364,11 @@ pub async fn import(db: &PgPool, points: &Points, fingerprint: &str, now: f64) -
           "payload":payload,"group":group}));
         seen.insert(sale.source_key.clone(), payload);
         outcome.sales_added += 1;
+        touched.insert(item.item_id);
+        last_seen
+            .entry(item.item_id)
+            .and_modify(|v| *v = v.max(sale.time))
+            .or_insert(sale.time);
     }
     for batch in inserts.chunks(1000) {
         sqlx::query("INSERT INTO sales(item_id,kind,detected_at,source,source_key,source_price,source_unit,source_seller,source_location,source_payload,external_shop_id)
@@ -266,10 +382,11 @@ pub async fn import(db: &PgPool, points: &Points, fingerprint: &str, now: f64) -
             outcome.skipped_points += 1;
             continue;
         };
-        if listing_versions
-            .get(&listing.source_item_id)
-            .is_some_and(|latest| *latest > listing.generated_at)
-        {
+        ensure!(
+            item.listings_generated_at == Some(listing.generated_at),
+            "Listing version differs from item export"
+        );
+        if !accepted_listings.contains(listing.source_item_id.as_str()) {
             continue;
         }
         ensure!(
@@ -296,12 +413,46 @@ pub async fn import(db: &PgPool, points: &Points, fingerprint: &str, now: f64) -
             .bind(&item.unit_basis).bind(&listing.seller).bind(&listing.location).bind(listing.time)
             .bind(listing.generated_at).bind(listing.up).bind(&listing.raw).execute(&mut *tx).await?;
         outcome.listing_points += 1;
+        last_seen
+            .entry(item.item_id)
+            .and_modify(|v| *v = v.max(listing.time))
+            .or_insert(listing.time);
     }
     sqlx::query("INSERT INTO external_market_imports(source,fingerprint,source_generated_at,manifest) VALUES ('mesowatch',$1,to_timestamp($2),$3)")
         .bind(fingerprint).bind(points.generated_at).bind(&points.manifest).execute(&mut *tx).await?;
-    stats::refresh_all(&mut tx, now).await?;
+    if !touched.is_empty() {
+        // Stage source-owned rows without the collector's lock. Only the final
+        // statistics read/write needs serialization; after acquiring it the
+        // READ COMMITTED queries see any collector uploads committed meanwhile.
+        stats::lock_writes(&mut tx).await?;
+        let latest = last_seen.values().copied().reduce(f64::max);
+        let as_of: f64 = sqlx::query_scalar("UPDATE market_state SET version=version+1, as_of=GREATEST(as_of,to_timestamp($1)) RETURNING COALESCE(extract(epoch FROM as_of)::float8,$2)")
+            .bind(latest).bind(now).fetch_one(&mut *tx).await?;
+        let mut items: Vec<i32> = touched.into_iter().collect();
+        items.sort_unstable();
+        stats::recompute_items(&mut tx, &items, as_of, now, &last_seen).await?;
+        crate::realtime::notify_market(&mut tx, Some(&items)).await?;
+        outcome.items_refreshed = items.len();
+    }
     tx.commit().await?;
     Ok(outcome)
+}
+
+/// Bounded housekeeping for old imports, including items not changed this run.
+/// The watermark survives deletion, so replaying an old export stays harmless.
+pub async fn prune_superseded(db: &PgPool) -> Result<u64> {
+    let result = sqlx::query(
+        "WITH stale AS (
+        SELECT q.source,q.source_key FROM external_market_listings q
+        JOIN external_market_item_state s USING(source,source_item_id)
+        WHERE q.source='mesowatch' AND NOT q.up AND q.source_generated_at<s.generated_at
+        LIMIT 1000 FOR UPDATE OF q SKIP LOCKED
+      ) DELETE FROM external_market_listings q USING stale s
+        WHERE q.source=s.source AND q.source_key=s.source_key",
+    )
+    .execute(db)
+    .await?;
+    Ok(result.rows_affected())
 }
 
 pub async fn quote_rows(

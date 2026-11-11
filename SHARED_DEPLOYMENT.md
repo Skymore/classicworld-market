@@ -23,6 +23,7 @@
 | `upload` | 站长本机采集结果上传（`shared_client.py --upload-only`，凭据 `shared_data/owner.json`） |
 | `tunnel` | cloudflared，配置 `shared_data/tunnel.yml` |
 | `dashboard` | 旧版 8765 私人网页，可在 `native-runtime.json` 中用 `legacy_dashboard_enabled: false` 关闭 |
+| `mesowatch` | 可选的外部原始证据同步，由普通 Chrome 扩展读取、逐物品导入，默认每 30 分钟检查一次 |
 
 Cloudflare Tunnel 只把指定域名的 HTTP 流量映射到 `127.0.0.1:8766`，其他 hostname 返回 404；数据库、8765 私人网页、1088 代理与游戏连接都不对公网开放，不需要 WSL 或端口转发。隧道凭据放在用户的 `.cloudflared` 目录，`shared_data/tunnel.yml` 指向该凭据。
 
@@ -33,6 +34,26 @@ PostgreSQL 的非默认参数用 `ALTER SYSTEM` 写入 `shared_data/postgres/pos
 启动、日常守护、发布、迁移及批量导入均不自动备份数据库，只有用户明确要求时才备份（见 [网站发布](#网站发布)）。
 
 ## 网站发布
+
+### MesoWatch 定时同步
+
+取得数据使用授权后，使用 `mesowatch_sync.py` 和 `tools/mesowatch-extension/`。扩展在**当前普通 Chrome 配置**中打开后台 MesoWatch 标签页，沿用该配置的正常网站会话；不读取、导出或复制 cookie，不伪装 UA、不自动点击验证。浏览器工具会话不是定时任务依赖。Chrome 关闭、电脑休眠或网站验证拦截时，状态明确标记为等待/需要处理，保留已经完成的检查点。
+
+安装及启用：
+
+1. 从已推送 `main` 构建 `cargo build --release -p market-web --bin market-web --bin import_mesowatch`，按网站发布流程上线匹配迁移的 web。将导入器复制到私有 `shared_data/mesowatch-sync/bin/import_mesowatch.exe`，不要放进网站包。
+2. 在共享目录运行 `.venv/Scripts/python.exe mesowatch_sync.py --prepare-extension`。这只生成私有加载目录、稳定扩展标识和本机配对配置，不安装扩展。加载目录为 `shared_data/mesowatch-sync/extension`，包含私有 `config.js`，不得提交 Git、打包到网站或发给其他人。
+3. 在日常使用的 Chrome 的 `chrome://extensions` 页面开启开发者模式，加载这个已解压目录。扩展仅申请 `alarms`、`scripting`、`storage` 以及 meso.watch/127.0.0.1 的访问权限，不申请 cookie、浏览历史、任意网站或调试器权限。点击扩展图标可打开同步页查看网站验证状态。
+4. 先运行 `.venv/Scripts/python.exe mesowatch_sync.py --browser-only` 验证真实清单能被读取。确认目标仍为 `Classic World`；页面显示名称 Windia 不用于猜测市场映射。
+5. 在私有 `shared_data/native-runtime.json` 添加 `"mesowatch": {"enabled": true, "interval_seconds": 1800, "request_delay_seconds": 2, "max_items": 150}`。通过 supervisor-only handoff 启动新版 `shared_supervisor.py --adopt-running`，保留已有数据库、web、tunnel 和上传子进程。`mesowatch_sync.py --loop` 内部按配置计时，不与自己重叠。
+
+扩展从仅绑定 `127.0.0.1:18767` 的桥接服务领取固定范围的只读 JSON 请求，令牌只在扩展后台和本机间使用，不进入 MesoWatch 页面。接收端校验 Host、扩展 Origin（存在时）、令牌、任务 ID 和消息大小；原始 JSON 最终还要通过市场、物品编号、英文名、版本、成交类型和价格校验。不要把这个端口加入 Cloudflare Tunnel。
+
+正常每轮获取 `/data/list.json`，清单未变就不下载物品；按清单每一行内容的哈希选择变化物品，访问 `/data/markets/Classic%20World/item/<id>.json`，至少间隔 1 秒，默认 2 秒。首次和积压同步固定当前清单版本，每次最多 150 个物品，未完成时 60 秒后继续，避免高频物品一直插队使尾部永远不同步；完整轮次结束后等待 30 分钟。清单的统计数字只用于变化检测，不进入我们的报价样本。来源若修订原始文件但清单内容完全不变，这种修订无法通过清单增量检测发现。
+
+下载检查点与入库检查点分开保存；成功下载而导入失败的文件下次复用，导入成功后才确认该物品版本。拒绝回退的清单、比清单成交时间还旧的单品文件、缺少成交/挂单数组的文件。任一失败不把整份清单标为已完成。数据库导入按物品提交，原始证据写入不持有采集器的全局写锁，只在最终统计重算和提交阶段短暂串行；重试不会重复计数。
+
+状态查看 `shared_data/mesowatch-sync/status.json`，进程日志在 `shared_data/mesowatch.log`。原文在 `snapshot/`，编号/名称不匹配清单在 `rejected-items.json`，成交内容修订在数据库 `external_market_sale_conflicts`。配置 `enabled: false` 后同步进程进入等待；卸载 Chrome 扩展会断开浏览器侧访问。升级扩展时重新生成同一加载目录，然后在 Chrome 扩展页刷新，配对标识保持不变。
 
 ### 基线与合并
 

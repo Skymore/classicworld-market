@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "枫叶市集 · MesoWatch 同步",
+  "version": "1.0.0",
+  "description": "在普通 Chrome 会话中读取已授权的市场 JSON，交给本机 supervisor 增量导入。",
+  "minimum_chrome_version": "120",
+  "permissions": ["alarms", "scripting", "storage"],
+  "host_permissions": ["https://meso.watch/*", "http://127.0.0.1/*"],
+  "background": {"service_worker": "background.js", "type": "module"},
+  "action": {"default_title": "MesoWatch 同步：点击查看状态或打开同步页"}
+}

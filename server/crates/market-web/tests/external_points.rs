@@ -10,6 +10,61 @@ use market_web::{
 };
 use serde_json::{json, Value};
 
+#[tokio::test]
+async fn collector_upload_can_finish_while_external_rows_are_staged() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let now = unix_now();
+    sqlx::query("INSERT INTO items(id,name_en,category) VALUES (4010001,'Iron Ore','其他')")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    sqlx::raw_sql(
+        "CREATE FUNCTION pause_external_receipt() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN PERFORM pg_advisory_xact_lock(903001); RETURN NEW; END $$;
+        CREATE TRIGGER pause_receipt BEFORE INSERT ON external_market_imports
+        FOR EACH ROW EXECUTE FUNCTION pause_external_receipt();",
+    )
+    .execute(&db.pool)
+    .await
+    .unwrap();
+    let mut gate = db.pool.begin().await.unwrap();
+    sqlx::query("SELECT pg_advisory_xact_lock(903001)")
+        .execute(&mut *gate)
+        .await
+        .unwrap();
+    let pool = db.pool.clone();
+    let importer = tokio::spawn(async move {
+        external::import(
+            &pool,
+            &points(now, 4010001, "Iron Ore", "item", &[100.]),
+            "concurrent",
+            now,
+        )
+        .await
+        .unwrap()
+    });
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let waiting: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND objid=903001 AND NOT granted AND database=(SELECT oid FROM pg_database WHERE datname=current_database()))")
+                .fetch_one(&db.pool).await.unwrap();
+            if waiting { break; }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    }).await.unwrap();
+    tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        native(&db, now, 4010001, 300, 1),
+    )
+    .await
+    .unwrap();
+    gate.commit().await.unwrap();
+    assert_eq!(importer.await.unwrap().sales_added, 1);
+    assert_eq!(product(&db, now).await["typical_count"], 2);
+    db.close().await;
+}
+
 fn points(now: f64, item: i32, name: &str, unit: &str, prices: &[f64]) -> Points {
     let id = format!("basil:{item:08}");
     serde_json::from_value(json!({"version":1,"source":"mesowatch","world":"ClassicWorld","generated_at":now,
@@ -143,9 +198,20 @@ async fn merges_points_recomputes_and_retries_without_duplicate_samples() {
     assert!(recent["next_before"].is_number());
     let mut changed = points(now, 4010001, "Iron Ore", "item", &[123.]);
     changed.sales[0].raw = json!({"id":"changed"});
-    assert!(external::import(&db.pool, &changed, "conflict", now)
-        .await
-        .is_err());
+    assert_eq!(
+        external::import(&db.pool, &changed, "conflict", now)
+            .await
+            .unwrap()
+            .changed_sales,
+        1
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM external_market_sale_conflicts")
+            .fetch_one(&db.pool)
+            .await
+            .unwrap(),
+        1
+    );
     assert_eq!(product(&db, now).await["typical_count"], 5);
     db.close().await;
 }
@@ -174,11 +240,63 @@ async fn stars_share_set_prices_and_item_name_conflicts_are_not_guessed() {
         .unwrap();
     assert_eq!(result.skipped_items.len(), 1);
     assert_eq!(result.sales_added, 0);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM external_market_imports WHERE fingerprint LIKE 'bad-name:%'"
+        )
+        .fetch_one(&db.pool)
+        .await
+        .unwrap(),
+        0
+    );
     let mut bad = points(now, 2070001, "Wolbi Throwing Stars", "set", &[1.]);
     bad.items[0].unit_basis = "item".into();
     assert!(external::import(&db.pool, &bad, "bad-unit", now)
         .await
         .is_err());
+    db.close().await;
+}
+
+#[tokio::test]
+async fn pruning_removes_only_superseded_inactive_quotes_and_retains_watermark() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let now = unix_now();
+    sqlx::query("INSERT INTO items(id,name_en,category) VALUES (4010001,'Iron Ore','其他')")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    let input = points(now - 100., 4010001, "Iron Ore", "item", &[]);
+    external::import(&db.pool, &input, "prune-test", now)
+        .await
+        .unwrap();
+    // A prior importer left an inactive quote under a newer item watermark.
+    sqlx::query("UPDATE external_market_listings SET up=false")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    assert_eq!(external::prune_superseded(&db.pool).await.unwrap(), 0);
+    sqlx::query("UPDATE external_market_item_state SET generated_at=to_timestamp($1)")
+        .bind(now - 50.)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    assert_eq!(external::prune_superseded(&db.pool).await.unwrap(), 1);
+    external::import(&db.pool, &input, "prune-old-retry", now)
+        .await
+        .unwrap();
+    assert!(external::quote_rows(&db.pool, &[4010001], now - 3600.)
+        .await
+        .unwrap()
+        .is_empty());
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM external_market_item_state")
+            .fetch_one(&db.pool)
+            .await
+            .unwrap(),
+        1
+    );
     db.close().await;
 }
 
@@ -220,5 +338,68 @@ async fn older_quotes_cannot_return_after_a_newer_empty_snapshot() {
         .unwrap()
         .is_empty());
     assert_eq!(product(&db, now).await["typical_count"], 1);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM external_market_listings")
+            .fetch_one(&db.pool)
+            .await
+            .unwrap(),
+        0
+    );
+    db.close().await;
+}
+
+#[tokio::test]
+async fn retries_partial_import_and_does_not_refresh_unrelated_items() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let now = unix_now();
+    sqlx::query("INSERT INTO items(id,name_en,category) VALUES (4010001,'Iron Ore','其他'),(4010000,'Bronze Ore','其他')")
+        .execute(&db.pool).await.unwrap();
+    let bronze = points(now - 100., 4010000, "Bronze Ore", "item", &[42.]);
+    external::import(&db.pool, &bronze, "bronze", now)
+        .await
+        .unwrap();
+    let before: Value =
+        sqlx::query_scalar("SELECT to_jsonb(s) FROM item_stats s WHERE item_id=4010000")
+            .fetch_one(&db.pool)
+            .await
+            .unwrap();
+    let iron = points(now, 4010001, "Iron Ore", "item", &[100., 200.]);
+    external::import(&db.pool, &iron, "iron", now + 1.)
+        .await
+        .unwrap();
+    let after: Value =
+        sqlx::query_scalar("SELECT to_jsonb(s) FROM item_stats s WHERE item_id=4010000")
+            .fetch_one(&db.pool)
+            .await
+            .unwrap();
+    assert_eq!(before, after);
+    let mut mixed = points(now + 2., 4010001, "Iron Ore", "item", &[999., 200., 300.]);
+    mixed.items.extend(bronze.items);
+    mixed.items[1].unit_basis = "invalid".into();
+    assert!(external::import(&db.pool, &mixed, "partial", now + 2.)
+        .await
+        .is_err());
+    // The first item's valid new event survived the later item's validation failure.
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM sales WHERE item_id=4010001")
+            .fetch_one(&db.pool)
+            .await
+            .unwrap(),
+        3
+    );
+    mixed.items[1].unit_basis = "item".into();
+    let retried = external::import(&db.pool, &mixed, "partial", now + 2.)
+        .await
+        .unwrap();
+    assert_eq!(retried.sales_added, 0);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM external_market_sale_conflicts")
+            .fetch_one(&db.pool)
+            .await
+            .unwrap(),
+        2
+    );
     db.close().await;
 }

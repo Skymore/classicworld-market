@@ -36,18 +36,24 @@ def sale_point(source_id, raw):
                 seller=raw.get('seller'), location=location(raw), raw=raw)
 
 
-def build(snapshot, catalog):
+def build(snapshot, catalog, source_ids=None):
     snapshot = Path(snapshot)
     listing = json.loads((snapshot/'list.json').read_text(encoding='utf-8'))
     if listing.get('market') != 'Classic World' or listing.get('preview') is not False:
         raise ValueError('Expected the published Classic World market')
     with closing(sqlite3.connect(Path(catalog).resolve().as_uri()+'?mode=ro', uri=True)) as db:
         local = {i: dict(name_en=en, name_zh=zh) for i,en,zh in db.execute('SELECT item_id,name_en,name_zh FROM items')}
-    items, sales, quotes, files, rejected = [], {}, [], [], []
+    items, sales, quotes, files, rejected = [], [], [], [], []
+    seen_sales = set()
     versions = []
     for item in listing['items']:
         source_id = item['id']
-        status = mapping_status(item, local)
+        if source_ids is not None and source_id not in source_ids:
+            continue
+        try:
+            status = mapping_status(item, local)
+        except ValueError:
+            status = 'unsupported_id'
         if status != 'same_id_and_name':
             rejected.append(dict(source_item_id=source_id, reason=status))
             continue
@@ -58,6 +64,8 @@ def build(snapshot, catalog):
         doc = json.loads(raw_file)
         if doc.get('market') != 'Classic World' or doc.get('id') != source_id:
             raise ValueError(f'Wrong item export: {path}')
+        if not isinstance(doc.get('sales'), list) or not isinstance(doc.get('listings'), list):
+            raise ValueError(f'Incomplete item export: {path}')
         generated = timestamp(doc['generated_at'])
         versions.append(generated)
         files.append(dict(path=path.relative_to(snapshot).as_posix(), generated_at=doc['generated_at'],
@@ -66,10 +74,12 @@ def build(snapshot, catalog):
                           name_en=item['name'], unit_basis=item['unitBasis'], listings_generated_at=generated))
         for row in doc['sales']:
             point = sale_point(source_id,row)
-            old = sales.get(point['source_key'])
-            if old is not None and old != point:
-                raise ValueError(f"Conflicting sale ID: {point['source_key']}")
-            sales[point['source_key']] = point
+            # Preserve conflicting versions for the importer to quarantine;
+            # only collapse exact repeats within the export.
+            key = json.dumps(point, sort_keys=True, allow_nan=False)
+            if key not in seen_sales:
+                sales.append(point)
+                seen_sales.add(key)
         for index, row in enumerate(doc.get('listings', [])):
             # The source exposes a bounded sample of shop rows, not shop inventory.
             # No stable row/slot is published. Identify this export's row rather
@@ -84,7 +94,7 @@ def build(snapshot, catalog):
                 manifest=dict(built_at=datetime.now(timezone.utc).isoformat(), files=files,
                               notice=listing.get('notice'), terms=listing.get('terms'),
                               rejected_items=rejected, raw_points_only=True),
-                items=items, sales=list(sales.values()), listings=quotes)
+                items=items, sales=sales, listings=quotes)
 
 
 def main():

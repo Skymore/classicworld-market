@@ -23,6 +23,7 @@ class SupervisorRecoveryTests(unittest.TestCase):
             (data / 'native-runtime.json').write_text(json.dumps({
                 'enabled': True, 'legacy_dashboard_enabled': False,
                 'database_url': 'postgresql://unused/unused',
+                'mesowatch': {'enabled': True},
             }))
             launched = []
             ticks = 0
@@ -67,6 +68,8 @@ class SupervisorRecoveryTests(unittest.TestCase):
             self.assertEqual(len([p for p in launched if p.command == ['web.exe']]), 2)
             self.assertEqual(len([p for p in launched if p.command[0].endswith('postgres.exe')]), 1)
             self.assertTrue(status['children']['web']['running'])
+            self.assertTrue(status['children']['mesowatch']['running'])
+            self.assertEqual(len([p for p in launched if any(str(v).endswith('mesowatch_sync.py') for v in p.command)]), 1)
             self.assertEqual(status['time'], 200050)
             self.assertFalse((data / 'backups').exists())
 
