@@ -18,8 +18,12 @@ async fn main() -> Result<()> {
         .await?;
     MIGRATOR.run(&db).await?;
     if path == "--prune" {
+        let excluded = external::exclude_equipment(&db, unix_now()).await?;
         let removed = external::prune_superseded(&db).await?;
-        println!("{}", serde_json::json!({"listings_removed":removed}));
+        println!(
+            "{}",
+            serde_json::json!({"listings_removed":removed,"equipment_items_excluded":excluded})
+        );
         return Ok(());
     }
     let raw = std::fs::read(path)?;

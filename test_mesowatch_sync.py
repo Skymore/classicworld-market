@@ -100,6 +100,15 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(result['imported'],1)
         self.assertNotIn(ITEM_BASE+'basil_04010001.json',reader.calls)
 
+    def test_external_equipment_is_never_downloaded(self):
+        self.listing['items'].append(dict(id='basil:01402007',name='Zard',unitBasis='item'))
+        reader=Reader(self.listing,self.docs)
+        result=sync_once(self.root,reader,self.importer)
+        self.assertEqual(result['rejected'],1)
+        self.assertNotIn(ITEM_BASE+'basil_01402007.json',reader.calls)
+        rejected=read_json(self.root/'shared_data/mesowatch-sync/rejected-items.json')
+        self.assertEqual(rejected[0]['reason'],'equipment_without_attributes')
+
     def test_stale_item_is_not_acknowledged(self):
         self.listing['items'][0]['lastSold'] = '2026-11-10T11:59:30Z'
         with self.assertRaisesRegex(ValueError,'behind its list'):

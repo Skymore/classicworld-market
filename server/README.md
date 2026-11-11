@@ -193,6 +193,8 @@ python tools/parity.py --now 1792390000
 
 ## MesoWatch 原始数据合并
 
+2026-11-10 起不使用外部装备（物品编号 1xxxxxx）：来源没有可靠的单件属性，抓取器、转换器和 Rust 导入器三层跳过。`import_mesowatch --prune` 把此前导入的装备成交/挂单移到 `external_market_excluded_evidence`，逐物品重算统计，保留本站采集的装备证据；隔离表不进入市场查询。其他类别仍按同源 ID 去重，**跨本站与 MesoWatch 没有共同成交 ID，仍可能重复计数**，不把价格/时间近似相同的事件猜成同一笔。
+
 取得来源授权后，将单品原始导出放在 `data/reference/mesowatch-market/<snapshot>/items/`，同目录保留 `list.json`。`python mesowatch_points.py <snapshot>` 生成 `points-import.json`，只将 `sales[]` 和 `listings[]` 转成证据点；汇总报价、分位数、每日中位数均不充当数据样本。原始文件及来源声明留在本地，manifest 保存每个单品的版本和文件哈希。自动同步使用普通 Chrome 的会话，配置见根目录 `SHARED_DEPLOYMENT.md`。
 
 在设置 `DATABASE_URL` 的 `server/` 目录运行 `cargo run --release -p market-web --bin import_mesowatch -- ../data/reference/mesowatch-market/<snapshot>/points-import.json`。每个物品单独提交事务，原始证据写入不占上传写锁，只在最终重算该物品的价格、趋势和建议价时短暂串行；整批失败时已提交物品保留，重跑凭回执续接。成交查询仅限本批 ID，不扫描全部外部成交。重复成交不增加权重，同 ID 内容改变则保留原记录、跳过新版本并记入 `external_market_sale_conflicts`，不终止整批。目标库再次校验物品编号和英文名，不猜配名称不同的记录。

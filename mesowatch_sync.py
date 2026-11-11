@@ -16,7 +16,7 @@ import subprocess
 import time
 
 from mesowatch_bridge import BridgeReader, BrowserBlocked, prepare_extension
-from mesowatch_convert import mapping_status, timestamp
+from mesowatch_convert import mapping_status, numeric_id, timestamp
 from mesowatch_points import build
 
 ROOT = Path(__file__).resolve().parent
@@ -119,7 +119,8 @@ def sync_once(root, reader, importer=None, max_items=150):
     selected, rejected = [], []
     for item in listing['items']:
         try:
-            reason = mapping_status(item, local)
+            reason = ('equipment_without_attributes' if numeric_id(item['id']) // 1_000_000 == 1
+                      else mapping_status(item, local))
         except (ValueError, TypeError):
             reason = 'unsupported_id'
         if reason != 'same_id_and_name':

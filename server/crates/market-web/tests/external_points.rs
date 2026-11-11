@@ -11,6 +11,78 @@ use market_web::{
 use serde_json::{json, Value};
 
 #[tokio::test]
+async fn external_equipment_is_rejected_and_legacy_evidence_is_removed_without_touching_native_sales(
+) {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let now = unix_now();
+    sqlx::query("INSERT INTO items(id,name_en,category) VALUES (4010001,'Iron Ore','其他'),(1402007,'Zard','装备')")
+        .execute(&db.pool).await.unwrap();
+    // Simulate evidence left by the previous importer, before equipment filtering.
+    external::import(
+        &db.pool,
+        &points(now, 4010001, "Iron Ore", "item", &[10.]),
+        "legacy",
+        now,
+    )
+    .await
+    .unwrap();
+    sqlx::query("UPDATE sales SET item_id=1402007 WHERE source='mesowatch'")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE external_market_listings SET item_id=1402007 WHERE source='mesowatch'")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    native(&db, now, 1402007, 50000, 1).await;
+    let rejected = external::import(
+        &db.pool,
+        &points(now, 1402007, "Zard", "item", &[1.]),
+        "new-equipment",
+        now,
+    )
+    .await
+    .unwrap();
+    assert_eq!(rejected.skipped_items, vec!["basil:01402007"]);
+    assert_eq!(external::exclude_equipment(&db.pool, now).await.unwrap(), 1);
+    assert_eq!(external::exclude_equipment(&db.pool, now).await.unwrap(), 0);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM sales WHERE item_id=1402007 AND source='collector'"
+        )
+        .fetch_one(&db.pool)
+        .await
+        .unwrap(),
+        1
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM sales WHERE item_id=1402007 AND source='mesowatch'"
+        )
+        .fetch_one(&db.pool)
+        .await
+        .unwrap(),
+        0
+    );
+    assert!(external::quote_rows(&db.pool, &[1402007], now - 3600.)
+        .await
+        .unwrap()
+        .is_empty());
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM external_market_excluded_evidence WHERE item_id=1402007"
+        )
+        .fetch_one(&db.pool)
+        .await
+        .unwrap(),
+        2
+    );
+    db.close().await;
+}
+
+#[tokio::test]
 async fn collector_upload_can_finish_while_external_rows_are_staged() {
     let Some(db) = TestDb::new().await else {
         return;

@@ -51,7 +51,8 @@ def build(snapshot, catalog, source_ids=None):
         if source_ids is not None and source_id not in source_ids:
             continue
         try:
-            status = mapping_status(item, local)
+            status = ('equipment_without_attributes' if numeric_id(source_id) // 1_000_000 == 1
+                      else mapping_status(item, local))
         except ValueError:
             status = 'unsupported_id'
         if status != 'same_id_and_name':
