@@ -53,6 +53,14 @@ pub async fn reconcile(conn: &mut PgConnection, items: &[i32]) -> sqlx::Result<(
 
 /// Explicit historical backfill; commit/release the upload lock for each item.
 pub async fn backfill(db: &sqlx::PgPool, now: f64) -> sqlx::Result<u64> {
+    // Suppress redundant clock refreshes during the explicit historical pass.
+    // This is the refresh coordinator, NOT the collector's write lock; uploads
+    // still run between the individual item transactions below.
+    let mut coordinator = db.begin().await?;
+    sqlx::query("SELECT pg_advisory_xact_lock($1)")
+        .bind(crate::stats::WRITE_LOCK + 1)
+        .execute(&mut *coordinator)
+        .await?;
     let items: Vec<i32> = sqlx::query_scalar("SELECT DISTINCT e.item_id FROM sales e WHERE e.source='mesowatch'
         AND EXISTS(SELECT 1 FROM sales c WHERE c.item_id=e.item_id AND c.source='collector') ORDER BY e.item_id")
         .fetch_all(db).await?;
@@ -66,8 +74,9 @@ pub async fn backfill(db: &sqlx::PgPool, now: f64) -> sqlx::Result<u64> {
         tx.commit().await?;
         tokio::task::yield_now().await;
     }
-    sqlx::query_scalar::<_, i64>("SELECT count(*) FROM cross_source_sale_matches")
+    let count = sqlx::query_scalar::<_, i64>("SELECT count(*) FROM cross_source_sale_matches")
         .fetch_one(db)
-        .await
-        .map(|n| n as u64)
+        .await?;
+    coordinator.commit().await?;
+    Ok(count as u64)
 }

@@ -389,6 +389,19 @@ pub async fn recompute_items(
         return Ok(());
     }
     crate::sale_matching::reconcile(conn, items).await?;
+    recompute_prices(conn, items, as_of, now, seen_at).await
+}
+
+// Clock/window changes cannot create new cross-source matches. Reuse the
+// links maintained by evidence writers instead of repeating historical joins
+// and rewriting their links every minute under the upload lock.
+async fn recompute_prices(
+    conn: &mut PgConnection,
+    items: &[i32],
+    as_of: f64,
+    now: f64,
+    seen_at: &HashMap<i32, f64>,
+) -> sqlx::Result<()> {
     let data = load(conn, Some(items)).await?;
     let figures = compute(items, &data, as_of, now);
     write(conn, &figures, as_of, now, seen_at, false, &data).await
@@ -497,7 +510,7 @@ pub async fn refresh_if_due(db: &PgPool, now: f64) -> sqlx::Result<bool> {
                 sqlx::query_scalar("SELECT extract(epoch FROM as_of)::float8 FROM market_state")
                     .fetch_one(&mut *batch_tx)
                     .await?;
-            recompute_items(
+            recompute_prices(
                 &mut batch_tx,
                 batch,
                 as_of,

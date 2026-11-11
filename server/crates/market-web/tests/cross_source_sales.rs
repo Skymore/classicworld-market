@@ -107,6 +107,11 @@ async fn six_hour_rule_is_one_to_one_and_ignores_unknown_quantity_kind_and_locat
             .await
             .unwrap();
     assert_eq!(samples, 4);
+    let links = "SELECT external_sale_id,collector_sale_id,matched_at::text FROM cross_source_sale_matches ORDER BY external_sale_id";
+    let before: Vec<(i64, i64, String)> = sqlx::query_as(links).fetch_all(&db.pool).await.unwrap();
+    assert!(stats::refresh_if_due(&db.pool, now + 65.).await.unwrap());
+    let after: Vec<(i64, i64, String)> = sqlx::query_as(links).fetch_all(&db.pool).await.unwrap();
+    assert_eq!(before, after, "clock-only refresh reuses existing links");
     db.close().await;
 }
 
