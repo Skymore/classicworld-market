@@ -392,8 +392,9 @@ fn hole_title(v: &View, room: i16, price: f64) -> String {
 
 fn listing_row(v: &View, l: &Listing) -> Markup {
     let key = format!(
-        "{}|{:?}|{:?}|{:?}|{}|{}",
+        "{}|{:?}|{:?}|{:?}|{:?}|{}|{}",
         l.shop,
+        l.owner_name,
         l.channel,
         l.room,
         l.variant.as_ref().map(|x| x.id),
@@ -403,7 +404,9 @@ fn listing_row(v: &View, l: &Listing) -> Markup {
     if !is_equipment(i64::from(v.page.item.id)) {
         return html! {
             div.lrow.stale[v.stale(l.seen_at)] data-quote=(key) data-observed=(l.seen_at.timestamp()) data-unit-price=(l.unit_price) {
-                span.lshop { (l.shop) }
+                span.lshop title=[l.owner_name.as_ref().filter(|_| l.shop.is_empty()).map(|_|v.t("人物名", "Player name"))] {
+                    (if l.shop.is_empty() { l.owner_name.as_deref().unwrap_or("") } else { &l.shop })
+                }
                 span.lroom { (l.room.map(|r| room_label(v.ctx.lang, r)).unwrap_or_else(|| v.t("洞未知", "room ?").into())) }
                 span.lp { (meso_f(l.unit_price, v.ctx.lang)) }
                 span.lq title=(v.t("库存数量，未知时显示 —", "Stock; — means unknown")) { @if let Some(stock)=l.stock { "×" (stock) } @else { "—" } }
@@ -412,8 +415,9 @@ fn listing_row(v: &View, l: &Listing) -> Markup {
         };
     }
     let key = format!(
-        "{}|{:?}|{:?}|{:?}|{}|{}",
+        "{}|{:?}|{:?}|{:?}|{:?}|{}|{}",
         l.shop,
+        l.owner_name,
         l.channel,
         l.room,
         l.variant.as_ref().map(|x| x.id),
@@ -898,7 +902,11 @@ fn sale_row(v: &View, s: &Sale, with_shop: bool, extra: bool) -> Markup {
                     span { (place) }
                 }
             } @else { (loc(v.ctx.lang, s.channel, s.room)) }
-            @if with_shop { span.ss { (s.shop) } }
+            @if with_shop {
+                span.ss title=[s.owner_name.as_ref().filter(|_| s.shop.is_empty()).map(|_|v.t("人物名", "Player name"))] {
+                    (if s.shop.is_empty() { s.owner_name.as_deref().unwrap_or("") } else { &s.shop })
+                }
+            }
             span.sa data-relative-time=(s.detected_at.timestamp()) title=(s.detected_at.format("%Y-%m-%d %H:%M UTC").to_string()) { (v.ago(s.detected_at)) }
         }
     }

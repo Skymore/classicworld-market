@@ -757,6 +757,7 @@ async fn item_market(
     }
     #[derive(FromRow)]
     struct SaleRow {
+        owner_name: Option<String>,
         observed_location: Option<String>,
         kind: String,
         unit_price: f64,
@@ -803,7 +804,7 @@ async fn item_market(
     ).bind(id).bind(Window::recent(now).cutoff).bind(variant_ids).fetch_all(db);
     let sales = sqlx::query_as::<_, SaleRow>(
         "SELECT s.kind, s.unit_price, s.quantity,
-                COALESCE(sh.title,s.source_seller,'') AS title,
+                COALESCE(sh.title,'') AS title,COALESCE(sh.owner_name,s.source_seller) AS owner_name,
                 COALESCE(sh.channel,o.map_channel,(s.source_location->>'channel')::int2) AS channel,
                 COALESCE(sh.room,(s.source_location->>'room')::int2) AS room,
                 CASE WHEN s.source='mesowatch' THEN s.source_location->>'text'
@@ -878,7 +879,7 @@ async fn item_market(
             DateTime::from_timestamp(row["time"].as_f64().unwrap_or(0.) as i64, 0)
         {
             listings.push(Listing {
-                owner_name: None,
+                owner_name: row["owner_name"].as_str().map(str::to_owned),
                 invalidated_at: None,
                 grouping: None,
                 shop: row["shop"].as_str().unwrap_or("").to_owned(),
@@ -916,6 +917,7 @@ async fn item_market(
                 Some((
                     key,
                     Sale {
+                        owner_name: r.owner_name,
                         observed_location: r.observed_location,
                         kind,
                         unit_price: r.unit_price,
@@ -3092,6 +3094,7 @@ mod tests {
     fn slots_one_shop_sold_at_one_visit_read_as_one_sale() {
         let at = DateTime::from_timestamp(1_793_152_700, 0).unwrap();
         let sale = |quantity| Sale {
+            owner_name: None,
             observed_location: None,
             kind: SaleKind::SoldOut,
             unit_price: 190.0,

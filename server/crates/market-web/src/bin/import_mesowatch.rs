@@ -11,12 +11,17 @@ use sqlx::postgres::PgPoolOptions;
 async fn main() -> Result<()> {
     let path = std::env::args()
         .nth(1)
-        .context("usage: import_mesowatch points-import.json | --prune")?;
+        .context("usage: import_mesowatch points-import.json | --prune | --deduplicate")?;
     let db = PgPoolOptions::new()
         .max_connections(2)
         .connect(&std::env::var("DATABASE_URL")?)
         .await?;
     MIGRATOR.run(&db).await?;
+    if path == "--deduplicate" {
+        let matched = market_web::sale_matching::backfill(&db, unix_now()).await?;
+        println!("{}", serde_json::json!({"cross_source_matches":matched}));
+        return Ok(());
+    }
     if path == "--prune" {
         let excluded = external::exclude_equipment(&db, unix_now()).await?;
         let removed = external::prune_superseded(&db).await?;

@@ -45,6 +45,7 @@ pub mod push;
 pub mod realtime;
 pub mod remote_debug;
 pub mod roster;
+pub mod sale_matching;
 pub mod scan_assignments;
 pub mod search;
 mod static_files;

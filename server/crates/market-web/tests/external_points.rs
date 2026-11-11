@@ -206,13 +206,15 @@ async fn merges_points_recomputes_and_retries_without_duplicate_samples() {
         .unwrap();
     assert_eq!(quotes["records"][0]["unit_price"], 500.0);
     assert_eq!(quotes["records"][0]["stock"], Value::Null);
-    assert_eq!(quotes["records"][0]["shop"], "Listing seller");
+    assert_eq!(quotes["records"][0]["shop"], Value::Null);
+    assert_eq!(quotes["records"][0]["owner_name"], "Listing seller");
     let sales = views::latest_records(&db.pool, Hours::Recent, true, now)
         .await
         .unwrap();
     assert_eq!(sales["records"][0]["sale_unit_price"], 700.0);
     assert_eq!(sales["records"][0]["quantity"], Value::Null);
-    assert_eq!(sales["records"][0]["shop"], "seller3");
+    assert_eq!(sales["records"][0]["shop"], "");
+    assert_eq!(sales["records"][0]["owner_name"], "seller3");
 
     assert!(
         external::import(&db.pool, &input, "first", now)
@@ -254,8 +256,8 @@ async fn merges_points_recomputes_and_retries_without_duplicate_samples() {
         .market
         .listings
         .iter()
-        .any(|q| q.stock.is_none() && q.shop == "Listing seller"));
-    assert!(ssr.market.sales.iter().any(|s| s.shop == "seller0"));
+        .any(|q| q.stock.is_none() && q.shop.is_empty() && q.owner_name.as_deref() == Some("Listing seller")));
+    assert!(ssr.market.sales.iter().any(|s| s.shop.is_empty() && s.owner_name.as_deref() == Some("seller0")));
     let query = views::SalesQuery {
         limit: 2,
         before: None,

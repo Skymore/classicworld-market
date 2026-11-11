@@ -243,6 +243,7 @@ pub struct Listing {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Sale {
+    pub owner_name: Option<String>,
     pub observed_location: Option<String>,
     pub kind: SaleKind,
     pub unit_price: f64,

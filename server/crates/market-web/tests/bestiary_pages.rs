@@ -163,6 +163,7 @@ fn market() -> ItemMarket {
             listing("Far", Some(3), 5, 1_100.0, at(19, 22)),
         ],
         sales: vec![Sale {
+            owner_name: None,
             observed_location: None,
             kind: SaleKind::FoundSold,
             unit_price: 1_250.0,
@@ -483,8 +484,8 @@ fn english_page() {
         "search keeps it too"
     );
     assert!(
-        html.contains(r#"href="/item/4000019""#),
-        "switch back to Chinese"
+        html.contains(r#"href="/item/4000019?lang=ko""#),
+        "switch to the next supported language"
     );
     assert!(!html.contains("怎么拿到"));
 }

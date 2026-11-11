@@ -26,7 +26,7 @@ pub async fn period_default(State(state): State<AppState>, headers: HeaderMap) -
             let row: sqlx::Result<(i64, i64, i64)> = sqlx::query_as(
                 "SELECT count(DISTINCT item_id) FILTER (WHERE detected_at>=to_timestamp($1)),
          count(*) FILTER (WHERE detected_at>=to_timestamp($1)), count(DISTINCT item_id)
-         FROM sales WHERE detected_at<=to_timestamp($2)",
+         FROM market_sales WHERE detected_at<=to_timestamp($2)",
             )
             .bind(now - 72.0 * 3600.0)
             .bind(now)

@@ -408,10 +408,15 @@ pub async fn repair_owner(db: &PgPool, input: Received<'_>) -> Result<bool, Inge
         };
     }
     bind_owner(&mut tx, shop, observation, Some(owner)).await?;
-    // Enrichment changes identity metadata only. Existing instances already
-    // have their latest complete lists; replaying unchanged history here would
-    // rewrite every item and emit thousands of unnecessary live updates.
-    let touched = reconcile_owner_listings(&mut tx, shop).await?;
+    // Owner enrichment can now connect previously unmatched external sales.
+    // Refresh this shop's sale items as well as changed current listings.
+    let mut touched = reconcile_owner_listings(&mut tx, shop).await?;
+    let sale_items: Vec<i32> =
+        sqlx::query_scalar("SELECT DISTINCT item_id FROM sales WHERE shop_id=$1")
+            .bind(shop)
+            .fetch_all(&mut *tx)
+            .await?;
+    touched.extend(sale_items);
     if touched.is_empty() {
         tx.commit().await?;
         return Ok(true);

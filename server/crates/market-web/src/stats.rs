@@ -388,6 +388,7 @@ pub async fn recompute_items(
     if items.is_empty() {
         return Ok(());
     }
+    crate::sale_matching::reconcile(conn, items).await?;
     let data = load(conn, Some(items)).await?;
     let figures = compute(items, &data, as_of, now);
     write(conn, &figures, as_of, now, seen_at, false, &data).await
@@ -416,6 +417,7 @@ pub async fn refresh_all(conn: &mut PgConnection, now: f64) -> sqlx::Result<usiz
     .collect();
     let mut items: Vec<i32> = last_seen.keys().copied().collect();
     items.sort_unstable();
+    crate::sale_matching::reconcile(conn, &items).await?;
     let data = load(conn, None).await?;
     let figures = compute(&items, &data, as_of, now);
     write(conn, &figures, as_of, now, &last_seen, true, &data).await?;

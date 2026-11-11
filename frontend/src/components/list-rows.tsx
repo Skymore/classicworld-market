@@ -58,7 +58,9 @@ export function Location({
       >
         <b>{channelLabel}</b>
         <span className="loc-room">{roomLabel}</span>
-        {owner ? (
+        {owner && !shop ? (
+          <span className="record-shop" title={words("人物名", "Player name")}><UserRound aria-hidden="true" /><span className="record-shop-text">{owner}</span></span>
+        ) : owner ? (
           <button type="button" className="record-shop shop-name-toggle"
             aria-pressed={showOwner}
             aria-label={showOwner ? words("显示店铺名", "Show shop name") : words("显示玩家名", "Show player name")}

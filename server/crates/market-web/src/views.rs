@@ -817,7 +817,7 @@ async fn item_history(db: &PgPool, item: i32) -> sqlx::Result<Vec<Value>> {
 fn sales_from() -> String {
     format!(
         "SELECT o.visit_key,extract(epoch FROM s.detected_at)::float8 AS time,
-         COALESCE(sh.title,s.source_seller,'') AS title,sh.shop_id AS game_shop_id,
+         COALESCE(sh.title,'') AS title,COALESCE(sh.owner_name,s.source_seller) AS owner_name,sh.shop_id AS game_shop_id,
          COALESCE(sh.channel,o.map_channel,(s.source_location->>'channel')::int2) AS channel,
          COALESCE(sh.room,(s.source_location->>'room')::int2) AS room,o.map_id AS observed_map_id,
          (SELECT name_zh FROM maps WHERE id=o.map_id) AS map_name_zh,
@@ -963,7 +963,7 @@ pub async fn recent_sales(db: &PgPool, q: &SalesQuery, now: f64) -> sqlx::Result
         .last()
         .filter(|r| r.get::<bool, _>("more"))
         .map(|r| r.get::<f64, _>("time"));
-    const FIELDS: [&str; 20] = [
+    const FIELDS: [&str; 21] = [
         "source",
         "unit_basis",
         "id",
@@ -982,6 +982,7 @@ pub async fn recent_sales(db: &PgPool, q: &SalesQuery, now: f64) -> sqlx::Result
         "quantity",
         "previous_time",
         "shop",
+        "owner_name",
         "location",
         "equipment",
     ];
@@ -1493,7 +1494,7 @@ pub async fn latest_records(
         let sql = format!(
             "WITH latest AS MATERIALIZED (
               SELECT pick.id FROM item_stats st CROSS JOIN LATERAL (
-                SELECT id FROM sales WHERE item_id=st.item_id AND detected_at>=to_timestamp($1)
+                SELECT id FROM market_sales WHERE item_id=st.item_id AND detected_at>=to_timestamp($1)
                 ORDER BY detected_at DESC,observation_id DESC NULLS LAST,
                   position DESC NULLS LAST,source_key LIMIT 1
               ) pick
@@ -1557,6 +1558,7 @@ pub async fn latest_records(
                     | "name_en"
                     | "icon_url"
                     | "shop"
+                    | "owner_name"
                     | "source"
                     | "location"
                     | "time"
@@ -1808,7 +1810,7 @@ pub async fn agent_listings(
         .await?;
     let mut found: Vec<Value> = rows.iter().map(|r| Value::Object(row_json(r))).collect();
     let external: Vec<Value> = sqlx::query_scalar(
-        "SELECT to_jsonb(x) FROM (SELECT item_id,source,unit_basis,unit_price,seller AS shop,
+        "SELECT to_jsonb(x) FROM (SELECT item_id,source,unit_basis,unit_price,NULL::text AS shop,seller AS owner_name,
          location,extract(epoch FROM seen_at)::float8 AS time,NULL::int AS stock,NULL::jsonb AS equipment
          FROM external_market_listings WHERE item_id=$1 AND up AND seen_at>=to_timestamp($2)
          AND seen_at<=to_timestamp($6)
