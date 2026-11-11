@@ -20,8 +20,8 @@
       "_shared-Cwf5YL9D.js"
     ]
   },
-  "_catalogue-CW6qDO8r.js": {
-    "file": "chunks/catalogue-CW6qDO8r.js",
+  "_catalogue-DpAjtMQr.js": {
+    "file": "chunks/catalogue-DpAjtMQr.js",
     "name": "catalogue",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -115,8 +115,8 @@
       "_shared-Cwf5YL9D.js"
     ]
   },
-  "_main-Bf2qoifK.js": {
-    "file": "chunks/main-Bf2qoifK.js",
+  "_main-ZRei0Aql.js": {
+    "file": "chunks/main-ZRei0Aql.js",
     "name": "main",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -368,7 +368,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Bf2qoifK.js"
+      "_main-ZRei0Aql.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -424,7 +424,7 @@
     ]
   },
   "src/pages/catalogue-search.tsx": {
-    "file": "chunks/catalogue-search-BxA7V1ZK.js",
+    "file": "chunks/catalogue-search-DbAev_hL.js",
     "name": "catalogue-search",
     "src": "src/pages/catalogue-search.tsx",
     "isDynamicEntry": true,
@@ -433,16 +433,16 @@
       "_shell-M1akjSXI.js",
       "_dialog-BG3HsSV-.js",
       "_price-state-CM6xKDyT.js",
-      "_catalogue-CW6qDO8r.js"
+      "_catalogue-DpAjtMQr.js"
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-Dm_q6lHe.js",
+    "file": "chunks/catalogue-BSXEMHlB.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_catalogue-CW6qDO8r.js"
+      "_catalogue-DpAjtMQr.js"
     ]
   },
   "src/pages/client.tsx": {
@@ -638,7 +638,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Bf2qoifK.js"
+      "_main-ZRei0Aql.js"
     ]
   }
 }

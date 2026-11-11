@@ -19,6 +19,8 @@ const server=createServer(async(req,res)=>{
     if(url.pathname==='/api/v1/market')data={products:[product],as_of:now};
     if(url.pathname==='/api/v1/market/period-default')data={default_hours:'all'};
     if(url.pathname==='/api/v1/market/records')data={records:[record()]};
+    if(url.pathname==='/api/v1/catalog/page') data={kind:'item',page:{item:{...product,id:product.item_id},stats:null,droppers:[],npc_offers:[],npc_sell:null,
+      market:{as_of:now,base_stats:[],days:[],sale_points:[],listings:[],sales:[{kind:'found_sold',unit_price:300,quantity:null,shop:'',owner_name:'ExternalRole',room:7,detected_at:new Date(now*1000).toISOString(),merged_count:1}]}}};
     res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));return;
   }
   const file=url.pathname.startsWith('/web/')?path.resolve(root,'.'+url.pathname.slice(4)):path.join(root,'index.html');
@@ -43,6 +45,9 @@ try {
       await row.locator('.shop-name-toggle').click();
       assert.equal(await row.locator('.record-shop-text').textContent(),'LocalRole');
     }
-    assert.deepEqual(errors,[]);await page.close();console.log(`PASS ${width}px: external roles and native shop/role toggle in quotes and sales`);
+    await page.goto(`http://127.0.0.1:${server.address().port}/item/4010001?lang=en`);
+    const saleOwner=page.locator('.sales-list .ss').first();await saleOwner.waitFor({state:width<640?'attached':'visible'});
+    assert.equal(await saleOwner.textContent(),'ExternalRole');assert.equal(await saleOwner.getAttribute('title'),'Player name');
+    assert.deepEqual(errors,[]);await page.close();console.log(`PASS ${width}px: external roles on home/item pages and native shop/role toggle`);
   }
 } finally {await browser.close();for(const stream of streams)stream.end();await new Promise(resolve=>server.close(resolve));}

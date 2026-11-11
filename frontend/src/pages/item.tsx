@@ -409,6 +409,7 @@ export default function Item({ page }: { page: any }) {
             row.slot ?? i,
             row.invalidated_at,
             row.shop,
+            row.owner_name,
             row.channel,
             row.room,
             row.variant?.id,
@@ -437,6 +438,7 @@ export default function Item({ page }: { page: any }) {
       const identity = JSON.stringify([
         row.detected_at,
         row.shop,
+        row.owner_name,
         row.unit_price,
         row.quantity,
         row.variant?.id,
@@ -514,7 +516,7 @@ export default function Item({ page }: { page: any }) {
     moreKey = sort === "recent" ? "recent" : "where",
     firstPage = matchMedia("(min-width:641px)").matches ? 50 : 20,
     active = filtered.rows.filter((row: any) => !row.invalidated_at),
-    activeShops = new Set(active.map((row: any) => JSON.stringify([row.shop, row.channel, row.room]))).size;
+    activeShops = new Set(active.map((row: any) => JSON.stringify([row.shop, row.owner_name, row.channel, row.room]))).size;
   const ids = useMemo<any[]>(() => {
     try {
       const value = JSON.parse(watch);
@@ -694,7 +696,7 @@ export default function Item({ page }: { page: any }) {
                       text: row.observed_location,
                     }}
                   />
-                  {withShop && <span className="ss">{row.shop}</span>}
+                  {withShop && <span className="ss" title={!row.shop && row.owner_name ? words("人物名", "Player name") : undefined}>{row.shop || row.owner_name}</span>}
                   {equipment ? (
                     <span className="sale-meta">
                       <span className="sale-time">
