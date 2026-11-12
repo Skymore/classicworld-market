@@ -27,7 +27,7 @@ type ItemRow = (
     i32,
     Option<String>,
     Option<String>,
-    Option<i64>,
+    Option<f64>,
     Option<i64>,
 );
 /// id, Chinese name, English name, quantity, runs that saw it.
@@ -261,8 +261,8 @@ pub async fn price_rows(
     now: f64,
 ) -> sqlx::Result<Value> {
     let rows: Vec<ItemRow> = sqlx::query_as(
-        "SELECT i.id, COALESCE(NULLIF(i.name_zh, ''), i.name_en), i.name_en, s.typical,
-         (SELECT min(sh.price) FROM npc_shops sh JOIN npcs np ON np.id = sh.npc_id
+        "SELECT i.id, COALESCE(NULLIF(i.name_zh, ''), i.name_en), i.name_en, s.typical::float8,
+         (SELECT min(sh.price)::int8 FROM npc_shops sh JOIN npcs np ON np.id = sh.npc_id
            WHERE sh.item_id = i.id AND sh.price >= 0 AND NOT np.unreleased)
          FROM items i LEFT JOIN item_stats s ON s.item_id = i.id WHERE i.id = ANY($1)",
     )

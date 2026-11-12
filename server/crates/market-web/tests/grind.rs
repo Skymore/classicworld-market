@@ -134,11 +134,19 @@ async fn equipment_prices_use_the_item_page_groups() {
         .execute(&db.pool)
         .await
         .unwrap();
+    // A real stats row: `typical` is a double, and NULLs would hide a type mismatch.
+    sqlx::query(
+        "INSERT INTO item_stats (item_id, typical, as_of) VALUES (1082002, 12345.5, now())",
+    )
+    .execute(&db.pool)
+    .await
+    .unwrap();
     let rows = grind::price_rows(&db.pool, &[1082002], &[], &[], now)
         .await
         .unwrap();
     let row = &rows["prices"]["1082002"];
     assert_eq!(row["name"], "工地手套");
+    assert_eq!(row["typical"], 12345.5);
     assert_eq!(row["groups"], json!([]));
     // The group key is the tracker's: attributes other than defence, sorted,
     // then remaining upgrades and the unknown field count.
