@@ -79,7 +79,8 @@ def verified_profile():
         # skill ID at 4 (0 = plain attack), skill level at 8. Casts: 119, skill at 2.
         # Damage taken is not identified yet (one sample), so `confirmed` stays
         # false and recording continues.
-        client=dict(confirmed=False, attack=dict(indices=[26, 27, 28], skill_offset=4), cast=dict(index=119, skill_offset=2)),
+        client=dict(confirmed=False, attack=dict(indices=[26, 27, 28], skill_offset=4), cast=dict(index=119, skill_offset=2),
+                    consume=dict(confirmed=True, manual_index=73, pet_index=321)),
         source='verified live session 2026-11-11')
     return profile
 
@@ -254,6 +255,8 @@ def pickup(data, rule):
     if len(data) <= kind or data[kind] != rule.get('kind_value', 0):
         return None
     money = rule.get('money_offset')
+    if money is not None and (money >= len(data) or data[money] not in (0, 1)):
+        return None
     if money is not None and money < len(data) and data[money] == 1:
         amount = u32(data, rule.get('meso_offset', 6))
         return ('mesos', amount) if amount is not None else None
@@ -261,8 +264,32 @@ def pickup(data, rule):
     if item is None or not 1000000 <= item < 6000000:
         return None
     at = rule.get('quantity_offset')
-    quantity = int.from_bytes(data[at:at+2], 'little') if at is not None and at + 2 <= len(data) else 1
-    return 'item', item, quantity or 1
+    if at is not None and (at < 0 or at + 2 > len(data)):
+        return None
+    quantity = int.from_bytes(data[at:at+2], 'little') if at is not None else 1
+    return ('item', item, quantity) if quantity > 0 else None
+
+
+def consume_request(index, data, rule):
+    """(use slot, item) for manual / pet potion use, not proof of consumption.
+
+    Live capture: manual index 73 has tick, slot, item, count; pet index 321
+    adds a pet byte before the tick. Observed requests used one unit.
+    Only a matching inventory decrease confirms a successful use.
+    """
+    if not rule.get('confirmed') or index is None:
+        return None
+    if index == rule.get('manual_index') and len(data) == 16:
+        at = 6
+    elif index == rule.get('pet_index') and len(data) == 17:
+        at = 7
+    else:
+        return None
+    slot = int.from_bytes(data[at:at+2], 'little')
+    item = u32(data, at + 2)
+    if 1 <= slot <= 1000 and item // 10000 in (200, 201, 202) and u32(data, at + 6) == 1:
+        return slot, item
+    return None
 
 
 def experience_message(data, profile):

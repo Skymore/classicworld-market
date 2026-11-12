@@ -35,6 +35,7 @@ IDLE_CREDIT = 10
 PASSIVE_BUFFS = {k for k, (_, en) in SKILLS.items() if en.startswith('Final Attack')}
 RECENT = 8
 HISTORY_LIMIT = 500
+ITEM_MATCH_SECONDS = 2
 
 
 def load_settings(path):
@@ -189,7 +190,12 @@ class Character:
         self.table = None
         self.exp_messages = 0       # experience announced since the last experience update
         self.buffs = {}             # source -> (start, milliseconds)
-        self.pickups = collections.deque(maxlen=64)   # (t, item id)
+        self.pickups = collections.deque(maxlen=256)   # [t, item id, unmatched quantity]
+        self.pending_loot = collections.deque(maxlen=256)
+        self.uses = collections.deque(maxlen=256)      # [t, item id, unmatched quantity, slot]
+        self.pending_uses = collections.deque(maxlen=256)
+        self.bag_slots = None
+        self.client_seen = False
         self.run = None
 
     def facts(self):
@@ -284,6 +290,17 @@ class Tracker:
         op = int.from_bytes(data[:2], 'little')
         index = table.index(op) if table and op in table else None
         self.health['client_frames'] += 1
+        if character is not None:
+            character.client_seen = True
+        request = proto.consume_request(index, data, (self.profile.get('client') or {}).get('consume') or {})
+        if request and character.bag_slots is not None:
+            slot, item = request
+            held = character.bag_slots.get((2, slot))
+            pending = any(e['item'] == item and e['slots'].get(slot, 0) > 0
+                          and 0 <= self.now() - e['t'] <= ITEM_MATCH_SECONDS for e in character.pending_uses)
+            if (held and held[0] == item and held[1] > 0) or pending:
+                character.uses.append([self.now(), item, 1, slot])
+                self.match_uses(character, self.now())
         action = proto.client_action(index, data, self.profile.get('client') or {})
         run = character.run if character else None
         if action and run and run.status == 'active':
@@ -300,6 +317,7 @@ class Tracker:
                 character.run, other.run = other.run, None
 
     def map_entry(self, character, data, now):
+        self.clear_item_matches(character)
         info = proto.read_character(data, self.profile)
         if info:
             key = info.get('name') or info.get('character_id')
@@ -437,7 +455,8 @@ class Tracker:
             return
         found = proto.pickup(data, self.profile.get('pickup') or {})
         if found and found[0] == 'item':
-            character.pickups.append((now, found[1]))
+            character.pickups.append([now, found[1], found[2]])
+            self.match_loot(character, now)
             return
         buff = proto.parse_buff(data, self.profile.get('buff') or {})
         if buff:
@@ -449,10 +468,13 @@ class Tracker:
 
     def inventory(self, character, inventory, now, rebase=False):
         bags = bag_totals(inventory)
+        previous_slots = character.bag_slots
+        character.bag_slots = None if inventory.slots is None else dict(inventory.slots)
         pieces = equipment_pieces(inventory)
         if character.mesos is None and inventory.mesos is not None:
             character.mesos = inventory.mesos
         if rebase:
+            self.clear_item_matches(character)
             # A full snapshot replaces the bags; differences across it are
             # changes we did not see, never pickups.
             if inventory.mesos is not None:
@@ -460,6 +482,8 @@ class Tracker:
             character.bags, character.pieces = bags, pieces
             return
         if bags is None or character.bags is None:
+            if (bags is None) != (character.bags is None):
+                self.clear_item_matches(character)
             if character.bags is not None and bags is None and character.run:
                 character.run.gaps += 1
             character.bags = bags
@@ -469,7 +493,14 @@ class Tracker:
                 if delta > 0:
                     self.loot(character, item, delta, None, now)
                 elif delta < 0 and item // 1000000 == 2:
-                    self.used(character, item, -delta, now)
+                    losses = {}
+                    for (category, slot), (held, count) in (previous_slots or {}).items():
+                        if category == 2 and held == item:
+                            current = character.bag_slots.get((category, slot))
+                            lost = count - (current[1] if current and current[0] == item else 0)
+                            if lost > 0:
+                                losses[slot] = lost
+                    self.used(character, item, -delta, now, losses)
             character.bags = bags
         if pieces is None or character.pieces is None:
             character.pieces = pieces
@@ -509,8 +540,51 @@ class Tracker:
 
     def loot(self, character, item, quantity, piece, now):
         rule = self.profile.get('pickup') or {}
-        if rule.get('confirmed') and not any(i == item and now - t <= 2 for t, i in character.pickups):
-            return  # entered the bag without a pickup message: quest, trade or storage
+        if rule.get('confirmed'):
+            character.pending_loot.append(dict(t=now, item=item, quantity=quantity, piece=piece,
+                                               eligible=self.item_eligible(character)))
+            self.match_loot(character, now)
+            return
+        self.record_loot(character, item, quantity, piece, now)
+
+    @staticmethod
+    def clear_item_matches(character):
+        character.pickups.clear()
+        character.pending_loot.clear()
+        character.uses.clear()
+        character.pending_uses.clear()
+
+    @staticmethod
+    def item_eligible(character):
+        return bool((character.run and character.run.status == 'active') or character.arming)
+
+    @staticmethod
+    def take_matches(events, item, quantity, now):
+        while events and now - events[0][0] > ITEM_MATCH_SECONDS:
+            events.popleft()
+        matched = 0
+        for event in events:
+            if event[1] == item and 0 <= now - event[0] <= ITEM_MATCH_SECONDS:
+                take = min(quantity - matched, event[2])
+                event[2] -= take
+                matched += take
+                if matched == quantity:
+                    break
+        return matched
+
+    def match_loot(self, character, now):
+        pending = character.pending_loot
+        while pending and now - pending[0]['t'] > ITEM_MATCH_SECONDS:
+            pending.popleft()
+        for entry in pending:
+            quantity = self.take_matches(character.pickups, entry['item'], entry['quantity'], now)
+            if quantity:
+                if entry['eligible']:
+                    self.record_loot(character, entry['item'], quantity, entry['piece'], entry['t'])
+                entry['quantity'] -= quantity
+        character.pending_loot = collections.deque((e for e in pending if e['quantity']), maxlen=256)
+
+    def record_loot(self, character, item, quantity, piece, now):
         entry = dict(t=now, kind='loot', item_id=item, quantity=quantity)
         if piece is not None:
             entry['piece'] = dict(stats=piece.get('stats') or [], remaining_upgrades=piece.get('remaining_upgrades'),
@@ -518,7 +592,44 @@ class Tracker:
         self.prices.want([item])
         self.record(character, entry, now)
 
-    def used(self, character, item, quantity, now):
+    def used(self, character, item, quantity, now, slots=None):
+        # With a decoded client stream, manual and pet requests distinguish
+        # actual potion use from dropping, selling or transferring a stack.
+        # Capture without a mapping table or client frames retains the bag-delta
+        # estimate until the next channel entry establishes both directions.
+        rule = (self.profile.get('client') or {}).get('consume') or {}
+        if (item // 10000 in (200, 201, 202) and character.table is not None
+                and character.client_seen and rule.get('confirmed')):
+            character.pending_uses.append(dict(t=now, item=item, quantity=quantity, slots=slots or {},
+                                               eligible=self.item_eligible(character)))
+            self.match_uses(character, now)
+            return
+        self.record_used(character, item, quantity, now)
+
+    def match_uses(self, character, now):
+        # The two TCP directions can be delivered to the capture worker in
+        # either order, even though the request logically precedes the reply.
+        while character.uses and now - character.uses[0][0] > ITEM_MATCH_SECONDS:
+            character.uses.popleft()
+        pending = character.pending_uses
+        while pending and now - pending[0]['t'] > ITEM_MATCH_SECONDS:
+            pending.popleft()
+        for entry in pending:
+            for event in character.uses:
+                if event[1] != entry['item'] or not 0 <= now - event[0] <= ITEM_MATCH_SECONDS:
+                    continue
+                quantity = min(entry['quantity'], event[2], entry['slots'].get(event[3], 0))
+                if quantity:
+                    entry['quantity'] -= quantity
+                    entry['slots'][event[3]] -= quantity
+                    event[2] -= quantity
+                    if entry['eligible']:
+                        self.record_used(character, entry['item'], quantity, entry['t'])
+        character.pending_uses = collections.deque((e for e in pending if e['quantity']), maxlen=256)
+
+    def record_used(self, character, item, quantity, now):
+        if not quantity or item // 10000 in (207, 233):
+            return
         self.prices.want([item])
         self.record(character, dict(t=now, kind='used', item_id=item, quantity=quantity), now)
 
@@ -618,6 +729,7 @@ class Tracker:
             run = character.run
             if not run:
                 continue
+            self.clear_item_matches(character)
             if action == 'pause' and run.status == 'active':
                 self.pause(run, 'manual', now)
             elif action == 'resume' and run.status == 'paused':
@@ -650,6 +762,7 @@ class Tracker:
             if not run:
                 continue
             if run.status == 'active' and now - run.last_gain > self.settings['idle_seconds']:
+                self.clear_item_matches(character)
                 self.pause(run, 'idle', now)
             if run.status == 'paused' and now - run.paused_at > self.settings['end_after_seconds']:
                 self.end(character, now)
@@ -673,6 +786,7 @@ class Tracker:
             self.dirty = True
 
     def end(self, character, now):
+        self.clear_item_matches(character)
         run = character.run
         character.run = None
         self.finish(run, now)
@@ -753,7 +867,7 @@ class Tracker:
         bags = character.bags if character else None
         consumables = []
         for item, count in used.most_common():
-            remaining = bags.get(item) if bags is not None else None
+            remaining = bags.get(item, 0) if bags is not None else None
             per_hour = count / hours if hours else None
             consumables.append(dict(item_id=item, name=self.name(item), used=count, remaining=remaining,
                                     per_hour=per_hour, minutes_left=(remaining / per_hour * 60) if remaining is not None and per_hour else None))
