@@ -23,7 +23,7 @@ PRESET_OPCODES = (0x8B, 0x1A9)
 # the key table: opcode, item ID (0 = none). 2026-11-12 live: 2000001, 2010005.
 PET_POTION_OPCODES = {0x5F6: 'hp', 0x5F7: 'mp'}
 LEAD = 3.0                    # recast a skill this many seconds before its buff ends
-ITEM_LATE = 1.0               # use an item this long after its buff ended (no time wasted)
+ITEM_LATE = 3.0               # use an item this long after its buff ended: sooner, the game may still say it is on
 RETRY = 1.5                   # a skill press the game missed (e.g. mid-attack) is retried this soon
 ITEM_RETRY = 3.0              # an item is retried more slowly: its buff confirmation must not race a second one
 POTION_GAP = 1.2              # between two HP (or two MP) potions: the first one's HP update arrives first
@@ -199,7 +199,8 @@ class AutoBuff:
                                           hp=character.hp, max_hp=character.max_hp, mp=character.mp, max_mp=character.max_mp)), flush=True)
                     self.queue(pid, name)
                     return
-            if not settings.get('auto_buff') or run.status != 'active' or now - self.last < GAP:
+            if (not settings.get('auto_buff') or run.status != 'active' or now - self.last < GAP
+                    or not tracker.in_combat(character, now)):
                 continue
             # Skill buffs the player cast in this run, item buffs the player used
             # in this run, and pinned buffs (the player keeps them on here).
@@ -210,7 +211,8 @@ class AutoBuff:
                     if (source > 0 and run.casts.get(source)) or source < 0}
             due = {source: start + milliseconds / 1000 - now
                    for source, (start, milliseconds) in character.buffs.items()}
-            due.update({source: -3600 for source in set(pinned) | cast if source not in due})
+            due.update({source: character.buff_ended.get(source, now - 3600) - now
+                        for source in set(pinned) | cast if source not in due})
             for source, left in sorted(due.items(), key=lambda item: item[1]):
                 if source in PROCS:
                     continue      # triggered by hits (Final Attack); a key press does nothing

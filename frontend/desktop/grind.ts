@@ -7,7 +7,7 @@ export interface LootRow {
   priced?: boolean; unit: number; basis: string | null; value: number; stats?: { key: string; value: number }[] | null; notable: boolean;
 }
 export interface Consumable { item_id: number; name: string | null; used: number; cost?: number; acquired?: number; remaining: number | null; per_hour: number | null; minutes_left: number | null }
-export interface Buff { source: number; name: string | null; seconds: number; total: number; item_id: number | null; pinned?: boolean; proc?: boolean }
+export interface Buff { source: number; name: string | null; seconds: number; total: number; item_id: number | null; pinned?: boolean; proc?: boolean; on?: number | null }
 export interface CombatRow {
   dps_5m?: number | null; kills_5m?: number; exp_received_5m?: number | null; kill_exp_5m?: number | null; exp_contribution_5m?: number | null; exp_yield_5m?: number | null;
   character_id: number; name: string | null; self: boolean; away: boolean; partial: boolean;
@@ -16,7 +16,7 @@ export interface CombatRow {
 }
 export interface Segment { map_id: number; level: number | null; job: number | null; started_at: number; active_seconds: number; exp: number; kills: number; mesos: number }
 export interface RunSummary {
-  id: string; status: 'active' | 'paused' | 'ended'; pause_reason: string | null;
+  id: string; status: 'active' | 'paused' | 'ended'; pause_reason: string | null; in_combat?: boolean;
   character: { key: unknown; name: string | null; level: number | null; job: number | null };
   job_name: string | null; level: number | null; level_start: number | null; exp_now: number | null; exp_percent: number | null;
   map_id: number | null; map_name?: string | null; started_at: number; ended_at: number | null;

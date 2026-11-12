@@ -17,8 +17,11 @@ const ico = { width: '1.1em', height: '1.1em' }; // icons scale with the overlay
 function play(src: string) {
   return new Promise<boolean>(done => {
     const clip = new Audio(src);
-    clip.onended = () => done(true); clip.onerror = () => done(false);
-    clip.play().catch(() => done(false));
+    // A clip that never reports its end must not hold up every later announcement.
+    const timer = setTimeout(() => done(true), 6000);
+    clip.onended = () => { clearTimeout(timer); done(true); };
+    clip.onerror = () => { clearTimeout(timer); done(false); };
+    clip.play().catch(() => { clearTimeout(timer); done(false); });
   });
 }
 
@@ -88,23 +91,29 @@ function beep() {
 function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | null; settings: GrindSettings; icons?: boolean; tiles?: boolean }) {
   const [, tick] = useState(0);
   const warned = useRef(new Map<number, number>());   // source -> end time it was announced for
-  const procs = useRef<Set<number> | null>(null);   // Final Attack sources on at the last render
+  const procs = useRef<Map<number, number> | null>(null);   // Final Attack source -> turn-on time announced
   useEffect(() => { const id = setInterval(() => tick(n => n + 1), 250); return () => clearInterval(id); }, []);
   const warn = settings.buff_warn_seconds ?? 10;
   const buffs = shownBuffs(live);
   const state = (b: { left: number; proc?: boolean }) => b.left <= 0 ? 'off' : b.left <= warn && !b.proc ? 'warn' : '';
   const left = (b: { left: number }) => b.left > 0 ? clock(b.left) : tr('过期', 'Out');
-  // Announced when it turns on, not on every trigger that restarts its timer.
-  const on = new Set(buffs.filter(b => b.proc && b.left > 0).map(b => b.source));
-  if (procs.current && settings.buff_sound) for (const b of buffs) if (on.has(b.source) && !procs.current.has(b.source)) chime(b.source, b.name);
-  procs.current = on;
+  // Spoken only while fighting (an attack or kill in the last 10 s), like auto buff.
+  const fighting = settings.buff_sound && !!live?.runs?.[0]?.in_combat;
+  // A Final Attack is announced each time it turns on (the server's `on` time, which
+  // also catches a cancel and a new one between two state writes), not on every refresh.
+  const first = procs.current === null, announced = procs.current ??= new Map();
   for (const b of buffs) {
-    if (b.proc) continue;
+    if (!b.proc || b.left <= 0 || !b.on || announced.get(b.source) === b.on) continue;
+    announced.set(b.source, b.on);
+    if (!first && fighting) chime(b.source, b.name);
+  }
+  for (const b of buffs) {
+    if (b.proc || !fighting) continue;
     // The end time drifts by a second between state writes; one announcement per cast.
     const ends = Date.now() / 1000 + b.left, said = warned.current.get(b.source);
     if (b.left > 0 && b.left <= warn && (said === undefined || Math.abs(said - ends) > 5)) {
       warned.current.set(b.source, ends);
-      if (settings.buff_sound && warn > 0) say(b.source, b.name);
+      if (warn > 0) say(b.source, b.name);
     }
   }
   if (!buffs.length) return null;

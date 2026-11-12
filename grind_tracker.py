@@ -34,6 +34,7 @@ DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, 
                              hide_in_capture=False, stream=False, x=None, y=None,
                              fields=['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent']))
 IDLE_CREDIT = 10
+COMBAT_SECONDS = 10
 AUTO_BUFF_OPS = (autobuff.KEYMAP_OPCODE,) + autobuff.PRESET_OPCODES + tuple(autobuff.PET_POTION_OPCODES)
 RECENT = 8
 HISTORY_LIMIT = 500
@@ -226,6 +227,10 @@ class Character:
         self.table = None
         self.exp_messages = 0       # experience announced since the last experience update
         self.buffs = {}             # source -> (start, milliseconds)
+        self.buff_masks = {}        # source -> stat flags of its buff message, for cancels
+        self.buff_on = {}           # source -> when it last turned on (not a refresh)
+        self.buff_ended = {}        # source -> when it last ended (cancel or time)
+        self.combat_at = None       # last own attack or kill: buffs are kept up only in combat
         self.skill_keys = None      # per keyboard preset: skill -> scan code (grind_autobuff)
         self.key_preset = None
         self.pickups = collections.deque(maxlen=256)   # [t, item id, unmatched quantity]
@@ -349,6 +354,7 @@ class Tracker:
                 self.match_uses(character, self.now())
         action = proto.client_action(index, data, self.profile.get('client') or {})
         if action and action[0] == 'attack':
+            character.combat_at = self.now()
             damage = combat.attack(data, index)
             self.combat_attack(character, character.character_id, damage, self.now(), own=True)
         run = character.run if character else None
@@ -437,6 +443,8 @@ class Tracker:
                 self.dirty = True
             if character.hp is not None and hp < character.hp and run and run.segment:
                 run.segment.max_hit = max(run.segment.max_hit, character.hp - hp)
+            if character.hp is not None and hp < character.hp:
+                character.combat_at = now
             character.hp = hp
             if character.max_hp is not None and hp > character.max_hp:
                 character.max_hp = hp
@@ -566,10 +574,23 @@ class Tracker:
             character.pickups.append([now, found[1], found[2]])
             self.match_loot(character, now)
             return
+        cancelled = proto.cancel_mask(data)
+        if cancelled:
+            for source, mask in list(character.buff_masks.items()):
+                if mask and mask & cancelled == mask:
+                    del character.buff_masks[source]
+                    if character.buffs.pop(source, None) is not None:
+                        character.buff_ended[source] = now
+                        self.dirty = True
+            return
         buff = proto.parse_buff(data, self.profile.get('buff') or {})
         if buff:
             source, milliseconds = buff
+            held = character.buffs.get(source)
+            if held is None or held[0] + held[1] / 1000 <= now:
+                character.buff_on[source] = now
             character.buffs[source] = (now, milliseconds)
+            character.buff_masks[source] = proto.buff_mask(data)
             if source < 0:
                 self.prices.want([-source])
             self.dirty = True
@@ -1184,6 +1205,7 @@ class Tracker:
             attacks=[dict(skill=k, name=skill_name(k) if k else '普通攻击', count=v, follow_up=k in FOLLOW_UPS) for k, v in run.attacks.most_common() if v],
             casts=[dict(skill=k, name=skill_name(k), count=v) for k, v in run.casts.most_common() if v],
             buffs=self.buffs(character, now),
+            in_combat=self.in_combat(character, now),
             segments=[s.to_json() for s in run.segments])
 
     def timeline(self, run, rows, now, points=48):
@@ -1231,13 +1253,26 @@ class Tracker:
             left = milliseconds / 1000 - (now - start)
             if left < -2 * IDLE_CREDIT:   # kept a while so idle credit still counts it
                 del character.buffs[source]
+                character.buff_ended[source] = start + milliseconds / 1000
                 continue
             if left <= 0:
                 continue
             shown.add(source)
-            out.append(self.buff_row(source, round(left, 1), milliseconds / 1000, source in pinned))
+            # `on`: when it last turned on, so a Final Attack cancelled and given again
+            # between two state writes is still announced.
+            out.append(dict(self.buff_row(source, round(left, 1), milliseconds / 1000, source in pinned),
+                            on=character.buff_on.get(source)))
         out += [self.buff_row(source, 0, total, True) for source, total in pinned.items() if source not in shown]
         return sorted(out, key=lambda b: b['seconds'])
+
+    def in_combat(self, character, now):
+        """Own attack, kill or hit taken in the last COMBAT_SECONDS: buffs are recast and
+        announced then. The game's own combat state is not in its messages (2026-11-12:
+        no server message starts or ends with combat), so it is approximated here."""
+        if character is None:
+            return False
+        last = max(character.combat_at or 0, character.run.last_gain if character.run else 0)
+        return now - last <= COMBAT_SECONDS
 
     def buff_row(self, source, seconds, total, pinned):
         name = skill_name(source) if source > 0 else self.name(-source)

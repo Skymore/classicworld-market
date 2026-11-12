@@ -53,6 +53,8 @@ class AutoBuffTest(unittest.TestCase):
         character.buffs[3101004] = (self.clock(), 30_000)
         self.current().casts[3101004] = 1                # the player cast it in this run
         self.current().segment.buff_totals[3101004] = 30
+        self.fighting = True
+        self.tracker.in_combat = lambda c, now: self.fighting
         return character
 
     def test_recasts_a_buff_about_to_end_with_its_key_once_per_retry(self):
@@ -108,6 +110,32 @@ class AutoBuffTest(unittest.TestCase):
         self.assertEqual(self.pressed, [])
         self.assertTrue(self.tracker.buff_row(3101000, 1, 60, False)['proc'])
 
+    def test_buffs_wait_for_combat_but_potions_do_not(self):
+        character = self.start()
+        self.fighting = False
+        self.clock.t += 29
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])
+        self.fighting = True
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['e'])
+
+    def test_a_potion_buff_is_used_three_seconds_after_the_server_cancels_it(self):
+        character = self.start()
+        self.send(key_table([{3: (2, 2002004)}] * 3))
+        character.buffs = {}
+        character.bags = {2002004: 5}
+        self.current().casts.clear()
+        self.current().segment.buff_totals = {-2002004: 600}
+        character.buff_ended[-2002004] = self.clock()          # cancelled just now
+        self.auto.tick(self.tracker, self.clock())
+        self.clock.t += 2.5
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])
+        self.clock.t += 1
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['2'])
+
     def test_a_buff_someone_else_cast_is_left_alone(self):
         self.start()
         self.current().casts.clear()
@@ -138,7 +166,7 @@ class AutoBuffTest(unittest.TestCase):
         self.clock.t += 1
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, [])
-        self.clock.t += 10
+        self.clock.t += 12
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, ['2'])
         character.bags = {2002004: 0}
@@ -153,7 +181,7 @@ class AutoBuffTest(unittest.TestCase):
         character.bags = {2002004: 5}
         self.current().segment.buff_totals[-2002004] = 10
         self.tracker.pinned_buffs = lambda c, now: {}
-        self.clock.t += 11.2
+        self.clock.t += 13.2
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, ['2'])
 
@@ -175,6 +203,30 @@ class AutoBuffTest(unittest.TestCase):
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, [])
 
+
+
+class CancelTest(unittest.TestCase):
+    setUp, tearDown, send = base.TrackerTest.setUp, base.TrackerTest.tearDown, base.TrackerTest.send
+
+    def test_a_cancel_ends_a_buff_and_the_next_one_counts_as_turning_on(self):
+        from test_grind_live import buff
+        self.tracker.profile['buff'] = dict(confirmed=True, opcode=0x7F, start=126)
+        character = self.tracker.characters['s1']
+        given = buff(3101000, 60_000)
+        self.send(given)
+        first = character.buff_on[3101000]
+        self.send(buff(3101000, 60_000), 2)                       # a refresh, not a new one
+        self.assertEqual(character.buff_on[3101000], first)
+        cancel = bytearray(129)
+        cancel[0:5] = bytes.fromhex('8000010115')
+        cancel[5:129] = given[2:126]
+        self.send(bytes(cancel), 1)
+        self.assertNotIn(3101000, character.buffs)
+        self.assertEqual(character.buff_ended[3101000], self.clock())
+        self.send(buff(3101000, 60_000), 0.5)
+        self.assertEqual(character.buff_on[3101000], self.clock())
+        row = [b for b in self.tracker.buffs(character, self.clock()) if b['source'] == 3101000][0]
+        self.assertEqual((row['on'], row['proc']), (self.clock(), True))
 
 
 class PotionTest(unittest.TestCase):

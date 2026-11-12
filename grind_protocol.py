@@ -329,6 +329,22 @@ def valid_source(source):
     return 1000 <= source <= 99_999_999 or -2_999_999 <= source <= -2_000_000
 
 
+CANCEL_BUFF = 0x80
+
+
+def buff_mask(data):
+    """The stat flags of a buff message (as an int), to match a later cancel."""
+    return int.from_bytes(data[2:126], 'big') if opcode(data) == BUFF and len(data) >= 126 else 0
+
+
+def cancel_mask(data):
+    """Stat flags a cancel message ends (2026-11-12 live: 0x80, 01 01, a counter, then
+    the same 124-byte flag block as the buff message), or 0."""
+    if opcode(data) != CANCEL_BUFF or len(data) < 129 or data[2:4] != b'':
+        return 0
+    return int.from_bytes(data[5:129], 'big')
+
+
 def parse_buff(data, rule):
     """(source, milliseconds) of a buff given to the player.
 
