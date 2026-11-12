@@ -83,3 +83,5 @@ body{font:12px/1.35 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;color:#
 .ov.ov-big.ov-t-market{border-color:#2c2620}.ov.ov-big.ov-t-cute{border-color:#ffb7d2}.ov.ov-big.ov-t-maple{border-color:#0d1016}
 
 .ov-potions .ov-row span{flex:1;min-width:0}.ov-potions .ov-row b,.ov-loot>b{flex:none}.ov-money{flex-wrap:wrap}
+
+#root{overflow-y:auto;overflow-x:hidden}.ov-team-exp{margin-top:3px}

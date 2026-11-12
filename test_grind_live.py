@@ -154,7 +154,7 @@ class LiveLayoutTest(unittest.TestCase):
         summary = self.tracker.summarize(self.character().run, self.clock(), self.character())
         self.assertEqual(summary['kills'], 5)
         self.assertFalse(summary['kills_estimated'])
-        self.assertEqual(summary['mobs'], [dict(mob_id=22, kills=5, name='野猪')])
+        self.assertEqual(summary['mobs'], [dict(mob_id=22, kills=5, name='野猪', attack_samples=0, attack_distribution=[])])
         self.assertEqual(summary['exp'], 5 * 40)
 
     def test_drop_after_an_experience_message_is_a_level_up(self):

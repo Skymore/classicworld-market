@@ -18,7 +18,7 @@ from grind_tracker import DEFAULTS, load_settings, write_json
 
 CALIBRATE_EVERY = 300
 CALIBRATE_BYTES = 96 * 1024 * 1024
-OVERLAY_SIZES = dict(compact=(730, 145), standard=(330, 530), detailed=(360, 635), rail=(140, 460), big=(290, 300))
+OVERLAY_SIZES = dict(compact=(730, 185), standard=(330, 640), detailed=(360, 785), rail=(140, 550), big=(290, 380))
 GWL_EXSTYLE = -20
 WS_EX_LAYERED, WS_EX_TRANSPARENT, WS_EX_TOOLWINDOW, WS_EX_NOACTIVATE = 0x80000, 0x20, 0x80, 0x8000000
 WDA_NONE, WDA_EXCLUDEFROMCAPTURE = 0, 0x11

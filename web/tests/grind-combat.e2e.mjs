@@ -28,7 +28,7 @@ const run = {
   mesos: 15000, item_value: 2000, consume_cost: 5000, mesos_spent: 0,
   kills: 24, kills_per_hour: 720, kills_estimated: false, deaths: 0, gaps: 0, pending_prices: 0,
   dps: 900, damage: 108000, average_dps: 850, party_known: true,
-  attack_count: 40, attacks: [], casts: [], hp_drops: 0, hp_lost: 0, consumables: [], buffs: [{ source: 3001000, name: '集中术', seconds: 90, total: 90, item_id: null }, { source: 1101004, name: '愤怒之火', seconds: 300, total: 300, item_id: null }, { source: 4101001, name: '轻功', seconds: 300, total: 300, item_id: null }], mobs: [{ mob_id: 22, name: '野猪', kills: 24 }], recent: [], drops: [],
+  attack_count: 40, attacks: [], casts: [], hp_drops: 0, hp_lost: 0, consumables: [], buffs: [{ source: 3001000, name: '集中术', seconds: 90, total: 90, item_id: null }, { source: 1101004, name: '愤怒之火', seconds: 300, total: 300, item_id: null }, { source: 4101001, name: '轻功', seconds: 300, total: 300, item_id: null }], mobs: [{ mob_id: 67, name: '骷髅士兵', kills: 18, attack_samples: 4, attack_distribution: [{ attacks: 1, kills: 1 }, { attacks: 2, kills: 3 }] }, { mob_id: 68, name: '骷髅士官', kills: 6 }], recent: [], drops: [],
   loot: Array.from({ length: 6 }, (_, i) => ({ t: 1, item_id: 4000000 + i, name: `战利品${i}`, quantity: 80 - i, value: 0, priced: false })),
   consumables: Array.from({ length: 4 }, (_, i) => ({ item_id: 2000000 + i, name: `药品${i}`, used: 7 + i, cost: 350 + i, remaining: 819, minutes_left: 443 })),
   combat: Array.from({ length: 6 }, (_, i) => ({ character_id: i + 1, name: i ? `Teammate${i}` : 'Tester', self: !i,
@@ -62,6 +62,10 @@ try {
   const table = page.getByRole('region', { name: '队伍战斗统计' });
   await table.getByRole('cell', { name: '900', exact: true }).waitFor();
   assert.equal(await table.locator('tbody tr').count(), 6);
+  assert((await table.boundingBox()).height > 150, 'combat region must not shrink away');
+  await page.locator('.grind-attack-distribution summary').click();
+  assert.match(await page.locator('.grind-attack-distribution').innerText(), /25.0%.*75.0%/s);
+
   assert.match(await table.locator('tbody tr').last().innerText(), /离开.*—/s);
   assert.match(await table.locator('tbody tr').nth(4).innerText(), /数据不完整/);
   await page.evaluate(() => { window.testRun.combat[0].dps = 1234; window.testRun.dps = 1234; });
@@ -74,7 +78,7 @@ try {
   assert.deepEqual(errors, []);
   await page.close();
 
-  const sizes = { compact: [730, 340], standard: [330, 725], detailed: [360, 830], rail: [140, 760], big: [290, 495] };
+  const sizes = { compact: [730, 380], standard: [330, 835], detailed: [360, 980], rail: [140, 850], big: [290, 575] };
   for (const [layout, [width, height]] of Object.entries(sizes)) {
     for (const theme of ['dark', 'market', 'cute', 'maple']) {
       const page = await browser.newPage({ viewport: { width, height } });
@@ -87,8 +91,17 @@ try {
         assert.equal(await page.getByText('×7', { exact: true }).count(), 1);
         assert.equal(await page.getByText('×80', { exact: true }).count(), 1);
         assert.equal(await page.getByText('剩819', { exact: true }).count(), 0);
+        await page.waitForFunction(() => [...document.querySelectorAll('.ov-mobs img')].every(img => img.complete && img.naturalWidth > 0));
+        assert(await page.locator('.ov-mobs').evaluate(el => !!(el.compareDocumentPosition(document.querySelector('.ov-buffs')) & Node.DOCUMENT_POSITION_FOLLOWING)));
+        assert.equal(await page.locator('.ov-mesos').count(), 1);
+
       }
       assert.equal(await page.locator('.rate-chart polyline').count(), 2);
+      await page.locator('.rate-chart').first().hover();
+      await page.locator('.rate-tooltip').first().waitFor();
+      assert.match(await page.locator('.rate-tooltip').first().innerText(), /\/h/);
+      await page.mouse.move(0, 0);
+
       assert.equal(await page.locator('.ov-buffs img[src*="/skills/3001000.png"]').count(), 1);
       await page.waitForFunction(() => [...document.querySelectorAll('.ov-buffs img')].every(img => img.complete && img.naturalWidth > 0));
       assert.deepEqual(await page.locator('.rate-metrics').first().locator('.rate-values small').allTextContents(), ['平均/时', '实时/时', '累计']);

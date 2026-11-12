@@ -158,8 +158,13 @@ class Meter:
         row['known'] = True
         row['events'].append((now, amount))
 
-    def kill(self, ident, name, own=False):
-        self.player(ident, name, own)['kills'] += 1
+    def kill(self, ident, name, own=False, mob=None):
+        row = self.player(ident, name, own)
+        row['kills'] += 1
+        if mob:
+            counts = row.setdefault('mobs', {})
+            key = str(mob)
+            counts[key] = counts.get(key, 0) + 1
 
     def to_json(self):
         return {str(k): dict(v, events=list(v['events'])) for k, v in self.players.items()}

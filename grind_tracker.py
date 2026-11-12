@@ -128,6 +128,7 @@ class Run:
         self.attacks = collections.Counter()   # skill ID (0 = plain attack) -> attacks
         self.casts = collections.Counter()     # skill ID -> casts
         self.combat = combat.Meter()
+        self.kill_attacks = {}  # mob -> attack count -> observed solo kills
         self.gaps = 0
         self.level_start = character.get('level')
 
@@ -154,7 +155,7 @@ class Run:
                     exp_events=[e for e in self.exp_events if e[0] >= self.credited_until - 1260], deaths=self.deaths, exp_lost=self.exp_lost, gaps=self.gaps,
                     hp_lost=self.hp_lost, hp_drops=self.hp_drops,
                     attacks={str(k): v for k, v in self.attacks.items() if v}, casts={str(k): v for k, v in self.casts.items() if v},
-                    combat=self.combat.to_json(),
+                    combat=self.combat.to_json(), kill_attacks=self.kill_attacks,
                     level_start=self.level_start)
 
     @classmethod
@@ -167,6 +168,7 @@ class Run:
         run.attacks = collections.Counter({int(k): v for k, v in (data.get('attacks') or {}).items()})
         run.casts = collections.Counter({int(k): v for k, v in (data.get('casts') or {}).items()})
         run.combat = combat.Meter(data.get('combat'))
+        run.kill_attacks = data.get('kill_attacks', {})
         run.segments = [Segment.from_json(s) for s in data.get('segments') or []]
         return run
 
@@ -203,6 +205,7 @@ class Character:
         self.client_seen = False
         self.party = None
         self.kill_owners = {}
+        self.mob_attacks = {}
         self.staged_combat = []
         self.run = None
 
@@ -346,6 +349,7 @@ class Tracker:
         character.staged.clear()
         character.hit.clear()
         character.mobs.clear()
+        character.mob_attacks.clear()
         character.staged_kills = []
         character.kill_owners.clear()
         character.staged_combat.clear()
@@ -441,10 +445,13 @@ class Tracker:
             return
         mob = proto.spawned(data, self.profile.get('spawn') or {})
         if mob:
+            if mob[0] not in character.mobs and op == 0x3C9 and character.run and character.run.status == 'active':
+                character.mob_attacks[mob[0]] = dict(run=character.run.id, attacks=0, mixed=False)
             character.mobs[mob[0]] = mob[1]
             if len(character.mobs) > 4000:
                 for old in list(character.mobs)[:2000]:
                     del character.mobs[old]
+                    character.mob_attacks.pop(old, None)
             return
         kill = self.profile.get('kill') or {}
         owner = kill.get('owner') or {}
@@ -456,6 +463,8 @@ class Tracker:
                     for old in list(character.kill_owners)[:2000]:
                         del character.kill_owners[old]
                 if actor != character.character_id:
+                    if oid in character.mob_attacks:
+                        character.mob_attacks[oid]['mixed'] = True
                     character.hit.pop(oid, None)
         oid = proto.hit_by(data, kill, character.character_id)
         if oid is not None:
@@ -474,14 +483,19 @@ class Tracker:
                 member = (character.party or {}).get(actor)
                 me = (character.party or {}).get(character.character_id)
                 if member and actor != character.character_id and (not me or member['channel'] == me['channel']):
-                    self.combat_event(character, dict(t=now, actor=actor, name=member['name'], own=False, kill=True), now)
+                    self.combat_event(character, dict(t=now, actor=actor, name=member['name'], own=False, kill=True, mob=character.mobs.get(oid)), now)
             mob = character.mobs.pop(oid, None)
+            sample = character.mob_attacks.pop(oid, None)
             if character.hit.pop(oid, None) is not None:
                 self.health['kills'] += 1
                 run = character.run
                 if mob:
                     self.prices.want_mob(mob)
                 if run and run.status == 'active' and run.segment:
+                    if sample and sample['run'] == run.id and not sample['mixed'] and sample['attacks'] > 0:
+                        histogram = run.kill_attacks.setdefault(str(mob), {})
+                        count = str(sample['attacks'])
+                        histogram[count] = histogram.get(count, 0) + 1
                     run.segment.kills += 1
                     if mob:
                         run.segment.mobs[mob] += 1
@@ -528,6 +542,16 @@ class Tracker:
     def combat_attack(self, character, actor, damage, now, own=False):
         if actor is None:
             return
+        if damage is None:
+            character.mob_attacks.clear()
+        else:
+            for oid in {oid for oid, _ in damage['targets']}:
+                sample = character.mob_attacks.get(oid)
+                if sample:
+                    if own and character.run and character.run.status == 'active':
+                        sample['attacks'] += 1
+                    else:
+                        sample['mixed'] = True
         member = (character.party or {}).get(actor)
         if not own and member is None:
             return
@@ -551,7 +575,7 @@ class Tracker:
     def apply_combat(run, event):
         actor, name, own = event['actor'], event['name'], event['own']
         if event.get('kill'):
-            run.combat.kill(actor, name, own)
+            run.combat.kill(actor, name, own, event.get('mob'))
         elif event['targets'] is None:
             run.combat.player(actor, name, own)['partial'] = True
         else:
@@ -788,6 +812,9 @@ class Tracker:
     def pause(self, run, reason, now):
         if run.status != 'active':
             return
+        for character in self.characters.values():
+            if character.run is run:
+                character.mob_attacks.clear()
         end = min(now, run.last_gain + IDLE_CREDIT) if reason == 'idle' else now
         run.credit(end)
         run.status = 'paused'
@@ -979,6 +1006,21 @@ class Tracker:
         combat_rows = run.combat.rows(now, active, run.started_at, run.status == 'active',
                                      character.character_id if character else None, kills,
                                      character.party if character else None)
+        from grind_mob_exp import MOB_EXP
+        for row in combat_rows:
+            counts = dict(run.combat.players[row['character_id']].get('mobs', {}))
+            if row['self']:
+                counts = collections.Counter()
+                for segment in run.segments:
+                    counts.update(segment.mobs)
+            complete = sum(counts.values()) == row['kills'] and all(int(m) in MOB_EXP for m in counts)
+            row['kill_exp'] = sum(MOB_EXP.get(int(m), 0) * n for m, n in counts.items()) if complete else None
+            row['exp_received'] = sum(s.exp for s in run.segments) if row['self'] else None
+            row['exp_yield'] = row['exp_received'] / row['kill_exp'] * 100 if row['exp_received'] is not None and row['kill_exp'] else None
+        team_exp = sum(r['kill_exp'] or 0 for r in combat_rows)
+        complete_team = all(r['kill_exp'] is not None for r in combat_rows)
+        for row in combat_rows:
+            row['exp_contribution'] = row['kill_exp'] / team_exp * 100 if complete_team and team_exp else None
         own_combat = next((r for r in combat_rows if r['self']), {})
         loot_events = [dict(t=e['t'], kind=e['kind'], item_id=e.get('item_id'), name=self.name(e.get('item_id')),
                             quantity=e.get('quantity'), unit=unit, basis=label, value=amount,
@@ -1044,7 +1086,9 @@ class Tracker:
             cash_per_hour=money['cash'] / hours if hours else None, pending_prices=money['pending'],
             recent=recent_rows, loot=loot_rows, consumables=consumables,
             drops=[dict(item_id=i, name=self.name(i), quantity=q) for i, q in drops.most_common()],
-            mobs=[dict(mob_id=m, kills=k, name=(self.prices.mob(m) or {}).get('name') or f'#{m}') for m, k in mobs.most_common()],
+            mobs=[dict(mob_id=m, kills=k, name=(self.prices.mob(m) or {}).get('name') or f'#{m}',
+                       attack_samples=sum(run.kill_attacks.get(str(m), {}).values()),
+                       attack_distribution=[dict(attacks=int(a), kills=n) for a, n in sorted(run.kill_attacks.get(str(m), {}).items(), key=lambda p: int(p[0]))]) for m, k in mobs.most_common()],
             hp_lost=run.hp_lost, hp_drops=run.hp_drops,
             attack_count=sum(run.attacks.values()),
             damage=own_combat.get('damage'), dps=own_combat.get('dps'),
@@ -1079,7 +1123,7 @@ class Tracker:
 
     def name(self, item_id):
         row = self.prices.row(item_id) if item_id else None
-        return (row or {}).get('name') or (f'#{item_id}' if item_id else None)
+        return {4000156: '肋骨', 4000157: '骨盆'}.get(item_id) or (row or {}).get('name') or (f'#{item_id}' if item_id else None)
 
     # ----- persistence, state file and upload ---------------------------
     def publish(self, now):

@@ -147,6 +147,52 @@ class TrackerCombatTest(unittest.TestCase):
         self.assertEqual((rows[ME]['kills'], rows[OTHER]['kills']), (1, 1))
         self.assertEqual(self.who.run.segment.kills, 1)
 
+    def test_base_experience_contribution_and_unobserved_party_receipts(self):
+        from test_grind_live import spawn
+        self.send(spawn(1, 67))
+        self.send(hit(1, OTHER))
+        self.send(died(1))
+        self.send(died(1))
+        self.send(spawn(2, 68))
+        self.send(hit(2, ME))
+        self.send(died(2))
+        rows = self.rows()
+        self.assertEqual(rows[OTHER]['kill_exp'], 183)
+        self.assertEqual(rows[ME]['kill_exp'], 242)
+        self.assertAlmostEqual(rows[OTHER]['exp_contribution'], 183 / 425 * 100)
+        self.assertAlmostEqual(rows[ME]['exp_yield'], rows[ME]['exp_received'] / 242 * 100)
+        self.assertIsNone(rows[OTHER]['exp_received'])
+        self.assertIsNone(rows[OTHER]['exp_yield'])
+        self.assertEqual(self.tracker.name(4000156), '肋骨')
+        self.assertEqual(self.tracker.name(4000157), '骨盆')
+
+    def test_observed_solo_attack_distribution_excludes_assists(self):
+        from test_grind_live import spawn
+        from grind_tracker import Run
+        for oid, attacks in ((1, 1), (2, 2), (3, 2)):
+            self.send(spawn(oid, 67))
+            for _ in range(attacks):
+                self.tracker.observe_client('s', local_attack([(oid, [100, 200])]))
+            self.send(hit(oid, ME))
+            self.send(died(oid))
+        self.send(spawn(4, 67))
+        self.send(remote_attack(999, [(4, [100])]))
+        self.tracker.observe_client('s', local_attack([(4, [200])]))
+        self.send(hit(4, ME))
+        self.send(died(4))
+        # A controller handover must not reset the previous attacks.
+        self.send(spawn(5, 67))
+        self.tracker.observe_client('s', local_attack([(5, [200])]))
+        self.send(spawn(5, 67))
+        self.tracker.observe_client('s', local_attack([(5, [200])]))
+        self.send(hit(5, ME))
+        self.send(died(5))
+        summary = self.tracker.summarize(self.who.run, self.clock(), self.who)
+        self.assertEqual(summary['mobs'][0]['attack_samples'], 4)
+        self.assertEqual(summary['mobs'][0]['attack_distribution'], [dict(attacks=1, kills=1), dict(attacks=2, kills=3)])
+        restored = Run.from_json(self.who.run.to_json())
+        self.assertEqual(restored.kill_attacks, self.who.run.kill_attacks)
+
     def test_leave_and_channel_change_stop_party_attribution(self):
         self.send(remote_attack(OTHER, [(1, [200])]))
         self.send(b'\xa7\0\x2a\x01' + struct.pack('<IIi', OTHER, 3, 18))

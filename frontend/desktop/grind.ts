@@ -10,6 +10,7 @@ export interface Consumable { item_id: number; name: string | null; used: number
 export interface Buff { source: number; name: string | null; seconds: number; total: number; item_id: number | null }
 export interface CombatRow {
   character_id: number; name: string | null; self: boolean; away: boolean; partial: boolean;
+  kill_exp?: number | null; exp_received?: number | null; exp_contribution?: number | null; exp_yield?: number | null;
   damage: number | null; dps: number | null; average_dps: number | null; kills: number; hits: number;
 }
 export interface Segment { map_id: number; level: number | null; job: number | null; started_at: number; active_seconds: number; exp: number; kills: number; mesos: number }
@@ -25,7 +26,7 @@ export interface RunSummary {
   mesos: number; item_value: number; consume_cost: number; mesos_spent: number; net: number;
   net_per_hour: number | null; net_per_hour_1m?: number | null; rate_history?: { t: number; exp: number; net: number }[]; cash_per_hour: number | null; pending_prices: number;
   loot?: LootRow[]; recent?: LootRow[]; consumables: Consumable[]; drops: { item_id: number; name: string | null; quantity: number }[];
-  mobs: { mob_id: number; kills: number; name: string }[]; segments: Segment[];
+  mobs: { mob_id: number; kills: number; name: string; attack_samples?: number; attack_distribution?: { attacks: number; kills: number }[] }[]; segments: Segment[];
   buffs: Buff[]; hp_lost: number; hp_drops: number;
   attack_count: number; attacks: { skill: number; name: string; count: number }[]; casts: { skill: number; name: string; count: number }[];
   damage?: number | null; dps?: number | null; average_dps?: number | null;

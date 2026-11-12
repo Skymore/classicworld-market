@@ -17,3 +17,11 @@
 
 .rate-title{display:flex;align-items:center;gap:5px}.rate-values>div:first-child b,.rate-values>div:nth-child(2) b{font-size:1.2em;font-weight:800}.rate-values>div:nth-child(2) b{color:#b36b15}.ov-t-dark .rate-values>div:nth-child(2) b,.ov-t-maple .rate-values>div:nth-child(2) b{color:#ffd27a}
 .ov-accounts{display:flex;flex-direction:column;gap:3px;margin-top:4px}.ov-account{border:1px solid #8886;border-radius:3px;padding:3px 5px}.ov-account-title{display:block;font-size:.85em;opacity:.7;margin-bottom:2px}.ov-job{font-size:.9em;white-space:nowrap}.ov-head>span{flex:1}.amount{display:flex;justify-content:flex-end;align-items:center;gap:3px}.amount svg{flex:none;margin:0!important}.grind-account-row .amount{font-weight:700}
+
+.rate-plot{position:relative}.rate-chart{height:80px;cursor:crosshair;touch-action:pan-y}.ov .rate-chart{height:60px;margin-right:0}
+.rate-tooltip{position:absolute;z-index:2;top:-2px;right:0;padding:2px 5px;background:#252525;color:white;border-radius:3px;font-size:11px;pointer-events:none;font-variant-numeric:tabular-nums}
+.ov-mobs{padding:3px 0 5px;border-bottom:1px solid #8885;margin-bottom:5px}.ov-mobs .ov-loot>span{display:flex;align-items:center}.ov-mobs img{width:24px;height:24px;flex:none}
+.ov-team-exp summary{cursor:pointer;font-size:.85em;opacity:.7}.ov-exp-table{max-height:160px;overflow:auto;font-size:.8em}.ov-exp-table>div{display:grid;grid-template-columns:minmax(55px,1fr) repeat(4,minmax(35px,.7fr));gap:3px;text-align:right}.ov-exp-table>div>span:first-child{text-align:left;overflow:hidden;text-overflow:ellipsis}.ov-rail .ov-exp-table{overflow-x:auto}
+.grind-status{align-items:start}.grind-status .well{min-width:0}.grind-combat{overflow-x:auto}
+
+.grind-body>*,.grind-body>.well{flex-shrink:0}.grind-attack-distribution{margin:0 8px 7px 32px;font-size:12px}.grind-attack-distribution summary{cursor:pointer}.grind-attack-distribution>div{display:flex;flex-wrap:wrap;gap:6px 16px;padding:5px 0}

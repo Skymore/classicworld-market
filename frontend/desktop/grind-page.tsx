@@ -64,8 +64,8 @@ export default function GrindPage({ hidden }: { hidden: boolean }) {
     {live?.protocol_warning && <div role="alert" className="error-banner"><AlertCircle size={18} />
       <span>{tr('游戏报文格式可能已变化，部分数字暂不可信；已自动开始录制，请把采集器更新到最新版。', 'The game messages may have changed; some numbers are unreliable. Recording started; update the collector.')}</span></div>}
     <div className="grind-body">
-      {view === 'live' && <BuffStrip live={live ?? null} warn={settings?.buff_warn_seconds ?? 10} />}
-      {view === 'live' && <LiveView run={run} live={live ?? null} />}
+      {view === 'live' && !run && <BuffStrip live={live ?? null} warn={settings?.buff_warn_seconds ?? 10} />}
+      {view === 'live' && <LiveView run={run} live={live ?? null} warn={settings?.buff_warn_seconds ?? 10} />}
       {view === 'history' && <HistoryView runs={history} />}
       {view === 'settings' && settings && state && <SettingsView state={state} settings={settings} save={save} refresh={load} />}
     </div>
@@ -76,7 +76,7 @@ function Tile({ label, value, note, strong }: { label: string; value: string; no
   return <div className={'grind-tile' + (strong ? ' strong' : '')}><small>{label}</small><b>{value}</b>{note && <span>{note}</span>}</div>;
 }
 
-function LiveView({ run, live }: { run: RunSummary | null; live: GrindState['live'] }) {
+function LiveView({ run, live, warn }: { run: RunSummary | null; live: GrindState['live']; warn: number }) {
   if (!run) return <div className="grind-empty">
     <p>{tr('进图打几只怪就会自动开始记录。', 'Kill a few monsters in a map and recording starts by itself.')}</p>
     {live?.finished?.[0] && <p className="note">{tr('上一次：', 'Last run: ')}{mapLabel(live.finished[0])} · {clock(live.finished[0].active_seconds)} · {big(live.finished[0].exp_per_hour)} EXP/h</p>}
@@ -98,6 +98,11 @@ function LiveView({ run, live }: { run: RunSummary | null; live: GrindState['liv
         note={tr(`平均 ${big(run.average_dps)}`, `avg ${big(run.average_dps)}`)} />
     </div>
     <div className="grind-rate-panels"><RateMetrics run={run} kind="exp" /><RateMetrics run={run} kind="net" /></div>
+    <div className="grind-grid grind-status"><section className="well grind-kills">        <div className="well-h"><h3>{tr('击杀', 'Kills')}</h3>
+          {run.hp_drops > 0 && <small>{tr(`HP 下降 ${run.hp_drops} 次 · 共 ${big(run.hp_lost)}`, `HP lost ${run.hp_drops}× · ${big(run.hp_lost)}`)}</small>}</div>
+        {run.mobs.map(m => <div key={m.mob_id}><div className="grind-row"><img src={mobIcon(m.mob_id)} width={24} height={24} alt="" /><span className="t"><b>{m.name}</b></span><span className="v">×{m.kills}</span></div>{!!m.attack_samples && <details className="grind-attack-distribution"><summary title={tr('可见范围内独立击杀；一次技能的多段伤害计为一次攻击', 'Observed solo kills; multi-hit skills count as one attack')}>{tr('平均', 'Average')} {(m.attack_distribution!.reduce((sum, r) => sum + r.attacks * r.kills, 0) / m.attack_samples).toFixed(1)} {tr('下', 'attacks')} · {m.attack_samples} {tr('样本', 'samples')}</summary><div>{m.attack_distribution?.map(r => <span key={r.attacks}>{r.attacks} {tr('下', 'hits')} <b>{percent(r.kills / m.attack_samples! * 100, 1)}</b></span>)}</div></details>}</div>)}
+        {!run.mobs.length && <p className="note">{run.kills_estimated ? tr('换一次频道后按怪物分类统计。', 'Change channel once to split kills by monster.') : tr('还没有击杀。', 'No kills yet.')}</p>}
+</section><BuffStrip live={live} warn={warn} /></div>
     <div className="grind-ledger">
       <span>{tr('金币', 'Mesos')} <b>+{big(run.mesos)}</b></span>
       <span>{tr('物品', 'Items')} <b>+{big(run.item_value)}</b></span>
@@ -108,23 +113,24 @@ function LiveView({ run, live }: { run: RunSummary | null; live: GrindState['liv
     </div>
     {!!run.combat?.length && <section className="well grind-combat" aria-label={tr('队伍战斗统计', 'Party combat')}>
       <div className="well-h"><h3>{tr('战斗统计', 'Combat')}</h3><small>{tr('同图可见范围', 'Visible in this map')}</small></div>
-      <table><thead><tr><th>{tr('角色', 'Player')}</th><th>DPS · 1m</th><th>{tr('总伤害', 'Damage')}</th><th>{tr('击杀', 'Kills')}</th></tr></thead>
+      <table><thead><tr><th>{tr('角色', 'Player')}</th><th>DPS · 1m</th><th>{tr('总伤害', 'Damage')}</th><th>{tr('击杀', 'Kills')}</th><th>{tr('击杀经验', 'Kill EXP')}</th><th>{tr('获得经验', 'Received EXP')}</th><th>{tr('贡献', 'Contribution')}</th><th>{tr('收益比', 'Yield')}</th></tr></thead>
         <tbody>{run.combat.map(row => <tr key={row.character_id} data-self={row.self || undefined}>
           <td>{row.name || '—'}{row.self && <small>{tr('你', 'You')}</small>}{row.away && <small>{tr('离开', 'Away')}</small>}
             {row.partial && <small className="warn">{tr('数据不完整', 'Partial data')}</small>}</td>
-          <td>{big(row.dps)}</td><td>{big(row.damage)}{row.partial && row.damage != null ? '+' : ''}</td><td>{big(row.kills)}</td>
+          <td>{big(row.dps)}</td><td>{big(row.damage)}{row.partial && row.damage != null ? '+' : ''}</td><td>{big(row.kills)}</td><td>{big(row.kill_exp)}</td><td title={row.exp_received == null ? tr('本机未观测到队友经验', 'Party EXP not observed by this client') : ''}>{big(row.exp_received)}</td><td>{percent(row.exp_contribution, 1)}</td><td>{percent(row.exp_yield, 1)}</td>
         </tr>)}</tbody></table>
       {run.party_known === false && <p className="note">{tr('等待队伍数据，换一次频道后同步。', 'Waiting for party data. Change channel to sync.')}</p>}
     </section>}
     <div className="grind-grid">
       <section className="well">
         <div className="well-h"><h3>{tr('本次战利品', 'Loot this run')}</h3></div>
+        {run.mesos > 0 && <div className="grind-row grind-account-row grind-mesos"><Coins size={24} /><span className="t"><b>{tr('金币', 'Mesos')}</b></span><span /><span className="amount">+{big(run.mesos)} <Coins size={12} /></span></div>}
         {(run.loot || run.recent || []).map((row, i) => <div className={'grind-row grind-account-row' + (row.notable ? ' notable' : '')} key={i}>
           <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
           <span className="t"><b>{row.name}</b>{row.stats?.length ? <small className="stats"> {statLine(row.stats)}</small> : null}</span>
           <span className="quantity">×{row.quantity}</span><span className="amount" title={row.basis || ''}>{row.priced === false || !row.basis || row.basis === '无价格' ? tr('待估价', 'Unpriced') : `+${big(row.value)}`} <Coins size={12} aria-label={tr('金币', 'mesos')} /></span>
         </div>)}
-        {!(run.loot || run.recent)?.length && <p className="note">{tr('还没有拾取。', 'Nothing picked up yet.')}</p>}
+        {!run.mesos && !(run.loot || run.recent)?.length && <p className="note">{tr('还没有拾取。', 'Nothing picked up yet.')}</p>}
       </section>
       <section className="well">
         <div className="well-h"><h3>{tr('消耗品', 'Consumables')}</h3></div>
@@ -134,10 +140,6 @@ function LiveView({ run, live }: { run: RunSummary | null; live: GrindState['liv
           <span className="quantity">×{row.used}</span><span className="amount">−{big(row.cost ?? null)} <Coins size={12} aria-label={tr('金币', 'mesos')} /></span>
         </div>)}
         {!run.consumables.some(row => row.used > 0) && <p className="note">{tr('还没有使用消耗品。', 'No consumables used yet.')}</p>}
-        <div className="well-h sub"><h3>{tr('击杀', 'Kills')}</h3>
-          {run.hp_drops > 0 && <small>{tr(`HP 下降 ${run.hp_drops} 次 · 共 ${big(run.hp_lost)}`, `HP lost ${run.hp_drops}× · ${big(run.hp_lost)}`)}</small>}</div>
-        {run.mobs.map(m => <div className="grind-row" key={m.mob_id}><img src={mobIcon(m.mob_id)} width={24} height={24} alt="" /><span className="t"><b>{m.name}</b></span><span className="v">×{m.kills}</span></div>)}
-        {!run.mobs.length && <p className="note">{run.kills_estimated ? tr('换一次频道后按怪物分类统计。', 'Change channel once to split kills by monster.') : tr('还没有击杀。', 'No kills yet.')}</p>}
         {(run.attack_count > 0 || run.casts?.length > 0) && <>
           <div className="well-h sub"><h3>{tr('攻击与技能', 'Attacks and skills')}</h3>
             <small>{tr(`攻击 ${run.attack_count} 次`, `${run.attack_count} attacks`)}{run.kills > 0 && run.attack_count > 0 ? tr(` · 每只 ${(run.attack_count / run.kills).toFixed(1)} 次`, ` · ${(run.attack_count / run.kills).toFixed(1)} per kill`) : ''}</small></div>
