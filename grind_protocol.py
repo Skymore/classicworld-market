@@ -73,6 +73,13 @@ def verified_profile():
         buff=dict(confirmed=True, opcode=BUFF, start=126),
         spawn=dict(confirmed=True, opcodes=[0x3C9, 0x3D5], offset=3, template_offset=8, min_length=40),
         experience=dict(opcode=MESSAGE, kind_value=3, gain_offset=4),
+        # The player's own messages, by mapping-table index (2026-11-11, 3.5 minutes:
+        # 112 attacks for 112 kills-with-EXP; one cast = one buff message).
+        # Attacks: 26 close range, 27 ranged, 28 magic (assumed, same family);
+        # skill ID at 4 (0 = plain attack), skill level at 8. Casts: 119, skill at 2.
+        # Damage taken is not identified yet (one sample), so `confirmed` stays
+        # false and recording continues.
+        client=dict(confirmed=False, attack=dict(indices=[26, 27, 28], skill_offset=4), cast=dict(index=119, skill_offset=2)),
         source='verified live session 2026-11-11')
     return profile
 
@@ -264,6 +271,18 @@ def experience_message(data, profile):
     if not rule or opcode(data) != rule.get('opcode') or len(data) < 8 or data[2] != rule.get('kind_value'):
         return None
     return u32(data, rule.get('gain_offset', 4))
+
+
+def client_action(index, data, rule):
+    """('attack', skill ID or 0) / ('cast', skill ID) for one of the player's own messages."""
+    attack, cast = rule.get('attack') or {}, rule.get('cast') or {}
+    if index is not None and index in attack.get('indices', ()):
+        skill = u32(data, attack.get('skill_offset', 4))
+        return ('attack', skill) if skill is not None and (skill == 0 or 1000 <= skill <= 99_999_999) else None
+    if index is not None and index == cast.get('index'):
+        skill = u32(data, cast.get('skill_offset', 2))
+        return ('cast', skill) if skill and 1000 <= skill <= 99_999_999 else None
+    return None
 
 
 def valid_source(source):

@@ -23,6 +23,7 @@ export interface RunSummary {
   recent?: LootRow[]; consumables: Consumable[]; drops: { item_id: number; name: string | null; quantity: number }[];
   mobs: { mob_id: number; kills: number; name: string }[]; segments: Segment[];
   buffs: Buff[]; hp_lost: number; hp_drops: number;
+  attack_count: number; attacks: { skill: number; name: string; count: number }[]; casts: { skill: number; name: string; count: number }[];
 }
 export interface Live {
   alive_at: number; stale: boolean; runs: RunSummary[]; finished: RunSummary[]; recording: boolean;

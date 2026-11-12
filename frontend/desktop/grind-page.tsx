@@ -128,6 +128,12 @@ function LiveView({ run, live }: { run: RunSummary | null; live: GrindState['liv
           {run.hp_drops > 0 && <small>{tr(`HP 下降 ${run.hp_drops} 次 · 共 ${big(run.hp_lost)}`, `HP lost ${run.hp_drops}× · ${big(run.hp_lost)}`)}</small>}</div>
         {run.mobs.map(m => <div className="grind-row" key={m.mob_id}><span className="t"><b>{m.name}</b></span><span className="v">{m.kills}</span></div>)}
         {!run.mobs.length && <p className="note">{run.kills_estimated ? tr('换一次频道后按怪物分类统计。', 'Change channel once to split kills by monster.') : tr('还没有击杀。', 'No kills yet.')}</p>}
+        {(run.attack_count > 0 || run.casts?.length > 0) && <>
+          <div className="well-h sub"><h3>{tr('攻击与技能', 'Attacks and skills')}</h3>
+            <small>{tr(`攻击 ${run.attack_count} 次`, `${run.attack_count} attacks`)}{run.kills > 0 && run.attack_count > 0 ? tr(` · 每只 ${(run.attack_count / run.kills).toFixed(1)} 次`, ` · ${(run.attack_count / run.kills).toFixed(1)} per kill`) : ''}</small></div>
+          {(run.attacks || []).map(a => <div className="grind-row" key={'a' + a.skill}><span className="t"><b>{a.skill ? a.name : tr('普通攻击', 'Plain attack')}</b></span><span className="v">{a.count}</span></div>)}
+          {(run.casts || []).map(a => <div className="grind-row" key={'c' + a.skill}><span className="t"><b>{a.name}</b><small> {tr('施放', 'cast')}</small></span><span className="v">{a.count}</span></div>)}
+        </>}
         <div className="well-h sub"><h3>{tr('掉落汇总', 'Drops')}</h3></div>
         <div className="grind-drops">{run.drops.slice(0, 24).map(d => <span key={d.item_id} title={d.name || ''}>
           <img src={itemIcon(d.item_id)} alt={d.name || ''} width={22} height={22} loading="lazy" /><b>{d.quantity}</b></span>)}</div>

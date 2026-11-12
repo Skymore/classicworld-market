@@ -21,7 +21,7 @@ from pathlib import Path
 
 import grind_protocol as proto
 from grind_data import exp_to_next, job_name
-from grind_skills import skill_name
+from grind_skills import SKILLS, skill_name
 
 DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, end_after_seconds=600,
                 start_events=3, start_window=60, price_basis='typical', notable_value=500000,
@@ -31,6 +31,8 @@ DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, 
                              hide_in_capture=False, x=None, y=None,
                              fields=['time', 'exp_rate', 'level', 'profit', 'buffs', 'recent', 'potions']))
 IDLE_CREDIT = 10
+# Final Attack re-applies a 60 s marker on nearly every hit; it is not a buff to watch.
+PASSIVE_BUFFS = {k for k, (_, en) in SKILLS.items() if en.startswith('Final Attack')}
 RECENT = 8
 HISTORY_LIMIT = 500
 
@@ -120,6 +122,8 @@ class Run:
         self.exp_lost = 0
         self.hp_lost = 0
         self.hp_drops = 0
+        self.attacks = collections.Counter()   # skill ID (0 = plain attack) -> attacks
+        self.casts = collections.Counter()     # skill ID -> casts
         self.gaps = 0
         self.level_start = character.get('level')
 
@@ -145,6 +149,7 @@ class Run:
                     segments=[s.to_json() for s in self.segments], ledger=self.ledger,
                     exp_events=self.exp_events[-2000:], deaths=self.deaths, exp_lost=self.exp_lost, gaps=self.gaps,
                     hp_lost=self.hp_lost, hp_drops=self.hp_drops,
+                    attacks={str(k): v for k, v in self.attacks.items() if v}, casts={str(k): v for k, v in self.casts.items() if v},
                     level_start=self.level_start)
 
     @classmethod
@@ -154,6 +159,8 @@ class Run:
                     'ledger', 'deaths', 'exp_lost', 'gaps', 'level_start', 'hp_lost', 'hp_drops'):
             setattr(run, key, data.get(key, getattr(run, key)))
         run.exp_events = [tuple(e) for e in data.get('exp_events') or []]
+        run.attacks = collections.Counter({int(k): v for k, v in (data.get('attacks') or {}).items()})
+        run.casts = collections.Counter({int(k): v for k, v in (data.get('casts') or {}).items()})
         run.segments = [Segment.from_json(s) for s in data.get('segments') or []]
         return run
 
@@ -277,6 +284,12 @@ class Tracker:
         op = int.from_bytes(data[:2], 'little')
         index = table.index(op) if table and op in table else None
         self.health['client_frames'] += 1
+        action = proto.client_action(index, data, self.profile.get('client') or {})
+        run = character.run if character else None
+        if action and run and run.status == 'active':
+            run.attacks[action[1]] += 1 if action[0] == 'attack' else 0
+            run.casts[action[1]] += 1 if action[0] == 'cast' else 0
+            self.dirty = True
         if self.frames is not None:
             self.frames.write(session, data, self.now(), index=index, client=True)
 
@@ -768,6 +781,9 @@ class Tracker:
             drops=[dict(item_id=i, name=self.name(i), quantity=q) for i, q in drops.most_common()],
             mobs=[dict(mob_id=m, kills=k, name=(self.prices.mob(m) or {}).get('name') or f'#{m}') for m, k in mobs.most_common()],
             hp_lost=run.hp_lost, hp_drops=run.hp_drops,
+            attack_count=sum(run.attacks.values()),
+            attacks=[dict(skill=k, name=skill_name(k) if k else '普通攻击', count=v) for k, v in run.attacks.most_common() if v],
+            casts=[dict(skill=k, name=skill_name(k), count=v) for k, v in run.casts.most_common() if v],
             buffs=self.buffs(character, now),
             segments=[s.to_json() for s in run.segments])
 
@@ -785,6 +801,8 @@ class Tracker:
             left = milliseconds / 1000 - (now - start)
             if left <= 0:
                 del character.buffs[source]
+                continue
+            if source in PASSIVE_BUFFS:
                 continue
             name = skill_name(source) if source > 0 else self.name(-source)
             out.append(dict(source=source, name=name, seconds=round(left, 1), total=milliseconds / 1000,
