@@ -121,3 +121,32 @@ def legacy(tracker, sessions, cutoff):
             candidates = [r for r in runs if c.key and r['character'].get('key') == c.key]
             c.run = Run.from_json(candidates[0]) if len(candidates) == 1 else None
         restore(tracker, snapshot(replay, sessions), sessions)
+
+
+def recover_inventory(data, session, cutoff):
+    """Replay a known session's last full bag snapshot after a parser upgrade."""
+    from market_inventory import Inventory
+    rows, found = [], False
+    for path in sorted((data/'frames').glob('frames_*.jsonl'), reverse=True):
+        for line in reversed(path.read_bytes().splitlines()):
+            try:
+                row = json.loads(line)
+                if row.get('s') != session or row.get('c') or row['t'] > cutoff:
+                    continue
+                payload = bytes.fromhex(row['h'])
+            except (KeyError, ValueError, TypeError):
+                continue
+            op = int.from_bytes(payload[:2], 'little')
+            if op in (0x1a6, 0x1a9, 0x72, 0x7e):
+                rows.append(payload)
+            if op in (0x1a6, 0x1a9) and len(payload) >= 512:
+                found = True
+                break
+        if found:
+            break
+    if not found:
+        return None
+    inventory = Inventory()
+    for payload in reversed(rows):
+        inventory.observe(payload, session)
+    return inventory if inventory.slots is not None else None

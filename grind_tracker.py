@@ -203,6 +203,7 @@ class Character:
         self.pending_uses = collections.deque(maxlen=256)
         self.bag_slots = None
         self.client_seen = False
+        self.client_at = None
         self.party = None
         self.kill_owners = {}
         self.mob_attacks = {}
@@ -300,6 +301,7 @@ class Tracker:
         self.health['client_frames'] += 1
         if character is not None:
             character.client_seen = True
+            character.client_at = self.now()
         request = proto.consume_request(index, data, (self.profile.get('client') or {}).get('consume') or {})
         if request and character.bag_slots is not None:
             slot, item = request
@@ -712,7 +714,8 @@ class Tracker:
         # estimate until the next channel entry establishes both directions.
         rule = (self.profile.get('client') or {}).get('consume') or {}
         if (item // 10000 in (200, 201, 202) and character.table is not None
-                and character.client_seen and rule.get('confirmed')):
+                and character.client_seen and (character.client_at is None or now - character.client_at <= 10)
+                and rule.get('confirmed')):
             character.pending_uses.append(dict(t=now, item=item, quantity=quantity, slots=slots or {},
                                                eligible=self.item_eligible(character)))
             self.match_uses(character, now)

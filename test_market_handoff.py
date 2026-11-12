@@ -199,6 +199,20 @@ class HandoffTests(unittest.TestCase):
         state = json.loads((self.folder/'grind_state.json').read_text(encoding='utf-8'))
         self.assertEqual(state['runs'][0]['character']['name'], 'Tester')
 
+    def test_upgrade_replays_invalidated_bags_before_processing_spool(self):
+        from test_market_inventory import geared, update
+        wire, old = self.started()
+        session = old.flows[KEY]['session']
+        old.receive(wire.packet(wire.frame(geared())))
+        old.inventory.slots = old.inventory.equipment = old.inventory.worn = None
+        old.grind.characters[session].bags = None
+        handoff.save(old)
+        self.spool([wire.packet(wire.frame(update(struct.pack('<BBhH', 1, 2, 2, 99))))])
+        new = self.collector()
+        self.assertEqual(handoff.resume(new, wait=0), 1)
+        self.assertEqual(new.inventory.slots[(2, 2)], (2000001, 99))
+        self.assertEqual(new.grind.characters[session].bags[2000001], 188)
+
     def test_without_a_recording_or_with_an_old_snapshot_nothing_is_restored(self):
         _, old = self.started()
         handoff.save(old)

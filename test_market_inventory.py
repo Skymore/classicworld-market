@@ -217,6 +217,23 @@ class EquipmentBagTests(unittest.TestCase):
         return {e['slot']: (e['item_id'], {s['key']: s['value'] for s in e['stats']}, e['remaining_upgrades'])
                 for e in self.inventory.view()['equipment']}
 
+    def test_refresh_then_unequip_keeps_potions_live(self):
+        slots = dict(self.inventory.slots)
+        payload = struct.pack('<HBBIBBB', 0x72, 1, 1, 2, 0, 5, 1) + gear(-11, 1452001)
+        payload += struct.pack('<BBhhB', 2, 1, -11, 9, 99)
+        self.inventory.observe(payload, 'one')
+        self.assertEqual(self.inventory.slots, slots)
+        self.assertEqual(self.inventory.equipment[9]['item_id'], 1452001)
+        self.assertNotIn(11, self.inventory.worn)
+        self.inventory.observe(update(struct.pack('<BBhH', 1, 2, 2, 99)), 'one')
+        self.assertEqual(self.inventory.slots[(2, 2)], (2000001, 99))
+
+    def test_refresh_move_rejects_mismatched_source(self):
+        payload = struct.pack('<HBBIBBB', 0x72, 1, 1, 2, 0, 5, 1) + gear(-11, 1452001)
+        payload += struct.pack('<BBhhB', 2, 1, -5, 9, 99)
+        self.inventory.observe(payload, 'one')
+        self.assertIsNone(self.inventory.slots)
+
     def test_snapshot_reads_worn_and_bag_with_stats(self):
         self.assertEqual(self.bag(), {1: (1302000, {'weapon_attack': 17}, 5),
                                       3: (1040002, {'dex': 2, 'weapon_defense': 20}, 7)})

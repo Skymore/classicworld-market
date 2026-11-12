@@ -48,6 +48,14 @@ class ItemAccountingTest(unittest.TestCase):
         data += struct.pack('<IhII', 12345, slot, item, 1)
         self.tracker.observe_client('s', data)
 
+    def test_stale_client_stream_does_not_freeze_consumption(self):
+        self.who.client_at = self.clock() - 11
+        self.quantity(2, 99)
+        self.assertEqual(self.total('used', 2000001), 1)
+        self.request()
+        self.quantity(2, 98)
+        self.assertEqual(self.total('used', 2000001), 2)
+
     def total(self, kind, item):
         return sum(e['quantity'] for e in self.who.run.ledger if e['kind'] == kind and e.get('item_id') == item)
 

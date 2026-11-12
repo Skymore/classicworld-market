@@ -48,6 +48,8 @@ def clear(folder):
 
 def save(collector):
     """Snapshot every healthy decoded connection and the inventory. Returns the flow count."""
+    if getattr(collector, 'grind', None) is not None and collector.grind.frames is not None:
+        collector.grind.frames.flush()
     flows = []
     for key, flow in collector.flows.items():
         decoder, session = flow.get('decoder'), flow.get('session_object')
@@ -136,6 +138,15 @@ def restore(collector, state, now=None):
                 # client frames resume, retain the inventory-delta fallback for
                 # consumables rather than waiting for unobservable use packets.
                 character.client_seen = False
+        if inventory.slots is None and inventory.session in sessions:
+            from grind_handoff import recover_inventory
+            recovered = recover_inventory(collector.grind.data, inventory.session, state['time'])
+            if recovered is not None:
+                recovered.revision = inventory.revision + 1
+                collector.inventory = inventory = recovered
+                character = collector.grind.characters.get(inventory.session)
+                if character is not None:
+                    collector.grind.inventory(character, inventory, state['time'], rebase=True)
     return len(state['flows'])
 
 

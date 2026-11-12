@@ -254,6 +254,29 @@ class Inventory:
                 self.mesos = None
 
     def update(self, data):
+        # Equipment refresh + equip/unequip, with an opaque final sequence byte.
+        # Observed as mode 5 followed by a mode 2 move of the same source slot.
+        # Bound the equipment record by the final operation, never scan its body
+        # for apparent item operations. Ordinary bags are unaffected.
+        if (len(data) >= 70 and data[2:4] == b'\x01\x01'
+                and data[4:9] == b'\x02\0\0\0\0' and data[9:11] == b'\x05\x01'
+                and data[-7:-5] == b'\x02\x01'):
+            source, destination = struct.unpack_from('<hh', data, len(data)-5)
+            found = equip_header(data, 11)
+            if (not found or found[0] != source or not destination or abs(destination) > 1000
+                    or source > self.capacities[0] or destination > self.capacities[0]):
+                raise ValueError('Invalid equipment refresh/move')
+            if self.equipment is not None and self.worn is not None:
+                bag, worn = dict(self.equipment), dict(self.worn)
+                first, a = (bag, source) if source > 0 else (worn, -source)
+                second, b = (bag, destination) if destination > 0 else (worn, -destination)
+                first[a] = equip_record(data, 11, len(data)-7, a, found[1])
+                moved = first.pop(a)
+                if b in second:
+                    first[a] = dict(second.pop(b), slot=a)
+                second[b] = dict(moved, slot=b)
+                self.equipment, self.worn = bag, worn
+            return
         if len(data) < 9 or data[2] not in (0, 1) or data[3] != 0:
             raise ValueError('Unsupported inventory update')
         count = struct.unpack_from('<I', data, 4)[0]
