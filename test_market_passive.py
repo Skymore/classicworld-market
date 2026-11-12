@@ -42,6 +42,25 @@ class PassiveTests(unittest.TestCase):
             collector.invalidate_inventory('stream')
             self.assertIsNone(json.loads(path.read_text())['holdings'])
 
+    def test_grind_keeps_each_connection_bag_when_another_enters_a_map(self):
+        from test_market_inventory import character, update
+        from types import SimpleNamespace
+        seen=[]
+        with tempfile.TemporaryDirectory() as folder:
+            collector=Collector(folder)
+            collector.grind=SimpleNamespace(observe=lambda session,plain,inv:seen.append((session,inv)),disconnect=lambda session:None)
+            grinding=collector.observer(SimpleNamespace(id='grind',observe=lambda plain:None))
+            scanning=collector.observer(SimpleNamespace(id='scan',observe=lambda plain:None))
+            grinding(character())
+            scanning(character())          # a market scan on another client changes channel
+            grinding(update(struct.pack('<BBhH',1,2,2,101)))
+            session,inv=seen[-1]
+            self.assertEqual((session,inv.session),('grind','grind'))
+            self.assertEqual(sum(q for (c,_),(i,q) in inv.slots.items() if i==2000001),190)
+            self.assertEqual(collector.inventory.session,'scan')
+            collector.invalidate_inventory('grind')
+            self.assertNotIn('grind',collector.grind_inventories)
+
     def test_busy_status_file_does_not_stop_capture_or_retry_every_packet(self):
         with tempfile.TemporaryDirectory() as folder:
             collector=Collector(folder)

@@ -274,6 +274,17 @@ class TrackerTest(unittest.TestCase):
         self.assertEqual([(b['source'], b['name']) for b in shown], [(3101000, '终极弓')])
 
 
+    def test_an_ended_run_keeps_how_its_kills_were_counted(self):
+        character = self.tracker.characters['s1']
+        character.character_id = 7
+        self.tracker.profile.setdefault('kill', {})['confirmed'] = True
+        for _ in range(4):
+            self.kill()
+        run = self.current()
+        self.tracker.end(character, self.clock())
+        self.assertFalse(self.tracker.summarize(run, self.clock())['kills_estimated'])
+
+
 class GroupKeyTest(unittest.TestCase):
     def test_matches_the_server_string(self):
         piece = dict(stats=[dict(key='weapon_defense', value=2), dict(key='weapon_attack', value=2),

@@ -135,6 +135,10 @@ class Collector:
         self._status_warnings={}
         self.on_event=on_event
         self.inventory=Inventory()
+        # Grind tracking keeps one inventory per connection: the shared one above
+        # follows whichever connection entered a map last (a market scan on a
+        # second client would otherwise steal it from the grinding character).
+        self.grind_inventories={}
         self.grind=grind_tracker(self.folder,config,stop)
     def grind_call(self,name,*args):
         if self.grind is None:return
@@ -208,7 +212,9 @@ class Collector:
     def invalidate_inventory(self, session=None):
         self.inventory.invalidate(session)
         self.publish_inventory()
-        if session is not None:self.grind_call('disconnect',session)
+        if session is not None:
+            self.grind_inventories.pop(session,None)
+            self.grind_call('disconnect',session)
 
     def observer(self,session):
         def observe(plain):
@@ -217,7 +223,11 @@ class Collector:
             if self.inventory.revision != revision:
                 # Publish the actual stream delta now, not on the 2 s status tick.
                 self.publish_inventory()
-            self.grind_call('observe',session.id,plain,self.inventory)
+            if self.grind is not None:
+                own=self.grind_inventories.get(session.id)
+                if own is None:own=self.grind_inventories[session.id]=Inventory()
+                own.observe(plain, session.id)
+                self.grind_call('observe',session.id,plain,own)
             # Mapping tables are for active client requests, never needed here.
             opcode=int.from_bytes(plain[:2],'little')
             label=hex(opcode)

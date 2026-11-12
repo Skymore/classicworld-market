@@ -15,6 +15,7 @@ Nothing here sends packets. Every failure falls back to the old behaviour: the
 connection is not restored and the player changes channel once. The spool holds
 raw game packets only for the hand-off and is deleted when it is consumed.
 """
+import copy
 import json
 import os
 import struct
@@ -138,6 +139,20 @@ def restore(collector, state, now=None):
                 # client frames resume, retain the inventory-delta fallback for
                 # consumables rather than waiting for unobservable use packets.
                 character.client_seen = False
+        own = getattr(collector, 'grind_inventories', None)
+        if own is not None:
+            from grind_handoff import recover_inventory
+            for session in sessions:
+                character = collector.grind.characters.get(session)
+                if character is None:
+                    continue
+                if inventory.session == session and inventory.slots is not None:
+                    recovered = copy.deepcopy(inventory)
+                else:
+                    recovered = recover_inventory(collector.grind.data, session, state['time'])
+                if recovered is not None:
+                    own[session] = recovered
+                    collector.grind.inventory(character, recovered, state['time'], rebase=True)
         if inventory.slots is None and inventory.session in sessions:
             from grind_handoff import recover_inventory
             recovered = recover_inventory(collector.grind.data, inventory.session, state['time'])

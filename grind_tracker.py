@@ -138,6 +138,7 @@ class Run:
         self.kill_attacks = {}  # mob -> attack count -> observed solo kills
         self.gaps = 0
         self.level_start = character.get('level')
+        self.kills_by_exp = None   # last known: kills counted from experience, not kill messages
 
     def add_exp(self, event):
         self.exp_events.append(event)
@@ -173,13 +174,13 @@ class Run:
                     hp_lost=self.hp_lost, hp_drops=self.hp_drops,
                     attacks={str(k): v for k, v in self.attacks.items() if v}, casts={str(k): v for k, v in self.casts.items() if v},
                     combat=self.combat.to_json(), kill_attacks=self.kill_attacks,
-                    level_start=self.level_start)
+                    level_start=self.level_start, kills_by_exp=self.kills_by_exp)
 
     @classmethod
     def from_json(cls, data):
         run = cls(data['character'], data['started_at'])
         for key in ('id', 'status', 'pause_reason', 'paused_at', 'idle_seconds', 'last_gain', 'credited_until',
-                    'ledger', 'deaths', 'exp_lost', 'gaps', 'level_start', 'hp_lost', 'hp_drops'):
+                    'ledger', 'deaths', 'exp_lost', 'gaps', 'level_start', 'hp_lost', 'hp_drops', 'kills_by_exp'):
             setattr(run, key, data.get(key, getattr(run, key)))
         run.exp_events = [tuple(e) for e in data.get('exp_events') or []]
         run.exp_minutes = collections.Counter({int(k): v for k, v in (data.get('exp_minutes') or {}).items()})
@@ -775,7 +776,7 @@ class Tracker:
             run.last_gain = now
             if run.segment:
                 run.segment.exp += exp
-                if self.kills_by_exp(character):
+                if self.kills_estimated(run, character):
                     run.segment.kills += 1
             run.add_exp((now, exp))
             self.dirty = True
@@ -941,6 +942,7 @@ class Tracker:
         self.clear_item_matches(character)
         run = character.run
         character.run = None
+        self.kills_estimated(run, character)
         self.finish(run, now)
 
     def finish(self, run, now):
@@ -1117,7 +1119,7 @@ class Tracker:
             exp_per_hour_1m=rate_history[-1]['exp'] if rate_history and run.status == 'active' else None,
             percent_per_hour=(avg / need * 100) if avg and need else None,
             eta_seconds=((need - current) / (recent or avg) * 3600) if need and current is not None and (recent or avg) else None,
-            kills=kills, kills_per_hour=kills / hours if hours else None, kills_estimated=self.kills_by_exp(character),
+            kills=kills, kills_per_hour=kills / hours if hours else None, kills_estimated=self.kills_estimated(run, character),
             deaths=run.deaths, exp_lost=run.exp_lost, gaps=run.gaps,
             mesos=money['cash'], item_value=money['loot'], consume_cost=money['cost'], mesos_spent=money['spent'],
             net=money['net'], net_per_hour=money['net'] / hours if hours else None,
@@ -1160,6 +1162,12 @@ class Tracker:
         for entry, _, _, amount in rows:
             net[slot(entry['t'])] += amount if entry['kind'] == 'loot' else -amount
         return dict(start=start, bucket=round(size, 1), exp=[round(v) for v in exp], net=[round(v) for v in net])
+
+    def kills_estimated(self, run, character):
+        """Live runs ask the character; ended runs keep what was last seen."""
+        if character is not None:
+            run.kills_by_exp = self.kills_by_exp(character)
+        return run.kills_by_exp if run.kills_by_exp is not None else True
 
     def kills_by_exp(self, character):
         """Kills come from experience gains until the death rule and this
