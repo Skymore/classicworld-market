@@ -81,7 +81,7 @@ export function big(value: number | null | undefined) {
   }
   if (n >= 1e8) return sign + one(n / 1e8) + tr('亿', '億');
   if (n >= 1e4) return sign + one(n / 1e4) + tr('万', '만');
-  return sign + Math.round(n).toLocaleString('en-US');
+  return sign + (language() === 'zh' ? String(Math.round(n)) : Math.round(n).toLocaleString('en-US'));
 }
 
 /** "1:02:03" or "12:03". */

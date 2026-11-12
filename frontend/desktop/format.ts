@@ -1,5 +1,5 @@
 // Short time and number texts for the collector window.
-import { tr } from './i18n';
+import { language, tr } from './i18n';
 // @ts-expect-error The website's plain JS module has no declaration file.
 import { reminderTokens as tokens } from '../../web/js/lib/watch-reminders.js';
 
@@ -36,7 +36,7 @@ export function monthDay(at: string | number | null | undefined) {
 export const itemIcon = (id: number) => `https://mxdgcw.dvg.cn/dbsource/icon/item/${id}.png`;
 
 /** Whole mesos with thousands separators, or "—". */
-export const full = (value: number | null | undefined) => value == null || !Number.isFinite(value) ? '—' : value.toLocaleString('en-US');
+export const full = (value: number | null | undefined) => value == null || !Number.isFinite(value) ? '—' : value.toLocaleString('en-US', { useGrouping: language() !== 'zh' });
 
 export const UPDATE_LABELS: Record<string, [string, string]> = {
   waiting_for_game_exit: ['新版本已就绪，退出游戏后更新', 'Update ready; installs after the game closes'],

@@ -58,6 +58,12 @@ def save(collector):
                           pending=[[offset, bytes(data).hex()] for offset, data in stream.pending],
                           iv=decoder.iv.hex(), buffer=bytes(decoder.buf).hex(), frames=decoder.frames,
                           session=session.id, location=session.market_location))
+        flows[-1]['civ'] = decoder.civ.hex() if decoder.civ else None
+        client, stream = flow.get('client_decoder'), flow.get('client_stream')
+        if client and stream and not flow.get('client_failed'):
+            flows[-1]['client'] = dict(next=stream.next,
+                pending=[[offset, bytes(data).hex()] for offset, data in stream.pending],
+                iv=client.iv.hex(), buffer=bytes(client.buf).hex(), frames=client.frames)
     if not flows:
         return 0
     inventory = collector.inventory
@@ -67,13 +73,16 @@ def save(collector):
         slots=None if inventory.slots is None else [[c, s, i, q] for (c, s), (i, q) in inventory.slots.items()],
         equipment=None if inventory.equipment is None else list(inventory.equipment.values()),
         worn=None if inventory.worn is None else list(inventory.worn.values())))
+    if getattr(collector, 'grind', None) is not None:
+        from grind_handoff import snapshot
+        state['grind'] = snapshot(collector.grind, {f['session'] for f in flows})
     _write(Path(collector.folder)/SNAPSHOT, state)
     return len(flows)
 
 
 def restore(collector, state, now=None):
     """Rebuild the connections of a snapshot inside a fresh collector."""
-    from market_passive import Decoder, Stream
+    from market_passive import Decoder, ClientDecoder, Stream
     from market_proxy import Session
     now = time.monotonic() if now is None else now
     for saved in state['flows']:
@@ -87,11 +96,23 @@ def restore(collector, state, now=None):
         decoder.iv = bytes.fromhex(saved['iv'])
         decoder.buf.extend(bytes.fromhex(saved['buffer']))
         decoder.frames = saved['frames']
+        decoder.civ = bytes.fromhex(saved['civ']) if saved.get('civ') else None
         if len(decoder.iv) != 4:
             raise ValueError('Invalid saved IV')
         collector.flows[key] = dict(syn=saved['syn'], stream=stream, decoder=decoder, buffer=bytearray(),
                                     created=now, last=now, check=0, failed=False,
                                     session=session.id, session_object=session)
+        if saved.get('client'):
+            client = saved['client']
+            stream = Stream(client['next'])
+            stream.pending = [(offset, bytes.fromhex(data)) for offset, data in client['pending']]
+            client_iv = bytes.fromhex(client['iv'])
+            if len(client_iv) != 4:
+                raise ValueError('Invalid saved client IV')
+            decoder = ClientDecoder(client_iv, lambda plain, sid=session.id: collector.grind_call('observe_client', sid, plain))
+            decoder.buf.extend(bytes.fromhex(client['buffer']))
+            decoder.frames = client['frames']
+            collector.flows[key].update(client_stream=stream, client_decoder=decoder, client_buffer=bytearray())
     saved, inventory = state['inventory'], collector.inventory
     inventory.session, inventory.mesos = saved['session'], saved['mesos']
     inventory.capacities = None if saved['capacities'] is None else tuple(saved['capacities'])
@@ -101,6 +122,13 @@ def restore(collector, state, now=None):
     inventory.worn = None if saved['worn'] is None else {e['slot']: e for e in saved['worn']}
     # A new revision: readers must not pair this state with an older receipt.
     inventory.revision = saved['revision']+1
+    if getattr(collector, 'grind', None) is not None:
+        from grind_handoff import restore as restore_grind, legacy
+        sessions = {f['session'] for f in state['flows']}
+        if state.get('grind'):
+            restore_grind(collector.grind, state['grind'], sessions)
+        else:
+            legacy(collector.grind, sessions, state['time'])
     return len(state['flows'])
 
 
@@ -146,11 +174,15 @@ def resume(collector, wait=6):
             # Half-restored connections would decode garbage: start clean instead.
             collector.flows.clear()
             collector.inventory.invalidate()
+            if getattr(collector, 'grind', None) is not None:
+                collector.grind.characters.clear()
+                collector.grind.restore()
             collector.event('handoff_failed', reason=type(error).__name__)
             return 0
         alive = sum(not flow['failed'] for flow in collector.flows.values() if flow.get('decoder'))
         collector.event('handoff_resumed', connections=count, decoding=alive, packets=packets)
         collector.publish_inventory()
+        collector.grind_call('publish', time.time())
         return alive
     finally:
         clear(folder)

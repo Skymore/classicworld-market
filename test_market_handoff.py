@@ -121,6 +121,83 @@ class HandoffTests(unittest.TestCase):
         self.assertGreater(new.inventory.revision, revision)
         self.assertEqual(new.flows[KEY]['session_object'].market_location['room'], 7)
 
+    def test_grind_identity_run_and_client_frames_resume_without_channel_change(self):
+        from test_grind_live import snapshot, stat, buff
+        from test_grind_combat import roster, local_attack
+        from classicworld_codec import aes_payload
+        from market_passive import Stream, ClientDecoder
+        wire, old = self.started()
+        session = old.flows[KEY]['session']
+        for payload in (snapshot(), roster([(424242, 'Tester', 17)]), buff(3001000, 90000),
+                        stat(exp=5100), stat(exp=5200), stat(exp=5300)):
+            old.receive(wire.packet(wire.frame(payload)))
+        c = old.grind.characters[session]
+        c.table = list(range(900))
+        c.bag_slots = {(2, 1): (2000002, 10)}
+        c.pieces = ({(1302000, 'stats'): 1}, {(1302000, 'stats'): {'item_id': 1302000}})
+        c.uses.append([time.time(), 2000002, 1, 1])
+        run_id = c.run.id
+        iv = bytes([4, 3, 2, 1])
+        payload = local_attack([(123, [200])])
+        frame = frame_header(len(payload), iv, True) + aes_payload(payload, iv)
+        decoder = ClientDecoder(iv, lambda data: None)
+        decoder.feed(frame[:6])
+        old.flows[KEY].update(client_stream=Stream(2006), client_decoder=decoder)
+        old.grind.persist()
+        handoff.save(old)
+        from grind_handoff import decode
+        saved = json.loads((self.folder/handoff.SNAPSHOT).read_text())
+        fields = decode(saved['grind']['characters'][0]['fields'])
+        self.assertEqual(fields['pieces'], c.pieces)
+        self.assertEqual(fields['bag_slots'], c.bag_slots)
+        self.spool([wire.packet(wire.frame(stat(exp=5377)))])
+        new = self.collector()
+        self.assertEqual(handoff.resume(new, wait=0), 1)
+        restored = new.grind.characters[session]
+        self.assertEqual((restored.name, restored.character_id, restored.map_id), ('Tester', 424242, 10004080))
+        self.assertEqual((restored.run.id, restored.run.status, restored.run.segment.exp), (run_id, 'active', 377))
+        self.assertEqual(restored.party, c.party)
+        self.assertEqual(restored.buffs, c.buffs)
+        self.assertEqual(restored.uses, c.uses)
+        self.assertFalse(new.grind.restored)
+        new.receive_client(KEY, 2006, 0x18, frame[6:], time.monotonic())
+        self.assertEqual(restored.run.combat.players[424242]['damage'], 200)
+        self.assertFalse(new.flows[KEY].get('client_failed'))
+
+    def test_legacy_upgrade_rebuilds_character_but_never_duplicates_run_totals(self):
+        from test_grind_live import snapshot, stat, buff
+        wire, old = self.started()
+        session = old.flows[KEY]['session']
+        for payload in (snapshot(), buff(3001000, 90000), stat(exp=5100), stat(exp=5200), stat(exp=5300)):
+            old.receive(wire.packet(wire.frame(payload)))
+        old.grind.persist()
+        old.grind.frames.close()
+        handoff.save(old)
+        state = json.loads((self.folder/handoff.SNAPSHOT).read_text())
+        del state['grind']  # The previously released collector did not save this.
+        (self.folder/handoff.SNAPSHOT).write_text(json.dumps(state))
+        self.spool([wire.packet(wire.frame(stat(exp=5400)))])
+        new = self.collector()
+        self.assertEqual(handoff.resume(new, wait=0), 1)
+        c = new.grind.characters[session]
+        self.assertEqual((c.name, c.run.segment.exp), ('Tester', 400))
+        self.assertEqual(c.run.id, old.grind.characters[session].run.id)
+        self.assertIn(3001000, c.buffs)
+        self.assertFalse(new.grind.restored)
+
+    def test_identified_run_is_published_before_newer_anonymous_run(self):
+        from grind_tracker import Character, Run
+        _, collector = self.started()
+        tracker = collector.grind
+        known, unknown = Character('known'), Character('unknown')
+        known.key = known.name = 'Tester'
+        known.run = Run(known.facts(), time.time()-100)
+        unknown.run = Run(unknown.facts(), time.time())
+        tracker.characters = dict(known=known, unknown=unknown)
+        tracker.publish(time.time())
+        state = json.loads((self.folder/'grind_state.json').read_text(encoding='utf-8'))
+        self.assertEqual(state['runs'][0]['character']['name'], 'Tester')
+
     def test_without_a_recording_or_with_an_old_snapshot_nothing_is_restored(self):
         _, old = self.started()
         handoff.save(old)

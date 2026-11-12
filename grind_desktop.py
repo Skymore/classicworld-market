@@ -197,12 +197,21 @@ class GrindService:
         except sqlite3.Error:
             return []
         out = []
+        from grind_pricing import Prices
+        prices = Prices(self.data / 'prices.json')
         for (raw,) in rows:
             try:
                 run = json.loads(raw)
             except ValueError:
                 continue
             run.pop('recent', None)
+            name = (prices.map(run.get('map_id')) or {}).get('name')
+            if name:
+                run['map_name'] = name
+            for segment in run.get('segments', []):
+                name = (prices.map(segment.get('map_id')) or {}).get('name')
+                if name:
+                    segment['map_name'] = name
             out.append(run)
         return out
 

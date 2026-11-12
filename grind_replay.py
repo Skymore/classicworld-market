@@ -52,6 +52,8 @@ def replay_once(folder, version, stop=None, force=False):
             write_json(Path(temporary) / 'grind/settings.json', settings)
             clock = [0.0]
             tracker = ReplayTracker(temporary, Prices(data / 'prices.json'), now=lambda: clock[0])
+            from grind_history_repair import HistoryRepair, apply_identities
+            repair = HistoryRepair(data)
             inventories, first, last = {}, {}, {}
             boundaries = []
             if (data / 'history.sqlite').exists():
@@ -117,6 +119,7 @@ def replay_once(folder, version, stop=None, force=False):
                                 key = character.key
                                 first.setdefault(key, stamp)
                                 last[key] = stamp
+                        repair.frame(tracker, stamp, session)
                 # Yield to the real-time capture worker between files.
                 time.sleep(.01)
             for character in list(tracker.characters.values()):
@@ -129,8 +132,9 @@ def replay_once(folder, version, stop=None, force=False):
             if not write_json(data / 'replay-results.json', dict(version=version, runs=tracker.results)):
                 raise OSError('Could not save replay results')
             updated = apply_results(data, tracker.results, first, last, version)
+            identities = apply_identities(data, repair.results, tracker.prices, version)
         result = dict(version=version, state='done', frames=count, rebuilt=len(tracker.results),
-                      updated=updated, finished_at=time.time())
+                      updated=updated, identities=identities, finished_at=time.time())
         write_json(status, result)
         return result
     except Exception as error:

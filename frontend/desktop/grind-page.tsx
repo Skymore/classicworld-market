@@ -101,7 +101,7 @@ function LiveView({ run, live, warn }: { run: RunSummary | null; live: GrindStat
     <div className="grind-grid grind-status"><section className="well grind-kills">        <div className="well-h"><h3>{tr('击杀', 'Kills')}</h3>
           {run.hp_drops > 0 && <small>{tr(`HP 下降 ${run.hp_drops} 次 · 共 ${big(run.hp_lost)}`, `HP lost ${run.hp_drops}× · ${big(run.hp_lost)}`)}</small>}</div>
         {run.mobs.map(m => <div key={m.mob_id}><div className="grind-row"><img src={mobIcon(m.mob_id)} width={24} height={24} alt="" /><span className="t"><b>{m.name}</b></span><span className="v">×{m.kills}</span></div>{!!m.attack_samples && <details className="grind-attack-distribution"><summary title={tr('可见范围内独立击杀；一次技能的多段伤害计为一次攻击', 'Observed solo kills; multi-hit skills count as one attack')}>{tr('平均', 'Average')} {(m.attack_distribution!.reduce((sum, r) => sum + r.attacks * r.kills, 0) / m.attack_samples).toFixed(1)} {tr('下', 'attacks')} · {m.attack_samples} {tr('样本', 'samples')}</summary><div>{m.attack_distribution?.map(r => <span key={r.attacks}>{r.attacks} {tr('下', 'hits')} <b>{percent(r.kills / m.attack_samples! * 100, 1)}</b></span>)}</div></details>}</div>)}
-        {!run.mobs.length && <p className="note">{run.kills_estimated ? tr('换一次频道后按怪物分类统计。', 'Change channel once to split kills by monster.') : tr('还没有击杀。', 'No kills yet.')}</p>}
+        {!run.mobs.length && <p className="note">{run.kills_estimated ? tr('等待怪物数据。', 'Waiting for monster data.') : tr('还没有击杀。', 'No kills yet.')}</p>}
 </section><BuffStrip live={live} warn={warn} /></div>
     <div className="grind-ledger">
       <span>{tr('金币', 'Mesos')} <b>+{big(run.mesos)}</b></span>
@@ -119,7 +119,7 @@ function LiveView({ run, live, warn }: { run: RunSummary | null; live: GrindStat
             {row.partial && <small className="warn">{tr('数据不完整', 'Partial data')}</small>}</td>
           <td>{big(row.dps)}</td><td>{big(row.damage)}{row.partial && row.damage != null ? '+' : ''}</td><td>{big(row.kills)}</td><td>{big(row.kill_exp)}</td><td title={row.exp_received == null ? tr('本机未观测到队友经验', 'Party EXP not observed by this client') : ''}>{big(row.exp_received)}</td><td>{percent(row.exp_contribution, 1)}</td><td>{percent(row.exp_yield, 1)}</td>
         </tr>)}</tbody></table>
-      {run.party_known === false && <p className="note">{tr('等待队伍数据，换一次频道后同步。', 'Waiting for party data. Change channel to sync.')}</p>}
+      {run.party_known === false && <p className="note">{tr('等待队伍数据。', 'Waiting for party data.')}</p>}
     </section>}
     <div className="grind-grid">
       <section className="well">

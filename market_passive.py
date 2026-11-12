@@ -535,7 +535,7 @@ def run(folder,seconds=0,backend="windivert",stop_event=None,on_event=None,confi
             except queue.Full:overflow.set()
     thread=threading.Thread(target=receive,daemon=True);thread.start();started=time.monotonic()
     last_health_check=0;health_state=None
-    collector.event('capture_started',mode=collector.mode,message='Disable Proxifier for MapleStory; reconnect once, then browse manually.')
+    collector.event('capture_started',mode=collector.mode,message='Restoring capture / 正在恢复采集状态。')
     # After an update: continue the previous collector's connections (market_handoff).
     try:
         from market_handoff import resume

@@ -467,7 +467,7 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None, prepare_up
         monitor_thread.start()
         if not args.proxy:
             from market_passive import run
-            print('Receive-only capture: ' + args.backend + ' backend. Reconnect once, then browse manually.',flush=True)
+            print('Receive-only capture: ' + args.backend + ' backend. Restoring available connections.',flush=True)
             run(folder,args.seconds,args.backend,stop_event=stopping,on_event=on_event,config=config);return
         from market_proxy import Proxy
         print('Local proxy 127.0.0.1:1088. Reconnect game channel after importing profile. Browse manually. Close game session before stopping collector.',flush=True)

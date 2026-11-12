@@ -1133,7 +1133,8 @@ class Tracker:
                 runs.append(self.summarize(character.run, now, character))
         for run in self.restored:
             runs.append(self.summarize(run, now))
-        runs.sort(key=lambda r: (r['status'] != 'active', -(r['started_at'] or 0)))
+        # A recent anonymous stream must never hide the identified character.
+        runs.sort(key=lambda r: (not bool(r['character'].get('key')), r['status'] != 'active', -(r['started_at'] or 0)))
         from grind_calibrate import summary as calibration_summary
         state = dict(alive_at=now, runs=runs, finished=self.finished[:5],
                      calibration=[dict(label=a, state=b) for a, b in calibration_summary(self.profile)],

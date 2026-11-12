@@ -14,6 +14,31 @@ from test_grind_live import snapshot, spawn, hit, died, exp_message, stat, ME
 
 
 class ReplayTest(unittest.TestCase):
+    def test_anonymous_interval_identity_and_map_names_repair_without_adding_totals(self):
+        from grind_history_repair import HistoryRepair, apply_identities
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            clock = [time.time()-60]
+            tracker = Tracker(root, Prices(), now=lambda: clock[0])
+            inv = Inventory()
+            inv.observe(snapshot(map_id=10004141), 's')
+            tracker.observe('s', snapshot(map_id=10004141), inv)
+            original = dict(id='unknown', character=dict(key=None, name=None), started_at=clock[0]+5,
+                            ended_at=clock[0]+20, map_id=None, level=None, level_start=None,
+                            exp=123, kills=4, net=321, segments=[])
+            tracker.save_history(original)
+            repair = HistoryRepair(root/'grind')
+            repair.frame(tracker, original['started_at'], 's')
+            self.assertEqual(apply_identities(root/'grind', repair.results, tracker.prices, 'test'), 1)
+            with contextlib.closing(sqlite3.connect(root/'grind/history.sqlite')) as db:
+                rows = db.execute('SELECT summary FROM runs').fetchall()
+            self.assertEqual(len(rows), 1)
+            row = json.loads(rows[0][0])
+            self.assertEqual((row['character']['name'], row['map_name']), ('Tester', '第2军营'))
+            self.assertEqual((row['exp'], row['kills'], row['net']), (123, 4, 321))
+            self.assertEqual(apply_identities(root/'grind', repair.results, tracker.prices, 'test'), 0)
+            tracker.frames.close()
+
     def test_upgrade_replays_history_once_without_uploading_or_touching_live_state(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

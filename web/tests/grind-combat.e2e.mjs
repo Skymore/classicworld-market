@@ -69,7 +69,7 @@ try {
   assert.match(await table.locator('tbody tr').last().innerText(), /离开.*—/s);
   assert.match(await table.locator('tbody tr').nth(4).innerText(), /数据不完整/);
   await page.evaluate(() => { window.testRun.combat[0].dps = 1234; window.testRun.dps = 1234; });
-  await table.getByRole('cell', { name: '1,234', exact: true }).waitFor();
+  await table.getByRole('cell', { name: '1234', exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   if (out) { await mkdir(out, { recursive: true }); await page.screenshot({ path: path.join(out, 'grind-combat.png') }); }
   assert.equal(await page.getByText('×80', { exact: true }).count(), 1);

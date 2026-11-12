@@ -66,7 +66,12 @@ class Prices:
                 self.wake.set()
 
     def map(self, map_id):
-        return self.maps.get(map_id)
+        from grind_map_names import MAP_NAMES
+        row = self.maps.get(map_id)
+        if row and row.get('name'):
+            return row
+        name = MAP_NAMES.get(map_id)
+        return dict(row or {}, name=name) if name else row
 
     def want_mob(self, mob_id):
         with self.lock:
