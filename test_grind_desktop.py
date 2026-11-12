@@ -87,11 +87,12 @@ class ServiceTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 service.fit_overlay(None)
 
-    def test_overlay_stays_off_the_taskbar(self):
+    def test_overlay_stays_off_the_taskbar_and_in_capture_lists(self):
         from grind_desktop import WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, overlay_styles
-        styles = overlay_styles(WS_EX_APPWINDOW | 0x8)
+        styles = overlay_styles(WS_EX_APPWINDOW | WS_EX_TOOLWINDOW | 0x8)
         self.assertFalse(styles & WS_EX_APPWINDOW)
-        self.assertTrue(styles & WS_EX_TOOLWINDOW and styles & WS_EX_NOACTIVATE and styles & 0x8)
+        self.assertFalse(styles & WS_EX_TOOLWINDOW, 'stream software leaves tool windows out of its window list')
+        self.assertTrue(styles & WS_EX_NOACTIVATE and styles & 0x8)
         self.assertFalse(styles & 0x20, 'the overlay takes the mouse so it can be dragged')
 
 

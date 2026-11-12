@@ -437,8 +437,13 @@ class OverlayAPI:
 
 
 def overlay_styles(styles):
-    """Extended window styles of the overlay: off the taskbar and never focused."""
-    return (styles | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE) & ~WS_EX_APPWINDOW
+    """Extended window styles of the overlay: never focused and off the taskbar.
+
+    A no-activate window has no taskbar button unless WS_EX_APPWINDOW asks for one. It must
+    not be a tool window: OBS and the streaming tools built on it leave those out of their
+    window lists, so the overlay could not be added to a stream.
+    """
+    return (styles | WS_EX_LAYERED | WS_EX_NOACTIVATE) & ~WS_EX_APPWINDOW & ~WS_EX_TOOLWINDOW
 
 
 def merge_profiles(current, learned):
