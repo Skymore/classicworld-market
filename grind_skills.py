@@ -109,13 +109,14 @@ SKILLS = {
     3001000: ("集中术", "Focus"),
     3001001: ("断魂箭", "Arrow Blow"),
     3001002: ("二连射", "Double Shot"),
-    3001003: ("Power Knockback", "Power Knockback"),
+    3001003: ("强力击退", "Power Knockback"),  # CW-only; reference translation
     3100000: ("精准弓", "Bow Mastery"),
     3100001: ("Amazon's Judgement", "Amazon's Judgement"),
     3101000: ("终极弓", "Final Attack: Bow"),
     3101001: ("快速箭", "Bow Booster"),
     3101003: ("无形箭", "Soul Arrow: Bow"),
     3101004: ("爆炸箭", "Arrow Bomb: Bow"),
+    3101005: ("爆炸箭（爆炸）", "Arrow Bomb explosion"),  # sent by the client after each Arrow Bomb hit
     3110000: ("贯穿箭", "Mortal Blow"),
     3111000: ("替身术", "Puppet"),
     3111001: ("烈火箭", "Inferno"),
@@ -169,6 +170,11 @@ SKILLS = {
     4211004: ("金钱炸弹", "Meso Explosion"),
     4211005: ("二段跳", "Flash Jump"),
 }
+
+
+# Hits the client reports on its own after another attack (explosions,
+# Final Attack procs): listed, but not counted as attacks the player made.
+FOLLOW_UPS = {3101005} | {k for k, (_, en) in SKILLS.items() if en.startswith('Final Attack')}
 
 
 def skill_name(skill_id):

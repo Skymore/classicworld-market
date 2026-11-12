@@ -82,3 +82,13 @@ class SyncTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FollowUpSkillTest(unittest.TestCase):
+    def test_arrow_bomb_explosion_and_final_attack_are_follow_ups(self):
+        from grind_skills import FOLLOW_UPS, skill_name
+        self.assertIn(3101005, FOLLOW_UPS)
+        self.assertIn(3101000, FOLLOW_UPS)
+        self.assertNotIn(3101004, FOLLOW_UPS)
+        self.assertEqual(skill_name(3101005), '爆炸箭（爆炸）')
+        self.assertEqual(skill_name(3001003), '强力击退')

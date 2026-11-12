@@ -133,6 +133,10 @@ v0.7.15 刷图页“战斗统计”显示角色、近 30 秒 DPS、总伤害和�
 
 `GET /api/v1/grind/prices?ids=&maps=&mobs=`（各最多 100 个）返回物品名称、成交中位、NPC 售价/回收价、装备分组中位，以及地图名称和是否城镇。
 
+### 追加伤害
+
+爆炸箭每次命中后客户端会再发一条技能 3101005 的攻击（爆炸），终极弓/剑/斧等也是命中后自动追加。它们在技能列表里标“追加”，不计入攻击次数和每只怪的攻击次数分布（`grind_skills.FOLLOW_UPS`）。
+
 ### 整场记录同步
 
 解析后的整场记录（不含原始报文，报文只留本机）自动同步到客户端绑定的账号，不匿名、不提示、无开关：`grind_sync.RunSync` 每 60 秒把已结束、内容有变化的记录（每批最多 20 条）发到 `POST /api/v1/collector/grind-run`，进度存在 `captures/grind/sync.sqlite`。服务端按“客户端 + 记录编号”去重更新，单条上限 192KB；400 视为该版本无效，内容变化后再传。网站地址只接受 `https://mxd.ruit.me`（或本机 127.0.0.1 调试）。
@@ -144,7 +148,8 @@ v0.7.15 刷图页“战斗统计”显示角色、近 30 秒 DPS、总伤害和�
 客户端历史详情点“分享”：可选显示角色名和收益，调用 `POST /api/v1/collector/grind-share` 得到 7 位短码，同一记录同一选项复用同一码；可复制链接、复制或保存卡片图（`frontend/src/lib/grind-card.ts`）。
 
 - `/g/<短码>`：公开分享页，服务端注入 OG 标题与描述，隐藏的角色名和金额不下发；附同等级档同职业的经验/时对比和醒目的下载客户端入口。`GET /api/v1/grind/share/{code}` 每次访问计数。
-- `/grind`：登录后看自己账号下所有客户端同步的记录（`GET /api/v1/grind/runs`、`/runs/{id}`），近 7 天汇总，单条详情。
+- `/grind`：登录后看自己账号下所有客户端同步的记录（`GET /api/v1/grind/runs`、`/runs/{id}`），近 7 天汇总，单条详情；详情页可直接分享（`POST /api/v1/grind/runs/{id}/share`，需登录与 CSRF，只能分享自己账号的记录）。
+- 下载客户端入口每页只放一个：分享页顶部按钮，排行榜页顶部横幅，没有记录或未登录时的空状态按钮。
 - `/grind?tab=board`：近 30 天各等级档的地图排行（`GET /api/v1/grind/leaderboard?level=&job=`），来自匿名分段。
 
 迁移 `0053_grind_runs.sql` 新增 `grind_runs`、`grind_shares`。

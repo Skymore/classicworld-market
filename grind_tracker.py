@@ -23,7 +23,7 @@ from pathlib import Path
 import grind_protocol as proto
 import grind_combat as combat
 from grind_data import exp_to_next, job_name
-from grind_skills import SKILLS, skill_name
+from grind_skills import FOLLOW_UPS, SKILLS, skill_name
 
 DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, end_after_seconds=600,
                 start_events=3, start_window=60, price_basis='typical', notable_value=500000,
@@ -556,7 +556,7 @@ class Tracker:
                 sample = character.mob_attacks.get(oid)
                 if sample:
                     if own and character.run and character.run.status == 'active':
-                        sample['attacks'] += 1
+                        sample['attacks'] += damage['skill'] not in FOLLOW_UPS
                     else:
                         sample['mixed'] = True
         member = (character.party or {}).get(actor)
@@ -1116,11 +1116,11 @@ class Tracker:
                        attack_samples=sum(run.kill_attacks.get(str(m), {}).values()),
                        attack_distribution=[dict(attacks=int(a), kills=n) for a, n in sorted(run.kill_attacks.get(str(m), {}).items(), key=lambda p: int(p[0]))]) for m, k in mobs.most_common()],
             hp_lost=run.hp_lost, hp_drops=run.hp_drops,
-            attack_count=sum(run.attacks.values()),
+            attack_count=sum(v for k, v in run.attacks.items() if k not in FOLLOW_UPS),
             damage=own_combat.get('damage'), dps=own_combat.get('dps'),
             average_dps=own_combat.get('average_dps'), combat=combat_rows,
             party_known=character.party is not None if character else None,
-            attacks=[dict(skill=k, name=skill_name(k) if k else '普通攻击', count=v) for k, v in run.attacks.most_common() if v],
+            attacks=[dict(skill=k, name=skill_name(k) if k else '普通攻击', count=v, follow_up=k in FOLLOW_UPS) for k, v in run.attacks.most_common() if v],
             casts=[dict(skill=k, name=skill_name(k), count=v) for k, v in run.casts.most_common() if v],
             buffs=self.buffs(character, now),
             segments=[s.to_json() for s in run.segments])

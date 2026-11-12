@@ -64,6 +64,9 @@ async fn runs_sync_once_share_by_code_and_list_only_for_the_linked_account() {
             .is_none()
     );
 
+    assert!(grind_runs::owns(&db.pool, me, first).await.unwrap());
+    assert!(!grind_runs::owns(&db.pool, them, first).await.unwrap());
+
     let listed = grind_runs::runs_of(&db.pool, me, 50).await.unwrap();
     let rows = listed.as_array().unwrap();
     assert_eq!(rows.len(), 1);

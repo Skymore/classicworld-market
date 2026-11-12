@@ -37,7 +37,7 @@ export interface GrindRun {
   drops?: { item_id: number; name: string | null; quantity: number; value?: number }[];
   consumables?: { item_id: number; name: string | null; used: number; cost?: number }[];
   mobs?: { mob_id: number; name: string; kills: number; attack_distribution?: { attacks: number; kills: number }[] }[];
-  attacks?: { skill: number; name: string; count: number }[];
+  attacks?: { skill: number; name: string; count: number; follow_up?: boolean }[];
   casts?: { skill: number; name: string; count: number }[];
   segments?: { map_id: number; map_name?: string | null; active_seconds: number; started_at: number }[];
   timeline?: { start: number; bucket: number; exp: number[]; net: number[] };
@@ -290,7 +290,7 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
           }} />
           {(run.attacks?.length || run.casts?.length) ? <h3 className="sub">{t("技能", "Skills")}<b>{b(run.attack_count)}</b></h3> : null}
           <Rows rows={run.attacks || []} limit={6} render={(row, i) => (
-            <div className="gr-row" key={"a" + i}><span className="t">{row.skill ? row.name : t("普通攻击", "Basic attack")}</span><span className="v">{b(row.count)}</span></div>
+            <div className="gr-row" key={"a" + i}><span className="t">{row.skill ? row.name : t("普通攻击", "Basic attack")}</span>{row.follow_up && <small title={t("命中后自动追加，不计入攻击次数", "Triggered after a hit; not counted as an attack")}>{t("追加", "follow-up")}</small>}<span className="v">{b(row.count)}</span></div>
           )} />
           <Rows rows={run.casts || []} limit={6} render={(row, i) => (
             <div className="gr-row" key={"c" + i}><span className="t">{row.name}</span><small>{t("施放", "cast")}</small><span className="v">{b(row.count)}</span></div>

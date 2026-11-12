@@ -31,7 +31,7 @@ export interface RunSummary {
   buffs: Buff[]; hp_lost: number; hp_drops: number;
   timeline?: { start: number; bucket: number; exp: number[]; net: number[] };
   share_url?: string | null;
-  attack_count: number; attacks: { skill: number; name: string; count: number }[]; casts: { skill: number; name: string; count: number }[];
+  attack_count: number; attacks: { skill: number; name: string; count: number; follow_up?: boolean }[]; casts: { skill: number; name: string; count: number }[];
   damage?: number | null; dps?: number | null; average_dps?: number | null;
   combat?: CombatRow[]; party_known?: boolean | null;
 }

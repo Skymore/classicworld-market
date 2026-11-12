@@ -141,7 +141,7 @@ function LiveView({ run, live, warn }: { run: RunSummary | null; live: GrindStat
         {(run.attack_count > 0 || run.casts?.length > 0) && <>
           <div className="well-h sub"><h3>{tr('攻击与技能', 'Attacks and skills')}</h3>
             <small>{tr(`攻击 ${run.attack_count} 次`, `${run.attack_count} attacks`)}{run.kills > 0 && run.attack_count > 0 ? tr(` · 每只 ${(run.attack_count / run.kills).toFixed(1)} 次`, ` · ${(run.attack_count / run.kills).toFixed(1)} per kill`) : ''}</small></div>
-          {(run.attacks || []).map(a => <div className="grind-row" key={'a' + a.skill}><span className="t"><b>{a.skill ? a.name : tr('普通攻击', 'Plain attack')}</b></span><span className="v">{a.count}</span></div>)}
+          {(run.attacks || []).map(a => <div className="grind-row" key={'a' + a.skill}><span className="t"><b>{a.skill ? a.name : tr('普通攻击', 'Plain attack')}</b></span>{a.follow_up && <small className="grind-follow" title={tr('命中后自动追加，不计入攻击次数', 'Triggered after a hit; not counted as an attack')}>{tr('追加', 'follow-up')}</small>}<span className="v">{a.count}</span></div>)}
           {(run.casts || []).map(a => <div className="grind-row" key={'c' + a.skill}><span className="t"><b>{a.name}</b><small> {tr('施放', 'cast')}</small></span><span className="v">{a.count}</span></div>)}
         </>}
         <div className="well-h sub"><h3>{tr('掉落汇总', 'Drops')}</h3></div>

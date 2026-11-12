@@ -45,7 +45,7 @@ export function HistoryView({ runs, reload }: { runs: Run[] | null; reload(): vo
         <span className="who"><b>{run.map_name || '—'}</b>{run.segments?.length > 1 && <small> +{run.segments.length - 1}</small>}
           <small> {run.character?.name} · {run.job_name} {run.level ?? ''}</small>{run.share_url && <i className="shared">{tr('已分享', 'Shared')}</i>}</span>
         <span>{clock(run.active_seconds)}</span><span>{big(run.exp_per_hour, english())}</span>
-        <span className="money">{signed(run.net_per_hour, english())}</span><span>{big(run.kills, english())}</span>
+        <span className={run.net_per_hour ? "money" : undefined}>{signed(run.net_per_hour, english())}</span><span>{big(run.kills, english())}</span>
         <Spark run={run} />
       </button>)}
     </div>

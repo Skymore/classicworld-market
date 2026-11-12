@@ -1,8 +1,8 @@
 // 刷图 on the website: your synced runs, one run in full, the map leaderboard,
-// and public share pages (/g/<code>), each with a prominent client download.
+// and public share pages (/g/<code>) with one client download entry.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePreferences, useWords } from "../providers";
 import { useAccount } from "../lib/query";
 import { ErrorState, Loading, usePageReady } from "../components/shared";
@@ -33,17 +33,6 @@ export function DownloadBanner({ compact = false }: { compact?: boolean }) {
   );
 }
 
-/** Pinned to the bottom on phones. */
-function DownloadBar() {
-  const words = useWords();
-  return (
-    <div className="grind-download-bar">
-      <span>{words("用客户端记录你的刷图", "Record your own runs")}</span>
-      <SiteLink className="btn grind-download-btn" href={DOWNLOAD}>{words("免费下载", "Free download")}</SiteLink>
-    </div>
-  );
-}
-
 export default function GrindPage() {
   usePageReady();
   const route = useLocation();
@@ -52,7 +41,6 @@ export default function GrindPage() {
   return (
     <div className="grind-site" data-grind-site>
       {share ? <SharePage code={share[1]} /> : run ? <MyRun row={run[1]} /> : <Hub />}
-      <DownloadBar />
     </div>
   );
 }
@@ -63,7 +51,7 @@ function Hub() {
   const board = new URLSearchParams(route.search).get("tab") === "board";
   return (
     <>
-      <DownloadBanner />
+      {board && <DownloadBanner compact />}
       <section className="stall">
         <div className="stall-bar grind-site-bar">
           <h1>{words("刷图", "Grind")}</h1>
@@ -93,7 +81,10 @@ function MyRuns() {
     return (
       <div className="grind-empty">
         <p>{words("登录后可以在这里看到客户端同步的全部刷图记录。", "Sign in to see every run your client synced.")}</p>
-        <SiteLink className="btn primary" href="/account">{words("登录", "Sign in")}</SiteLink>
+        <div className="grind-empty-actions">
+          <SiteLink className="btn primary" href="/account">{words("登录", "Sign in")}</SiteLink>
+          <SiteLink className="btn" href={DOWNLOAD}>{words("下载客户端", "Download the client")}</SiteLink>
+        </div>
       </div>
     );
   if (query.isLoading) return <Loading />;
@@ -114,14 +105,16 @@ function MyRuns() {
         <span>{words("击杀", "Kills")} <b>{big(sum("kills"), en)}</b></span>
       </div>
       <div className="grind-list">
+        <div className="grind-list-row head"><span>{words("时间", "Time")}</span><span>{words("地图 · 角色", "Map · character")}</span><span>{words("时长", "Length")}</span>
+          <span>{words("经验/时", "EXP/h")}</span><span>{words("收益/时", "Profit/h")}</span><span /></div>
         {runs.map((run) => (
           <SiteLink key={run.row} className="grind-list-row" href={`/grind/run/${run.row}`}>
             <span className="when">{when(run.started_at)}</span>
             <span className="who"><b>{run.map_name || "—"}</b> <small>{run.character?.name} · {run.job_name} {run.level ?? ""}</small>
               {run.share_code && <i>{words("已分享", "Shared")}</i>}</span>
             <span>{clock(run.active_seconds)}</span>
-            <span>{big(run.exp_per_hour, en)}<small>/{words("时", "h")}</small></span>
-            <span className="money">{signed(run.net_per_hour, en)}<small>/{words("时", "h")}</small></span>
+            <span>{big(run.exp_per_hour, en)}{run.exp_per_hour != null && <small>/{words("时", "h")}</small>}</span>
+            <span className={run.net_per_hour ? "money" : undefined}>{signed(run.net_per_hour, en)}{run.net_per_hour != null && <small>/{words("时", "h")}</small>}</span>
             <Spark run={run} />
           </SiteLink>
         ))}
@@ -132,6 +125,7 @@ function MyRuns() {
 
 function MyRun({ row }: { row: string }) {
   const words = useWords(), { language } = usePreferences();
+  const [sharing, setSharing] = useState(false);
   const query = useQuery<{ run: GrindRun; share_code: string | null; comparison: Comparison | null }>({
     queryKey: ["grind-run", row], queryFn: () => getJson(`/api/v1/grind/runs/${row}`), staleTime: 60_000, retry: false });
   if (query.isLoading) return <Loading />;
@@ -143,7 +137,57 @@ function MyRun({ row }: { row: string }) {
     <section className="grind-page-run">
       <SiteLink className="grind-back" href="/grind">‹ {words("我的记录", "My runs")}</SiteLink>
       <RunDetail run={data.run} t={words} english={language === "en"} comparison={data.comparison}
-        actions={data.share_code ? <SiteLink className="btn primary" href={`/g/${data.share_code}`}>{words("查看分享页", "Open share page")}</SiteLink> : null} />
+        actions={<button className="btn primary" aria-expanded={sharing} onClick={() => setSharing(!sharing)}>{words("分享", "Share")}</button>} />
+      {sharing && <SharePanel row={row} run={data.run} />}
+    </section>
+  );
+}
+
+/** Make (or reuse) a share link for one of the signed-in account's runs, plus the card image. */
+function SharePanel({ row, run }: { row: string; run: GrindRun }) {
+  const words = useWords(), { language } = usePreferences(), en = language === "en";
+  const account = useAccount(), client = useQueryClient();
+  const [showName, setShowName] = useState(true), [showProfit, setShowProfit] = useState(true);
+  const [link, setLink] = useState<{ url: string; code: string; key: string } | null>(null);
+  const [note, setNote] = useState(""), [busy, setBusy] = useState(false);
+  const canvas = useRef<HTMLCanvasElement>(null), panel = useRef<HTMLElement>(null);
+  const key = `${showName}/${showProfit}`;
+  useEffect(() => { panel.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, []);
+  const url = link?.key === key ? link.url : null;
+  useEffect(() => {
+    if (canvas.current) drawCard(canvas.current, run, { url: url || `${location.host}/g/…`, t: words, showName, showProfit, english: en });
+  }, [run, url, showName, showProfit, words, en]);
+  const make = async () => {
+    setBusy(true); setNote("");
+    try {
+      const response = await fetch(`/api/v1/grind/runs/${row}/share`, { method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json", ...(account.data?.csrf ? { "X-CSRF-Token": account.data.csrf } : {}) },
+        body: JSON.stringify({ show_name: showName, show_profit: showProfit }) });
+      if (!response.ok) throw Error(String(response.status));
+      const data = await response.json() as { url: string; code: string };
+      const made = { url: `${location.origin}/g/${data.code}`, code: data.code, key };
+      setLink(made);
+      void client.invalidateQueries({ queryKey: ["grind-runs"] });
+      try { await navigator.clipboard.writeText(made.url); setNote(words("链接已复制", "Link copied")); } catch { /* shown below */ }
+    } catch {
+      setNote(words("生成失败，请刷新后重试", "Couldn't create the link. Reload and try again."));
+    } finally { setBusy(false); }
+  };
+  return (
+    <section ref={panel} className="grind-share-panel" aria-label={words("分享", "Share")}>
+      <canvas ref={canvas} className="grind-share-canvas" aria-label={words("分享卡片预览", "Share card preview")} />
+      <div className="grind-share-side">
+        <label><input type="checkbox" checked={showName} onChange={(e) => setShowName(e.target.checked)} /> {words("显示角色名", "Show character name")}</label>
+        <label><input type="checkbox" checked={showProfit} onChange={(e) => setShowProfit(e.target.checked)} /> {words("显示收益", "Show profit")}</label>
+        {url ? <>
+          <input className="grind-share-url" readOnly value={url} onFocus={(e) => e.currentTarget.select()} />
+          <button className="btn primary" onClick={async () => { await navigator.clipboard.writeText(url); setNote(words("链接已复制", "Link copied")); }}>{words("复制链接", "Copy link")}</button>
+          <SiteLink className="btn" href={`/g/${link!.code}`}>{words("打开分享页", "Open share page")}</SiteLink>
+        </> : <button className="btn primary" disabled={busy} onClick={make}>{busy ? words("生成中…", "Creating…") : words("生成分享链接", "Create share link")}</button>}
+        <button className="btn" onClick={async () => setNote(canvas.current && (await copyCard(canvas.current)) ? words("图片已复制", "Image copied") : words("请保存图片", "Save the image instead"))}>{words("复制图片", "Copy image")}</button>
+        <button className="btn" onClick={() => canvas.current && saveCard(canvas.current, `grind-${row}.png`)}>{words("保存图片", "Save image")}</button>
+        {note && <p className="grind-note" role="status">{note}</p>}
+      </div>
     </section>
   );
 }
@@ -161,7 +205,7 @@ function SharePage({ code }: { code: string }) {
   }, [query.data, url, words, en]);
   if (query.isLoading) return <Loading />;
   if (query.isError)
-    return <><div className="grind-empty"><p>{words("这个分享链接不存在。", "This share link doesn't exist.")}</p></div><DownloadBanner /></>;
+    return <><div className="grind-empty"><p>{words("这个分享链接不存在。", "This share link doesn't exist.")}</p><SiteLink className="btn grind-download-btn" href={DOWNLOAD}>{words("下载客户端", "Download the client")}</SiteLink></div></>;
   const { run, show_profit, comparison } = query.data!;
   const who = run.character?.name || (run.job_name ? words(`一位${run.job_name}`, `A ${run.job_name}`) : words("一位冒险家", "An adventurer"));
   const minutes = Math.round(run.active_seconds / 60);
@@ -181,8 +225,7 @@ function SharePage({ code }: { code: string }) {
         </>
       } />
       {note && <p className="grind-note" role="status">{note}</p>}
-      <canvas ref={canvas} className="grind-share-canvas" aria-label={words("分享卡片", "Share card")} />
-      <DownloadBanner />
+      <canvas ref={canvas} className="grind-share-canvas" hidden aria-hidden="true" />
     </>
   );
 }
@@ -213,7 +256,7 @@ function Leaderboard() {
             <SiteLink key={i} className="grind-board-row" href={`/map/${row.map_id}`}>
               <span>{row.level_from}–{row.level_to}</span>
               <span><b>{(en ? row.name_en : row.name) || row.name || `#${row.map_id}`}</b></span>
-              <span>{row.runs}<small> · {row.hours.toFixed(1)}h</small></span>
+              <span>{row.runs}<small> · {words(`${row.hours.toFixed(1)} 小时`, `${row.hours.toFixed(1)}h`)}</small></span>
               <span><b>{big(row.exp_per_hour, en)}</b></span>
               <span className="money">{signed(row.net_per_hour, en)}</span>
               <span>{big(row.kills_per_hour, en)}</span>

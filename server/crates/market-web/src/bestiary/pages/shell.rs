@@ -738,7 +738,7 @@ mod tests {
         };
         assert_eq!(en.href("/mob/4"), "/mob/4?lang=en");
         assert_eq!(en.href("/route?from=1"), "/route?from=1&lang=en");
-        assert_eq!(en.other_lang_href(), "/route?from=1&to=2");
+        assert_eq!(en.other_lang_href(), "/route?from=1&to=2&lang=ko");
         let zh = Ctx {
             here: "/item/4".into(),
             ..Ctx::default()

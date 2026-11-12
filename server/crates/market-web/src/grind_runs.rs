@@ -44,6 +44,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/grind/share/{code}", get(shared))
         .route("/api/v1/grind/runs", get(my_runs))
         .route("/api/v1/grind/runs/{id}", get(my_run))
+        .route("/api/v1/grind/runs/{id}/share", post(share_mine))
         .route("/api/v1/grind/leaderboard", get(leaderboard))
 }
 
@@ -427,6 +428,47 @@ async fn my_run(
                 .into_response()
         }
         Ok(None) => error(StatusCode::NOT_FOUND, "Not found"),
+        Err(e) => internal(e),
+    }
+}
+
+/// Whether the run was synced by one of the account's clients.
+pub async fn owns(db: &PgPool, account: i64, run: i64) -> sqlx::Result<bool> {
+    sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM grind_runs r JOIN collectors c ON c.id = r.collector_id
+         WHERE r.id=$1 AND c.account_id=$2)",
+    )
+    .bind(run)
+    .bind(account)
+    .fetch_one(db)
+    .await
+}
+
+/// Share one of the signed-in account's runs from the website.
+async fn share_mine(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    body: Bytes,
+) -> Response {
+    let session = match crate::contributors::writable(&state, &headers).await {
+        Ok(s) => s,
+        Err(response) => return response,
+    };
+    let Ok(id) = id.parse::<i64>() else {
+        return error(StatusCode::NOT_FOUND, "Not found");
+    };
+    match owns(&state.db, session.id, id).await {
+        Ok(true) => {}
+        Ok(false) => return error(StatusCode::NOT_FOUND, "Not found"),
+        Err(e) => return internal(e),
+    }
+    let options: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+    let flag = |key: &str| options.get(key).and_then(Value::as_bool).unwrap_or(true);
+    match share_code(&state.db, id, flag("show_name"), flag("show_profit")).await {
+        Ok(code) => Json(json!({"ok": true, "code": code,
+            "url": format!("https://{}/g/{code}", state.settings.hostname)}))
+        .into_response(),
         Err(e) => internal(e),
     }
 }
