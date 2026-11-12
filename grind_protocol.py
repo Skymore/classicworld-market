@@ -7,8 +7,8 @@ own recorded frames. A section is used only once the calibrator marked it
 confirmed; until then the tracker leaves that number unknown instead of
 guessing.
 
-Stat updates (0x7E): opcode, three flag bytes (each 0 or 1; live captures
-show 00 00 01, 00 01 01 for picked-up money and 01 00 01), a 32-bit mask,
+Stat updates (0x7E): opcode, two boolean flags and an opaque marker byte
+(live captures progress through 1..12; its meaning is unknown), a 32-bit mask,
 one field per set bit in ascending bit order, then a tail: a flag byte, one
 more byte when that flag is 1, and a final zero.
 
@@ -110,7 +110,8 @@ def save_profile(path, profile):
 
 def stat_header(data):
     """(mask, payload start) of a stat update, else None."""
-    if len(data) < 11 or data[:2] != b'\x7e\x00' or any(b not in (0, 1) for b in data[2:5]):
+    if (len(data) < 11 or data[:2] != b'\x7e\x00'
+            or any(b not in (0, 1) for b in data[2:4])):
         return None
     return struct.unpack_from('<I', data, 5)[0], 9
 

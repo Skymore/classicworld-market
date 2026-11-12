@@ -115,6 +115,35 @@ class LiveLayoutTest(unittest.TestCase):
         self.assertEqual((character.name, character.level, character.job, character.character_id, character.exp),
                          ('Tester', 30, 310, ME, 5000))
 
+    def test_marker_0a_updates_stats_and_keeps_tracker_healthy(self):
+        for oid in range(1, 36):
+            self.send(spawn(oid, 22), 1)
+            self.send(hit(oid, ME), 1)
+            self.send(died(oid), 0.1)
+            self.exp += 40
+            self.send(exp_message(40), 0.05)
+            data = bytearray(stat(exp=self.exp, hp=450))
+            data[4] = 0x0A
+            self.send(data, 0.01)
+        self.assertEqual(self.character().exp, self.exp)
+        self.assertEqual(self.tracker.health['exp_updates'], 35)
+        self.assertFalse(self.tracker.suspect())
+        summary = self.tracker.summarize(self.character().run, self.clock(), self.character())
+        self.assertEqual((summary['exp'], summary['kills']), (1400, 35))
+
+    def test_verified_stat_markers_preserve_strict_field_validation(self):
+        sizes = proto.verified_profile()['stat']['sizes']
+        for marker in range(256):
+            for bit, size in ((10, 4), (12, 4), (16, 8), (18, 8)):
+                data = b'\x7e\x00\x00\x01' + bytes([marker]) + struct.pack('<I', 1 << bit)
+                data += (123).to_bytes(size, 'little') + bytes(2)
+                self.assertEqual(proto.parse_stat(data, sizes), {bit: 123})
+                self.assertIsNone(proto.parse_stat(data[:-1], sizes))
+                self.assertIsNone(proto.parse_stat(data + b'\x00', sizes))
+                broken = bytearray(data); broken[3] = 2
+                self.assertIsNone(proto.parse_stat(broken, sizes))
+        self.assertIsNone(proto.parse_stat(stat(exp=123), {18: 8}))
+
     def test_only_own_kills_count_and_split_by_mob(self):
         for oid in range(1, 6):
             self.kill(oid)

@@ -161,7 +161,7 @@ class InventoryTests(unittest.TestCase):
         # Picked-up money sets flag byte 3 (live capture 2026-11-11).
         self.inventory.observe(bytes.fromhex('7e0000010100000400')+struct.pack('<Q', 54308)+bytes(2), 'one')
         self.assertEqual(self.inventory.view()['mesos'], 54308)
-        # Flag bytes are 0 or 1; anything else is an unknown layout.
+        # The first two flags remain boolean; byte 4 is an opaque marker.
         self.inventory.observe(bytes.fromhex('7e000002')+bytes(44), 'one')
         self.assertIsNone(self.inventory.view()['mesos'])
 
@@ -171,6 +171,20 @@ class InventoryTests(unittest.TestCase):
             for stamp, connected, expected in [(time.time(), True, True), (time.time()-30, True, False), (time.time(), False, False)]:
                 (p/'inventory_state.json').write_text(json.dumps(dict(alive_at=stamp, holdings=self.inventory.view())))
                 self.assertEqual(read_inventory(p, connected) is not None, expected)
+
+    def test_stat_markers_update_currency_without_hp_mp_invalidating_it(self):
+        for marker in (0, 1, 2, 10, 12, 255):
+            prefix = b'\x7e\x00\x00\x01' + bytes([marker])
+            money = prefix + struct.pack('<IQ', 1 << 18, 65432) + bytes(2)
+            self.inventory.observe(money, 'one')
+            self.assertEqual(self.inventory.view()['mesos'], 65432)
+            for bit, size in ((10, 4), (12, 4), (16, 8)):
+                self.inventory.observe(prefix + struct.pack('<I', 1 << bit)
+                                       + (123).to_bytes(size, 'little') + bytes(2), 'one')
+                self.assertEqual(self.inventory.view()['mesos'], 65432)
+            for malformed in (money[:-1], money + b'\x00', money[:-2] + b'\x02\x00'):
+                self.inventory.observe(malformed, 'one')
+                self.assertIsNone(self.inventory.view()['mesos'])
 
 
 if __name__ == '__main__':

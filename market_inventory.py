@@ -12,6 +12,7 @@ import struct
 import time
 from character_snapshot import character_shift
 from market_equipment import decode_equipment
+from grind_protocol import stat_header, parse_stat, MESO_BIT
 
 
 def stack(data, pos, category, capacity):
@@ -241,13 +242,13 @@ class Inventory:
                 # observed currency; missing bags remain unknown, never zero.
                 self.slots = self.equipment = self.worn = None
         elif opcode == 0x7e:
-            # Bytes 2-4 are flags; picked-up money arrives as 7e 00 00 01 01 (2026-11-11 capture).
-            flags = len(data) >= 11 and data[:2] == b'\x7e\x00' and all(b in (0, 1) for b in data[2:5])
-            if flags and len(data) == 19 and data[4:9] == bytes.fromhex('0100000400') and data[17:] == bytes(2):
-                balance = struct.unpack_from('<Q', data, 9)[0]
+            envelope = stat_header(data)
+            values = parse_stat(data, {MESO_BIT: 8})
+            if values is not None and MESO_BIT in values:
+                balance = values[MESO_BIT]
                 self.mesos = balance if balance <= 10**12 else None
                 self.observed_at = int(time.time())
-            elif not (flags and not (int.from_bytes(data[5:9], 'little') & 0x40000)):
+            elif not (envelope and not (envelope[0] & (1 << MESO_BIT))):
                 # Unknown stat masks cannot leave a possibly changed balance
                 # labelled current. Never infer it from the purchase budget.
                 self.mesos = None
