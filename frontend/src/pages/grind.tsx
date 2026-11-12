@@ -8,6 +8,7 @@ import { useAccount } from "../lib/query";
 import { ErrorState, Loading, usePageReady } from "../components/shared";
 import { SiteLink } from "../components/shell";
 import { RunDetail, Spark, big, clock, signed, when, type Comparison, type GrindRun } from "../components/grind-run";
+import { PeriodBoard } from "../components/grind-periods";
 import { copyCard, drawCard, saveCard } from "../lib/grind-card";
 import "./grind.css";
 
@@ -74,8 +75,6 @@ function MyRuns() {
   const signedIn = account.data?.signed_in;
   const query = useQuery<{ runs: ListRun[] }>({ queryKey: ["grind-runs"], queryFn: () => getJson("/api/v1/grind/runs"), enabled: !!signedIn, staleTime: 30_000 });
   const runs = query.data?.runs || [];
-  const week = useMemo(() => runs.filter((r) => r.started_at >= Date.now() / 1000 - 7 * 86400), [runs]);
-  const sum = (key: "exp" | "net" | "kills" | "active_seconds") => week.reduce((total, r) => total + (Number(r[key]) || 0), 0);
   if (account.isLoading) return <Loading />;
   if (!signedIn)
     return (
@@ -97,17 +96,11 @@ function MyRuns() {
       </div>
     );
   return (
-    <>
-      <div className="grind-totals">
-        <span>{words("近 7 天", "Last 7 days")} <b>{words(`${week.length} 次 · ${clock(sum("active_seconds"))}`, `${week.length} runs · ${clock(sum("active_seconds"))}`)}</b></span>
-        <span>{words("经验", "EXP")} <b>{big(sum("exp"), en)}</b></span>
-        <span>{words("净收益", "Net")} <b className="money">{signed(sum("net"), en)}</b></span>
-        <span>{words("击杀", "Kills")} <b>{big(sum("kills"), en)}</b></span>
-      </div>
+    <PeriodBoard runs={runs} t={words} english={en} remember="grind.period">{(shown) => (
       <div className="grind-list">
         <div className="grind-list-row head"><span>{words("时间", "Time")}</span><span>{words("地图 · 角色", "Map · character")}</span><span>{words("时长", "Length")}</span>
           <span>{words("经验/时", "EXP/h")}</span><span>{words("收益/时", "Profit/h")}</span><span /></div>
-        {runs.map((run) => (
+        {shown.map((run) => (
           <SiteLink key={run.row} className="grind-list-row" href={`/grind/run/${run.row}`}>
             <span className="when">{when(run.started_at)}</span>
             <span className="who"><b>{run.map_name || "—"}</b> <small>{run.character?.name} · {run.job_name} {run.level ?? ""}</small>
@@ -119,7 +112,7 @@ function MyRuns() {
           </SiteLink>
         ))}
       </div>
-    </>
+    )}</PeriodBoard>
   );
 }
 

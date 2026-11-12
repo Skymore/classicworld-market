@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Copy, Download, Link2, Share2 } from 'lucide-react';
 import { RunDetail, Spark, big, clock, signed, when, type GrindRun } from '../src/components/grind-run';
+import { PeriodBoard } from '../src/components/grind-periods';
 import { copyCard, drawCard, saveCard } from '../src/lib/grind-card';
 import { language, tr } from './i18n';
 import { grind, type RunSummary } from './grind';
@@ -15,41 +16,35 @@ export function HistoryView({ runs, reload }: { runs: Run[] | null; reload(): vo
   const [who, setWho] = useState(''), [map, setMap] = useState('');
   const names = useMemo(() => [...new Set((runs || []).map(r => r.character?.name).filter(Boolean) as string[])], [runs]);
   const maps = useMemo(() => [...new Set((runs || []).map(r => r.map_name).filter(Boolean) as string[])], [runs]);
-  const shown = (runs || []).filter(r => (!who || r.character?.name === who) && (!map || r.map_name === map));
-  const week = shown.filter(r => r.started_at >= Date.now() / 1000 - 7 * 86400);
-  const sum = (key: 'active_seconds' | 'exp' | 'net' | 'kills') => week.reduce((total, r) => total + (Number(r[key]) || 0), 0);
+  const filtered = useMemo(() => (runs || []).filter(r => (!who || r.character?.name === who) && (!map || r.map_name === map)), [runs, who, map]);
   if (runs == null) return <p className="note">{tr('读取中…', 'Loading…')}</p>;
   const current = open ? runs.find(r => r.id === open) : null;
-  if (current) return <RunPage run={current} back={() => { setOpen(null); reload(); }} />;
   if (!runs.length) return <p className="grind-empty">{tr('还没有记录。进图打几只怪就会自动开始。', 'No runs yet. Kill a few monsters in a map to start.')}</p>;
-  return <section className="stall grind-history-panel">
-    <div className="grind-history-tools">
-      <span>{tr('近 7 天', 'Last 7 days')} <b>{tr(`${week.length} 次 · ${clock(sum('active_seconds'))}`, `${week.length} runs · ${clock(sum('active_seconds'))}`)}</b></span>
-      <span>{tr('经验', 'EXP')} <b>{big(sum('exp'), english())}</b></span>
-      <span>{tr('净收益', 'Net')} <b className="money">{signed(sum('net'), english())}</b></span>
-      <span>{tr('击杀', 'Kills')} <b>{big(sum('kills'), english())}</b></span>
-      <span className="grind-filters">
+  // The list stays mounted under an open run, so coming back lands on the same period.
+  return <>
+    {current && <RunPage run={current} back={() => { setOpen(null); reload(); }} />}
+    <section className="stall grind-history-panel" style={current ? { display: 'none' } : undefined}>
+      <PeriodBoard runs={filtered} t={tr} english={english()} filters={<>
         {names.length > 1 && <select value={who} onChange={e => setWho(e.target.value)} aria-label={tr('角色', 'Character')}>
           <option value="">{tr('全部角色', 'All characters')}</option>{names.map(n => <option key={n}>{n}</option>)}</select>}
         {maps.length > 1 && <select value={map} onChange={e => setMap(e.target.value)} aria-label={tr('地图', 'Map')}>
           <option value="">{tr('全部地图', 'All maps')}</option>{maps.map(n => <option key={n}>{n}</option>)}</select>}
-      </span>
-    </div>
-    <div className="grind-history-list" role="list">
-      <div className="grind-history-row head" aria-hidden="true">
-        <span>{tr('时间', 'Time')}</span><span>{tr('地图 · 角色', 'Map · character')}</span><span>{tr('时长', 'Time')}</span>
-        <span>{tr('经验/时', 'EXP/h')}</span><span>{tr('收益/时', 'Profit/h')}</span><span>{tr('击杀', 'Kills')}</span><span />
-      </div>
-      {shown.map(run => <button key={run.id} role="listitem" className="grind-history-row" onClick={() => setOpen(run.id)}>
-        <span>{when(run.started_at)}</span>
-        <span className="who"><b>{run.map_name || '—'}</b>{run.segments?.length > 1 && <small> +{run.segments.length - 1}</small>}
-          <small> {run.character?.name} · {run.job_name} {run.level ?? ''}</small>{run.share_url && <i className="shared">{tr('已分享', 'Shared')}</i>}</span>
-        <span>{clock(run.active_seconds)}</span><span>{big(run.exp_per_hour, english())}</span>
-        <span className={run.net_per_hour ? "money" : undefined}>{signed(run.net_per_hour, english())}</span><span>{big(run.kills, english())}</span>
-        <Spark run={run} />
-      </button>)}
-    </div>
-  </section>;
+      </>}>{shown => <div className="grind-history-list" role="list">
+        <div className="grind-history-row head" aria-hidden="true">
+          <span>{tr('时间', 'Time')}</span><span>{tr('地图 · 角色', 'Map · character')}</span><span>{tr('时长', 'Time')}</span>
+          <span>{tr('经验/时', 'EXP/h')}</span><span>{tr('收益/时', 'Profit/h')}</span><span>{tr('击杀', 'Kills')}</span><span />
+        </div>
+        {shown.map(run => <button key={run.id} role="listitem" className="grind-history-row" onClick={() => setOpen(run.id)}>
+          <span>{when(run.started_at)}</span>
+          <span className="who"><b>{run.map_name || '—'}</b>{run.segments?.length > 1 && <small> +{run.segments.length - 1}</small>}
+            <small> {run.character?.name} · {run.job_name} {run.level ?? ''}</small>{run.share_url && <i className="shared">{tr('已分享', 'Shared')}</i>}</span>
+          <span>{clock(run.active_seconds)}</span><span>{big(run.exp_per_hour, english())}</span>
+          <span className={run.net_per_hour ? "money" : undefined}>{signed(run.net_per_hour, english())}</span><span>{big(run.kills, english())}</span>
+          <Spark run={run} />
+        </button>)}
+      </div>}</PeriodBoard>
+    </section>
+  </>;
 }
 
 function RunPage({ run, back }: { run: Run; back(): void }) {

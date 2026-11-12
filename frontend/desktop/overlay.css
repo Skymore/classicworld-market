@@ -1,16 +1,18 @@
 /* Overlay window: transparent page, one translucent card. */
-html,body,#root{margin:0;height:100%;background:transparent;overflow:hidden;user-select:none}
-body{font:12px/1.35 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;color:#f4efe4}
-.ov{--alpha:.92;box-sizing:border-box;width:100%;min-height:100%;padding:.6em .8em;background:rgba(24,22,19,var(--alpha));border:1px solid rgba(255,214,140,.35);border-radius:6px;font-variant-numeric:tabular-nums}
+.overlay-page,.overlay-page body,.overlay-page #root{margin:0;height:100%;background:transparent;overflow:hidden;user-select:none}
+.overlay-page #root{overflow-y:auto;scrollbar-width:none}
+/* The card carries its own type, so it reads the same inside the client's settings. */
+.ov{font:12px/1.35 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;color:#f4efe4;text-align:left;
+  --alpha:.92;box-sizing:border-box;width:100%;min-height:100%;padding:.6em .8em;background:rgba(24,22,19,var(--alpha));border:1px solid rgba(255,214,140,.35);border-radius:6px;font-variant-numeric:tabular-nums}
 /* Size: drag the corner. */
 .ov{position:relative}.ov-grip{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;touch-action:none;opacity:0;transition:opacity .15s;
   background:linear-gradient(135deg,transparent 50%,currentColor 50%,currentColor 60%,transparent 60%,transparent 72%,currentColor 72%,currentColor 82%,transparent 82%)}
 .ov:hover .ov-grip{opacity:.65}
-#root{scrollbar-width:none}
 /* Slim: one line per metric. */
 .ov-slim{padding:.45em .65em}.ov-slim .ov-site{font-size:.85em;font-weight:400;opacity:.6;margin-bottom:.1em}.ov-slim .ov-head{margin-bottom:.15em}
 .rate-line{display:flex;align-items:center;gap:.3em;margin:.12em 0;white-space:nowrap}.rate-line>b{font-size:1.35em;font-weight:800;line-height:1.2}
 .rate-line small{opacity:.65}.rate-line .dim{margin-left:.45em;font-size:.9em}.rate-line .mesos-icon{margin-right:.3em}
+.rate-trend{font-style:normal;font-size:.7em}.rate-trend.up{color:#3fae78}.rate-trend.down{color:#e8705f}
 .rate-spark{flex:none;width:4.4em;height:1.3em;margin-left:auto;overflow:visible;opacity:.7}
 .ov-pair{gap:1.1em}.ov .ov-pair>span{display:inline-flex;align-items:center;gap:.2em;opacity:1}.ov-pair small{opacity:.65}
 .ov-chips{display:flex;flex-wrap:wrap;align-items:center;gap:.2em .7em;margin:.2em 0;white-space:nowrap}.ov-chips>span{display:inline-flex;align-items:center}
@@ -36,7 +38,7 @@ body{font:12px/1.35 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;color:#
 .ov-row small{width:4.6em;flex:none;opacity:.6;overflow:hidden;text-overflow:ellipsis}
 .ov-row span{opacity:.8;overflow:hidden;text-overflow:ellipsis}
 .ov-row .big{font-size:1.35em}
-.gold{color:#ffd27a}.warn{color:#ff8a7a}
+.ov .gold{color:#ffd27a}.ov .warn{color:#ff8a7a}
 .ov-bar{flex:1;height:.45em;min-width:3em;background:rgba(255,255,255,.14);overflow:hidden}
 .ov-bar i{display:block;height:100%;background:#7cc8ff}
 .ov-loot{display:flex;justify-content:space-between;gap:.6em;margin:.1em 0;white-space:nowrap;opacity:.9}
@@ -96,7 +98,7 @@ body{font:12px/1.35 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;color:#
 
 .ov-potions .ov-row span{flex:1;min-width:0}.ov-potions .ov-row b,.ov-loot>b{flex:none}.ov-money{flex-wrap:wrap}
 
-#root{overflow-y:auto;overflow-x:hidden}.ov-team-exp{margin-top:3px}
+.ov-team-exp{margin-top:3px}
 /* The card is as tall as what it shows; the rest of the window stays clear over the game. */
 .ov{min-height:0}
 .ov-rail .party-metrics th:nth-child(n+4),.ov-rail .party-metrics td:nth-child(n+4){display:none}

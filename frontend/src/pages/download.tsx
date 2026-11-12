@@ -1,3 +1,4 @@
+import { Bell, Crosshair, ScanLine, ShoppingCart, Tag } from "lucide-react";
 import { usePreferences } from "../providers";
 import { usePageReady } from "../components/shared";
 import { useMarketQuery } from "../lib/query";
@@ -19,19 +20,34 @@ export default function Page() {
   const size = release.size ? Math.round(release.size / 1048576) : 70;
   const steps = en ? [
     ["Download and unzip", "Extract the entire ZIP, run ClassicWorldCollector.exe and allow administrator permission."],
-    ["Choose how to collect", "For manual collection, change channel once and browse shops. For automatic scanning, enter Free Market, select the game window and click Start."],
-    ["See prices and alerts", "Quotes upload automatically. Click Account & alerts in the collector to set your nickname, link Google and view your alerts."],
+    ["Sign in", "Open Account in the client and sign in. Grind runs, watch lists and shop plans then stay in step with the website."],
+    ["Play as usual", "Kill a few monsters and the grind record starts by itself. Browse shops, or enter the Free Market and press Start, and the quotes upload."],
   ] : [
     ["下载并解压", "完整解压 ZIP，运行 ClassicWorldCollector.exe，允许管理员权限。"],
-    ["选择采集方式", "手动逛摊：切一次频道后照常开店。自动扫描：进入自由市场，选择游戏窗口，点击「开始扫描」。"],
-    ["查看报价和提醒", "报价会自动上传。点客户端上的「账号与提醒」，可以设置昵称、绑定 Google 账号和查看关注提醒。"],
+    ["登录账号", "在客户端「账号」里登录，刷图记录、关注和摆摊就和网站同步。"],
+    ["照常玩游戏", "进图打几只怪，刷图记录自动开始。逛摊，或进自由市场点「开始扫描」，报价自动上传。"],
+  ];
+  const features: [typeof Crosshair, string, string][] = [
+    [Crosshair, pick("刷图记录", "Grind tracker"), pick("自动统计经验、掉落、收益和 DPS，游戏里有悬浮窗", "EXP, loot, profit and DPS recorded automatically, with an in-game overlay")],
+    [Tag, pick("摆摊定价", "Shop pricing"), pick("按最近成交价给背包里的东西定价", "Prices what is in your bag from recent sales")],
+    [Bell, pick("低价提醒", "Deal alerts"), pick("逛摊时遇到关注物品的低价货，马上提醒", "Tells you when a watched item shows up cheap")],
+    [ShoppingCart, pick("扫货", "Sweep"), pick("关注的物品出现低价，按你设的上限自动买", "Buys watched items for you when they drop under your limit")],
+    [ScanLine, pick("采集报价", "Price collection"), pick("逛摊或自动扫描时，把报价传到市集", "Sends the quotes you see to the market while you browse or scan")],
   ];
   return <>
-    <section className="stall"><div className="stall-bar"><h1>{pick("下载客户端", "Download collector")}</h1></div><div className="download-body">
-      <h2>{pick("手动逛摊、自动扫描，一个程序就够", "One app for manual collection and automatic scanning")}</h2>
-      <div className="download-actions"><a className="btn primary" href={release.url}>{pick("下载 Windows 客户端", "Download for Windows")}</a><SiteLink href="/collect/">{pick("改用浏览器采集", "Browser collector")}</SiteLink></div>
-      <p className="download-meta">{release.version} · Windows 10 / 11 64 位 · {pick(`约 ${size} MB`, `about ${size} MB`)}</p>
-    </div></section>
+    <section className="stall"><div className="stall-bar"><h1>{pick("下载客户端", "Download collector")}</h1></div><div className="download-body download-hero">
+      <div className="download-pitch">
+        <h2>{pick("刷图记录、摆摊定价、低价提醒，都在一个客户端", "Grind tracking, shop pricing and deal alerts in one client")}</h2>
+        <div className="download-actions"><a className="btn primary" href={release.url}>{pick("下载 Windows 客户端", "Download for Windows")}</a><SiteLink href="/collect/">{pick("改用浏览器采集", "Browser collector")}</SiteLink></div>
+        <p className="download-meta">{release.version} · Windows 10 / 11 64 位 · {pick(`约 ${size} MB`, `about ${size} MB`)}</p>
+      </div>
+      <div className="download-shot" aria-hidden="true">
+        <img src="/web/img/client/grind.webp" width={880} height={660} alt="" decoding="async" />
+        <img className="over" src="/web/img/client/overlay.webp" width={260} height={360} alt="" decoding="async" />
+      </div>
+    </div>
+    <ul className="download-features">{features.map(([Icon, title, body]) => <li key={title}><Icon size={20} aria-hidden="true" /><b>{title}</b><span>{body}</span></li>)}</ul>
+    </section>
     <section className="stall"><div className="stall-bar"><h2>{pick("三步开始使用", "Get started")}</h2></div><div className="download-body"><ol className="download-steps">{steps.map(([title, body]) => <li key={title}><b>{title}</b>{body}</li>)}</ol><p>{pick("自动扫描时保持游戏窗口可见，不要移动或缩放窗口。F9 可停止扫描，手动采集仍可继续使用。", "Keep the game window visible. F9 stops scanning; manual collection stays available.")}</p></div></section>
     <section className="stall"><div className="stall-bar"><h2>{pick("常见问题", "Common questions")}</h2></div><div className="download-body">
       <details><summary>{pick("多人一起扫，会重复吗？", "Will people scan the same room?")}</summary><p>{pick("每人一次领取一个洞，扫完再领下一个。暂停或断线后，任务会交给其他在线扫描器。", "Each scanner gets one room at a time and claims its next room after finishing. Paused or disconnected tasks become available to others.")}</p></details>

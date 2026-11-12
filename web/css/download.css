@@ -1,3 +1,16 @@
 .download-page{display:grid;gap:16px}.download-body{padding:16px;display:grid;gap:14px}.download-body h2{font-size:18px}.download-body p{line-height:1.65}.download-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.download-meta{font-size:13px;color:var(--ink-2)}.download-steps{margin:0;padding-left:24px;display:grid;gap:16px}.download-steps li{padding-left:4px;line-height:1.65}.download-steps b{display:block}.download-body code{overflow-wrap:anywhere}.download-body summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center;gap:8px;list-style:none}.download-body summary::-webkit-details-marker{display:none}.download-body summary::before{content:"";flex:none;border-left:6px solid currentColor;border-block:5px solid transparent}.download-body details[open]>summary::before{transform:rotate(90deg)}.download-body details p{padding:4px 0 12px}.download-page .btn{min-height:44px}.download-body ul{padding-left:22px;line-height:1.8}@media(max-width:640px){.download-body{padding:12px}.download-actions .primary{width:100%;justify-content:center}}
 
 .download-warning{border:2px solid var(--maple);padding:12px;background:var(--sheet-hi)}.download-warning p{margin:6px 0 12px}
+
+/* Hero: what the client does, next to what it looks like. */
+.download-hero{grid-template-columns:minmax(0,5fr) minmax(0,6fr);align-items:center;gap:20px 28px;padding:20px}
+.download-pitch{display:grid;gap:14px}.download-hero h2{font-size:22px;line-height:1.35}
+.download-shot{position:relative;padding:0 6% 9% 0}
+.download-shot img{display:block;width:100%;height:auto;border:2px solid var(--edge);box-shadow:4px 4px 0 rgba(0,0,0,.18)}
+.download-shot img.over{position:absolute;right:0;bottom:0;width:31%;border:0;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.download-features{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;margin:0;padding:0;list-style:none;background:var(--rule);border-top:1px solid var(--rule)}
+.download-features li{display:grid;grid-template-columns:auto minmax(0,1fr);align-content:start;gap:4px 8px;padding:14px;background:var(--sheet)}
+.download-features svg{color:var(--mark)}.download-features b{font-size:15px}
+.download-features span{grid-column:1/-1;font-size:13px;line-height:1.55;color:var(--ink-2)}
+@media (max-width:900px){.download-features{grid-template-columns:repeat(2,minmax(0,1fr))}.download-features li:last-child{grid-column:1/-1}}
+@media (max-width:720px){.download-hero{grid-template-columns:1fr;padding:16px}.download-hero h2{font-size:19px}}

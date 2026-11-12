@@ -4,7 +4,9 @@ import { mobIcon, skillIcon } from './skill-icons';
 import { RateMetrics } from './grind-metrics';
 import { HistoryView } from './grind-history';
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, Coins, Crosshair, Pause, Play, RefreshCw, Square } from 'lucide-react';
+import { AlertCircle, Coins, Crosshair, Pause, Play, RefreshCw, SlidersHorizontal, Square } from 'lucide-react';
+import { OverlayCard } from './overlay-card';
+import { sampleLive } from './overlay-sample';
 import { itemIcon, monthDay } from './format';
 import { tr } from './i18n';
 import {
@@ -216,6 +218,23 @@ const PRESETS: { key: string; zh: string; en: string; layout: GrindSettings['ove
   { key: 'full', zh: '全部', en: 'Everything', layout: 'detailed', fields: FIELDS.map(f => f[0]) },
 ];
 
+/** The overlay window's width for each shape at 100% (grind_desktop.OVERLAY_SIZES). */
+const WIDTH: Record<GrindSettings['overlay']['layout'], number> = { slim: 260, compact: 840, standard: 330, detailed: 360, rail: 140, big: 290 };
+
+/** The overlay as it will look, drawn small. */
+function OverlayPreview({ settings, layout, fields, live, scale, wide = false }: {
+  settings: GrindSettings; layout: GrindSettings['overlay']['layout']; fields: string[]; live: Live | null; scale: number; wide?: boolean;
+}) {
+  const shown = { ...settings, buff_sound: false, overlay: { ...settings.overlay, layout, fields, opacity: 1 } };
+  return <span className={'grind-preview' + (wide ? ' wide' : '')} aria-hidden="true">
+    <span style={{ width: WIDTH[layout] * scale }}><OverlayCard live={live} settings={shown} scale={scale} /></span></span>;
+}
+
+function Pick({ label, checked, onPick, wide = false, children }: { label: string; checked: boolean; onPick(): void; wide?: boolean; children: React.ReactNode }) {
+  return <div className={'grind-preset' + (wide ? ' wide' : '')} role="radio" tabIndex={0} aria-checked={checked} aria-label={label} onClick={onPick}
+    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(); } }}>{wide ? <b>{label}{children}</b> : <>{children}<b>{label}</b></>}</div>;
+}
+
 function SettingsView({ state, settings, save, refresh }: {
   state: GrindState; settings: GrindSettings; refresh(): void;
   save(changes: Partial<Omit<GrindSettings, 'overlay' | 'hotkeys'>> & { overlay?: Partial<GrindSettings['overlay']>; hotkeys?: Partial<GrindSettings['hotkeys']> }): void;
@@ -226,16 +245,21 @@ function SettingsView({ state, settings, save, refresh }: {
   // "Custom" opens the shape and field choices on top of whichever preset is in use.
   const [custom, setCustom] = useState(!preset);
   const tailoring = custom || !preset;
+  // Previews show the run being recorded, or a sample hour when there is none.
+  const [sample, setSample] = useState(sampleLive);
+  useEffect(() => { const id = setInterval(() => setSample(sampleLive()), 60_000); return () => clearInterval(id); }, []);
+  const shownLive = state.live?.runs?.length ? state.live : sample;
   return <div className="grind-settings">
     <section className="well"><div className="well-h"><h3>{tr('悬浮窗', 'Overlay')}</h3></div>
       <Check label={tr('显示悬浮窗', 'Show overlay')} checked={o.enabled} onChange={v => save({ overlay: { enabled: v } })} />
-      <div className="grind-field"><span>{tr('预设', 'Preset')}</span>
-        <div className="grind-seg" role="radiogroup" aria-label={tr('预设', 'Preset')}>
-          {PRESETS.map(p => <button key={p.key} type="button" role="radio" aria-checked={!tailoring && preset === p}
-            onClick={() => { setCustom(false); save({ overlay: { layout: p.layout, fields: p.fields } }); }}>{tr(p.zh, p.en)}</button>)}
-          <button type="button" role="radio" aria-checked={tailoring} onClick={() => setCustom(true)}>{tr('自定义', 'Custom')}</button>
-        </div></div>
+      <div className="grind-presets" role="radiogroup" aria-label={tr('预设', 'Preset')}>
+        {PRESETS.map(p => <Pick key={p.key} label={tr(p.zh, p.en)} checked={!tailoring && preset === p}
+          onPick={() => { setCustom(false); save({ overlay: { layout: p.layout, fields: p.fields } }); }}>
+          <OverlayPreview settings={settings} layout={p.layout} fields={p.fields} live={shownLive} scale={Math.min(.66, 170 / WIDTH[p.layout])} /></Pick>)}
+        <Pick wide label={tr('自定义', 'Custom')} checked={tailoring} onPick={() => setCustom(true)}><SlidersHorizontal size={15} /></Pick>
+      </div>
       {tailoring && <>
+        <OverlayPreview wide settings={settings} layout={o.layout} fields={o.fields} live={shownLive} scale={Math.min(.8, 760 / WIDTH[o.layout])} />
         <Choice label={tr('形状', 'Shape')} value={o.layout} onChange={v => save({ overlay: { layout: v } })}
           options={[['slim', '紧凑', 'Slim'], ['compact', '一行', 'Bar'], ['standard', '标准', 'Card'], ['detailed', '详细', 'Detailed'], ['rail', '竖条', 'Rail'], ['big', '大数字', 'Big']] as const} />
         <div className="grind-fields">{FIELDS.map(([key, zh, en]) => <Check key={key} label={tr(zh, en)} checked={o.fields.includes(key)}

@@ -23,6 +23,7 @@ export function RateLine({ run, kind }: { run: RunSummary; kind: 'exp' | 'net' }
   return <div className="rate-line" aria-label={kind === 'exp' ? tr('经验', 'EXP') : tr('金币净收益', 'Net mesos')}>
     {kind === 'exp' ? <Sparkles size={13} /> : <MesosIcon size={13} />}
     <b className="gold">{big(minute ?? average)}</b><small>{tr('/时', '/h')}</small>
+    {minute != null && average ? <i className={'rate-trend ' + (minute >= average ? 'up' : 'down')}>{minute >= average ? '▲' : '▼'}</i> : null}
     <span className="dim">{tr('平均', 'avg')} {big(average)}</span>
     {values.length > 1 && <svg className="rate-spark" viewBox="0 0 60 16" preserveAspectRatio="none" aria-hidden="true">
       <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.4" vectorEffect="non-scaling-stroke" /></svg>}
