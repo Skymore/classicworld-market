@@ -20,6 +20,7 @@ import uuid
 from pathlib import Path
 
 import grind_protocol as proto
+import grind_combat as combat
 from grind_data import exp_to_next, job_name
 from grind_skills import SKILLS, skill_name
 
@@ -29,7 +30,7 @@ DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, 
                 hotkeys=dict(overlay='Ctrl+Alt+O', pause='Ctrl+Alt+P', end='Ctrl+Alt+E', edit='Ctrl+Alt+M'),
                 overlay=dict(enabled=True, layout='standard', theme='dark', opacity=0.92, scale=1.0, click_through=True,
                              hide_in_capture=False, x=None, y=None,
-                             fields=['time', 'exp_rate', 'level', 'profit', 'buffs', 'recent', 'potions']))
+                             fields=['time', 'exp_rate', 'level', 'profit', 'dps', 'buffs', 'recent', 'potions']))
 IDLE_CREDIT = 10
 # Final Attack re-applies a 60 s marker on nearly every hit; it is not a buff to watch.
 PASSIVE_BUFFS = {k for k, (_, en) in SKILLS.items() if en.startswith('Final Attack')}
@@ -125,6 +126,7 @@ class Run:
         self.hp_drops = 0
         self.attacks = collections.Counter()   # skill ID (0 = plain attack) -> attacks
         self.casts = collections.Counter()     # skill ID -> casts
+        self.combat = combat.Meter()
         self.gaps = 0
         self.level_start = character.get('level')
 
@@ -151,6 +153,7 @@ class Run:
                     exp_events=self.exp_events[-2000:], deaths=self.deaths, exp_lost=self.exp_lost, gaps=self.gaps,
                     hp_lost=self.hp_lost, hp_drops=self.hp_drops,
                     attacks={str(k): v for k, v in self.attacks.items() if v}, casts={str(k): v for k, v in self.casts.items() if v},
+                    combat=self.combat.to_json(),
                     level_start=self.level_start)
 
     @classmethod
@@ -162,6 +165,7 @@ class Run:
         run.exp_events = [tuple(e) for e in data.get('exp_events') or []]
         run.attacks = collections.Counter({int(k): v for k, v in (data.get('attacks') or {}).items()})
         run.casts = collections.Counter({int(k): v for k, v in (data.get('casts') or {}).items()})
+        run.combat = combat.Meter(data.get('combat'))
         run.segments = [Segment.from_json(s) for s in data.get('segments') or []]
         return run
 
@@ -196,6 +200,9 @@ class Character:
         self.pending_uses = collections.deque(maxlen=256)
         self.bag_slots = None
         self.client_seen = False
+        self.party = None
+        self.kill_owners = {}
+        self.staged_combat = []
         self.run = None
 
     def facts(self):
@@ -302,6 +309,9 @@ class Tracker:
                 character.uses.append([self.now(), item, 1, slot])
                 self.match_uses(character, self.now())
         action = proto.client_action(index, data, self.profile.get('client') or {})
+        if action and action[0] == 'attack':
+            damage = combat.attack(data, index)
+            self.combat_attack(character, character.character_id, damage, self.now(), own=True)
         run = character.run if character else None
         if action and run and run.status == 'active':
             run.attacks[action[1]] += 1 if action[0] == 'attack' else 0
@@ -339,6 +349,11 @@ class Tracker:
         character.hit.clear()
         character.mobs.clear()
         character.staged_kills = []
+        character.kill_owners.clear()
+        character.staged_combat.clear()
+        if character.run:
+            for row in character.run.combat.players.values():
+                row['events'].clear()
         self.dirty = True
 
     def adopt_by_key(self, character):
@@ -415,6 +430,16 @@ class Tracker:
         self.gain(character, now, exp=gain)
 
     def other(self, character, data, now):
+        op = proto.opcode(data)
+        if op == combat.PARTY:
+            self.party_update(character, data)
+            return
+        if op in combat.REMOTE_ATTACKS:
+            actor = proto.u32(data, 2)
+            # Own attacks are counted from the client direction only.
+            if actor != character.character_id:
+                self.combat_attack(character, actor, combat.attack(data), now)
+            return
         mob = proto.spawned(data, self.profile.get('spawn') or {})
         if mob:
             character.mobs[mob[0]] = mob[1]
@@ -423,6 +448,16 @@ class Tracker:
                     del character.mobs[old]
             return
         kill = self.profile.get('kill') or {}
+        owner = kill.get('owner') or {}
+        if op == owner.get('opcode'):
+            oid, actor = proto.u32(data, owner.get('offset', 2)), proto.u32(data, owner.get('char_offset', 6))
+            if oid is not None and actor is not None:
+                character.kill_owners[oid] = (now, actor)
+                if len(character.kill_owners) > 4000:
+                    for old in list(character.kill_owners)[:2000]:
+                        del character.kill_owners[old]
+                if actor != character.character_id:
+                    character.hit.pop(oid, None)
         oid = proto.hit_by(data, kill, character.character_id)
         if oid is not None:
             character.hit[oid] = now
@@ -433,6 +468,14 @@ class Tracker:
         oid = proto.death(data, kill)
         if oid is not None:
             # Only mobs this character hit count; other players' kills do not.
+            attribution = character.kill_owners.pop(oid, None)
+            if attribution and 0 <= now - attribution[0] <= 120:
+                self.health['attributed_kills'] += 1
+                actor = attribution[1]
+                member = (character.party or {}).get(actor)
+                me = (character.party or {}).get(character.character_id)
+                if member and actor != character.character_id and (not me or member['channel'] == me['channel']):
+                    self.combat_event(character, dict(t=now, actor=actor, name=member['name'], own=False, kill=True), now)
             mob = character.mobs.pop(oid, None)
             if character.hit.pop(oid, None) is not None:
                 self.health['kills'] += 1
@@ -465,6 +508,55 @@ class Tracker:
             if source < 0:
                 self.prices.want([-source])
             self.dirty = True
+
+    def party_update(self, character, data):
+        kind = data[2] if len(data) > 2 else None
+        if kind in (0x0D, 0x10, 0x13):
+            character.party = combat.party(data, character.character_id)
+        elif kind == 0x2A and len(data) == 16 and data[3] == 1:
+            actor, field = proto.u32(data, 4), proto.u32(data, 8)
+            if field == 3 and actor in (character.party or {}):
+                character.party[actor]['channel'] = int.from_bytes(data[12:16], 'little', signed=True)
+            else:
+                character.party = None
+        elif kind not in (0x03, 0x22):  # invitation / leader change do not change the roster
+            character.party = None
+        if character.run and character.party:
+            for actor, member in character.party.items():
+                character.run.combat.player(actor, member['name'], actor == character.character_id)
+        self.dirty = True
+
+    def combat_attack(self, character, actor, damage, now, own=False):
+        if actor is None:
+            return
+        member = (character.party or {}).get(actor)
+        if not own and member is None:
+            return
+        me = (character.party or {}).get(character.character_id)
+        if not own and me and member['channel'] != me['channel']:
+            return
+        name = character.name if own else member['name']
+        self.combat_event(character, dict(t=now, actor=actor, name=name, own=own,
+                                         targets=damage['targets'] if damage is not None else None), now)
+
+    def combat_event(self, character, event, now):
+        run = character.run
+        if run and run.status == 'active':
+            self.apply_combat(run, event)
+            self.dirty = True
+        elif not (run and run.pause_reason == 'manual'):
+            window = self.settings['start_window']
+            character.staged_combat = [e for e in character.staged_combat if now - e['t'] <= window][-1999:] + [event]
+
+    @staticmethod
+    def apply_combat(run, event):
+        actor, name, own = event['actor'], event['name'], event['own']
+        if event.get('kill'):
+            run.combat.kill(actor, name, own)
+        elif event['targets'] is None:
+            run.combat.player(actor, name, own)['partial'] = True
+        else:
+            run.combat.damage(actor, name, own, event['targets'], event['t'], run.active_seconds(event['t']))
 
     def inventory(self, character, inventory, now, rebase=False):
         bags = bag_totals(inventory)
@@ -683,11 +775,15 @@ class Tracker:
                 run.segment.kills += 1
                 if mob:
                     run.segment.mobs[mob] += 1
+        for event in character.staged_combat:
+            if event['t'] >= first - 2:
+                self.apply_combat(run, event)
         run.credit(now)
         character.arming.clear()
         character.staged.clear()
         character.staged_exp = []
         character.staged_kills = []
+        character.staged_combat = []
         self.dirty = True
 
     def pause(self, run, reason, now):
@@ -751,7 +847,8 @@ class Tracker:
         """The built-in layouts stopped matching (a game update): record again."""
         h = self.health
         return (h['exp_messages'] >= 30 and h['exp_updates'] < h['exp_messages'] * 0.5) or \
-            ((self.profile.get('kill') or {}).get('confirmed') and h['exp_messages'] >= 30 and h['kills'] == 0)
+            ((self.profile.get('kill') or {}).get('confirmed') and h['exp_messages'] >= 30
+             and h['kills'] == 0 and h['attributed_kills'] == 0)
 
     def tick(self):
         now = self.now()
@@ -872,6 +969,14 @@ class Tracker:
             consumables.append(dict(item_id=item, name=self.name(item), used=count, remaining=remaining,
                                     per_hour=per_hour, minutes_left=(remaining / per_hour * 60) if remaining is not None and per_hour else None))
         notable = self.settings['notable_value']
+        if character and character.character_id is not None:
+            run.combat.player(character.character_id, character.name, True)
+            for actor, member in (character.party or {}).items():
+                run.combat.player(actor, member['name'], actor == character.character_id)
+        combat_rows = run.combat.rows(now, active, run.started_at, run.status == 'active',
+                                     character.character_id if character else None, kills,
+                                     character.party if character else None)
+        own_combat = next((r for r in combat_rows if r['self']), {})
         recent_rows = [dict(t=e['t'], kind=e['kind'], item_id=e.get('item_id'), name=self.name(e.get('item_id')),
                             quantity=e.get('quantity'), unit=unit, basis=label, value=amount,
                             stats=(e.get('piece') or {}).get('stats'), notable=e['kind'] == 'loot' and amount >= notable)
@@ -896,6 +1001,9 @@ class Tracker:
             mobs=[dict(mob_id=m, kills=k, name=(self.prices.mob(m) or {}).get('name') or f'#{m}') for m, k in mobs.most_common()],
             hp_lost=run.hp_lost, hp_drops=run.hp_drops,
             attack_count=sum(run.attacks.values()),
+            damage=own_combat.get('damage'), dps=own_combat.get('dps'),
+            average_dps=own_combat.get('average_dps'), combat=combat_rows,
+            party_known=character.party is not None if character else None,
             attacks=[dict(skill=k, name=skill_name(k) if k else '普通攻击', count=v) for k, v in run.attacks.most_common() if v],
             casts=[dict(skill=k, name=skill_name(k), count=v) for k, v in run.casts.most_common() if v],
             buffs=self.buffs(character, now),

@@ -7,6 +7,13 @@ body{font:12px/1.35 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;color:#
 .ov-compact{display:flex;align-items:center;padding:.35em .7em}
 .ov-line{display:flex;align-items:center;gap:.9em;white-space:nowrap}
 .ov-line small{opacity:.65}
+.ov-compact{flex-direction:column;align-items:stretch;justify-content:center}
+.ov-team{margin-top:.5em;border-top:1px solid currentColor;padding-top:.3em}
+.ov-team-row{display:grid;grid-template-columns:minmax(0,1fr) 5em 3.5em;gap:.4em;padding:.15em 0;text-align:right}
+.ov-team-row>span:first-child{text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ov-team-row.own{font-weight:700}
+.ov-rail .ov-team-row{grid-template-columns:1fr 1fr;gap:.1em}
+.ov-rail .ov-team-row>span:first-child{grid-column:1/-1}
 .ov-lv{display:none}
 .ov-dot{display:inline-block;flex:none;width:.6em;height:.6em;background:#8b8f96;border-radius:1px}
 .ov-dot.on{background:#53c78b}.ov-dot.pause{background:#e4b24c}

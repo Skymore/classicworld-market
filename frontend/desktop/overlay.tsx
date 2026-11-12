@@ -2,7 +2,7 @@
 // it polls window.pywebview.api.state() and never takes focus.
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Clock3, Coins, FlaskConical, Hourglass, Sparkles, Swords, TrendingUp, Zap } from 'lucide-react';
+import { Clock3, Coins, Crosshair, FlaskConical, Hourglass, Sparkles, Swords, TrendingUp, Zap } from 'lucide-react';
 import { itemIcon } from './format';
 import './overlay.css';
 import { applyLanguage, tr } from './i18n';
@@ -82,21 +82,28 @@ function Overlay() {
     <div className={'ov-loot' + (row.notable ? ' notable' : '')} key={i}><span><img src={itemIcon(row.item_id)} alt="" />{row.name}{row.quantity > 1 ? ` ×${row.quantity}` : ''}
       {row.stats?.length ? <small> {statLine(row.stats)}</small> : null}</span><b>{big(row.value)}</b></div>);
   const potionChip = potion && <span className={low ? 'warn' : ''}><img src={itemIcon(potion.item_id)} alt="" /><b>{potion.remaining ?? '—'}</b></span>;
-  if (o.layout === 'compact') return box(<div className="ov-line">{dot}
+  const party = show('party') && !!run.combat?.length && <div className="ov-team" aria-label={tr('队伍战斗统计', 'Party combat')}>
+    <div className="ov-team-row dim"><span>{tr('同图队伍', 'Party')}</span><span>DPS</span><span>{tr('击杀', 'Kills')}</span></div>
+    {run.combat.slice(0, 6).map(row => <div className={'ov-team-row' + (row.self ? ' own' : '')} key={row.character_id}>
+      <span>{row.name || '—'}</span><b>{big(row.dps)}</b><span>{big(row.kills)}</span>
+    </div>)}</div>;
+  if (o.layout === 'compact') return box(<><div className="ov-line">{dot}
     {show('time') && <span><Clock3 size={I} style={ico} /><b>{clock(run.active_seconds)}</b></span>}
     {show('exp_rate') && <span><Sparkles size={I} style={ico} /><b>{big(rate)}</b></span>}
     {show('level') && <span><TrendingUp size={I} style={ico} />{percent(run.exp_percent, 1)}</span>}
     {show('profit') && <span className="gold"><Coins size={I} style={ico} /><b>{big(run.net_per_hour)}</b></span>}
     {show('kills') && <span><Swords size={I} style={ico} />{big(run.kills_per_hour)}</span>}
+    {show('dps') && <span title="DPS · 30s"><CrosshairIcon /><b>{big(run.dps)}</b><small>DPS</small></span>}
     {show('potions') && potionChip}
     {show('buffs') && <Buffs live={live} settings={settings} icons />}
-    {toast && <span className="ov-toast-inline"><img src={itemIcon(toast.item_id)} alt="" />{big(toast.value)}</span>}</div>);
+    {toast && <span className="ov-toast-inline"><img src={itemIcon(toast.item_id)} alt="" />{big(toast.value)}</span>}</div>{party}</>);
   if (o.layout === 'big') return box(<>
     <div className="ov-nums"><span><Sparkles size={I} style={ico} /><b>{big(rate)}</b></span>
       <span className="gold"><Coins size={I} style={ico} /><b>{big(run.net_per_hour)}</b></span></div>
+    {show('dps') && <div className="ov-row"><CrosshairIcon /><b>{big(run.dps)}</b><span className="dim">DPS · 30s</span></div>}
     {show('level') && <div className="ov-row">{level}</div>}
     {show('buffs') && <Buffs live={live} settings={settings} icons />}
-    {toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}</>);
+    {party}{toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}</>);
   if (o.layout === 'rail') return box(<>
     <div className="ov-cell">{dot}<b>{clock(run.active_seconds)}</b></div>
     {show('exp_rate') && <div className="ov-cell"><Sparkles size={I} style={ico} /><b className="big">{big(rate)}</b></div>}
@@ -104,9 +111,10 @@ function Overlay() {
     {show('level') && <div className="ov-cell dim"><Hourglass size={I} style={ico} />{duration(run.eta_seconds)}</div>}
     {show('profit') && <div className="ov-cell gold"><Coins size={I} style={ico} /><b>{big(run.net_per_hour)}</b></div>}
     {show('kills') && <div className="ov-cell"><Swords size={I} style={ico} />{big(run.kills)}</div>}
+    {show('dps') && <div className="ov-cell"><CrosshairIcon /><b>{big(run.dps)}</b><small>DPS</small></div>}
     {show('potions') && potion && <div className={'ov-cell' + (low ? ' warn' : '')}><img src={itemIcon(potion.item_id)} alt="" />{potion.remaining ?? '—'}</div>}
     {show('buffs') && <Buffs live={live} settings={settings} icons />}
-    {toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" /><b>{big(toast.value)}</b></div>}</>);
+    {party}{toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" /><b>{big(toast.value)}</b></div>}</>);
   const detailed = o.layout === 'detailed';
   return box(<>
     <div className="ov-head">{dot}<b className="ov-lv">Lv.{run.level ?? '—'}</b><span>{mapLabel(run)}</span>
@@ -114,6 +122,7 @@ function Overlay() {
     {show('exp_rate') && <div className="ov-row"><Sparkles size={I} style={ico} /><b className="big">{big(rate)}</b>
       <span className="dim">{detailed && <>1m {big(run.exp_per_hour_1m)} · </>}⌀ {big(run.exp_per_hour)}</span></div>}
     {show('level') && <div className="ov-row">{level}</div>}
+    {show('dps') && <div className="ov-row"><CrosshairIcon /><b className="big">{big(run.dps)}</b><span className="dim">DPS · 30s</span></div>}
     {show('profit') && <div className="ov-row"><Coins size={I} style={ico} /><b className="gold big">{big(run.net_per_hour)}</b>
       <span className="dim">{detailed ? <>Σ {big(run.net)} · </> : null}+{big(run.mesos + run.item_value)} −{big(run.consume_cost + run.mesos_spent)}</span></div>}
     {(show('kills') || detailed) && <div className="ov-row"><Swords size={I} style={ico} /><b>{big(run.kills)}</b>
@@ -123,7 +132,9 @@ function Overlay() {
         <img src={itemIcon(c.item_id)} alt="" /><b>{c.remaining ?? '—'}</b>{c.minutes_left != null && <small> {Math.round(c.minutes_left)}′</small>}</span>)}</div>}
     {show('buffs') && <Buffs live={live} settings={settings} />}
     {show('recent') && loot(detailed ? 6 : 2)}
+    {party}
     {toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}
   </>);
 }
+function CrosshairIcon() { return <Crosshair size={I} style={ico} />; }
 createRoot(document.getElementById('root')!).render(<Overlay />);

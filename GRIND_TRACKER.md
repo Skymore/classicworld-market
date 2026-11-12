@@ -8,6 +8,7 @@
 |---|---|---|
 | 记录引擎 | `grind_tracker.py` | 抓包进程，读取 `market_passive.Collector` 已解密的服务端报文 |
 | 协议配置 | `grind_protocol.py` | 引擎读取 `captures/grind/protocol.json` |
+| 伤害与队伍 | `grind_combat.py` | 双向攻击、队伍名单解析与战斗统计，只保存在本机 |
 | 自动标定 | `grind_calibrate.py` | 桌面进程后台运行，读取本机录下的报文 |
 | 报文录制 | `grind_frames.py` | 抓包进程，只在标定完成前录，只存本机 |
 | 估价 | `grind_pricing.py` | 抓包进程，向网站 `/api/v1/grind/prices` 取价并缓存 |
@@ -100,6 +101,19 @@
 
 受伤报文（被哪只怪、哪种攻击、多少伤害）样本只有一次，尚未识别，`client` 一节保持未确认并继续录制。
 
+### 自己与队友的 DPS、击杀
+
+v0.7.15 刷图页“战斗统计”显示角色、近 30 秒 DPS、总伤害和击杀数；自己的卡片还显示平均 DPS。数据只来自当前地图本机收到的报文，远处或其他地图的队友伤害不可见，不是全服或跨地图统计。离队、换频道的旧成员保留累计值并标“离开”，不再追加。
+
+- 伤害按已解析的直接攻击报文求和，支持多目标、多段、暴击与 0 伤害，包含溢出伤害，不代表实际扣除的怪物 HP；召唤物、持续伤害和反伤尚未标定，不计入。DPS 不拿攻击次数或怪物血量推算。30 秒窗口不足时使用已观测秒数；平均值按该角色首次收到伤害报文后的有效刷图时长计算。暂停不显示实时 DPS。解析不完整时显示累计下限并隐藏 DPS。
+- 自己读客户端攻击（映射序号 26、27），服务端重复广播自己的攻击不重复计；自己的魔法攻击布局尚无实录验证，显示未知。队友读服务端近战、远程、魔法广播 `0x2A8/0x2A9/0x2AA`，只接纳 `0xA7` 队伍名单中的成员，不把同图路人算成队友。
+- 击杀按 `0x44D` 服务端归属加 `0x3D4` 死亡配对，每个怪物对象只算一次，不按谁参与攻击推定。自己的原有按怪物分类、缺少角色快照时按经验估算仍保留。
+- `0xA7` 的刷新、加入、离开包含完整队伍信息；变长外观块中只读取经过包头、尾部、唯一自身身份和成员核心字段校验的名单。`0x2A` 成员字段 3 更新频道。未知队伍布局停止接纳队友攻击，等下一次快照。
+
+2026-11-12 本机组队实录核对：2,118 条自己攻击、14,583 条他人攻击全部通过完整长度和多段结构校验，36 份队伍快照均可读取；4,218 次可观测怪物死亡的累计伤害达到图鉴 HP，另 158 次存在观测缺段，未补造伤害。所有这些数量是发布前样本，不是运行时硬编码。代码与测试只提交合成数据，不提交角色名和实录。
+
+队伍名单、逐人伤害、DPS 和逐人击杀只保存在本机状态及历史，不增加网站上传字段。升级已有记录从首次观测伤害时开始计时，不把升级前的刷图时长当作 0 伤害。更新后换一次频道同步双向报文和队伍；悬浮窗设置中勾选“DPS”“队伍战斗”，原有自选字段不被强制覆盖。
+
 录制文件在 `captures/grind/frames/`，单个 48 MiB 轮换、总量 384 MiB 上限，只在本机，不上传，不进安装包。离线查看：`python grind_calibrate.py captures/grind/frames`。
 
 ## 悬浮窗
@@ -119,7 +133,7 @@
 ## 测试
 
 ```bash
-PYTHONPATH=scanner python -m unittest test_grind_tracker test_grind_calibrate test_grind_desktop test_grind_live test_grind_items
+PYTHONPATH=scanner python -m unittest test_grind_tracker test_grind_calibrate test_grind_desktop test_grind_live test_grind_items test_grind_combat
 cargo test -p market-web --test grind
 ```
 

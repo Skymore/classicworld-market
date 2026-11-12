@@ -179,7 +179,13 @@ button:hover:not(:disabled){filter:brightness(.96)}button:disabled{opacity:.48;c
 .grind-empty{margin:24px 0;text-align:center;color:var(--ink-2)}.grind-empty .note{display:inline-block}
 .grind-who{display:flex;align-items:baseline;gap:12px;font-size:13px;color:var(--ink-2)}.grind-who b{font-size:16px;color:var(--ink)}
 .grind-who .warn{color:var(--maple-ink)}.grind-who .note{margin:0;padding:1px 6px;font-size:11px}
-.grind-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.grind-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.grind-combat table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.grind-combat th,.grind-combat td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--rule)}
+.grind-combat th:first-child,.grind-combat td:first-child{text-align:left}
+.grind-combat th{font-size:11px;font-weight:500;color:var(--ink-3)}
+.grind-combat td small{margin-left:6px;color:var(--ink-3)}
+.grind-combat tr[data-self] td{font-weight:650}
 .grind-tile{display:flex;flex-direction:column;gap:2px;padding:10px 12px;background:var(--sheet-hi);border:1px solid var(--edge);box-shadow:inset 1px 1px 0 var(--bevel-hi);min-width:0}
 .grind-tile small{font-size:11px;color:var(--ink-3)}.grind-tile b{font-size:22px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .grind-tile span{font-size:11px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

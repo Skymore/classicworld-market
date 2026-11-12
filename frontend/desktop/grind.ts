@@ -8,6 +8,10 @@ export interface LootRow {
 }
 export interface Consumable { item_id: number; name: string | null; used: number; remaining: number | null; per_hour: number | null; minutes_left: number | null }
 export interface Buff { source: number; name: string | null; seconds: number; total: number; item_id: number | null }
+export interface CombatRow {
+  character_id: number; name: string | null; self: boolean; away: boolean; partial: boolean;
+  damage: number | null; dps: number | null; average_dps: number | null; kills: number; hits: number;
+}
 export interface Segment { map_id: number; level: number | null; job: number | null; started_at: number; active_seconds: number; exp: number; kills: number; mesos: number }
 export interface RunSummary {
   id: string; status: 'active' | 'paused' | 'ended'; pause_reason: string | null;
@@ -24,6 +28,8 @@ export interface RunSummary {
   mobs: { mob_id: number; kills: number; name: string }[]; segments: Segment[];
   buffs: Buff[]; hp_lost: number; hp_drops: number;
   attack_count: number; attacks: { skill: number; name: string; count: number }[]; casts: { skill: number; name: string; count: number }[];
+  damage?: number | null; dps?: number | null; average_dps?: number | null;
+  combat?: CombatRow[]; party_known?: boolean | null;
 }
 export interface Live {
   alive_at: number; stale: boolean; runs: RunSummary[]; finished: RunSummary[]; recording: boolean;

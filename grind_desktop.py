@@ -168,6 +168,14 @@ class GrindService:
 
     def overlay_size(self, overlay):
         width, height = OVERLAY_SIZES.get(overlay['layout'], OVERLAY_SIZES['standard'])
+        fields = overlay.get('fields') or []
+        if 'dps' in fields:
+            if overlay['layout'] == 'compact':
+                width += 110
+            else:
+                height += 30
+        if 'party' in fields:
+            height += 270 if overlay['layout'] == 'rail' else 165
         scale = min(2.0, max(0.6, float(overlay['scale'] or 1)))
         return int(width * scale), int(height * scale)
 

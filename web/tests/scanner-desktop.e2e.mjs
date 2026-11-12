@@ -101,7 +101,7 @@ try {
     await page.getByRole('button',{name:'立即终止',exact:true}).click();
     assert.equal(await page.getByRole('region',{name:'远程调试已授权'}).count(),0);
     const tabs=page.getByRole('navigation',{name:'功能'});
-    assert.deepEqual(await tabs.getByRole('button').allInnerTexts(),['价格表','图鉴','关注','工具','扫描采集','扫货','账号'],'website sections, then the collector-only tabs');
+    assert.deepEqual(await tabs.getByRole('button').allInnerTexts(),['首页','图鉴','关注','摆摊','工具','扫描采集','刷图','扫货','账号'],'website sections, then the collector-only tabs');
     assert.equal(await page.locator('.desktop-tabs,.theme-switch,.page-heading').count(),0,'old second tab row, theme switch and slogan are gone');
     const header=await page.locator('header').boundingBox();assert.equal(header.height,56);
     assert((await tabs.boundingBox()).y<header.y+header.height,'tabs sit in the header');
@@ -148,7 +148,9 @@ try {
     assert.equal(await page.locator('.scan-panel .phase').innerText(),'已停止 · 手动采集中');
     assert.equal(await page.locator('.metrics>div').first().locator('strong').innerText(),'1,286家');
     await tabs.getByRole('button',{name:'账号',exact:true}).click();
-    await page.getByRole('heading',{name:'登录枫叶市集',exact:true}).waitFor();
+    // The account now lives in the embedded site; its real page and bridge
+    // are covered by desktop-workspace.e2e.mjs. This shell fixture has no URL.
+    await page.getByText('正在打开账号…',{exact:true}).waitFor();
     await tabs.getByRole('button',{name:'扫描采集',exact:true}).click();
     await page.getByRole('button',{name:'手动逛摊',exact:true}).click();
     await page.getByText('按你的节奏逛摊').waitFor();

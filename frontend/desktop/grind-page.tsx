@@ -96,6 +96,8 @@ function LiveView({ run, live }: { run: RunSummary | null; live: GrindState['liv
         note={tr(`本次 ${big(run.net)}`, `total ${big(run.net)}`)} />
       <Tile label={run.kills_estimated ? tr('击杀（按经验）', 'Kills (by EXP)') : tr('击杀', 'Kills')} value={big(run.kills)}
         note={tr(`${big(run.kills_per_hour)}/时`, `${big(run.kills_per_hour)}/h`) + (run.deaths ? tr(` · 死亡 ${run.deaths}`, ` · ${run.deaths} deaths`) : '')} />
+      <Tile strong label={tr('DPS · 近30秒', 'DPS · last 30s')} value={big(run.dps)}
+        note={tr(`平均 ${big(run.average_dps)}`, `avg ${big(run.average_dps)}`)} />
     </div>
     <div className="grind-ledger">
       <span>{tr('金币', 'Mesos')} <b>+{big(run.mesos)}</b></span>
@@ -105,6 +107,16 @@ function LiveView({ run, live }: { run: RunSummary | null; live: GrindState['liv
       <span className="net">{tr('净收益', 'Net')} <b>{big(run.net)}</b></span>
       <span>{tr('经验', 'EXP')} <b>{big(run.exp)}</b></span>
     </div>
+    {!!run.combat?.length && <section className="well grind-combat" aria-label={tr('队伍战斗统计', 'Party combat')}>
+      <div className="well-h"><h3>{tr('战斗统计', 'Combat')}</h3><small>{tr('同图可见范围', 'Visible in this map')}</small></div>
+      <table><thead><tr><th>{tr('角色', 'Player')}</th><th>DPS · 30s</th><th>{tr('总伤害', 'Damage')}</th><th>{tr('击杀', 'Kills')}</th></tr></thead>
+        <tbody>{run.combat.map(row => <tr key={row.character_id} data-self={row.self || undefined}>
+          <td>{row.name || '—'}{row.self && <small>{tr('你', 'You')}</small>}{row.away && <small>{tr('离开', 'Away')}</small>}
+            {row.partial && <small className="warn">{tr('数据不完整', 'Partial data')}</small>}</td>
+          <td>{big(row.dps)}</td><td>{big(row.damage)}{row.partial && row.damage != null ? '+' : ''}</td><td>{big(row.kills)}</td>
+        </tr>)}</tbody></table>
+      {run.party_known === false && <p className="note">{tr('等待队伍数据，换一次频道后同步。', 'Waiting for party data. Change channel to sync.')}</p>}
+    </section>}
     <div className="grind-grid">
       <section className="well">
         <div className="well-h"><h3>{tr('最近拾取', 'Recent loot')}</h3></div>
@@ -215,7 +227,8 @@ function BuffStrip({ live, warn }: { live: Live | null; warn: number }) {
 const FIELDS: [string, string, string][] = [
   ['time', '时长', 'Time'], ['exp_rate', '经验/时', 'EXP/h'], ['level', '等级进度', 'Level'], ['profit', '收益', 'Profit'],
   ['buffs', 'Buff 倒计时', 'Buffs'],
-  ['kills', '击杀', 'Kills'], ['recent', '最近拾取', 'Loot'], ['potions', '药水剩余', 'Potions'],
+  ['kills', '击杀', 'Kills'], ['dps', 'DPS', 'DPS'], ['party', '队伍战斗', 'Party combat'],
+  ['recent', '最近拾取', 'Loot'], ['potions', '药水剩余', 'Potions'],
 ];
 
 function SettingsView({ state, settings, save, refresh }: {
