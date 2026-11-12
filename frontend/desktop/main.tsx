@@ -10,7 +10,10 @@ import GrindPage from './grind-page';
 import BugReport from './bug-report';
 import { RemoteDebugTools, RemoteDebugBanner } from './remote-debug';
 import SitePage, { SITE_LABELS, type HostShell, type SitePageKey, type WatchSummary } from './site-page';
-import { applyLanguage, language as currentLanguage, systemLanguage, tr, type Lang, type LangChoice } from './i18n';
+import korean from '../../server/crates/market-web/src/i18n/ko.json';
+import { installKorean, applyLanguage, language as currentLanguage, systemLanguage, tr, type Lang, type LangChoice } from './i18n';
+installKorean(korean);
+applyLanguage('system');
 import { updateLabel } from './format';
 import { healthLabel, initial, isLive, type State, type Theme } from './state';
 

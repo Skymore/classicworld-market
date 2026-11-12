@@ -3,11 +3,11 @@
 // Korean comes from the site's dictionary, keyed by the Chinese text.
 // @ts-expect-error The website's plain JS module has no declaration file.
 import { koText, useKorean } from '../../web/js/lib/ko-text.js';
-import korean from '../../server/crates/market-web/src/i18n/ko.json';
 
 export type Lang = 'zh' | 'en' | 'ko';
 export type LangChoice = Lang | 'system';
-useKorean(korean);
+/** The client windows bundle the dictionary (the website loads its own on demand). */
+export const installKorean = (dictionary: unknown) => useKorean(dictionary);
 
 /** The system language; Chinese when Windows names none of zh / en / ko first. */
 export function systemLanguage(): Lang {
@@ -32,7 +32,12 @@ export function applyLanguage(choice: LangChoice | undefined): Lang {
   (globalThis as any).cwmKorean = current === 'ko' ? koText : null;
   return current;
 }
-applyLanguage('system');
+
+/** The language of tr() only, without touching the page: the website shows the
+ * live view inside its own pages, whose language and Korean hook it manages itself. */
+export function setTextLanguage(lang: Lang) {
+  current = lang;
+}
 
 /** `tr("中文", "English")`: the text for the window's language (Korean falls back to English). */
 export const tr = (zh: string, en: string): string =>

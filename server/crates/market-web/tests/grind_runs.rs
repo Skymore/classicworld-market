@@ -178,6 +178,16 @@ async fn live_runs_reach_only_the_linked_account_and_clear_when_empty() {
     assert_eq!(live[0]["status"], "active");
     assert!(live[0]["live_at"].as_f64().unwrap() > now - 60.0);
     assert_eq!(grind_runs::live_of(&db.pool, them).await.unwrap(), json!([]));
+    // A watch link opens the open run without signing in, and only while it stays open.
+    let run_id = "c".repeat(32);
+    assert_eq!(grind_runs::live_share_code(&db.pool, them, &run_id).await.unwrap(), None);
+    let code = grind_runs::live_share_code(&db.pool, me, &run_id).await.unwrap().unwrap();
+    assert_eq!(code.len(), 16);
+    assert_eq!(grind_runs::live_share_code(&db.pool, me, &run_id).await.unwrap(), Some(code.clone()));
+    let (watched, _) = grind_runs::watch_run(&db.pool, &code).await.unwrap().unwrap();
+    assert_eq!(watched["id"], json!(run_id));
+    assert!(grind_runs::watch_run(&db.pool, "x").await.unwrap().is_none());
     assert_eq!(grind_runs::store_live(&db.pool, mine.id, &[], now).await.unwrap(), 0);
     assert_eq!(grind_runs::live_of(&db.pool, me).await.unwrap(), json!([]));
+    assert!(grind_runs::watch_run(&db.pool, &code).await.unwrap().is_none());
 }

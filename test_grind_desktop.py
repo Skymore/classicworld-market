@@ -94,6 +94,10 @@ class ServiceTest(unittest.TestCase):
         self.assertFalse(styles & WS_EX_TOOLWINDOW, 'stream software leaves tool windows out of its window list')
         self.assertTrue(styles & WS_EX_NOACTIVATE and styles & 0x8)
         self.assertFalse(styles & 0x20, 'the overlay takes the mouse so it can be dragged')
+        streaming = overlay_styles(WS_EX_TOOLWINDOW, stream=True)
+        self.assertTrue(streaming & WS_EX_APPWINDOW, 'Alt+Tab lists, and the stream tools that copy them, need it')
+        self.assertTrue(streaming & WS_EX_NOACTIVATE)
+        self.assertFalse(streaming & WS_EX_TOOLWINDOW)
 
 
 if __name__ == '__main__':

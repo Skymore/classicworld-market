@@ -43,7 +43,7 @@ export interface Live {
 }
 export interface OverlaySettings {
   enabled: boolean; layout: 'slim' | 'compact' | 'standard' | 'detailed' | 'rail' | 'big'; theme: 'dark' | 'market' | 'cute' | 'maple'; opacity: number; scale: number;
-  hide_in_capture: boolean; x: number | null; y: number | null; fields: string[];
+  hide_in_capture: boolean; stream?: boolean; x: number | null; y: number | null; fields: string[];
 }
 export interface GrindSettings {
   enabled: boolean; record_frames: boolean; upload: boolean; idle_seconds: number; end_after_seconds: number;
@@ -59,7 +59,7 @@ export interface GrindState {
 }
 
 type Api = { grind?(name: string, value?: unknown): Promise<any>; state?(): Promise<any>; scale?(value: number): Promise<number>; fit?(height: number): Promise<unknown> };
-const api = () => (window.pywebview?.api ?? null) as Api | null;
+const api = () => ((window as { pywebview?: { api?: Api } }).pywebview?.api ?? null) as Api | null;
 export const grind = (name: string, value?: unknown) => {
   const bridge = api();
   if (!bridge?.grind) return Promise.reject(new Error('unavailable'));

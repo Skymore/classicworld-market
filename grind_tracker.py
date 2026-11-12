@@ -30,7 +30,7 @@ DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, 
                 count_mesos_spent=True, min_upload_seconds=300, buff_warn_seconds=10, buff_sound=True,
                 hotkeys=dict(overlay='Ctrl+Alt+O', pause='Ctrl+Alt+P', end='Ctrl+Alt+E'),
                 overlay=dict(enabled=True, layout='slim', theme='dark', opacity=0.92, scale=1.0,
-                             hide_in_capture=False, x=None, y=None,
+                             hide_in_capture=False, stream=False, x=None, y=None,
                              fields=['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent']))
 IDLE_CREDIT = 10
 RECENT = 8

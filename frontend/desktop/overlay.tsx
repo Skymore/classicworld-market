@@ -3,11 +3,13 @@
 // from its corner.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { applyLanguage } from './i18n';
+import korean from '../../server/crates/market-web/src/i18n/ko.json';
+import { installKorean, applyLanguage } from './i18n';
 import { overlayFit, overlayScale, overlayState, type GrindSettings, type Live, type LootRow } from './grind';
 import { OverlayCard } from './overlay-card';
 
 document.documentElement.classList.add('overlay-page');
+installKorean(korean);
 applyLanguage('system');
 
 function Overlay() {

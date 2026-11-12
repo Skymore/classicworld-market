@@ -344,7 +344,7 @@ class GrindService:
             self.style_overlay(settings)
 
     def style_overlay(self, settings):
-        """No taskbar button, no focus; optionally hidden from captures."""
+        """No focus; no taskbar button unless streaming; optionally hidden from captures."""
         if self.overlay is None:
             return
         try:
@@ -357,13 +357,14 @@ class GrindService:
         user.GetWindowLongPtrW.restype = ctypes.c_ssize_t
         user.SetWindowLongPtrW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_ssize_t]
         before = user.GetWindowLongPtrW(ctypes.c_void_p(hwnd), GWL_EXSTYLE)
-        styles = overlay_styles(before)
+        stream = bool(settings['overlay'].get('stream'))
+        styles = overlay_styles(before, stream)
         if styles != before:
             # The taskbar only drops the button when the style changes while the window is hidden.
             user.ShowWindow(ctypes.c_void_p(hwnd), SW_HIDE)
             user.SetWindowLongPtrW(ctypes.c_void_p(hwnd), GWL_EXSTYLE, styles)
             user.ShowWindow(ctypes.c_void_p(hwnd), SW_SHOWNOACTIVATE)
-        affinity = WDA_EXCLUDEFROMCAPTURE if settings['overlay']['hide_in_capture'] else WDA_NONE
+        affinity = WDA_EXCLUDEFROMCAPTURE if settings['overlay']['hide_in_capture'] and not stream else WDA_NONE
         user.SetWindowDisplayAffinity(ctypes.c_void_p(hwnd), affinity)
 
     def overlay_moved(self):
@@ -436,14 +437,18 @@ class OverlayAPI:
         return self._service.fit_overlay(height)
 
 
-def overlay_styles(styles):
+def overlay_styles(styles, stream=False):
     """Extended window styles of the overlay: never focused and off the taskbar.
 
     A no-activate window has no taskbar button unless WS_EX_APPWINDOW asks for one. It must
     not be a tool window: OBS and the streaming tools built on it leave those out of their
     window lists, so the overlay could not be added to a stream.
+
+    Stream mode puts it back on the taskbar: tools such as 直播伴侣 list only the windows
+    Alt+Tab would show, and a no-activate window is there only with WS_EX_APPWINDOW.
     """
-    return (styles | WS_EX_LAYERED | WS_EX_NOACTIVATE) & ~WS_EX_APPWINDOW & ~WS_EX_TOOLWINDOW
+    styles = (styles | WS_EX_LAYERED | WS_EX_NOACTIVATE) & ~WS_EX_TOOLWINDOW
+    return styles | WS_EX_APPWINDOW if stream else styles & ~WS_EX_APPWINDOW
 
 
 def merge_profiles(current, learned):

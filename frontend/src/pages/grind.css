@@ -63,3 +63,7 @@
 @keyframes grind-pulse{50%{opacity:.25}}
 @media (prefers-reduced-motion:reduce){.grind-live-badge::before{animation:none}}
 @media (max-width:640px){.grind-live-card{grid-template-columns:auto minmax(0,1fr) auto;gap:8px}.grind-live-card>span:nth-child(3){display:none}}
+.grind-live-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.grind-live-head .btn{margin-left:auto}
+.grind-live-link{display:flex;flex-direction:column;gap:6px;margin:0 0 10px;font-size:13px}
+.grind-live-view{display:flex;flex-direction:column;gap:10px}

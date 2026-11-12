@@ -10,7 +10,14 @@ import { SiteLink } from "../components/shell";
 import { RunDetail, Spark, big, clock, signed, when, type Comparison, type GrindRun } from "../components/grind-run";
 import { PeriodBoard } from "../components/grind-periods";
 import { copyCard, drawCard, saveCard } from "../lib/grind-card";
+import { LiveView as ClientLive } from "../../desktop/grind-live";
+import { setTextLanguage, type Lang } from "../../desktop/i18n";
+import { setGrindIconBase } from "../../desktop/skill-icons";
+import type { Live, RunSummary } from "../../desktop/grind";
+import "../../desktop/grind-live.css";
 import "./grind.css";
+
+setGrindIconBase("/web/img/grind-icons");
 
 const DOWNLOAD = "/web/download.html";
 
@@ -40,9 +47,10 @@ export default function GrindPage() {
   const share = route.pathname.match(/^\/g\/([A-Za-z0-9]{7})/);
   const run = route.pathname.match(/^\/grind\/run\/(\d+)/);
   const live = route.pathname.match(/^\/grind\/live\/([0-9a-f]{32})/);
+  const watch = route.pathname.match(/^\/grind\/watch\/([A-Za-z0-9]{16})/);
   return (
     <div className="grind-site" data-grind-site>
-      {share ? <SharePage code={share[1]} /> : run ? <MyRun row={run[1]} /> : live ? <LiveRun id={live[1]} /> : <Hub />}
+      {share ? <SharePage code={share[1]} /> : run ? <MyRun row={run[1]} /> : live ? <LiveRun id={live[1]} /> : watch ? <WatchRun code={watch[1]} /> : <Hub />}
     </div>
   );
 }
@@ -102,24 +110,78 @@ function LiveStrip({ runs }: { runs: OpenRun[] }) {
   );
 }
 
-/** One open run, refreshed while the client keeps pushing it. */
+/** The client's own live view (desktop/grind-live.tsx) for one open run. */
+function LiveBoard({ run, liveAt }: { run: OpenRun; liveAt: number }) {
+  const { language } = usePreferences();
+  setTextLanguage(language as Lang);
+  const live = { runs: [run], alive_at: liveAt, stale: false, finished: [], recording: false, calibration: [], characters: [] } as unknown as Live;
+  return <div className="grind-live-view"><ClientLive run={run as unknown as RunSummary} live={live} warn={10} /></div>;
+}
+
+function Ago({ at }: { at: number }) {
+  const words = useWords();
+  const [, tick] = useState(0);
+  useEffect(() => { const id = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(id); }, []);
+  const ago = Math.max(0, Math.round(Date.now() / 1000 - at));
+  return <small className="grind-live-ago">{words(`${ago} 秒前更新`, `updated ${ago}s ago`)}</small>;
+}
+
+/** One open run of the signed-in account, refreshed while the client keeps pushing it. */
 function LiveRun({ id }: { id: string }) {
-  const words = useWords(), { language } = usePreferences();
+  const words = useWords();
   const account = useAccount();
   const query = useLive(!!account.data?.signed_in);
   const run = query.data?.runs.find((r) => r.id === id);
+  const [link, setLink] = useState<string | null>(null), [failed, setFailed] = useState(false);
   if (account.isLoading || query.isLoading) return <Loading />;
-  if (!run)
-    return <div className="grind-empty"><p>{words("这一场已经结束，或者客户端已离线。结束的记录会出现在「我的记录」里。", "This run has ended or the client went offline. Finished runs appear under My runs.")}</p>
-      <SiteLink className="btn" href="/grind">{words("我的记录", "My runs")}</SiteLink></div>;
-  const ago = Math.max(0, Math.round(Date.now() / 1000 - run.live_at));
+  if (!run) return <LiveEnded />;
+  const share = async () => {
+    setFailed(false);
+    try {
+      const response = await fetch(`/api/v1/grind/live/${id}/share`, { method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": account.data?.csrf || "" }, body: "{}" });
+      if (!response.ok) throw new Error(String(response.status));
+      const url = (await response.json()).url as string;
+      setLink(url);
+      navigator.clipboard?.writeText(url).catch(() => {});
+    } catch { setFailed(true); }
+  };
   return (
     <section className="grind-page-run">
-      <SiteLink className="grind-back" href="/grind">‹ {words("我的记录", "My runs")}</SiteLink>
-      <RunDetail run={run} t={words} english={language === "en"}
-        actions={<><LiveBadge run={run} /><small className="grind-live-ago">{words(`${ago} 秒前更新`, `updated ${ago}s ago`)}</small></>} />
+      <div className="grind-live-head">
+        <SiteLink className="grind-back" href="/grind">‹ {words("我的记录", "My runs")}</SiteLink>
+        <LiveBadge run={run} /><Ago at={run.live_at} />
+        <button className="btn primary" onClick={share}>{words("分享实时链接", "Share live link")}</button>
+      </div>
+      {link && <p className="grind-live-link">{words("已复制。拿到链接的人不用登录就能看这一场，这一场结束后链接失效：", "Copied. Anyone with the link can watch this run without signing in until it ends:")}
+        <input className="grind-share-url" readOnly value={link} onFocus={(e) => e.currentTarget.select()} /></p>}
+      {failed && <p className="grind-live-link">{words("没能生成链接，这一场可能刚结束。", "Couldn't make a link; the run may have just ended.")}</p>}
+      <LiveBoard run={run} liveAt={run.live_at} />
     </section>
   );
+}
+
+/** /grind/watch/<code>: one open run for anyone with the link. */
+function WatchRun({ code }: { code: string }) {
+  const query = useQuery<{ run: OpenRun; live_at: number }>({ queryKey: ["grind-watch", code], queryFn: () => getJson(`/api/v1/grind/watch/${code}`),
+    refetchInterval: (q) => (q.state.status === "error" ? false : 10_000), retry: false, staleTime: 5_000 });
+  if (query.isLoading) return <Loading />;
+  if (!query.data) return <><LiveEnded watch /><DownloadBanner /></>;
+  const { run, live_at } = query.data;
+  return (
+    <section className="grind-page-run">
+      <div className="grind-live-head"><LiveBadge run={run} /><Ago at={live_at} /></div>
+      <LiveBoard run={{ ...run, live_at }} liveAt={live_at} />
+      <DownloadBanner />
+    </section>
+  );
+}
+
+function LiveEnded({ watch = false }: { watch?: boolean }) {
+  const words = useWords();
+  return <div className="grind-empty"><p>{words("这一场已经结束，或者客户端已离线。", "This run has ended or the client went offline.")}
+    {!watch && words("结束的记录会出现在「我的记录」里。", " Finished runs appear under My runs.")}</p>
+    {!watch && <SiteLink className="btn" href="/grind">{words("我的记录", "My runs")}</SiteLink>}</div>;
 }
 
 function MyRuns() {

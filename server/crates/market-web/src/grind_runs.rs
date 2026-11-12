@@ -44,6 +44,8 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/collector/grind-live", post(live_push))
         .route("/api/v1/grind/share/{code}", get(shared))
         .route("/api/v1/grind/live", get(my_live))
+        .route("/api/v1/grind/live/{run}/share", post(share_live))
+        .route("/api/v1/grind/watch/{code}", get(watch))
         .route("/api/v1/grind/runs", get(my_runs))
         .route("/api/v1/grind/runs/{id}", get(my_run))
         .route("/api/v1/grind/runs/{id}/share", post(share_mine))
@@ -412,6 +414,103 @@ pub async fn live_of(db: &PgPool, account: i64) -> sqlx::Result<Value> {
         }
     }
     Ok(Value::Array(out))
+}
+
+fn live_code() -> String {
+    let mut bytes = [0u8; 16];
+    getrandom::getrandom(&mut bytes).expect("rng");
+    bytes
+        .iter()
+        .map(|b| CODE_ALPHABET[*b as usize % CODE_ALPHABET.len()] as char)
+        .collect()
+}
+
+/// The watch code of one of the account's open runs (made once per run); None when it is not open.
+pub async fn live_share_code(db: &PgPool, account: i64, run_id: &str) -> sqlx::Result<Option<String>> {
+    let collector: Option<i64> = sqlx::query_scalar(
+        "SELECT l.collector_id FROM grind_live l JOIN collectors c ON c.id = l.collector_id
+         WHERE c.account_id = $1 AND l.updated_at > now() - make_interval(secs => $3)
+           AND l.runs @> jsonb_build_array(jsonb_build_object('id', $2::text)) LIMIT 1",
+    )
+    .bind(account)
+    .bind(run_id)
+    .bind(LIVE_SECONDS)
+    .fetch_optional(db)
+    .await?;
+    let Some(collector) = collector else {
+        return Ok(None);
+    };
+    sqlx::query("INSERT INTO grind_live_shares (code, collector_id, run_id) VALUES ($1,$2,$3) ON CONFLICT (collector_id, run_id) DO NOTHING")
+        .bind(live_code())
+        .bind(collector)
+        .bind(run_id)
+        .execute(db)
+        .await?;
+    sqlx::query_scalar("SELECT code FROM grind_live_shares WHERE collector_id=$1 AND run_id=$2")
+        .bind(collector)
+        .bind(run_id)
+        .fetch_optional(db)
+        .await
+}
+
+/// The open run behind a watch code and when its client last pushed it; None once it ended.
+pub async fn watch_run(db: &PgPool, code: &str) -> sqlx::Result<Option<(Value, f64)>> {
+    if code.len() != 16 || !code.bytes().all(|b| CODE_ALPHABET.contains(&b)) {
+        return Ok(None);
+    }
+    sqlx::query_as(
+        "SELECT r.value, extract(epoch FROM l.updated_at)::float8
+         FROM grind_live_shares s JOIN grind_live l ON l.collector_id = s.collector_id,
+              jsonb_array_elements(l.runs) r(value)
+         WHERE s.code = $1 AND r.value->>'id' = s.run_id AND l.updated_at > now() - make_interval(secs => $2)",
+    )
+    .bind(code)
+    .bind(LIVE_SECONDS)
+    .fetch_optional(db)
+    .await
+}
+
+async fn share_live(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(run): Path<String>,
+) -> Response {
+    let session = match crate::contributors::writable(&state, &headers).await {
+        Ok(s) => s,
+        Err(response) => return response,
+    };
+    if run.len() != 32 || !run.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return error(StatusCode::NOT_FOUND, "Not found");
+    }
+    match live_share_code(&state.db, session.id, &run.to_ascii_lowercase()).await {
+        Ok(Some(code)) => Json(json!({"ok": true, "code": code,
+            "url": format!("https://{}/grind/watch/{code}", state.settings.hostname)}))
+        .into_response(),
+        Ok(None) => error(StatusCode::NOT_FOUND, "ended"),
+        Err(e) => internal(e),
+    }
+}
+
+async fn watch(
+    State(state): State<AppState>,
+    ClientAddr(addr): ClientAddr,
+    headers: HeaderMap,
+    Path(code): Path<String>,
+) -> Response {
+    if let Err(response) = reader(&state, &headers, &addr, "grind-watch").await {
+        return response;
+    }
+    match watch_run(&state.db, &code).await {
+        Ok(Some((run, at))) => {
+            let mut response = Json(json!({"run": run, "live_at": at})).into_response();
+            response
+                .headers_mut()
+                .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+            response
+        }
+        Ok(None) => error(StatusCode::NOT_FOUND, "ended"),
+        Err(e) => internal(e),
+    }
 }
 
 async fn live_push(State(state): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
