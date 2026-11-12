@@ -87,6 +87,15 @@ try {
       await page.goto(base + '/overlay.html');
       await page.locator('.ov-team-row.own').waitFor();
       assert.equal(await page.locator('.ov-team-row').count(), 6);
+      assert.equal(await page.locator('.ov-site').count(), 1);
+      assert(await page.locator('.ov-site').evaluate(el => parseFloat(getComputedStyle(el).fontSize) >= 12));
+      if (layout === 'standard' || layout === 'detailed') {
+        const site = await page.locator('.ov-head .ov-site').boundingBox();
+        const timer = await page.locator('.ov-head em').boundingBox();
+        const header = await page.locator('.ov-head').boundingBox();
+        assert(site.y >= header.y && site.y + site.height <= timer.y, 'website stays inside title bar above timer');
+      }
+      if (out && theme === 'market' && layout === 'detailed') await page.screenshot({ path: path.join(out, 'grind-title-market.png') });
       if (layout === 'detailed' || layout === 'standard') {
         assert.equal(await page.getByText('×7', { exact: true }).count(), 1);
         assert.equal(await page.getByText('×80', { exact: true }).count(), 1);

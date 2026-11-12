@@ -75,7 +75,7 @@ function Overlay() {
   const style = { '--alpha': String(o.opacity), fontSize: `${12 * (o.scale || 1)}px` } as React.CSSProperties;
   const dot = <i className={'ov-dot ' + (run?.status === 'active' ? 'on' : run ? 'pause' : 'off')} />;
   const box = (content: React.ReactNode) => <div className={`ov ov-${o.layout} ov-t-${o.theme || 'dark'}` + (editing ? ' editing' : '')} style={style}>
-    <div className="ov-site">mxd.ruit.me</div>{content}{editing && <div className="ov-edit">{tr('拖到合适位置，回采集器点“完成”', 'Drag into place, then press Done in the collector')}</div>}</div>;
+    {!run || !['standard', 'detailed'].includes(o.layout) ? <div className="ov-site">mxd.ruit.me</div> : null}{content}{editing && <div className="ov-edit">{tr('拖到合适位置，回采集器点“完成”', 'Drag into place, then press Done in the collector')}</div>}</div>;
   if (!run) return box(<><div className="ov-line">{dot}<span>{live && !live.stale ? tr('打几只怪开始记录', 'Kill a few to start') : tr('等待采集器', 'Waiting for collector')}</span></div>
     {show('buffs') && <Buffs live={live} settings={settings} />}</>);
   const rate = run.exp_per_hour, usedPotions = run.consumables.filter(c => c.used > 0), potion = usedPotions[0];
@@ -114,7 +114,7 @@ function Overlay() {
     {party}{toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" /><b>{big(toast.value)}</b></div>}</>);
   const detailed = o.layout === 'detailed';
   return box(<>
-    <div className="ov-head">{dot}<b className="ov-job">{run.job_name || '—'} · Lv.{run.level ?? '—'}</b><span>{mapLabel(run)}</span>
+    <div className="ov-head"><div className="ov-site">mxd.ruit.me</div>{dot}<b className="ov-job">{run.job_name || '—'} · Lv.{run.level ?? '—'}</b><span>{mapLabel(run)}</span>
       {show('time') && <em><Clock3 size={I} style={ico} />{clock(run.active_seconds)}</em>}</div>
     {show('exp_rate') && <RateMetrics run={run} kind="exp" />}
     {show('level') && <div className="ov-row">{level}</div>}
