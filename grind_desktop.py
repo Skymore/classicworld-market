@@ -175,7 +175,7 @@ class GrindService:
             else:
                 height += 30
         if 'party' in fields:
-            height += 270 if overlay['layout'] == 'rail' else 165
+            height += 270 if overlay['layout'] == 'rail' else 230
         scale = min(2.0, max(0.6, float(overlay['scale'] or 1)))
         return int(width * scale), int(height * scale)
 
@@ -244,7 +244,15 @@ class GrindService:
         threading.Thread(target=self.calibrate_loop, daemon=True, name='grind-calibrate').start()
         from grind_replay import replay_once
         from collector_update import VERSION
-        threading.Thread(target=replay_once, args=(self.folder, VERSION, self.stop),
+        def replay_and_reconcile():
+            replay_once(self.folder, VERSION, self.stop)
+            if not self.stop.is_set():
+                try:
+                    from grind_reconcile import prepare
+                    prepare(self.folder)
+                except (OSError, ValueError, KeyError, sqlite3.Error):
+                    pass
+        threading.Thread(target=replay_and_reconcile,
                          daemon=True, name='grind-replay').start()
         self.apply_overlay(self.settings())
         self.hotkeys = Hotkeys(self)
@@ -302,7 +310,7 @@ class GrindService:
                 screen = webview.screens[0] if webview.screens else None
                 x = (screen.width - width - 24) if screen else 40
                 y = 96
-            self.overlay = webview.create_window('枫叶市集 · 刷图', self.assets, js_api=OverlayAPI(self),
+            self.overlay = webview.create_window('枫叶市集 · 刷图 · mxd.ruit.me', self.assets, js_api=OverlayAPI(self),
                 width=width, height=height, x=x, y=y, resizable=False, frameless=True, easy_drag=True,
                 on_top=True, focus=False, transparent=True, shadow=False, background_color='#000000')
             self.overlay.events.shown += lambda: self.style_overlay(settings)

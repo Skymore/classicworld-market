@@ -166,6 +166,22 @@ class TrackerCombatTest(unittest.TestCase):
         self.assertEqual(self.tracker.name(4000156), '肋骨')
         self.assertEqual(self.tracker.name(4000157), '骨盆')
 
+    def test_party_window_expires_damage_kills_and_experience_after_five_minutes(self):
+        from test_grind_live import spawn
+        self.send(spawn(100, 67))
+        self.send(remote_attack(OTHER, [(100, [900])]))
+        self.send(hit(100, OTHER))
+        self.send(died(100))
+        row = self.rows()[OTHER]
+        self.assertEqual((row['kills_5m'], row['kill_exp_5m']), (1, 183))
+        self.clock.t += 61
+        self.assertEqual(self.rows()[OTHER]['dps'], 0)
+        self.assertGreater(self.rows()[OTHER]['dps_5m'], 0)
+        self.clock.t += 240
+        row = self.rows()[OTHER]
+        self.assertEqual((row['kills_5m'], row['kill_exp_5m'], row['dps_5m']), (0, 0, 0))
+        self.assertEqual(row['kills'], 1)
+
     def test_observed_solo_attack_distribution_excludes_assists(self):
         from test_grind_live import spawn
         from grind_tracker import Run

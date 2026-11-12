@@ -126,7 +126,7 @@ function App() {
     onShell={what => what === 'watch' ? setTab('watch') : action('website')} />;
   return <div className="desktop-app">
     <header className="app-header">
-      <div className="app-brand pywebview-drag-region"><Leaf /><strong className="pywebview-drag-region">{tr('枫叶市集', 'Maple Market')}</strong></div>
+      <div className="app-brand pywebview-drag-region"><Leaf /><strong className="pywebview-drag-region">{tr('枫叶市集', 'Maple Market')}<small className="app-site">mxd.ruit.me</small></strong></div>
       <nav className="app-tabs" aria-label={tr('功能', 'Sections')}>
         <span className="tab-group" role="group" aria-label={tr('网站', 'Website')} data-tab-group="site">{SITE_TABS.map(key => tabButton(key, tr(...SITE_LABELS[key])))}</span>
         <span className="tab-group client" role="group" aria-label={tr('客户端', 'Collector')} data-tab-group="client">{CLIENT_TABS.map(([key, zh, en]) => tabButton(key, tr(zh, en)))}</span>

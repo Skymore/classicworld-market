@@ -353,9 +353,6 @@ class Tracker:
         character.staged_kills = []
         character.kill_owners.clear()
         character.staged_combat.clear()
-        if character.run:
-            for row in character.run.combat.players.values():
-                row['events'].clear()
         self.dirty = True
 
     def adopt_by_key(self, character):
@@ -492,6 +489,7 @@ class Tracker:
                 if mob:
                     self.prices.want_mob(mob)
                 if run and run.status == 'active' and run.segment:
+                    run.combat.kill(character.character_id, character.name, True, mob, now)
                     if sample and sample['run'] == run.id and not sample['mixed'] and sample['attacks'] > 0:
                         histogram = run.kill_attacks.setdefault(str(mob), {})
                         count = str(sample['attacks'])
@@ -575,7 +573,7 @@ class Tracker:
     def apply_combat(run, event):
         actor, name, own = event['actor'], event['name'], event['own']
         if event.get('kill'):
-            run.combat.kill(actor, name, own, event.get('mob'))
+            run.combat.kill(actor, name, own, event.get('mob'), event['t'])
         elif event['targets'] is None:
             run.combat.player(actor, name, own)['partial'] = True
         else:
@@ -795,6 +793,7 @@ class Tracker:
                 self.apply(run, entry)
         for t, mob in character.staged_kills:
             if t >= first - 2:
+                run.combat.kill(character.character_id, character.name, True, mob, t)
                 run.segment.kills += 1
                 if mob:
                     run.segment.mobs[mob] += 1
@@ -897,6 +896,11 @@ class Tracker:
                 self.restored.remove(run)
         if self.frames is not None:
             self.frames.flush()
+            try:
+                from grind_reconcile import apply_pending
+                apply_pending(self)
+            except (OSError, ValueError, KeyError, sqlite3.Error):
+                pass  # Keep the live counters and proposal for a later retry.
         if now - self.last_persist >= 10 and self.dirty:
             self.persist()
         if now - self.last_publish >= 1 and (self.dirty or now - self.last_publish >= 5):
@@ -1008,6 +1012,9 @@ class Tracker:
                                      character.party if character else None)
         from grind_mob_exp import MOB_EXP
         for row in combat_rows:
+            recent_kills = [(t, m) for t, m in run.combat.players[row['character_id']].get('kill_events', []) if now-t <= 300]
+            row['kill_exp_5m'] = sum(MOB_EXP[m] for _, m in recent_kills) if all(m in MOB_EXP for _, m in recent_kills) else None
+            row['exp_received_5m'] = sum(max(0, x) for t, x in run.exp_events if now-t <= 300) if row['self'] else None
             counts = dict(run.combat.players[row['character_id']].get('mobs', {}))
             if row['self']:
                 counts = collections.Counter()
@@ -1021,6 +1028,10 @@ class Tracker:
         complete_team = all(r['kill_exp'] is not None for r in combat_rows)
         for row in combat_rows:
             row['exp_contribution'] = row['kill_exp'] / team_exp * 100 if complete_team and team_exp else None
+        recent_team_exp = sum(r['kill_exp_5m'] or 0 for r in combat_rows)
+        for row in combat_rows:
+            row['exp_contribution_5m'] = row['kill_exp_5m'] / recent_team_exp * 100 if recent_team_exp and all(r['kill_exp_5m'] is not None for r in combat_rows) else None
+            row['exp_yield_5m'] = row['exp_received_5m'] / row['kill_exp_5m'] * 100 if row['kill_exp_5m'] and row['exp_received_5m'] is not None else None
         own_combat = next((r for r in combat_rows if r['self']), {})
         loot_events = [dict(t=e['t'], kind=e['kind'], item_id=e.get('item_id'), name=self.name(e.get('item_id')),
                             quantity=e.get('quantity'), unit=unit, basis=label, value=amount,
@@ -1172,6 +1183,9 @@ class Tracker:
             self.data.mkdir(parents=True, exist_ok=True)
             with contextlib.closing(sqlite3.connect(self.data / 'history.sqlite')) as db, db:
                 db.execute('CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, started_at REAL, ended_at REAL, summary TEXT)')
+                if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='reconciled_runs'").fetchone():
+                    if db.execute('SELECT 1 FROM reconciled_runs WHERE fragment_id=?', (summary['id'],)).fetchone():
+                        return  # An old restored fragment cannot reappear after reconciliation.
                 db.execute('INSERT OR REPLACE INTO runs VALUES (?,?,?,?)',
                            (summary['id'], summary['started_at'], summary['ended_at'], json.dumps(summary, ensure_ascii=False)))
                 db.execute('DELETE FROM runs WHERE id NOT IN (SELECT id FROM runs ORDER BY started_at DESC LIMIT ?)', (HISTORY_LIMIT,))

@@ -1,3 +1,4 @@
+import { MesosIcon } from './mesos-icon';
 import { useState } from 'react';
 import { Coins, Sparkles } from 'lucide-react';
 import { big, type RunSummary } from './grind';
@@ -21,7 +22,7 @@ export function RateMetrics({ run, kind }: { run: RunSummary; kind: 'exp' | 'net
   const points = history.map(p => `${x(p.t)},${y(p[kind])}`).join(' ');
   const active = selected == null ? null : history[Math.min(selected, history.length - 1)];
   return <section className="rate-metrics" aria-label={name}>
-    <b className="rate-title">{kind === 'exp' ? <Sparkles size={13} /> : <Coins size={13} />}{kind === 'exp' ? name : tr('净收益', 'Net')}</b>
+    <b className="rate-title">{kind === 'exp' ? <Sparkles size={13} /> : <MesosIcon size={13} />}{kind === 'exp' ? name : tr('净收益', 'Net')}</b>
     <div className="rate-values">
       <div><small>{tr('平均/时', 'Average/h')}</small><b>{big(average)}</b></div>
       <div><small>{tr('实时/时', 'Live/h')}</small><b>{big(minute ?? null)}</b></div>

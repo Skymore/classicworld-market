@@ -9,7 +9,7 @@ import struct
 
 REMOTE_ATTACKS = (0x2A8, 0x2A9, 0x2AA)
 PARTY = 0xA7
-WINDOW = 60
+WINDOW = 300
 MAX_DAMAGE = 10**12
 
 
@@ -158,9 +158,12 @@ class Meter:
         row['known'] = True
         row['events'].append((now, amount))
 
-    def kill(self, ident, name, own=False, mob=None):
+    def kill(self, ident, name, own=False, mob=None, now=None):
         row = self.player(ident, name, own)
         row['kills'] += 1
+        if now is not None:
+            row.setdefault('kill_events', []).append((now, mob))
+            row['kill_events'] = [(t, m) for t, m in row['kill_events'] if now - t <= WINDOW]
         if mob:
             counts = row.setdefault('mobs', {})
             key = str(mob)
@@ -174,7 +177,8 @@ class Meter:
         for ident, row in self.players.items():
             while row['events'] and now - row['events'][0][0] > WINDOW:
                 row['events'].popleft()
-            span = min(WINDOW, max(1, now - (row.get('started_at') or started)))
+            span = min(60, max(1, now - (row.get('started_at') or started)))
+            span5 = min(WINDOW, max(1, now - started))
             observed_active = max(1, active - row.get('active_start', 0))
             member = (roster or {}).get(ident)
             me = (roster or {}).get(self_id)
@@ -182,7 +186,9 @@ class Meter:
             known = row['known'] and not row['partial']
             result.append(dict(character_id=ident, name=row['name'], self=row['own'], away=bool(away),
                                damage=row['damage'] if row['known'] else None,
-                               dps=(sum(x for _, x in row['events']) / span) if known and running and not away else None,
+                               dps=(sum(x for t, x in row['events'] if now-t <= 60) / span) if known and running and not away else None,
+                               dps_5m=sum(x for t, x in row['events'] if now-t <= WINDOW) / span5 if known else None,
+                               kills_5m=sum(1 for t, _ in row.get('kill_events', []) if now-t <= WINDOW),
                                average_dps=(row['damage'] / observed_active) if known and active else None,
                                kills=self_kills if row['own'] and self_kills is not None else row['kills'],
                                hits=row['hits'], partial=row['partial']))

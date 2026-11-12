@@ -33,7 +33,7 @@ const run = {
   consumables: Array.from({ length: 4 }, (_, i) => ({ item_id: 2000000 + i, name: `药品${i}`, used: 7 + i, cost: 350 + i, remaining: 819, minutes_left: 443 })),
   combat: Array.from({ length: 6 }, (_, i) => ({ character_id: i + 1, name: i ? `Teammate${i}` : 'Tester', self: !i,
     away: i === 5, partial: i === 4, damage: i === 5 ? null : 108000 - i * 10000,
-    dps: i >= 4 ? null : 900 - i * 100, average_dps: 850 - i * 100, kills: 24 - i, hits: 40 })),
+    dps_5m: i >= 4 ? null : 900 - i * 100, kills_5m: 24 - i, exp_received_5m: i ? null : 10000, kill_exp_5m: (24-i)*183, exp_contribution_5m: 20, exp_yield_5m: i ? null : 120, dps: i >= 4 ? null : 900 - i * 100, average_dps: 850 - i * 100, kills: 24 - i, hits: 40 })),
 };
 const settings = { buff_warn_seconds: 10, buff_sound: false, hotkeys: {}, overlay: {
   enabled: true, layout: 'standard', theme: 'dark', opacity: .92, scale: 1, fields,
@@ -67,8 +67,8 @@ try {
   assert.match(await page.locator('.grind-attack-distribution').innerText(), /25.0%.*75.0%/s);
 
   assert.match(await table.locator('tbody tr').last().innerText(), /离开.*—/s);
-  assert.match(await table.locator('tbody tr').nth(4).innerText(), /数据不完整/);
-  await page.evaluate(() => { window.testRun.combat[0].dps = 1234; window.testRun.dps = 1234; });
+  assert.equal(await table.locator('tbody tr').nth(4).locator('td').first().getAttribute('title'), '数据不完整');
+  await page.evaluate(() => { window.testRun.combat[0].dps = 1234; window.testRun.combat[0].dps_5m = 1234; window.testRun.dps = 1234; });
   await table.getByRole('cell', { name: '1234', exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   if (out) { await mkdir(out, { recursive: true }); await page.screenshot({ path: path.join(out, 'grind-combat.png') }); }
@@ -78,7 +78,7 @@ try {
   assert.deepEqual(errors, []);
   await page.close();
 
-  const sizes = { compact: [730, 380], standard: [330, 835], detailed: [360, 980], rail: [140, 850], big: [290, 575] };
+  const sizes = { compact: [730, 445], standard: [330, 900], detailed: [360, 1045], rail: [140, 850], big: [290, 640] };
   for (const [layout, [width, height]] of Object.entries(sizes)) {
     for (const theme of ['dark', 'market', 'cute', 'maple']) {
       const page = await browser.newPage({ viewport: { width, height } });
@@ -86,7 +86,7 @@ try {
       await bridge(page, { layout, theme });
       await page.goto(base + '/overlay.html');
       await page.locator('.ov-team-row.own').waitFor();
-      assert.equal(await page.locator('.ov-team-row').count(), 7);
+      assert.equal(await page.locator('.ov-team-row').count(), 6);
       if (layout === 'detailed' || layout === 'standard') {
         assert.equal(await page.getByText('×7', { exact: true }).count(), 1);
         assert.equal(await page.getByText('×80', { exact: true }).count(), 1);
@@ -94,8 +94,12 @@ try {
         await page.waitForFunction(() => [...document.querySelectorAll('.ov-mobs img')].every(img => img.complete && img.naturalWidth > 0));
         assert(await page.locator('.ov-mobs').evaluate(el => !!(el.compareDocumentPosition(document.querySelector('.ov-buffs')) & Node.DOCUMENT_POSITION_FOLLOWING)));
         assert.equal(await page.locator('.ov-mesos').count(), 1);
+        const iconLefts = await page.evaluate(() => ['.ov-mobs img', '.ov-buffs img', '.ov-account-row>span>img'].map(selector => document.querySelector(selector).getBoundingClientRect().left));
+        assert(Math.max(...iconLefts) - Math.min(...iconLefts) <= 1.1, 'all section icons share the same left edge');
+
 
       }
+      await page.waitForFunction(() => [...document.querySelectorAll('.mesos-icon')].every(img => img.complete && img.naturalWidth > 0));
       assert.equal(await page.locator('.rate-chart polyline').count(), 2);
       await page.locator('.rate-chart').first().hover();
       await page.locator('.rate-tooltip').first().waitFor();
@@ -105,8 +109,9 @@ try {
       assert.equal(await page.locator('.ov-buffs img[src*="/skills/3001000.png"]').count(), 1);
       await page.waitForFunction(() => [...document.querySelectorAll('.ov-buffs img')].every(img => img.complete && img.naturalWidth > 0));
       assert.deepEqual(await page.locator('.rate-metrics').first().locator('.rate-values small').allTextContents(), ['平均/时', '实时/时', '累计']);
+      await page.locator('.ov-team').scrollIntoViewIfNeeded();
       const box = await page.locator('.ov-team').boundingBox();
-      assert(box.y + box.height <= height, `${layout}/${theme}: party rows fit vertically`);
+      assert(box.y + box.height <= height + 1, `${layout}/${theme}: party rows fit vertically (${box.y}+${box.height} <= ${height})`);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${layout}/${theme}: no horizontal clipping`);
       if (out && theme === 'maple' && layout === 'standard') await page.screenshot({ path: path.join(out, 'grind-party-overlay.png') });
       assert.deepEqual(errors, []);

@@ -1,3 +1,5 @@
+import { MesosIcon } from './mesos-icon';
+import { PartyMetrics } from './party-metrics';
 import { mobIcon, skillIcon } from './skill-icons';
 import { RateMetrics } from './grind-metrics';
 // The always-on-top grind overlay (grind_desktop.GrindService). Read-only:
@@ -73,7 +75,7 @@ function Overlay() {
   const style = { '--alpha': String(o.opacity), fontSize: `${12 * (o.scale || 1)}px` } as React.CSSProperties;
   const dot = <i className={'ov-dot ' + (run?.status === 'active' ? 'on' : run ? 'pause' : 'off')} />;
   const box = (content: React.ReactNode) => <div className={`ov ov-${o.layout} ov-t-${o.theme || 'dark'}` + (editing ? ' editing' : '')} style={style}>
-    {content}{editing && <div className="ov-edit">{tr('拖到合适位置，回采集器点“完成”', 'Drag into place, then press Done in the collector')}</div>}</div>;
+    <div className="ov-site">mxd.ruit.me</div>{content}{editing && <div className="ov-edit">{tr('拖到合适位置，回采集器点“完成”', 'Drag into place, then press Done in the collector')}</div>}</div>;
   if (!run) return box(<><div className="ov-line">{dot}<span>{live && !live.stale ? tr('打几只怪开始记录', 'Kill a few to start') : tr('等待采集器', 'Waiting for collector')}</span></div>
     {show('buffs') && <Buffs live={live} settings={settings} />}</>);
   const rate = run.exp_per_hour, usedPotions = run.consumables.filter(c => c.used > 0), potion = usedPotions[0];
@@ -81,13 +83,9 @@ function Overlay() {
     <span>{percent(run.exp_percent, 1)}</span><span className="dim"><Hourglass size={I} style={ico} />{duration(run.eta_seconds)}</span></>;
   const loot = (count: number) => (run.loot || run.recent || []).slice(0, count).map((row, i) =>
     <div className={'ov-loot ov-account-row' + (row.notable ? ' notable' : '')} key={i}><span><img src={itemIcon(row.item_id)} alt="" />{row.name}
-      {row.stats?.length ? <small> {statLine(row.stats)}</small> : null}</span><b className="quantity">×{row.quantity}</b><b className="amount">{row.priced === false ? '—' : `+${big(row.value)}`} <Coins size={11} aria-label={tr('金币', 'mesos')} /></b></div>);
+      {row.stats?.length ? <small> {statLine(row.stats)}</small> : null}</span><b className="quantity">×{row.quantity}</b><b className="amount">{row.priced === false ? '—' : `+${big(row.value)}`} <MesosIcon size={11} aria-label={tr('金币', 'mesos')} /></b></div>);
   const potionChip = potion && <span className="ov-used"><img src={itemIcon(potion.item_id)} alt="" />{tr('用', 'Used ')}<b>{potion.used}</b></span>;
-  const party = show('party') && !!run.combat?.length && <div className="ov-team" aria-label={tr('队伍战斗统计', 'Party combat')}>
-    <div className="ov-team-row dim"><span>{tr('同图队伍', 'Party')}</span><span>DPS</span><span>{tr('击杀', 'Kills')}</span></div>
-    {run.combat.slice(0, 6).map(row => <div className={'ov-team-row' + (row.self ? ' own' : '')} key={row.character_id}>
-      <span>{row.name || '—'}</span><b>{big(row.dps)}</b><span>{big(row.kills)}</span>
-    </div>)}<details className="ov-team-exp"><summary>{tr('经验', 'EXP')}</summary><div className="ov-exp-table"><div><span></span><span>{tr('击杀', 'Kills')}</span><span>{tr('获得', 'Received')}</span><span>{tr('贡献', 'Share')}</span><span>{tr('收益比', 'Yield')}</span></div>{run.combat.map(row => <div key={row.character_id}><span>{row.name}</span><b>{big(row.kill_exp)}</b><b title={row.exp_received == null ? tr('未观测', 'Not observed') : ''}>{big(row.exp_received)}</b><span>{percent(row.exp_contribution, 0)}</span><span>{percent(row.exp_yield, 0)}</span></div>)}</div></details></div>;
+  const party = show('party') && <PartyMetrics run={run} compact />;
   if (o.layout === 'compact') return box(<><div className="ov-line">{dot}
     {show('time') && <span><Clock3 size={I} style={ico} /><b>{clock(run.active_seconds)}</b></span>}
     {show('level') && <span><TrendingUp size={I} style={ico} />{percent(run.exp_percent, 1)}</span>}
@@ -129,8 +127,8 @@ function Overlay() {
     <div className="ov-accounts">
     {show('potions') && potion && <section className="ov-account"><b className="ov-account-title">{tr('消耗', 'Used')}</b>
       {(detailed ? usedPotions.slice(0, 4) : [potion]).map(c => <div className="ov-loot ov-account-row" key={c.item_id}>
-        <span><img src={itemIcon(c.item_id)} alt="" />{c.name}</span><b className="quantity">×{c.used}</b><b className="amount">−{big(c.cost ?? null)} <Coins size={11} aria-label={tr('金币', 'mesos')} /></b></div>)}</section>}
-    {show('recent') && <section className="ov-account"><b className="ov-account-title">{tr('战利品', 'Loot')}</b>{run.mesos > 0 && <div className="ov-loot ov-account-row ov-mesos"><span><Coins size={15} />{tr('金币', 'Mesos')}</span><b className="quantity"></b><b className="amount">+{big(run.mesos)} <Coins size={11} /></b></div>}{loot(detailed ? 6 : 2)}</section>}
+        <span><img src={itemIcon(c.item_id)} alt="" />{c.name}</span><b className="quantity">×{c.used}</b><b className="amount">−{big(c.cost ?? null)} <MesosIcon size={11} aria-label={tr('金币', 'mesos')} /></b></div>)}</section>}
+    {show('recent') && <section className="ov-account"><b className="ov-account-title">{tr('战利品', 'Loot')}</b>{run.mesos > 0 && <div className="ov-loot ov-account-row ov-mesos"><span><MesosIcon size={15} />{tr('金币', 'Mesos')}</span><b className="quantity"></b><b className="amount">+{big(run.mesos)} <MesosIcon size={11} /></b></div>}{loot(detailed ? 6 : 2)}</section>}
     </div>
     {party}
     {toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}

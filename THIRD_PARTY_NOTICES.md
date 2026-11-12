@@ -38,3 +38,5 @@ parser. Local map resources and calibration screenshots remain outside Git.
 - Collector skill and monster icons are bundled from Mapledex Classic World (`https://kafuffu20.com/classic-world/data/icons/skills/<id>.png` and `monsters/<id>.png`), using Classic World IDs; original game artwork remains its owners' property. The small PNGs are stored in frontend/desktop/public/grind-icons and copied into the collector desktop assets.
 
 - Missing collector monster icons are extracted from the installed Classic World Mob WZ (version 779) using `tools/build_grind_mob_icons.py`. Original artwork belongs to Nexon; no complete WZ file is bundled. Base monster EXP uses the tracked Mapledex and DVG reference facts.
+
+- Collector mesos icon (`grind-icons/mesos.png`) is extracted from local Classic World WZ 779, `Item/Special/_Canvas/_Canvas_000.wz`, `0900.img/09000000/iconRaw/0`. Game artwork remains Nexon property; full WZ archives are not bundled.

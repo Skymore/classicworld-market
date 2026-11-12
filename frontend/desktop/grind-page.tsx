@@ -1,3 +1,5 @@
+import { MesosIcon } from './mesos-icon';
+import { PartyMetrics } from './party-metrics';
 import { mobIcon, skillIcon } from './skill-icons';
 import { RateMetrics } from './grind-metrics';
 import { useCallback, useEffect, useState } from 'react';
@@ -111,24 +113,15 @@ function LiveView({ run, live, warn }: { run: RunSummary | null; live: GrindStat
       <span className="net">{tr('净收益', 'Net')} <b>{big(run.net)}</b></span>
       <span>{tr('经验', 'EXP')} <b>{big(run.exp)}</b></span>
     </div>
-    {!!run.combat?.length && <section className="well grind-combat" aria-label={tr('队伍战斗统计', 'Party combat')}>
-      <div className="well-h"><h3>{tr('战斗统计', 'Combat')}</h3><small>{tr('同图可见范围', 'Visible in this map')}</small></div>
-      <table><thead><tr><th>{tr('角色', 'Player')}</th><th>DPS · 1m</th><th>{tr('总伤害', 'Damage')}</th><th>{tr('击杀', 'Kills')}</th><th>{tr('击杀经验', 'Kill EXP')}</th><th>{tr('获得经验', 'Received EXP')}</th><th>{tr('贡献', 'Contribution')}</th><th>{tr('收益比', 'Yield')}</th></tr></thead>
-        <tbody>{run.combat.map(row => <tr key={row.character_id} data-self={row.self || undefined}>
-          <td>{row.name || '—'}{row.self && <small>{tr('你', 'You')}</small>}{row.away && <small>{tr('离开', 'Away')}</small>}
-            {row.partial && <small className="warn">{tr('数据不完整', 'Partial data')}</small>}</td>
-          <td>{big(row.dps)}</td><td>{big(row.damage)}{row.partial && row.damage != null ? '+' : ''}</td><td>{big(row.kills)}</td><td>{big(row.kill_exp)}</td><td title={row.exp_received == null ? tr('本机未观测到队友经验', 'Party EXP not observed by this client') : ''}>{big(row.exp_received)}</td><td>{percent(row.exp_contribution, 1)}</td><td>{percent(row.exp_yield, 1)}</td>
-        </tr>)}</tbody></table>
-      {run.party_known === false && <p className="note">{tr('等待队伍数据。', 'Waiting for party data.')}</p>}
-    </section>}
+    <PartyMetrics run={run} />
     <div className="grind-grid">
       <section className="well">
         <div className="well-h"><h3>{tr('本次战利品', 'Loot this run')}</h3></div>
-        {run.mesos > 0 && <div className="grind-row grind-account-row grind-mesos"><Coins size={24} /><span className="t"><b>{tr('金币', 'Mesos')}</b></span><span /><span className="amount">+{big(run.mesos)} <Coins size={12} /></span></div>}
+        {run.mesos > 0 && <div className="grind-row grind-account-row grind-mesos"><MesosIcon size={24} /><span className="t"><b>{tr('金币', 'Mesos')}</b></span><span /><span className="amount">+{big(run.mesos)} <MesosIcon size={12} /></span></div>}
         {(run.loot || run.recent || []).map((row, i) => <div className={'grind-row grind-account-row' + (row.notable ? ' notable' : '')} key={i}>
           <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
           <span className="t"><b>{row.name}</b>{row.stats?.length ? <small className="stats"> {statLine(row.stats)}</small> : null}</span>
-          <span className="quantity">×{row.quantity}</span><span className="amount" title={row.basis || ''}>{row.priced === false || !row.basis || row.basis === '无价格' ? tr('待估价', 'Unpriced') : `+${big(row.value)}`} <Coins size={12} aria-label={tr('金币', 'mesos')} /></span>
+          <span className="quantity">×{row.quantity}</span><span className="amount" title={row.basis || ''}>{row.priced === false || !row.basis || row.basis === '无价格' ? tr('待估价', 'Unpriced') : `+${big(row.value)}`} <MesosIcon size={12} aria-label={tr('金币', 'mesos')} /></span>
         </div>)}
         {!run.mesos && !(run.loot || run.recent)?.length && <p className="note">{tr('还没有拾取。', 'Nothing picked up yet.')}</p>}
       </section>
@@ -137,7 +130,7 @@ function LiveView({ run, live, warn }: { run: RunSummary | null; live: GrindStat
         {run.consumables.filter(row => row.used > 0).map(row => <div className="grind-row grind-account-row" key={row.item_id}>
           <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
           <span className="t"><b>{row.name}</b></span>
-          <span className="quantity">×{row.used}</span><span className="amount">−{big(row.cost ?? null)} <Coins size={12} aria-label={tr('金币', 'mesos')} /></span>
+          <span className="quantity">×{row.used}</span><span className="amount">−{big(row.cost ?? null)} <MesosIcon size={12} aria-label={tr('金币', 'mesos')} /></span>
         </div>)}
         {!run.consumables.some(row => row.used > 0) && <p className="note">{tr('还没有使用消耗品。', 'No consumables used yet.')}</p>}
         {(run.attack_count > 0 || run.casts?.length > 0) && <>

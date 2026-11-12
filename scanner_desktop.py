@@ -1148,7 +1148,7 @@ def main(collector, argv=None):
         grind = GrindService(collector.folder, desktop_entry_url(overlay) if overlay.is_file() else None)
     except Exception as error:
         print(f'Grind tracker unavailable ({type(error).__name__}).', flush=True)
-    window = webview.create_window('枫叶市集 · 扫描与采集', desktop_entry_url(assets), js_api=DesktopAPI(controller, grind),
+    window = webview.create_window('枫叶市集 · 扫描与采集 · mxd.ruit.me', desktop_entry_url(assets), js_api=DesktopAPI(controller, grind),
         width=MIN_SIZE[0], height=MIN_SIZE[1], resizable=True, min_size=MIN_SIZE, background_color='#e6e1d6',
         frameless=True, easy_drag=False, shadow=True)
     controller._window = window
