@@ -30,7 +30,7 @@ const run = {
   dps: 900, damage: 108000, average_dps: 850, party_known: true,
   attack_count: 40, attacks: [], casts: [], hp_drops: 0, hp_lost: 0, consumables: [], buffs: [{ source: 3001000, name: '集中术', seconds: 90, total: 90, item_id: null }, { source: 1101004, name: '愤怒之火', seconds: 300, total: 300, item_id: null }, { source: 4101001, name: '轻功', seconds: 300, total: 300, item_id: null }], mobs: [{ mob_id: 67, name: '骷髅士兵', kills: 18, attack_samples: 4, attack_distribution: [{ attacks: 1, kills: 1 }, { attacks: 2, kills: 3 }] }, { mob_id: 68, name: '骷髅士官', kills: 6 }], recent: [], drops: [],
   loot: Array.from({ length: 6 }, (_, i) => ({ t: 1, item_id: 4000000 + i, name: `战利品${i}`, quantity: 80 - i, value: 0, priced: false })),
-  consumables: Array.from({ length: 4 }, (_, i) => ({ item_id: 2000000 + i, name: `药品${i}`, used: 7 + i, cost: 350 + i, remaining: 819, minutes_left: 443 })),
+  consumables: Array.from({ length: 7 }, (_, i) => ({ item_id: 2000000 + i, name: i === 5 ? '攻击神水' : `药品${i}`, used: 7 + i, cost: 350 + i, remaining: 819, minutes_left: 443 })),
   combat: Array.from({ length: 6 }, (_, i) => ({ character_id: i + 1, name: i ? `Teammate${i}` : 'Tester', self: !i,
     away: i === 5, partial: i === 4, damage: i === 5 ? null : 108000 - i * 10000,
     dps_5m: i >= 4 ? null : 900 - i * 100, kills_5m: 24 - i, exp_received_5m: i ? null : 10000, kill_exp_5m: (24-i)*183, exp_contribution_5m: 20, exp_yield_5m: i ? null : 120, dps: i >= 4 ? null : 900 - i * 100, average_dps: 850 - i * 100, kills: 24 - i, hits: 40 })),
@@ -98,6 +98,8 @@ try {
       if (out && theme === 'market' && layout === 'detailed') await page.screenshot({ path: path.join(out, 'grind-title-market.png') });
       if (layout === 'detailed' || layout === 'standard') {
         assert.equal(await page.getByText('×7', { exact: true }).count(), 1);
+        assert.equal(await page.locator('.ov-account').first().locator('.ov-account-row').count(), 7);
+        await page.getByText('攻击神水', { exact: true }).waitFor();
         assert.equal(await page.getByText('×80', { exact: true }).count(), 1);
         assert.equal(await page.getByText('剩819', { exact: true }).count(), 0);
         await page.waitForFunction(() => [...document.querySelectorAll('.ov-mobs img')].every(img => img.complete && img.naturalWidth > 0));
