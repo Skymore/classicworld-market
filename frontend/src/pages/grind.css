@@ -43,3 +43,10 @@
   .grind-share-panel{flex-direction:column}.grind-share-side{width:100%}
   .grind-share-hero h1{font-size:18px}.grind-download-btn.big{align-self:stretch;text-align:center}
 }
+/* Signed out: what the page is for, next to what the client looks like. */
+.grind-intro{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);align-items:center;gap:20px 28px;padding:22px}
+.grind-intro-text{display:grid;gap:12px;justify-items:start}.grind-intro h2{margin:0;font-size:22px;line-height:1.35}.grind-intro p{margin:0;line-height:1.65;color:var(--ink-2)}
+.grind-intro-shot{position:relative;padding:0 6% 9% 0}
+.grind-intro-shot img{display:block;width:100%;height:auto;border:2px solid var(--edge);box-shadow:4px 4px 0 rgba(0,0,0,.18)}
+.grind-intro-shot img.over{position:absolute;right:0;bottom:0;width:36%;border:0;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+@media (max-width:720px){.grind-intro{grid-template-columns:1fr;padding:16px}.grind-intro h2{font-size:19px}}

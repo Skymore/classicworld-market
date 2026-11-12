@@ -78,11 +78,18 @@ function MyRuns() {
   if (account.isLoading) return <Loading />;
   if (!signedIn)
     return (
-      <div className="grind-empty">
-        <p>{words("登录后可以在这里看到客户端同步的全部刷图记录。", "Sign in to see every run your client synced.")}</p>
-        <div className="grind-empty-actions">
-          <SiteLink className="btn primary" href="/account">{words("登录", "Sign in")}</SiteLink>
-          <SiteLink className="btn" href={DOWNLOAD}>{words("下载客户端", "Download the client")}</SiteLink>
+      <div className="grind-intro">
+        <div className="grind-intro-text">
+          <h2>{words("每一次刷图，自动记下来", "Every grind, recorded for you")}</h2>
+          <p>{words("客户端统计经验、掉落、收益和 DPS。登录后在这里按日、周、月回看。", "The client tracks EXP, loot, profit and DPS. Sign in to look back by day, week and month.")}</p>
+          <div className="grind-empty-actions">
+            <SiteLink className="btn primary" href="/account">{words("登录", "Sign in")}</SiteLink>
+            <SiteLink className="btn" href={DOWNLOAD}>{words("下载客户端", "Download the client")}</SiteLink>
+          </div>
+        </div>
+        <div className="grind-intro-shot" aria-hidden="true">
+          <img src="/web/img/client/grind.webp" width={880} height={660} alt="" decoding="async" />
+          <img className="over" src="/web/img/client/overlay.webp" width={260} height={288} alt="" decoding="async" />
         </div>
       </div>
     );

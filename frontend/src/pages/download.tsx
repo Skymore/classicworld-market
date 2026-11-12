@@ -43,7 +43,7 @@ export default function Page() {
       </div>
       <div className="download-shot" aria-hidden="true">
         <img src="/web/img/client/grind.webp" width={880} height={660} alt="" decoding="async" />
-        <img className="over" src="/web/img/client/overlay.webp" width={260} height={235} alt="" decoding="async" />
+        <img className="over" src="/web/img/client/overlay.webp" width={260} height={288} alt="" decoding="async" />
       </div>
     </div>
     <ul className="download-features">{features.map(([Icon, title, body]) => <li key={title}><Icon size={20} aria-hidden="true" /><b>{title}</b><span>{body}</span></li>)}</ul>
