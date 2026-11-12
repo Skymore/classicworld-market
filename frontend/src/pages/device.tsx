@@ -67,14 +67,14 @@ export default function DevicePage() {
         name: request.name,
       });
       if (typeof code !== "string" || !code) throw Error("unavailable");
-      setStatus(words("正在返回采集器…", "Returning to the collector…"));
+      setStatus(words("正在返回客户端…", "Returning to the collector…"));
       location.replace(back(request, { code }));
     } catch (error) {
       const code = (error as Error).message;
       if (code === "login_required") await refreshAccount().catch(() => {});
       setStatus(
         code === "invalid_request"
-          ? words("登录链接无效，请回到采集器重新登录。", "Invalid link. Sign in again from the collector.")
+          ? words("登录链接无效，请回到客户端重新登录。", "Invalid link. Sign in again from the collector.")
           : message(code),
       );
       setBusy(false);
@@ -95,7 +95,7 @@ export default function DevicePage() {
         {!request ? (
           <p role="alert" data-device-invalid>
             {words(
-              "登录链接无效，请回到采集器重新登录。",
+              "登录链接无效，请回到客户端重新登录。",
               "Invalid link. Sign in again from the collector.",
             )}
           </p>

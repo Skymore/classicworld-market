@@ -111,6 +111,7 @@ const Account = page(loadAccount);
 const Device = page(() => import("./pages/device"));
 const Contributors = page(() => import("./pages/contributors"));
 const Traffic = page(() => import("./pages/traffic"), "traffic");
+const Grind = page(() => import("./pages/grind"));
 function HomePage() {
   useStyles(SITE_STYLES);
   return <Home />;
@@ -151,6 +152,8 @@ const pageRoutes = [
   "/privacy",
   "/contributors",
   "/traffic",
+  "/grind",
+  "/g",
   "/selling",
   "/client",
   "/agent",
@@ -221,16 +224,18 @@ function Application() {
     privacy: words("账号隐私说明", "Account privacy"),
     contributors: words("采集贡献榜", "Contributors"),
     traffic: words("网站流量", "Website traffic"),
+    grind: words("刷图", "Grind"),
+    g: words("刷图分享", "Grind run"),
     agent: words("AI 助手", "AI assistant"),
     collect: words("浏览器采集", "Browser collector"),
-    web: words("下载采集器", "Download collector"),
+    web: words("下载客户端", "Download collector"),
     search: words("图鉴", "Catalogue"),
     item: words("物品详情", "Item"),
     mob: words("怪物图鉴", "Monster"),
     map: words("地图", "Map"),
     route: words("怎么走", "Route"),
     selling: words("摆摊", "Shop planner"),
-    client: words("采集器", "Collector"),
+    client: words("客户端", "Collector"),
   };
   const navigationType = useNavigationType();
   const lastPath = useRef<string | null>(null);
@@ -337,6 +342,8 @@ function Application() {
               <Route path="/device" element={<Device />} />
               <Route path="/contributors" element={<Contributors />} />
               <Route path="/traffic" element={<Traffic />} />
+              <Route path="/grind/*" element={<Grind />} />
+              <Route path="/g/*" element={<Grind />} />
               <Route path="/watch/*" element={<Watch />} />
               <Route path="/alerts/*" element={<Alerts />} />
               <Route path="/market" element={<Market />} />

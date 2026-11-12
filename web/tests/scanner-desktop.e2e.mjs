@@ -101,7 +101,7 @@ try {
     await page.getByRole('button',{name:'立即终止',exact:true}).click();
     assert.equal(await page.getByRole('region',{name:'远程调试已授权'}).count(),0);
     const tabs=page.getByRole('navigation',{name:'功能'});
-    assert.deepEqual(await tabs.getByRole('button').allInnerTexts(),['首页','图鉴','关注','摆摊','工具','扫描采集','刷图','扫货','账号'],'website sections, then the collector-only tabs');
+    assert.deepEqual(await tabs.getByRole('button').allInnerTexts(),['首页','图鉴','关注','工具','扫描采集','摆摊','刷图','扫货','账号'],'website sections, then the client tabs with 摆摊 before 刷图');
     assert.equal(await page.locator('.desktop-tabs,.theme-switch,.page-heading').count(),0,'old second tab row, theme switch and slogan are gone');
     const header=await page.locator('header').boundingBox();assert.equal(header.height,56);
     assert((await tabs.boundingBox()).y<header.y+header.height,'tabs sit in the header');

@@ -16,13 +16,13 @@ import { byChange, byBusy, changeWare, busyWare, saleWare } from '../lib/rows.js
 addMessages({
   zh: {
     'home.title': '今天想买点什么？', 'home.lead': '查成交价、看哪个洞有货、找哪只怪会掉。',
-    'home.collector':'下载采集器', 'home.portals': '快捷入口', 'home.p_prices': '价格表', 'home.p_prices_n': '{n} 件物品',
+    'home.collector':'下载客户端', 'home.portals': '快捷入口', 'home.p_prices': '价格表', 'home.p_prices_n': '{n} 件物品',
     'home.p_mobs': '图鉴', 'home.p_mobs_sub': '物品、怪物和地图', 'home.p_maps': '地图', 'home.p_maps_sub': '传送和路线', 'home.p_mobs_n': '物品 · 怪物 · 地图', 'home.p_maps_n': '{n} 张地图',
     'home.market': '市场概览', 'home.market_meta': '按当前时间统计',
     'home.tab_recent': '最近成交', 'home.tab_changes': '涨跌榜', 'home.tab_busy': '成交最多',
     'home.more_recent': '全部成交记录', 'home.more_changes': '完整涨跌榜', 'home.more_busy': '按成交量看价格表',
     'home.no_sales': '还没有成交记录。', 'home.no_changes': '所选时段没有可比较的涨跌。', 'home.no_busy': '所选时段没有成交。',
-    'home.contributors':'采集贡献榜', 'home.foot': '采集器下载与使用说明', 'home.suggest': '物品建议',
+    'home.contributors':'采集贡献榜', 'home.foot': '客户端下载与使用说明', 'home.suggest': '物品建议',
   },
   en: {
     'home.title': 'What are you shopping for today?', 'home.lead': 'Check sale prices, find which room has stock, see which monster drops it.',

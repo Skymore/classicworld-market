@@ -121,6 +121,7 @@ class Run:
         self.segments = []
         self.ledger = []          # dicts: t, kind, item_id, quantity, mesos, piece
         self.exp_events = []      # (t, exp) for windowed rates
+        self.exp_minutes = collections.Counter()   # unix minute -> exp, the whole run
         self.deaths = 0
         self.exp_lost = 0
         self.hp_lost = 0
@@ -131,6 +132,10 @@ class Run:
         self.kill_attacks = {}  # mob -> attack count -> observed solo kills
         self.gaps = 0
         self.level_start = character.get('level')
+
+    def add_exp(self, event):
+        self.exp_events.append(event)
+        self.exp_minutes[int(event[0] // 60)] += event[1]
 
     @property
     def segment(self):
@@ -152,7 +157,8 @@ class Run:
                     pause_reason=self.pause_reason, paused_at=self.paused_at, idle_seconds=self.idle_seconds,
                     last_gain=self.last_gain, credited_until=self.credited_until,
                     segments=[s.to_json() for s in self.segments], ledger=self.ledger,
-                    exp_events=[e for e in self.exp_events if e[0] >= self.credited_until - 1260], deaths=self.deaths, exp_lost=self.exp_lost, gaps=self.gaps,
+                    exp_events=[e for e in self.exp_events if e[0] >= self.credited_until - 1260],
+                    exp_minutes={str(k): v for k, v in self.exp_minutes.items()}, deaths=self.deaths, exp_lost=self.exp_lost, gaps=self.gaps,
                     hp_lost=self.hp_lost, hp_drops=self.hp_drops,
                     attacks={str(k): v for k, v in self.attacks.items() if v}, casts={str(k): v for k, v in self.casts.items() if v},
                     combat=self.combat.to_json(), kill_attacks=self.kill_attacks,
@@ -165,6 +171,7 @@ class Run:
                     'ledger', 'deaths', 'exp_lost', 'gaps', 'level_start', 'hp_lost', 'hp_drops'):
             setattr(run, key, data.get(key, getattr(run, key)))
         run.exp_events = [tuple(e) for e in data.get('exp_events') or []]
+        run.exp_minutes = collections.Counter({int(k): v for k, v in (data.get('exp_minutes') or {}).items()})
         run.attacks = collections.Counter({int(k): v for k, v in (data.get('attacks') or {}).items()})
         run.casts = collections.Counter({int(k): v for k, v in (data.get('casts') or {}).items()})
         run.combat = combat.Meter(data.get('combat'))
@@ -424,7 +431,7 @@ class Tracker:
             if run and run.status == 'active':
                 run.deaths += 1
                 run.exp_lost += previous - value
-                run.exp_events.append((now, value - previous))
+                run.add_exp((now, value - previous))
                 self.dirty = True
             return
         if gain <= 0:
@@ -759,7 +766,7 @@ class Tracker:
                 run.segment.exp += exp
                 if self.kills_by_exp(character):
                     run.segment.kills += 1
-            run.exp_events.append((now, exp))
+            run.add_exp((now, exp))
             self.dirty = True
             return
         if run and run.status == 'paused' and run.pause_reason == 'manual':
@@ -788,7 +795,7 @@ class Tracker:
             run.segment.exp += x
             if self.kills_by_exp(character):
                 run.segment.kills += 1
-            run.exp_events.append((t, x))
+            run.add_exp((t, x))
         for entry in character.staged:
             if entry['t'] >= first - 2:
                 entry['seg'] = len(run.segments) - 1
@@ -931,7 +938,8 @@ class Tracker:
         self.finished.insert(0, summary)
         del self.finished[20:]
         self.save_history(summary)
-        if self.settings['upload'] and summary['active_seconds'] >= self.settings['min_upload_seconds']:
+        # Parsed results always go to the site (the recorded frames never do).
+        if summary['active_seconds'] >= self.settings['min_upload_seconds']:
             self.queue_upload(run, summary)
         self.dirty = True
 
@@ -1100,7 +1108,7 @@ class Tracker:
             deaths=run.deaths, exp_lost=run.exp_lost, gaps=run.gaps,
             mesos=money['cash'], item_value=money['loot'], consume_cost=money['cost'], mesos_spent=money['spent'],
             net=money['net'], net_per_hour=money['net'] / hours if hours else None,
-            net_per_hour_1m=net_1m, rate_history=rate_history,
+            net_per_hour_1m=net_1m, rate_history=rate_history, timeline=self.timeline(run, rows, now),
             cash_per_hour=money['cash'] / hours if hours else None, pending_prices=money['pending'],
             recent=recent_rows, loot=loot_rows, consumables=consumables,
             drops=[dict(item_id=i, name=self.name(i), quantity=q) for i, q in drops.most_common()],
@@ -1116,6 +1124,29 @@ class Tracker:
             casts=[dict(skill=k, name=skill_name(k), count=v) for k, v in run.casts.most_common() if v],
             buffs=self.buffs(character, now),
             segments=[s.to_json() for s in run.segments])
+
+    def timeline(self, run, rows, now, points=48):
+        """The whole run in at most `points` equal buckets: exp and net per bucket.
+
+        Exp comes from per-minute totals kept for the whole run; net from the
+        ledger (money in and out, valued loot and consumables)."""
+        start = run.started_at
+        end = now if run.status == 'active' else max(run.credited_until, start + 60)
+        size = max(60.0, (end - start) / points)
+        count = max(1, min(points, int((end - start) // size) + 1))
+        exp = [0.0] * count
+        net = [0.0] * count
+        slot = lambda t: min(count - 1, max(0, int((t - start) // size)))
+        for minute, value in run.exp_minutes.items():
+            exp[slot(minute * 60 + 30)] += value
+        for entry in run.ledger:
+            if entry['kind'] == 'mesos':
+                net[slot(entry['t'])] += entry['mesos']
+            elif entry['kind'] == 'spent':
+                net[slot(entry['t'])] -= entry['mesos']
+        for entry, _, _, amount in rows:
+            net[slot(entry['t'])] += amount if entry['kind'] == 'loot' else -amount
+        return dict(start=start, bucket=round(size, 1), exp=[round(v) for v in exp], net=[round(v) for v in net])
 
     def kills_by_exp(self, character):
         """Kills come from experience gains until the death rule and this

@@ -142,7 +142,7 @@ function defaults(quantity: number): Line {
   return { strat: null, manual: "", bundle, groups: Math.max(1, Math.floor(quantity / bundle)) };
 }
 
-/** 采集器窗口用页面消息传来的本机背包（`own=1` 的栏目）。只接受父窗口的消息，内容只用于显示。 */
+/** 客户端窗口用页面消息传来的本机背包（`own=1` 的栏目）。只接受父窗口的消息，内容只用于显示。 */
 function useHostBag() {
   const [bag, setBag] = useState<{ holdings: Holdings | null } | null>(null);
   useEffect(() => {
@@ -164,7 +164,7 @@ function useHostBag() {
   return bag;
 }
 
-/** 背包：采集器里由窗口传入本机背包，网页上读账号下在线设备上传的背包。 */
+/** 背包：客户端里由窗口传入本机背包，网页上读账号下在线设备上传的背包。 */
 function useHoldings(signedIn: boolean) {
   const host = useHostBag();
   const local = useQuery({
@@ -444,7 +444,7 @@ export default function Selling() {
         </div>
         <div className="selling-empty">
           {embedded ? (
-            <p>{words("请用采集器顶部的「摆摊」栏目。", "Use the Shop tab at the top of the collector.")}</p>
+            <p>{words("请用客户端顶部的「摆摊」栏目。", "Use the Shop tab at the top of the collector.")}</p>
           ) : (
             <>
               <p>{words("登录后读取客户端同步的背包。", "Sign in to read the inventory your collector syncs.")}</p>
@@ -469,7 +469,7 @@ export default function Selling() {
               ? words("游戏未连接 · 显示上次读到的背包 ", "Game not connected · showing the bag read ") + clock(saved!.observed_at)
               : loading
                 ? words("正在读取背包…", "Reading bag…")
-                : words("等待游戏数据：打开游戏和采集器", "Waiting for the game and collector")}
+                : words("等待游戏数据：打开游戏和客户端", "Waiting for the game and collector")}
         </span>
         {sources.length > 1 && (
           <select
@@ -527,12 +527,12 @@ export default function Selling() {
           )}
           {!holdings ? (
             <p className="selling-note">
-              {words("打开游戏和采集器，进入游戏后这里会显示背包。", "Open the game and the collector; your bag appears here once you are in game.")}
+              {words("打开游戏和客户端，进入游戏后这里会显示背包。", "Open the game and the collector; your bag appears here once you are in game.")}
             </p>
           ) : !readOf(bag) ? (
             <p className="selling-note">
               {bag === 1
-                ? words("装备栏还没读到：更新采集器后换一次频道", "Equipment not read yet: update the collector, then change channel")
+                ? words("装备栏还没读到：更新客户端后换一次频道", "Equipment not read yet: update the collector, then change channel")
                 : words("这一栏还没读到", "This tab has not been read yet")}
             </p>
           ) : !shown.length ? (

@@ -229,13 +229,13 @@ export default function AccountPage() {
               <h3>{words("只想用昵称？也可以", "Prefer just a nickname?")}</h3>
               <p>
                 {words(
-                  "在 Windows 采集器的「我的」里填昵称，已有采集记录会自动计入。",
+                  "在 Windows 客户端的「我的」里填昵称，已有采集记录会自动计入。",
                   "Set a nickname under Profile in the Windows collector; earlier contributions count too.",
                 )}
               </p>
               <a href="/web/download.html">
                 {words(
-                  "下载采集器与使用说明",
+                  "下载客户端与使用说明",
                   "Download collector & instructions",
                 )}{" "}
                 →
@@ -390,7 +390,7 @@ export default function AccountPage() {
               {(local || link || linkStatus) && <AccountSetting
                 name="collectors"
                 icon={<Monitor size={20} />}
-                title={words("我的采集器", "My collectors")}
+                title={words("我的客户端", "My collectors")}
                 meta={
                   local
                     ? profile.linked
@@ -418,7 +418,7 @@ export default function AccountPage() {
                     <>
                       <p>
                         {words(
-                          "这台采集器的历史记录会归到你的昵称下。绑定账号后，可以把不同电脑的贡献合在一起。",
+                          "这台客户端的历史记录会归到你的昵称下。绑定账号后，可以把不同电脑的贡献合在一起。",
                           "This collector’s history counts toward your nickname. Link an account to combine contributions from multiple computers.",
                         )}
                       </p>
@@ -442,13 +442,13 @@ export default function AccountPage() {
                           onClick={() => void action("claim")}
                         >
                           {words(
-                            "确认绑定这台采集器",
+                            "确认绑定这台客户端",
                             "Confirm linking this collector",
                           )}
                         </Button>
                         <p className="note">
                           {words(
-                            "绑定后，这台采集器以往和今后的贡献都会计入你的账号。",
+                            "绑定后，这台客户端以往和今后的贡献都会计入你的账号。",
                             "This collector’s past and future contributions will belong to your account.",
                           )}
                         </p>
@@ -456,7 +456,7 @@ export default function AccountPage() {
                     ) : (
                       <p>
                         {words(
-                          "在采集器打开的网页中进入「我的」，点击「绑定账号」。",
+                          "在客户端打开的网页中进入「我的」，点击「绑定账号」。",
                           "In the page opened by your collector, choose My profile → Link account.",
                         )}
                       </p>

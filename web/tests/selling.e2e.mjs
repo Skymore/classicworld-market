@@ -131,7 +131,7 @@ try {
   if (process.env.SELLING_SHOTS) await page.screenshot({ path: path.join(process.env.SELLING_SHOTS, 'selling-desktop.png'), fullPage: true });
   console.log('PASS desktop: equipment by main stat, unread stats fallback, bag, vertical prices, sold 25%/median, manual, NPC price, saved plan');
 
-  // 采集器的「摆摊」栏目：同一页面经本机回环打开，读本机背包；没有页内导航和面包屑。
+  // 客户端的「摆摊」栏目：同一页面经本机回环打开，读本机背包；没有页内导航和面包屑。
   const client = await browser.newPage({ viewport: { width: 1920, height: 1000 } });
   await client.addInitScript(() => { if (!sessionStorage.getItem('fresh')) { localStorage.clear(); sessionStorage.setItem('fresh', '1'); } });
   await client.goto(origin + '/selling?lang=zh&embed=1');
@@ -154,7 +154,7 @@ try {
   gameConnected = true;
   console.log('PASS collector tab: local bag, no in-page navigation, last bag kept while the game is disconnected');
 
-  // 新版采集器的「摆摊」栏目：加载网站页面本身（own=1），背包由采集器窗口用页面消息传入，不需要登录。
+  // 新版客户端的「摆摊」栏目：加载网站页面本身（own=1），背包由客户端窗口用页面消息传入，不需要登录。
   const host = await browser.newPage({ viewport: { width: 1920, height: 1000 } });
   await host.addInitScript(() => { if (!sessionStorage.getItem('fresh')) { localStorage.clear(); sessionStorage.setItem('fresh', '1'); } });
   const deviceCalls = [];

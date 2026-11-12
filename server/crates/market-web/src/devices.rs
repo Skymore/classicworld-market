@@ -454,9 +454,9 @@ async fn migrate(
         .execute(&mut *tx)
         .await
         .map_err(internal)?;
-    let device = insert_device(&mut tx, account, "采集器", Some(c.id), "").await?;
+    let device = insert_device(&mut tx, account, "客户端", Some(c.id), "").await?;
     tx.commit().await.map_err(internal)?;
-    issued(&state, account, device, "采集器").await
+    issued(&state, account, device, "客户端").await
 }
 
 async fn logout(State(state): State<AppState>, headers: HeaderMap) -> Result<Response, Response> {

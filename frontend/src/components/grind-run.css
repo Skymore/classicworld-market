@@ -1,0 +1,49 @@
+/* One grind run (client history detail, site run and share pages). Tokens from web/css/base.css. */
+.gr-run{display:flex;flex-direction:column;gap:10px;min-width:0}
+.gr-head{display:flex;align-items:flex-start;gap:12px}
+.gr-head h2{margin:0;font-size:20px}.gr-head p{margin:2px 0 0;color:var(--ink-2);font-size:13px}
+.gr-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.gr-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.gr-kpis>div{display:flex;flex-direction:column;gap:2px;padding:10px 12px;background:var(--sheet-hi);border:1px solid var(--edge);box-shadow:inset 1px 1px 0 var(--bevel-hi);min-width:0}
+.gr-kpis small{font-size:11px;color:var(--ink-3)}.gr-kpis b{font-size:22px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.gr-kpis span{font-size:12px;color:var(--ink-2)}
+.money,.gr-kpis .money b{color:var(--maple-ink)}
+.gr-compare{margin:0;padding:8px 12px;background:var(--maple-tint);border:1px solid var(--edge);font-size:13px}
+.gr-chart{padding:8px 10px 4px;background:var(--sheet-hi);border:1px solid var(--edge)}
+.gr-plot{position:relative}
+.gr-chart svg{display:block;width:100%;height:auto;overflow:visible;outline:none;touch-action:pan-y}
+.gr-chart svg:focus-visible{outline:2px solid var(--maple);outline-offset:2px}
+.gr-chart polyline{fill:none;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.gr-chart polyline.exp{stroke:#3f78b5}.gr-chart polyline.net{stroke:var(--maple)}
+.gr-chart .axis,.gr-chart text.axis{font-size:11px;fill:var(--ink-3)}
+.gr-chart text.exp{fill:#3f78b5}.gr-chart text.net{fill:var(--maple-ink)}
+.gr-chart line.grid{stroke:currentColor;opacity:.08}.gr-chart line.base{stroke:currentColor;opacity:.3}
+.gr-chart line.zero{stroke:var(--maple);opacity:.35;stroke-dasharray:3 3}
+.gr-chart line.avg{stroke:#3f78b5;opacity:.45;stroke-dasharray:5 4}
+.gr-chart .peak circle{stroke:var(--sheet-hi);stroke-width:2}.gr-chart .peak.exp circle{fill:#3f78b5}.gr-chart .peak.net circle{fill:var(--maple)}
+.gr-chart .peak text{font-size:11px;font-weight:700;paint-order:stroke;stroke:var(--sheet-hi);stroke-width:3px}
+.gr-chart .peak.exp text{fill:#2c5d93}.gr-chart .peak.net text{fill:var(--maple-ink)}
+.gr-chart .cursor line{stroke:currentColor;opacity:.4}.gr-chart .cursor circle{stroke:var(--sheet-hi);stroke-width:1.5}
+.gr-chart .cursor circle.exp{fill:#3f78b5}.gr-chart .cursor circle.net{fill:var(--maple)}
+.gr-tip{position:absolute;top:0;transform:translateX(-50%);z-index:2;display:flex;flex-direction:column;gap:1px;padding:5px 8px;background:var(--sheet);border:1px solid var(--edge);box-shadow:var(--hard);font-size:12px;white-space:nowrap;pointer-events:none}
+.gr-tip .exp{color:#2c5d93}.gr-tip .net{color:var(--maple-ink)}
+.gr-legend{display:flex;gap:14px;align-items:center;font-size:12px;margin-bottom:2px}
+.gr-legend span::before{content:"";display:inline-block;width:12px;height:3px;margin-right:5px;vertical-align:3px}
+.gr-legend .exp::before{background:#3f78b5}.gr-legend .net::before{background:var(--maple)}
+.gr-legend small{margin-left:auto;color:var(--ink-3)}
+.gr-segments{display:flex;height:22px;border:1px solid var(--edge);overflow:hidden}
+.gr-segments span{display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;background:#3f78b5;white-space:nowrap;overflow:hidden;border-right:1px solid var(--sheet)}
+.gr-segments span:nth-child(even){background:#6c97c5}
+.gr-columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:start}
+.gr-well{background:var(--sheet-hi);border:1px solid var(--edge);box-shadow:inset 1px 1px 0 var(--bevel-hi);min-width:0}
+.gr-well h3{display:flex;align-items:center;margin:0;padding:9px 12px;font-size:13px;border-bottom:1px solid var(--rule)}
+.gr-well h3 b{margin-left:auto;font-size:15px;font-variant-numeric:tabular-nums}
+.gr-well h3.sub{border-top:1px solid var(--rule)}
+.gr-row{display:flex;align-items:center;gap:7px;padding:5px 12px;border-bottom:1px solid var(--rule);font-size:12px}
+.gr-row img{width:24px;height:24px;object-fit:contain}
+.gr-row .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.gr-row small{color:var(--ink-3)}.gr-row .v{font-variant-numeric:tabular-nums;font-weight:650;white-space:nowrap}
+.gr-row .coin{display:inline-block;width:20px;height:20px;margin:2px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ffe9a6,#e0a92e 60%,#a8741a);border:1px solid #7a520f}
+.gr-more{margin:0;padding:7px 12px;font-size:12px;color:var(--ink-3)}
+.gr-spark{width:60px;height:16px}.gr-spark polyline{fill:none;stroke:#3f78b5;stroke-width:1.5}
+@media (max-width:860px){.gr-columns{grid-template-columns:1fr}.gr-head{flex-wrap:wrap}.gr-actions{margin-left:0}}

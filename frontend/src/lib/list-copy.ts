@@ -172,19 +172,19 @@ addMessages({
     "alerts.setup_browser_text":
       "共享游戏窗口后照常逛摊。",
     "alerts.setup_open": "打开采集页",
-    "alerts.setup_divert": "Windows 采集器",
+    "alerts.setup_divert": "Windows 客户端",
     "alerts.setup_divert_text":
       "启动后用它打开的提醒页即可。",
     "alerts.setup_local": "打开本机个人提醒",
-    "alerts.manual": "手动连接已有采集器（高级）",
+    "alerts.manual": "手动连接已有客户端（高级）",
     "alerts.token_label": "私人连接凭据",
     "alerts.token_hint":
       "相当于密码，请勿分享。",
-    "alerts.token_save": "连接采集器",
+    "alerts.token_save": "连接客户端",
     "alerts.token_bad":
-      "连接凭据应为 30–128 个字符，请从自己的采集器配置中完整复制。",
+      "连接凭据应为 30–128 个字符，请从自己的客户端配置中完整复制。",
     "alerts.token_invalid":
-      "个人提醒连接已失效。Windows 用户请使用采集器打开的个人提醒页面；浏览器采集用户可展开高级选项，清除旧连接后重新开始采集。",
+      "个人提醒连接已失效。Windows 用户请使用客户端打开的个人提醒页面；浏览器采集用户可展开高级选项，清除旧连接后重新开始采集。",
     "alerts.token_clear": "清除当前连接",
     "alerts.limited": "请求太频繁，稍后自动重试。",
     "alerts.failed": "提醒暂时无法更新，稍后自动重试。",

@@ -1,5 +1,5 @@
 /* 摆摊页：左边背包列表，右边摆摊清单（价格选项竖排），合计固定在清单底部。
-   网页和采集器的「摆摊」栏目是同一页；采集器里占满窗口宽度。 */
+   网页和客户端的「摆摊」栏目是同一页；客户端里占满窗口宽度。 */
 .selling-page{display:flex;flex-direction:column;gap:12px;min-width:0}
 html[data-page=selling] .dwrap{max-width:1280px}
 html[data-embed][data-page=selling] .dwrap{max-width:1680px}

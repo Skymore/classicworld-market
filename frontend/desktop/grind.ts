@@ -29,6 +29,8 @@ export interface RunSummary {
   loot?: LootRow[]; recent?: LootRow[]; consumables: Consumable[]; drops: { item_id: number; name: string | null; quantity: number }[];
   mobs: { mob_id: number; kills: number; name: string; attack_samples?: number; attack_distribution?: { attacks: number; kills: number }[] }[]; segments: Segment[];
   buffs: Buff[]; hp_lost: number; hp_drops: number;
+  timeline?: { start: number; bucket: number; exp: number[]; net: number[] };
+  share_url?: string | null;
   attack_count: number; attacks: { skill: number; name: string; count: number }[]; casts: { skill: number; name: string; count: number }[];
   damage?: number | null; dps?: number | null; average_dps?: number | null;
   combat?: CombatRow[]; party_known?: boolean | null;

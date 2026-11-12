@@ -13,9 +13,9 @@ use serde::Serialize;
 use serde_json::{json, Map, Value};
 use sqlx::{postgres::PgRow, PgPool, Row};
 
-pub const LIMITATION: &str = "仅覆盖采集器和外部来源已观察到的摊位；不是全市场。外部记录保留来源，未知库存与数量为空。装备属性未完整解析。成交记录来自已采集的库存变化。";
+pub const LIMITATION: &str = "仅覆盖客户端和外部来源已观察到的摊位；不是全市场。外部记录保留来源，未知库存与数量为空。装备属性未完整解析。成交记录来自已采集的库存变化。";
 pub const DEDUP_NOTE: &str =
-    "采集器按同位置/摊位ID/名称合并最新快照；外部记录按来源成交ID去重。跨来源缺少共同成交ID，保留各自观察，不以同价同时判定重复。";
+    "客户端按同位置/摊位ID/名称合并最新快照；外部记录按来源成交ID去重。跨来源缺少共同成交ID，保留各自观察，不以同价同时判定重复。";
 const CATEGORY_NAMES: [&str; 5] = ["装备", "消耗品", "装饰", "其他", "商城物品"];
 const ARCHER_PRESET: [i32; 4] = [1_452_003, 1_452_004, 1_462_003, 1_462_004];
 const CATALOG_LIMIT: i64 = 40;

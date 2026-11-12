@@ -182,7 +182,7 @@ try {
     assert.equal(await dates.count(),7);
     const bounds=await dates.evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,overflow:node.scrollWidth>node.clientWidth};}));
     assert(bounds.every((r,i)=>!r.overflow&&(i===0||r.left>=bounds[i-1].right-1)),'date columns do not overlap');
-    assert(!/Verify stats|属性是采集器|报价来自摊位快照/.test(await page.locator('main').textContent()));
+    assert(!/Verify stats|属性是客户端|报价来自摊位快照/.test(await page.locator('main').textContent()));
     if(mobile){
       const nav=await page.locator('.dock .dock-icon svg').evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {top:r.top,width:r.width,height:r.height};}));
       assert.equal(nav.length,5);assert(nav.every(r=>r.width===24&&r.height===24&&Math.abs(r.top-nav[0].top)<1),'five dock icons share one size and baseline');

@@ -39,7 +39,7 @@ export default function Collect() {
           <p>共享游戏窗口，或选一段逛摊录像，读到的商店会上传到市集。</p>
           <p>
             <SiteLink className="btn" href="/web/download.html">
-              下载 Windows 采集器
+              下载 Windows 客户端
             </SiteLink>
           </p>
           <p className="c-ver">

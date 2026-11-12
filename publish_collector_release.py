@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.26：“采集器”改名“客户端”；刷图记录自动同步到账号，历史可看单条详情并生成分享链接和卡片图；折线改为整场，带坐标轴、悬停读数和最高点标记，升级后重建7天历史；摆摊移到刷图前。\n'
         'v0.7.25：悬浮窗标准与详细布局显示全部已使用消耗品，不再只显示前1/4种，避免攻击神水等低频消耗被隐藏。\n'
         'v0.7.24：自己攻击数据中断时DPS显示未知而非0；默认显示增加怪物击杀；消耗与战利品紧接金币净收益，各组右上角显示带金币图标的正负合计（战利品含拾取金币）。\n'
         'v0.7.23：修复悬浮窗网址与计时重叠，网址移入标题栏独立一行，随界面字号缩放。\n'

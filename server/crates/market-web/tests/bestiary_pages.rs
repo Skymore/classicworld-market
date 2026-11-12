@@ -529,7 +529,7 @@ fn equipment_tooltips_mark_bonus_stats() {
     assert!(html.contains("<b>+19</b><i>(+2)</i>"));
     assert!(html.contains("可升级次数：7"));
     assert!(!html.contains("报价来自摊位快照"));
-    assert!(!html.contains("属性是采集器从数据包解析的"));
+    assert!(!html.contains("属性是客户端从数据包解析的"));
     assert!(
         html.contains(r#"<details class="listing-offer""#)
             && html.contains(r#"data-bonus="1"><summary class="lrow">"#),

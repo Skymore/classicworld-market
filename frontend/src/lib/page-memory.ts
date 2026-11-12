@@ -46,6 +46,7 @@ const CATALOGUE = ["/search", "/item", "/mob", "/map", "/npc", "/route"];
 export function navSection(path: string) {
   if (path.startsWith("/agent")) return "agent";
   if (path.startsWith("/watch")) return "watch";
+  if (path.startsWith("/grind") || path.startsWith("/g/")) return "grind";
   if (inside(path, TOOLS)) return "tools";
   if (path === "/" || path === "/v2" || path.startsWith("/prices") || path.startsWith("/sales"))
     return "home";

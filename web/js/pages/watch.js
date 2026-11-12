@@ -576,7 +576,7 @@ export async function mount(main) {
   main.querySelector('.wstatus').after(hint);
   function showSource(){
     if(personalIdentity){hint.textContent=lang==='en'?'Alerts: shared offers + shops I just visited':'提醒范围：共享新报价 + 我刚逛到的摊位';return;}
-    hint.textContent=lang==='en'?'Shared offer alerts are on for all watched items. Your own visits join automatically when connected.':'已开启所有关注物品的共享新报价提醒；连接采集器后，自动加入自己刚逛到的摊位。';
+    hint.textContent=lang==='en'?'Shared offer alerts are on for all watched items. Your own visits join automatically when connected.':'已开启所有关注物品的共享新报价提醒；连接客户端后，自动加入自己刚逛到的摊位。';
   }
   try{personalToken=localStorage.getItem('cwm.collector.token');}catch{}
   async function connectPersonal(){

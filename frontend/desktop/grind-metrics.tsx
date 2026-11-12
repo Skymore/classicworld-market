@@ -11,7 +11,11 @@ export function RateMetrics({ run, kind }: { run: RunSummary; kind: 'exp' | 'net
   const total = kind === 'exp' ? run.exp : run.net;
   const average = kind === 'exp' ? run.exp_per_hour : run.net_per_hour;
   const minute = kind === 'exp' ? run.exp_per_hour_1m : run.net_per_hour_1m;
-  const history = run.rate_history || [];
+  // The whole run (timeline buckets as hourly rates); older summaries only had the last 20 minutes.
+  const line = run.timeline;
+  const history: { t: number; exp: number; net: number }[] = line && line.exp.length > 1
+    ? line.exp.map((exp, i) => ({ t: line.start + (i + .5) * line.bucket, exp: exp * 3600 / line.bucket, net: (line.net[i] || 0) * 3600 / line.bucket }))
+    : run.rate_history || [];
   const values = history.map(p => p[kind]);
   const minimum = Math.min(...(values.length ? values : [minute ?? 0])), maximum = Math.max(...(values.length ? values : [minute ?? 0]));
   const padding = Math.max(1, (maximum - minimum) * .12, Math.abs(maximum) * .01);
@@ -21,6 +25,10 @@ export function RateMetrics({ run, kind }: { run: RunSummary; kind: 'exp' | 'net
   const x = (t: number) => 2 + (t - start) / span * 296;
   const points = history.map(p => `${x(p.t)},${y(p[kind])}`).join(' ');
   const active = selected == null ? null : history[Math.min(selected, history.length - 1)];
+  const peak = history.length > 1 ? history.reduce((best, p) => p[kind] > best[kind] ? p : best, history[0]) : null;
+  const hhmm = (t: number) => new Date(t * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  const left = (t: number) => `${x(t) / 3}%`, top = (v: number) => `${y(v) / .76}%`;
+  const yTicks = [high - padding, (high + low) / 2, low + padding];
   return <section className="rate-metrics" aria-label={name}>
     <b className="rate-title">{kind === 'exp' ? <Sparkles size={13} /> : <MesosIcon size={13} />}{kind === 'exp' ? name : tr('净收益', 'Net')}</b>
     <div className="rate-values">
@@ -29,14 +37,20 @@ export function RateMetrics({ run, kind }: { run: RunSummary; kind: 'exp' | 'net
       <div><small>{tr('累计', 'Total')}</small><b>{big(total)}</b></div>
     </div>
     <div className="rate-plot" onPointerLeave={() => setSelected(null)}>
+    {history.length > 1 && <div className="rate-axis-y" aria-hidden="true">{yTicks.map((v, i) => <span key={i} style={{ top: top(v) }}>{big(v)}</span>)}</div>}
     {active && <output className="rate-tooltip">{new Date(active.t * 1000).toLocaleTimeString()} · {big(active[kind])}/h</output>}
+    <div className="rate-canvas">
+    {peak && peak[kind] > 0 && <span className="rate-peak" style={{ left: left(peak.t), top: top(peak[kind]) }} title={`${tr('最高', 'Peak')} ${hhmm(peak.t)}`}><i />{tr('最高', 'Peak')} {big(peak[kind])}</span>}
     <svg className="rate-chart" viewBox="0 0 300 76" tabIndex={0} onBlur={() => setSelected(null)}
       onKeyDown={e => { if (['ArrowLeft', 'ArrowRight'].includes(e.key)) { e.preventDefault(); setSelected(Math.max(0, Math.min(history.length - 1, (selected ?? history.length - 1) + (e.key === 'ArrowLeft' ? -1 : 1)))); } }}
-      onPointerMove={e => { const box = e.currentTarget.getBoundingClientRect(); const t = start + Math.max(0, Math.min(1, (e.clientX - box.left) / box.width)) * span; if (history.length) setSelected(history.reduce((best, p, i) => Math.abs(p.t - t) < Math.abs(history[best].t - t) ? i : best, 0)); }} preserveAspectRatio="none" role="img" aria-label={tr(`${name}近1分钟折算每小时趋势`, `${name} rolling 1-minute hourly rate`)}>
+      onPointerMove={e => { const box = e.currentTarget.getBoundingClientRect(); const t = start + Math.max(0, Math.min(1, (e.clientX - box.left) / box.width)) * span; if (history.length) setSelected(history.reduce((best, p, i) => Math.abs(p.t - t) < Math.abs(history[best].t - t) ? i : best, 0)); }} preserveAspectRatio="none" role="img" aria-label={tr(`${name}整场每小时趋势`, `${name} hourly rate over the whole run`)}>
       {low <= 0 && high >= 0 && <line x1="2" x2="298" y1={y(0)} y2={y(0)} stroke="currentColor" opacity=".2" />}
       {average != null && average >= low && average <= high && <line x1="2" x2="298" y1={y(average)} y2={y(average)} stroke="currentColor" opacity=".45" strokeDasharray="4 3"><title>{tr('本次平均', 'Session average')} {big(average)}/h</title></line>}
       {history.length > 1 && <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />}
       {active && <g className="rate-cursor"><line x1={x(active.t)} x2={x(active.t)} y1="4" y2="72" stroke="currentColor" opacity=".4" /><circle cx={x(active.t)} cy={y(active[kind])} r="3" fill="currentColor" /></g>}
+      {yTicks.map((v, i) => <line key={i} x1="2" x2="298" y1={y(v)} y2={y(v)} stroke="currentColor" opacity=".08" vectorEffect="non-scaling-stroke" />)}
     </svg></div>
+    {history.length > 1 && <div className="rate-axis-x" aria-hidden="true"><span>{hhmm(start)}</span><span>{hhmm(start + span / 2)}</span><span>{hhmm(start + span)}</span></div>}
+    </div>
   </section>;
 }

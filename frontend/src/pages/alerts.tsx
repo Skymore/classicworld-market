@@ -33,7 +33,7 @@ function Status({ status }: { status: any }) {
       "Game connected but no inbound packets; check proxy or firewall policy",
     ],
     offline: [
-      "采集器未运行或状态已过期",
+      "客户端未运行或状态已过期",
       "Collector offline or status expired",
     ],
     waiting: ["等待游戏连接", "Waiting for game connection"],
@@ -289,7 +289,7 @@ export default function Alerts() {
                 <p>{t("alerts.setup_divert_text")}</p>
                 <div className="astep-actions">
                   <a className="btn primary" href="/web/download.html">
-                    {words("下载采集器与使用说明", "Download & instructions")}
+                    {words("下载客户端与使用说明", "Download & instructions")}
                   </a>
                   <a className="btn" href="http://127.0.0.1:8780/alerts">
                     {t("alerts.setup_local")}

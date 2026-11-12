@@ -14,7 +14,7 @@ import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
-VERSION = '0.7.25'
+VERSION = '0.7.26'
 LATEST = 'https://mxd.ruit.me/web/releases/stable.json'
 DOWNLOAD_BASES = ('https://mxd.ruit.me/web/releases/', 'https://download.ruit.me/collector/')
 EXE = 'ClassicWorldCollector.exe'
@@ -486,14 +486,14 @@ def apply_plan(path, executable=None):
 def ask_update(tag):
     import ctypes
     return ctypes.windll.user32.MessageBoxW(None,
-        f'发现新版本 {tag}。现在更新并重启采集器吗？\n配置与采集记录会保留。更新后游戏连接和背包会保留。\n\nUpdate and restart? Your settings and records will be kept.',
-        '枫叶市集 · 采集器更新 / Collector update', 0x4 | 0x20 | 0x10000) == 6
+        f'发现新版本 {tag}。现在更新并重启客户端吗？\n配置与采集记录会保留。更新后游戏连接和背包会保留。\n\nUpdate and restart? Your settings and records will be kept.',
+        '枫叶市集 · 客户端更新 / Collector update', 0x4 | 0x20 | 0x10000) == 6
 
 
 def show_error(message):
     if os.name=='nt':
         import ctypes
-        ctypes.windll.user32.MessageBoxW(None,message,'采集器更新 / Collector update',0x10)
+        ctypes.windll.user32.MessageBoxW(None,message,'客户端更新 / Collector update',0x10)
 
 
 def start_checker(home, stop, ready, argv, wakeup=None, endpoint=None, *, interval=CHECK_INTERVAL,

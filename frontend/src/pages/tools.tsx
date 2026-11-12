@@ -11,7 +11,7 @@ const TOOLS: Entry[] = [
 ];
 const COLLECT: Entry[] = [
   ["/collect/", "collect", "search", "浏览器采集", "Browser collector"],
-  ["/web/download.html", "download", "tools", "下载采集器", "Download collector"],
+  ["/web/download.html", "download", "tools", "下载客户端", "Download collector"],
   ["/alerts", "alerts", "tag", "低价提醒", "Deal alerts"],
   ["/contributors", "contributors", "leaf", "采集贡献榜", "Contributors"],
 ];

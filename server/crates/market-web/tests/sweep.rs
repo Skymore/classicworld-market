@@ -1020,7 +1020,7 @@ async fn collector_tokens_link_on_login_and_migrate_once() {
         .unwrap();
     let (status, migrated) = migrate(old.token.clone()).await;
     assert_eq!(status, StatusCode::OK, "{migrated}");
-    assert_eq!(migrated["device"]["name"], "采集器");
+    assert_eq!(migrated["device"]["name"], "客户端");
     assert!(migrated["token"].as_str().unwrap().starts_with("cwd_"));
     assert_eq!(migrate(old.token.clone()).await.0, StatusCode::UNAUTHORIZED);
     let device = migrated["token"].as_str().unwrap();

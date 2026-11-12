@@ -338,7 +338,7 @@ class DesktopController:
                 return
             self._update_pending = True
             self._change(update_requested=True)
-            self._activity(f"正在更新到 {status.get('available') or '新版本'}，采集器会短暂重启，游戏无需退出。")
+            self._activity(f"正在更新到 {status.get('available') or '新版本'}，客户端会短暂重启，游戏无需退出。")
             if not self._attempt_active:
                 self._stop_for_update()
 
@@ -1014,7 +1014,7 @@ class DesktopController:
     def _show_watchdog_stop(self):
         path = self.collector.home/WATCHDOG_STOP
         if read_json(path).get('reason') == 'crash_loop':
-            message = '采集器短时间内多次异常退出，已停止自动扫描。请点“报 Bug”，然后再开始。'
+            message = '客户端短时间内多次异常退出，已停止自动扫描。请点“报 Bug”，然后再开始。'
             self._change(phase='error', message=message, failure=message)
             self._activity(message, 'error')
         try:

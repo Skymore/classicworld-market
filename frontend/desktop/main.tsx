@@ -18,9 +18,10 @@ type ClientTab = 'scan' | 'grind' | 'sweep' | 'account';
 type Tab = SitePageKey | ClientTab;
 // Sweep and account are pages too (built with the website, served by this PC), shown in the collector's group.
 // The website's sections, in its navigation order, then what only the collector does.
-const SITE_TABS: SitePageKey[] = ['home', 'dex', 'watch', 'selling', 'tools'];
-const CLIENT_TABS: [ClientTab, string, string][] = [['scan', '扫描采集', 'Scan'], ['grind', '刷图', 'Grind'], ['sweep', '扫货', 'Sweep'], ['account', '账号', 'Account']];
-const PAGE_TABS: SitePageKey[] = [...SITE_TABS, 'sweep', 'account'];
+const SITE_TABS: SitePageKey[] = ['home', 'dex', 'watch', 'tools'];
+// 摆摊 is a website page shown in the client group, before 刷图.
+const CLIENT_TABS: [ClientTab | 'selling', string, string][] = [['scan', '扫描采集', 'Scan'], ['selling', '摆摊', 'Shop planner'], ['grind', '刷图', 'Grind'], ['sweep', '扫货', 'Sweep'], ['account', '账号', 'Account']];
+const PAGE_TABS: SitePageKey[] = [...SITE_TABS, 'selling', 'sweep', 'account'];
 const isSite = (tab: Tab): tab is SitePageKey => (PAGE_TABS as string[]).includes(tab);
 // One button cycles light → dark → system.
 const THEMES: Record<Theme, [string, string]> = { system: ['跟随系统', 'System'], light: ['浅色', 'Light'], dark: ['深色', 'Dark'] };
@@ -68,7 +69,7 @@ function UpdateControl({ state, connected, busy, action }: { state: State; conne
   if (state.update_requested) return <>{state.desired ? tr('扫完当前摊位后更新', 'Updates after this shop') : tr('正在准备更新…', 'Preparing the update…')}</>;
   if (state.updates !== 'ready_to_update') return <>{updateLabel(state.updates)}</>;
   const tag = state.update_version ? 'v' + state.update_version.replace(/^v/, '') : tr('新版本', 'the new version');
-  return <button className="ui-btn primary footer-update" title={tr('采集器会短暂重启，游戏无需退出', 'The collector restarts briefly; the game stays open')} onClick={() => action('update')}
+  return <button className="ui-btn primary footer-update" title={tr('客户端会短暂重启，游戏无需退出', 'The collector restarts briefly; the game stays open')} onClick={() => action('update')}
     disabled={!connected || busy || Boolean(state.remote_debug?.active)}>{tr(`更新到 ${tag}`, `Update to ${tag}`)}</button>;
 }
 
@@ -129,7 +130,7 @@ function App() {
       <div className="app-brand pywebview-drag-region"><Leaf /><strong className="pywebview-drag-region">{tr('枫叶市集', 'Maple Market')}<small className="app-site">mxd.ruit.me</small></strong></div>
       <nav className="app-tabs" aria-label={tr('功能', 'Sections')}>
         <span className="tab-group" role="group" aria-label={tr('网站', 'Website')} data-tab-group="site">{SITE_TABS.map(key => tabButton(key, tr(...SITE_LABELS[key])))}</span>
-        <span className="tab-group client" role="group" aria-label={tr('客户端', 'Collector')} data-tab-group="client">{CLIENT_TABS.map(([key, zh, en]) => tabButton(key, tr(zh, en)))}</span>
+        <span className="tab-group client" role="group" aria-label={tr('客户端', 'Collector')} data-tab-group="client">{CLIENT_TABS.map(([key, zh, en]) => tabButton(key, key === 'selling' ? tr(...SITE_LABELS.selling) : tr(zh, en)))}</span>
       </nav>
       <div className="app-drag pywebview-drag-region" onDoubleClick={() => action('window', 'maximize')} />
       <div className="header-tools">

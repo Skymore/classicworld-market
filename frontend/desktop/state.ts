@@ -26,7 +26,7 @@ declare global {
   }
 }
 export const initial: State = {
-  version: '', phase: 'idle', mode: 'scan', message: '正在连接采集器…', room: null, channel: null, visited: 0, uploaded: 0,
+  version: '', phase: 'idle', mode: 'scan', message: '正在连接客户端…', room: null, channel: null, visited: 0, uploaded: 0,
   started_at: null, stopped_at: null, run_shops: 0, run_items: 0, run_started_at: null, capture: 'connecting', upload: 'ready',
   last_shop_at: null, updates: 'checking', selected: null, windows: [], theme: 'system', activities: [],
 };

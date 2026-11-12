@@ -35,3 +35,12 @@
 
 .ov-account-heading{display:flex;align-items:center;justify-content:space-between;gap:.6em;padding:0 4px 2px}.ov-account-heading .ov-account-title{padding:0;margin:0}.ov-account-heading>.amount{white-space:nowrap}.grind-accounts{margin-bottom:12px}
 .grind-accounts .well-h>.amount{margin-left:auto}
+
+.rate-plot{padding-left:44px}.rate-axis-y{position:absolute;left:0;top:14px;width:40px;height:80px;pointer-events:none}
+.rate-axis-y span{position:absolute;right:0;transform:translateY(-50%);font-size:10px;opacity:.6;white-space:nowrap}
+.rate-axis-x{display:flex;justify-content:space-between;font-size:10px;opacity:.6;margin-top:1px}
+.rate-peak{position:absolute;z-index:1;transform:translate(-50%,-100%);margin-top:-3px;display:flex;flex-direction:column;align-items:center;font-size:10px;font-weight:700;white-space:nowrap;pointer-events:none;color:#b36b15}
+.rate-peak i{order:2;width:7px;height:7px;margin-top:1px;margin-bottom:-6px;border-radius:50%;background:currentColor;border:1.5px solid #fff}
+.rate-canvas{position:relative;margin-top:14px}.rate-canvas>.rate-chart{margin-top:0}
+.ov .rate-plot{padding-left:0}.ov .rate-axis-y,.ov .rate-axis-x{display:none}.ov .rate-canvas{margin-top:12px}
+.ov-t-dark .rate-peak,.ov-t-maple .rate-peak{color:#ffd27a}

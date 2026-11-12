@@ -117,6 +117,8 @@ class GrindService:
         self.last_calibration = None
         self.lock = threading.Lock()
         self.hotkeys = None
+        from grind_sync import RunSync
+        self.sync = RunSync(self.folder)
 
     # ----- data for the pages -------------------------------------------
     def settings(self):
@@ -229,7 +231,16 @@ class GrindService:
         if name == 'command':
             return self.command(value)
         if name == 'history':
-            return self.history()
+            shares = self.sync.shares()
+            return [dict(run, share_url=shares.get(run.get('id'))) for run in self.history()]
+        if name == 'run':
+            shares = self.sync.shares()
+            run = next((r for r in self.history(500) if r.get('id') == value), None)
+            return dict(run, share_url=shares.get(value)) if run else None
+        if name == 'share':
+            if not isinstance(value, dict) or not isinstance(value.get('id'), str):
+                raise ValueError('invalid_request')
+            return self.sync.share(value['id'], value.get('show_name', True), value.get('show_profit', True))
         if name == 'settings':
             return self.save_settings(value)
         if name == 'overlay_edit':
@@ -242,6 +253,7 @@ class GrindService:
     # ----- background calibration ---------------------------------------
     def start(self):
         threading.Thread(target=self.calibrate_loop, daemon=True, name='grind-calibrate').start()
+        threading.Thread(target=self.sync.loop, args=(self.stop,), daemon=True, name='grind-sync').start()
         from grind_replay import replay_once
         from collector_update import VERSION
         def replay_and_reconcile():

@@ -53,7 +53,7 @@ export default function GrindResults({ mapId }: { mapId: number }) {
     <section className="well grind-results" data-grind-results>
       <div className="well-h">
         <h3>{words("刷图实测", "Measured grinding")}</h3>
-        <small>{words("近 90 天 · 采集器自动上传", "Last 90 days · collector uploads")}</small>
+        <small>{words("近 90 天 · 客户端自动上传", "Last 90 days · collector uploads")}</small>
         {bands.length > 1 && (
           <select className="grind-band" value={band ?? ""} aria-label={words("等级", "Level")}
             onChange={(e) => setBand(e.target.value ? Number(e.target.value) : null)}>

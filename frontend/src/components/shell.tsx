@@ -24,6 +24,7 @@ const navigation = [
   ["agent", "/agent", "AI 助手", "Ask AI", "search"],
   ["dex", "/search?kind=item", "图鉴", "Catalogue", "book"],
   ["watch", "/watch", "关注", "Watch", "star"],
+  ["grind", "/grind", "刷图", "Grind", "chart"],
   ["tools", "/tools", "工具", "Tools", "tools"],
 ];
 /** The live market connection: connecting, connected or reconnecting. */
@@ -398,7 +399,7 @@ const TOOL_PAGES: [string, string, string][] = [
   ["/selling", "摆摊", "Shop planner"],
   ["/alerts", "低价提醒", "Deal alerts"],
   ["/collect", "浏览器采集", "Browser collector"],
-  ["/web/download.html", "下载采集器", "Download collector"],
+  ["/web/download.html", "下载客户端", "Download collector"],
   ["/contributors", "采集贡献榜", "Contributors"],
   ["/traffic", "网站流量", "Website traffic"],
 ];

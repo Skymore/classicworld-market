@@ -34,7 +34,7 @@ export default function Home() {
           </h1>
           <p>
             <SiteLink href="/web/download.html">
-              {words("下载采集器", "Download collector")} →
+              {words("下载客户端", "Download collector")} →
             </SiteLink>
           </p>
         </div>

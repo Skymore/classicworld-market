@@ -3,8 +3,8 @@ import { esc,num } from '../lib/format.js';
 import {adoptAccount,subscribeSync,getSyncState,importGuest,guestImportAvailable,retryConflicts,beforeSignOut,flush} from '../lib/user-data.js';
 const say=(zh,en)=>lang==='en'?en:zh;
 const errors={invalid_nickname:['昵称需要 2–24 个字，可用中文、字母、数字、空格和 _-.。','Use 2–24 letters, numbers, spaces or _-. for your nickname.'],
-  expired_link:['绑定链接已过期，请在采集器中重新点击绑定。','This link expired. Start linking again in the collector.'],
-  already_linked:['这个采集器已经绑定了其他账号。','This collector belongs to another account.'],
+  expired_link:['绑定链接已过期，请在客户端中重新点击绑定。','This link expired. Start linking again in the collector.'],
+  already_linked:['这个客户端已经绑定了其他账号。','This collector belongs to another account.'],
   manage_on_website:['请在官网的「我的」中修改昵称。','Edit your nickname on the website under My profile.'],
   login_failed:['登录未完成，请重试。','Sign-in did not finish. Please try again.'],
   invalid_username:['用户名需为 3–32 个英文字母、数字、下划线、点或短横线，并以字母或数字开头。','Use 3–32 letters, numbers, underscores, dots or hyphens, starting with a letter or number.'],
@@ -58,11 +58,11 @@ export async function mount(main){
     const local=profile.mode==='collector';
     const google='/auth/google/start'+(link?'?link='+encodeURIComponent(link):'');
     if(!profile.signed_in){
-      box.innerHTML=`<p>${say('登录后，在不同设备同步关注商品、目标价和偏好。无需安装采集器。','Sign in to sync watches, target prices and preferences across devices. No collector required.')}</p>${authForm()}
+      box.innerHTML=`<p>${say('登录后，在不同设备同步关注商品、目标价和偏好。无需安装客户端。','Sign in to sync watches, target prices and preferences across devices. No collector required.')}</p>${authForm()}
         ${profile.google_enabled?`<a class="btn google-signin" href="${google}"><span aria-hidden="true">G</span>${say('使用 Google 登录','Sign in with Google')}</a>`:`<p class="note">${esc(message('google_unavailable'))}</p>`}
         <p class="note"><a href="/privacy">${say('账号隐私说明','Account privacy')}</a></p>
         ${params.has('error')?`<p role="alert">${esc(message(params.get('error')))}</p>`:''}
-        <section class="well account-help"><h3>${say('只想用昵称？也可以','Prefer just a nickname?')}</h3><p>${say('打开 Windows 采集器，点网页右上角的头像图标进入「我的」，输入昵称即可。已有采集记录会自动计入。','Open the Windows collector, select the profile icon at the top right, and enter a nickname. Your earlier contributions will count too.')}</p><a href="/web/download.html">${say('下载采集器与使用说明','Download collector & instructions')} →</a></section>`;return;
+        <section class="well account-help"><h3>${say('只想用昵称？也可以','Prefer just a nickname?')}</h3><p>${say('打开 Windows 客户端，点网页右上角的头像图标进入「我的」，输入昵称即可。已有采集记录会自动计入。','Open the Windows collector, select the profile icon at the top right, and enter a nickname. Your earlier contributions will count too.')}</p><a href="/web/download.html">${say('下载客户端与使用说明','Download collector & instructions')} →</a></section>`;return;
     }
     box.innerHTML=`${recoveryNotice()}${!local?syncSection():''}<h2>${say('你的采集名片','Your contributor profile')}</h2><p>${say('用昵称加入贡献榜，感谢你帮大家发现价格。','Join the contributor board with a nickname. Thanks for helping everyone discover prices.')}</p>
       <div class="contributor-stats"><div><strong>${num(profile.stats?.shops||0)}</strong><span>${say('累计采集摊位','Shops contributed')}</span></div><div><strong>${num(profile.stats?.quotes||0)}</strong><span>${say('有效报价条目','Distinct offers')}</span></div></div>
@@ -71,10 +71,10 @@ export async function mount(main){
       <label class="account-opt"><input type="checkbox" name="listed" ${profile.listed?'checked':''} ${local&&profile.linked?'disabled':''}>${say('在贡献榜公开我的昵称和采集成绩','Show my nickname and contributions on the leaderboard')}</label>
       ${local&&profile.linked?`<a class="btn" href="https://mxd.ruit.me/account" target="_blank" rel="noopener">${say('去官网修改','Edit on website')} ↗</a>`:`<button class="btn primary" type="submit">${say('保存昵称','Save nickname')}</button>`}
       <p class="account-status" role="status" aria-live="polite"></p></form>
-      <section class="well account-help"><h3>${say('我的采集器','My collectors')}</h3>
+      <section class="well account-help"><h3>${say('我的客户端','My collectors')}</h3>
       ${local?(profile.linked?`<p>${say('已绑定应用账号，历史贡献已合并。','Linked to your account. Earlier contributions are included.')}</p>`:
-        `<p>${say('这台采集器的历史记录会归到你的昵称下。绑定账号后，可以把不同电脑的贡献合在一起。','This collector’s history counts toward your nickname. Link your account to combine contributions from multiple computers.')}</p><button class="btn" data-connect>${say('绑定应用账号','Link account')}</button>`):
-        `<p>${say(`已绑定 ${profile.collectors||0} 个采集器。`,`You have ${profile.collectors||0} linked collectors.`)}</p>${link?`<button class="btn primary" data-claim>${say('确认绑定这台采集器','Confirm linking this collector')}</button><p class="note">${say('绑定后，这台采集器以往和今后的贡献都会计入你的账号。','This collector’s past and future contributions will belong to your account.')}</p>`:`<p>${say('在采集器打开的网页中进入「我的」，点击「绑定应用账号」。','In the page opened by your collector, choose My profile → Link account.')}</p>`}`}
+        `<p>${say('这台客户端的历史记录会归到你的昵称下。绑定账号后，可以把不同电脑的贡献合在一起。','This collector’s history counts toward your nickname. Link your account to combine contributions from multiple computers.')}</p><button class="btn" data-connect>${say('绑定应用账号','Link account')}</button>`):
+        `<p>${say(`已绑定 ${profile.collectors||0} 个客户端。`,`You have ${profile.collectors||0} linked collectors.`)}</p>${link?`<button class="btn primary" data-claim>${say('确认绑定这台客户端','Confirm linking this collector')}</button><p class="note">${say('绑定后，这台客户端以往和今后的贡献都会计入你的账号。','This collector’s past and future contributions will belong to your account.')}</p>`:`<p>${say('在客户端打开的网页中进入「我的」，点击「绑定应用账号」。','In the page opened by your collector, choose My profile → Link account.')}</p>`}`}
       <p role="status" data-link-status></p></section>
       <p class="note">${say('贡献榜只公开你选择的昵称与统计数字，不展示 Google 账号信息。随时取消勾选即可退出榜单。','Only your chosen nickname and statistics appear publicly. Google account details are never shown. Uncheck the option above to leave the board.')}</p>
       ${!local?securitySection():''}<div class="account-actions"><a class="btn" href="/contributors">${say('查看采集贡献榜','View contributors')} →</a>${!local?`<button data-logout>${say('退出登录','Sign out')}</button>`:''}</div>`;

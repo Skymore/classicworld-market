@@ -22,7 +22,7 @@ const BASIS_EN = 'Compared with earlier offers from other shops (this shop exclu
 addMessages({
   zh: {
     'alerts.title': '低价提醒', 'alerts.meta': '{n} 条 · 实时推送', 'alerts.window': '参考报价', 'alerts.window_72': '近 72 小时', 'alerts.window_all': '全部记录',
-    'alerts.rules': '只看你自己的采集器最近 2 分钟逛到的摊位。非装备；至少 8 个其他摊位有报价；买价低于这些摊位中位价的下四分位；按快卖参考价扣 3% 手续费后至少赚 15%。别人的报价参与比较，别人的低价发现不会提醒你。',
+    'alerts.rules': '只看你自己的客户端最近 2 分钟逛到的摊位。非装备；至少 8 个其他摊位有报价；买价低于这些摊位中位价的下四分位；按快卖参考价扣 3% 手续费后至少赚 15%。别人的报价参与比较，别人的低价发现不会提醒你。',
     'alerts.buy': '买价 / 件', 'alerts.bundle': '{n} 件一组 {cost}', 'alerts.stock': '库存 {n}', 'alerts.fast': '快卖参考', 'alerts.normal': '正常卖参考',
     'alerts.after_fee': '扣 3% 后 {pct}', 'alerts.found': '发现于 {ago}', 'alerts.counts': '比较 {shops} 个摊位 · {listings} 条挂单 · 共 {qty} 件在售 · 下四分位 {q1}',
     'alerts.empty': '暂时没有低价提醒。继续逛摊，发现低价时这里会提醒。', 'alerts.checked': '{time} 检查过',
@@ -30,14 +30,14 @@ addMessages({
     'alerts.setup_title': '开始采集，查看自己的低价提醒',
     'alerts.setup_intro': '选择一种采集方式即可，无需手动填写连接信息。提醒只针对你逛到的摊位；其他玩家的报价仅用于比价。',
     'alerts.setup_browser': '浏览器采集', 'alerts.setup_browser_text': '打开采集页，共享游戏窗口，然后照常逛摊。这个浏览器会记住采集身份，回到本页就能看到提醒。', 'alerts.setup_open': '打开采集页',
-    'alerts.setup_divert': 'Windows 采集器',
-    'alerts.setup_divert_text': '启动 Windows 采集器后，使用它自动打开的个人提醒页面，连接信息会自动带好。如果已经启动，也可以从下面打开本机默认入口。',
+    'alerts.setup_divert': 'Windows 客户端',
+    'alerts.setup_divert_text': '启动 Windows 客户端后，使用它自动打开的个人提醒页面，连接信息会自动带好。如果已经启动，也可以从下面打开本机默认入口。',
     'alerts.setup_local': '打开本机个人提醒',
-    'alerts.setup_local_hint': '仅在这台电脑已启动 Windows 采集器时可用；打不开时，请先启动采集器。',
-    'alerts.manual': '手动连接已有采集器（高级）',
-    'alerts.manual_intro': '通常不需要使用此选项。只有想在当前浏览器查看另一台采集器的个人提醒时，才需要从自己的采集器配置中复制连接凭据（令牌）。',
+    'alerts.setup_local_hint': '仅在这台电脑已启动 Windows 客户端时可用；打不开时，请先启动客户端。',
+    'alerts.manual': '手动连接已有客户端（高级）',
+    'alerts.manual_intro': '通常不需要使用此选项。只有想在当前浏览器查看另一台客户端的个人提醒时，才需要从自己的客户端配置中复制连接凭据（令牌）。',
     'alerts.token_label': '私人连接凭据', 'alerts.token_hint': '这相当于查看个人提醒的密码，请勿分享。保存后只在当前浏览器记住，并用于连接本站的个人提醒服务。',
-    'alerts.token_save': '连接采集器', 'alerts.token_bad': '连接凭据应为 30–128 个字符，请从自己的采集器配置中完整复制。', 'alerts.token_invalid': '个人提醒连接已失效。Windows 用户请使用采集器打开的个人提醒页面；浏览器采集用户可展开高级选项，清除旧连接后重新开始采集。',
+    'alerts.token_save': '连接客户端', 'alerts.token_bad': '连接凭据应为 30–128 个字符，请从自己的客户端配置中完整复制。', 'alerts.token_invalid': '个人提醒连接已失效。Windows 用户请使用客户端打开的个人提醒页面；浏览器采集用户可展开高级选项，清除旧连接后重新开始采集。',
     'alerts.token_clear': '清除当前连接', 'alerts.limited': '请求太频繁，稍后自动重试。', 'alerts.failed': '提醒暂时无法更新，稍后自动重试。',
   },
   en: {
@@ -103,10 +103,10 @@ export async function mount(main) {
       <div class="asetup">
         <h2>${esc(t('alerts.setup_title'))}</h2>
         ${message ? `<p class="awarn" role="alert">${esc(message)}</p>` : ''}
-        <p>${esc(t('alerts.setup_intro'))}</p><p>${lang === 'en' ? 'Collect evaluates non-equipment margins from your collector. For personal price caps on any item, use Watch; keep its page open for new-offer notifications. Watch settings stay in your browser.' : '采集按你的采集器规则筛选非装备价差。想为装备或其他物品设置个人价格上限，请使用「关注」；保持关注页打开才会检查新报价并提醒。关注设置仅保存在当前浏览器。'}</p>
+        <p>${esc(t('alerts.setup_intro'))}</p><p>${lang === 'en' ? 'Collect evaluates non-equipment margins from your collector. For personal price caps on any item, use Watch; keep its page open for new-offer notifications. Watch settings stay in your browser.' : '采集按你的客户端规则筛选非装备价差。想为装备或其他物品设置个人价格上限，请使用「关注」；保持关注页打开才会检查新报价并提醒。关注设置仅保存在当前浏览器。'}</p>
         <div class="well astep"><h3>${esc(t('alerts.setup_browser'))}</h3><p>${esc(t('alerts.setup_browser_text'))}</p><a class="btn primary" href="/collect/">${esc(t('alerts.setup_open'))}</a></div>
         <div class="well astep"><h3>${esc(t('alerts.setup_divert'))}</h3><p>${esc(t('alerts.setup_divert_text'))}</p>
-          <a class="btn primary" href="/web/download.html">${lang === 'en' ? 'Download & instructions' : '下载采集器与使用说明'}</a>
+          <a class="btn primary" href="/web/download.html">${lang === 'en' ? 'Download & instructions' : '下载客户端与使用说明'}</a>
           <a class="btn" href="http://127.0.0.1:8780/alerts">${esc(t('alerts.setup_local'))}</a>
           <p class="fnote">${esc(t('alerts.setup_local_hint'))}</p></div>
         <details class="well amanual"><summary>${esc(t('alerts.manual'))}</summary>
@@ -152,7 +152,7 @@ export async function mount(main) {
     const body = shown.length ? `<div class="wcards">${shown.map(dealCard).join('')}</div>` : emptyState(first ? t('common.loading') : historyView?text('还没有保存的采集提醒历史。','No saved deal history yet.'):t('alerts.empty'), 3, !first);
     return `<div class="stall-bar"><h1>${esc(t('alerts.title'))}</h1><span class="bar-meta">${esc(historyView?text(`${profile?.archive.length||0} 条 · 保留24小时`,`${profile?.archive.length||0} · kept for 24 h`):t('alerts.meta', { n: deals.length }))}</span></div>
       ${controls()}${statusView()}
-      <p class="sale-note">${lang==='en' ? 'Collect uses your collector’s non-equipment margin rules. For any item with a personal price cap, use Watch. Watch settings are saved only in this browser.' : '采集使用你的采集器规则筛选非装备价差；需要为任意物品设置个人价格上限，请使用「关注」。关注设置仅存当前浏览器。'}</p>
+      <p class="sale-note">${lang==='en' ? 'Collect uses your collector’s non-equipment margin rules. For any item with a personal price cap, use Watch. Watch settings are saved only in this browser.' : '采集使用你的客户端规则筛选非装备价差；需要为任意物品设置个人价格上限，请使用「关注」。关注设置仅存当前浏览器。'}</p>
       <div class="ltools atools"><span class="alabel">${esc(t('alerts.window'))}</span><div class="chips">${chips}</div><span class="sp"></span><span class="astatus" role="status">${esc(notice || checked)}</span></div>
       ${body}${historyView&&profile.archive.length>historyLimit?`<button class="more" data-history-more>${text('显示更多历史','Show more history')} (${historyLimit}/${profile.archive.length})</button>`:''}
       <p class="sale-note">${esc(t('alerts.rules'))}</p>`;
@@ -186,7 +186,7 @@ export async function mount(main) {
   function statusView(){
     const status=collectorStatus;if(!status)return '';
     const health=status.connection_health||{};const location=status.location||health.location;
-    const labels={no_game:['尚无游戏频道连接，请启动游戏并切换频道','No game channel connection; start the game and change channel'],no_inbound:['游戏已连接但未收到入站包，请检查代理或防火墙策略','Game connected but no inbound packets; check proxy or firewall policy'],offline:['采集器未运行或状态已过期','Collector offline or status expired'],waiting:['等待游戏连接','Waiting for game connection'],handshake:['等待重新连接游戏','Reconnect the game to capture its handshake'],connected:['游戏已连接，等待新摊位记录','Game connected; waiting for a new shop'],capturing:['已记录新的摊位商品','New shop items recorded'],parse_error:['解析异常，需要重连游戏','Decode error; reconnect the game'],observed:['已收到你的商品观察','Your shop observations were received'],no_observations:['尚未收到你的商品观察','No observations received from your collector']};
+    const labels={no_game:['尚无游戏频道连接，请启动游戏并切换频道','No game channel connection; start the game and change channel'],no_inbound:['游戏已连接但未收到入站包，请检查代理或防火墙策略','Game connected but no inbound packets; check proxy or firewall policy'],offline:['客户端未运行或状态已过期','Collector offline or status expired'],waiting:['等待游戏连接','Waiting for game connection'],handshake:['等待重新连接游戏','Reconnect the game to capture its handshake'],connected:['游戏已连接，等待新摊位记录','Game connected; waiting for a new shop'],capturing:['已记录新的摊位商品','New shop items recorded'],parse_error:['解析异常，需要重连游戏','Decode error; reconnect the game'],observed:['已收到你的商品观察','Your shop observations were received'],no_observations:['尚未收到你的商品观察','No observations received from your collector']};
     const label=labels[health.state]||[health.message||'采集状态待确认',health.message_en||'Collector status unconfirmed'];
     return `<div class="collector-status" role="status"><b>${text(...label)}</b><span>${location?esc(text('最近位置：','Last location: '))+loc(location.channel,location.room):text('位置待识别','Location unknown')}</span>${status.last_shop_at?`<span>${text('最近商品：','Last shop: ')}<time data-relative-time="${Number(status.last_shop_at)}" title="${esc(fullTime(status.last_shop_at))}">${esc(ago(status.last_shop_at))}</time></span>`:''}<small>${status.local_collector?text('本机采集状态','Capture status from this PC'):text('根据服务端接收记录；不能据此确认本机驱动仍在运行。','Based on received observations; this does not confirm the local capture process is running.')}</small></div>`;
   }

@@ -1,5 +1,5 @@
-/* 采集器的「扫货」「账号」面板。规则来自 frontend/desktop/style.css，全部限定在 .client-pane 里，
-   不影响网站其他页面。这两页只在采集器窗口里打开，占满整个窗口。 */
+/* 客户端的「扫货」「账号」面板。规则来自 frontend/desktop/style.css，全部限定在 .client-pane 里，
+   不影响网站其他页面。这两页只在客户端窗口里打开，占满整个窗口。 */
 html[data-page=client],html[data-page=client] body{height:100%}
 html[data-page=client] .dwrap{max-width:none;height:100vh;padding:12px;box-sizing:border-box}
 html[data-page=client] .app{padding-bottom:0}

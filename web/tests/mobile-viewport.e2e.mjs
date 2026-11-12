@@ -187,7 +187,7 @@ try {
     await itemRows.first().tap();await preview.locator('.peek-footer a').waitFor();await preview.locator('.peek-close').click();
     await itemInput.fill('Speed pets');await page.locator('.mobile-item-search .quick-more').tap();await page.waitForURL(url=>url.pathname==='/search'&&url.searchParams.get('q')==='Speed pets');
     const icons=await page.locator('.dock .dock-icon svg').evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {top:r.top,width:r.width,height:r.height};}));
-    assert.equal(icons.length,5);assert(icons.every(r=>r.width===24&&r.height===24&&r.top===icons[0].top));
+    assert.equal(icons.length,6);assert(icons.every(r=>r.width===24&&r.height===24&&r.top===icons[0].top));
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     if (stale) assert(oldStyles > 0, 'actually exercise cached legacy styles');
     assert.deepEqual(errors, []);

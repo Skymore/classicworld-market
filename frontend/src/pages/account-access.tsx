@@ -30,11 +30,11 @@ const ACCOUNT_MESSAGES: Record<string, [string, string]> = {
     "Use 2–24 letters, numbers, spaces or _-. for your nickname.",
   ],
   expired_link: [
-    "绑定链接已过期，请在采集器中重新点击绑定。",
+    "绑定链接已过期，请在客户端中重新点击绑定。",
     "This link expired. Start linking again in the collector.",
   ],
   already_linked: [
-    "这个采集器已经绑定了其他账号。",
+    "这个客户端已经绑定了其他账号。",
     "This collector belongs to another account.",
   ],
   manage_on_website: [

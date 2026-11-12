@@ -2,6 +2,7 @@ import { MesosIcon } from './mesos-icon';
 import { PartyMetrics } from './party-metrics';
 import { mobIcon, skillIcon } from './skill-icons';
 import { RateMetrics } from './grind-metrics';
+import { HistoryView } from './grind-history';
 import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, Coins, Crosshair, Move, Pause, Play, RefreshCw, Square } from 'lucide-react';
 import { itemIcon, monthDay } from './format';
@@ -29,10 +30,11 @@ export default function GrindPage({ hidden }: { hidden: boolean }) {
     window.addEventListener('pywebviewready', load);
     return () => { clearInterval(id); window.removeEventListener('pywebviewready', load); };
   }, [hidden, load]);
+  const loadHistory = useCallback(() => { grind('history').then(setHistory).catch(() => setHistory([])); }, []);
   useEffect(() => {
     if (hidden || view !== 'history') return;
-    grind('history').then(setHistory).catch(() => setHistory([]));
-  }, [hidden, view]);
+    loadHistory();
+  }, [hidden, view, loadHistory]);
   type Changes = Partial<Omit<GrindSettings, 'overlay' | 'hotkeys'>> & { overlay?: Partial<GrindSettings['overlay']>; hotkeys?: Partial<GrindSettings['hotkeys']> };
   const save = async (changes: Changes) => {
     try { const settings = await grind('settings', changes); setState(s => s && { ...s, settings }); }
@@ -51,7 +53,7 @@ export default function GrindPage({ hidden }: { hidden: boolean }) {
         {([['live', '实时', 'Live'], ['history', '历史', 'History'], ['settings', '设置', 'Settings']] as [View, string, string][]).map(([key, zh, en]) =>
           <button key={key} aria-pressed={view === key} onClick={() => setView(key)}>{tr(zh, en)}</button>)}
       </nav>
-      <span className={`connection ${live && !live.stale ? 'live' : ''}`}><i />{!live || live.stale ? tr('等待采集器', 'Waiting for the collector') : run ? statusLabel(run) : tr('等待打怪', 'Waiting for kills')}</span>
+      <span className={`connection ${live && !live.stale ? 'live' : ''}`}><i />{!live || live.stale ? tr('等待客户端', 'Waiting for the collector') : run ? statusLabel(run) : tr('等待打怪', 'Waiting for kills')}</span>
       {run && run.status !== 'ended' && <span className="grind-tools">
         <button className="text-link" onClick={() => command(run.status === 'active' ? 'pause' : 'resume')}>
           {run.status === 'active' ? <Pause size={14} /> : <Play size={14} />}{run.status === 'active' ? tr('暂停', 'Pause') : tr('继续', 'Resume')}</button>
@@ -64,11 +66,11 @@ export default function GrindPage({ hidden }: { hidden: boolean }) {
       </span>}
     </div></section>
     {live?.protocol_warning && <div role="alert" className="error-banner"><AlertCircle size={18} />
-      <span>{tr('游戏报文格式可能已变化，部分数字暂不可信；已自动开始录制，请把采集器更新到最新版。', 'The game messages may have changed; some numbers are unreliable. Recording started; update the collector.')}</span></div>}
+      <span>{tr('游戏报文格式可能已变化，部分数字暂不可信；已自动开始录制，请把客户端更新到最新版。', 'The game messages may have changed; some numbers are unreliable. Recording started; update the collector.')}</span></div>}
     <div className="grind-body">
       {view === 'live' && !run && <BuffStrip live={live ?? null} warn={settings?.buff_warn_seconds ?? 10} />}
       {view === 'live' && <LiveView run={run} live={live ?? null} warn={settings?.buff_warn_seconds ?? 10} />}
-      {view === 'history' && <HistoryView runs={history} />}
+      {view === 'history' && <HistoryView runs={history as any} reload={loadHistory} />}
       {view === 'settings' && settings && state && <SettingsView state={state} settings={settings} save={save} refresh={load} />}
     </div>
   </div>;
@@ -102,7 +104,7 @@ function LiveView({ run, live, warn }: { run: RunSummary | null; live: GrindStat
     <div className="grind-rate-panels"><RateMetrics run={run} kind="exp" /><RateMetrics run={run} kind="net" /></div>
     <div className="grind-grid grind-accounts">
       <section className="well">
-        <div className="well-h"><h3>{tr('本次战利品', 'Loot this run')}</h3><b className="amount">+{big(run.mesos + run.item_value)} <MesosIcon size={12} /></b></div>
+        <div className="well-h"><h3>{tr('本次战利品', 'Loot this run')}</h3><b className="amount money">+{big(run.mesos + run.item_value)} <MesosIcon size={12} /></b></div>
         {run.mesos > 0 && <div className="grind-row grind-account-row grind-mesos"><MesosIcon size={24} /><span className="t"><b>{tr('金币', 'Mesos')}</b></span><span /><span className="amount">+{big(run.mesos)} <MesosIcon size={12} /></span></div>}
         {(run.loot || run.recent || []).map((row, i) => <div className={'grind-row grind-account-row' + (row.notable ? ' notable' : '')} key={i}>
           <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
@@ -112,7 +114,7 @@ function LiveView({ run, live, warn }: { run: RunSummary | null; live: GrindStat
         {!run.mesos && !(run.loot || run.recent)?.length && <p className="note">{tr('还没有拾取。', 'Nothing picked up yet.')}</p>}
       </section>
       <section className="well">
-        <div className="well-h"><h3>{tr('消耗品', 'Consumables')}</h3><b className="amount">−{big(run.consume_cost)} <MesosIcon size={12} /></b></div>
+        <div className="well-h"><h3>{tr('消耗品', 'Consumables')}</h3><b className="amount money">−{big(run.consume_cost)} <MesosIcon size={12} /></b></div>
         {run.consumables.filter(row => row.used > 0).map(row => <div className="grind-row grind-account-row" key={row.item_id}>
           <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
           <span className="t"><b>{row.name}</b></span>
@@ -148,24 +150,6 @@ function LiveView({ run, live, warn }: { run: RunSummary | null; live: GrindStat
     </section>
 
   </>;
-}
-
-function HistoryView({ runs }: { runs: RunSummary[] | null }) {
-  if (runs == null) return <p className="note">{tr('读取中…', 'Loading…')}</p>;
-  if (!runs.length) return <p className="grind-empty">{tr('还没有记录。', 'No runs yet.')}</p>;
-  return <table className="grind-history">
-    <thead><tr>
-      <th>{tr('日期', 'Date')}</th><th>{tr('角色', 'Character')}</th><th>{tr('地图', 'Map')}</th><th>{tr('时长', 'Time')}</th>
-      <th>EXP/h</th><th>{tr('收益/时', 'Profit/h')}</th><th>{tr('击杀', 'Kills')}</th><th>{tr('等级', 'Level')}</th>
-    </tr></thead>
-    <tbody>{runs.map(run => <tr key={run.id}>
-      <td>{monthDay(run.started_at)} {new Date(run.started_at * 1000).toTimeString().slice(0, 5)}</td>
-      <td>{run.character.name || '—'} <small>{run.job_name}</small></td>
-      <td>{mapLabel(run)}{run.segments.length > 1 && <small> +{run.segments.length - 1}</small>}</td>
-      <td>{clock(run.active_seconds)}</td><td>{big(run.exp_per_hour)}</td><td>{big(run.net_per_hour)}</td>
-      <td>{big(run.kills)}</td><td>{run.level_start ?? '—'}{run.level != null && run.level !== run.level_start ? ` → ${run.level}` : ''}</td>
-    </tr>)}</tbody>
-  </table>;
 }
 
 function NumberField({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange(v: number): void }) {
@@ -247,7 +231,6 @@ function SettingsView({ state, settings, save, refresh }: {
       </div>
       <NumberField label={tr('高价值提醒（金币）', 'Highlight loot worth')} value={settings.notable_value} min={0} max={10_000_000_000} step={10000} onChange={v => save({ notable_value: v })} />
       <Check label={tr('刷图时花掉的金币计入支出', 'Count mesos spent while grinding')} checked={settings.count_mesos_spent} onChange={v => save({ count_mesos_spent: v })} />
-      <Check label={tr('匿名上传地图效率', 'Share map results anonymously')} checked={settings.upload} onChange={v => save({ upload: v })} />
     </section>
     <section className="well"><div className="well-h"><h3>{tr('悬浮窗', 'Overlay')}</h3></div>
       <Check label={tr('显示悬浮窗', 'Show overlay')} checked={o.enabled} onChange={v => save({ overlay: { enabled: v } })} />

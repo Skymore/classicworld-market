@@ -111,7 +111,7 @@ export default function WorkspaceTab({ tab }: { tab: 'sweep' | 'account' }) {
     <div className="workspace-scroll">
       {(error || pollError) && <p className="error-banner" role="alert">{error || pollError}</p>}
       {notice && <p role="status" className="workspace-notice">{notice}</p>}
-      {!status ? <p className="workspace-note">{tr('正在连接采集器…', 'Connecting to the collector…')}</p>
+      {!status ? <p className="workspace-note">{tr('正在连接客户端…', 'Connecting to the collector…')}</p>
         : tab === 'account' ? <AccountPane status={status} busy={busy} run={run} login={login} shell={shell} />
         : !linked ? <div className="native-account" data-account-pane="signed-out"><h2>{tr('登录后扫货', 'Sign in to sweep')}</h2><button className="ui-btn primary" disabled={busy} onClick={login}>{tr('登录', 'Sign in')}</button></div>
         : status.sweep ? <SweepPane sweep={status.sweep} deviceId={status.device?.id} busy={busy} run={run} shell={shell} />
