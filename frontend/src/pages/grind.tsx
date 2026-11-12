@@ -1,5 +1,5 @@
 // 刷图 on the website: your synced runs, one run in full, the map leaderboard,
-// and public share pages (/g/<code>) with one client download entry.
+// and public share pages (/g/<code>) with one client download banner at the end.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -215,7 +215,6 @@ function SharePage({ code }: { code: string }) {
       <header className="grind-share-hero">
         <h1>{words(`${who}在${run.map_name || "冒险岛"}刷了 ${length}`, `${who} grinded ${run.map_name || "MapleStory"} for ${length}`)}</h1>
         <p>{words("由枫叶市集客户端自动记录", "Recorded automatically by the Maple Market client")}</p>
-        <SiteLink className="btn grind-download-btn big" href={DOWNLOAD}>{words("我也要记录 · 下载客户端", "Record mine · Download the client")}</SiteLink>
       </header>
       <RunDetail run={run} t={words} english={en} comparison={comparison} profit={show_profit} actions={
         <>
@@ -226,6 +225,7 @@ function SharePage({ code }: { code: string }) {
       } />
       {note && <p className="grind-note" role="status">{note}</p>}
       <canvas ref={canvas} className="grind-share-canvas" hidden aria-hidden="true" />
+      <DownloadBanner />
     </>
   );
 }
