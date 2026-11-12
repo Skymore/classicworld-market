@@ -1,3 +1,4 @@
+import { RateMetrics } from './grind-metrics';
 import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, Crosshair, Move, Pause, Play, RefreshCw, Square } from 'lucide-react';
 import { itemIcon, monthDay } from './format';
@@ -88,17 +89,14 @@ function LiveView({ run, live }: { run: RunSummary | null; live: GrindState['liv
     </div>
     <div className="grind-tiles">
       <Tile label={tr('有效时长', 'Active')} value={clock(run.active_seconds)} note={tr(`空闲 ${clock(run.idle_seconds)}`, `idle ${clock(run.idle_seconds)}`)} />
-      <Tile strong label={tr('经验 / 小时', 'EXP / hour')} value={big(run.exp_per_hour_5m ?? run.exp_per_hour)}
-        note={tr(`平均 ${big(run.exp_per_hour)} · 1分 ${big(run.exp_per_hour_1m)}`, `avg ${big(run.exp_per_hour)} · 1m ${big(run.exp_per_hour_1m)}`)} />
       <Tile label={tr('等级进度', 'Level')} value={percent(run.exp_percent)}
         note={tr(`${percent(run.percent_per_hour)}/时 · 升级 ${duration(run.eta_seconds)}`, `${percent(run.percent_per_hour)}/h · up in ${duration(run.eta_seconds)}`)} />
-      <Tile strong label={tr('收益 / 小时', 'Profit / hour')} value={big(run.net_per_hour)}
-        note={tr(`本次 ${big(run.net)}`, `total ${big(run.net)}`)} />
       <Tile label={run.kills_estimated ? tr('击杀（按经验）', 'Kills (by EXP)') : tr('击杀', 'Kills')} value={big(run.kills)}
         note={tr(`${big(run.kills_per_hour)}/时`, `${big(run.kills_per_hour)}/h`) + (run.deaths ? tr(` · 死亡 ${run.deaths}`, ` · ${run.deaths} deaths`) : '')} />
-      <Tile strong label={tr('DPS · 近30秒', 'DPS · last 30s')} value={big(run.dps)}
+      <Tile strong label={tr('DPS · 近1分', 'DPS · last 1m')} value={big(run.dps)}
         note={tr(`平均 ${big(run.average_dps)}`, `avg ${big(run.average_dps)}`)} />
     </div>
+    <div className="grind-rate-panels"><RateMetrics run={run} kind="exp" /><RateMetrics run={run} kind="net" /></div>
     <div className="grind-ledger">
       <span>{tr('金币', 'Mesos')} <b>+{big(run.mesos)}</b></span>
       <span>{tr('物品', 'Items')} <b>+{big(run.item_value)}</b></span>
@@ -109,7 +107,7 @@ function LiveView({ run, live }: { run: RunSummary | null; live: GrindState['liv
     </div>
     {!!run.combat?.length && <section className="well grind-combat" aria-label={tr('队伍战斗统计', 'Party combat')}>
       <div className="well-h"><h3>{tr('战斗统计', 'Combat')}</h3><small>{tr('同图可见范围', 'Visible in this map')}</small></div>
-      <table><thead><tr><th>{tr('角色', 'Player')}</th><th>DPS · 30s</th><th>{tr('总伤害', 'Damage')}</th><th>{tr('击杀', 'Kills')}</th></tr></thead>
+      <table><thead><tr><th>{tr('角色', 'Player')}</th><th>DPS · 1m</th><th>{tr('总伤害', 'Damage')}</th><th>{tr('击杀', 'Kills')}</th></tr></thead>
         <tbody>{run.combat.map(row => <tr key={row.character_id} data-self={row.self || undefined}>
           <td>{row.name || '—'}{row.self && <small>{tr('你', 'You')}</small>}{row.away && <small>{tr('离开', 'Away')}</small>}
             {row.partial && <small className="warn">{tr('数据不完整', 'Partial data')}</small>}</td>
@@ -120,19 +118,19 @@ function LiveView({ run, live }: { run: RunSummary | null; live: GrindState['liv
     <div className="grind-grid">
       <section className="well">
         <div className="well-h"><h3>{tr('本次战利品', 'Loot this run')}</h3></div>
-        {(run.loot || run.recent || []).map((row, i) => <div className={'grind-row' + (row.notable ? ' notable' : '')} key={i}>
+        {(run.loot || run.recent || []).map((row, i) => <div className={'grind-row grind-account-row' + (row.notable ? ' notable' : '')} key={i}>
           <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
-          <span className="t"><b>{row.name}</b><small> {tr(`获得 ×${row.quantity}`, `Gained ×${row.quantity}`)}</small>{row.stats?.length ? <small className="stats"> {statLine(row.stats)}</small> : null}</span>
-          <span className="v" title={row.basis || ''}>{row.priced === false || !row.basis || row.basis === '无价格' ? tr('待估价', 'Unpriced') : big(row.value)}</span>
+          <span className="t"><b>{row.name}</b>{row.stats?.length ? <small className="stats"> {statLine(row.stats)}</small> : null}</span>
+          <span className="quantity">×{row.quantity}</span><span className="amount" title={row.basis || ''}>{row.priced === false || !row.basis || row.basis === '无价格' ? tr('待估价', 'Unpriced') : `+${big(row.value)} ${tr('金币', 'mesos')}`}</span>
         </div>)}
         {!(run.loot || run.recent)?.length && <p className="note">{tr('还没有拾取。', 'Nothing picked up yet.')}</p>}
       </section>
       <section className="well">
         <div className="well-h"><h3>{tr('消耗品', 'Consumables')}</h3></div>
-        {run.consumables.filter(row => row.used > 0).map(row => <div className="grind-row" key={row.item_id}>
+        {run.consumables.filter(row => row.used > 0).map(row => <div className="grind-row grind-account-row" key={row.item_id}>
           <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
           <span className="t"><b>{row.name}</b></span>
-          <span className="v">{tr('使用', 'Used')} ×{row.used}</span>
+          <span className="quantity">×{row.used}</span><span className="amount">−{big(row.cost ?? null)} {tr('金币', 'mesos')}</span>
         </div>)}
         {!run.consumables.some(row => row.used > 0) && <p className="note">{tr('还没有使用消耗品。', 'No consumables used yet.')}</p>}
         <div className="well-h sub"><h3>{tr('击杀', 'Kills')}</h3>

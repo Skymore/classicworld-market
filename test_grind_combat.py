@@ -94,8 +94,9 @@ class LayoutTest(unittest.TestCase):
         restored = Meter(json.loads(json.dumps(meter.to_json())))
         row = restored.rows(110, 10, 100, True, ME, 3)[0]
         self.assertEqual((row['damage'], row['dps'], row['average_dps'], row['kills']), (900, 90, 90, 3))
-        self.assertEqual(restored.rows(131, 31, 100, True, ME, 3)[0]['dps'], 0)
-        self.assertIsNone(restored.rows(131, 31, 100, False, ME, 3)[0]['dps'])
+        self.assertEqual(restored.rows(145, 45, 100, True, ME, 3)[0]['dps'], 20)
+        self.assertEqual(restored.rows(161, 61, 100, True, ME, 3)[0]['dps'], 0)
+        self.assertIsNone(restored.rows(161, 61, 100, False, ME, 3)[0]['dps'])
 
 
 class TrackerCombatTest(unittest.TestCase):

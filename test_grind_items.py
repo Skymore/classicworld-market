@@ -78,6 +78,27 @@ class ItemAccountingTest(unittest.TestCase):
         self.assertEqual(next(r['used'] for r in summary['consumables'] if r['item_id'] == 2000001), 7)
         self.assertFalse(next(r['priced'] for r in loot if r['item_id'] == 1000000))
 
+    def test_minute_rates_include_priced_loot_and_cost_and_decay(self):
+        run = self.who.run
+        start = run.started_at
+        run.exp_events = [(start + 10, 100), (start + 50, 200)]
+        run.ledger = [dict(t=start+10, kind='mesos', mesos=100),
+                      dict(t=start+50, kind='loot', item_id=4000156, quantity=2),
+                      dict(t=start+50, kind='used', item_id=2000000, quantity=1)]
+        early = self.tracker.summarize(run, start+20, self.who)
+        self.assertIsNone(early['net_per_hour_1m'])
+        summary = self.tracker.summarize(run, start+60, self.who)
+        self.assertEqual(summary['exp_per_hour_1m'], 18000)
+        self.assertEqual(summary['net_per_hour_1m'], (100+114-50)*60)
+        self.assertEqual(summary['rate_history'][-1]['net'], summary['net_per_hour_1m'])
+        self.assertEqual(summary['consumables'][0]['cost'], 50)
+        expired = self.tracker.summarize(run, start+120, self.who)
+        self.assertEqual((expired['exp_per_hour_1m'], expired['net_per_hour_1m']), (0, 0))
+        run.status, run.paused_at = 'paused', start+60
+        paused = self.tracker.summarize(run, start+180, self.who)
+        self.assertIsNone(paused['net_per_hour_1m'])
+        self.assertEqual(paused['rate_history'][-1]['t'], start+60)
+
     def test_quantity_budget_covers_split_stacks_without_overcount(self):
         self.send(item_message(2000001, 4))
         self.quantity(2, 102)

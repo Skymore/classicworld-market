@@ -9,7 +9,7 @@ import struct
 
 REMOTE_ATTACKS = (0x2A8, 0x2A9, 0x2AA)
 PARTY = 0xA7
-WINDOW = 30
+WINDOW = 60
 MAX_DAMAGE = 10**12
 
 

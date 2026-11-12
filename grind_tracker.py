@@ -12,6 +12,7 @@ Inventory gaps (an update the decoder cannot read) reset the baseline
 without counting; the run shows the gap instead of inventing a delta.
 """
 import collections
+import bisect
 import contextlib
 import json
 import sqlite3
@@ -423,6 +424,7 @@ class Tracker:
             if run and run.status == 'active':
                 run.deaths += 1
                 run.exp_lost += previous - value
+                run.exp_events.append((now, value - previous))
                 self.dirty = True
             return
         if gain <= 0:
@@ -967,7 +969,8 @@ class Tracker:
             count = used[item]
             remaining = bags.get(item, 0) if bags is not None else None
             per_hour = count / hours if hours else None
-            consumables.append(dict(item_id=item, name=self.name(item), used=count, acquired=drops[item], remaining=remaining,
+            item_cost = sum(amount for entry, _, _, amount in rows if entry['kind'] == 'used' and entry['item_id'] == item)
+            consumables.append(dict(item_id=item, name=self.name(item), used=count, cost=item_cost, acquired=drops[item], remaining=remaining,
                                     per_hour=per_hour, minutes_left=(remaining / per_hour * 60) if remaining is not None and per_hour else None))
         notable = self.settings['notable_value']
         if character and character.character_id is not None:
@@ -1001,6 +1004,28 @@ class Tracker:
                 if item // 1000000 != 1:
                     stack_rows[item] = row
         loot_rows.sort(key=lambda row: row['t'], reverse=True)
+        cash_events = [(e['t'], e['mesos'] * (1 if e['kind'] == 'mesos' else -1))
+                       for e in run.ledger if e['kind'] in ('mesos', 'spent')]
+        cash_events += [(e['t'], amount * (1 if e['kind'] == 'loot' else -1)) for e, _, _, amount in rows]
+        chart_end = now if run.status == 'active' else (run.paused_at or run.credited_until)
+        def indexed(events):
+            events = sorted(events)
+            stamps, totals = [], [0]
+            for stamp, value in events:
+                stamps.append(stamp)
+                totals.append(totals[-1] + value)
+            return stamps, totals
+        exp_index, cash_index = indexed(run.exp_events), indexed(cash_events)
+        rate_history = []
+        for stamp in [chart_end - n * 10 for n in range(30, -1, -1)]:
+            span = min(60, stamp - run.started_at)
+            if span < 30:
+                continue
+            def window(index):
+                stamps, totals = index
+                return (totals[bisect.bisect_right(stamps, stamp)] - totals[bisect.bisect_right(stamps, stamp - 60)]) * 3600 / span
+            rate_history.append(dict(t=stamp, exp=window(exp_index), net=window(cash_index)))
+        net_1m = rate_history[-1]['net'] if rate_history and run.status == 'active' else None
         return dict(
             id=run.id, status=run.status, pause_reason=run.pause_reason, character=facts,
             job_name=job_name(facts.get('job')), level=level, level_start=run.level_start,
@@ -1008,13 +1033,15 @@ class Tracker:
             map_id=run.segment.map_id if run.segment else None,
             map_name=(self.prices.map(run.segment.map_id) or {}).get('name') if run.segment else None, started_at=run.started_at, ended_at=now if run.status == 'ended' else None,
             active_seconds=round(active), idle_seconds=round(run.idle_seconds + (now - run.paused_at if run.status == 'paused' and run.paused_at else 0)),
-            exp=exp, exp_per_hour=avg, exp_per_hour_5m=recent, exp_per_hour_1m=rate(60),
+            exp=exp, exp_per_hour=avg, exp_per_hour_5m=recent,
+            exp_per_hour_1m=rate_history[-1]['exp'] if rate_history and run.status == 'active' else None,
             percent_per_hour=(avg / need * 100) if avg and need else None,
             eta_seconds=((need - current) / (recent or avg) * 3600) if need and current is not None and (recent or avg) else None,
             kills=kills, kills_per_hour=kills / hours if hours else None, kills_estimated=self.kills_by_exp(character),
             deaths=run.deaths, exp_lost=run.exp_lost, gaps=run.gaps,
             mesos=money['cash'], item_value=money['loot'], consume_cost=money['cost'], mesos_spent=money['spent'],
             net=money['net'], net_per_hour=money['net'] / hours if hours else None,
+            net_per_hour_1m=net_1m, rate_history=rate_history,
             cash_per_hour=money['cash'] / hours if hours else None, pending_prices=money['pending'],
             recent=recent_rows, loot=loot_rows, consumables=consumables,
             drops=[dict(item_id=i, name=self.name(i), quantity=q) for i, q in drops.most_common()],
