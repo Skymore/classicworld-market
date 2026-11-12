@@ -20,7 +20,14 @@
 .rate-trend{margin-left:.45em;font-style:normal;font-size:.8em}.rate-trend.up{color:#3fae78}.rate-trend.down{color:#e8705f}
 .ov-level{display:flex;align-items:center;gap:.7em;margin:0 0 .75em;white-space:nowrap}
 .ov-level .ov-bar,.ov-level .ov-bar i{height:.5em;border-radius:99px}
-.ov-slim .ov-buffs.icons{flex-wrap:wrap;gap:.4em;margin:0 0 .7em}
+.ov .ov-trend{display:block;width:100%;height:2.4em;margin:.35em 0 0;overflow:visible;opacity:.85}
+/* Buff tiles: icon, time, and a bar that runs down. */
+.ov-buffs.tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.4em;margin:0 0 .7em}
+.ov-buffs.tiles span{position:relative;flex-direction:column;justify-content:center;align-items:center;gap:.1em;padding:.3em 0 .4em;border-radius:3px}
+.ov .ov-buffs.tiles img{width:1.9em;height:1.9em;margin:0}
+.ov-buffs.tiles b{font-size:.85em;line-height:1.1}
+.ov-buffs.tiles i{top:auto;height:2px;background:currentColor;opacity:.55}
+.ov-buffs.tiles .more{opacity:.7}
 .ov-tally{display:flex;align-items:center;gap:.7em;padding:.45em 0;border-top:1px solid rgba(128,128,128,.3);white-space:nowrap}
 .ov-tally>small{flex:none;width:3.4em;font-size:.85em;opacity:.6}
 .ov-icons{flex:1;min-width:0;display:flex;gap:.7em;overflow:hidden}.ov-icons>span{flex:none;display:inline-flex;align-items:center;font-size:.9em;opacity:.9}

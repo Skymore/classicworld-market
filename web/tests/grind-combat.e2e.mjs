@@ -145,8 +145,8 @@ try {
     for (const row of await page.locator('.ov-tally').all()) assert((await row.boundingBox()).height < 34, `slim/${theme}: consumables and loot keep to one line each`);
     assert.equal(await page.locator('.ov-team').count(), 0);
     assert.equal(await page.locator('.rate-chart').count(), 0);
-    assert.equal(await page.locator('.ov-buffs.icons span').count(), 3);
-    assert((await page.locator('.ov').boundingBox()).height < 260, `slim/${theme}: the card stays small`);
+    assert.equal(await page.locator('.ov-buffs.tiles span').count(), 3);
+    assert((await page.locator('.ov').boundingBox()).height < 320, `slim/${theme}: the card stays small`);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `slim/${theme}: no horizontal clipping`);
     assert.equal(await page.locator('.ov-grip').count(), 1);
     assert.deepEqual(errors, []);

@@ -27,7 +27,7 @@ function beep() {
 }
 
 /** Buff countdowns; beeps once when one crosses the warning time. */
-function Buffs({ live, settings, icons = false }: { live: Live | null; settings: GrindSettings; icons?: boolean }) {
+function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | null; settings: GrindSettings; icons?: boolean; tiles?: boolean }) {
   const [, tick] = useState(0);
   const warned = useRef(new Set<string>());
   useEffect(() => { const id = setInterval(() => tick(n => n + 1), 250); return () => clearInterval(id); }, []);
@@ -41,6 +41,13 @@ function Buffs({ live, settings, icons = false }: { live: Live | null; settings:
     }
   }
   if (!buffs.length) return null;
+  if (tiles) {
+    // Two rows of five in a fixed order, so a buff keeps its place while others come and go.
+    const ordered = [...buffs].sort((a, b) => a.source - b.source), more = ordered.length - 10;
+    return <div className="ov-buffs tiles">{ordered.slice(0, more > 0 ? 9 : 10).map(b => <span key={b.source} className={b.left <= warn ? 'warn' : ''} title={b.name || ''}>
+      <img src={b.item_id ? itemIcon(b.item_id) : skillIcon(b.source)} alt="" /><b>{clock(b.left)}</b><i style={{ width: `${Math.min(100, b.left / b.total * 100)}%` }} /></span>)}
+      {more > 0 && <span className="more"><b>+{more + 1}</b></span>}</div>;
+  }
   return <div className={'ov-buffs' + (icons ? ' icons' : '')}>{buffs.slice(0, 6).map(b => <span key={b.source} className={b.left <= warn ? 'warn' : ''} title={b.name || ''}>
     <i style={{ width: `${Math.min(100, b.left / b.total * 100)}%` }} />
     <em>{b.item_id ? <img src={itemIcon(b.item_id)} alt="" /> : <img src={skillIcon(b.source)} alt="" />}{!icons && b.name}</em><b>{clock(b.left)}</b></span>)}</div>;
@@ -67,7 +74,7 @@ export function OverlayCard({ live, settings, toast = null, scale, cardRef, grip
   const potionChip = potion && <span className="ov-used"><img src={itemIcon(potion.item_id)} alt="" />{tr('用', 'Used ')}<b>{potion.used}</b></span>;
   const party = show('party') && <PartyMetrics run={run} compact />;
   if (o.layout === 'slim') return box(<>
-    <div className="ov-head">{dot}<b className="ov-job">Lv.{run.level ?? '—'}</b><span>{mapLabel(run)}</span>
+    <div className="ov-head">{dot}<b className="ov-job">{run.job_name ? `${run.job_name} · ` : ''}Lv.{run.level ?? '—'}</b><span>{mapLabel(run)}</span>
       {show('time') && <em><Clock3 size={I} style={ico} />{clock(run.active_seconds)}</em>}</div>
     {(show('exp_rate') || show('profit')) && <div className="ov-stats">
       {show('exp_rate') && <RateStat run={run} kind="exp" />}{show('profit') && <RateStat run={run} kind="net" />}</div>}
@@ -76,7 +83,7 @@ export function OverlayCard({ live, settings, toast = null, scale, cardRef, grip
     {(show('dps') || show('kills')) && <div className="ov-stats minor">
       {show('dps') && <div className="ov-stat"><small>DPS</small><b>{big(run.dps)}</b></div>}
       {show('kills') && <div className="ov-stat"><small>{tr('击杀/时', 'Kills/h')}</small><b>{big(run.kills_per_hour)}</b></div>}</div>}
-    {show('buffs') && <Buffs live={live} settings={settings} icons />}
+    {show('buffs') && <Buffs live={live} settings={settings} tiles />}
     {show('potions') && usedPotions.length > 0 && <div className="ov-tally"><small>{tr('消耗', 'Used')}</small>
       <span className="ov-icons">{usedPotions.slice(0, 3).map(c => <span key={c.item_id} title={c.name || ''}><img src={itemIcon(c.item_id)} alt="" />{c.used}</span>)}</span>
       <b>−{big(run.consume_cost)}</b></div>}

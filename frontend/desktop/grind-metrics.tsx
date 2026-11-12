@@ -17,11 +17,19 @@ export function rateHistory(run: RunSummary): { t: number; exp: number; net: num
 export function RateStat({ run, kind }: { run: RunSummary; kind: 'exp' | 'net' }) {
   const average = kind === 'exp' ? run.exp_per_hour : run.net_per_hour;
   const minute = kind === 'exp' ? run.exp_per_hour_1m : run.net_per_hour_1m;
+  const values = rateHistory(run).map(p => p[kind]);
+  const low = Math.min(...values, average ?? Infinity), span = Math.max(1, Math.max(...values, average ?? -Infinity) - low);
+  const y = (value: number) => 22 - (value - low) / span * 20;
+  const points = values.map((v, i) => `${i / Math.max(1, values.length - 1) * 100},${y(v)}`).join(' ');
   return <div className="ov-stat" aria-label={kind === 'exp' ? tr('经验', 'EXP') : tr('金币净收益', 'Net mesos')}>
     <small>{kind === 'exp' ? tr('经验/时', 'EXP/h') : tr('收益/时', 'Profit/h')}</small>
     <b className="gold">{big(minute ?? average)}</b>
     <span className="dim">{tr('平均', 'avg')} {big(average)}
       {minute != null && average ? <i className={'rate-trend ' + (minute >= average ? 'up' : 'down')}>{minute >= average ? '▲' : '▼'}</i> : null}</span>
+    {values.length > 1 && <svg className="ov-trend" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
+      <polygon points={`0,24 ${points} 100,24`} fill="currentColor" opacity=".1" />
+      {average != null && <line x1="0" x2="100" y1={y(average)} y2={y(average)} stroke="currentColor" opacity=".4" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />}
+      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.5" vectorEffect="non-scaling-stroke" /></svg>}
   </div>;
 }
 
