@@ -181,6 +181,7 @@ class HandoffTests(unittest.TestCase):
         self.assertEqual(handoff.resume(new, wait=0), 1)
         c = new.grind.characters[session]
         self.assertEqual((c.name, c.run.segment.exp), ('Tester', 400))
+        self.assertFalse(c.client_seen)
         self.assertEqual(c.run.id, old.grind.characters[session].run.id)
         self.assertIn(3001000, c.buffs)
         self.assertFalse(new.grind.restored)

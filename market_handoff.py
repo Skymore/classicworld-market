@@ -129,6 +129,13 @@ def restore(collector, state, now=None):
             restore_grind(collector.grind, state['grind'], sessions)
         else:
             legacy(collector.grind, sessions, state['time'])
+        for flow in state['flows']:
+            character = collector.grind.characters.get(flow['session'])
+            if character is not None and not flow.get('client'):
+                # Old releases did not hand over outgoing cipher state. Until
+                # client frames resume, retain the inventory-delta fallback for
+                # consumables rather than waiting for unobservable use packets.
+                character.client_seen = False
     return len(state['flows'])
 
 
