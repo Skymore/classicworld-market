@@ -31,6 +31,12 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/v1/market') data = { as_of: now, products };
     if (url.pathname === '/api/v1/market/period-default') data = { default_hours: 'all' };
     if (url.pathname === '/api/v1/sales/recent') data = { generated_at: now, sales: [] };
+    if (url.pathname === '/api/v1/shop') {
+      const i = Number(url.searchParams.get('key').split('-').at(-1));
+      data = { shop_key: 'fixture-'+i, title: 'Fixture shop '+i, channel: 24, room: 10,
+        items: [{ item_id: 1452003, name_en: 'Battle Bow', slot: i, bundle: 1, price: i ? 6000 : 3000, stock: 2, time: now-i*60,
+          variant: { id: 'variant-'+i, stats: [{key:'weapon_attack',value:50+i},{key:'dex',value:2}], remaining_upgrades:7, enhancements:1 } }] };
+    }
     if (url.pathname === '/api/v1/catalog/page') {
       const target = new URL(url.searchParams.get('url'), 'http://localhost');
       const id = Number(target.pathname.split('/').at(-1));
@@ -94,7 +100,7 @@ try {
       })),'variant time sits below location without creating a third line or increasing the compact row height');
     }
     await page.setViewportSize({width:mobile?390:1280,height:844});
-    // Captured stats open the piece's game tooltip: hover on desktop, a bottom sheet on a phone tap. No inline expansion.
+    // Desktop hover previews the captured piece; tapping a local offer opens its shop on both layouts.
     assert.equal(await where.locator('details.listing-offer').count(),0,'listing rows no longer expand inline');
     const pieceRow=where.locator('.listing-offer .piece-record').first(),pieceCard=page.locator('.item-peek.is-piece [data-equipment-card]');
     if(!mobile){
@@ -103,9 +109,9 @@ try {
       const [row,card]=await Promise.all([pieceRow.boundingBox(),page.locator('.item-peek').boundingBox()]);
       assert(card.x>=row.x+row.width||card.x+card.width<=row.x,'the tooltip sits beside the row, not over the rows below');
     }
-    // Tap the price side: the shop name is its own owner-name toggle button.
-    await pieceRow.click({position:{x:(await pieceRow.boundingBox()).width-24,y:20}});await pieceCard.waitFor();
-    assert(await page.locator('.item-peek').evaluate((node,mobile)=>node.classList.contains(mobile?'is-mobile':'is-pinned'),mobile),'a click pins the tooltip; a phone tap opens the bottom sheet');
+    // The explicit keyboard shortcut still opens a pinned piece preview, including the phone sheet.
+    await pieceRow.focus();await pieceRow.press('Alt+ArrowDown');await pieceCard.waitFor();
+    assert(await page.locator('.item-peek').evaluate((node,mobile)=>node.classList.contains(mobile?'is-mobile':'is-pinned'),mobile),'the keyboard shortcut pins the preview');
     assert.match(await pieceCard.locator('.eq-title').innerText(),/\(\+1\)$/,'the title carries the enhancement count');
     assert.match(await pieceCard.locator('.eq-lines dd').first().innerText(),/^(弓|Bow)$/,'the weapon type comes from the catalogue reference');
     assert.equal(await pieceCard.locator('[data-stat=upgrades] dd').innerText(),'7','the piece keeps its own remaining upgrades');
@@ -117,6 +123,24 @@ try {
     assert.match(await offer.locator('.eq-offer-meta').innerText(),/3,000 (金币|mesos)\s*(库存|Stock) \d/,'with its price and stock');
     assert.equal(await page.locator('.item-peek .peek-footer').count(),0,'no link back to the page the user is on');
     await page.keyboard.press('Escape');await page.locator('.item-peek').waitFor({state:'hidden'});
+    // Tap the price side: the shop name is its own owner-name toggle button.
+    await pieceRow.click({position:{x:(await pieceRow.boundingBox()).width-24,y:20}});
+    const shop=page.locator('.sv-dialog'),shopCard=shop.locator('[data-equipment-card]');
+    await shopCard.waitFor();
+    assert.equal(await page.locator('.item-peek').isVisible(),false,'opening a shop dismisses the hover preview');
+    assert.equal(await shop.locator('#sv-title').innerText(),'Fixture shop 0');
+    assert.match(await shop.locator('.sv-loc').innerText(),/CH 24\s*FM10/);
+    assert.match(await shopCard.locator('.eq-title').innerText(),/\(\+1\)$/);
+    assert.equal(Number(await shopCard.locator('[data-stat=weapon_attack] dd').innerText()),50);
+    assert.equal(await shopCard.locator('[data-stat=upgrades] dd').innerText(),'7');
+    assert.match(await shopCard.locator('.eq-offer-meta').innerText(),/3,000 mesos\s*Stock 2/);
+    await shop.getByRole('button',{name:'Next shop',exact:true}).click();
+    await page.waitForFunction(()=>Number(document.querySelector('.sv-info [data-stat=weapon_attack] dd')?.textContent)===51);
+    assert.equal(await shop.locator('#sv-title').innerText(),'Fixture shop 1');
+    assert.match(await shopCard.locator('.eq-offer-meta').innerText(),/6,000 mesos\s*Stock 2/);
+    await shop.getByRole('button',{name:'Previous shop',exact:true}).click();
+    await page.waitForFunction(()=>Number(document.querySelector('.sv-info [data-stat=weapon_attack] dd')?.textContent)===50);
+    await page.keyboard.press('Escape');await shop.waitFor({state:'hidden'});
     await page.locator('[data-offer-filter-open]').click();const dialog=page.locator('#offer-filter-dialog');await dialog.locator('[name=maxPrice]').fill('4000');
     await dialog.locator('[data-offer-apply]').click();assert.equal(await where.locator('.variant-record').count(),1);
     await page.locator('[data-offer-clear=all]').click();assert.equal(await where.locator('.variant-record').count(),2);
@@ -138,6 +162,13 @@ try {
     await page.setViewportSize({width:mobile?390:1280,height:844});
     const materialNames=await craft.locator('.craft-material').first().textContent();
     assert(materialNames.includes('加工木材')&&materialNames.includes('Processed Wood'),'both material names are present');
+    const material=craft.locator('.craft-material').first(),materialPreview=page.locator('#item-quick-preview');
+    if(mobile)await material.tap();else await material.hover();
+    await materialPreview.locator(`[data-preview-item="${bow.ingredients[0].item_id}"]`).waitFor();
+    assert.equal(new URL(page.url()).pathname,'/item/1452003','previewing a material keeps the recipe open');
+    assert.equal(await materialPreview.locator('.peek-footer a').getAttribute('href'),`/item/${bow.ingredients[0].item_id}?hours=all`);
+    await page.keyboard.press('Escape');await materialPreview.waitFor({state:'hidden'});
+    assert(await craft.evaluate(node=>node.open),'closing a material preview preserves the expanded recipe');
     assert(await craft.locator('.craft-material').first().evaluate(node=>node.querySelector('.name-stack').getBoundingClientRect().top>=node.querySelector('img').getBoundingClientRect().bottom));
     assert(!/Craft EXP|制作经验|enter unit|单价留空|数据收录/.test(await craft.textContent()));
     const before=priceReads;

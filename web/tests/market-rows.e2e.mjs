@@ -18,6 +18,10 @@ const quotes = [
   { item_id: 1072128, id: 'real-gear', name_zh: '蓝宝石鞋', name_en: 'Blue Jewelry Boots', observed: now-120, unit_price: 3000, stock: 1, shop: 'Boots shop', location: {channel:24,room:10}, equipment:{status:'candidate',stats:[{key:'luk',value:2},{key:'weapon_defense',value:7},{key:'magic_defense',value:7},{key:'avoid',value:3}],remaining_upgrades:5} },
 ];
 const sales = [{ ...quotes[0], item_id: 1002001, name_zh: '贝雷帽', name_en: 'Beret', equipment: { status: 'unsupported' }, id: 'sale', time: now, sale_unit_price: 850, kind: 'drop', quantity: 2, stock: 3 }];
+// The market has one latest record per item; watch results can contain several offers of the same item.
+const latestQuotes = quotes.map((row, i) => ({ ...row, time: row.observed,
+  ...(i === 1 ? { item_id: 4010001, name_zh: '钢铁矿石', name_en: 'Steel Ore' } : {}) }));
+const products = [...latestQuotes, ...sales].map(row => ({ ...product, ...row }));
 const json = (res, value) => { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(value)); };
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
@@ -25,11 +29,11 @@ const server = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.write(': ready\n\n'); streams.add(res); req.on('close', () => streams.delete(res)); return;
   }
   if (url.pathname === '/api/v1/account') return json(res, { signed_in: false });
-  if (url.pathname === '/api/v1/market') return json(res, { products: [product, {...product,item_id:1002001,name_zh:'贝雷帽',name_en:'Beret'}], as_of: now });
+  if (url.pathname === '/api/v1/market') return json(res, { products, as_of: now });
   if (url.pathname === '/api/v1/market/period-default') return json(res, { default_hours: 'all' });
   if (url.pathname === '/api/v1/sales/recent') return json(res, { sales, generated_at: now });
   if (url.pathname === '/api/v1/quotes/recent') return json(res, { listings: quotes, grouped_listings: quotes.map((row,i)=>i===0?{...row,stock:7,merged_count:2}:row), generated_at: now });
-  if (url.pathname === '/api/v1/market/records') return json(res, {records:url.searchParams.get('kind')==='sales'?sales:[quotes[0]]});
+  if (url.pathname === '/api/v1/market/records') return json(res, {records:url.searchParams.get('kind')==='sales'?sales:latestQuotes});
   if (url.pathname === '/api/v1/watchlist/catalog') return json(res, { items: [product], presets: [{ id: 'fixture', name_zh: '测试关注', name_en: 'Preset', items: [product] }] });
   if (url.pathname === '/api/v1/watchlist/listings') return json(res, { listings: quotes.slice(0,2).map(row => ({ ...row, stock: row.stock ?? 2 })), generated_at: now });
   if (url.pathname.startsWith('/api/')) return json(res, {});
@@ -48,17 +52,11 @@ try {
       const errors = [];
       page.on('pageerror', error => errors.push(error.message));
       await page.addInitScript(({ lang, width }) => { localStorage.setItem('uiLang', lang); localStorage.setItem('uiTheme', width === 375 ? 'dark' : 'light'); }, { lang, width });
-      await page.goto(`${origin}/?lang=${lang}&hours=all`);
-      const descriptions=page.locator('.hero .portal small');
-      await descriptions.first().waitFor();
-      for(const description of await descriptions.all()) {
-        const layout=await description.evaluate(node=>{const s=getComputedStyle(node);return {nowrap:s.whiteSpace,height:node.getBoundingClientRect().height,lineHeight:parseFloat(s.lineHeight),fits:node.scrollWidth<=node.clientWidth};});
-        assert.equal(layout.nowrap,'nowrap','shortcut descriptions never wrap');
-        assert(layout.height<=layout.lineHeight+1,'shortcut description occupies one line');
-        if(lang==='zh') assert(layout.fits,'complete Chinese shortcut descriptions fit even on narrow phones');
-      }
-      assert.equal(await page.locator('.hero [data-count=mobs]').textContent(),lang==='zh'?'物品·怪物·地图':'Items · Mobs · Maps');
-      const sold = page.locator('[data-pane=recent] .market-record');
+      page.setDefaultTimeout(10000);
+      await page.goto(`${origin}/?sort=lastsale&lang=${lang}&hours=all`);
+      await page.locator('.hero .portal').first().waitFor();
+      assert.deepEqual(await page.locator('.hero .portal .p-top').allTextContents(),lang==='zh'?['关注','图鉴','云逛市场']:['Watch','Catalogue','Cloud market']);
+      const sold = page.locator('[data-price-records=sales] .market-record');
       await sold.waitFor();
       const dot=page.locator(width<640?'.ptop .fresh i':'.dhead .fresh i');
       await dot.waitFor();
@@ -76,15 +74,15 @@ try {
 
       assert.deepEqual(await sold.locator('.record-value').evaluate(node => [...node.children].map(child=>child.className)), ['record-time','ware-price','record-stock']);
 
-      await page.locator('[data-tab=quotes]').click();
-      const offers = page.locator('[data-pane=quotes] .market-record');
+      await page.goto(`${origin}/?sort=recent&lang=${lang}&hours=all`);
+      const offers = page.locator('[data-price-records=quotes] .market-record');
       await offers.first().waitFor();
       assert.equal(await offers.count(), 3);
       assert.equal(await offers.first().locator('.ware-price').textContent(), '900', 'the newest quote can be more expensive than the per-item minimum');
       assert.equal(await offers.first().locator('.loc b').textContent(), lang === 'zh' ? '23频道' : 'CH 23');
       assert.match(await offers.first().locator('.loc-room').textContent(), /9/);
       assert.equal(await offers.first().locator('[data-relative-time]').getAttribute('data-relative-time'), String(now));
-      assert.match(await offers.first().locator('.record-stock').textContent(), /7$/,'home uses the complete API group stock');
+      assert.match(await offers.first().locator('.record-stock').textContent(), /4$/,'stock comes from the same latest record as its price and time');
       assert.match(await offers.nth(1).locator('.record-stock').textContent(), /—$/);
       assert.equal(await offers.nth(1).locator('.loc b').textContent(), lang === 'zh' ? '频道 —' : 'CH —');
       assert.equal(await offers.nth(1).locator('.loc-room').textContent(), lang === 'zh' ? '洞 —' : 'FM —');
@@ -190,7 +188,7 @@ try {
 
       for (const mode of ['recent', 'lastsale']) {
         await page.goto(`${origin}/prices?sort=${mode}&hours=all&lang=${lang}`);
-        const row = page.locator('[data-price-records] .market-record');
+        const row = page.locator('[data-price-records] .market-record').first();
         await row.waitFor();
         await checkLayout(row);
         assert.equal(await row.locator('.record-value > .record-time').count(), 1);

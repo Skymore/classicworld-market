@@ -14,9 +14,11 @@ if (screenshots) await mkdir(screenshots, { recursive: true });
 const streams = new Set();
 let phase = 0, salesReads = 0, previewDelay = 0, previewReads = 0;
 let accountRecords = [];
+let account = { signed_in: false };
 const json = (res, data) => { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
+  if (url.pathname === '/api/v1/account') return json(res, account);
   if (url.pathname === '/api/v1/account/data') {
     if (req.method === 'POST') {
       assert.equal(req.headers['x-csrf-token'], 'preview-fixture');
@@ -28,7 +30,7 @@ const server = createServer(async (req, res) => {
     }
     return json(res, { records: accountRecords });
   }
-  if (url.pathname === '/api/v1/events') {
+  if (url.pathname === '/api/v1/events' || url.pathname === '/api/v1/account/events') {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' });
     res.write(': connected\n\n'); streams.add(res); req.on('close', () => streams.delete(res)); return;
   }
@@ -73,7 +75,7 @@ try {
   browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   for (const width of [390, 320, 1280]) {
     const mobile = width <= 640;
-    phase = 0; previewDelay = 0; accountRecords = []; previewReads = 0;
+    phase = 0; previewDelay = 0; accountRecords = []; previewReads = 0; account = { signed_in: false };
     const page = await browser.newPage({ viewport: { width, height: mobile ? 640 : 900 }, isMobile: mobile, hasTouch: mobile });
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.clock.install();
@@ -140,15 +142,17 @@ try {
       await page.keyboard.press('Tab');
       assert.equal(await popup.evaluate(el => el.contains(document.activeElement)), true, 'mobile focus stays inside the preview');
     }
-    await page.evaluate(async () => {
-      const { adoptAccount } = await import('/web/js/lib/user-data.js');
-      await adoptAccount({ signed_in: true, public_id: 'preview-account', csrf: 'preview-fixture' });
-    });
+    // Use the bundled account instance; importing the source file creates separate storage state.
+    account = { signed_in: true, public_id: 'preview-account', csrf: 'preview-fixture' };
+    await page.evaluate(async () => globalThis.cwmUserData.refreshIdentity());
+    await page.waitForFunction(() => document.querySelector('[data-preview-watch]').getAttribute('aria-pressed') === 'false');
     assert.equal(await watch.getAttribute('aria-pressed'), 'false', 'account watches are isolated from guest watches');
     await watch.click();
-    await page.evaluate(async () => (await import('/web/js/lib/user-data.js')).flush());
+    await page.evaluate(async () => globalThis.cwmUserData.flush());
     assert(accountRecords.some(record => record.kind === 'watch' && record.key === '1462004'), 'preview watches sync through the account API');
-    await page.evaluate(async () => (await import('/web/js/lib/user-data.js')).adoptAccount({ signed_in: false }));
+    account = { signed_in: false };
+    await page.evaluate(async () => globalThis.cwmUserData.refreshIdentity());
+    await page.waitForFunction(() => document.querySelector('[data-preview-watch]').getAttribute('aria-pressed') === 'true');
     assert.equal(await watch.getAttribute('aria-pressed'), 'true', 'signing out restores the guest watch state');
     await page.keyboard.press('Escape');
     assert.equal(await popup.isVisible(), false, 'Escape closes the preview');
