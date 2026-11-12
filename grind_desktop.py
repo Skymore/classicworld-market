@@ -437,8 +437,8 @@ class OverlayAPI:
         return self._service.fit_overlay(height)
 
     def toggle(self, name):
-        """The overlay's own switches: auto buff and the spoken buff warning."""
-        if name not in ('auto_buff', 'buff_sound'):
+        """The overlay's own switches: auto buff, auto potions and the spoken buff warning."""
+        if name not in ('auto_buff', 'auto_potion', 'buff_sound'):
             raise ValueError('invalid_request')
         return self._service.save_settings({name: not self._service.settings()[name]})[name]
 

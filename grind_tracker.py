@@ -28,13 +28,13 @@ import grind_autobuff as autobuff
 
 DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, end_after_seconds=600,
                 start_events=3, start_window=60, price_basis='typical', notable_value=500000,
-                count_mesos_spent=True, min_upload_seconds=300, buff_warn_seconds=10, buff_sound=True, auto_buff=True,
+                count_mesos_spent=True, min_upload_seconds=300, buff_warn_seconds=10, buff_sound=True, auto_buff=True, auto_potion=True,
                 hotkeys=dict(overlay='Ctrl+Alt+O', pause='Ctrl+Alt+P', end='Ctrl+Alt+E'),
                 overlay=dict(enabled=True, layout='slim', theme='dark', opacity=0.92, scale=1.0,
                              hide_in_capture=False, stream=False, x=None, y=None,
                              fields=['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent']))
 IDLE_CREDIT = 10
-AUTO_BUFF_OPS = (autobuff.KEYMAP_OPCODE,) + autobuff.PRESET_OPCODES
+AUTO_BUFF_OPS = (autobuff.KEYMAP_OPCODE,) + autobuff.PRESET_OPCODES + tuple(autobuff.PET_POTION_OPCODES)
 RECENT = 8
 HISTORY_LIMIT = 500
 # A buff kept on over half the time on a map in the last three days stays on screen there.
@@ -93,13 +93,16 @@ class Segment:
         self.mobs = collections.Counter()
         self.buffs = collections.Counter()   # buff source -> seconds it was on while active here
         self.buff_totals = {}                # buff source -> its last full duration in seconds
+        self.max_hit = 0                     # biggest single HP drop here
+        self.mp_cost = 0                     # biggest single MP drop (the dearest skill)
 
     def to_json(self):
         return dict(map_id=self.map_id, level=self.level, job=self.job, started_at=self.started_at,
                     active_seconds=round(self.active_seconds, 1), exp=self.exp, kills=self.kills, mesos=self.mesos,
                     drops={str(k): v for k, v in self.drops.items()}, mobs={str(k): v for k, v in self.mobs.items()},
                     buffs={str(k): round(v, 1) for k, v in self.buffs.items() if v >= 1},
-                    buff_totals={str(k): v for k, v in self.buff_totals.items()})
+                    buff_totals={str(k): v for k, v in self.buff_totals.items()},
+                    max_hit=self.max_hit, mp_cost=self.mp_cost)
 
     @classmethod
     def from_json(cls, data):
@@ -111,6 +114,7 @@ class Segment:
         segment.mobs = collections.Counter({int(k): v for k, v in (data.get('mobs') or {}).items()})
         segment.buffs = collections.Counter({int(k): v for k, v in (data.get('buffs') or {}).items()})
         segment.buff_totals = {int(k): v for k, v in (data.get('buff_totals') or {}).items()}
+        segment.max_hit, segment.mp_cost = data.get('max_hit') or 0, data.get('mp_cost') or 0
         return segment
 
 
@@ -215,6 +219,10 @@ class Character:
         self.hit = {}               # object id -> time this character last hit it
         self.mobs = {}              # object id -> catalogue mob ID
         self.hp = None
+        self.max_hp = None
+        self.mp = None
+        self.max_mp = None
+        self.pet_potions = {}       # 'hp' / 'mp' -> the item the pet was set to use
         self.table = None
         self.exp_messages = 0       # experience announced since the last experience update
         self.buffs = {}             # source -> (start, milliseconds)
@@ -359,6 +367,9 @@ class Tracker:
 
     def map_entry(self, character, data, now):
         self.clear_item_matches(character)
+        vitals = proto.vitals(data)
+        if vitals:
+            character.hp, character.max_hp, character.mp, character.max_mp = vitals
         info = proto.read_character(data, self.profile)
         if info:
             key = info.get('name') or info.get('character_id')
@@ -424,7 +435,20 @@ class Tracker:
                 run.hp_lost += character.hp - hp
                 run.hp_drops += 1
                 self.dirty = True
+            if character.hp is not None and hp < character.hp and run and run.segment:
+                run.segment.max_hit = max(run.segment.max_hit, character.hp - hp)
             character.hp = hp
+            if character.max_hp is not None and hp > character.max_hp:
+                character.max_hp = hp
+        mp_bit = bits.get('mp')
+        if mp_bit in values:
+            mp = values[mp_bit]
+            run = character.run
+            if character.mp is not None and mp < character.mp and run and run.segment:
+                run.segment.mp_cost = max(run.segment.mp_cost, character.mp - mp)
+            character.mp = mp
+            if character.max_mp is not None and mp > character.max_mp:
+                character.max_mp = mp
         if exp_bit in values and self.profile['stat'].get('confirmed'):
             self.experience(character, values[exp_bit], old_level, now)
 
@@ -923,7 +947,7 @@ class Tracker:
                 self.pause(run, 'idle', now)
             if run.status == 'paused' and now - run.paused_at > self.settings['end_after_seconds']:
                 self.end(character, now)
-        if self.settings.get('auto_buff'):
+        if self.settings.get('auto_buff') or self.settings.get('auto_potion'):
             if self.auto_buff is None:
                 self.auto_buff = autobuff.AutoBuff()
             try:
@@ -1253,6 +1277,35 @@ class Tracker:
             {source: totals.get(source) or 0 for source, seconds in on.items() if seconds > active * PIN_SHARE}
         cache[(key, map_id)] = (time.monotonic(), result)
         return result
+
+    def combat_limits(self, character, now):
+        """(biggest single hit on this map, dearest MP drop) over the last three
+        days and the open run, for the auto potion rules; 0 while unknown."""
+        key, map_id = character.key, character.map_id
+        cache = self.__dict__.setdefault('limit_cache', {})
+        hit = cache.get((key, map_id))
+        if not hit or abs(time.monotonic() - hit[0]) >= 60:
+            worst = cost = 0
+            if key is not None:
+                try:
+                    with contextlib.closing(sqlite3.connect(self.data / 'history.sqlite')) as db:
+                        for (text,) in db.execute('SELECT summary FROM runs WHERE ended_at >= ?', (now - PIN_DAYS * 86400,)):
+                            summary = json.loads(text)
+                            if (summary.get('character') or {}).get('key') != key:
+                                continue
+                            for s in summary.get('segments') or []:
+                                cost = max(cost, s.get('mp_cost') or 0)
+                                if s.get('map_id') == map_id:
+                                    worst = max(worst, s.get('max_hit') or 0)
+                except (sqlite3.Error, ValueError):
+                    pass
+            hit = cache[(key, map_id)] = (time.monotonic(), worst, cost)
+        worst, cost = hit[1], hit[2]
+        for s in (character.run.segments if character.run else []):
+            cost = max(cost, s.mp_cost)
+            if s.map_id == map_id:
+                worst = max(worst, s.max_hit)
+        return worst, cost
 
     def name(self, item_id):
         row = self.prices.row(item_id) if item_id else None

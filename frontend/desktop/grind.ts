@@ -49,7 +49,7 @@ export interface GrindSettings {
   enabled: boolean; record_frames: boolean; upload: boolean; idle_seconds: number; end_after_seconds: number;
   start_events: number; start_window: number; price_basis: 'typical' | 'npc' | 'none'; notable_value: number;
   count_mesos_spent: boolean; min_upload_seconds: number; overlay: OverlaySettings;
-  buff_warn_seconds: number; buff_sound: boolean; auto_buff: boolean; hotkeys: Record<HotkeyAction, string>;
+  buff_warn_seconds: number; buff_sound: boolean; auto_buff: boolean; auto_potion: boolean; hotkeys: Record<HotkeyAction, string>;
 }
 export type HotkeyAction = 'overlay' | 'pause' | 'end';
 export interface GrindState {
@@ -75,7 +75,7 @@ export const overlayScale = (value: number) => api()?.scale?.(value) ?? Promise.
 /** The card's height in CSS pixels; the overlay window takes it. */
 export const overlayFit = (height: number) => api()?.fit?.(height) ?? Promise.reject(new Error('unavailable'));
 /** The overlay's own switches; resolves to the new value. */
-export const overlayToggle = (name: 'auto_buff' | 'buff_sound') => api()?.toggle?.(name) ?? Promise.reject(new Error('unavailable'));
+export const overlayToggle = (name: 'auto_buff' | 'auto_potion' | 'buff_sound') => api()?.toggle?.(name) ?? Promise.reject(new Error('unavailable'));
 
 /** 1.2万 / 3.4亿 in Chinese and Korean, 12K / 3.4M / 1.2B in English. */
 export function big(value: number | null | undefined) {

@@ -200,6 +200,17 @@ def read_character(data, profile):
         return None
 
 
+def vitals(data):
+    """(HP, max HP, MP, max MP) from a full map-entry snapshot: four uint32 right
+    after level, job and the four stats (2026-11-12 live: 1958/1992, 1170/1616)."""
+    if not is_snapshot(data) or len(data) < 227:
+        return None
+    hp, max_hp, mp, max_mp = struct.unpack_from('<4I', data, 211)
+    if not (0 < max_hp <= 999999 and hp <= max_hp and 0 < max_mp <= 999999 and mp <= max_mp):
+        return None
+    return hp, max_hp, mp, max_mp
+
+
 def map_id(data):
     """Map entered by a 0x1A6 / 0x1A9 frame, using market_location's parser."""
     from market_location import inspect_map_context

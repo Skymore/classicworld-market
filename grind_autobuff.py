@@ -19,10 +19,14 @@ from grind_skills import PROCS
 KEYMAP_OPCODE = 0x5F5
 KEYMAP_INDEX = 212            # mapping-table index of the client's key-setting request
 PRESET_OPCODES = (0x8B, 0x1A9)
+# The pet's automatic HP / MP potion (equipment window, pet tab), sent right after
+# the key table: opcode, item ID (0 = none). 2026-11-12 live: 2000001, 2010005.
+PET_POTION_OPCODES = {0x5F6: 'hp', 0x5F7: 'mp'}
 LEAD = 3.0                    # recast a skill this many seconds before its buff ends
 ITEM_LATE = 1.0               # use an item this long after its buff ended (no time wasted)
 RETRY = 1.5                   # a skill press the game missed (e.g. mid-attack) is retried this soon
 ITEM_RETRY = 3.0              # an item is retried more slowly: its buff confirmation must not race a second one
+POTION_GAP = 1.2              # between two HP (or two MP) potions: the first one's HP update arrives first
 HOLD = 0.12                   # key down time; shorter presses were missed while attacking
 GAP = 1.0                     # at most one press a second; several due ones queue, soonest first
 
@@ -57,7 +61,10 @@ def skill_tables(plain):
 
 
 def observe_server(character, op, data):
-    if op == KEYMAP_OPCODE:
+    if op in PET_POTION_OPCODES and len(data) == 6:
+        item = int.from_bytes(data[2:6], 'little')
+        character.pet_potions[PET_POTION_OPCODES[op]] = item or None
+    elif op == KEYMAP_OPCODE:
         try:
             character.skill_keys = skill_tables(data)
         except ValueError:
@@ -91,6 +98,25 @@ def skill_key(character, skill):
             return None
         preset = 0
     return tables[preset].get(skill)
+
+
+def pick_potion(character, kind, top):
+    """(item, amount restored, key) of the potion to use for 'hp' or 'mp'."""
+    from grind_potions import POTIONS
+    flat_at, rate_at = (0, 2) if kind == 'hp' else (1, 3)
+    choices = {}
+    for item, row in POTIONS.items():
+        gain = row[flat_at] + row[rate_at] * top / 100
+        if gain <= 0 or (character.bags is not None and character.bags.get(item, 0) <= 0):
+            continue
+        scan = skill_key(character, -item)
+        name = key_name(scan) if scan is not None else None
+        if name:
+            choices[item] = (item, gain, name)
+    pet = (character.pet_potions or {}).get(kind)
+    if pet in choices:
+        return choices[pet]
+    return min(choices.values(), key=lambda c: c[1]) if choices else None
 
 
 def key_name(scan):
@@ -138,6 +164,7 @@ class AutoBuff:
         self.pressed = 0
         self.waiting = None       # why the last due buff was not pressed (state file and log)
         self.last_press = None
+        self.potion_at = {}       # (session, 'hp' / 'mp') -> time of the last potion
         self.jobs = queue.Queue(maxsize=4)
         self.thread = None
 
@@ -148,14 +175,31 @@ class AutoBuff:
         return hit[0]
 
     def tick(self, tracker, now):
-        if now - self.last < GAP:
-            return
+        settings = tracker.settings
         for character in tracker.characters.values():
             run = character.run
             connection = tracker.connections.get(character.session)
-            if not run or run.status != 'active' or connection is None or not character.skill_keys:
+            if not run or connection is None or not character.skill_keys:
                 continue
             if character.hp is not None and character.hp <= 0:
+                continue
+            # HP / MP first, also while the run waits (standing still is no safer), and
+            # not held back by the gap between buffs.
+            if settings.get('auto_potion'):
+                due = self.potion_due(tracker, character, now)
+                if due:
+                    kind, item, name = due
+                    pid = self.pid(connection, now)
+                    if pid is None or self.foreground() != pid:
+                        return self.wait('game_not_found' if pid is None else 'game_not_in_front', -item)
+                    self.potion_at[(character.session, kind)] = now
+                    self.waiting = None
+                    self.last_press = dict(at=round(now), source=-item, key=name)
+                    print(json.dumps(dict(time=now, event='auto_potion', kind=kind, item=item, key=name,
+                                          hp=character.hp, max_hp=character.max_hp, mp=character.mp, max_mp=character.max_mp)), flush=True)
+                    self.queue(pid, name)
+                    return
+            if not settings.get('auto_buff') or run.status != 'active' or now - self.last < GAP:
                 continue
             # Skill buffs the player cast in this run, item buffs the player used
             # in this run, and pinned buffs (the player keeps them on here).
@@ -192,6 +236,33 @@ class AutoBuff:
                 print(json.dumps(dict(time=now, event='auto_buff', source=source, key=name)), flush=True)
                 self.queue(pid, name)
                 return
+
+    def potion_due(self, tracker, character, now):
+        """(kind, item, key) of the HP or MP potion to drink now, or None.
+
+        Potion: the pet's setting when it has a key and some are left, else the
+        one that restores least. HP: when it would not be wasted (missing HP at
+        least what it restores) and HP is under four of this map's biggest hits,
+        or HP is under two of them whatever the waste. MP: under five of the
+        dearest MP drop. Until a hit (or MP cost) is known: under 60 % (30 %)."""
+        worst, cost = tracker.combat_limits(character, now)
+        for kind in ('hp', 'mp'):
+            if now - self.potion_at.get((character.session, kind), -POTION_GAP) < POTION_GAP:
+                continue
+            current, top = (character.hp, character.max_hp) if kind == 'hp' else (character.mp, character.max_mp)
+            if current is None or not top:
+                continue
+            choice = pick_potion(character, kind, top)
+            if choice is None:
+                continue
+            item, gain, name = choice
+            if kind == 'hp':
+                want = (top - current >= gain and (current < 4 * worst if worst else current < 0.6 * top))                     or bool(worst and current < 2 * worst)
+            else:
+                want = current < 5 * cost if cost else current < 0.3 * top
+            if want:
+                return kind, item, name
+        return None
 
     def wait(self, reason, source):
         if self.waiting != reason:

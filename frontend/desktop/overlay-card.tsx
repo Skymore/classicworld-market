@@ -48,8 +48,12 @@ function say(source: number, text: string | null | undefined) {
   });
 }
 
-/** A rising three-note chime for a Final Attack that just triggered, then its name. */
+const chiming = new Set<number>();
+/** A rising three-note chime for a Final Attack that just triggered, then its name. It can
+ * can turn on again right after it ended: one still playing is not stacked. */
 function chime(source: number, text: string | null | undefined) {
+  if (chiming.has(source)) return;
+  chiming.add(source);
   try {
     const audio = new AudioContext(), gain = audio.createGain();
     gain.gain.value = 0.07; gain.connect(audio.destination);
@@ -59,7 +63,11 @@ function chime(source: number, text: string | null | undefined) {
     });
     setTimeout(() => audio.close(), 600);
   } catch { /* no audio device */ }
-  setTimeout(() => say(source, text), 300);
+  setTimeout(async () => {
+    const lang = language();
+    if (!await play(`voice/${lang}/${source}.mp3`) && !(lang === 'ko' && await play(`voice/en/${source}.mp3`))) speak(text);
+    chiming.delete(source);
+  }, 300);
 }
 
 /** A short two-tone beep (no audio files in the bundle). */
@@ -80,12 +88,13 @@ function beep() {
 function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | null; settings: GrindSettings; icons?: boolean; tiles?: boolean }) {
   const [, tick] = useState(0);
   const warned = useRef(new Map<number, number>());   // source -> end time it was announced for
-  const procs = useRef<Set<number> | null>(null);
+  const procs = useRef<Set<number> | null>(null);   // Final Attack sources on at the last render
   useEffect(() => { const id = setInterval(() => tick(n => n + 1), 250); return () => clearInterval(id); }, []);
   const warn = settings.buff_warn_seconds ?? 10;
   const buffs = shownBuffs(live);
   const state = (b: { left: number; proc?: boolean }) => b.left <= 0 ? 'off' : b.left <= warn && !b.proc ? 'warn' : '';
   const left = (b: { left: number }) => b.left > 0 ? clock(b.left) : tr('过期', 'Out');
+  // Announced when it turns on, not on every trigger that restarts its timer.
   const on = new Set(buffs.filter(b => b.proc && b.left > 0).map(b => b.source));
   if (procs.current && settings.buff_sound) for (const b of buffs) if (on.has(b.source) && !procs.current.has(b.source)) chime(b.source, b.name);
   procs.current = on;

@@ -176,5 +176,69 @@ class AutoBuffTest(unittest.TestCase):
         self.assertEqual(self.pressed, [])
 
 
+
+class PotionTest(unittest.TestCase):
+    setUp, tearDown, send, kill, current = AutoBuffTest.setUp, AutoBuffTest.tearDown, AutoBuffTest.send, AutoBuffTest.kill, AutoBuffTest.current
+    start = AutoBuffTest.start
+
+    def ready(self, hit=300, cost=30):
+        character = self.start()
+        character.buffs = {}
+        self.current().casts.clear()
+        # red (100) on 1, orange (250) on 2, white (500) on 3, blue MP (200) on 4
+        self.send(key_table([{2: (2, 2000000), 3: (2, 2000001), 4: (2, 2000002), 5: (2, 2000003)}] * 3))
+        character.bags = {2000000: 5, 2000001: 5, 2000002: 5, 2000003: 5}
+        character.hp, character.max_hp, character.mp, character.max_mp = 1000, 1000, 1000, 1000
+        self.tracker.combat_limits = lambda c, now: (hit, cost)
+        return character
+
+    def drink(self, character, **vitals):
+        for key, value in vitals.items():
+            setattr(character, key, value)
+        self.clock.t += 2
+        self.auto.tick(self.tracker, self.clock())
+
+    def test_smallest_potion_when_nothing_is_wasted_and_hp_is_under_four_hits(self):
+        character = self.ready()
+        self.drink(character, hp=1250 - 300)          # 4 hits = 1200: not low enough yet
+        self.assertEqual(self.pressed, [])
+        self.drink(character, max_hp=1500, hp=1150)   # under 1200, missing 350 >= 100
+        self.assertEqual(self.pressed, ['1'])
+
+    def test_pet_setting_first_while_some_are_left(self):
+        character = self.ready()
+        character.pet_potions = {'hp': 2000001}
+        self.drink(character, hp=700)
+        self.assertEqual(self.pressed, ['2'])
+        character.bags[2000001] = 0
+        self.drink(character, hp=700)
+        self.assertEqual(self.pressed, ['2', '1'])
+
+    def test_under_two_hits_drinks_even_if_some_is_wasted(self):
+        character = self.ready(hit=500)
+        character.bags = {2000002: 5}
+        self.drink(character, hp=900)                 # missing 100 < 500, but 900 < 2 x 500
+        self.assertEqual(self.pressed, ['3'])
+
+    def test_mp_under_five_of_the_dearest_skill(self):
+        character = self.ready(cost=30)
+        self.drink(character, mp=160)
+        self.assertEqual(self.pressed, [])
+        self.drink(character, mp=140)
+        self.assertEqual(self.pressed, ['4'])
+
+    def test_reads_the_pet_setting_and_vitals_from_the_server(self):
+        character = self.ready()
+        self.send(bytes.fromhex('f60581841e00'))
+        self.send(bytes.fromhex('f70595ab1e00'))
+        self.assertEqual(character.pet_potions, {'hp': 2000001, 'mp': 2010005})
+        import grind_protocol as proto
+        snapshot = bytearray(600)
+        snapshot[0:2] = (0x1A9).to_bytes(2, 'little')
+        snapshot[14:24] = bytes.fromhex('00000000000100000000')
+        snapshot[211:227] = struct.pack('<4I', 1958, 1992, 1170, 1616)
+        self.assertEqual(proto.vitals(bytes(snapshot)), (1958, 1992, 1170, 1616))
+
+
 if __name__ == '__main__':
     unittest.main()

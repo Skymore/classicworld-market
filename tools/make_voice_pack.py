@@ -2,9 +2,11 @@
 
 A source is a skill ID, or a negative item ID for an item buff (as in the
 tracker). Skills: every skill in grind_skills. Items: consumables with a
-duration in the Mapledex reference. Korean skill names follow the Korean
-client's names, keyed by the English name; the overlay falls back to the
-English file where Korean has none.
+duration in the Mapledex reference. Korean names come from the game's own
+Korean strings (data/reference/cw-client/ko-names.json, exported from the
+client's Data/Etc/Language/ko); a skill missing there uses KOREAN below, keyed
+by the English name, and the overlay falls back to the English file after that.
+Delete a language folder to regenerate it.
 
 Needs edge-tts (Microsoft neural voices, online), which is not a project
 dependency: `python -m pip install edge-tts` in a separate environment, then
@@ -55,11 +57,13 @@ KOREAN = {
 
 def lines():
     """(lang, source, text) for every file of the pack."""
+    game = json.loads((ROOT / 'data/reference/cw-client/ko-names.json').read_text(encoding='utf-8'))
     for skill, (zh, en) in SKILLS.items():
         yield 'zh', skill, zh
         yield 'en', skill, en
-        if en in KOREAN:
-            yield 'ko', skill, KOREAN[en]
+        ko = game['skills'].get(str(skill)) or KOREAN.get(en)
+        if ko:
+            yield 'ko', skill, ko
     items = json.loads((ROOT / 'data/reference/mapledex/items.json').read_text(encoding='utf-8'))['items']
     korean = json.loads((ROOT / 'server/crates/market-web/src/i18n/ko-game.json').read_text(encoding='utf-8'))['items']
     for item in items:
@@ -68,8 +72,9 @@ def lines():
         names = item['n']
         yield 'zh', -item['id'], names.get('cw') or names.get('zh') or names['en']
         yield 'en', -item['id'], names['en']
-        if korean.get(str(item['id'])):
-            yield 'ko', -item['id'], korean[str(item['id'])]
+        ko = game['consumables'].get(str(item['id'])) or korean.get(str(item['id']))
+        if ko:
+            yield 'ko', -item['id'], ko
 
 
 async def main():
