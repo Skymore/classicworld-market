@@ -97,6 +97,17 @@ class AutoBuffTest(unittest.TestCase):
         self.assertEqual(self.pressed, ['e'])
         self.assertEqual(self.auto.status()['last']['key'], 'e')
 
+    def test_final_attack_is_never_pressed(self):
+        character = self.start()
+        self.send(key_table([{19: (1, 3101000)}] * 3))
+        character.buffs = {3101000: (self.clock(), 60_000)}
+        self.current().casts[3101000] = 3
+        self.current().segment.buff_totals = {3101000: 60}
+        self.clock.t += 59
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])
+        self.assertTrue(self.tracker.buff_row(3101000, 1, 60, False)['proc'])
+
     def test_a_buff_someone_else_cast_is_left_alone(self):
         self.start()
         self.current().casts.clear()

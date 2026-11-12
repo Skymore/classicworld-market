@@ -13,8 +13,17 @@ import { big, clock, duration, mapLabel, percent, shownBuffs, statLine, type Gri
 const I = 13;
 const ico = { width: '1.1em', height: '1.1em' }; // icons scale with the overlay's font size
 
-/** Reads a buff's name aloud in the page's language; a beep when Windows has no voice. */
-function say(text: string | null | undefined) {
+/** Plays one clip; false when it is missing or cannot play. */
+function play(src: string) {
+  return new Promise<boolean>(done => {
+    const clip = new Audio(src);
+    clip.onended = () => done(true); clip.onerror = () => done(false);
+    clip.play().catch(() => done(false));
+  });
+}
+
+/** Windows speech, for a buff the bundled voice pack does not have; a beep without a voice. */
+function speak(text: string | null | undefined) {
   const speech = window.speechSynthesis;
   if (!text || !speech) return beep();
   const lang = /[一-鿿]/.test(text) ? 'zh-CN' : /[가-힯]/.test(text) ? 'ko-KR'
@@ -25,6 +34,32 @@ function say(text: string | null | undefined) {
   if (voices.length && !voice) return beep();
   if (voice) utterance.voice = voice;
   speech.speak(utterance);
+}
+
+let speaking = Promise.resolve();
+/** Says a buff's name from the bundled voice pack (voice/<lang>/<source>.mp3, built by
+ * tools/make_voice_pack.py), one after another; Korean falls back to English clips. */
+function say(source: number, text: string | null | undefined) {
+  speaking = speaking.then(async () => {
+    const lang = language();
+    if (await play(`voice/${lang}/${source}.mp3`)) return;
+    if (lang === 'ko' && await play(`voice/en/${source}.mp3`)) return;
+    speak(text);
+  });
+}
+
+/** A rising three-note chime for a Final Attack that just triggered, then its name. */
+function chime(source: number, text: string | null | undefined) {
+  try {
+    const audio = new AudioContext(), gain = audio.createGain();
+    gain.gain.value = 0.07; gain.connect(audio.destination);
+    [660, 880, 1175].forEach((hz, i) => {
+      const tone = audio.createOscillator(); tone.type = 'triangle'; tone.frequency.value = hz; tone.connect(gain);
+      tone.start(audio.currentTime + i * 0.09); tone.stop(audio.currentTime + i * 0.09 + 0.08);
+    });
+    setTimeout(() => audio.close(), 600);
+  } catch { /* no audio device */ }
+  setTimeout(() => say(source, text), 300);
 }
 
 /** A short two-tone beep (no audio files in the bundle). */
@@ -40,20 +75,26 @@ function beep() {
   } catch { /* no audio device */ }
 }
 
-/** Buff countdowns; says a buff's name once when it crosses the warning time. */
+/** Buff countdowns; says a buff's name once when it crosses the warning time. A Final
+ * Attack (triggered by hits) chimes when it turns on instead and stays quiet when it ends. */
 function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | null; settings: GrindSettings; icons?: boolean; tiles?: boolean }) {
   const [, tick] = useState(0);
   const warned = useRef(new Set<string>());
+  const procs = useRef<Set<number> | null>(null);
   useEffect(() => { const id = setInterval(() => tick(n => n + 1), 250); return () => clearInterval(id); }, []);
   const warn = settings.buff_warn_seconds ?? 10;
   const buffs = shownBuffs(live);
-  const state = (b: { left: number }) => b.left <= 0 ? 'off' : b.left <= warn ? 'warn' : '';
+  const state = (b: { left: number; proc?: boolean }) => b.left <= 0 ? 'off' : b.left <= warn && !b.proc ? 'warn' : '';
   const left = (b: { left: number }) => b.left > 0 ? clock(b.left) : tr('过期', 'Out');
+  const on = new Set(buffs.filter(b => b.proc && b.left > 0).map(b => b.source));
+  if (procs.current && settings.buff_sound) for (const b of buffs) if (on.has(b.source) && !procs.current.has(b.source)) chime(b.source, b.name);
+  procs.current = on;
   for (const b of buffs) {
+    if (b.proc) continue;
     const key = `${b.source}:${Math.round(b.total)}:${Math.round(Date.now() / 1000 - (b.total - b.left))}`;
     if (b.left > 0 && b.left <= warn && !warned.current.has(key)) {
       warned.current.add(key);
-      if (settings.buff_sound && warn > 0) say(b.name);
+      if (settings.buff_sound && warn > 0) say(b.source, b.name);
     }
   }
   if (!buffs.length) return null;

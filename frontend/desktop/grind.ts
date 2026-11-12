@@ -7,7 +7,7 @@ export interface LootRow {
   priced?: boolean; unit: number; basis: string | null; value: number; stats?: { key: string; value: number }[] | null; notable: boolean;
 }
 export interface Consumable { item_id: number; name: string | null; used: number; cost?: number; acquired?: number; remaining: number | null; per_hour: number | null; minutes_left: number | null }
-export interface Buff { source: number; name: string | null; seconds: number; total: number; item_id: number | null; pinned?: boolean }
+export interface Buff { source: number; name: string | null; seconds: number; total: number; item_id: number | null; pinned?: boolean; proc?: boolean }
 export interface CombatRow {
   dps_5m?: number | null; kills_5m?: number; exp_received_5m?: number | null; kill_exp_5m?: number | null; exp_contribution_5m?: number | null; exp_yield_5m?: number | null;
   character_id: number; name: string | null; self: boolean; away: boolean; partial: boolean;

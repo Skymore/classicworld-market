@@ -14,6 +14,8 @@ import struct
 import threading
 import time
 
+from grind_skills import PROCS
+
 KEYMAP_OPCODE = 0x5F5
 KEYMAP_INDEX = 212            # mapping-table index of the client's key-setting request
 PRESET_OPCODES = (0x8B, 0x1A9)
@@ -164,6 +166,8 @@ class AutoBuff:
                    for source, (start, milliseconds) in character.buffs.items()}
             due.update({source: -3600 for source in set(pinned) | cast if source not in due})
             for source, left in sorted(due.items(), key=lambda item: item[1]):
+                if source in PROCS:
+                    continue      # triggered by hits (Final Attack); a key press does nothing
                 if source > 0 and (left > LEAD or (source not in cast and source not in pinned)):
                     continue
                 if source < 0 and (source not in pinned or left > -ITEM_LATE

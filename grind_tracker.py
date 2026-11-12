@@ -23,7 +23,7 @@ from pathlib import Path
 import grind_protocol as proto
 import grind_combat as combat
 from grind_data import exp_to_next, job_name
-from grind_skills import FOLLOW_UPS, skill_name
+from grind_skills import FOLLOW_UPS, PROCS, skill_name
 import grind_autobuff as autobuff
 
 DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, end_after_seconds=600,
@@ -1218,7 +1218,7 @@ class Tracker:
     def buff_row(self, source, seconds, total, pinned):
         name = skill_name(source) if source > 0 else self.name(-source)
         return dict(source=source, name=name, seconds=seconds, total=total,
-                    item_id=-source if source < 0 else None, pinned=pinned)
+                    item_id=-source if source < 0 else None, pinned=pinned, proc=source in PROCS)
 
     def pinned_buffs(self, character, now):
         """Buffs this character kept on for over half of its active time on

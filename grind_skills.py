@@ -174,6 +174,8 @@ SKILLS = {
 
 # Hits the client reports on its own after another attack (explosions,
 # Final Attack procs): listed, but not counted as attacks the player made.
+# The Final Attack series: a passive that triggers on hits; nothing to recast.
+PROCS = frozenset(k for k, (_, en) in SKILLS.items() if en.startswith('Final Attack'))
 FOLLOW_UPS = {3101005} | {k for k, (_, en) in SKILLS.items() if en.startswith('Final Attack')}
 
 
