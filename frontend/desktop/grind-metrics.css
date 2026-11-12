@@ -34,3 +34,4 @@
 .ov .ov-account{padding:3px 0}.ov .ov-account-title{padding:0 4px}.ov .ov-account .ov-account-row{padding:0 4px}
 
 .ov-account-heading{display:flex;align-items:center;justify-content:space-between;gap:.6em;padding:0 4px 2px}.ov-account-heading .ov-account-title{padding:0;margin:0}.ov-account-heading>.amount{white-space:nowrap}.grind-accounts{margin-bottom:12px}
+.grind-accounts .well-h>.amount{margin-left:auto}
