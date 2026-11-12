@@ -41,7 +41,9 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/v1/collector/grind-run", post(sync))
         .route("/api/v1/collector/grind-share", post(share))
+        .route("/api/v1/collector/grind-live", post(live_push))
         .route("/api/v1/grind/share/{code}", get(shared))
+        .route("/api/v1/grind/live", get(my_live))
         .route("/api/v1/grind/runs", get(my_runs))
         .route("/api/v1/grind/runs/{id}", get(my_run))
         .route("/api/v1/grind/runs/{id}/share", post(share_mine))
@@ -353,6 +355,96 @@ async fn shared(
     match load_share(&state.db, &code, unix_now()).await {
         Ok(Some(value)) => Json(value).into_response(),
         Ok(None) => error(StatusCode::NOT_FOUND, "Not found"),
+        Err(e) => internal(e),
+    }
+}
+
+/// Open runs a client may push at once (one per character it tracks).
+pub const MAX_LIVE: usize = 4;
+/// A live row older than this is a client that stopped or went offline.
+const LIVE_SECONDS: i32 = 90;
+
+/// Replaces a client's open runs; an empty list clears them. Returns how many were kept.
+pub async fn store_live(db: &PgPool, collector: i64, runs: &[Value], now: f64) -> sqlx::Result<usize> {
+    let kept: Vec<Value> = runs
+        .iter()
+        .filter(|run| run.is_object() && validate(run, now).is_some())
+        .take(MAX_LIVE)
+        .cloned()
+        .collect();
+    if kept.is_empty() {
+        sqlx::query("DELETE FROM grind_live WHERE collector_id=$1")
+            .bind(collector)
+            .execute(db)
+            .await?;
+        return Ok(0);
+    }
+    sqlx::query(
+        "INSERT INTO grind_live (collector_id, runs) VALUES ($1,$2)
+         ON CONFLICT (collector_id) DO UPDATE SET runs=excluded.runs, updated_at=now()",
+    )
+    .bind(collector)
+    .bind(Value::Array(kept.clone()))
+    .execute(db)
+    .await?;
+    Ok(kept.len())
+}
+
+/// Open runs of every client linked to this account that pushed recently.
+pub async fn live_of(db: &PgPool, account: i64) -> sqlx::Result<Value> {
+    let rows: Vec<(Value, f64)> = sqlx::query_as(
+        "SELECT l.runs, extract(epoch FROM l.updated_at)::float8 FROM grind_live l
+         JOIN collectors c ON c.id = l.collector_id
+         WHERE c.account_id = $1 AND l.updated_at > now() - make_interval(secs => $2)
+         ORDER BY l.updated_at DESC",
+    )
+    .bind(account)
+    .bind(LIVE_SECONDS)
+    .fetch_all(db)
+    .await?;
+    let mut out = Vec::new();
+    for (runs, at) in rows {
+        for mut run in runs.as_array().cloned().unwrap_or_default() {
+            if let Some(object) = run.as_object_mut() {
+                object.insert("live_at".into(), json!(at));
+            }
+            out.push(run);
+        }
+    }
+    Ok(Value::Array(out))
+}
+
+async fn live_push(State(state): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
+    let collector = match client(&state, &headers, "grind-live", 30).await {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+    let runs = (body.len() <= MAX_RUN * 2)
+        .then(|| serde_json::from_slice::<Value>(&body).ok())
+        .flatten()
+        .and_then(|v| v.get("runs").and_then(Value::as_array).cloned());
+    let Some(runs) = runs else {
+        return error(StatusCode::BAD_REQUEST, "Invalid live runs");
+    };
+    match store_live(&state.db, collector, &runs, unix_now()).await {
+        Ok(kept) => Json(json!({"ok": true, "runs": kept})).into_response(),
+        Err(e) => internal(e),
+    }
+}
+
+async fn my_live(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let account = match account(&state, &headers).await {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+    match live_of(&state.db, account).await {
+        Ok(runs) => {
+            let mut response = Json(json!({"runs": runs})).into_response();
+            response
+                .headers_mut()
+                .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+            response
+        }
         Err(e) => internal(e),
     }
 }

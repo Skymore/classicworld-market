@@ -150,3 +150,34 @@ async fn leaderboard_and_comparison_use_the_map_uploads() {
     assert_eq!(compared["exp_better_than"].as_f64().unwrap(), 0.4);
     db.close().await;
 }
+
+#[tokio::test]
+async fn live_runs_reach_only_the_linked_account_and_clear_when_empty() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let now = unix_now();
+    let mine = db.collector("live-mine").await;
+    let me = account(&db, "live-me").await;
+    let them = account(&db, "live-them").await;
+    sqlx::query("UPDATE collectors SET account_id=$1 WHERE id=$2")
+        .bind(me)
+        .bind(mine.id)
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    let mut open = run(now, 'c', 150000);
+    open["ended_at"] = Value::Null;
+    open["status"] = json!("active");
+    let kept = grind_runs::store_live(&db.pool, mine.id, &[open, json!({"id": "bad"})], now)
+        .await
+        .unwrap();
+    assert_eq!(kept, 1);
+    let live = grind_runs::live_of(&db.pool, me).await.unwrap();
+    assert_eq!(live.as_array().unwrap().len(), 1);
+    assert_eq!(live[0]["status"], "active");
+    assert!(live[0]["live_at"].as_f64().unwrap() > now - 60.0);
+    assert_eq!(grind_runs::live_of(&db.pool, them).await.unwrap(), json!([]));
+    assert_eq!(grind_runs::store_live(&db.pool, mine.id, &[], now).await.unwrap(), 0);
+    assert_eq!(grind_runs::live_of(&db.pool, me).await.unwrap(), json!([]));
+}

@@ -39,9 +39,10 @@ export default function GrindPage() {
   const route = useLocation();
   const share = route.pathname.match(/^\/g\/([A-Za-z0-9]{7})/);
   const run = route.pathname.match(/^\/grind\/run\/(\d+)/);
+  const live = route.pathname.match(/^\/grind\/live\/([0-9a-f]{32})/);
   return (
     <div className="grind-site" data-grind-site>
-      {share ? <SharePage code={share[1]} /> : run ? <MyRun row={run[1]} /> : <Hub />}
+      {share ? <SharePage code={share[1]} /> : run ? <MyRun row={run[1]} /> : live ? <LiveRun id={live[1]} /> : <Hub />}
     </div>
   );
 }
@@ -68,12 +69,66 @@ function Hub() {
 }
 
 type ListRun = GrindRun & { row: number; share_code: string | null };
+type OpenRun = GrindRun & { id: string; status?: string; live_at: number };
+
+/** The account's open runs, pushed by its clients every few seconds. */
+function useLive(enabled: boolean) {
+  return useQuery<{ runs: OpenRun[] }>({ queryKey: ["grind-live"], queryFn: () => getJson("/api/v1/grind/live"),
+    enabled, refetchInterval: 10_000, refetchIntervalInBackground: false, staleTime: 5_000 });
+}
+
+function LiveBadge({ run }: { run: OpenRun }) {
+  const words = useWords();
+  const paused = run.status === "paused";
+  return <span className={"grind-live-badge" + (paused ? " paused" : "")}>{paused ? words("已暂停", "Paused") : words("实时", "Live")}</span>;
+}
+
+/** Open runs on top of the list, each linking to its live page. */
+function LiveStrip({ runs }: { runs: OpenRun[] }) {
+  const words = useWords(), { language } = usePreferences(), en = language === "en";
+  if (!runs.length) return null;
+  return (
+    <div className="grind-live-strip">
+      {runs.map((run) => (
+        <SiteLink key={run.id} className="grind-live-card" href={`/grind/live/${run.id}`}>
+          <LiveBadge run={run} />
+          <span className="who"><b>{run.map_name || "—"}</b> <small>{run.character?.name} · {run.job_name} {run.level ?? ""}</small></span>
+          <span><small>{words("时长", "Length")}</small> {clock(run.active_seconds)}</span>
+          <span><small>{words("经验", "EXP")}</small> {big(run.exp_per_hour, en)}<small>/{words("时", "h")}</small></span>
+          <span className={run.net_per_hour ? "money" : undefined}><small>{words("收益", "Profit")}</small> {signed(run.net_per_hour, en)}<small>/{words("时", "h")}</small></span>
+        </SiteLink>
+      ))}
+    </div>
+  );
+}
+
+/** One open run, refreshed while the client keeps pushing it. */
+function LiveRun({ id }: { id: string }) {
+  const words = useWords(), { language } = usePreferences();
+  const account = useAccount();
+  const query = useLive(!!account.data?.signed_in);
+  const run = query.data?.runs.find((r) => r.id === id);
+  if (account.isLoading || query.isLoading) return <Loading />;
+  if (!run)
+    return <div className="grind-empty"><p>{words("这一场已经结束，或者客户端已离线。结束的记录会出现在「我的记录」里。", "This run has ended or the client went offline. Finished runs appear under My runs.")}</p>
+      <SiteLink className="btn" href="/grind">{words("我的记录", "My runs")}</SiteLink></div>;
+  const ago = Math.max(0, Math.round(Date.now() / 1000 - run.live_at));
+  return (
+    <section className="grind-page-run">
+      <SiteLink className="grind-back" href="/grind">‹ {words("我的记录", "My runs")}</SiteLink>
+      <RunDetail run={run} t={words} english={language === "en"}
+        actions={<><LiveBadge run={run} /><small className="grind-live-ago">{words(`${ago} 秒前更新`, `updated ${ago}s ago`)}</small></>} />
+    </section>
+  );
+}
 
 function MyRuns() {
   const words = useWords(), { language } = usePreferences(), en = language === "en";
   const account = useAccount();
   const signedIn = account.data?.signed_in;
   const query = useQuery<{ runs: ListRun[] }>({ queryKey: ["grind-runs"], queryFn: () => getJson("/api/v1/grind/runs"), enabled: !!signedIn, staleTime: 30_000 });
+  const live = useLive(!!signedIn);
+  const open = live.data?.runs || [];
   const runs = query.data?.runs || [];
   if (account.isLoading) return <Loading />;
   if (!signedIn)
@@ -97,12 +152,17 @@ function MyRuns() {
   if (query.isError) return <ErrorState retry={() => void query.refetch()} />;
   if (!runs.length)
     return (
-      <div className="grind-empty">
+      <>
+      <LiveStrip runs={open} />
+      {!open.length && <div className="grind-empty">
         <p>{words("还没有同步的记录。在客户端「账号」里登录这个账号，刷完的每一场都会出现在这里。", "No runs yet. Sign in to this account in the client's Account tab and every finished run appears here.")}</p>
         <SiteLink className="btn primary" href={DOWNLOAD}>{words("下载客户端", "Download the client")}</SiteLink>
-      </div>
+      </div>}
+      </>
     );
   return (
+    <>
+    <LiveStrip runs={open} />
     <PeriodBoard runs={runs} t={words} english={en} remember="grind.period">{(shown) => (
       <div className="grind-list">
         <div className="grind-list-row head"><span>{words("时间", "Time")}</span><span>{words("地图 · 角色", "Map · character")}</span><span>{words("时长", "Length")}</span>
@@ -120,6 +180,7 @@ function MyRuns() {
         ))}
       </div>
     )}</PeriodBoard>
+    </>
   );
 }
 

@@ -5,6 +5,9 @@ belong to this client; when the client is linked to an account, the
 account's grind pages list them. Every finished run is synced; there is no
 switch. Progress lives in captures/grind/sync.sqlite so a run is sent again
 only when its summary changed (repaired history, late prices).
+
+The open run is also pushed every few seconds while it changes, so the
+account's grind page can follow it live; an empty push clears it there.
 """
 import contextlib
 import hashlib
@@ -16,6 +19,8 @@ from pathlib import Path
 
 ALLOWED = ('https://mxd.ruit.me',)
 EVERY = 60
+LIVE_EVERY = 10      # seconds between live pushes while a run is open
+LIVE_KEEPALIVE = 45  # push an unchanged run this often so the site keeps it
 BATCH = 20
 DROP = ('recent',)
 
@@ -37,6 +42,8 @@ class RunSync:
         self.lock = threading.Lock()
         self.error = None
         self.synced_at = None
+        self.live_digest = None
+        self.live_at = 0.0
 
     # ----- the site ------------------------------------------------------
     def config(self):
@@ -151,8 +158,36 @@ class RunSync:
             db.commit()
         return dict(code=result['code'], url=result['url'])
 
+    def live_runs(self):
+        try:
+            state = json.loads((self.folder / 'grind_state.json').read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            return []
+        return [r for r in state.get('runs') or [] if r.get('id') and r.get('status') in ('active', 'paused')][:4]
+
+    def live_once(self, now=None):
+        """Pushes the open runs when they changed (or to keep them alive); True when sent."""
+        now = time.time() if now is None else now
+        runs = self.live_runs()
+        value = hashlib.sha256(json.dumps(runs, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+        if value == self.live_digest and (not runs or now - self.live_at < LIVE_KEEPALIVE):
+            return False
+        result = self.post('/api/v1/collector/grind-live', dict(runs=runs))
+        if result.get('ok'):
+            self.live_digest, self.live_at = value, now
+            return True
+        return False
+
     def loop(self, stop):
-        while not stop.wait(EVERY):
+        last = 0.0
+        while not stop.wait(LIVE_EVERY):
+            try:
+                self.live_once()
+            except Exception:
+                pass  # the next push retries; finished runs still sync below
+            if time.monotonic() - last < EVERY:
+                continue
+            last = time.monotonic()
             try:
                 self.sync_once()
             except Exception as error:

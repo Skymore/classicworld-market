@@ -72,6 +72,23 @@ class SyncTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.sync.share('z' * 32)
 
+    def test_open_run_is_pushed_live_when_it_changes_and_cleared_when_it_ends(self):
+        pushes = []
+        sync = RunSync(self.folder, post=lambda route, payload: pushes.append((route, payload['runs'])) or dict(ok=True))
+        self.folder.mkdir(parents=True, exist_ok=True)
+        state = self.folder / 'grind_state.json'
+        state.write_text(json.dumps(dict(runs=[self.run_('a', 10, 'active'), self.run_('b', 5, 'ended')])), encoding='utf-8')
+        self.assertTrue(sync.live_once(now=100))
+        self.assertEqual((pushes[-1][0], [r['id'] for r in pushes[-1][1]]), ('/api/v1/collector/grind-live', ['a' * 32]))
+        self.assertFalse(sync.live_once(now=110))          # unchanged
+        self.assertTrue(sync.live_once(now=160))           # keep-alive
+        state.write_text(json.dumps(dict(runs=[self.run_('a', 12, 'active')])), encoding='utf-8')
+        self.assertTrue(sync.live_once(now=165))
+        state.write_text(json.dumps(dict(runs=[])), encoding='utf-8')
+        self.assertTrue(sync.live_once(now=170))
+        self.assertEqual(pushes[-1][1], [])
+        self.assertFalse(sync.live_once(now=500))          # nothing open: no further pushes
+
     def test_only_the_site_endpoint_is_used(self):
         self.folder.mkdir(parents=True)
         (self.folder.parent / 'member.json').write_text(json.dumps(dict(endpoint='https://evil.example', token='t' * 40)))

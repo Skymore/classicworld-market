@@ -50,3 +50,16 @@
 .grind-intro-shot img{display:block;width:100%;height:auto;border:2px solid var(--edge);box-shadow:4px 4px 0 rgba(0,0,0,.18)}
 .grind-intro-shot img.over{position:absolute;right:0;bottom:0;width:36%;border:0;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
 @media (max-width:720px){.grind-intro{grid-template-columns:1fr;padding:16px}.grind-intro h2{font-size:19px}}
+/* Open runs pushed by the account's clients. */
+.grind-live-strip{display:flex;flex-direction:column;gap:6px;padding:10px 14px;border-bottom:1px solid var(--rule)}
+.grind-live-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto;gap:14px;align-items:center;padding:9px 12px;background:var(--sheet-hi);border:1px solid var(--edge);border-left:4px solid var(--maple);color:inherit;text-decoration:none;font-size:13px;font-variant-numeric:tabular-nums}
+.grind-live-card:hover{background:var(--sheet)}
+.grind-live-card .who{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grind-live-card small{color:var(--ink-3)}
+.grind-live-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--maple-ink);white-space:nowrap}
+.grind-live-badge::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--maple);animation:grind-pulse 1.6s ease-in-out infinite}
+.grind-live-badge.paused{color:var(--ink-3)}.grind-live-badge.paused::before{background:var(--ink-3);animation:none}
+.grind-live-ago{color:var(--ink-3);align-self:center}
+@keyframes grind-pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.grind-live-badge::before{animation:none}}
+@media (max-width:640px){.grind-live-card{grid-template-columns:auto minmax(0,1fr) auto;gap:8px}.grind-live-card>span:nth-child(3){display:none}}
