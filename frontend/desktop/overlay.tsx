@@ -1,16 +1,16 @@
 import { MesosIcon } from './mesos-icon';
 import { PartyMetrics } from './party-metrics';
 import { mobIcon, skillIcon } from './skill-icons';
-import { RateMetrics } from './grind-metrics';
+import { RateLine, RateMetrics } from './grind-metrics';
 // The always-on-top grind overlay (grind_desktop.GrindService). Read-only:
 // it polls window.pywebview.api.state() and never takes focus.
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Clock3, Coins, Crosshair, FlaskConical, Hourglass, Sparkles, Swords, TrendingUp, Zap } from 'lucide-react';
 import { itemIcon } from './format';
 import './overlay.css';
 import { applyLanguage, tr } from './i18n';
-import { big, buffLeft, clock, currentBuffs, duration, mapLabel, overlayState, percent, statLine, type GrindSettings, type Live, type LootRow } from './grind';
+import { big, buffLeft, clock, currentBuffs, duration, mapLabel, overlayFit, overlayScale, overlayState, percent, statLine, type GrindSettings, type Live, type LootRow } from './grind';
 
 applyLanguage('system');
 const I = 13;
@@ -51,13 +51,13 @@ function Buffs({ live, settings, icons = false }: { live: Live | null; settings:
 
 function Overlay() {
   const [live, setLive] = useState<Live | null>(null), [settings, setSettings] = useState<GrindSettings | null>(null);
-  const [editing, setEditing] = useState(false), [toast, setToast] = useState<LootRow | null>(null);
+  const [toast, setToast] = useState<LootRow | null>(null), [dragged, setDragged] = useState<number | null>(null);
   const seen = useRef(0);
   useEffect(() => {
     let alive = true;
     const poll = () => overlayState().then(s => {
       if (!alive) return;
-      setLive(s.live); setSettings(s.settings); setEditing(s.editing); applyLanguage(s.language || 'system');
+      setLive(s.live); setSettings(s.settings); applyLanguage(s.language || 'system');
       const notable = s.live?.runs?.[0]?.recent?.find(r => r.notable);
       if (notable && notable.t > seen.current) {
         if (seen.current) setToast(notable);
@@ -70,12 +70,25 @@ function Overlay() {
     return () => { alive = false; clearInterval(id); window.removeEventListener('pywebviewready', poll); };
   }, []);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(null), 6000); return () => clearTimeout(id); }, [toast]);
+  // The window is exactly as tall as the card, so nothing invisible sits over the game.
+  const watcher = useRef<ResizeObserver | null>(null);
+  const card = useCallback((element: HTMLDivElement | null) => {
+    watcher.current?.disconnect();
+    if (!element) return;
+    let last = 0;
+    watcher.current = new ResizeObserver(() => {
+      const height = Math.ceil(element.getBoundingClientRect().height);
+      if (Math.abs(height - last) > 1) { last = height; overlayFit(height).catch(() => null); }
+    });
+    watcher.current.observe(element);
+  }, []);
   if (!settings) return null;
   const o = settings.overlay, run = live?.runs?.[0] ?? null, show = (key: string) => o.fields.includes(key);
-  const style = { '--alpha': String(o.opacity), fontSize: `${12 * (o.scale || 1)}px` } as React.CSSProperties;
+  const scale = dragged ?? (o.scale || 1);
+  const style = { '--alpha': String(o.opacity), fontSize: `${12 * scale}px` } as React.CSSProperties;
   const dot = <i className={'ov-dot ' + (run?.status === 'active' ? 'on' : run ? 'pause' : 'off')} />;
-  const box = (content: React.ReactNode) => <div className={`ov ov-${o.layout} ov-t-${o.theme || 'dark'}` + (editing ? ' editing' : '')} style={style}>
-    {!run || !['standard', 'detailed'].includes(o.layout) ? <div className="ov-site">mxd.ruit.me</div> : null}{content}{editing && <div className="ov-edit">{tr('拖到合适位置，回客户端点“完成”', 'Drag into place, then press Done in the collector')}</div>}</div>;
+  const box = (content: React.ReactNode) => <div className={`ov ov-${o.layout} ov-t-${o.theme || 'dark'}`} style={style} ref={card}>
+    {!run || !['standard', 'detailed'].includes(o.layout) ? <div className="ov-site">mxd.ruit.me</div> : null}{content}<Grip scale={scale} preview={setDragged} /></div>;
   if (!run) return box(<><div className="ov-line">{dot}<span>{live && !live.stale ? tr('打几只怪开始记录', 'Kill a few to start') : tr('等待客户端', 'Waiting for collector')}</span></div>
     {show('buffs') && <Buffs live={live} settings={settings} />}</>);
   const rate = run.exp_per_hour, usedPotions = run.consumables.filter(c => c.used > 0), potion = usedPotions[0];
@@ -86,6 +99,21 @@ function Overlay() {
       {row.stats?.length ? <small> {statLine(row.stats)}</small> : null}</span><b className="quantity">×{row.quantity}</b><b className="amount">{row.priced === false ? '—' : `+${big(row.value)}`} <MesosIcon size={11} aria-label={tr('金币', 'mesos')} /></b></div>);
   const potionChip = potion && <span className="ov-used"><img src={itemIcon(potion.item_id)} alt="" />{tr('用', 'Used ')}<b>{potion.used}</b></span>;
   const party = show('party') && <PartyMetrics run={run} compact />;
+  if (o.layout === 'slim') return box(<>
+    <div className="ov-head">{dot}<b className="ov-job">Lv.{run.level ?? '—'}</b><span>{mapLabel(run)}</span>
+      {show('time') && <em><Clock3 size={I} style={ico} />{clock(run.active_seconds)}</em>}</div>
+    {show('exp_rate') && <RateLine run={run} kind="exp" />}
+    {show('level') && <div className="ov-row">{level}</div>}
+    {show('profit') && <RateLine run={run} kind="net" />}
+    {(show('dps') || show('kills')) && <div className="ov-row ov-pair">
+      {show('dps') && <span title="DPS · 1m"><CrosshairIcon /><b>{big(run.dps)}</b><small>DPS</small></span>}
+      {show('kills') && <span><Swords size={I} style={ico} /><b>{big(run.kills_per_hour)}</b><small>{tr('/时', '/h')}</small></span>}</div>}
+    {show('buffs') && <Buffs live={live} settings={settings} icons />}
+    {show('potions') && usedPotions.length > 0 && <div className="ov-chips">{usedPotions.slice(0, 5).map(c =>
+      <span key={c.item_id} title={c.name || ''}><img src={itemIcon(c.item_id)} alt="" />×{c.used}</span>)}</div>}
+    {show('recent') && <div className="ov-chips"><span><MesosIcon size={13} /><b>+{big(run.mesos + run.item_value)}</b></span>
+      {(run.loot || run.recent || []).slice(0, 4).map((row, i) => <span key={i} className={row.notable ? 'gold' : ''} title={row.name || ''}><img src={itemIcon(row.item_id)} alt="" />×{row.quantity}</span>)}</div>}
+    {party}{toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}</>);
   if (o.layout === 'compact') return box(<><div className="ov-line">{dot}
     {show('time') && <span><Clock3 size={I} style={ico} /><b>{clock(run.active_seconds)}</b></span>}
     {show('level') && <span><TrendingUp size={I} style={ico} />{percent(run.exp_percent, 1)}</span>}
@@ -133,6 +161,29 @@ function Overlay() {
     {party}
     {toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}
   </>);
+}
+/** Bottom-right corner: drag to size the overlay; the window follows through the bridge. */
+function Grip({ scale, preview }: { scale: number; preview(scale: number | null): void }) {
+  const drag = useRef<{ x: number; scale: number; width: number; next: number; busy: boolean } | null>(null);
+  const send = () => {
+    const d = drag.current;
+    if (!d || d.busy) return;
+    const sent = d.next; d.busy = true;
+    overlayScale(sent).catch(() => null).finally(() => { d.busy = false; if (drag.current === d && d.next !== sent) send(); });
+  };
+  return <i className="ov-grip" aria-hidden="true"
+    onMouseDown={e => e.stopPropagation() /* the window's drag-to-move must not start from this corner */}
+    onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); drag.current = { x: e.screenX, scale, width: window.innerWidth, next: scale, busy: false }; }}
+    onPointerMove={e => {
+      const d = drag.current;
+      if (!d) return;
+      d.next = Math.round(Math.min(2, Math.max(.6, d.scale * (d.width + e.screenX - d.x) / d.width)) * 100) / 100;
+      preview(d.next); send();
+    }}
+    onPointerUp={() => {
+      const d = drag.current; drag.current = null;
+      if (d) overlayScale(d.next).catch(() => null).finally(() => setTimeout(() => preview(null), 1200));
+    }} />;
 }
 function CrosshairIcon() { return <Crosshair size={I} style={ico} />; }
 createRoot(document.getElementById('root')!).render(<Overlay />);

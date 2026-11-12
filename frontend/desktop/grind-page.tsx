@@ -4,7 +4,7 @@ import { mobIcon, skillIcon } from './skill-icons';
 import { RateMetrics } from './grind-metrics';
 import { HistoryView } from './grind-history';
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, Coins, Crosshair, Move, Pause, Play, RefreshCw, Square } from 'lucide-react';
+import { AlertCircle, Coins, Crosshair, Pause, Play, RefreshCw, Square } from 'lucide-react';
 import { itemIcon, monthDay } from './format';
 import { tr } from './i18n';
 import {
@@ -40,7 +40,6 @@ export default function GrindPage({ hidden }: { hidden: boolean }) {
     try { const settings = await grind('settings', changes); setState(s => s && { ...s, settings }); }
     catch (e) { setError(String((e as Error)?.message || e)); }
   };
-  const edit = async (on: boolean) => { await grind('overlay_edit', on).catch(() => null); load(); };
   const command = async (action: string) => {
     try { await grind('command', action); setTimeout(load, 1200); } catch (e) { setError(String((e as Error)?.message || e)); }
   };
@@ -61,8 +60,6 @@ export default function GrindPage({ hidden }: { hidden: boolean }) {
       </span>}
       {settings && <span className="grind-tools">
         <label className="check-chip"><input type="checkbox" checked={settings.overlay.enabled} onChange={e => save({ overlay: { enabled: e.target.checked } })} />{tr('悬浮窗', 'Overlay')}</label>
-        {settings.overlay.enabled && <button className="text-link" aria-pressed={state?.editing} onClick={() => edit(!state?.editing)}>
-          <Move size={14} />{state?.editing ? tr('完成', 'Done') : tr('调整位置', 'Move')}</button>}
       </span>}
     </div></section>
     {live?.protocol_warning && <div role="alert" className="error-banner"><AlertCircle size={18} />
@@ -101,6 +98,7 @@ function LiveView({ run, live, warn }: { run: RunSummary | null; live: GrindStat
       <Tile strong label={tr('DPS · 近1分', 'DPS · last 1m')} value={big(run.dps)}
         note={tr(`平均 ${big(run.average_dps)}`, `avg ${big(run.average_dps)}`)} />
     </div>
+    <BuffStrip live={live} warn={warn} />
     <div className="grind-rate-panels"><RateMetrics run={run} kind="exp" /><RateMetrics run={run} kind="net" /></div>
     <div className="grind-grid grind-accounts">
       <section className="well">
@@ -109,7 +107,7 @@ function LiveView({ run, live, warn }: { run: RunSummary | null; live: GrindStat
         {(run.loot || run.recent || []).map((row, i) => <div className={'grind-row grind-account-row' + (row.notable ? ' notable' : '')} key={i}>
           <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
           <span className="t"><b>{row.name}</b>{row.stats?.length ? <small className="stats"> {statLine(row.stats)}</small> : null}</span>
-          <span className="quantity">×{row.quantity}</span><span className="amount" title={row.basis || ''}>{row.priced === false || !row.basis || row.basis === '无价格' ? tr('待估价', 'Unpriced') : `+${big(row.value)}`} <MesosIcon size={12} aria-label={tr('金币', 'mesos')} /></span>
+          <span className="quantity">×{row.quantity}</span><span className="amount" title={row.basis || ''}>{row.priced === false || !row.basis || row.basis === '无价格' ? <small>{tr('待估价', 'Unpriced')}</small> : <>+{big(row.value)} <MesosIcon size={12} aria-label={tr('金币', 'mesos')} /></>}</span>
         </div>)}
         {!run.mesos && !(run.loot || run.recent)?.length && <p className="note">{tr('还没有拾取。', 'Nothing picked up yet.')}</p>}
       </section>
@@ -122,42 +120,42 @@ function LiveView({ run, live, warn }: { run: RunSummary | null; live: GrindStat
         </div>)}
         {!run.consumables.some(row => row.used > 0) && <p className="note">{tr('还没有使用消耗品。', 'No consumables used yet.')}</p>}
       </section>
-    </div>
-    <div className="grind-grid grind-status"><section className="well grind-kills">        <div className="well-h"><h3>{tr('击杀', 'Kills')}</h3>
+      <section className="well grind-kills">
+        <div className="well-h"><h3>{tr('击杀', 'Kills')}</h3>
           {run.hp_drops > 0 && <small>{tr(`HP 下降 ${run.hp_drops} 次 · 共 ${big(run.hp_lost)}`, `HP lost ${run.hp_drops}× · ${big(run.hp_lost)}`)}</small>}</div>
         {run.mobs.map(m => <div key={m.mob_id}><div className="grind-row"><img src={mobIcon(m.mob_id)} width={24} height={24} alt="" /><span className="t"><b>{m.name}</b></span><span className="v">×{m.kills}</span></div>{!!m.attack_samples && <details className="grind-attack-distribution"><summary title={tr('可见范围内独立击杀；一次技能的多段伤害计为一次攻击', 'Observed solo kills; multi-hit skills count as one attack')}>{tr('平均', 'Average')} {(m.attack_distribution!.reduce((sum, r) => sum + r.attacks * r.kills, 0) / m.attack_samples).toFixed(1)} {tr('下', 'attacks')} · {m.attack_samples} {tr('样本', 'samples')}</summary><div>{m.attack_distribution?.map(r => <span key={r.attacks}>{r.attacks} {tr('下', 'hits')} <b>{percent(r.kills / m.attack_samples! * 100, 1)}</b></span>)}</div></details>}</div>)}
         {!run.mobs.length && <p className="note">{run.kills_estimated ? tr('等待怪物数据。', 'Waiting for monster data.') : tr('还没有击杀。', 'No kills yet.')}</p>}
-</section><BuffStrip live={live} warn={warn} /></div>
-    <div className="grind-ledger">
-      <span>{tr('金币', 'Mesos')} <b>+{big(run.mesos)}</b></span>
-      <span>{tr('物品', 'Items')} <b>+{big(run.item_value)}</b></span>
-      <span>{tr('消耗', 'Used')} <b>−{big(run.consume_cost)}</b></span>
-      {run.mesos_spent > 0 && <span>{tr('花费', 'Spent')} <b>−{big(run.mesos_spent)}</b></span>}
-      <span className="net">{tr('净收益', 'Net')} <b>{big(run.net)}</b></span>
-      <span>{tr('经验', 'EXP')} <b>{big(run.exp)}</b></span>
+      </section>
     </div>
     <PartyMetrics run={run} />
-    <section className="well">
-        {(run.attack_count > 0 || run.casts?.length > 0) && <>
-          <div className="well-h sub"><h3>{tr('攻击与技能', 'Attacks and skills')}</h3>
+    {(run.attack_count > 0 || run.casts?.length > 0) && <section className="well">
+          <div className="well-h"><h3>{tr('攻击与技能', 'Attacks and skills')}</h3>
             <small>{tr(`攻击 ${run.attack_count} 次`, `${run.attack_count} attacks`)}{run.kills > 0 && run.attack_count > 0 ? tr(` · 每只 ${(run.attack_count / run.kills).toFixed(1)} 次`, ` · ${(run.attack_count / run.kills).toFixed(1)} per kill`) : ''}</small></div>
           {(run.attacks || []).map(a => <div className="grind-row" key={'a' + a.skill}><span className="t"><b>{a.skill ? a.name : tr('普通攻击', 'Plain attack')}</b></span>{a.follow_up && <small className="grind-follow" title={tr('命中后自动追加，不计入攻击次数', 'Triggered after a hit; not counted as an attack')}>{tr('追加', 'follow-up')}</small>}<span className="v">{a.count}</span></div>)}
           {(run.casts || []).map(a => <div className="grind-row" key={'c' + a.skill}><span className="t"><b>{a.name}</b><small> {tr('施放', 'cast')}</small></span><span className="v">{a.count}</span></div>)}
-        </>}
-        <div className="well-h sub"><h3>{tr('掉落汇总', 'Drops')}</h3></div>
-        <div className="grind-drops">{run.drops.slice(0, 24).map(d => <span key={d.item_id} title={d.name || ''}>
-          <img src={itemIcon(d.item_id)} alt={d.name || ''} width={22} height={22} loading="lazy" /><b>{d.quantity}</b></span>)}</div>
-    </section>
+    </section>}
 
   </>;
 }
 
-function NumberField({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange(v: number): void }) {
+function NumberField({ label, unit, value, min, max, step = 1, onChange }: { label: string; unit?: string; value: number; min: number; max: number; step?: number; onChange(v: number): void }) {
   const [text, setText] = useState(String(value));
   useEffect(() => setText(String(value)), [value]);
   return <label className="grind-field"><span>{label}</span>
-    <input type="number" value={text} min={min} max={max} step={step} onChange={e => setText(e.target.value)}
-      onBlur={() => { const v = Number(text); if (Number.isFinite(v) && v >= min && v <= max) onChange(v); else setText(String(value)); }} /></label>;
+    <span className="grind-number"><input type="number" value={text} min={min} max={max} step={step} onChange={e => setText(e.target.value)}
+      onBlur={() => { const v = Number(text); if (Number.isFinite(v) && v >= min && v <= max) onChange(v); else setText(String(value)); }} />{unit && <small>{unit}</small>}</span></label>;
+}
+
+/** One choice out of a few, as joined buttons. */
+function Choice<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: readonly (readonly [T, string, string])[]; onChange(v: T): void }) {
+  return <div className="grind-field"><span>{label}</span>
+    <div className="grind-seg" role="radiogroup" aria-label={label}>{options.map(([key, zh, en]) =>
+      <button key={key} type="button" role="radio" aria-checked={value === key} onClick={() => onChange(key)}>{tr(zh, en)}</button>)}</div></div>;
+}
+
+function Slider({ label, value, min, max, step, text, onChange }: { label: string; value: number; min: number; max: number; step: number; text: string; onChange(v: number): void }) {
+  return <label className="grind-field"><span>{label}</span>
+    <span className="grind-slider"><input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} /><b>{text}</b></span></label>;
 }
 
 function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange(v: boolean): void }) {
@@ -166,7 +164,7 @@ function Check({ label, checked, onChange }: { label: string; checked: boolean; 
 
 const HOTKEYS: [HotkeyAction, string, string][] = [
   ['pause', '暂停 / 继续', 'Pause / resume'], ['end', '结束本次', 'End run'],
-  ['overlay', '显示 / 隐藏悬浮窗', 'Show / hide overlay'], ['edit', '调整悬浮窗位置', 'Move overlay'],
+  ['overlay', '显示 / 隐藏悬浮窗', 'Show / hide overlay'],
 ];
 
 /** Press a combination to set it; Backspace clears. */
@@ -198,7 +196,7 @@ function BuffStrip({ live, warn }: { live: Live | null; warn: number }) {
   useEffect(() => { const id = setInterval(() => tick(n => n + 1), 250); return () => clearInterval(id); }, []);
   const buffs = currentBuffs(live).map(b => ({ ...b, left: buffLeft(b, live) })).filter(b => b.left > 0);
   if (!buffs.length) return null;
-  return <section className="well grind-buffs"><div className="well-h"><h3>Buff</h3></div>
+  return <section className="well grind-buffs" aria-label="Buff">
     <div className="grind-buff-list">{buffs.map(b => <div key={b.source} className={'grind-buff' + (b.left <= warn ? ' warn' : '')}>
       <span className="t"><img src={b.item_id ? itemIcon(b.item_id) : skillIcon(b.source)} width={20} height={20} alt="" /> {b.name}</span><span className="bar"><i style={{ width: `${Math.min(100, b.left / b.total * 100)}%` }} /></span>
       <b>{clock(b.left)}</b></div>)}</div></section>;
@@ -210,6 +208,13 @@ const FIELDS: [string, string, string][] = [
   ['kills', '击杀', 'Kills'], ['dps', 'DPS', 'DPS'], ['party', '队伍战斗', 'Party combat'],
   ['recent', '本次战利品', 'Loot'], ['potions', '药品使用', 'Potions used'],
 ];
+/** What to show for a way of playing; "Custom" starts from the one in use. */
+const PRESETS: { key: string; zh: string; en: string; layout: GrindSettings['overlay']['layout']; fields: string[] }[] = [
+  { key: 'level', zh: '练级', en: 'Leveling', layout: 'slim', fields: ['time', 'exp_rate', 'level', 'dps', 'buffs'] },
+  { key: 'farm', zh: '赚钱', en: 'Farming', layout: 'slim', fields: ['time', 'profit', 'kills', 'potions', 'recent'] },
+  { key: 'party', zh: '组队', en: 'Party', layout: 'slim', fields: ['time', 'exp_rate', 'level', 'buffs', 'party'] },
+  { key: 'full', zh: '全部', en: 'Everything', layout: 'detailed', fields: FIELDS.map(f => f[0]) },
+];
 
 function SettingsView({ state, settings, save, refresh }: {
   state: GrindState; settings: GrindSettings; refresh(): void;
@@ -217,45 +222,48 @@ function SettingsView({ state, settings, save, refresh }: {
 }) {
   const o = settings.overlay;
   const calibration = state.calibration?.summary ?? state.live?.calibration ?? [];
+  const preset = PRESETS.find(p => p.layout === o.layout && p.fields.length === o.fields.length && p.fields.every(f => o.fields.includes(f)));
+  // "Custom" opens the shape and field choices on top of whichever preset is in use.
+  const [custom, setCustom] = useState(!preset);
+  const tailoring = custom || !preset;
   return <div className="grind-settings">
-    <section className="well"><div className="well-h"><h3>{tr('自动记录', 'Automatic recording')}</h3></div>
-      <Check label={tr('开启刷图记录', 'Record grinding')} checked={settings.enabled} onChange={v => save({ enabled: v })} />
-      <NumberField label={tr('空闲多少秒暂停', 'Pause after idle (s)')} value={settings.idle_seconds} min={20} max={900} onChange={v => save({ idle_seconds: v })} />
-      <NumberField label={tr('暂停多少秒结束', 'End after paused (s)')} value={settings.end_after_seconds} min={60} max={7200} onChange={v => save({ end_after_seconds: v })} />
-      <NumberField label={tr('连续几次经验开始', 'EXP gains to start')} value={settings.start_events} min={2} max={20} onChange={v => save({ start_events: v })} />
-    </section>
-    <section className="well"><div className="well-h"><h3>{tr('估价', 'Valuation')}</h3></div>
-      <div className="grind-radio" role="radiogroup" aria-label={tr('物品估价', 'Item value')}>
-        {([['typical', '成交中位', 'Median sale'], ['npc', 'NPC 回收价', 'NPC buy-back'], ['none', '不计物品', 'Ignore items']] as const).map(([key, zh, en]) =>
-          <label key={key}><input type="radio" name="price-basis" checked={settings.price_basis === key} onChange={() => save({ price_basis: key })} />{tr(zh, en)}</label>)}
-      </div>
-      <NumberField label={tr('高价值提醒（金币）', 'Highlight loot worth')} value={settings.notable_value} min={0} max={10_000_000_000} step={10000} onChange={v => save({ notable_value: v })} />
-      <Check label={tr('刷图时花掉的金币计入支出', 'Count mesos spent while grinding')} checked={settings.count_mesos_spent} onChange={v => save({ count_mesos_spent: v })} />
-    </section>
     <section className="well"><div className="well-h"><h3>{tr('悬浮窗', 'Overlay')}</h3></div>
       <Check label={tr('显示悬浮窗', 'Show overlay')} checked={o.enabled} onChange={v => save({ overlay: { enabled: v } })} />
-      <div className="grind-radio" role="radiogroup" aria-label={tr('样式', 'Layout')}>
-        {([['compact', '一行', 'Bar'], ['standard', '标准', 'Card'], ['detailed', '详细', 'Detailed'], ['rail', '竖条', 'Rail'], ['big', '大数字', 'Big']] as const).map(([key, zh, en]) =>
-          <label key={key}><input type="radio" name="overlay-layout" checked={o.layout === key} onChange={() => save({ overlay: { layout: key } })} />{tr(zh, en)}</label>)}
-      </div>
-      <div className="grind-radio" role="radiogroup" aria-label={tr('主题', 'Theme')}>
-        {([['dark', '暗色', 'Dark'], ['market', '市集', 'Market'], ['cute', '可爱', 'Cute'], ['maple', '冒险', 'Adventure']] as const).map(([key, zh, en]) =>
-          <label key={key}><input type="radio" name="overlay-theme" checked={(o.theme || 'dark') === key} onChange={() => save({ overlay: { theme: key } })} />{tr(zh, en)}</label>)}
-      </div>
-      <label className="grind-field"><span>{tr('不透明度', 'Opacity')}</span>
-        <input type="range" min={0.3} max={1} step={0.05} value={o.opacity} onChange={e => save({ overlay: { opacity: Number(e.target.value) } })} /></label>
-      <label className="grind-field"><span>{tr('大小', 'Size')}</span>
-        <input type="range" min={0.7} max={1.6} step={0.1} value={o.scale} onChange={e => save({ overlay: { scale: Number(e.target.value) } })} /></label>
-      <Check label={tr('鼠标穿透', 'Click-through')} checked={o.click_through} onChange={v => save({ overlay: { click_through: v } })} />
+      <div className="grind-field"><span>{tr('预设', 'Preset')}</span>
+        <div className="grind-seg" role="radiogroup" aria-label={tr('预设', 'Preset')}>
+          {PRESETS.map(p => <button key={p.key} type="button" role="radio" aria-checked={!tailoring && preset === p}
+            onClick={() => { setCustom(false); save({ overlay: { layout: p.layout, fields: p.fields } }); }}>{tr(p.zh, p.en)}</button>)}
+          <button type="button" role="radio" aria-checked={tailoring} onClick={() => setCustom(true)}>{tr('自定义', 'Custom')}</button>
+        </div></div>
+      {tailoring && <>
+        <Choice label={tr('形状', 'Shape')} value={o.layout} onChange={v => save({ overlay: { layout: v } })}
+          options={[['slim', '紧凑', 'Slim'], ['compact', '一行', 'Bar'], ['standard', '标准', 'Card'], ['detailed', '详细', 'Detailed'], ['rail', '竖条', 'Rail'], ['big', '大数字', 'Big']] as const} />
+        <div className="grind-fields">{FIELDS.map(([key, zh, en]) => <Check key={key} label={tr(zh, en)} checked={o.fields.includes(key)}
+          onChange={v => save({ overlay: { fields: v ? [...o.fields, key] : o.fields.filter(f => f !== key) } })} />)}</div>
+        <div className="grind-sub" />
+      </>}
+      <Choice label={tr('主题', 'Theme')} value={o.theme || 'dark'} onChange={v => save({ overlay: { theme: v } })}
+        options={[['dark', '暗色', 'Dark'], ['market', '市集', 'Market'], ['cute', '可爱', 'Cute'], ['maple', '冒险', 'Adventure']] as const} />
+      <Slider label={tr('不透明度', 'Opacity')} min={0.3} max={1} step={0.05} value={o.opacity} text={`${Math.round(o.opacity * 100)}%`} onChange={v => save({ overlay: { opacity: v } })} />
       <Check label={tr('录屏和直播时隐藏', 'Hide from recordings')} checked={o.hide_in_capture} onChange={v => save({ overlay: { hide_in_capture: v } })} />
-      <div className="grind-fields">{FIELDS.map(([key, zh, en]) => <Check key={key} label={tr(zh, en)} checked={o.fields.includes(key)}
-        onChange={v => save({ overlay: { fields: v ? [...o.fields, key] : o.fields.filter(f => f !== key) } })} />)}</div>
     </section>
     <section className="well"><div className="well-h"><h3>{tr('Buff 与热键', 'Buffs and hotkeys')}</h3></div>
-      <NumberField label={tr('Buff 剩余几秒提醒', 'Warn when a buff has (s) left')} value={settings.buff_warn_seconds} min={0} max={120} onChange={v => save({ buff_warn_seconds: v })} />
-      <Check label={tr('Buff 快结束时提示音', 'Sound before a buff ends')} checked={settings.buff_sound} onChange={v => save({ buff_sound: v })} />
+      <NumberField label={tr('Buff 快结束时提醒', 'Warn before a buff ends')} unit={tr('秒', 's')} value={settings.buff_warn_seconds} min={0} max={120} onChange={v => save({ buff_warn_seconds: v })} />
+      <Check label={tr('提醒时播放提示音', 'Play a sound with the warning')} checked={settings.buff_sound} onChange={v => save({ buff_sound: v })} />
       {HOTKEYS.map(([key, zh, en]) => <HotkeyField key={key} label={tr(zh, en)} value={settings.hotkeys?.[key] || ''}
         error={state.hotkey_errors?.[key]} onChange={v => save({ hotkeys: { [key]: v } })} />)}
+    </section>
+    <section className="well"><div className="well-h"><h3>{tr('估价', 'Valuation')}</h3></div>
+      <Choice label={tr('掉落物按', 'Value loot at')} value={settings.price_basis} onChange={v => save({ price_basis: v })}
+        options={[['typical', '成交中位', 'Median sale'], ['npc', 'NPC 回收价', 'NPC buy-back'], ['none', '不计', 'Ignore']] as const} />
+      <NumberField label={tr('高价掉落提醒', 'Highlight loot worth')} unit={tr('金币', 'mesos')} value={settings.notable_value} min={0} max={10_000_000_000} step={10000} onChange={v => save({ notable_value: v })} />
+      <Check label={tr('刷图时花掉的金币计入支出', 'Count mesos spent while grinding')} checked={settings.count_mesos_spent} onChange={v => save({ count_mesos_spent: v })} />
+    </section>
+    <section className="well"><div className="well-h"><h3>{tr('自动记录', 'Automatic recording')}</h3></div>
+      <Check label={tr('开启刷图记录', 'Record grinding')} checked={settings.enabled} onChange={v => save({ enabled: v })} />
+      <NumberField label={tr('连续获得经验后开始', 'Start after EXP gains')} unit={tr('次', 'times')} value={settings.start_events} min={2} max={20} onChange={v => save({ start_events: v })} />
+      <NumberField label={tr('没有经验后暂停', 'Pause when idle for')} unit={tr('秒', 's')} value={settings.idle_seconds} min={20} max={900} onChange={v => save({ idle_seconds: v })} />
+      <NumberField label={tr('暂停后结束本次', 'End when paused for')} unit={tr('秒', 's')} value={settings.end_after_seconds} min={60} max={7200} onChange={v => save({ end_after_seconds: v })} />
     </section>
     <section className="well"><div className="well-h"><h3>{tr('协议标定', 'Calibration')}</h3>
       <button className="text-link" disabled={state.calibrating} onClick={() => grind('calibrate').then(refresh)}><RefreshCw size={14} />{state.calibrating ? tr('标定中…', 'Calibrating…') : tr('立即标定', 'Calibrate now')}</button></div>

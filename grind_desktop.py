@@ -18,13 +18,15 @@ from grind_tracker import DEFAULTS, load_settings, write_json
 
 CALIBRATE_EVERY = 300
 CALIBRATE_BYTES = 96 * 1024 * 1024
-OVERLAY_SIZES = dict(compact=(730, 185), standard=(330, 640), detailed=(360, 785), rail=(140, 550), big=(290, 380))
+OVERLAY_SIZES = dict(slim=(260, 230), compact=(730, 185), standard=(330, 640), detailed=(360, 785), rail=(140, 550), big=(290, 380))
 GWL_EXSTYLE = -20
-WS_EX_LAYERED, WS_EX_TRANSPARENT, WS_EX_TOOLWINDOW, WS_EX_NOACTIVATE = 0x80000, 0x20, 0x80, 0x8000000
+WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_APPWINDOW, WS_EX_NOACTIVATE = 0x80000, 0x80, 0x40000, 0x8000000
+SW_HIDE, SW_SHOWNOACTIVATE = 0, 4
+OVERLAY_SCALE = (0.6, 2.0)
 WDA_NONE, WDA_EXCLUDEFROMCAPTURE = 0, 0x11
 WM_HOTKEY, WM_APP = 0x0312, 0x8000
 MOD_ALT, MOD_CONTROL, MOD_SHIFT, MOD_WIN, MOD_NOREPEAT = 1, 2, 4, 8, 0x4000
-HOTKEY_ACTIONS = ('overlay', 'pause', 'end', 'edit')
+HOTKEY_ACTIONS = ('overlay', 'pause', 'end')
 
 
 def parse_hotkey(text):
@@ -111,7 +113,8 @@ class GrindService:
         self.assets = assets
         self.overlay = None
         self.overlay_hwnd = None
-        self.editing = False
+        self.move_timer = None
+        self.fit_height = None
         self.stop = threading.Event()
         self.calibrating = False
         self.last_calibration = None
@@ -157,8 +160,6 @@ class GrindService:
             self.command('toggle')
         elif action == 'end':
             self.command('end')
-        elif action == 'edit':
-            self.edit_overlay(not self.editing)
 
     def language(self):
         """The collector window's language choice, so the overlay matches it."""
@@ -178,8 +179,9 @@ class GrindService:
                 height += 30
         if 'party' in fields:
             height += 270 if overlay['layout'] == 'rail' else 230
-        scale = min(2.0, max(0.6, float(overlay['scale'] or 1)))
-        return int(width * scale), int(height * scale)
+        scale = min(OVERLAY_SCALE[1], max(OVERLAY_SCALE[0], float(overlay['scale'] or 1)))
+        # Once the page has reported its card's height the window takes exactly that.
+        return int(width * scale), self.fit_height or int(height * scale)
 
     def live(self):
         try:
@@ -225,7 +227,7 @@ class GrindService:
 
     def run(self, name, value=None):
         if name == 'state':
-            return dict(live=self.live(), settings=self.settings(), editing=self.editing,
+            return dict(live=self.live(), settings=self.settings(),
                         calibrating=self.calibrating, calibration=self.calibration(),
                         hotkey_errors=dict(self.hotkeys.errors) if self.hotkeys else {})
         if name == 'command':
@@ -243,8 +245,6 @@ class GrindService:
             return self.sync.share(value['id'], value.get('show_name', True), value.get('show_profit', True))
         if name == 'settings':
             return self.save_settings(value)
-        if name == 'overlay_edit':
-            return self.edit_overlay(bool(value))
         if name == 'calibrate':
             threading.Thread(target=self.calibrate_once, args=(True,), daemon=True).start()
             return True
@@ -326,6 +326,7 @@ class GrindService:
                 width=width, height=height, x=x, y=y, resizable=False, frameless=True, easy_drag=True,
                 on_top=True, focus=False, transparent=True, shadow=False, background_color='#000000')
             self.overlay.events.shown += lambda: self.style_overlay(settings)
+            self.overlay.events.moved += lambda *_: self.overlay_moved()
         elif not want and self.overlay is not None:
             window, self.overlay, self.overlay_hwnd = self.overlay, None, None
             try:
@@ -343,7 +344,7 @@ class GrindService:
             self.style_overlay(settings)
 
     def style_overlay(self, settings):
-        """Click-through, no taskbar button, no focus; optionally hidden from captures."""
+        """No taskbar button, no focus; optionally hidden from captures."""
         if self.overlay is None:
             return
         try:
@@ -355,34 +356,62 @@ class GrindService:
         user = ctypes.windll.user32
         user.GetWindowLongPtrW.restype = ctypes.c_ssize_t
         user.SetWindowLongPtrW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_ssize_t]
-        styles = user.GetWindowLongPtrW(ctypes.c_void_p(hwnd), GWL_EXSTYLE)
-        styles |= WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE
-        if settings['overlay']['click_through'] and not self.editing:
-            styles |= WS_EX_TRANSPARENT
-        else:
-            styles &= ~WS_EX_TRANSPARENT
-        user.SetWindowLongPtrW(ctypes.c_void_p(hwnd), GWL_EXSTYLE, styles)
+        before = user.GetWindowLongPtrW(ctypes.c_void_p(hwnd), GWL_EXSTYLE)
+        styles = overlay_styles(before)
+        if styles != before:
+            # The taskbar only drops the button when the style changes while the window is hidden.
+            user.ShowWindow(ctypes.c_void_p(hwnd), SW_HIDE)
+            user.SetWindowLongPtrW(ctypes.c_void_p(hwnd), GWL_EXSTYLE, styles)
+            user.ShowWindow(ctypes.c_void_p(hwnd), SW_SHOWNOACTIVATE)
         affinity = WDA_EXCLUDEFROMCAPTURE if settings['overlay']['hide_in_capture'] else WDA_NONE
         user.SetWindowDisplayAffinity(ctypes.c_void_p(hwnd), affinity)
 
-    def edit_overlay(self, editing):
-        """While editing the overlay can be dragged; leaving edit mode saves where it is."""
-        self.editing = editing
-        settings = self.settings()
-        if self.overlay is not None:
-            self.style_overlay(settings)
-            if not editing:
-                try:
-                    settings = self.save_settings(dict(overlay=dict(x=self.overlay.x, y=self.overlay.y)))
-                except Exception:
-                    pass
-        return self.editing
+    def overlay_moved(self):
+        """The overlay is dragged directly; remember where it was left."""
+        if self.move_timer:
+            self.move_timer.cancel()
+        self.move_timer = threading.Timer(0.6, self.save_overlay_position)
+        self.move_timer.daemon = True
+        self.move_timer.start()
+
+    def save_overlay_position(self):
+        window = self.overlay
+        if window is None:
+            return
+        try:
+            x, y = int(window.x), int(window.y)
+        except Exception:
+            return
+        saved = self.settings()['overlay']
+        if x < -10000 or y < -10000 or (saved['x'], saved['y']) == (x, y):  # minimised windows report -32000
+            return
+        try:
+            self.save_settings(dict(overlay=dict(x=x, y=y)))
+        except ValueError:
+            pass
+
+    def scale_overlay(self, scale):
+        """The overlay's corner grip: one size for text and window."""
+        if isinstance(scale, bool) or not isinstance(scale, (int, float)):
+            raise ValueError('invalid_request')
+        scale = round(min(OVERLAY_SCALE[1], max(OVERLAY_SCALE[0], float(scale))), 2)
+        return self.save_settings(dict(overlay=dict(scale=scale)))['overlay']['scale']
+
+    def fit_overlay(self, height):
+        """The card's height from the page: no invisible window area is left over the game."""
+        if isinstance(height, bool) or not isinstance(height, (int, float)):
+            raise ValueError('invalid_request')
+        self.fit_height = int(min(1600, max(24, height)))
+        self.apply_overlay(self.settings())
+        return self.fit_height
 
     def close(self):
         """The main window is closing: the overlay must not keep the app alive."""
         self.stop.set()
         if self.hotkeys:
             self.hotkeys.stop()
+        if self.move_timer:
+            self.move_timer.cancel()
         window, self.overlay = self.overlay, None
         if window is not None:
             try:
@@ -398,8 +427,18 @@ class OverlayAPI:
 
     def state(self):
         live = self._service.live()
-        return dict(live=live, settings=self._service.settings(), editing=self._service.editing,
-                    language=self._service.language())
+        return dict(live=live, settings=self._service.settings(), language=self._service.language())
+
+    def scale(self, value):
+        return self._service.scale_overlay(value)
+
+    def fit(self, height):
+        return self._service.fit_overlay(height)
+
+
+def overlay_styles(styles):
+    """Extended window styles of the overlay: off the taskbar and never focused."""
+    return (styles | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE) & ~WS_EX_APPWINDOW
 
 
 def merge_profiles(current, learned):

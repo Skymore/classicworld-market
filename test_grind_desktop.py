@@ -58,6 +58,42 @@ class ServiceTest(unittest.TestCase):
             self.assertIsNone(service.live())
             self.assertEqual(service.history(), [])
 
+    def test_overlay_is_dragged_and_sized_directly(self):
+        with tempfile.TemporaryDirectory() as folder:
+            service = GrindService(folder)
+            settings = service.settings()
+            self.assertNotIn('click_through', settings['overlay'])
+            self.assertNotIn('edit', settings['hotkeys'])
+            self.assertEqual(service.scale_overlay(1.234), 1.23)
+            self.assertEqual(service.scale_overlay(9), 2.0)
+            self.assertEqual(service.scale_overlay(0.1), 0.6)
+            with self.assertRaises(ValueError):
+                service.scale_overlay('big')
+            base = service.overlay_size(dict(settings['overlay'], scale=1.0))
+            self.assertEqual(service.overlay_size(dict(settings['overlay'], scale=2.0)), (base[0] * 2, base[1] * 2))
+
+            class Window:
+                x, y = 321, 45
+            service.overlay = Window()
+            service.save_overlay_position()
+            self.assertEqual((service.settings()['overlay']['x'], service.settings()['overlay']['y']), (321, 45))
+            Window.x = -32000
+            service.save_overlay_position()
+            self.assertEqual(service.settings()['overlay']['x'], 321)
+            service.overlay = None
+            self.assertEqual(service.fit_overlay(187.4), 187)
+            self.assertEqual(service.overlay_size(dict(settings['overlay'], layout='slim', scale=1.5)), (390, 187))
+            self.assertEqual(service.fit_overlay(5), 24)
+            with self.assertRaises(ValueError):
+                service.fit_overlay(None)
+
+    def test_overlay_stays_off_the_taskbar(self):
+        from grind_desktop import WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, overlay_styles
+        styles = overlay_styles(WS_EX_APPWINDOW | 0x8)
+        self.assertFalse(styles & WS_EX_APPWINDOW)
+        self.assertTrue(styles & WS_EX_TOOLWINDOW and styles & WS_EX_NOACTIVATE and styles & 0x8)
+        self.assertFalse(styles & 0x20, 'the overlay takes the mouse so it can be dragged')
+
 
 if __name__ == '__main__':
     unittest.main()

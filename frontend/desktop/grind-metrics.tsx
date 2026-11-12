@@ -5,17 +5,37 @@ import { big, type RunSummary } from './grind';
 import { tr } from './i18n';
 import './grind-metrics.css';
 
+/** Hourly rates over the whole run (timeline buckets); older summaries only had the last 20 minutes. */
+export function rateHistory(run: RunSummary): { t: number; exp: number; net: number }[] {
+  const line = run.timeline;
+  return line && line.exp.length > 1
+    ? line.exp.map((exp, i) => ({ t: line.start + (i + .5) * line.bucket, exp: exp * 3600 / line.bucket, net: (line.net[i] || 0) * 3600 / line.bucket }))
+    : run.rate_history || [];
+}
+
+/** One metric on one line: the live rate, the session average and a small trend. */
+export function RateLine({ run, kind }: { run: RunSummary; kind: 'exp' | 'net' }) {
+  const average = kind === 'exp' ? run.exp_per_hour : run.net_per_hour;
+  const minute = kind === 'exp' ? run.exp_per_hour_1m : run.net_per_hour_1m;
+  const values = rateHistory(run).map(p => p[kind]);
+  const low = Math.min(...values), span = Math.max(1, Math.max(...values) - low);
+  const points = values.map((v, i) => `${i / Math.max(1, values.length - 1) * 60},${15 - (v - low) / span * 14}`).join(' ');
+  return <div className="rate-line" aria-label={kind === 'exp' ? tr('经验', 'EXP') : tr('金币净收益', 'Net mesos')}>
+    {kind === 'exp' ? <Sparkles size={13} /> : <MesosIcon size={13} />}
+    <b className="gold">{big(minute ?? average)}</b><small>{tr('/时', '/h')}</small>
+    <span className="dim">{tr('平均', 'avg')} {big(average)}</span>
+    {values.length > 1 && <svg className="rate-spark" viewBox="0 0 60 16" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.4" vectorEffect="non-scaling-stroke" /></svg>}
+  </div>;
+}
+
 export function RateMetrics({ run, kind }: { run: RunSummary; kind: 'exp' | 'net' }) {
   const [selected, setSelected] = useState<number | null>(null);
   const name = kind === 'exp' ? tr('经验', 'EXP') : tr('金币净收益', 'Net mesos');
   const total = kind === 'exp' ? run.exp : run.net;
   const average = kind === 'exp' ? run.exp_per_hour : run.net_per_hour;
   const minute = kind === 'exp' ? run.exp_per_hour_1m : run.net_per_hour_1m;
-  // The whole run (timeline buckets as hourly rates); older summaries only had the last 20 minutes.
-  const line = run.timeline;
-  const history: { t: number; exp: number; net: number }[] = line && line.exp.length > 1
-    ? line.exp.map((exp, i) => ({ t: line.start + (i + .5) * line.bucket, exp: exp * 3600 / line.bucket, net: (line.net[i] || 0) * 3600 / line.bucket }))
-    : run.rate_history || [];
+  const history = rateHistory(run);
   const values = history.map(p => p[kind]);
   const minimum = Math.min(...(values.length ? values : [minute ?? 0])), maximum = Math.max(...(values.length ? values : [minute ?? 0]));
   const padding = Math.max(1, (maximum - minimum) * .12, Math.abs(maximum) * .01);
@@ -40,7 +60,7 @@ export function RateMetrics({ run, kind }: { run: RunSummary; kind: 'exp' | 'net
     {history.length > 1 && <div className="rate-axis-y" aria-hidden="true">{yTicks.map((v, i) => <span key={i} style={{ top: top(v) }}>{big(v)}</span>)}</div>}
     {active && <output className="rate-tooltip">{new Date(active.t * 1000).toLocaleTimeString()} · {big(active[kind])}/h</output>}
     <div className="rate-canvas">
-    {peak && peak[kind] > 0 && <span className="rate-peak" style={{ left: left(peak.t), top: top(peak[kind]) }} title={`${tr('最高', 'Peak')} ${hhmm(peak.t)}`}><i />{tr('最高', 'Peak')} {big(peak[kind])}</span>}
+    {peak && peak[kind] > 0 && <span className={'rate-peak' + (x(peak.t) < 60 ? ' start' : x(peak.t) > 240 ? ' end' : '')} style={{ left: left(peak.t), top: top(peak[kind]) }} title={`${tr('最高', 'Peak')} ${hhmm(peak.t)}`}><i />{tr('最高', 'Peak')} {big(peak[kind])}</span>}
     <svg className="rate-chart" viewBox="0 0 300 76" tabIndex={0} onBlur={() => setSelected(null)}
       onKeyDown={e => { if (['ArrowLeft', 'ArrowRight'].includes(e.key)) { e.preventDefault(); setSelected(Math.max(0, Math.min(history.length - 1, (selected ?? history.length - 1) + (e.key === 'ArrowLeft' ? -1 : 1)))); } }}
       onPointerMove={e => { const box = e.currentTarget.getBoundingClientRect(); const t = start + Math.max(0, Math.min(1, (e.clientX - box.left) / box.width)) * span; if (history.length) setSelected(history.reduce((best, p, i) => Math.abs(p.t - t) < Math.abs(history[best].t - t) ? i : best, 0)); }} preserveAspectRatio="none" role="img" aria-label={tr(`${name}整场每小时趋势`, `${name} hourly rate over the whole run`)}>

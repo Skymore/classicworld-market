@@ -42,8 +42,8 @@ export interface Live {
   protocol_warning?: boolean;
 }
 export interface OverlaySettings {
-  enabled: boolean; layout: 'compact' | 'standard' | 'detailed' | 'rail' | 'big'; theme: 'dark' | 'market' | 'cute' | 'maple'; opacity: number; scale: number;
-  click_through: boolean; hide_in_capture: boolean; x: number | null; y: number | null; fields: string[];
+  enabled: boolean; layout: 'slim' | 'compact' | 'standard' | 'detailed' | 'rail' | 'big'; theme: 'dark' | 'market' | 'cute' | 'maple'; opacity: number; scale: number;
+  hide_in_capture: boolean; x: number | null; y: number | null; fields: string[];
 }
 export interface GrindSettings {
   enabled: boolean; record_frames: boolean; upload: boolean; idle_seconds: number; end_after_seconds: number;
@@ -51,14 +51,14 @@ export interface GrindSettings {
   count_mesos_spent: boolean; min_upload_seconds: number; overlay: OverlaySettings;
   buff_warn_seconds: number; buff_sound: boolean; hotkeys: Record<HotkeyAction, string>;
 }
-export type HotkeyAction = 'overlay' | 'pause' | 'end' | 'edit';
+export type HotkeyAction = 'overlay' | 'pause' | 'end';
 export interface GrindState {
-  live: Live | null; settings: GrindSettings; editing: boolean; calibrating: boolean;
+  live: Live | null; settings: GrindSettings; calibrating: boolean;
   calibration: { at: number; files: number; bytes: number; summary: { label: string; state: string }[] } | null;
   hotkey_errors?: Partial<Record<HotkeyAction, 'invalid' | 'taken'>>;
 }
 
-type Api = { grind?(name: string, value?: unknown): Promise<any>; state?(): Promise<any> };
+type Api = { grind?(name: string, value?: unknown): Promise<any>; state?(): Promise<any>; scale?(value: number): Promise<number>; fit?(height: number): Promise<unknown> };
 const api = () => (window.pywebview?.api ?? null) as Api | null;
 export const grind = (name: string, value?: unknown) => {
   const bridge = api();
@@ -68,8 +68,12 @@ export const grind = (name: string, value?: unknown) => {
 export const overlayState = () => {
   const bridge = api();
   if (!bridge?.state) return Promise.reject(new Error('unavailable'));
-  return bridge.state() as Promise<{ live: Live | null; settings: GrindSettings; editing: boolean; language?: 'zh' | 'en' | 'ko' | 'system' }>;
+  return bridge.state() as Promise<{ live: Live | null; settings: GrindSettings; language?: 'zh' | 'en' | 'ko' | 'system' }>;
 };
+/** The overlay's corner grip: the size the user dragged to. */
+export const overlayScale = (value: number) => api()?.scale?.(value) ?? Promise.reject(new Error('unavailable'));
+/** The card's height in CSS pixels; the overlay window takes it. */
+export const overlayFit = (height: number) => api()?.fit?.(height) ?? Promise.reject(new Error('unavailable'));
 
 /** 1.2万 / 3.4亿 in Chinese and Korean, 12K / 3.4M / 1.2B in English. */
 export function big(value: number | null | undefined) {

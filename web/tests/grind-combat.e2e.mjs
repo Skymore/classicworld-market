@@ -133,5 +133,21 @@ try {
       await page.close();
     }
   }
-  console.log('Grind combat table, live updates and all 20 overlay combinations passed.');
+  // The leveling preset: one line per metric, a small card, and a corner to size it by.
+  for (const theme of ['dark', 'market', 'cute', 'maple']) {
+    const page = await browser.newPage({ viewport: { width: 260, height: 300 } });
+    const errors = []; page.on('pageerror', e => errors.push(e.message));
+    await bridge(page, { layout: 'slim', theme, fields: ['time', 'exp_rate', 'level', 'dps', 'buffs'] });
+    await page.goto(base + '/overlay.html');
+    await page.locator('.rate-line').waitFor();
+    assert.equal(await page.locator('.rate-line').count(), 1);
+    assert.equal(await page.locator('.rate-chart').count(), 0);
+    assert.equal(await page.locator('.ov-buffs.icons span').count(), 3);
+    assert((await page.locator('.ov').boundingBox()).height < 180, `slim/${theme}: the card stays small`);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `slim/${theme}: no horizontal clipping`);
+    assert.equal(await page.locator('.ov-grip').count(), 1);
+    assert.deepEqual(errors, []);
+    await page.close();
+  }
+  console.log('Grind combat table, live updates, all 20 overlay combinations and the slim preset passed.');
 } finally { await browser.close(); server.close(); }

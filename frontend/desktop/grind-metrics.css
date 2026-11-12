@@ -45,3 +45,5 @@
 .ov .rate-plot{padding-left:0}.ov .rate-axis-y,.ov .rate-axis-x{display:none}.ov .rate-canvas{margin-top:12px}
 .ov-t-dark .rate-peak,.ov-t-maple .rate-peak{color:#ffd27a}
 .grind-follow{opacity:.6;font-size:.8em;margin-right:6px}
+/* A peak near either end keeps its label inside the chart; the dot stays on the point. */
+.rate-peak.start{transform:translate(-5px,-100%);align-items:flex-start}.rate-peak.end{transform:translate(calc(-100% + 5px),-100%);align-items:flex-end}

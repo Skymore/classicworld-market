@@ -241,3 +241,21 @@ button:hover:not(:disabled){filter:brightness(.96)}button:disabled{opacity:.48;c
 .grind-share-side{display:flex;flex-direction:column;gap:8px;width:220px}.grind-share-side h3{margin:0 0 4px;font-size:15px}
 .grind-share-url{width:100%;padding:6px;border:1px solid var(--rule);background:var(--sheet-hi);font:inherit;font-size:12px}
 .grind-share-note{min-height:16px;color:var(--maple-ink)}.grind-share-close{margin-top:auto;align-self:flex-end;color:var(--ink-2)}
+
+/* Grind settings: one look for every control. */
+.grind-settings input[type=checkbox],.grind-settings input[type=range]{accent-color:var(--mark)}
+.grind-settings .grind-field>span:first-child{color:var(--ink-2)}
+.grind-number{display:inline-flex;align-items:center;gap:6px}.grind-number small{min-width:28px;color:var(--ink-3);font-size:12px}
+.grind-field .grind-number input[type=number]{width:96px;text-align:right;font-variant-numeric:tabular-nums}
+.grind-slider{display:inline-flex;align-items:center;gap:8px}.grind-slider b{width:42px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums}
+.grind-seg{display:flex}.grind-seg button{min-height:28px;padding:0 11px;border:1px solid var(--edge);background:var(--sheet-hi);font:inherit;font-size:12px;font-weight:600;color:var(--ink-2);cursor:pointer}
+.grind-seg button+button{margin-left:-1px}.grind-seg button[aria-checked=true]{position:relative;z-index:1;background:var(--bar);border-color:var(--bar-lo);color:var(--bar-ink)}
+.grind-sub{padding-top:8px;border-top:1px solid var(--rule);font-size:12px;font-weight:600;color:var(--ink-3)}.grind-sub:empty{padding:0}
+/* Live page: loot, consumables and kills side by side. */
+.grind-grid.grind-accounts{grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}
+.grind-accounts .grind-account-row{grid-template-columns:24px minmax(0,1fr) auto minmax(52px,auto);gap:6px}
+.grind-accounts .grind-account-row .amount small{font-weight:400;color:var(--ink-3)}
+.grind-accounts .grind-kills .grind-row .v{margin-left:auto}
+@media (max-width:760px){.grind-grid.grind-accounts{grid-template-columns:1fr}}
+.grind-buffs .grind-buff-list{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px 18px}.grind-buff .t{display:flex;align-items:center;gap:5px}
+.grind-combat .party-heading{padding:8px 10px 2px}
