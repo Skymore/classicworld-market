@@ -62,6 +62,22 @@ class ItemAccountingTest(unittest.TestCase):
         self.assertEqual(self.total('loot', 2000001), 5)
         self.assertEqual(self.total('used', 2000001), 0)
 
+    def test_summary_combines_all_stackable_loot_but_keeps_equipment_separate(self):
+        run = self.who.run
+        for n in range(40):
+            run.ledger.append(dict(t=self.clock()+n, kind='loot', item_id=4000000, quantity=2))
+        for item, qty in ((2000001, 3), (2000001, 2), (1000000, 1), (1000000, 1)):
+            run.ledger.append(dict(t=self.clock()+50, kind='loot', item_id=item, quantity=qty))
+        run.ledger.append(dict(t=self.clock()+51, kind='used', item_id=2000001, quantity=7))
+        summary = self.tracker.summarize(run, self.clock(), self.who)
+        loot = summary['loot']
+        self.assertEqual(len(loot), 4)
+        self.assertEqual(next(r['quantity'] for r in loot if r['item_id'] == 4000000), 80)
+        self.assertEqual(next(r['quantity'] for r in loot if r['item_id'] == 2000001), 5)
+        self.assertEqual(len([r for r in loot if r['item_id'] == 1000000]), 2)
+        self.assertEqual(next(r['used'] for r in summary['consumables'] if r['item_id'] == 2000001), 7)
+        self.assertFalse(next(r['priced'] for r in loot if r['item_id'] == 1000000))
+
     def test_quantity_budget_covers_split_stacks_without_overcount(self):
         self.send(item_message(2000001, 4))
         self.quantity(2, 102)

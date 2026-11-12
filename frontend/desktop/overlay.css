@@ -81,3 +81,5 @@ body{font:12px/1.35 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;color:#
 .ov-t-maple .ov-toast{background:linear-gradient(#ffb347,#e87a12);border:1px solid #6b3200;border-left:1px solid #6b3200;border-radius:3px;color:#fff}
 .ov-t-maple.ov-compact{padding:.25em .5em}.ov-t-maple.ov-rail{padding:.5em .4em}
 .ov.ov-big.ov-t-market{border-color:#2c2620}.ov.ov-big.ov-t-cute{border-color:#ffb7d2}.ov.ov-big.ov-t-maple{border-color:#0d1016}
+
+.ov-potions .ov-row span{flex:1;min-width:0}.ov-potions .ov-row b,.ov-loot>b{flex:none}.ov-money{flex-wrap:wrap}

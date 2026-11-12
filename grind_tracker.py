@@ -963,10 +963,11 @@ class Tracker:
                 used[entry['item_id']] += entry['quantity']
         bags = character.bags if character else None
         consumables = []
-        for item, count in used.most_common():
+        for item in sorted(set(used) | {i for i in drops if i // 1000000 == 2}, key=lambda i: (-used[i], i)):
+            count = used[item]
             remaining = bags.get(item, 0) if bags is not None else None
             per_hour = count / hours if hours else None
-            consumables.append(dict(item_id=item, name=self.name(item), used=count, remaining=remaining,
+            consumables.append(dict(item_id=item, name=self.name(item), used=count, acquired=drops[item], remaining=remaining,
                                     per_hour=per_hour, minutes_left=(remaining / per_hour * 60) if remaining is not None and per_hour else None))
         notable = self.settings['notable_value']
         if character and character.character_id is not None:
@@ -977,10 +978,29 @@ class Tracker:
                                      character.character_id if character else None, kills,
                                      character.party if character else None)
         own_combat = next((r for r in combat_rows if r['self']), {})
-        recent_rows = [dict(t=e['t'], kind=e['kind'], item_id=e.get('item_id'), name=self.name(e.get('item_id')),
+        loot_events = [dict(t=e['t'], kind=e['kind'], item_id=e.get('item_id'), name=self.name(e.get('item_id')),
                             quantity=e.get('quantity'), unit=unit, basis=label, value=amount,
+                            priced=label not in (None, '无价格'),
                             stats=(e.get('piece') or {}).get('stats'), notable=e['kind'] == 'loot' and amount >= notable)
-                       for e, unit, label, amount in rows if e['kind'] == 'loot'][-RECENT:][::-1]
+                       for e, unit, label, amount in rows if e['kind'] == 'loot']
+        recent_rows = loot_events[-RECENT:][::-1]
+        loot_rows, stack_rows = [], {}
+        for event in loot_events:
+            item = event['item_id']
+            # Equipment retains individual attributes; stackables combine across
+            # slots, pickups and map segments for the entire run.
+            if item // 1000000 != 1 and item in stack_rows:
+                row = stack_rows[item]
+                row['quantity'] += event['quantity']
+                row['value'] += event['value']
+                row['t'] = max(row['t'], event['t'])
+                row['notable'] = row['notable'] or event['notable']
+            else:
+                row = dict(event)
+                loot_rows.append(row)
+                if item // 1000000 != 1:
+                    stack_rows[item] = row
+        loot_rows.sort(key=lambda row: row['t'], reverse=True)
         return dict(
             id=run.id, status=run.status, pause_reason=run.pause_reason, character=facts,
             job_name=job_name(facts.get('job')), level=level, level_start=run.level_start,
@@ -996,7 +1016,7 @@ class Tracker:
             mesos=money['cash'], item_value=money['loot'], consume_cost=money['cost'], mesos_spent=money['spent'],
             net=money['net'], net_per_hour=money['net'] / hours if hours else None,
             cash_per_hour=money['cash'] / hours if hours else None, pending_prices=money['pending'],
-            recent=recent_rows, consumables=consumables,
+            recent=recent_rows, loot=loot_rows, consumables=consumables,
             drops=[dict(item_id=i, name=self.name(i), quantity=q) for i, q in drops.most_common()],
             mobs=[dict(mob_id=m, kills=k, name=(self.prices.mob(m) or {}).get('name') or f'#{m}') for m, k in mobs.most_common()],
             hp_lost=run.hp_lost, hp_drops=run.hp_drops,

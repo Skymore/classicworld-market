@@ -119,23 +119,22 @@ function LiveView({ run, live }: { run: RunSummary | null; live: GrindState['liv
     </section>}
     <div className="grind-grid">
       <section className="well">
-        <div className="well-h"><h3>{tr('最近拾取', 'Recent loot')}</h3></div>
-        {(run.recent || []).map((row, i) => <div className={'grind-row' + (row.notable ? ' notable' : '')} key={i}>
+        <div className="well-h"><h3>{tr('本次战利品', 'Loot this run')}</h3></div>
+        {(run.loot || run.recent || []).map((row, i) => <div className={'grind-row' + (row.notable ? ' notable' : '')} key={i}>
           <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
-          <span className="t"><b>{row.name}</b>{row.quantity > 1 && <small> ×{row.quantity}</small>}{row.stats?.length ? <small className="stats"> {statLine(row.stats)}</small> : null}</span>
-          <span className="v" title={row.basis || ''}>{big(row.value)}</span>
+          <span className="t"><b>{row.name}</b><small> {tr(`获得 ×${row.quantity}`, `Gained ×${row.quantity}`)}</small>{row.stats?.length ? <small className="stats"> {statLine(row.stats)}</small> : null}</span>
+          <span className="v" title={row.basis || ''}>{row.priced === false || !row.basis || row.basis === '无价格' ? tr('待估价', 'Unpriced') : big(row.value)}</span>
         </div>)}
-        {!run.recent?.length && <p className="note">{tr('还没有拾取。', 'Nothing picked up yet.')}</p>}
+        {!(run.loot || run.recent)?.length && <p className="note">{tr('还没有拾取。', 'Nothing picked up yet.')}</p>}
       </section>
       <section className="well">
         <div className="well-h"><h3>{tr('消耗品', 'Consumables')}</h3></div>
-        {run.consumables.map(row => <div className="grind-row" key={row.item_id}>
+        {run.consumables.filter(row => row.used > 0).map(row => <div className="grind-row" key={row.item_id}>
           <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
-          <span className="t"><b>{row.name}</b><small> {tr(`用了 ${row.used}`, `${row.used} used`)}{row.per_hour ? tr(` · ${Math.round(row.per_hour)}/时`, ` · ${Math.round(row.per_hour)}/h`) : ''}</small></span>
-          <span className={'v' + (row.minutes_left != null && row.minutes_left < 15 ? ' warn' : '')}>
-            {row.remaining ?? '—'}{row.minutes_left != null ? tr(` · ${Math.round(row.minutes_left)}分`, ` · ${Math.round(row.minutes_left)}m`) : ''}</span>
+          <span className="t"><b>{row.name}</b></span>
+          <span className="v">{tr('使用', 'Used')} ×{row.used}</span>
         </div>)}
-        {!run.consumables.length && <p className="note">{tr('还没有用消耗品。', 'No consumables used yet.')}</p>}
+        {!run.consumables.some(row => row.used > 0) && <p className="note">{tr('还没有使用消耗品。', 'No consumables used yet.')}</p>}
         <div className="well-h sub"><h3>{tr('击杀', 'Kills')}</h3>
           {run.hp_drops > 0 && <small>{tr(`HP 下降 ${run.hp_drops} 次 · 共 ${big(run.hp_lost)}`, `HP lost ${run.hp_drops}× · ${big(run.hp_lost)}`)}</small>}</div>
         {run.mobs.map(m => <div className="grind-row" key={m.mob_id}><span className="t"><b>{m.name}</b></span><span className="v">{m.kills}</span></div>)}
@@ -228,7 +227,7 @@ const FIELDS: [string, string, string][] = [
   ['time', '时长', 'Time'], ['exp_rate', '经验/时', 'EXP/h'], ['level', '等级进度', 'Level'], ['profit', '收益', 'Profit'],
   ['buffs', 'Buff 倒计时', 'Buffs'],
   ['kills', '击杀', 'Kills'], ['dps', 'DPS', 'DPS'], ['party', '队伍战斗', 'Party combat'],
-  ['recent', '最近拾取', 'Loot'], ['potions', '药水剩余', 'Potions'],
+  ['recent', '本次战利品', 'Loot'], ['potions', '药品使用', 'Potions used'],
 ];
 
 function SettingsView({ state, settings, save, refresh }: {

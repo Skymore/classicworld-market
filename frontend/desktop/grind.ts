@@ -4,9 +4,9 @@ import { language, tr } from './i18n';
 
 export interface LootRow {
   t: number; kind: string; item_id: number; name: string | null; quantity: number;
-  unit: number; basis: string | null; value: number; stats?: { key: string; value: number }[] | null; notable: boolean;
+  priced?: boolean; unit: number; basis: string | null; value: number; stats?: { key: string; value: number }[] | null; notable: boolean;
 }
-export interface Consumable { item_id: number; name: string | null; used: number; remaining: number | null; per_hour: number | null; minutes_left: number | null }
+export interface Consumable { item_id: number; name: string | null; used: number; acquired?: number; remaining: number | null; per_hour: number | null; minutes_left: number | null }
 export interface Buff { source: number; name: string | null; seconds: number; total: number; item_id: number | null }
 export interface CombatRow {
   character_id: number; name: string | null; self: boolean; away: boolean; partial: boolean;
@@ -24,7 +24,7 @@ export interface RunSummary {
   kills: number; kills_per_hour: number | null; kills_estimated: boolean; deaths: number; exp_lost: number; gaps: number;
   mesos: number; item_value: number; consume_cost: number; mesos_spent: number; net: number;
   net_per_hour: number | null; cash_per_hour: number | null; pending_prices: number;
-  recent?: LootRow[]; consumables: Consumable[]; drops: { item_id: number; name: string | null; quantity: number }[];
+  loot?: LootRow[]; recent?: LootRow[]; consumables: Consumable[]; drops: { item_id: number; name: string | null; quantity: number }[];
   mobs: { mob_id: number; kills: number; name: string }[]; segments: Segment[];
   buffs: Buff[]; hp_lost: number; hp_drops: number;
   attack_count: number; attacks: { skill: number; name: string; count: number }[]; casts: { skill: number; name: string; count: number }[];

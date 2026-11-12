@@ -13,6 +13,7 @@ import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
+from grind_npc_prices import NPC_SELL
 
 REFRESH = 30 * 60
 RETRY = 60
@@ -135,9 +136,7 @@ class Prices:
 
     def loot(self, item_id, piece=None, basis='typical'):
         """(unit value, basis label) of a picked-up item; (None, None) while unknown."""
-        row = self.rows.get(item_id)
-        if row is None:
-            return None, None
+        row = self.rows.get(item_id) or {}
         if basis == 'none':
             return 0, '不计'
         if basis == 'typical':
@@ -148,9 +147,10 @@ class Prices:
                         return group['median'], '同属性成交中位'
             if row.get('typical'):
                 return row['typical'], '成交中位'
-        if row.get('npc_sell'):
-            return row['npc_sell'], 'NPC 回收价'
-        return 0, '无价格'
+        sell = row.get('npc_sell') or NPC_SELL.get(item_id)
+        if sell is not None:
+            return sell, 'NPC 回收价'
+        return None, None
 
     def consumable(self, item_id):
         """(unit cost, basis) of a consumable used while grinding."""
