@@ -13,20 +13,15 @@ export function rateHistory(run: RunSummary): { t: number; exp: number; net: num
     : run.rate_history || [];
 }
 
-/** One metric on one line: the live rate, the session average and a small trend. */
-export function RateLine({ run, kind }: { run: RunSummary; kind: 'exp' | 'net' }) {
+/** One rate as a label, a large live number and the session average; the mark says which way the live rate leans. */
+export function RateStat({ run, kind }: { run: RunSummary; kind: 'exp' | 'net' }) {
   const average = kind === 'exp' ? run.exp_per_hour : run.net_per_hour;
   const minute = kind === 'exp' ? run.exp_per_hour_1m : run.net_per_hour_1m;
-  const values = rateHistory(run).map(p => p[kind]);
-  const low = Math.min(...values), span = Math.max(1, Math.max(...values) - low);
-  const points = values.map((v, i) => `${i / Math.max(1, values.length - 1) * 60},${15 - (v - low) / span * 14}`).join(' ');
-  return <div className="rate-line" aria-label={kind === 'exp' ? tr('经验', 'EXP') : tr('金币净收益', 'Net mesos')}>
-    {kind === 'exp' ? <Sparkles size={13} /> : <MesosIcon size={13} />}
-    <b className="gold">{big(minute ?? average)}</b><small>{tr('/时', '/h')}</small>
-    {minute != null && average ? <i className={'rate-trend ' + (minute >= average ? 'up' : 'down')}>{minute >= average ? '▲' : '▼'}</i> : null}
-    <span className="dim">{tr('平均', 'avg')} {big(average)}</span>
-    {values.length > 1 && <svg className="rate-spark" viewBox="0 0 60 16" preserveAspectRatio="none" aria-hidden="true">
-      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.4" vectorEffect="non-scaling-stroke" /></svg>}
+  return <div className="ov-stat" aria-label={kind === 'exp' ? tr('经验', 'EXP') : tr('金币净收益', 'Net mesos')}>
+    <small>{kind === 'exp' ? tr('经验/时', 'EXP/h') : tr('收益/时', 'Profit/h')}</small>
+    <b className="gold">{big(minute ?? average)}</b>
+    <span className="dim">{tr('平均', 'avg')} {big(average)}
+      {minute != null && average ? <i className={'rate-trend ' + (minute >= average ? 'up' : 'down')}>{minute >= average ? '▲' : '▼'}</i> : null}</span>
   </div>;
 }
 

@@ -31,7 +31,7 @@ DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, 
                 hotkeys=dict(overlay='Ctrl+Alt+O', pause='Ctrl+Alt+P', end='Ctrl+Alt+E'),
                 overlay=dict(enabled=True, layout='slim', theme='dark', opacity=0.92, scale=1.0,
                              hide_in_capture=False, x=None, y=None,
-                             fields=['time', 'exp_rate', 'level', 'dps', 'buffs']))
+                             fields=['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent']))
 IDLE_CREDIT = 10
 # Final Attack re-applies a 60 s marker on nearly every hit; it is not a buff to watch.
 PASSIVE_BUFFS = {k for k, (_, en) in SKILLS.items() if en.startswith('Final Attack')}

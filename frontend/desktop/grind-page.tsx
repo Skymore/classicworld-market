@@ -212,10 +212,9 @@ const FIELDS: [string, string, string][] = [
 ];
 /** What to show for a way of playing; "Custom" starts from the one in use. */
 const PRESETS: { key: string; zh: string; en: string; layout: GrindSettings['overlay']['layout']; fields: string[] }[] = [
-  { key: 'level', zh: '练级', en: 'Leveling', layout: 'slim', fields: ['time', 'exp_rate', 'level', 'dps', 'buffs'] },
-  { key: 'farm', zh: '赚钱', en: 'Farming', layout: 'slim', fields: ['time', 'profit', 'kills', 'potions', 'recent'] },
-  { key: 'party', zh: '组队', en: 'Party', layout: 'slim', fields: ['time', 'exp_rate', 'level', 'buffs', 'party'] },
-  { key: 'full', zh: '全部', en: 'Everything', layout: 'detailed', fields: FIELDS.map(f => f[0]) },
+  { key: 'lean', zh: '精简', en: 'Lean', layout: 'slim', fields: ['time', 'exp_rate', 'level', 'buffs'] },
+  { key: 'usual', zh: '常用', en: 'Everyday', layout: 'slim', fields: ['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent'] },
+  { key: 'full', zh: '完整', en: 'Complete', layout: 'slim', fields: ['time', 'exp_rate', 'profit', 'level', 'dps', 'kills', 'buffs', 'potions', 'recent'] },
 ];
 
 /** The overlay window's width for each shape at 100% (grind_desktop.OVERLAY_SIZES). */
@@ -255,7 +254,7 @@ function SettingsView({ state, settings, save, refresh }: {
       <div className="grind-presets" role="radiogroup" aria-label={tr('预设', 'Preset')}>
         {PRESETS.map(p => <Pick key={p.key} label={tr(p.zh, p.en)} checked={!tailoring && preset === p}
           onPick={() => { setCustom(false); save({ overlay: { layout: p.layout, fields: p.fields } }); }}>
-          <OverlayPreview settings={settings} layout={p.layout} fields={p.fields} live={shownLive} scale={Math.min(.66, 170 / WIDTH[p.layout])} /></Pick>)}
+          <OverlayPreview settings={settings} layout={p.layout} fields={p.fields} live={shownLive} scale={Math.min(.8, 236 / WIDTH[p.layout])} /></Pick>)}
         <Pick wide label={tr('自定义', 'Custom')} checked={tailoring} onPick={() => setCustom(true)}><SlidersHorizontal size={15} /></Pick>
       </div>
       {tailoring && <>

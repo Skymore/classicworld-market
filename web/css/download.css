@@ -7,7 +7,7 @@
 .download-pitch{display:grid;gap:14px}.download-hero h2{font-size:22px;line-height:1.35}
 .download-shot{position:relative;padding:0 6% 9% 0}
 .download-shot img{display:block;width:100%;height:auto;border:2px solid var(--edge);box-shadow:4px 4px 0 rgba(0,0,0,.18)}
-.download-shot img.over{position:absolute;right:0;bottom:0;width:31%;border:0;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.download-shot img.over{position:absolute;right:0;bottom:0;width:36%;border:0;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
 .download-features{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;margin:0;padding:0;list-style:none;background:var(--rule);border-top:1px solid var(--rule)}
 .download-features li{display:grid;grid-template-columns:auto minmax(0,1fr);align-content:start;gap:4px 8px;padding:14px;background:var(--sheet)}
 .download-features svg{color:var(--mark)}.download-features b{font-size:15px}

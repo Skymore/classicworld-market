@@ -1,7 +1,7 @@
 import { MesosIcon } from './mesos-icon';
 import { PartyMetrics } from './party-metrics';
 import { mobIcon, skillIcon } from './skill-icons';
-import { RateLine, RateMetrics } from './grind-metrics';
+import { RateMetrics, RateStat } from './grind-metrics';
 // What the grind overlay shows, for a layout, a theme and a set of fields.
 import { useEffect, useRef, useState } from 'react';
 import { Clock3, Crosshair, Hourglass, Swords, TrendingUp } from 'lucide-react';
@@ -55,7 +55,7 @@ export function OverlayCard({ live, settings, toast = null, scale, cardRef, grip
   const style = { '--alpha': String(o.opacity), fontSize: `${12 * scale}px` } as React.CSSProperties;
   const dot = <i className={'ov-dot ' + (run?.status === 'active' ? 'on' : run ? 'pause' : 'off')} />;
   const box = (content: React.ReactNode) => <div className={`ov ov-${o.layout} ov-t-${o.theme || 'dark'}`} style={style} ref={cardRef}>
-    {!run || !['standard', 'detailed'].includes(o.layout) ? <div className="ov-site">mxd.ruit.me</div> : null}{content}{grip}</div>;
+    {!run || !['standard', 'detailed', 'slim'].includes(o.layout) ? <div className="ov-site">mxd.ruit.me</div> : null}{content}{grip}</div>;
   if (!run) return box(<><div className="ov-line">{dot}<span>{live && !live.stale ? tr('打几只怪开始记录', 'Kill a few to start') : tr('等待客户端', 'Waiting for collector')}</span></div>
     {show('buffs') && <Buffs live={live} settings={settings} />}</>);
   const rate = run.exp_per_hour, usedPotions = run.consumables.filter(c => c.used > 0), potion = usedPotions[0];
@@ -69,18 +69,22 @@ export function OverlayCard({ live, settings, toast = null, scale, cardRef, grip
   if (o.layout === 'slim') return box(<>
     <div className="ov-head">{dot}<b className="ov-job">Lv.{run.level ?? '—'}</b><span>{mapLabel(run)}</span>
       {show('time') && <em><Clock3 size={I} style={ico} />{clock(run.active_seconds)}</em>}</div>
-    {show('exp_rate') && <RateLine run={run} kind="exp" />}
-    {show('level') && <div className="ov-row">{level}</div>}
-    {show('profit') && <RateLine run={run} kind="net" />}
-    {(show('dps') || show('kills')) && <div className="ov-row ov-pair">
-      {show('dps') && <span title="DPS · 1m"><CrosshairIcon /><b>{big(run.dps)}</b><small>DPS</small></span>}
-      {show('kills') && <span><Swords size={I} style={ico} /><b>{big(run.kills_per_hour)}</b><small>{tr('/时', '/h')}</small></span>}</div>}
+    {(show('exp_rate') || show('profit')) && <div className="ov-stats">
+      {show('exp_rate') && <RateStat run={run} kind="exp" />}{show('profit') && <RateStat run={run} kind="net" />}</div>}
+    {show('level') && <div className="ov-level"><b>{percent(run.exp_percent, 1)}</b>
+      <span className="ov-bar"><i style={{ width: `${Math.min(100, run.exp_percent ?? 0)}%` }} /></span><span className="dim">{duration(run.eta_seconds)}</span></div>}
+    {(show('dps') || show('kills')) && <div className="ov-stats minor">
+      {show('dps') && <div className="ov-stat"><small>DPS</small><b>{big(run.dps)}</b></div>}
+      {show('kills') && <div className="ov-stat"><small>{tr('击杀/时', 'Kills/h')}</small><b>{big(run.kills_per_hour)}</b></div>}</div>}
     {show('buffs') && <Buffs live={live} settings={settings} icons />}
-    {show('potions') && usedPotions.length > 0 && <div className="ov-chips">{usedPotions.slice(0, 5).map(c =>
-      <span key={c.item_id} title={c.name || ''}><img src={itemIcon(c.item_id)} alt="" />×{c.used}</span>)}</div>}
-    {show('recent') && <div className="ov-chips"><span><MesosIcon size={13} /><b>+{big(run.mesos + run.item_value)}</b></span>
-      {(run.loot || run.recent || []).slice(0, 4).map((row, i) => <span key={i} className={row.notable ? 'gold' : ''} title={row.name || ''}><img src={itemIcon(row.item_id)} alt="" />×{row.quantity}</span>)}</div>}
-    {party}{toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}</>);
+    {show('potions') && usedPotions.length > 0 && <div className="ov-tally"><small>{tr('消耗', 'Used')}</small>
+      <span className="ov-icons">{usedPotions.slice(0, 3).map(c => <span key={c.item_id} title={c.name || ''}><img src={itemIcon(c.item_id)} alt="" />{c.used}</span>)}</span>
+      <b>−{big(run.consume_cost)}</b></div>}
+    {show('recent') && <div className="ov-tally"><small>{tr('战利品', 'Loot')}</small>
+      <span className="ov-icons">{(run.loot || run.recent || []).slice(0, 3).map((row, i) => <span key={i} className={row.notable ? 'gold' : ''} title={row.name || ''}><img src={itemIcon(row.item_id)} alt="" />{row.quantity}</span>)}</span>
+      <b className="gold">+{big(run.mesos + run.item_value)}</b></div>}
+    {party}{toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}
+    <div className="ov-site foot">mxd.ruit.me</div></>);
   if (o.layout === 'compact') return box(<><div className="ov-line">{dot}
     {show('time') && <span><Clock3 size={I} style={ico} /><b>{clock(run.active_seconds)}</b></span>}
     {show('level') && <span><TrendingUp size={I} style={ico} />{percent(run.exp_percent, 1)}</span>}

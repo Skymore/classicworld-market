@@ -130,8 +130,8 @@
       "_shared-Cwf5YL9D.js"
     ]
   },
-  "_main-DTZtROHb.js": {
-    "file": "chunks/main-DTZtROHb.js",
+  "_main-DCdm0ErQ.js": {
+    "file": "chunks/main-DCdm0ErQ.js",
     "name": "main",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -384,7 +384,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DTZtROHb.js"
+      "_main-DCdm0ErQ.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -509,7 +509,7 @@
     ]
   },
   "src/pages/download.tsx": {
-    "file": "chunks/download-DCbdeaKF.js",
+    "file": "chunks/download-CnSw2tBc.js",
     "name": "download",
     "src": "src/pages/download.tsx",
     "isDynamicEntry": true,
@@ -670,7 +670,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-DTZtROHb.js"
+      "_main-DCdm0ErQ.js"
     ]
   }
 }

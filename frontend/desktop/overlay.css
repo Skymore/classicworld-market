@@ -8,16 +8,26 @@
 .ov{position:relative}.ov-grip{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;touch-action:none;opacity:0;transition:opacity .15s;
   background:linear-gradient(135deg,transparent 50%,currentColor 50%,currentColor 60%,transparent 60%,transparent 72%,currentColor 72%,currentColor 82%,transparent 82%)}
 .ov:hover .ov-grip{opacity:.65}
-/* Slim: one line per metric. */
-.ov-slim{padding:.45em .65em}.ov-slim .ov-site{font-size:.85em;font-weight:400;opacity:.6;margin-bottom:.1em}.ov-slim .ov-head{margin-bottom:.15em}
-.rate-line{display:flex;align-items:center;gap:.3em;margin:.12em 0;white-space:nowrap}.rate-line>b{font-size:1.35em;font-weight:800;line-height:1.2}
-.rate-line small{opacity:.65}.rate-line .dim{margin-left:.45em;font-size:.9em}.rate-line .mesos-icon{margin-right:.3em}
-.rate-trend{font-style:normal;font-size:.7em}.rate-trend.up{color:#3fae78}.rate-trend.down{color:#e8705f}
-.rate-spark{flex:none;width:4.4em;height:1.3em;margin-left:auto;overflow:visible;opacity:.7}
-.ov-pair{gap:1.1em}.ov .ov-pair>span{display:inline-flex;align-items:center;gap:.2em;opacity:1}.ov-pair small{opacity:.65}
-.ov-chips{display:flex;flex-wrap:wrap;align-items:center;gap:.2em .7em;margin:.2em 0;white-space:nowrap}.ov-chips>span{display:inline-flex;align-items:center}
-.ov-slim .ov-buffs.icons{flex-wrap:wrap;margin:.25em 0}
-.ov-t-market .gold{color:#b36b15}.ov-t-market.ov-slim .ov-head{margin:-.45em -.65em .3em;padding:.25em .65em}
+/* Slim: two large numbers, then one calm line per thing. Space carries the hierarchy. */
+.ov-slim{padding:.8em .95em .55em;border-radius:8px}
+.ov-slim .ov-head{margin-bottom:.7em;font-size:.95em}
+.ov-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1em;margin:0 0 .7em}
+.ov-stat{display:flex;flex-direction:column;min-width:0}
+.ov-stat small{font-size:.85em;opacity:.6}
+.ov-stat>b{font-size:1.8em;line-height:1.2;font-weight:800;white-space:nowrap}
+.ov-stat .dim{font-size:.85em;white-space:nowrap}
+.ov-stats.minor .ov-stat>b{font-size:1.25em}
+.rate-trend{margin-left:.45em;font-style:normal;font-size:.8em}.rate-trend.up{color:#3fae78}.rate-trend.down{color:#e8705f}
+.ov-level{display:flex;align-items:center;gap:.7em;margin:0 0 .75em;white-space:nowrap}
+.ov-level .ov-bar,.ov-level .ov-bar i{height:.5em;border-radius:99px}
+.ov-slim .ov-buffs.icons{flex-wrap:wrap;gap:.4em;margin:0 0 .7em}
+.ov-tally{display:flex;align-items:center;gap:.7em;padding:.45em 0;border-top:1px solid rgba(128,128,128,.3);white-space:nowrap}
+.ov-tally>small{flex:none;width:3.4em;font-size:.85em;opacity:.6}
+.ov-icons{flex:1;min-width:0;display:flex;gap:.7em;overflow:hidden}.ov-icons>span{flex:none;display:inline-flex;align-items:center;font-size:.9em;opacity:.9}
+.ov-tally>b{flex:none}
+.ov-site.foot{margin:.5em 0 0;font-size:.8em;font-weight:400;opacity:.45;text-align:right}
+.ov-t-market.ov-slim .ov-head{margin:-.8em -.95em .7em;padding:.4em .95em}
+.ov-t-maple.ov-slim{padding:.8em .95em .55em}
 .ov-compact{display:flex;align-items:center;padding:.35em .7em}
 .ov-line{display:flex;align-items:center;gap:.9em;white-space:nowrap}
 .ov-line small{opacity:.65}
