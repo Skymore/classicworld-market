@@ -267,6 +267,13 @@ class TrackerTest(unittest.TestCase):
         self.assertEqual(self.tracker.buffs(self.tracker.characters['s1'], self.clock()), [])
 
 
+    def test_final_attack_series_shows_as_a_buff(self):
+        character = self.tracker.characters['s1']
+        character.buffs[3101000] = (self.clock(), 60_000)
+        shown = self.tracker.buffs(character, self.clock())
+        self.assertEqual([(b['source'], b['name']) for b in shown], [(3101000, '终极弓')])
+
+
 class GroupKeyTest(unittest.TestCase):
     def test_matches_the_server_string(self):
         piece = dict(stats=[dict(key='weapon_defense', value=2), dict(key='weapon_attack', value=2),

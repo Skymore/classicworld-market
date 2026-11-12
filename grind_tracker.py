@@ -23,7 +23,7 @@ from pathlib import Path
 import grind_protocol as proto
 import grind_combat as combat
 from grind_data import exp_to_next, job_name
-from grind_skills import FOLLOW_UPS, SKILLS, skill_name
+from grind_skills import FOLLOW_UPS, skill_name
 
 DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, end_after_seconds=600,
                 start_events=3, start_window=60, price_basis='typical', notable_value=500000,
@@ -33,8 +33,6 @@ DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, 
                              hide_in_capture=False, x=None, y=None,
                              fields=['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent']))
 IDLE_CREDIT = 10
-# Final Attack re-applies a 60 s marker on nearly every hit; it is not a buff to watch.
-PASSIVE_BUFFS = {k for k, (_, en) in SKILLS.items() if en.startswith('Final Attack')}
 RECENT = 8
 HISTORY_LIMIT = 500
 # A buff kept on over half the time on a map in the last three days stays on screen there.
@@ -158,8 +156,6 @@ class Run:
     def credit(self, until, buffs=None):
         if self.segment and until > self.credited_until:
             for source, (start, milliseconds) in (buffs or {}).items():
-                if source in PASSIVE_BUFFS:
-                    continue
                 overlap = min(until, start + milliseconds / 1000) - max(self.credited_until, start)
                 if overlap > 0:
                     self.segment.buffs[source] += overlap
@@ -1182,7 +1178,7 @@ class Tracker:
             if left < -2 * IDLE_CREDIT:   # kept a while so idle credit still counts it
                 del character.buffs[source]
                 continue
-            if left <= 0 or source in PASSIVE_BUFFS:
+            if left <= 0:
                 continue
             shown.add(source)
             out.append(self.buff_row(source, round(left, 1), milliseconds / 1000, source in pinned))
