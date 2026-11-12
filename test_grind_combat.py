@@ -125,6 +125,19 @@ class TrackerCombatTest(unittest.TestCase):
     def rows(self):
         return {r['character_id']: r for r in self.tracker.summarize(self.who.run, self.clock(), self.who)['combat']}
 
+    def test_missing_client_stream_is_unknown_not_zero(self):
+        self.tracker.observe_client('s', local_attack([(1, [200])]))
+        self.assertGreater(self.rows()[ME]['dps'], 0)
+        self.who.client_seen = False
+        self.assertIsNone(self.rows()[ME]['dps'])
+        self.assertIsNone(self.rows()[ME]['dps_5m'])
+        self.tracker.observe_client('s', local_attack([(1, [200])]))
+        self.assertGreater(self.rows()[ME]['dps'], 0)
+        self.clock.t += 61
+        self.assertIsNone(self.rows()[ME]['dps'])
+        self.send(remote_attack(OTHER, [(1, [300])]))
+        self.assertGreater(self.rows()[OTHER]['dps'], 0)
+
     def test_only_party_damage_counts_and_own_broadcast_is_not_duplicated(self):
         self.tracker.observe_client('s', local_attack([(1, [100, 200])]))
         self.send(remote_attack(ME, [(1, [100, 200])]))

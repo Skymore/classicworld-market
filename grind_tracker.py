@@ -1036,6 +1036,10 @@ class Tracker:
             row['exp_contribution_5m'] = row['kill_exp_5m'] / recent_team_exp * 100 if recent_team_exp and all(r['kill_exp_5m'] is not None for r in combat_rows) else None
             row['exp_yield_5m'] = row['exp_received_5m'] / row['kill_exp_5m'] * 100 if row['kill_exp_5m'] and row['exp_received_5m'] is not None else None
         own_combat = next((r for r in combat_rows if r['self']), {})
+        if character and own_combat and (not character.client_seen or
+                (character.client_at is not None and now - character.client_at > 60)):
+            # Missing outgoing capture is unknown damage, not an idle zero.
+            own_combat.update(dps=None, dps_5m=None, average_dps=None, partial=True)
         loot_events = [dict(t=e['t'], kind=e['kind'], item_id=e.get('item_id'), name=self.name(e.get('item_id')),
                             quantity=e.get('quantity'), unit=unit, basis=label, value=amount,
                             priced=label not in (None, '无价格'),
