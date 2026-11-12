@@ -122,3 +122,5 @@
 .ov-rail .party-metrics td:first-child{max-width:58px}
 .ov-t-cute.ov-compact{border-radius:18px}
 .ov-t-cute b,.ov-t-cute .party-metrics td{color:#5a2d47}.ov-t-cute .gold,.ov-t-cute .warn,.ov-t-cute .warn b{color:#d9487f}.ov-t-cute .rate-values>div:nth-child(2) b{color:#d9487f}.ov-t-cute .rate-peak{color:#d9487f}
+/* A pinned buff that ran out keeps its place, greyed, until it is recast. */
+.ov-buffs span.off{opacity:.5}.ov-buffs span.off img{filter:grayscale(1)}.ov-buffs span.off i{display:none}

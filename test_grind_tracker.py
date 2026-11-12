@@ -244,6 +244,29 @@ class TrackerTest(unittest.TestCase):
         self.assertEqual(state['calibration'][0]['state'], '已确认')
 
 
+    def test_buffs_kept_on_most_of_the_time_on_a_map_stay_pinned_after_they_run_out(self):
+        character = self.tracker.characters['s1']
+        character.key = 'hero'
+        self.kill(after=0)
+        character.buffs[2001002] = (self.clock(), 900_000)   # on for the whole run
+        character.buffs[2001003] = (self.clock(), 60_000)    # only the first minute
+        for _ in range(150):
+            self.kill()
+        self.assertGreater(self.current().active_seconds(self.clock()), 600)
+        self.tracker.pin_cache = {}
+        live = {b['source']: b for b in self.tracker.buffs(character, self.clock())}
+        self.assertTrue(live[2001002]['pinned'])
+        self.assertNotIn(2001003, live)
+        self.clock.t += 900
+        self.tracker.pin_cache = {}
+        live = {b['source']: b for b in self.tracker.buffs(character, self.clock())}
+        self.assertEqual((live[2001002]['seconds'], live[2001002]['total']), (0, 900))
+        self.assertTrue(live[2001002]['pinned'])
+        self.send(portal(104040100))
+        self.tracker.pin_cache = {}
+        self.assertEqual(self.tracker.buffs(self.tracker.characters['s1'], self.clock()), [])
+
+
 class GroupKeyTest(unittest.TestCase):
     def test_matches_the_server_string(self):
         piece = dict(stats=[dict(key='weapon_defense', value=2), dict(key='weapon_attack', value=2),

@@ -8,7 +8,7 @@ import { Clock3, Crosshair, Hourglass, Swords, TrendingUp } from 'lucide-react';
 import { itemIcon } from './format';
 import './overlay.css';
 import { tr } from './i18n';
-import { big, buffLeft, clock, currentBuffs, duration, mapLabel, percent, statLine, type GrindSettings, type Live, type LootRow } from './grind';
+import { big, clock, duration, mapLabel, percent, shownBuffs, statLine, type GrindSettings, type Live, type LootRow } from './grind';
 
 const I = 13;
 const ico = { width: '1.1em', height: '1.1em' }; // icons scale with the overlay's font size
@@ -32,10 +32,12 @@ function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | 
   const warned = useRef(new Set<string>());
   useEffect(() => { const id = setInterval(() => tick(n => n + 1), 250); return () => clearInterval(id); }, []);
   const warn = settings.buff_warn_seconds ?? 10;
-  const buffs = currentBuffs(live).map(b => ({ ...b, left: buffLeft(b, live) })).filter(b => b.left > 0);
+  const buffs = shownBuffs(live);
+  const state = (b: { left: number }) => b.left <= 0 ? 'off' : b.left <= warn ? 'warn' : '';
+  const left = (b: { left: number }) => b.left > 0 ? clock(b.left) : tr('过期', 'Out');
   for (const b of buffs) {
     const key = `${b.source}:${Math.round(b.total)}:${Math.round(Date.now() / 1000 - (b.total - b.left))}`;
-    if (b.left <= warn && !warned.current.has(key)) {
+    if (b.left > 0 && b.left <= warn && !warned.current.has(key)) {
       warned.current.add(key);
       if (settings.buff_sound && warn > 0) beep();
     }
@@ -44,13 +46,13 @@ function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | 
   if (tiles) {
     // Two rows of five in a fixed order, so a buff keeps its place while others come and go.
     const ordered = [...buffs].sort((a, b) => a.source - b.source), more = ordered.length - 10;
-    return <div className="ov-buffs tiles">{ordered.slice(0, more > 0 ? 9 : 10).map(b => <span key={b.source} className={b.left <= warn ? 'warn' : ''} title={b.name || ''}>
-      <img src={b.item_id ? itemIcon(b.item_id) : skillIcon(b.source)} alt="" /><b>{clock(b.left)}</b><i style={{ width: `${Math.min(100, b.left / b.total * 100)}%` }} /></span>)}
+    return <div className="ov-buffs tiles">{ordered.slice(0, more > 0 ? 9 : 10).map(b => <span key={b.source} className={state(b)} title={b.name || ''}>
+      <img src={b.item_id ? itemIcon(b.item_id) : skillIcon(b.source)} alt="" /><b>{left(b)}</b><i style={{ width: `${Math.min(100, b.left / b.total * 100)}%` }} /></span>)}
       {more > 0 && <span className="more"><b>+{more + 1}</b></span>}</div>;
   }
-  return <div className={'ov-buffs' + (icons ? ' icons' : '')}>{buffs.slice(0, 6).map(b => <span key={b.source} className={b.left <= warn ? 'warn' : ''} title={b.name || ''}>
+  return <div className={'ov-buffs' + (icons ? ' icons' : '')}>{buffs.slice(0, 6).map(b => <span key={b.source} className={state(b)} title={b.name || ''}>
     <i style={{ width: `${Math.min(100, b.left / b.total * 100)}%` }} />
-    <em>{b.item_id ? <img src={itemIcon(b.item_id)} alt="" /> : <img src={skillIcon(b.source)} alt="" />}{!icons && b.name}</em><b>{clock(b.left)}</b></span>)}</div>;
+    <em>{b.item_id ? <img src={itemIcon(b.item_id)} alt="" /> : <img src={skillIcon(b.source)} alt="" />}{!icons && b.name}</em><b>{left(b)}</b></span>)}</div>;
 }
 
 /** The overlay's card: the overlay window shows one, the settings page shows one per preset. */

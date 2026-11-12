@@ -7,7 +7,7 @@ export interface LootRow {
   priced?: boolean; unit: number; basis: string | null; value: number; stats?: { key: string; value: number }[] | null; notable: boolean;
 }
 export interface Consumable { item_id: number; name: string | null; used: number; cost?: number; acquired?: number; remaining: number | null; per_hour: number | null; minutes_left: number | null }
-export interface Buff { source: number; name: string | null; seconds: number; total: number; item_id: number | null }
+export interface Buff { source: number; name: string | null; seconds: number; total: number; item_id: number | null; pinned?: boolean }
 export interface CombatRow {
   dps_5m?: number | null; kills_5m?: number; exp_received_5m?: number | null; kill_exp_5m?: number | null; exp_contribution_5m?: number | null; exp_yield_5m?: number | null;
   character_id: number; name: string | null; self: boolean; away: boolean; partial: boolean;
@@ -135,6 +135,9 @@ export function currentBuffs(live: Live | null): Buff[] {
   const run = live?.runs?.[0];
   return (run?.buffs?.length ? run.buffs : live?.characters?.[0]?.buffs) || [];
 }
+/** Live buffs, plus pinned ones that ran out (shown greyed until recast). */
+export const shownBuffs = (live: Live | null) =>
+  currentBuffs(live).map(b => ({ ...b, left: buffLeft(b, live) })).filter(b => b.left > 0 || b.pinned);
 /** Seconds left now: the state is written each second, so count down locally in between. */
 export const buffLeft = (buff: Buff, live: Live | null) =>
   Math.max(0, buff.seconds - (live ? Date.now() / 1000 - live.alive_at : 0));

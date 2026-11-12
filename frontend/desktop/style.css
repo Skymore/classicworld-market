@@ -270,3 +270,4 @@ button:hover:not(:disabled){filter:brightness(.96)}button:disabled{opacity:.48;c
 .grind-preset.wide{grid-column:1/-1}.grind-preset.wide>b svg{margin-left:auto;color:var(--ink-3)}
 .grind-buffs .grind-buff-list{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px 18px}.grind-buff .t{display:flex;align-items:center;gap:5px}
 .grind-combat .party-heading{padding:8px 10px 2px}
+.grind-buff.off{color:var(--ink-3)}.grind-buff.off img{filter:grayscale(1);opacity:.6}

@@ -10,7 +10,7 @@ import { sampleLive } from './overlay-sample';
 import { itemIcon, monthDay } from './format';
 import { tr } from './i18n';
 import {
-  big, buffLeft, clock, currentBuffs, duration, grind, mapLabel, percent, statLine, statusLabel,
+  big, clock, duration, grind, mapLabel, percent, shownBuffs, statLine, statusLabel,
   type GrindSettings, type GrindState, type HotkeyAction, type Live, type RunSummary,
 } from './grind';
 
@@ -196,12 +196,12 @@ function HotkeyField({ label, value, error, onChange }: { label: string; value: 
 function BuffStrip({ live, warn }: { live: Live | null; warn: number }) {
   const [, tick] = useState(0);
   useEffect(() => { const id = setInterval(() => tick(n => n + 1), 250); return () => clearInterval(id); }, []);
-  const buffs = currentBuffs(live).map(b => ({ ...b, left: buffLeft(b, live) })).filter(b => b.left > 0);
+  const buffs = shownBuffs(live);
   if (!buffs.length) return null;
   return <section className="well grind-buffs" aria-label="Buff">
-    <div className="grind-buff-list">{buffs.map(b => <div key={b.source} className={'grind-buff' + (b.left <= warn ? ' warn' : '')}>
+    <div className="grind-buff-list">{buffs.map(b => <div key={b.source} className={'grind-buff' + (b.left <= 0 ? ' off' : b.left <= warn ? ' warn' : '')}>
       <span className="t"><img src={b.item_id ? itemIcon(b.item_id) : skillIcon(b.source)} width={20} height={20} alt="" /> {b.name}</span><span className="bar"><i style={{ width: `${Math.min(100, b.left / b.total * 100)}%` }} /></span>
-      <b>{clock(b.left)}</b></div>)}</div></section>;
+      <b>{b.left > 0 ? clock(b.left) : tr('过期', 'Out')}</b></div>)}</div></section>;
 }
 
 const FIELDS: [string, string, string][] = [

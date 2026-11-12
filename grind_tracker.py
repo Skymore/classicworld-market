@@ -37,6 +37,8 @@ IDLE_CREDIT = 10
 PASSIVE_BUFFS = {k for k, (_, en) in SKILLS.items() if en.startswith('Final Attack')}
 RECENT = 8
 HISTORY_LIMIT = 500
+# A buff kept on over half the time on a map in the last three days stays on screen there.
+PIN_DAYS, PIN_SHARE, PIN_MIN_SECONDS = 3, 0.5, 600
 ITEM_MATCH_SECONDS = 2
 
 
@@ -89,11 +91,15 @@ class Segment:
         self.mesos = 0
         self.drops = collections.Counter()
         self.mobs = collections.Counter()
+        self.buffs = collections.Counter()   # buff source -> seconds it was on while active here
+        self.buff_totals = {}                # buff source -> its last full duration in seconds
 
     def to_json(self):
         return dict(map_id=self.map_id, level=self.level, job=self.job, started_at=self.started_at,
                     active_seconds=round(self.active_seconds, 1), exp=self.exp, kills=self.kills, mesos=self.mesos,
-                    drops={str(k): v for k, v in self.drops.items()}, mobs={str(k): v for k, v in self.mobs.items()})
+                    drops={str(k): v for k, v in self.drops.items()}, mobs={str(k): v for k, v in self.mobs.items()},
+                    buffs={str(k): round(v, 1) for k, v in self.buffs.items() if v >= 1},
+                    buff_totals={str(k): v for k, v in self.buff_totals.items()})
 
     @classmethod
     def from_json(cls, data):
@@ -103,6 +109,8 @@ class Segment:
             setattr(segment, key, data.get(key, 0))
         segment.drops = collections.Counter({int(k): v for k, v in (data.get('drops') or {}).items()})
         segment.mobs = collections.Counter({int(k): v for k, v in (data.get('mobs') or {}).items()})
+        segment.buffs = collections.Counter({int(k): v for k, v in (data.get('buffs') or {}).items()})
+        segment.buff_totals = {int(k): v for k, v in (data.get('buff_totals') or {}).items()}
         return segment
 
 
@@ -147,8 +155,15 @@ class Run:
             total += max(0.0, now - self.credited_until)
         return total
 
-    def credit(self, until):
+    def credit(self, until, buffs=None):
         if self.segment and until > self.credited_until:
+            for source, (start, milliseconds) in (buffs or {}).items():
+                if source in PASSIVE_BUFFS:
+                    continue
+                overlap = min(until, start + milliseconds / 1000) - max(self.credited_until, start)
+                if overlap > 0:
+                    self.segment.buffs[source] += overlap
+                    self.segment.buff_totals[source] = milliseconds / 1000
             self.segment.active_seconds += until - self.credited_until
             self.credited_until = until
 
@@ -760,7 +775,7 @@ class Tracker:
     def gain(self, character, now, exp=0):
         run = character.run
         if run and run.status == 'active':
-            run.credit(now)
+            run.credit(now, character.buffs)
             run.last_gain = now
             if run.segment:
                 run.segment.exp += exp
@@ -810,7 +825,7 @@ class Tracker:
         for event in character.staged_combat:
             if event['t'] >= first - 2:
                 self.apply_combat(run, event)
-        run.credit(now)
+        run.credit(now, character.buffs)
         character.arming.clear()
         character.staged.clear()
         character.staged_exp = []
@@ -821,11 +836,13 @@ class Tracker:
     def pause(self, run, reason, now):
         if run.status != 'active':
             return
+        buffs = None
         for character in self.characters.values():
             if character.run is run:
                 character.mob_attacks.clear()
+                buffs = character.buffs
         end = min(now, run.last_gain + IDLE_CREDIT) if reason == 'idle' else now
-        run.credit(end)
+        run.credit(end, buffs)
         run.status = 'paused'
         run.pause_reason = reason
         run.paused_at = end
@@ -1154,21 +1171,62 @@ class Tracker:
         return not (self.profile.get('kill') or {}).get('confirmed') or character is None             or getattr(character, 'character_id', None) is None
 
     def buffs(self, character, now):
-        """Active buffs, soonest to expire first."""
+        """Active buffs, soonest to expire first, plus pinned buffs that ran out
+        (seconds 0) so the player sees what to recast."""
         if character is None:
             return []
-        out = []
+        out, shown = [], set()
+        pinned = self.pinned_buffs(character, now)
         for source, (start, milliseconds) in list(character.buffs.items()):
             left = milliseconds / 1000 - (now - start)
-            if left <= 0:
+            if left < -2 * IDLE_CREDIT:   # kept a while so idle credit still counts it
                 del character.buffs[source]
                 continue
-            if source in PASSIVE_BUFFS:
+            if left <= 0 or source in PASSIVE_BUFFS:
                 continue
-            name = skill_name(source) if source > 0 else self.name(-source)
-            out.append(dict(source=source, name=name, seconds=round(left, 1), total=milliseconds / 1000,
-                            item_id=-source if source < 0 else None))
+            shown.add(source)
+            out.append(self.buff_row(source, round(left, 1), milliseconds / 1000, source in pinned))
+        out += [self.buff_row(source, 0, total, True) for source, total in pinned.items() if source not in shown]
         return sorted(out, key=lambda b: b['seconds'])
+
+    def buff_row(self, source, seconds, total, pinned):
+        name = skill_name(source) if source > 0 else self.name(-source)
+        return dict(source=source, name=name, seconds=seconds, total=total,
+                    item_id=-source if source < 0 else None, pinned=pinned)
+
+    def pinned_buffs(self, character, now):
+        """Buffs this character kept on for over half of its active time on
+        this map in the last three days: source -> full duration in seconds."""
+        key, map_id = character.key, character.map_id
+        if key is None or map_id is None:
+            return {}
+        cache = self.__dict__.setdefault('pin_cache', {})
+        hit = cache.get((key, map_id))
+        if hit and abs(time.monotonic() - hit[0]) < 60:
+            return hit[1]
+        segments = []
+        try:
+            with contextlib.closing(sqlite3.connect(self.data / 'history.sqlite')) as db:
+                for (text,) in db.execute('SELECT summary FROM runs WHERE ended_at >= ?', (now - PIN_DAYS * 86400,)):
+                    summary = json.loads(text)
+                    if (summary.get('character') or {}).get('key') == key:
+                        segments += summary.get('segments') or []
+        except (sqlite3.Error, ValueError):
+            pass
+        if character.run:
+            segments += [s.to_json() for s in character.run.segments]
+        active, on, totals = 0.0, collections.Counter(), {}
+        for s in segments:
+            if s.get('map_id') != map_id:
+                continue
+            active += s.get('active_seconds') or 0
+            for source, seconds in (s.get('buffs') or {}).items():
+                on[int(source)] += seconds
+            totals.update({int(k): v for k, v in (s.get('buff_totals') or {}).items()})
+        result = {} if active < PIN_MIN_SECONDS else \
+            {source: totals.get(source) or 0 for source, seconds in on.items() if seconds > active * PIN_SHARE}
+        cache[(key, map_id)] = (time.monotonic(), result)
+        return result
 
     def name(self, item_id):
         row = self.prices.row(item_id) if item_id else None
