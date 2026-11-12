@@ -62,7 +62,7 @@ class AutoBuffTest(unittest.TestCase):
         self.clock.t += 28.5
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, ['e'])
-        self.clock.t += 3
+        self.clock.t += autobuff.RETRY / 2
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, ['e'])               # waiting for the retry
         self.clock.t += autobuff.RETRY
@@ -146,7 +146,18 @@ class AutoBuffTest(unittest.TestCase):
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, ['2'])               # none left in the bag
 
-    def test_an_unpinned_potion_is_never_used(self):
+    def test_a_potion_drunk_in_this_run_is_used_again_a_second_after_it_ends(self):
+        character = self.start()
+        self.send(key_table([{3: (2, 2002004)}] * 3))
+        character.buffs = {-2002004: (self.clock(), 10_000)}
+        character.bags = {2002004: 5}
+        self.current().segment.buff_totals[-2002004] = 10
+        self.tracker.pinned_buffs = lambda c, now: {}
+        self.clock.t += 11.2
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['2'])
+
+    def test_an_unused_unpinned_potion_is_never_used(self):
         character = self.start()
         self.send(key_table([{3: (2, 2002004)}] * 3))
         character.buffs = {-2002004: (self.clock(), 10_000)}

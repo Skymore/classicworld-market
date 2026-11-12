@@ -21,7 +21,9 @@ KEYMAP_INDEX = 212            # mapping-table index of the client's key-setting 
 PRESET_OPCODES = (0x8B, 0x1A9)
 LEAD = 3.0                    # recast a skill this many seconds before its buff ends
 ITEM_LATE = 1.0               # use an item this long after its buff ended (no time wasted)
-RETRY = 8.0                   # a recast that did not take is retried after this long
+RETRY = 1.5                   # a skill press the game missed (e.g. mid-attack) is retried this soon
+ITEM_RETRY = 3.0              # an item is retried more slowly: its buff confirmation must not race a second one
+HOLD = 0.12                   # key down time; shorter presses were missed while attacking
 GAP = 1.0                     # at most one press a second; several due ones queue, soonest first
 
 
@@ -155,13 +157,13 @@ class AutoBuff:
                 continue
             if character.hp is not None and character.hp <= 0:
                 continue
-            # Skill buffs the player cast in this run, and pinned buffs (the
-            # player keeps them on here): ending soon, or ended however long ago.
-            # Items only when pinned and a second after they ended. A buff the
-            # player renewed has its new time here, so it is skipped.
+            # Skill buffs the player cast in this run, item buffs the player used
+            # in this run, and pinned buffs (the player keeps them on here).
+            # Skills from 3 s before they end, items a second after; however long
+            # ago they ended. A buff the player renewed has its new time here.
             pinned = tracker.pinned_buffs(character, now)
             cast = {source for segment in run.segments for source in segment.buff_totals
-                    if source > 0 and run.casts.get(source)}
+                    if (source > 0 and run.casts.get(source)) or source < 0}
             due = {source: start + milliseconds / 1000 - now
                    for source, (start, milliseconds) in character.buffs.items()}
             due.update({source: -3600 for source in set(pinned) | cast if source not in due})
@@ -170,10 +172,11 @@ class AutoBuff:
                     continue      # triggered by hits (Final Attack); a key press does nothing
                 if source > 0 and (left > LEAD or (source not in cast and source not in pinned)):
                     continue
-                if source < 0 and (source not in pinned or left > -ITEM_LATE
+                if source < 0 and ((source not in pinned and source not in cast) or left > -ITEM_LATE
                                    or (character.bags is not None and character.bags.get(-source, 0) <= 0)):
                     continue
-                if now - self.tried.get((character.session, source), -RETRY) < RETRY:
+                wait = RETRY if source > 0 else ITEM_RETRY
+                if now - self.tried.get((character.session, source), -wait) < wait:
                     continue
                 scan = skill_key(character, source)
                 name = key_name(scan) if scan is not None else None
@@ -228,6 +231,6 @@ class AutoBuff:
         from market_keyboard import send_key
         send_key(name, True)
         try:
-            time.sleep(0.06)
+            time.sleep(HOLD)
         finally:
             send_key(name, False)

@@ -79,7 +79,7 @@ function beep() {
  * Attack (triggered by hits) chimes when it turns on instead and stays quiet when it ends. */
 function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | null; settings: GrindSettings; icons?: boolean; tiles?: boolean }) {
   const [, tick] = useState(0);
-  const warned = useRef(new Set<string>());
+  const warned = useRef(new Map<number, number>());   // source -> end time it was announced for
   const procs = useRef<Set<number> | null>(null);
   useEffect(() => { const id = setInterval(() => tick(n => n + 1), 250); return () => clearInterval(id); }, []);
   const warn = settings.buff_warn_seconds ?? 10;
@@ -91,9 +91,10 @@ function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | 
   procs.current = on;
   for (const b of buffs) {
     if (b.proc) continue;
-    const key = `${b.source}:${Math.round(b.total)}:${Math.round(Date.now() / 1000 - (b.total - b.left))}`;
-    if (b.left > 0 && b.left <= warn && !warned.current.has(key)) {
-      warned.current.add(key);
+    // The end time drifts by a second between state writes; one announcement per cast.
+    const ends = Date.now() / 1000 + b.left, said = warned.current.get(b.source);
+    if (b.left > 0 && b.left <= warn && (said === undefined || Math.abs(said - ends) > 5)) {
+      warned.current.set(b.source, ends);
       if (settings.buff_sound && warn > 0) say(b.source, b.name);
     }
   }
