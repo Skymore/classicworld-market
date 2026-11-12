@@ -1,3 +1,4 @@
+import { Coins, Sparkles } from 'lucide-react';
 import { big, type RunSummary } from './grind';
 import { tr } from './i18n';
 import './grind-metrics.css';
@@ -14,14 +15,13 @@ export function RateMetrics({ run, kind }: { run: RunSummary; kind: 'exp' | 'net
   const start = history[0]?.t || 0, span = Math.max(1, (history.at(-1)?.t || 0) - start);
   const points = history.map(p => `${2 + (p.t - start) / span * 296},${y(p[kind])}`).join(' ');
   return <section className="rate-metrics" aria-label={name}>
-    <b className="rate-title">{name}</b>
+    <b className="rate-title">{kind === 'exp' ? <Sparkles size={13} /> : <Coins size={13} />}{kind === 'exp' ? name : tr('净收益', 'Net')}</b>
     <div className="rate-values">
-      <div><small>{tr('本次累计', 'Total')}</small><b>{big(total)}</b></div>
       <div><small>{tr('平均/时', 'Average/h')}</small><b>{big(average)}</b></div>
-      <div><small>{tr('近1分/时', 'Last 1m/h')}</small><b>{big(minute ?? null)}</b></div>
+      <div><small>{tr('实时/时', 'Live/h')}</small><b>{big(minute ?? null)}</b></div>
+      <div><small>{tr('累计', 'Total')}</small><b>{big(total)}</b></div>
     </div>
     <svg className="rate-chart" viewBox="0 0 300 38" preserveAspectRatio="none" role="img" aria-label={tr(`${name}近1分钟折算每小时趋势`, `${name} rolling 1-minute hourly rate`)}>
-      <title>{tr('最近20分钟 · 每点为此前1分钟折算每小时', 'Last 20 minutes · each point scales the preceding minute to an hourly rate')}</title>
       <line x1="2" x2="298" y1={y(0)} y2={y(0)} stroke="currentColor" opacity=".2" />
       {average != null && <line x1="2" x2="298" y1={y(average)} y2={y(average)} stroke="currentColor" opacity=".45" strokeDasharray="4 3"><title>{tr('本次平均', 'Session average')} {big(average)}/h</title></line>}
       {history.length > 1 && <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />}
@@ -29,7 +29,5 @@ export function RateMetrics({ run, kind }: { run: RunSummary; kind: 'exp' | 'net
         <title>{new Date(p.t * 1000).toLocaleTimeString()} · {big(p[kind])}/h</title>
       </circle>)}
     </svg>
-    <div className="rate-caption"><span>{tr('近20分钟 · 虚线为平均', 'Last 20m · dashed = average')}</span><span>{tr('60秒窗口', '60s window')}</span></div>
-    {!history.length && <small className="rate-wait">{tr('等待30秒数据', 'Waiting for 30s of data')}</small>}
   </section>;
 }

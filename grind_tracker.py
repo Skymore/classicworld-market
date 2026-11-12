@@ -245,11 +245,8 @@ class Tracker:
                 setattr(self, attr + '_mtime', mtime)
                 setattr(self, attr, loader(path))
                 self.dirty = True
-        from grind_calibrate import complete
-        # Raw frames are only needed until the profile is learned.
-        # The player's own messages are recorded until their layouts are calibrated.
-        client_done = (self.profile.get('client') or {}).get('confirmed')
-        recording = self.settings['record_frames'] and (not complete(self.profile) or self.suspect() or not client_done)
+        # Continuous local recording supports replay after parser upgrades.
+        recording = self.settings['record_frames']
         if recording and self.frames is None:
             from grind_frames import FrameLog
             self.frames = FrameLog(self.data / 'frames')
@@ -286,7 +283,7 @@ class Tracker:
         if inventory.session == session:
             self.inventory(character, inventory, now, rebase=proto.is_snapshot(data))
 
-    def observe_client(self, session, data):
+    def observe_client(self, session, data, recorded_index=None):
         """One of the player's own messages (attacks, skills, damage taken).
 
         Recorded with its mapping-table index until their layouts are
@@ -296,7 +293,7 @@ class Tracker:
         character = self.characters.get(session)
         table = getattr(character, 'table', None) if character else None
         op = int.from_bytes(data[:2], 'little')
-        index = table.index(op) if table and op in table else None
+        index = recorded_index if recorded_index is not None else (table.index(op) if table and op in table else None)
         self.health['client_frames'] += 1
         if character is not None:
             character.client_seen = True
@@ -823,6 +820,8 @@ class Tracker:
             return
         self.command_id = order.get('id')
         action = order.get('action')
+        if self.frames is not None and action in ('pause', 'resume', 'toggle', 'end'):
+            self.frames.control(action, now)
         for character in self.characters.values():
             run = character.run
             if not run:
@@ -1017,7 +1016,7 @@ class Tracker:
             return stamps, totals
         exp_index, cash_index = indexed(run.exp_events), indexed(cash_events)
         rate_history = []
-        for stamp in [chart_end - n * 10 for n in range(120, -1, -1)]:
+        for stamp in [chart_end - n * 10 for n in range(30, -1, -1)]:
             span = min(60, stamp - run.started_at)
             if span < 30:
                 continue

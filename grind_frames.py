@@ -4,17 +4,14 @@ Frames stay on this PC (captures/grind/frames). Each line is
 {"t": unix time, "s": connection session, "h": frame hex}; the player's own
 messages add "c": 1 and "i", the opcode's index in the connection's mapping
 table (the raw client opcode changes per connection). Files rotate at
-FILE_LIMIT and the folder is pruned oldest-first beyond TOTAL_LIMIT, so a
-long session can never fill the disk. Nothing here is uploaded.
+FILE_LIMIT; only files older than seven days are pruned. Nothing is uploaded.
 """
 import json
 import time
 from pathlib import Path
 
 FILE_LIMIT = 48 * 1024 * 1024
-TOTAL_LIMIT = 384 * 1024 * 1024
-# Market browsing frames are large and say nothing about grinding.
-SKIP = {0x578, 0x57B, 0x22A, 0x22B, 0x22D, 0x22E, 0x23A, 0x23D, 0x577, 0x57A}
+RETENTION_SECONDS = 7 * 24 * 3600
 
 
 class FrameLog:
@@ -26,29 +23,30 @@ class FrameLog:
         self.buffer = []
         self.buffered = 0
         self.failed = False
+        self.rotated_at = 0
 
     def _rotate(self, session, now):
         self.folder.mkdir(parents=True, exist_ok=True)
         stamp = time.strftime('%Y%m%d_%H%M%S', time.localtime(now))
         self.path = self.folder / f'frames_{stamp}_{str(session)[:8]}.jsonl'
         self.size = self.path.stat().st_size if self.path.exists() else 0
-        self.prune()
+        self.rotated_at = now
+        self.prune(now)
 
-    def prune(self):
+    def prune(self, now=None):
+        cutoff = (time.time() if now is None else now) - RETENTION_SECONDS
         files = sorted(self.folder.glob('frames_*.jsonl'), key=lambda p: p.stat().st_mtime)
-        total = sum(p.stat().st_size for p in files)
         for old in files:
-            if total <= TOTAL_LIMIT or old == self.path:
+            if old.stat().st_mtime >= cutoff or old == self.path:
                 continue
-            total -= old.stat().st_size
             old.unlink(missing_ok=True)
 
     def write(self, session, plain, now=None, index=None, client=False):
-        if self.failed or len(plain) < 2 or (not client and int.from_bytes(plain[:2], 'little') in SKIP):
+        if self.failed or len(plain) < 2:
             return
         now = time.time() if now is None else now
         try:
-            if self.path is None or self.size + self.buffered >= FILE_LIMIT:
+            if self.path is None or self.size + self.buffered >= FILE_LIMIT or now - self.rotated_at >= 3600:
                 self.flush()
                 self._rotate(session, now)
         except OSError:
@@ -73,6 +71,17 @@ class FrameLog:
             self.size += len(data)
         except OSError:
             # Recording is diagnostic; capture and tracking continue without it.
+            self.failed = True
+
+    def control(self, action, now):
+        """Preserve local pause/end boundaries for a faithful later replay."""
+        try:
+            if self.path is None:
+                self._rotate('control', now)
+            line = json.dumps(dict(t=now, a=action)) + '\n'
+            self.buffer.append(line)
+            self.buffered += len(line)
+        except OSError:
             self.failed = True
 
     def close(self):

@@ -1,6 +1,7 @@
+import { mobIcon, skillIcon } from './skill-icons';
 import { RateMetrics } from './grind-metrics';
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, Crosshair, Move, Pause, Play, RefreshCw, Square } from 'lucide-react';
+import { AlertCircle, Coins, Crosshair, Move, Pause, Play, RefreshCw, Square } from 'lucide-react';
 import { itemIcon, monthDay } from './format';
 import { tr } from './i18n';
 import {
@@ -121,7 +122,7 @@ function LiveView({ run, live }: { run: RunSummary | null; live: GrindState['liv
         {(run.loot || run.recent || []).map((row, i) => <div className={'grind-row grind-account-row' + (row.notable ? ' notable' : '')} key={i}>
           <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
           <span className="t"><b>{row.name}</b>{row.stats?.length ? <small className="stats"> {statLine(row.stats)}</small> : null}</span>
-          <span className="quantity">×{row.quantity}</span><span className="amount" title={row.basis || ''}>{row.priced === false || !row.basis || row.basis === '无价格' ? tr('待估价', 'Unpriced') : `+${big(row.value)} ${tr('金币', 'mesos')}`}</span>
+          <span className="quantity">×{row.quantity}</span><span className="amount" title={row.basis || ''}>{row.priced === false || !row.basis || row.basis === '无价格' ? tr('待估价', 'Unpriced') : `+${big(row.value)}`} <Coins size={12} aria-label={tr('金币', 'mesos')} /></span>
         </div>)}
         {!(run.loot || run.recent)?.length && <p className="note">{tr('还没有拾取。', 'Nothing picked up yet.')}</p>}
       </section>
@@ -130,12 +131,12 @@ function LiveView({ run, live }: { run: RunSummary | null; live: GrindState['liv
         {run.consumables.filter(row => row.used > 0).map(row => <div className="grind-row grind-account-row" key={row.item_id}>
           <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
           <span className="t"><b>{row.name}</b></span>
-          <span className="quantity">×{row.used}</span><span className="amount">−{big(row.cost ?? null)} {tr('金币', 'mesos')}</span>
+          <span className="quantity">×{row.used}</span><span className="amount">−{big(row.cost ?? null)} <Coins size={12} aria-label={tr('金币', 'mesos')} /></span>
         </div>)}
         {!run.consumables.some(row => row.used > 0) && <p className="note">{tr('还没有使用消耗品。', 'No consumables used yet.')}</p>}
         <div className="well-h sub"><h3>{tr('击杀', 'Kills')}</h3>
           {run.hp_drops > 0 && <small>{tr(`HP 下降 ${run.hp_drops} 次 · 共 ${big(run.hp_lost)}`, `HP lost ${run.hp_drops}× · ${big(run.hp_lost)}`)}</small>}</div>
-        {run.mobs.map(m => <div className="grind-row" key={m.mob_id}><span className="t"><b>{m.name}</b></span><span className="v">{m.kills}</span></div>)}
+        {run.mobs.map(m => <div className="grind-row" key={m.mob_id}><img src={mobIcon(m.mob_id)} width={24} height={24} alt="" /><span className="t"><b>{m.name}</b></span><span className="v">×{m.kills}</span></div>)}
         {!run.mobs.length && <p className="note">{run.kills_estimated ? tr('换一次频道后按怪物分类统计。', 'Change channel once to split kills by monster.') : tr('还没有击杀。', 'No kills yet.')}</p>}
         {(run.attack_count > 0 || run.casts?.length > 0) && <>
           <div className="well-h sub"><h3>{tr('攻击与技能', 'Attacks and skills')}</h3>
@@ -217,7 +218,7 @@ function BuffStrip({ live, warn }: { live: Live | null; warn: number }) {
   if (!buffs.length) return null;
   return <section className="well grind-buffs"><div className="well-h"><h3>Buff</h3></div>
     <div className="grind-buff-list">{buffs.map(b => <div key={b.source} className={'grind-buff' + (b.left <= warn ? ' warn' : '')}>
-      <span className="t">{b.name}</span><span className="bar"><i style={{ width: `${Math.min(100, b.left / b.total * 100)}%` }} /></span>
+      <span className="t"><img src={b.item_id ? itemIcon(b.item_id) : skillIcon(b.source)} width={20} height={20} alt="" /> {b.name}</span><span className="bar"><i style={{ width: `${Math.min(100, b.left / b.total * 100)}%` }} /></span>
       <b>{clock(b.left)}</b></div>)}</div></section>;
 }
 
@@ -278,7 +279,7 @@ function SettingsView({ state, settings, save, refresh }: {
     <section className="well"><div className="well-h"><h3>{tr('协议标定', 'Calibration')}</h3>
       <button className="text-link" disabled={state.calibrating} onClick={() => grind('calibrate').then(refresh)}><RefreshCw size={14} />{state.calibrating ? tr('标定中…', 'Calibrating…') : tr('立即标定', 'Calibrate now')}</button></div>
       {calibration.map(row => <div className="grind-cal" key={row.label}><span>{row.label}</span><b className={row.state === '已确认' ? 'ok' : ''}>{row.state}</b></div>)}
-      <Check label={tr('标定完成前录制报文（仅本机）', 'Record frames until calibrated (this PC only)')} checked={settings.record_frames} onChange={v => save({ record_frames: v })} />
+      <Check label={tr('保留7天报文并自动重放', 'Keep 7 days of frames and replay updates')} checked={settings.record_frames} onChange={v => save({ record_frames: v })} />
       {state.live && <p className="note">{state.live.recording ? tr('正在录制', 'Recording frames') : tr('未录制', 'Not recording')}</p>}
     </section>
   </div>;

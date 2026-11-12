@@ -11,7 +11,7 @@ const server = createServer(async (req, res) => {
   try {
     const p = new URL(req.url, 'http://localhost').pathname;
     const file = path.join(root, p === '/' ? 'index.html' : p);
-    res.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html');
+    res.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html');
     res.end(await readFile(file));
   } catch { res.writeHead(404).end(); }
 });
@@ -28,7 +28,7 @@ const run = {
   mesos: 15000, item_value: 2000, consume_cost: 5000, mesos_spent: 0,
   kills: 24, kills_per_hour: 720, kills_estimated: false, deaths: 0, gaps: 0, pending_prices: 0,
   dps: 900, damage: 108000, average_dps: 850, party_known: true,
-  attack_count: 40, attacks: [], casts: [], hp_drops: 0, hp_lost: 0, consumables: [], buffs: [], mobs: [], recent: [], drops: [],
+  attack_count: 40, attacks: [], casts: [], hp_drops: 0, hp_lost: 0, consumables: [], buffs: [{ source: 3001000, name: '集中术', seconds: 90, total: 90, item_id: null }, { source: 1101004, name: '愤怒之火', seconds: 300, total: 300, item_id: null }, { source: 4101001, name: '轻功', seconds: 300, total: 300, item_id: null }], mobs: [{ mob_id: 22, name: '野猪', kills: 24 }], recent: [], drops: [],
   loot: Array.from({ length: 6 }, (_, i) => ({ t: 1, item_id: 4000000 + i, name: `战利品${i}`, quantity: 80 - i, value: 0, priced: false })),
   consumables: Array.from({ length: 4 }, (_, i) => ({ item_id: 2000000 + i, name: `药品${i}`, used: 7 + i, cost: 350 + i, remaining: 819, minutes_left: 443 })),
   combat: Array.from({ length: 6 }, (_, i) => ({ character_id: i + 1, name: i ? `Teammate${i}` : 'Tester', self: !i,
@@ -74,7 +74,7 @@ try {
   assert.deepEqual(errors, []);
   await page.close();
 
-  const sizes = { compact: [730, 340], standard: [330, 665], detailed: [360, 750], rail: [140, 760], big: [290, 495] };
+  const sizes = { compact: [730, 340], standard: [330, 725], detailed: [360, 830], rail: [140, 760], big: [290, 495] };
   for (const [layout, [width, height]] of Object.entries(sizes)) {
     for (const theme of ['dark', 'market', 'cute', 'maple']) {
       const page = await browser.newPage({ viewport: { width, height } });
@@ -89,6 +89,9 @@ try {
         assert.equal(await page.getByText('剩819', { exact: true }).count(), 0);
       }
       assert.equal(await page.locator('.rate-chart polyline').count(), 2);
+      assert.equal(await page.locator('.ov-buffs img[src*="/skills/3001000.png"]').count(), 1);
+      await page.waitForFunction(() => [...document.querySelectorAll('.ov-buffs img')].every(img => img.complete && img.naturalWidth > 0));
+      assert.deepEqual(await page.locator('.rate-metrics').first().locator('.rate-values small').allTextContents(), ['平均/时', '实时/时', '累计']);
       const box = await page.locator('.ov-team').boundingBox();
       assert(box.y + box.height <= height, `${layout}/${theme}: party rows fit vertically`);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${layout}/${theme}: no horizontal clipping`);

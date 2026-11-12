@@ -63,10 +63,11 @@ def item_message(item, quantity=1):
 
 
 def buff(source, milliseconds):
-    data = bytearray(160)
+    data = bytearray(159)
     struct.pack_into('<H', data, 0, 0x7F)
     data[17] = 4
     struct.pack_into('<IiI', data, 126, abs(source), source, milliseconds)
+    data[151:153] = b'\x01\x01'
     return bytes(data)
 
 
@@ -183,6 +184,24 @@ class LiveLayoutTest(unittest.TestCase):
 
     def test_buff_value_equal_to_the_source_is_skipped(self):
         self.assertEqual(proto.parse_buff(buff(3101000, 60000), proto.verified_profile()['buff']), (3101000, 60000))
+
+    def test_focus_rage_and_party_haste_use_structured_duration(self):
+        for source, duration, mask_at, mask in ((3001000, 90000, 5, 6), (1101004, 300000, 5, 80), (4101001, 300000, 3, 3)):
+            for flag in (0, 1):
+                data = bytearray(219)
+                data[:2] = b'\x7f\x00'
+                data[mask_at] = mask
+                for at in (134, 170):
+                    struct.pack_into('<IiIIII', data, at, 1, source, 7, 638533449, flag, duration)
+                data[210:214] = bytes([flag, 1, 1, 0])
+                data[-1] = 10
+                self.assertEqual(proto.parse_buff(data, proto.verified_profile()['buff']), (source, duration))
+                self.send(data)
+                self.assertIn(source, [b['source'] for b in self.tracker.buffs(self.character(), self.clock())])
+                self.assertNotIn(16777216, self.character().buffs)
+                self.assertIsNone(proto.parse_buff(data[:-1], proto.verified_profile()['buff']))
+                data[174] ^= 1
+                self.assertIsNone(proto.parse_buff(data, proto.verified_profile()['buff']))
 
     def test_manual_pause_holds_until_resume_and_end_closes(self):
         for oid in range(1, 5):

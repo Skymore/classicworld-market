@@ -34,3 +34,5 @@ https://github.com/lastbattle/MapleLib . No MapleLib package is bundled by this
 parser. Local map resources and calibration screenshots remain outside Git.
 
 - `web/data/crafting.json`: 366 crafting recipes normalized from NiaDB (https://meowdb.com/msclassic/crafting), checked 2026-10-24 with `tools/niadb_crafting.py`. Retains recipe facts and exact item IDs; page attribution and source date are shown next to the calculator. Market prices are supplied by this site, not copied from NiaDB.
+
+- Collector skill and monster icons are bundled from Mapledex Classic World (`https://kafuffu20.com/classic-world/data/icons/skills/<id>.png` and `monsters/<id>.png`), using Classic World IDs; original game artwork remains its owners' property. The small PNGs are stored in frontend/desktop/public/grind-icons and copied into the collector desktop assets.

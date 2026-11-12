@@ -104,8 +104,8 @@ class ItemAccountingTest(unittest.TestCase):
         saved = run.to_json()
         self.assertGreater(len(saved['exp_events']), 2000)
         long_run = self.tracker.summarize(run, start+1250, self.who)
-        self.assertEqual(len(long_run['rate_history']), 121)
-        self.assertEqual(long_run['rate_history'][-1]['t'] - long_run['rate_history'][0]['t'], 1200)
+        self.assertEqual(len(long_run['rate_history']), 31)
+        self.assertEqual(long_run['rate_history'][-1]['t'] - long_run['rate_history'][0]['t'], 300)
 
     def test_quantity_budget_covers_split_stacks_without_overcount(self):
         self.send(item_message(2000001, 4))

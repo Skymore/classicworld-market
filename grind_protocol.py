@@ -321,16 +321,46 @@ def valid_source(source):
 def parse_buff(data, rule):
     """(source, milliseconds) of a buff given to the player.
 
-    After the flag block each stat carries value, source, duration; values
-    are two or four bytes depending on the stat, so the first
-    (source, duration) pair is taken where the duration is not the source
-    repeated (some stats use the skill ID as their value).
+    Verified single-stat and paired-stat layouts use different field offsets.
+    Validate the complete layout instead of scanning for plausible integers.
     """
     if not rule.get('confirmed') or opcode(data) != rule.get('opcode'):
         return None
-    for at in range(rule.get('start', 2), len(data) - 7):
+    start = rule.get('start', 126)
+    if start != 126 or len(data) < 157:
+        return None
+    bits = sum(b.bit_count() for b in data[2:start])
+    # Focus, Rage and Haste carry two 36-byte stat records, not adjacent
+    # source/duration pairs. The timestamp between them is not a duration.
+    if bits == 2 and len(data) in (219, 220) and data[start:start+8] == bytes(8):
+        pairs = []
+        for at in (134, 170):
+            if (data[at:at+4] != b'\x01\x00\x00\x00'
+                    or int.from_bytes(data[at+16:at+20], 'little') not in (0, 1)
+                    or data[at+24:at+36] != bytes(12)):
+                return None
+            pairs.append((int.from_bytes(data[at+4:at+8], 'little', signed=True),
+                          int.from_bytes(data[at+20:at+24], 'little')))
+        tail = data[206:]
+        if (tail[:4] != bytes(4) or tail[4] not in (0, 1)
+                or tail[5:7] != b'\x01\x01' or tail[7] not in (0, 1)
+                or pairs[0] != pairs[1]):
+            return None
+        source, duration = pairs[0]
+    elif bits == 1:
+        # Final Attack has a four-byte value; the other verified single-stat
+        # buffs use two bytes. Never scan byte-by-byte for plausible integers.
+        size = 4 if data[17] == 4 else 2
+        at = start + size
+        tail = data[at+8:]
+        if (len(tail) not in (21, 22) or tail[:12] != bytes(12)
+                or tail[12] not in (0, 1) or tail[13:15] != b'\x01\x01'
+                or tail[15] not in (0, 1)):
+            return None
         source = int.from_bytes(data[at:at+4], 'little', signed=True)
         duration = int.from_bytes(data[at+4:at+8], 'little')
-        if valid_source(source) and 1000 <= duration <= 7_200_000 and duration != abs(source):
-            return source, duration
+    else:
+        return None
+    if valid_source(source) and 1000 <= duration <= 7_200_000:
+        return source, duration
     return None
