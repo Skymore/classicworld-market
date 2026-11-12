@@ -151,7 +151,7 @@ class Run:
                     pause_reason=self.pause_reason, paused_at=self.paused_at, idle_seconds=self.idle_seconds,
                     last_gain=self.last_gain, credited_until=self.credited_until,
                     segments=[s.to_json() for s in self.segments], ledger=self.ledger,
-                    exp_events=self.exp_events[-2000:], deaths=self.deaths, exp_lost=self.exp_lost, gaps=self.gaps,
+                    exp_events=[e for e in self.exp_events if e[0] >= self.credited_until - 1260], deaths=self.deaths, exp_lost=self.exp_lost, gaps=self.gaps,
                     hp_lost=self.hp_lost, hp_drops=self.hp_drops,
                     attacks={str(k): v for k, v in self.attacks.items() if v}, casts={str(k): v for k, v in self.casts.items() if v},
                     combat=self.combat.to_json(),
@@ -1017,7 +1017,7 @@ class Tracker:
             return stamps, totals
         exp_index, cash_index = indexed(run.exp_events), indexed(cash_events)
         rate_history = []
-        for stamp in [chart_end - n * 10 for n in range(30, -1, -1)]:
+        for stamp in [chart_end - n * 10 for n in range(120, -1, -1)]:
             span = min(60, stamp - run.started_at)
             if span < 30:
                 continue

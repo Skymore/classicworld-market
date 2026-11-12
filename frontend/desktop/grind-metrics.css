@@ -2,6 +2,7 @@
 .rate-title{font-size:1em}.rate-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:4px}
 .rate-values>div{display:flex;flex-direction:column;min-width:0}.rate-values small{opacity:.65;white-space:nowrap}.rate-values b{font-size:1.1em}
 .rate-chart{display:block;width:100%;height:38px;margin-top:3px;overflow:visible}.rate-wait{opacity:.65}
+.rate-caption{display:flex;justify-content:space-between;font-size:.8em;opacity:.6;gap:4px}.ov-rail .rate-caption{flex-direction:column}.rate-chart circle:hover,.rate-chart circle:focus{fill:currentColor;outline:none}
 .grind-rate-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:8px 0}
 .grind-account-row{display:grid!important;grid-template-columns:24px minmax(0,1fr) 55px 100px;gap:8px;align-items:center}
 .grind-account-row .quantity,.grind-account-row .amount{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -11,3 +12,5 @@
 @media(max-width:600px){.grind-rate-panels{grid-template-columns:1fr}}
 
 .ov-compact-metrics{display:grid;grid-template-columns:1fr 1fr;gap:20px}.ov-rail .rate-values{grid-template-columns:1fr}.ov-rail .rate-values>div{flex-direction:row;justify-content:space-between}.ov-rail .rate-title{font-size:.9em}
+
+.grind-tiles{grid-template-columns:repeat(4,minmax(0,1fr))!important}@media(max-width:700px){.grind-tiles{grid-template-columns:repeat(2,minmax(0,1fr))!important}}

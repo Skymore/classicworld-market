@@ -98,6 +98,14 @@ class ItemAccountingTest(unittest.TestCase):
         paused = self.tracker.summarize(run, start+180, self.who)
         self.assertIsNone(paused['net_per_hour_1m'])
         self.assertEqual(paused['rate_history'][-1]['t'], start+60)
+        run.status = 'active'
+        run.exp_events = [(start + n / 2, 1) for n in range(2500)]
+        run.credited_until = start + 1250
+        saved = run.to_json()
+        self.assertGreater(len(saved['exp_events']), 2000)
+        long_run = self.tracker.summarize(run, start+1250, self.who)
+        self.assertEqual(len(long_run['rate_history']), 121)
+        self.assertEqual(long_run['rate_history'][-1]['t'] - long_run['rate_history'][0]['t'], 1200)
 
     def test_quantity_budget_covers_split_stacks_without_overcount(self):
         self.send(item_message(2000001, 4))

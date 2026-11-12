@@ -9,7 +9,7 @@ export function RateMetrics({ run, kind }: { run: RunSummary; kind: 'exp' | 'net
   const minute = kind === 'exp' ? run.exp_per_hour_1m : run.net_per_hour_1m;
   const history = run.rate_history || [];
   const values = history.map(p => p[kind]);
-  const low = Math.min(0, ...values), high = Math.max(1, ...values), range = high - low;
+  const low = Math.min(0, average ?? 0, ...values), high = Math.max(1, average ?? 0, ...values), range = high - low;
   const y = (value: number) => 34 - (value - low) / range * 30;
   const start = history[0]?.t || 0, span = Math.max(1, (history.at(-1)?.t || 0) - start);
   const points = history.map(p => `${2 + (p.t - start) / span * 296},${y(p[kind])}`).join(' ');
@@ -21,10 +21,15 @@ export function RateMetrics({ run, kind }: { run: RunSummary; kind: 'exp' | 'net
       <div><small>{tr('近1分/时', 'Last 1m/h')}</small><b>{big(minute ?? null)}</b></div>
     </div>
     <svg className="rate-chart" viewBox="0 0 300 38" preserveAspectRatio="none" role="img" aria-label={tr(`${name}近1分钟折算每小时趋势`, `${name} rolling 1-minute hourly rate`)}>
-      <title>{tr('最近5分钟 · 每点为此前1分钟折算每小时', 'Last 5 minutes · each point scales the preceding minute to an hourly rate')}</title>
+      <title>{tr('最近20分钟 · 每点为此前1分钟折算每小时', 'Last 20 minutes · each point scales the preceding minute to an hourly rate')}</title>
       <line x1="2" x2="298" y1={y(0)} y2={y(0)} stroke="currentColor" opacity=".2" />
+      {average != null && <line x1="2" x2="298" y1={y(average)} y2={y(average)} stroke="currentColor" opacity=".45" strokeDasharray="4 3"><title>{tr('本次平均', 'Session average')} {big(average)}/h</title></line>}
       {history.length > 1 && <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />}
+      {history.map(p => <circle key={p.t} cx={2 + (p.t - start) / span * 296} cy={y(p[kind])} r="3" fill="transparent" stroke="none" tabIndex={0}>
+        <title>{new Date(p.t * 1000).toLocaleTimeString()} · {big(p[kind])}/h</title>
+      </circle>)}
     </svg>
+    <div className="rate-caption"><span>{tr('近20分钟 · 虚线为平均', 'Last 20m · dashed = average')}</span><span>{tr('60秒窗口', '60s window')}</span></div>
     {!history.length && <small className="rate-wait">{tr('等待30秒数据', 'Waiting for 30s of data')}</small>}
   </section>;
 }
