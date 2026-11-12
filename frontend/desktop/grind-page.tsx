@@ -100,6 +100,27 @@ function LiveView({ run, live, warn }: { run: RunSummary | null; live: GrindStat
         note={tr(`平均 ${big(run.average_dps)}`, `avg ${big(run.average_dps)}`)} />
     </div>
     <div className="grind-rate-panels"><RateMetrics run={run} kind="exp" /><RateMetrics run={run} kind="net" /></div>
+    <div className="grind-grid grind-accounts">
+      <section className="well">
+        <div className="well-h"><h3>{tr('本次战利品', 'Loot this run')}</h3><b className="amount">+{big(run.mesos + run.item_value)} <MesosIcon size={12} /></b></div>
+        {run.mesos > 0 && <div className="grind-row grind-account-row grind-mesos"><MesosIcon size={24} /><span className="t"><b>{tr('金币', 'Mesos')}</b></span><span /><span className="amount">+{big(run.mesos)} <MesosIcon size={12} /></span></div>}
+        {(run.loot || run.recent || []).map((row, i) => <div className={'grind-row grind-account-row' + (row.notable ? ' notable' : '')} key={i}>
+          <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
+          <span className="t"><b>{row.name}</b>{row.stats?.length ? <small className="stats"> {statLine(row.stats)}</small> : null}</span>
+          <span className="quantity">×{row.quantity}</span><span className="amount" title={row.basis || ''}>{row.priced === false || !row.basis || row.basis === '无价格' ? tr('待估价', 'Unpriced') : `+${big(row.value)}`} <MesosIcon size={12} aria-label={tr('金币', 'mesos')} /></span>
+        </div>)}
+        {!run.mesos && !(run.loot || run.recent)?.length && <p className="note">{tr('还没有拾取。', 'Nothing picked up yet.')}</p>}
+      </section>
+      <section className="well">
+        <div className="well-h"><h3>{tr('消耗品', 'Consumables')}</h3><b className="amount">−{big(run.consume_cost)} <MesosIcon size={12} /></b></div>
+        {run.consumables.filter(row => row.used > 0).map(row => <div className="grind-row grind-account-row" key={row.item_id}>
+          <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
+          <span className="t"><b>{row.name}</b></span>
+          <span className="quantity">×{row.used}</span><span className="amount">−{big(row.cost ?? null)} <MesosIcon size={12} aria-label={tr('金币', 'mesos')} /></span>
+        </div>)}
+        {!run.consumables.some(row => row.used > 0) && <p className="note">{tr('还没有使用消耗品。', 'No consumables used yet.')}</p>}
+      </section>
+    </div>
     <div className="grind-grid grind-status"><section className="well grind-kills">        <div className="well-h"><h3>{tr('击杀', 'Kills')}</h3>
           {run.hp_drops > 0 && <small>{tr(`HP 下降 ${run.hp_drops} 次 · 共 ${big(run.hp_lost)}`, `HP lost ${run.hp_drops}× · ${big(run.hp_lost)}`)}</small>}</div>
         {run.mobs.map(m => <div key={m.mob_id}><div className="grind-row"><img src={mobIcon(m.mob_id)} width={24} height={24} alt="" /><span className="t"><b>{m.name}</b></span><span className="v">×{m.kills}</span></div>{!!m.attack_samples && <details className="grind-attack-distribution"><summary title={tr('可见范围内独立击杀；一次技能的多段伤害计为一次攻击', 'Observed solo kills; multi-hit skills count as one attack')}>{tr('平均', 'Average')} {(m.attack_distribution!.reduce((sum, r) => sum + r.attacks * r.kills, 0) / m.attack_samples).toFixed(1)} {tr('下', 'attacks')} · {m.attack_samples} {tr('样本', 'samples')}</summary><div>{m.attack_distribution?.map(r => <span key={r.attacks}>{r.attacks} {tr('下', 'hits')} <b>{percent(r.kills / m.attack_samples! * 100, 1)}</b></span>)}</div></details>}</div>)}
@@ -114,25 +135,7 @@ function LiveView({ run, live, warn }: { run: RunSummary | null; live: GrindStat
       <span>{tr('经验', 'EXP')} <b>{big(run.exp)}</b></span>
     </div>
     <PartyMetrics run={run} />
-    <div className="grind-grid">
-      <section className="well">
-        <div className="well-h"><h3>{tr('本次战利品', 'Loot this run')}</h3></div>
-        {run.mesos > 0 && <div className="grind-row grind-account-row grind-mesos"><MesosIcon size={24} /><span className="t"><b>{tr('金币', 'Mesos')}</b></span><span /><span className="amount">+{big(run.mesos)} <MesosIcon size={12} /></span></div>}
-        {(run.loot || run.recent || []).map((row, i) => <div className={'grind-row grind-account-row' + (row.notable ? ' notable' : '')} key={i}>
-          <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
-          <span className="t"><b>{row.name}</b>{row.stats?.length ? <small className="stats"> {statLine(row.stats)}</small> : null}</span>
-          <span className="quantity">×{row.quantity}</span><span className="amount" title={row.basis || ''}>{row.priced === false || !row.basis || row.basis === '无价格' ? tr('待估价', 'Unpriced') : `+${big(row.value)}`} <MesosIcon size={12} aria-label={tr('金币', 'mesos')} /></span>
-        </div>)}
-        {!run.mesos && !(run.loot || run.recent)?.length && <p className="note">{tr('还没有拾取。', 'Nothing picked up yet.')}</p>}
-      </section>
-      <section className="well">
-        <div className="well-h"><h3>{tr('消耗品', 'Consumables')}</h3></div>
-        {run.consumables.filter(row => row.used > 0).map(row => <div className="grind-row grind-account-row" key={row.item_id}>
-          <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
-          <span className="t"><b>{row.name}</b></span>
-          <span className="quantity">×{row.used}</span><span className="amount">−{big(row.cost ?? null)} <MesosIcon size={12} aria-label={tr('金币', 'mesos')} /></span>
-        </div>)}
-        {!run.consumables.some(row => row.used > 0) && <p className="note">{tr('还没有使用消耗品。', 'No consumables used yet.')}</p>}
+    <section className="well">
         {(run.attack_count > 0 || run.casts?.length > 0) && <>
           <div className="well-h sub"><h3>{tr('攻击与技能', 'Attacks and skills')}</h3>
             <small>{tr(`攻击 ${run.attack_count} 次`, `${run.attack_count} attacks`)}{run.kills > 0 && run.attack_count > 0 ? tr(` · 每只 ${(run.attack_count / run.kills).toFixed(1)} 次`, ` · ${(run.attack_count / run.kills).toFixed(1)} per kill`) : ''}</small></div>
@@ -142,8 +145,8 @@ function LiveView({ run, live, warn }: { run: RunSummary | null; live: GrindStat
         <div className="well-h sub"><h3>{tr('掉落汇总', 'Drops')}</h3></div>
         <div className="grind-drops">{run.drops.slice(0, 24).map(d => <span key={d.item_id} title={d.name || ''}>
           <img src={itemIcon(d.item_id)} alt={d.name || ''} width={22} height={22} loading="lazy" /><b>{d.quantity}</b></span>)}</div>
-      </section>
-    </div>
+    </section>
+
   </>;
 }
 

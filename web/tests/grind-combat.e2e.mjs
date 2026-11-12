@@ -103,6 +103,10 @@ try {
         await page.waitForFunction(() => [...document.querySelectorAll('.ov-mobs img')].every(img => img.complete && img.naturalWidth > 0));
         assert(await page.locator('.ov-mobs').evaluate(el => !!(el.compareDocumentPosition(document.querySelector('.ov-buffs')) & Node.DOCUMENT_POSITION_FOLLOWING)));
         assert.equal(await page.locator('.ov-mesos').count(), 1);
+        assert(await page.locator('.ov-accounts').evaluate(el => el.previousElementSibling?.getAttribute('aria-label') === '金币净收益'));
+        assert.equal(await page.locator('.ov-account-heading .amount').count(), 2);
+        assert.match(await page.locator('.ov-account-heading .amount').first().innerText(), /−/);
+        assert.match(await page.locator('.ov-account-heading .amount').last().innerText(), /\+/);
         const iconLefts = await page.evaluate(() => ['.ov-mobs img', '.ov-buffs img', '.ov-account-row>span>img'].map(selector => document.querySelector(selector).getBoundingClientRect().left));
         assert(Math.max(...iconLefts) - Math.min(...iconLefts) <= 1.1, 'all section icons share the same left edge');
 
