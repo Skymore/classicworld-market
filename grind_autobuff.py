@@ -2,7 +2,8 @@
 
 The key table (server 0x5F5) lists, per keyboard preset, what each key does:
 kind 1 is a skill. The current preset comes from the character's record and
-the player's own preset switches. A buff is recast only while its run is
+the player's own preset switches. Kind 2 is an item, kept as its buff source
+(the negative item ID). A buff is recast only while its run is
 active and the game window of that very connection is in the foreground;
 presses are simulated through market_keyboard (SendInput or the VMware relay).
 """
@@ -15,13 +16,15 @@ import time
 KEYMAP_OPCODE = 0x5F5
 KEYMAP_INDEX = 212            # mapping-table index of the client's key-setting request
 PRESET_OPCODES = (0x8B, 0x1A9)
-LEAD = 2.0                    # recast this many seconds before a buff ends
+LEAD = 2.0                    # recast a skill this many seconds before its buff ends
+ITEM_LATE = 1.0               # use an item this long after its buff ended (no time wasted)
 RETRY = 8.0                   # a recast that did not take is retried after this long
 GAP = 1.5                     # between two recasts (cast animations)
 
 
 def skill_tables(plain):
-    """{skill: scan code} for each of the three keyboard presets ({} for a default one)."""
+    """{buff source: scan code} for each of the three keyboard presets ({} for a default one):
+    skills by ID, items by negative item ID like their buffs."""
     if plain[:2] != struct.pack('<H', KEYMAP_OPCODE):
         raise ValueError('Not a key table')
     offset, tables = 2, []
@@ -35,6 +38,8 @@ def skill_tables(plain):
                     kind, action = struct.unpack_from('<BI', plain, offset + 5 * scan)
                     if kind == 1:
                         table.setdefault(action, scan)
+                    elif kind == 2 and action:
+                        table.setdefault(-action, scan)
                 tables.append(table)
                 offset += 445
             elif flag == 1:
@@ -145,13 +150,19 @@ class AutoBuff:
                 continue
             if character.hp is not None and character.hp <= 0:
                 continue
-            # Own buffs ending soon or just ended (the tracker keeps those a little
-            # while), and pinned ones that ran out: the player keeps them on here.
+            # Skill buffs ending soon or just ended (the tracker keeps those a
+            # little while), and pinned buffs that ran out: the player keeps them
+            # on here. Items only when pinned and a second after they ended. A
+            # buff the player renewed has its new time here, so it is skipped.
+            pinned = tracker.pinned_buffs(character, now)
             due = {source: start + milliseconds / 1000 - now
                    for source, (start, milliseconds) in character.buffs.items()}
-            due.update({source: 0 for source in tracker.pinned_buffs(character, now) if source not in due})
+            due.update({source: -3600 for source in pinned if source not in due})
             for source, left in sorted(due.items(), key=lambda item: item[1]):
-                if source <= 0 or left > LEAD:
+                if source > 0 and left > LEAD:
+                    continue
+                if source < 0 and (source not in pinned or left > -ITEM_LATE
+                                   or (character.bags is not None and character.bags.get(-source, 0) <= 0)):
                     continue
                 if now - self.tried.get((character.session, source), -RETRY) < RETRY:
                     continue

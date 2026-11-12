@@ -23,7 +23,7 @@ class KeyTableTest(unittest.TestCase):
         c = C()
         frame = key_table([{18: (1, 3101004), 2: (2, 2002000)}, {16: (1, 3101004), 5: (4, 7)}, None])
         autobuff.observe_server(c, autobuff.KEYMAP_OPCODE, frame)
-        self.assertEqual(c.skill_keys, [{3101004: 18}, {3101004: 16}, {}])
+        self.assertEqual(c.skill_keys, [{3101004: 18, -2002000: 2}, {3101004: 16}, {}])
         self.assertIsNone(autobuff.skill_key(c, 3101004))          # presets differ, none selected yet
         autobuff.observe_client(c, autobuff.KEYMAP_INDEX, b'\0\0\x03\x01')
         self.assertEqual(autobuff.key_name(autobuff.skill_key(c, 3101004)), 'q')
@@ -73,6 +73,37 @@ class AutoBuffTest(unittest.TestCase):
         self.assertEqual(self.pressed, [])
         self.auto.foreground = lambda: 42
         self.current().status = 'paused'
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])
+
+    def test_a_pinned_potion_is_used_a_second_after_it_ends_unless_renewed_or_out(self):
+        character = self.start()
+        self.send(key_table([{3: (2, 2002004)}] * 3))
+        character.buffs = {-2002004: (self.clock(), 10_000)}
+        character.bags = {2002004: 5}
+        self.tracker.pinned_buffs = lambda c, now: {-2002004: 10}
+        self.clock.t += 10.5
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])                  # ended half a second ago
+        character.buffs = {-2002004: (self.clock(), 10_000)}   # the player drank one
+        self.clock.t += 1
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])
+        self.clock.t += 10
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['2'])
+        character.bags = {2002004: 0}
+        self.clock.t += autobuff.RETRY + 2
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['2'])               # none left in the bag
+
+    def test_an_unpinned_potion_is_never_used(self):
+        character = self.start()
+        self.send(key_table([{3: (2, 2002004)}] * 3))
+        character.buffs = {-2002004: (self.clock(), 10_000)}
+        character.bags = {2002004: 5}
+        self.tracker.pinned_buffs = lambda c, now: {}
+        self.clock.t += 15
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, [])
 

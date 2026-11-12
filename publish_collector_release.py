@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.35：自动加 Buff 也会用药水等物品 Buff：只用固定 Buff 里的，过期 1 秒后才用，背包里没有就不按；自己先补上了就不再按。\n'
         'v0.7.34：新增自动加 Buff（默认开启）：刷图时 Buff 快结束或已过期，按游戏里设置的技能按键自动补上，只在这个角色的游戏窗口在前台时按；Buff 提醒改为读出技能名；两个开关在设置和悬浮窗右上角（鼠标移上去显示）。\n'
         'v0.7.33：正在刷的这一场实时同步到网站，登录同一账号后在“我的记录”顶部看实时数据（和客户端实时页同一套界面），每 10 秒更新，还能生成免登录的实时观看链接；悬浮窗设置新增“直播模式”，打开后直播伴侣、OBS 等能选中悬浮窗。\n'
         'v0.7.32：修复鼠标停在换频道窗口上时，扫描一直认不出窗口、反复重试“读不到当前频道”的问题：打开前先把鼠标移开（只移动，不点击）。\n'
