@@ -11,6 +11,7 @@ import json
 import threading
 import time
 import urllib.parse
+import urllib.request
 from pathlib import Path
 
 REFRESH = 30 * 60
@@ -100,8 +101,11 @@ class Prices:
             return
         try:
             result = self.fetch(ids, maps, mobs) or {}
-        except Exception:
+        except Exception as error:
             self.failed_at = time.time()
+            # Names and prices silently missing is hard to notice: say why, once a minute at most.
+            print(json.dumps(dict(time=self.failed_at, event='grind_prices_failed', error=type(error).__name__,
+                                  detail=str(error)[:160])), flush=True)
             return
         now = time.time()
         with self.lock:
@@ -167,7 +171,6 @@ def site_fetch(config, opener_factory):
     def fetch(ids, maps=(), mobs=()):
         query = urllib.parse.urlencode(dict(ids=','.join(map(str, ids)), maps=','.join(map(str, maps)),
                                             mobs=','.join(map(str, mobs))))
-        import urllib.request
         request = urllib.request.Request(config['endpoint'].rstrip('/') + '/api/v1/grind/prices?' + query,
                                          headers={'Authorization': 'Bearer ' + config['token']})
         with opener_factory().open(request, timeout=8) as response:

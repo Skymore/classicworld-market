@@ -178,6 +178,27 @@ class LiveLayoutTest(unittest.TestCase):
         self.assertEqual(self.tracker.finished[0]['id'], run.id)
 
 
+class PriceFetchTest(unittest.TestCase):
+    def test_site_fetch_builds_the_request_and_fills_names(self):
+        import io
+        from grind_pricing import site_fetch
+        seen = []
+
+        class Opener:
+            def open(self, request, timeout=None):
+                seen.append((request.full_url, request.get_header('Authorization')))
+                return io.BytesIO(json.dumps(dict(prices={'4000021': dict(name='野猪尖牙', typical=22)},
+                                                  maps={'10004141': dict(name='第2军营', is_town=False)},
+                                                  mobs={'67': dict(name='骷髅士兵')})).encode())
+        prices = Prices(fetch=site_fetch(dict(endpoint='https://mxd.ruit.me', token='t' * 40), Opener))
+        prices.want([4000021]); prices.want_map(10004141); prices.want_mob(67)
+        prices.refresh_once()
+        self.assertIn('/api/v1/grind/prices?ids=4000021&maps=10004141&mobs=67', seen[0][0])
+        self.assertTrue(seen[0][1].startswith('Bearer '))
+        self.assertEqual((prices.row(4000021)['name'], prices.map(10004141)['name'], prices.mob(67)['name']),
+                         ('野猪尖牙', '第2军营', '骷髅士兵'))
+
+
 class ClientDecoderTest(unittest.TestCase):
     def test_reads_aes_frames_under_the_greeting_client_iv(self):
         iv, seen = bytes.fromhex('01020304'), []
