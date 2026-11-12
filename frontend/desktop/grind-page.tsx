@@ -237,8 +237,12 @@ function SettingsView({ state, settings, save, refresh }: {
     <section className="well"><div className="well-h"><h3>{tr('悬浮窗', 'Overlay')}</h3></div>
       <Check label={tr('显示悬浮窗', 'Show overlay')} checked={o.enabled} onChange={v => save({ overlay: { enabled: v } })} />
       <div className="grind-radio" role="radiogroup" aria-label={tr('样式', 'Layout')}>
-        {([['compact', '一行', 'Bar'], ['standard', '标准', 'Card'], ['detailed', '详细', 'Detailed']] as const).map(([key, zh, en]) =>
+        {([['compact', '一行', 'Bar'], ['standard', '标准', 'Card'], ['detailed', '详细', 'Detailed'], ['rail', '竖条', 'Rail'], ['big', '大数字', 'Big']] as const).map(([key, zh, en]) =>
           <label key={key}><input type="radio" name="overlay-layout" checked={o.layout === key} onChange={() => save({ overlay: { layout: key } })} />{tr(zh, en)}</label>)}
+      </div>
+      <div className="grind-radio" role="radiogroup" aria-label={tr('主题', 'Theme')}>
+        {([['dark', '暗色', 'Dark'], ['market', '市集', 'Market'], ['cute', '可爱', 'Cute'], ['maple', '冒险', 'Adventure']] as const).map(([key, zh, en]) =>
+          <label key={key}><input type="radio" name="overlay-theme" checked={(o.theme || 'dark') === key} onChange={() => save({ overlay: { theme: key } })} />{tr(zh, en)}</label>)}
       </div>
       <label className="grind-field"><span>{tr('不透明度', 'Opacity')}</span>
         <input type="range" min={0.3} max={1} step={0.05} value={o.opacity} onChange={e => save({ overlay: { opacity: Number(e.target.value) } })} /></label>

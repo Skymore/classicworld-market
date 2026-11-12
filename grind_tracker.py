@@ -27,7 +27,7 @@ DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, 
                 start_events=3, start_window=60, price_basis='typical', notable_value=500000,
                 count_mesos_spent=True, min_upload_seconds=300, buff_warn_seconds=10, buff_sound=True,
                 hotkeys=dict(overlay='Ctrl+Alt+O', pause='Ctrl+Alt+P', end='Ctrl+Alt+E', edit='Ctrl+Alt+M'),
-                overlay=dict(enabled=True, layout='standard', opacity=0.92, scale=1.0, click_through=True,
+                overlay=dict(enabled=True, layout='standard', theme='dark', opacity=0.92, scale=1.0, click_through=True,
                              hide_in_capture=False, x=None, y=None,
                              fields=['time', 'exp_rate', 'level', 'profit', 'buffs', 'recent', 'potions']))
 IDLE_CREDIT = 10

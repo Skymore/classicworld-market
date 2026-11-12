@@ -31,7 +31,7 @@ export interface Live {
   protocol_warning?: boolean;
 }
 export interface OverlaySettings {
-  enabled: boolean; layout: 'compact' | 'standard' | 'detailed'; opacity: number; scale: number;
+  enabled: boolean; layout: 'compact' | 'standard' | 'detailed' | 'rail' | 'big'; theme: 'dark' | 'market' | 'cute' | 'maple'; opacity: number; scale: number;
   click_through: boolean; hide_in_capture: boolean; x: number | null; y: number | null; fields: string[];
 }
 export interface GrindSettings {
@@ -57,7 +57,7 @@ export const grind = (name: string, value?: unknown) => {
 export const overlayState = () => {
   const bridge = api();
   if (!bridge?.state) return Promise.reject(new Error('unavailable'));
-  return bridge.state() as Promise<{ live: Live | null; settings: GrindSettings; editing: boolean }>;
+  return bridge.state() as Promise<{ live: Live | null; settings: GrindSettings; editing: boolean; language?: 'zh' | 'en' | 'ko' | 'system' }>;
 };
 
 /** 1.2万 / 3.4亿 in Chinese and Korean, 12K / 3.4M / 1.2B in English. */

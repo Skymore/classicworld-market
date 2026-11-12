@@ -18,7 +18,7 @@ from grind_tracker import DEFAULTS, load_settings, write_json
 
 CALIBRATE_EVERY = 300
 CALIBRATE_BYTES = 96 * 1024 * 1024
-OVERLAY_SIZES = dict(compact=(360, 40), standard=(340, 236), detailed=(360, 380))
+OVERLAY_SIZES = dict(compact=(620, 36), standard=(300, 310), detailed=(330, 340), rail=(112, 260), big=(260, 110))
 GWL_EXSTYLE = -20
 WS_EX_LAYERED, WS_EX_TRANSPARENT, WS_EX_TOOLWINDOW, WS_EX_NOACTIVATE = 0x80000, 0x20, 0x80, 0x8000000
 WDA_NONE, WDA_EXCLUDEFROMCAPTURE = 0, 0x11
@@ -158,6 +158,19 @@ class GrindService:
         elif action == 'edit':
             self.edit_overlay(not self.editing)
 
+    def language(self):
+        """The collector window's language choice, so the overlay matches it."""
+        try:
+            prefs = json.loads((self.folder.parent / 'desktop-settings.json').read_text(encoding='utf-8'))
+            return prefs.get('language') if prefs.get('language') in ('zh', 'en', 'ko') else 'system'
+        except (OSError, ValueError, AttributeError):
+            return 'system'
+
+    def overlay_size(self, overlay):
+        width, height = OVERLAY_SIZES.get(overlay['layout'], OVERLAY_SIZES['standard'])
+        scale = min(2.0, max(0.6, float(overlay['scale'] or 1)))
+        return int(width * scale), int(height * scale)
+
     def live(self):
         try:
             state = json.loads((self.folder / 'grind_state.json').read_text(encoding='utf-8'))
@@ -261,9 +274,8 @@ class GrindService:
         except ImportError:
             return
         if want and self.overlay is None and self.assets is not None:
-            width, height = OVERLAY_SIZES.get(overlay['layout'], OVERLAY_SIZES['standard'])
-            scale = min(2.0, max(0.6, float(overlay['scale'] or 1)))
-            width, height = int(width * scale), int(height * scale)
+            width, height = self.overlay_size(overlay)
+            self.overlay_shape = (width, height)
             x, y = overlay['x'], overlay['y']
             if x is None or y is None:
                 screen = webview.screens[0] if webview.screens else None
@@ -280,6 +292,13 @@ class GrindService:
             except Exception:
                 pass
         elif self.overlay is not None:
+            shape = self.overlay_size(overlay)
+            if shape != getattr(self, 'overlay_shape', None):
+                self.overlay_shape = shape
+                try:
+                    self.overlay.resize(*shape)
+                except Exception:
+                    pass
             self.style_overlay(settings)
 
     def style_overlay(self, settings):
@@ -338,7 +357,8 @@ class OverlayAPI:
 
     def state(self):
         live = self._service.live()
-        return dict(live=live, settings=self._service.settings(), editing=self._service.editing)
+        return dict(live=live, settings=self._service.settings(), editing=self._service.editing,
+                    language=self._service.language())
 
 
 def merge_profiles(current, learned):

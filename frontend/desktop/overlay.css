@@ -7,6 +7,7 @@ body{font:12px/1.35 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;color:#
 .ov-compact{display:flex;align-items:center;padding:.35em .7em}
 .ov-line{display:flex;align-items:center;gap:.9em;white-space:nowrap}
 .ov-line small{opacity:.65}
+.ov-lv{display:none}
 .ov-dot{display:inline-block;flex:none;width:.6em;height:.6em;background:#8b8f96;border-radius:1px}
 .ov-dot.on{background:#53c78b}.ov-dot.pause{background:#e4b24c}
 .ov-head{display:flex;align-items:center;gap:.6em;margin-bottom:.35em;white-space:nowrap}
@@ -30,3 +31,46 @@ body{font:12px/1.35 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;color:#
 .ov-buffs em,.ov-buffs b{position:relative;font-style:normal}.ov-buffs em{overflow:hidden;text-overflow:ellipsis}
 .ov-buffs .warn{color:#ff9a8a;animation:ov-blink 1s steps(2) infinite}.ov-buffs .warn i{background:rgba(255,120,100,.3)}
 @keyframes ov-blink{50%{opacity:.55}}
+/* Icons instead of labels; item icons are the game's own. */
+.ov svg{flex:none;vertical-align:-.18em;margin-right:.3em;opacity:.75}.ov img{width:1.35em;height:1.35em;object-fit:contain;vertical-align:-.3em;margin-right:.25em}
+.ov .dim{opacity:.65}.ov-row{align-items:center}.ov-row>svg{margin-right:0}
+.ov-row small{width:auto}.ov-head em{display:inline-flex;align-items:center}.ov-loot span{display:flex;align-items:center}
+.ov-buffs em{display:flex;align-items:center}
+.ov-buffs.icons{flex-direction:row;flex-wrap:nowrap;gap:.3em;margin:0}.ov-buffs.icons span{gap:.2em;padding:.05em .35em}.ov-buffs.icons em svg,.ov-buffs.icons em img{margin-right:0}
+.ov-line>span{display:inline-flex;align-items:center}
+.ov-rail{padding:.5em .4em;text-align:center}.ov-cell{display:flex;align-items:center;justify-content:center;gap:.25em;margin:.28em 0;white-space:nowrap}.ov-cell svg,.ov-cell img{margin-right:0}
+.ov-rail .ov-buffs.icons{flex-direction:column;margin-top:.3em}.ov-rail .ov-buffs.icons span{justify-content:space-between}
+.ov-nums{display:flex;justify-content:space-between;gap:1em;white-space:nowrap;margin-bottom:.3em}.ov-nums b{font-size:2.1em;line-height:1.15}.ov-nums>span{display:inline-flex;align-items:center}
+.ov.ov-big{border-color:transparent}.ov.ov-big .ov-buffs.icons{margin-top:.3em;flex-wrap:wrap}
+/* Themes. Dark is the base above. */
+.ov-t-market{background:rgba(250,243,224,var(--alpha));color:#2c2620;border:2px solid #2c2620;border-radius:2px;box-shadow:inset 1px 1px 0 #fffaf0,inset -1px -1px 0 #d9c9a3}
+.ov-t-market .gold,.ov-t-market .ov-loot.notable{color:#b3261e}.ov-t-market .warn{color:#b3261e}
+.ov-t-market .ov-bar{background:rgba(44,38,32,.15)}.ov-t-market .ov-bar i{background:#3b5f8a}
+.ov-t-market .ov-buffs span{background:rgba(44,38,32,.08)}.ov-t-market .ov-buffs i{background:rgba(59,95,138,.28)}
+.ov-t-market .ov-head{margin:-.6em -.8em .4em;padding:.3em .8em;background:#3b5f8a;color:#f4efe4}
+.ov-t-market .ov-toast{background:#f6ddd8;border-left-color:#b3261e;color:#7a1a14}
+.ov-t-cute{background:rgba(255,241,247,var(--alpha));color:#7a5068;border:2px solid #ffb7d2;border-radius:18px;font-family:"YouYuan","Yuanti SC","Microsoft YaHei UI",sans-serif}
+.ov-t-cute.ov-compact{border-radius:99px}
+.ov-t-cute svg{color:#ff8ab5;opacity:1}.ov-t-cute .gold,.ov-t-cute .ov-loot.notable{color:#e0669a}.ov-t-cute .warn{color:#f0556f}
+.ov-t-cute .ov-dot{border-radius:50%}.ov-t-cute .ov-dot.on{background:#ff8ab5}
+.ov-t-cute .ov-bar{height:.6em;border-radius:99px;background:#ffdbe9}.ov-t-cute .ov-bar i{border-radius:99px;background:#ff9ec4}
+.ov-t-cute .ov-buffs span{border-radius:99px;background:#ffe3ee}.ov-t-cute .ov-buffs i{background:#ffc4dc}
+.ov-t-cute .ov-toast{border-left:0;border-radius:12px;background:#fff6c9;color:#a8742a}
+/* Adventure: a status-bar look — brushed frame, dark inset gauges, glossy fills. Drawn in CSS only. */
+.ov-t-maple{background:linear-gradient(rgba(98,106,122,var(--alpha)),rgba(52,58,72,var(--alpha)) 45%,rgba(38,43,54,var(--alpha)));color:#fff;border:1px solid #0d1016;border-radius:5px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 0 0 1px rgba(255,255,255,.12);padding:.55em .6em;text-shadow:0 1px 0 #000;font-weight:600}
+.ov-t-maple .ov-lv{display:inline;color:#ffd84a;font-style:italic;font-weight:800;letter-spacing:.02em;margin-right:.1em}
+.ov-t-maple .ov-head{margin-bottom:.3em}.ov-t-maple .ov-head span{color:#fff;opacity:1}
+.ov-t-maple .ov-row,.ov-t-maple .ov-cell,.ov-t-maple .ov-line>span,.ov-t-maple .ov-nums>span,.ov-t-maple .ov-loot{background:#161a22;border:1px solid #06080b;border-radius:3px;
+  box-shadow:inset 0 2px 3px rgba(0,0,0,.7),0 1px 0 rgba(255,255,255,.14);padding:.12em .45em;margin:.2em 0}
+.ov-t-maple .ov-line{gap:.4em}.ov-t-maple .ov-line>span,.ov-t-maple .ov-nums>span{margin:0}
+.ov-t-maple svg{color:#cfd6e4;opacity:1}
+.ov-t-maple .gold,.ov-t-maple .ov-loot.notable{color:#ffd84a}.ov-t-maple .warn{color:#ff7d6b}.ov-t-maple .dim{opacity:.8;font-weight:400}
+.ov-t-maple .ov-bar{height:.8em;border:1px solid #000;border-radius:2px;background:#0b0d11;box-shadow:inset 0 1px 2px #000}
+.ov-t-maple .ov-bar i{background:linear-gradient(#f4ff9a,#b9e530 45%,#7fb00e);box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
+.ov-t-maple .ov-buffs span{background:#0b0d11;border:1px solid #000;border-radius:2px;box-shadow:inset 0 1px 2px #000}
+.ov-t-maple .ov-buffs i{background:linear-gradient(#8fd2ff,#2f8fe0 45%,#1a5fb0);opacity:.85}
+.ov-t-maple .ov-buffs .warn i{background:linear-gradient(#ffb09a,#f0503a 45%,#b02a1a)}.ov-t-maple .ov-buffs .warn{color:#fff}
+.ov-t-maple .ov-toast{background:linear-gradient(#ffb347,#e87a12);border:1px solid #6b3200;border-left:1px solid #6b3200;border-radius:3px;color:#fff}
+.ov-t-maple.ov-compact{padding:.25em .5em}.ov-t-maple.ov-rail{padding:.5em .4em}
+.ov.ov-big.ov-t-market{border-color:#2c2620}.ov.ov-big.ov-t-cute{border-color:#ffb7d2}.ov.ov-big.ov-t-maple{border-color:#0d1016}
