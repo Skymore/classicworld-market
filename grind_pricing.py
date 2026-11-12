@@ -33,8 +33,10 @@ class Prices:
         self.fetch = fetch
         self.rows = {}
         self.maps = {}
+        self.mobs = {}
         self.wanted = set()
         self.wanted_maps = set()
+        self.wanted_mobs = set()
         self.failed_at = 0
         self.lock = threading.Lock()
         self.wake = threading.Event()
@@ -44,6 +46,7 @@ class Prices:
                 saved = json.loads(self.cache_path.read_text(encoding='utf-8'))
                 self.rows = {int(k): v for k, v in (saved.get('items') or {}).items()}
                 self.maps = {int(k): v for k, v in (saved.get('maps') or {}).items()}
+                self.mobs = {int(k): v for k, v in (saved.get('mobs') or {}).items()}
             except (OSError, ValueError, AttributeError):
                 pass
 
@@ -62,6 +65,15 @@ class Prices:
 
     def map(self, map_id):
         return self.maps.get(map_id)
+
+    def want_mob(self, mob_id):
+        with self.lock:
+            if mob_id and mob_id not in self.mobs and mob_id not in self.wanted_mobs:
+                self.wanted_mobs.add(mob_id)
+                self.wake.set()
+
+    def mob(self, mob_id):
+        return self.mobs.get(mob_id)
 
     def row(self, item_id):
         return self.rows.get(item_id)
@@ -83,10 +95,11 @@ class Prices:
         with self.lock:
             ids = sorted(self.wanted)[:BATCH]
             maps = sorted(self.wanted_maps)[:BATCH]
-        if not ids and not maps:
+            mobs = sorted(self.wanted_mobs)[:BATCH]
+        if not ids and not maps and not mobs:
             return
         try:
-            result = self.fetch(ids, maps) or {}
+            result = self.fetch(ids, maps, mobs) or {}
         except Exception:
             self.failed_at = time.time()
             return
@@ -100,6 +113,9 @@ class Prices:
             for map_id in maps:
                 self.maps[map_id] = (result.get('maps') or {}).get(str(map_id)) or {}
                 self.wanted_maps.discard(map_id)
+            for mob_id in mobs:
+                self.mobs[mob_id] = (result.get('mobs') or {}).get(str(mob_id)) or {}
+                self.wanted_mobs.discard(mob_id)
         self.save()
 
     def save(self):
@@ -108,7 +124,7 @@ class Prices:
         try:
             self.cache_path.parent.mkdir(parents=True, exist_ok=True)
             temporary = self.cache_path.with_name(self.cache_path.name + '.tmp')
-            temporary.write_text(json.dumps(dict(items=self.rows, maps=self.maps)), encoding='utf-8')
+            temporary.write_text(json.dumps(dict(items=self.rows, maps=self.maps, mobs=self.mobs)), encoding='utf-8')
             temporary.replace(self.cache_path)
         except OSError:
             pass
@@ -148,8 +164,9 @@ class Prices:
 
 def site_fetch(config, opener_factory):
     """fetch(item ids, map ids) for Prices, against the collector's configured site."""
-    def fetch(ids, maps=()):
-        query = urllib.parse.urlencode(dict(ids=','.join(map(str, ids)), maps=','.join(map(str, maps))))
+    def fetch(ids, maps=(), mobs=()):
+        query = urllib.parse.urlencode(dict(ids=','.join(map(str, ids)), maps=','.join(map(str, maps)),
+                                            mobs=','.join(map(str, mobs))))
         import urllib.request
         request = urllib.request.Request(config['endpoint'].rstrip('/') + '/api/v1/grind/prices?' + query,
                                          headers={'Authorization': 'Bearer ' + config['token']})

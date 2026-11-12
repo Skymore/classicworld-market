@@ -9,7 +9,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from classicworld_codec import advance, frame_header
+from classicworld_codec import advance, aes_payload, frame_header
 from market_proxy import Session
 from market_inventory import Inventory
 
@@ -28,6 +28,12 @@ def packet(raw):
         connection, _, sequence, flags, data = parsed
         return connection, sequence, flags, data
     return None
+
+
+def game_packet(raw):
+    """Either direction of a game connection (the grind tracker reads both)."""
+    from game_transport import tcp_packet
+    return tcp_packet(raw) is not None
 
 
 class Stream:
@@ -58,15 +64,33 @@ class Stream:
         return bytes(result)
 
 
+class ClientDecoder:
+    """The player's own messages: AES frames under the greeting's client IV.
+
+    Same layout the local proxy forwards (market_proxy.ClientBridge); only
+    read here, never re-encoded or sent."""
+    def __init__(self,iv,observe):self.buf=bytearray();self.iv=iv;self.observe=observe;self.frames=0
+    def feed(self,data):
+        self.buf.extend(data)
+        if len(self.buf)>LIMIT:raise ValueError('Client frame buffer limit')
+        while len(self.buf)>=4:
+            header=bytes(self.buf[:4]);a,b=struct.unpack('<HH',header);length=a^b
+            if length<2 or header!=frame_header(length,self.iv,True):raise ValueError('Client frame/IV mismatch')
+            if len(self.buf)<4+length:return
+            plain=aes_payload(bytes(self.buf[4:4+length]),self.iv)
+            del self.buf[:4+length];self.iv=advance(self.iv);self.frames+=1
+            self.observe(plain)
+
+
 class Decoder:
-    def __init__(self,observe):self.buf=bytearray();self.iv=None;self.observe=observe;self.frames=0
+    def __init__(self,observe):self.buf=bytearray();self.iv=None;self.civ=None;self.observe=observe;self.frames=0
     def feed(self,data):
         self.buf.extend(data)
         if len(self.buf)>LIMIT:raise ValueError('Frame buffer limit')
         if self.iv is None:
             if len(self.buf)<21:return
             if self.buf[:11].hex()!='1300010001000000010030':raise ValueError('Unsupported greeting')
-            self.iv=bytes(self.buf[15:19]);del self.buf[:21]
+            self.civ=bytes(self.buf[11:15]);self.iv=bytes(self.buf[15:19]);del self.buf[:21]
         while len(self.buf)>=4:
             header=bytes(self.buf[:4]);a,b=struct.unpack('<HH',header);length=a^b
             if length<2 or header!=frame_header(length,self.iv,False):raise ValueError('Frame/IV mismatch; reconnect required')
@@ -215,9 +239,45 @@ class Collector:
                 if opcode in (0x1a6,0x1a9):session.market_location=None
                 self.event('observation_rejected',opcode=opcode,reason=str(error))
         return observe
+    def receive_client(self,key,seq,flags,data,now):
+        """Client-to-server copy of a decoded game flow, for the grind tracker only.
+
+        Any failure stops client decoding of that flow; the server stream,
+        inventory and market capture never depend on it."""
+        flow=self.flows.get(key)
+        if flow is None or flow.get('client_failed') or self.grind is None:return
+        try:
+            stream=flow.get('client_stream')
+            if stream is None:
+                if flags&2 and not flags&16:syn=seq
+                else:
+                    from game_transport import handshake
+                    syn=handshake(key).get('client')
+                if syn is None:flow['client_failed']=True;return
+                stream=flow['client_stream']=Stream(syn+1);flow['client_buffer']=bytearray()
+            ordered=stream.feed((seq+bool(flags&2))&0xffffffff,data,now)
+            decoder=flow.get('client_decoder')
+            if decoder is None:
+                flow['client_buffer'].extend(ordered)
+                if len(flow['client_buffer'])>LIMIT:raise ValueError('Client buffer limit')
+                server=flow.get('decoder')
+                if server is None or server.civ is None or not flow.get('session'):return
+                session=flow['session']
+                decoder=flow['client_decoder']=ClientDecoder(server.civ,lambda plain:self.grind_call('observe_client',session,plain))
+                ordered,flow['client_buffer']=bytes(flow['client_buffer']),bytearray()
+            decoder.feed(ordered)
+        except Exception as error:
+            flow['client_failed']=True;flow.pop('client_buffer',None)
+            self.event('client_decode_stopped',reason=str(error)[:120])
+
     def receive(self,raw,now=None):
         now=time.monotonic() if now is None else now
-        parsed=packet(raw)
+        from game_transport import tcp_packet
+        both=tcp_packet(raw)
+        if both and both[1]=='client':
+            connection,_,sequence,flags,data=both
+            self.receive_client(connection,sequence,flags,data,now);return
+        parsed=(both[0],both[2],both[3],both[4]) if both else None
         if not parsed:return
         self.captured+=1;key,seq,flags,data=parsed
         flow=self.flows.get(key)
@@ -338,7 +398,7 @@ class Sniffer:
 class WindowsSniffer:
     """Receive IP copies through Winsock; never bind any send/injection API."""
     mode='windows-raw-receive-only'
-    def __init__(self, accept=packet):
+    def __init__(self, accept=game_packet):
         import socket,ipaddress
         import psutil
         if sys.platform!='win32':raise RuntimeError('Windows is required')

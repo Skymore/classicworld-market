@@ -21,13 +21,15 @@ from pathlib import Path
 
 import grind_protocol as proto
 from grind_data import exp_to_next, job_name
+from grind_skills import skill_name
 
 DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, end_after_seconds=600,
                 start_events=3, start_window=60, price_basis='typical', notable_value=500000,
-                count_mesos_spent=True, min_upload_seconds=300,
+                count_mesos_spent=True, min_upload_seconds=300, buff_warn_seconds=10, buff_sound=True,
+                hotkeys=dict(overlay='Ctrl+Alt+O', pause='Ctrl+Alt+P', end='Ctrl+Alt+E', edit='Ctrl+Alt+M'),
                 overlay=dict(enabled=True, layout='standard', opacity=0.92, scale=1.0, click_through=True,
                              hide_in_capture=False, x=None, y=None,
-                             fields=['time', 'exp_rate', 'level', 'profit', 'recent', 'potions']))
+                             fields=['time', 'exp_rate', 'level', 'profit', 'buffs', 'recent', 'potions']))
 IDLE_CREDIT = 10
 RECENT = 8
 HISTORY_LIMIT = 500
@@ -38,8 +40,8 @@ def load_settings(path):
     try:
         saved = json.loads(Path(path).read_text(encoding='utf-8'))
         for key, value in saved.items():
-            if key == 'overlay' and isinstance(value, dict):
-                settings['overlay'].update({k: v for k, v in value.items() if k in DEFAULTS['overlay']})
+            if key in ('overlay', 'hotkeys') and isinstance(value, dict):
+                settings[key].update({k: v for k, v in value.items() if k in DEFAULTS[key]})
             elif key in DEFAULTS and type(value) is type(DEFAULTS[key]) or (key in DEFAULTS and isinstance(value, (int, float))
                                                                           and isinstance(DEFAULTS[key], (int, float))):
                 settings[key] = value
@@ -116,6 +118,8 @@ class Run:
         self.exp_events = []      # (t, exp) for windowed rates
         self.deaths = 0
         self.exp_lost = 0
+        self.hp_lost = 0
+        self.hp_drops = 0
         self.gaps = 0
         self.level_start = character.get('level')
 
@@ -140,13 +144,14 @@ class Run:
                     last_gain=self.last_gain, credited_until=self.credited_until,
                     segments=[s.to_json() for s in self.segments], ledger=self.ledger,
                     exp_events=self.exp_events[-2000:], deaths=self.deaths, exp_lost=self.exp_lost, gaps=self.gaps,
+                    hp_lost=self.hp_lost, hp_drops=self.hp_drops,
                     level_start=self.level_start)
 
     @classmethod
     def from_json(cls, data):
         run = cls(data['character'], data['started_at'])
         for key in ('id', 'status', 'pause_reason', 'paused_at', 'idle_seconds', 'last_gain', 'credited_until',
-                    'ledger', 'deaths', 'exp_lost', 'gaps', 'level_start'):
+                    'ledger', 'deaths', 'exp_lost', 'gaps', 'level_start', 'hp_lost', 'hp_drops'):
             setattr(run, key, data.get(key, getattr(run, key)))
         run.exp_events = [tuple(e) for e in data.get('exp_events') or []]
         run.segments = [Segment.from_json(s) for s in data.get('segments') or []]
@@ -169,7 +174,14 @@ class Character:
         self.arming = []            # (t, map_id) of recent experience gains while not active
         self.staged = []            # ledger entries seen while arming
         self.staged_exp = []        # (t, exp) gains seen while arming
-        self.spawned = {}           # object id -> mob id
+        self.staged_kills = []      # (t, mob ID) own kills seen while arming
+        self.character_id = None
+        self.hit = {}               # object id -> time this character last hit it
+        self.mobs = {}              # object id -> catalogue mob ID
+        self.hp = None
+        self.table = None
+        self.exp_messages = 0       # experience announced since the last experience update
+        self.buffs = {}             # source -> (start, milliseconds)
         self.pickups = collections.deque(maxlen=64)   # (t, item id)
         self.run = None
 
@@ -192,6 +204,9 @@ class Tracker:
         self.profile = proto.load_profile(self.profile_path)
         self.last_publish = 0
         self.last_persist = 0
+        self.command_mtime = None
+        self.command_id = None
+        self.health = collections.Counter()
         self.dirty = True
         self.frames = None
         self.reload(force=True)
@@ -211,7 +226,9 @@ class Tracker:
                 self.dirty = True
         from grind_calibrate import complete
         # Raw frames are only needed until the profile is learned.
-        recording = self.settings['record_frames'] and not complete(self.profile)
+        # The player's own messages are recorded until their layouts are calibrated.
+        client_done = (self.profile.get('client') or {}).get('confirmed')
+        recording = self.settings['record_frames'] and (not complete(self.profile) or self.suspect() or not client_done)
         if recording and self.frames is None:
             from grind_frames import FrameLog
             self.frames = FrameLog(self.data / 'frames')
@@ -232,6 +249,13 @@ class Tracker:
             character = self.characters[session] = Character(session)
             self.adopt(character)
         op = int.from_bytes(data[:2], 'little')
+        if op == 0x32:
+            from classicworld_codec import opcode_table
+            try:
+                character.table = opcode_table(data)
+            except ValueError:
+                character.table = None
+            return
         if op in proto.MAP_ENTRY:
             self.map_entry(character, data, now)
         elif op == proto.STAT:
@@ -240,6 +264,21 @@ class Tracker:
             self.other(character, data, now)
         if inventory.session == session:
             self.inventory(character, inventory, now, rebase=proto.is_snapshot(data))
+
+    def observe_client(self, session, data):
+        """One of the player's own messages (attacks, skills, damage taken).
+
+        Recorded with its mapping-table index until their layouts are
+        calibrated; nothing is counted from them yet."""
+        if not self.settings['enabled'] or len(data) < 2:
+            return
+        character = self.characters.get(session)
+        table = getattr(character, 'table', None) if character else None
+        op = int.from_bytes(data[:2], 'little')
+        index = table.index(op) if table and op in table else None
+        self.health['client_frames'] += 1
+        if self.frames is not None:
+            self.frames.write(session, data, self.now(), index=index, client=True)
 
     def adopt(self, character):
         """A new connection of a character whose run is still open (channel change)."""
@@ -250,11 +289,11 @@ class Tracker:
     def map_entry(self, character, data, now):
         info = proto.read_character(data, self.profile)
         if info:
-            key = info.get('character_id') or info.get('name')
+            key = info.get('name') or info.get('character_id')
             if key and key != character.key:
                 character.key = key
                 self.adopt_by_key(character)
-            for field in ('name', 'level', 'job', 'exp'):
+            for field in ('name', 'level', 'job', 'exp', 'character_id'):
                 if info.get(field) is not None:
                     setattr(character, field, info[field])
         new_map = proto.map_id(data)
@@ -266,7 +305,9 @@ class Tracker:
         self.prices.want_map(new_map)
         character.arming.clear()
         character.staged.clear()
-        character.spawned.clear()
+        character.hit.clear()
+        character.mobs.clear()
+        character.staged_kills = []
         self.dirty = True
 
     def adopt_by_key(self, character):
@@ -299,17 +340,36 @@ class Tracker:
             character.job = values[job_bit]
         if level_bit in values:
             character.level = values[level_bit]
+        hp_bit = bits.get('hp')
+        if hp_bit in values:
+            hp = values[hp_bit]
+            run = character.run
+            if character.hp is not None and hp < character.hp and run and run.status == 'active':
+                # Includes HP paid for skills; the client messages will split this by mob.
+                run.hp_lost += character.hp - hp
+                run.hp_drops += 1
+                self.dirty = True
+            character.hp = hp
         if exp_bit in values and self.profile['stat'].get('confirmed'):
             self.experience(character, values[exp_bit], old_level, now)
 
     def experience(self, character, value, old_level, now):
         previous = character.exp
         character.exp = value
+        announced, character.exp_messages = character.exp_messages, 0
+        self.health['exp_updates'] += 1
         if previous is None:
             return
-        if character.level is not None and old_level is not None and character.level > old_level:
-            need = exp_to_next(old_level)
-            gain = (need - previous + value) if need else value
+        levelled = character.level is not None and old_level is not None and character.level > old_level
+        if not levelled and value < previous and announced:
+            # The gained-EXP message arrives just before the update: a drop
+            # right after one is a level-up whose level field we cannot read.
+            levelled, old_level = True, character.level
+            if character.level is not None:
+                character.level += 1
+        if levelled:
+            need = exp_to_next(old_level) if old_level else None
+            gain = (need - previous + value) if need and need >= previous else (announced or value)
         elif value >= previous:
             gain = value - previous
         else:
@@ -324,30 +384,55 @@ class Tracker:
         self.gain(character, now, exp=gain)
 
     def other(self, character, data, now):
-        spawn = self.profile.get('spawn') or {}
-        if spawn.get('confirmed') and int.from_bytes(data[:2], 'little') == spawn.get('opcode'):
-            at = spawn.get('mob_offset')
-            if at is not None and len(data) >= at + 4:
-                oid = int.from_bytes(data[2:6], 'little')
-                character.spawned[oid] = int.from_bytes(data[at:at+4], 'little')
-                if len(character.spawned) > 2000:
-                    character.spawned.pop(next(iter(character.spawned)))
+        mob = proto.spawned(data, self.profile.get('spawn') or {})
+        if mob:
+            character.mobs[mob[0]] = mob[1]
+            if len(character.mobs) > 4000:
+                for old in list(character.mobs)[:2000]:
+                    del character.mobs[old]
             return
-        oid = proto.object_id(data, self.profile.get('kill') or {})
+        kill = self.profile.get('kill') or {}
+        oid = proto.hit_by(data, kill, character.character_id)
         if oid is not None:
-            run = character.run
-            if run and run.status == 'active' and run.segment:
-                run.segment.kills += 1
-                mob = character.spawned.pop(oid, None)
-                if mob:
-                    run.segment.mobs[mob] += 1
-                self.dirty = True
+            character.hit[oid] = now
+            if len(character.hit) > 4000:
+                for old in sorted(character.hit, key=character.hit.get)[:2000]:
+                    del character.hit[old]
             return
-        pickup = self.profile.get('pickup') or {}
-        if pickup.get('confirmed') and int.from_bytes(data[:2], 'little') == pickup.get('opcode'):
-            at = pickup.get('item_offset', 2)
-            if len(data) >= at + 4:
-                character.pickups.append((now, int.from_bytes(data[at:at+4], 'little')))
+        oid = proto.death(data, kill)
+        if oid is not None:
+            # Only mobs this character hit count; other players' kills do not.
+            mob = character.mobs.pop(oid, None)
+            if character.hit.pop(oid, None) is not None:
+                self.health['kills'] += 1
+                run = character.run
+                if mob:
+                    self.prices.want_mob(mob)
+                if run and run.status == 'active' and run.segment:
+                    run.segment.kills += 1
+                    if mob:
+                        run.segment.mobs[mob] += 1
+                    self.dirty = True
+                elif not (run and run.pause_reason == 'manual'):
+                    window = self.settings['start_window']
+                    character.staged_kills = [k for k in character.staged_kills if now - k[0] <= window] + [(now, mob)]
+            return
+        gained = proto.experience_message(data, self.profile)
+        if gained is not None:
+            character.exp_messages += gained
+            self.health['exp_messages'] += 1
+            return
+        found = proto.pickup(data, self.profile.get('pickup') or {})
+        if found and found[0] == 'item':
+            character.pickups.append((now, found[1]))
+            return
+        buff = proto.parse_buff(data, self.profile.get('buff') or {})
+        if buff:
+            source, milliseconds = buff
+            character.buffs[source] = (now, milliseconds)
+            if source < 0:
+                self.prices.want([-source])
+            self.dirty = True
 
     def inventory(self, character, inventory, now, rebase=False):
         bags = bag_totals(inventory)
@@ -432,11 +517,13 @@ class Tracker:
             run.last_gain = now
             if run.segment:
                 run.segment.exp += exp
-                if not (self.profile.get('kill') or {}).get('confirmed'):
+                if self.kills_by_exp(character):
                     run.segment.kills += 1
             run.exp_events.append((now, exp))
             self.dirty = True
             return
+        if run and run.status == 'paused' and run.pause_reason == 'manual':
+            return  # paused by the player: only "resume" continues
         if (self.prices.map(character.map_id) or {}).get('is_town'):
             return  # quest rewards and NPC exchanges in towns never start a run
         window = self.settings['start_window']
@@ -459,7 +546,7 @@ class Tracker:
         earlier = [(t, x) for t, x in character.staged_exp if t >= first] + [(now, exp)]
         for t, x in earlier:
             run.segment.exp += x
-            if not (self.profile.get('kill') or {}).get('confirmed'):
+            if self.kills_by_exp(character):
                 run.segment.kills += 1
             run.exp_events.append((t, x))
         for entry in character.staged:
@@ -467,10 +554,16 @@ class Tracker:
                 entry['seg'] = len(run.segments) - 1
                 run.ledger.append(entry)
                 self.apply(run, entry)
+        for t, mob in character.staged_kills:
+            if t >= first - 2:
+                run.segment.kills += 1
+                if mob:
+                    run.segment.mobs[mob] += 1
         run.credit(now)
         character.arming.clear()
         character.staged.clear()
         character.staged_exp = []
+        character.staged_kills = []
         self.dirty = True
 
     def pause(self, run, reason, now):
@@ -489,9 +582,56 @@ class Tracker:
         run.pause_reason = None
         run.paused_at = None
 
+    def command(self, now):
+        """Pause / resume / end from the collector window or its hotkeys."""
+        path = self.data / 'command.json'
+        try:
+            stamp = path.stat().st_mtime
+        except OSError:
+            return
+        if stamp == self.command_mtime:
+            return
+        self.command_mtime = stamp
+        try:
+            order = json.loads(path.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            return
+        if order.get('id') == self.command_id or not 0 <= now - order.get('at', 0) <= 30:
+            self.command_id = order.get('id')
+            return
+        self.command_id = order.get('id')
+        action = order.get('action')
+        for character in self.characters.values():
+            run = character.run
+            if not run:
+                continue
+            if action == 'pause' and run.status == 'active':
+                self.pause(run, 'manual', now)
+            elif action == 'resume' and run.status == 'paused':
+                self.resume(run, now)
+                run.status = 'active'
+                run.last_gain = run.credited_until = now
+            elif action == 'toggle':
+                if run.status == 'active':
+                    self.pause(run, 'manual', now)
+                elif run.status == 'paused':
+                    self.resume(run, now)
+                    run.status = 'active'
+                    run.last_gain = run.credited_until = now
+            elif action == 'end':
+                self.end(character, now)
+        self.dirty = True
+
+    def suspect(self):
+        """The built-in layouts stopped matching (a game update): record again."""
+        h = self.health
+        return (h['exp_messages'] >= 30 and h['exp_updates'] < h['exp_messages'] * 0.5) or \
+            ((self.profile.get('kill') or {}).get('confirmed') and h['exp_messages'] >= 30 and h['kills'] == 0)
+
     def tick(self):
         now = self.now()
         self.reload()
+        self.command(now)
         for character in self.characters.values():
             run = character.run
             if not run:
@@ -619,15 +759,37 @@ class Tracker:
             exp=exp, exp_per_hour=avg, exp_per_hour_5m=recent, exp_per_hour_1m=rate(60),
             percent_per_hour=(avg / need * 100) if avg and need else None,
             eta_seconds=((need - current) / (recent or avg) * 3600) if need and current is not None and (recent or avg) else None,
-            kills=kills, kills_per_hour=kills / hours if hours else None, kills_estimated=not (self.profile.get('kill') or {}).get('confirmed'),
+            kills=kills, kills_per_hour=kills / hours if hours else None, kills_estimated=self.kills_by_exp(character),
             deaths=run.deaths, exp_lost=run.exp_lost, gaps=run.gaps,
             mesos=money['cash'], item_value=money['loot'], consume_cost=money['cost'], mesos_spent=money['spent'],
             net=money['net'], net_per_hour=money['net'] / hours if hours else None,
             cash_per_hour=money['cash'] / hours if hours else None, pending_prices=money['pending'],
             recent=recent_rows, consumables=consumables,
             drops=[dict(item_id=i, name=self.name(i), quantity=q) for i, q in drops.most_common()],
-            mobs=[dict(mob_id=m, kills=k) for m, k in mobs.most_common()],
+            mobs=[dict(mob_id=m, kills=k, name=(self.prices.mob(m) or {}).get('name') or f'#{m}') for m, k in mobs.most_common()],
+            hp_lost=run.hp_lost, hp_drops=run.hp_drops,
+            buffs=self.buffs(character, now),
             segments=[s.to_json() for s in run.segments])
+
+    def kills_by_exp(self, character):
+        """Kills come from experience gains until the death rule and this
+        character's ID (from a full map entry) are both known."""
+        return not (self.profile.get('kill') or {}).get('confirmed') or character is None             or getattr(character, 'character_id', None) is None
+
+    def buffs(self, character, now):
+        """Active buffs, soonest to expire first."""
+        if character is None:
+            return []
+        out = []
+        for source, (start, milliseconds) in list(character.buffs.items()):
+            left = milliseconds / 1000 - (now - start)
+            if left <= 0:
+                del character.buffs[source]
+                continue
+            name = skill_name(source) if source > 0 else self.name(-source)
+            out.append(dict(source=source, name=name, seconds=round(left, 1), total=milliseconds / 1000,
+                            item_id=-source if source < 0 else None))
+        return sorted(out, key=lambda b: b['seconds'])
 
     def name(self, item_id):
         row = self.prices.row(item_id) if item_id else None
@@ -646,7 +808,8 @@ class Tracker:
         state = dict(alive_at=now, runs=runs, finished=self.finished[:5],
                      calibration=[dict(label=a, state=b) for a, b in calibration_summary(self.profile)],
                      recording=self.frames is not None and not self.frames.failed,
-                     characters=[dict(c.facts(), map_id=c.map_id) for c in self.characters.values()])
+                     characters=[dict(c.facts(), map_id=c.map_id, buffs=self.buffs(c, now)) for c in self.characters.values()],
+                     protocol_warning=bool(self.suspect()))
         write_json(self.folder / 'grind_state.json', state)
         self.last_publish = now
         self.dirty = False

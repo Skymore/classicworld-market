@@ -241,12 +241,13 @@ class Inventory:
                 # observed currency; missing bags remain unknown, never zero.
                 self.slots = self.equipment = self.worn = None
         elif opcode == 0x7e:
-            if len(data) == 19 and data[:9] == bytes.fromhex('7e0000000100000400') and data[17:] == bytes(2):
+            # Bytes 2-4 are flags; picked-up money arrives as 7e 00 00 01 01 (2026-11-11 capture).
+            flags = len(data) >= 11 and data[:2] == b'\x7e\x00' and all(b in (0, 1) for b in data[2:5])
+            if flags and len(data) == 19 and data[4:9] == bytes.fromhex('0100000400') and data[17:] == bytes(2):
                 balance = struct.unpack_from('<Q', data, 9)[0]
                 self.mesos = balance if balance <= 10**12 else None
                 self.observed_at = int(time.time())
-            elif not (len(data) >= 11 and data[:4] == bytes.fromhex('7e000000')
-                      and data[4] in (0, 1) and not (int.from_bytes(data[5:9], 'little') & 0x40000)):
+            elif not (flags and not (int.from_bytes(data[5:9], 'little') & 0x40000)):
                 # Unknown stat masks cannot leave a possibly changed balance
                 # labelled current. Never infer it from the purchase budget.
                 self.mesos = None

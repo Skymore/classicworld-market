@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, Crosshair, Move, RefreshCw } from 'lucide-react';
+import { AlertCircle, Crosshair, Move, Pause, Play, RefreshCw, Square } from 'lucide-react';
 import { itemIcon, monthDay } from './format';
 import { tr } from './i18n';
 import {
-  big, clock, duration, grind, mapLabel, percent, statLine, statusLabel,
-  type GrindSettings, type GrindState, type RunSummary,
+  big, buffLeft, clock, currentBuffs, duration, grind, mapLabel, percent, statLine, statusLabel,
+  type GrindSettings, type GrindState, type HotkeyAction, type Live, type RunSummary,
 } from './grind';
 
 type View = 'live' | 'history' | 'settings';
@@ -29,11 +29,15 @@ export default function GrindPage({ hidden }: { hidden: boolean }) {
     if (hidden || view !== 'history') return;
     grind('history').then(setHistory).catch(() => setHistory([]));
   }, [hidden, view]);
-  const save = async (changes: Partial<GrindSettings> | { overlay: Partial<GrindSettings['overlay']> }) => {
+  type Changes = Partial<Omit<GrindSettings, 'overlay' | 'hotkeys'>> & { overlay?: Partial<GrindSettings['overlay']>; hotkeys?: Partial<GrindSettings['hotkeys']> };
+  const save = async (changes: Changes) => {
     try { const settings = await grind('settings', changes); setState(s => s && { ...s, settings }); }
     catch (e) { setError(String((e as Error)?.message || e)); }
   };
   const edit = async (on: boolean) => { await grind('overlay_edit', on).catch(() => null); load(); };
+  const command = async (action: string) => {
+    try { await grind('command', action); setTimeout(load, 1200); } catch (e) { setError(String((e as Error)?.message || e)); }
+  };
   if (hidden) return null;
   const live = state?.live, run = live?.runs?.[0] ?? null, settings = state?.settings;
   return <div className="grind-page" data-grind-page>
@@ -44,13 +48,21 @@ export default function GrindPage({ hidden }: { hidden: boolean }) {
           <button key={key} aria-pressed={view === key} onClick={() => setView(key)}>{tr(zh, en)}</button>)}
       </nav>
       <span className={`connection ${live && !live.stale ? 'live' : ''}`}><i />{!live || live.stale ? tr('等待采集器', 'Waiting for the collector') : run ? statusLabel(run) : tr('等待打怪', 'Waiting for kills')}</span>
+      {run && run.status !== 'ended' && <span className="grind-tools">
+        <button className="text-link" onClick={() => command(run.status === 'active' ? 'pause' : 'resume')}>
+          {run.status === 'active' ? <Pause size={14} /> : <Play size={14} />}{run.status === 'active' ? tr('暂停', 'Pause') : tr('继续', 'Resume')}</button>
+        <button className="text-link" onClick={() => command('end')}><Square size={13} />{tr('结束本次', 'End run')}</button>
+      </span>}
       {settings && <span className="grind-tools">
         <label className="check-chip"><input type="checkbox" checked={settings.overlay.enabled} onChange={e => save({ overlay: { enabled: e.target.checked } })} />{tr('悬浮窗', 'Overlay')}</label>
         {settings.overlay.enabled && <button className="text-link" aria-pressed={state?.editing} onClick={() => edit(!state?.editing)}>
           <Move size={14} />{state?.editing ? tr('完成', 'Done') : tr('调整位置', 'Move')}</button>}
       </span>}
     </div></section>
+    {live?.protocol_warning && <div role="alert" className="error-banner"><AlertCircle size={18} />
+      <span>{tr('游戏报文格式可能已变化，部分数字暂不可信；已自动开始录制，请把采集器更新到最新版。', 'The game messages may have changed; some numbers are unreliable. Recording started; update the collector.')}</span></div>}
     <div className="grind-body">
+      {view === 'live' && <BuffStrip live={live ?? null} warn={settings?.buff_warn_seconds ?? 10} />}
       {view === 'live' && <LiveView run={run} live={live ?? null} />}
       {view === 'history' && <HistoryView runs={history} />}
       {view === 'settings' && settings && state && <SettingsView state={state} settings={settings} save={save} refresh={load} />}
@@ -112,6 +124,10 @@ function LiveView({ run, live }: { run: RunSummary | null; live: GrindState['liv
             {row.remaining ?? '—'}{row.minutes_left != null ? tr(` · ${Math.round(row.minutes_left)}分`, ` · ${Math.round(row.minutes_left)}m`) : ''}</span>
         </div>)}
         {!run.consumables.length && <p className="note">{tr('还没有用消耗品。', 'No consumables used yet.')}</p>}
+        <div className="well-h sub"><h3>{tr('击杀', 'Kills')}</h3>
+          {run.hp_drops > 0 && <small>{tr(`HP 下降 ${run.hp_drops} 次 · 共 ${big(run.hp_lost)}`, `HP lost ${run.hp_drops}× · ${big(run.hp_lost)}`)}</small>}</div>
+        {run.mobs.map(m => <div className="grind-row" key={m.mob_id}><span className="t"><b>{m.name}</b></span><span className="v">{m.kills}</span></div>)}
+        {!run.mobs.length && <p className="note">{run.kills_estimated ? tr('换一次频道后按怪物分类统计。', 'Change channel once to split kills by monster.') : tr('还没有击杀。', 'No kills yet.')}</p>}
         <div className="well-h sub"><h3>{tr('掉落汇总', 'Drops')}</h3></div>
         <div className="grind-drops">{run.drops.slice(0, 24).map(d => <span key={d.item_id} title={d.name || ''}>
           <img src={itemIcon(d.item_id)} alt={d.name || ''} width={22} height={22} loading="lazy" /><b>{d.quantity}</b></span>)}</div>
@@ -150,14 +166,55 @@ function Check({ label, checked, onChange }: { label: string; checked: boolean; 
   return <label className="grind-check"><input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />{label}</label>;
 }
 
+const HOTKEYS: [HotkeyAction, string, string][] = [
+  ['pause', '暂停 / 继续', 'Pause / resume'], ['end', '结束本次', 'End run'],
+  ['overlay', '显示 / 隐藏悬浮窗', 'Show / hide overlay'], ['edit', '调整悬浮窗位置', 'Move overlay'],
+];
+
+/** Press a combination to set it; Backspace clears. */
+function HotkeyField({ label, value, error, onChange }: { label: string; value: string; error?: string; onChange(v: string): void }) {
+  const [listening, setListening] = useState(false);
+  const keyName = (e: React.KeyboardEvent) => {
+    if (/^F([1-9]|1[0-2])$/.test(e.key)) return e.key;
+    if (/^Key[A-Z]$/.test(e.code)) return e.code.slice(3);
+    if (/^Digit[0-9]$/.test(e.code)) return e.code.slice(5);
+    return null;
+  };
+  return <label className="grind-field"><span>{label}{error && <small className="warn"> {error === 'taken' ? tr('已被占用', 'in use') : tr('不支持', 'unsupported')}</small>}</span>
+    <input className="hotkey-input" readOnly value={listening ? tr('按下组合键…', 'Press keys…') : value || tr('未设置', 'None')}
+      onFocus={() => setListening(true)} onBlur={() => setListening(false)}
+      onKeyDown={e => {
+        e.preventDefault();
+        if (e.key === 'Backspace' || e.key === 'Delete') { onChange(''); (e.target as HTMLInputElement).blur(); return; }
+        const key = keyName(e);
+        if (!key) return;
+        const combo = [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', key].filter(Boolean).join('+');
+        if (!/^F/.test(key) && !e.ctrlKey && !e.altKey) return; // bare letters would fire while typing in game
+        onChange(combo); (e.target as HTMLInputElement).blur();
+      }} /></label>;
+}
+
+/** Active buffs with their countdown. */
+function BuffStrip({ live, warn }: { live: Live | null; warn: number }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const id = setInterval(() => tick(n => n + 1), 250); return () => clearInterval(id); }, []);
+  const buffs = currentBuffs(live).map(b => ({ ...b, left: buffLeft(b, live) })).filter(b => b.left > 0);
+  if (!buffs.length) return null;
+  return <section className="well grind-buffs"><div className="well-h"><h3>Buff</h3></div>
+    <div className="grind-buff-list">{buffs.map(b => <div key={b.source} className={'grind-buff' + (b.left <= warn ? ' warn' : '')}>
+      <span className="t">{b.name}</span><span className="bar"><i style={{ width: `${Math.min(100, b.left / b.total * 100)}%` }} /></span>
+      <b>{clock(b.left)}</b></div>)}</div></section>;
+}
+
 const FIELDS: [string, string, string][] = [
   ['time', '时长', 'Time'], ['exp_rate', '经验/时', 'EXP/h'], ['level', '等级进度', 'Level'], ['profit', '收益', 'Profit'],
+  ['buffs', 'Buff 倒计时', 'Buffs'],
   ['kills', '击杀', 'Kills'], ['recent', '最近拾取', 'Loot'], ['potions', '药水剩余', 'Potions'],
 ];
 
 function SettingsView({ state, settings, save, refresh }: {
   state: GrindState; settings: GrindSettings; refresh(): void;
-  save(changes: Partial<GrindSettings> | { overlay: Partial<GrindSettings['overlay']> }): void;
+  save(changes: Partial<Omit<GrindSettings, 'overlay' | 'hotkeys'>> & { overlay?: Partial<GrindSettings['overlay']>; hotkeys?: Partial<GrindSettings['hotkeys']> }): void;
 }) {
   const o = settings.overlay;
   const calibration = state.calibration?.summary ?? state.live?.calibration ?? [];
@@ -191,6 +248,12 @@ function SettingsView({ state, settings, save, refresh }: {
       <Check label={tr('录屏和直播时隐藏', 'Hide from recordings')} checked={o.hide_in_capture} onChange={v => save({ overlay: { hide_in_capture: v } })} />
       <div className="grind-fields">{FIELDS.map(([key, zh, en]) => <Check key={key} label={tr(zh, en)} checked={o.fields.includes(key)}
         onChange={v => save({ overlay: { fields: v ? [...o.fields, key] : o.fields.filter(f => f !== key) } })} />)}</div>
+    </section>
+    <section className="well"><div className="well-h"><h3>{tr('Buff 与热键', 'Buffs and hotkeys')}</h3></div>
+      <NumberField label={tr('Buff 剩余几秒提醒', 'Warn when a buff has (s) left')} value={settings.buff_warn_seconds} min={0} max={120} onChange={v => save({ buff_warn_seconds: v })} />
+      <Check label={tr('Buff 快结束时提示音', 'Sound before a buff ends')} checked={settings.buff_sound} onChange={v => save({ buff_sound: v })} />
+      {HOTKEYS.map(([key, zh, en]) => <HotkeyField key={key} label={tr(zh, en)} value={settings.hotkeys?.[key] || ''}
+        error={state.hotkey_errors?.[key]} onChange={v => save({ hotkeys: { [key]: v } })} />)}
     </section>
     <section className="well"><div className="well-h"><h3>{tr('协议标定', 'Calibration')}</h3>
       <button className="text-link" disabled={state.calibrating} onClick={() => grind('calibrate').then(refresh)}><RefreshCw size={14} />{state.calibrating ? tr('标定中…', 'Calibrating…') : tr('立即标定', 'Calibrate now')}</button></div>

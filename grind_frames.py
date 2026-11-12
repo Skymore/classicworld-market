@@ -1,7 +1,9 @@
 """Local recording of decrypted server frames for the grind calibrator.
 
 Frames stay on this PC (captures/grind/frames). Each line is
-{"t": unix time, "s": connection session, "h": frame hex}. Files rotate at
+{"t": unix time, "s": connection session, "h": frame hex}; the player's own
+messages add "c": 1 and "i", the opcode's index in the connection's mapping
+table (the raw client opcode changes per connection). Files rotate at
 FILE_LIMIT and the folder is pruned oldest-first beyond TOTAL_LIMIT, so a
 long session can never fill the disk. Nothing here is uploaded.
 """
@@ -41,8 +43,8 @@ class FrameLog:
             total -= old.stat().st_size
             old.unlink(missing_ok=True)
 
-    def write(self, session, plain, now=None):
-        if self.failed or len(plain) < 2 or int.from_bytes(plain[:2], 'little') in SKIP:
+    def write(self, session, plain, now=None, index=None, client=False):
+        if self.failed or len(plain) < 2 or (not client and int.from_bytes(plain[:2], 'little') in SKIP):
             return
         now = time.time() if now is None else now
         try:
@@ -52,7 +54,10 @@ class FrameLog:
         except OSError:
             self.failed = True
             return
-        line = json.dumps(dict(t=round(now, 3), s=str(session), h=plain.hex())) + '\n'
+        record = dict(t=round(now, 3), s=str(session), h=plain.hex())
+        if client:
+            record.update(c=1, i=index)
+        line = json.dumps(record) + '\n'
         self.buffer.append(line)
         self.buffered += len(line)
         if self.buffered >= 1024 * 1024:
@@ -74,8 +79,8 @@ class FrameLog:
         self.flush()
 
 
-def read_frames(paths):
-    """(time, session, bytes) from recorded files, in file then line order."""
+def read_client_frames(paths):
+    """(time, session, mapping index, bytes) of the player's own recorded messages."""
     for path in paths:
         try:
             lines = Path(path).read_text(encoding='ascii').splitlines()
@@ -84,6 +89,23 @@ def read_frames(paths):
         for line in lines:
             try:
                 record = json.loads(line)
-                yield record['t'], record['s'], bytes.fromhex(record['h'])
+                if record.get('c'):
+                    yield record['t'], record['s'], record.get('i'), bytes.fromhex(record['h'])
+            except (ValueError, KeyError, TypeError):
+                continue
+
+
+def read_frames(paths):
+    """(time, session, bytes) of recorded server frames, in file then line order."""
+    for path in paths:
+        try:
+            lines = Path(path).read_text(encoding='ascii').splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for line in lines:
+            try:
+                record = json.loads(line)
+                if not record.get('c'):
+                    yield record['t'], record['s'], bytes.fromhex(record['h'])
             except (ValueError, KeyError, TypeError):
                 continue

@@ -126,24 +126,28 @@ def pick_exp_bit(series, sizes):
 
 
 def character_candidates(data):
-    """{('pre', level offset): hp width} where the base-stat block fits."""
-    found = {}
-    limit = min(len(data) - 40, 229)
-    for at in range(24, limit):
-        level = data[at]
-        if not 1 <= level <= 200:
-            continue
-        job = struct.unpack_from('<H', data, at+1)[0]
+    """{(level offset, job offset)} where the base-stat block fits.
+
+    Anchored on the job: a known job ID, four base stats, then HP/MP with
+    current <= maximum. The level byte sits 1-4 bytes before the job (the
+    live layout has three zero bytes between them); it must be the only
+    non-zero byte there.
+    """
+    found = set()
+    limit = min(len(data) - 26, 229)
+    for job_at in range(24, limit):
+        job = struct.unpack_from('<H', data, job_at)[0]
         if job not in JOBS:
             continue
-        base = struct.unpack_from('<4H', data, at+3)
+        base = struct.unpack_from('<4H', data, job_at+2)
         if not all(4 <= v <= 2000 for v in base):
             continue
-        for width, code in ((4, 'I'), (2, 'H')):
-            hp, max_hp, mp, max_mp = struct.unpack_from('<4' + code, data, at+11)
-            if 1 <= hp <= max_hp <= 500000 and 0 <= mp <= max_mp <= 500000 and max_hp >= 10:
-                found[at] = width
-                break
+        hp, max_hp, mp, max_mp = struct.unpack_from('<4I', data, job_at+10)
+        if not (1 <= hp <= max_hp <= 500000 and 0 <= mp <= max_mp <= 500000 and max_hp >= 10):
+            continue
+        levels = [at for at in range(job_at-4, job_at) if data[at]]
+        if len(levels) == 1 and 1 <= data[levels[0]] <= 200:
+            found.add((levels[0], job_at))
     return found
 
 
@@ -178,8 +182,8 @@ def learn_snapshot(frames, timeline, exp_bit, sizes):
     report['level_offsets'] = sorted(common or [])
     if not common or len(common) != 1:
         return dict(confirmed=False), report
-    level_at = common.pop()
-    section = dict(level=['pre', level_at], job=['pre', level_at + 1])
+    level_at, job_at = common.pop()
+    section = dict(level=['pre', level_at], job=['pre', job_at])
     names = {name_offset(d, level_at) for _, _, d in snapshots}
     if len(names) == 1 and None not in names:
         name_at = names.pop()
@@ -351,6 +355,9 @@ def summary(profile):
     lines.append(('当前经验', '已确认' if snap.get('exp') else '等待换频道后打怪'))
     lines.append(('击杀与怪物', '已确认' if profile.get('kill', {}).get('confirmed') else '按经验次数估算'))
     lines.append(('拾取归属', '已确认' if profile.get('pickup', {}).get('confirmed') else '刷图时背包增加均计为拾取'))
+    lines.append(('怪物种类', '已确认' if profile.get('spawn', {}).get('confirmed') else '未确认'))
+    lines.append(('Buff', '已确认' if profile.get('buff', {}).get('confirmed') else '未确认'))
+    lines.append(('攻击、技能与受伤', '已确认' if profile.get('client', {}).get('confirmed') else '录制中，等待标定'))
     return lines
 
 

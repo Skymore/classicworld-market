@@ -174,6 +174,7 @@ button:hover:not(:disabled){filter:brightness(.96)}button:disabled{opacity:.48;c
 .grind-head .connection{margin-left:auto}
 .grind-tools{display:flex;align-items:center;gap:12px;padding-right:10px;font-size:12px;color:var(--bar-ink)}
 .check-chip{display:flex;align-items:center;gap:5px;cursor:pointer}
+.grind-tools .text-link{color:var(--bar-ink);opacity:.92}.grind-tools .text-link:hover{opacity:1;text-decoration:underline}
 .grind-body{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px;padding-bottom:6px}
 .grind-empty{margin:24px 0;text-align:center;color:var(--ink-2)}.grind-empty .note{display:inline-block}
 .grind-who{display:flex;align-items:baseline;gap:12px;font-size:13px;color:var(--ink-2)}.grind-who b{font-size:16px;color:var(--ink)}
@@ -204,5 +205,10 @@ button:hover:not(:disabled){filter:brightness(.96)}button:disabled{opacity:.48;c
 .grind-field input[type=range]{width:160px}
 .grind-radio{display:flex;flex-wrap:wrap;gap:14px;font-size:13px}.grind-radio label{display:flex;align-items:center;gap:5px;cursor:pointer}
 .grind-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.grind-buffs{flex-shrink:0}.grind-buff-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;padding:8px 10px}
+.grind-buff{display:flex;align-items:center;gap:8px;font-size:12px}.grind-buff .t{width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grind-buff .bar{flex:1;height:6px;background:var(--bevel-lo)}.grind-buff .bar i{display:block;height:100%;background:#3f8fd0}
+.grind-buff b{font-variant-numeric:tabular-nums}.grind-buff.warn{color:var(--maple-ink)}.grind-buff.warn .bar i{background:var(--maple)}
+.grind-field small.warn{color:var(--maple-ink)}.hotkey-input{width:140px;padding:4px 6px;border:1px solid var(--rule);background:var(--sheet);font:inherit;text-align:center;cursor:pointer}
 .grind-cal{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2)}.grind-cal b{font-weight:600;color:var(--ink-3)}.grind-cal b.ok{color:#2f7d4f}
 @media (max-width:900px){.grind-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}.grind-grid,.grind-settings{grid-template-columns:1fr}}

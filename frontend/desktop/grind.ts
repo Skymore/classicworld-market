@@ -7,6 +7,7 @@ export interface LootRow {
   unit: number; basis: string | null; value: number; stats?: { key: string; value: number }[] | null; notable: boolean;
 }
 export interface Consumable { item_id: number; name: string | null; used: number; remaining: number | null; per_hour: number | null; minutes_left: number | null }
+export interface Buff { source: number; name: string | null; seconds: number; total: number; item_id: number | null }
 export interface Segment { map_id: number; level: number | null; job: number | null; started_at: number; active_seconds: number; exp: number; kills: number; mesos: number }
 export interface RunSummary {
   id: string; status: 'active' | 'paused' | 'ended'; pause_reason: string | null;
@@ -20,12 +21,14 @@ export interface RunSummary {
   mesos: number; item_value: number; consume_cost: number; mesos_spent: number; net: number;
   net_per_hour: number | null; cash_per_hour: number | null; pending_prices: number;
   recent?: LootRow[]; consumables: Consumable[]; drops: { item_id: number; name: string | null; quantity: number }[];
-  mobs: { mob_id: number; kills: number }[]; segments: Segment[];
+  mobs: { mob_id: number; kills: number; name: string }[]; segments: Segment[];
+  buffs: Buff[]; hp_lost: number; hp_drops: number;
 }
 export interface Live {
   alive_at: number; stale: boolean; runs: RunSummary[]; finished: RunSummary[]; recording: boolean;
   calibration: { label: string; state: string }[];
-  characters: { name: string | null; level: number | null; job: number | null; map_id: number | null }[];
+  characters: { name: string | null; level: number | null; job: number | null; map_id: number | null; buffs: Buff[] }[];
+  protocol_warning?: boolean;
 }
 export interface OverlaySettings {
   enabled: boolean; layout: 'compact' | 'standard' | 'detailed'; opacity: number; scale: number;
@@ -35,10 +38,13 @@ export interface GrindSettings {
   enabled: boolean; record_frames: boolean; upload: boolean; idle_seconds: number; end_after_seconds: number;
   start_events: number; start_window: number; price_basis: 'typical' | 'npc' | 'none'; notable_value: number;
   count_mesos_spent: boolean; min_upload_seconds: number; overlay: OverlaySettings;
+  buff_warn_seconds: number; buff_sound: boolean; hotkeys: Record<HotkeyAction, string>;
 }
+export type HotkeyAction = 'overlay' | 'pause' | 'end' | 'edit';
 export interface GrindState {
   live: Live | null; settings: GrindSettings; editing: boolean; calibrating: boolean;
   calibration: { at: number; files: number; bytes: number; summary: { label: string; state: string }[] } | null;
+  hotkey_errors?: Partial<Record<HotkeyAction, 'invalid' | 'taken'>>;
 }
 
 type Api = { grind?(name: string, value?: unknown): Promise<any>; state?(): Promise<any> };
@@ -99,7 +105,7 @@ export function statLine(stats: { key: string; value: number }[] | null | undefi
 }
 
 export const PAUSE_LABELS: Record<string, [string, string]> = {
-  map: ['离开地图', 'Left the map'], idle: ['空闲', 'Idle'], disconnect: ['连接中断', 'Disconnected'], end: ['已结束', 'Ended'],
+  map: ['离开地图', 'Left the map'], manual: ['手动暂停', 'Paused by you'], idle: ['空闲', 'Idle'], disconnect: ['连接中断', 'Disconnected'], end: ['已结束', 'Ended'],
 };
 export function statusLabel(run: RunSummary) {
   if (run.status === 'active') return tr('记录中', 'Recording');
@@ -108,3 +114,12 @@ export function statusLabel(run: RunSummary) {
 }
 export const mapLabel = (run: { map_name?: string | null; map_id: number | null }) =>
   run.map_name || (run.map_id != null ? tr(`地图 ${run.map_id}`, `Map ${run.map_id}`) : '—');
+
+/** Buffs of the open run, else of the first character (buffs also run in town). */
+export function currentBuffs(live: Live | null): Buff[] {
+  const run = live?.runs?.[0];
+  return (run?.buffs?.length ? run.buffs : live?.characters?.[0]?.buffs) || [];
+}
+/** Seconds left now: the state is written each second, so count down locally in between. */
+export const buffLeft = (buff: Buff, live: Live | null) =>
+  Math.max(0, buff.seconds - (live ? Date.now() / 1000 - live.alive_at : 0));

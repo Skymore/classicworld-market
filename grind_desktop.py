@@ -11,6 +11,7 @@ import json
 import sqlite3
 import threading
 import time
+import uuid
 from pathlib import Path
 
 from grind_tracker import DEFAULTS, load_settings, write_json
@@ -21,6 +22,86 @@ OVERLAY_SIZES = dict(compact=(360, 40), standard=(340, 236), detailed=(360, 380)
 GWL_EXSTYLE = -20
 WS_EX_LAYERED, WS_EX_TRANSPARENT, WS_EX_TOOLWINDOW, WS_EX_NOACTIVATE = 0x80000, 0x20, 0x80, 0x8000000
 WDA_NONE, WDA_EXCLUDEFROMCAPTURE = 0, 0x11
+WM_HOTKEY, WM_APP = 0x0312, 0x8000
+MOD_ALT, MOD_CONTROL, MOD_SHIFT, MOD_WIN, MOD_NOREPEAT = 1, 2, 4, 8, 0x4000
+HOTKEY_ACTIONS = ('overlay', 'pause', 'end', 'edit')
+
+
+def parse_hotkey(text):
+    """(modifiers, virtual key) of "Ctrl+Alt+O"; None for empty or unsupported."""
+    if not isinstance(text, str) or not text.strip():
+        return None
+    mods, key = 0, None
+    for part in [x.strip().lower() for x in text.split('+') if x.strip()]:
+        if part in ('ctrl', 'control'):
+            mods |= MOD_CONTROL
+        elif part == 'alt':
+            mods |= MOD_ALT
+        elif part == 'shift':
+            mods |= MOD_SHIFT
+        elif part == 'win':
+            mods |= MOD_WIN
+        elif len(part) == 1 and (part.isalpha() or part.isdigit()):
+            key = ord(part.upper())
+        elif part.startswith('f') and part[1:].isdigit() and 1 <= int(part[1:]) <= 12:
+            key = 0x70 + int(part[1:]) - 1
+        else:
+            return None
+    # A bare letter would fire while typing in the game.
+    if key is None or (mods == 0 and key < 0x70):
+        return None
+    return mods, key
+
+
+class Hotkeys:
+    """System-wide hotkeys (RegisterHotKey) on their own message thread."""
+    def __init__(self, service):
+        self.service = service
+        self.thread_id = None
+        self.errors = {}
+        self.thread = threading.Thread(target=self.loop, daemon=True, name='grind-hotkeys')
+
+    def start(self):
+        self.thread.start()
+
+    def reload(self):
+        if self.thread_id:
+            ctypes.windll.user32.PostThreadMessageW(self.thread_id, WM_APP, 0, 0)
+
+    def stop(self):
+        if self.thread_id:
+            ctypes.windll.user32.PostThreadMessageW(self.thread_id, 0x0012, 0, 0)  # WM_QUIT
+
+    def register(self, user):
+        for number in range(1, len(HOTKEY_ACTIONS) + 1):
+            user.UnregisterHotKey(None, number)
+        self.errors = {}
+        keys = self.service.settings().get('hotkeys') or {}
+        for number, action in enumerate(HOTKEY_ACTIONS, 1):
+            combo = keys.get(action)
+            parsed = parse_hotkey(combo)
+            if combo and parsed is None:
+                self.errors[action] = 'invalid'
+            elif parsed and not user.RegisterHotKey(None, number, parsed[0] | MOD_NOREPEAT, parsed[1]):
+                self.errors[action] = 'taken'
+
+    def loop(self):
+        from ctypes import wintypes
+        user = ctypes.windll.user32
+        self.thread_id = ctypes.windll.kernel32.GetCurrentThreadId()
+        message = wintypes.MSG()
+        user.PeekMessageW(ctypes.byref(message), None, 0, 0, 0)  # create the queue
+        self.register(user)
+        while user.GetMessageW(ctypes.byref(message), None, 0, 0) > 0:
+            if message.message == WM_APP:
+                self.register(user)
+            elif message.message == WM_HOTKEY and 1 <= message.wParam <= len(HOTKEY_ACTIONS):
+                try:
+                    self.service.hotkey(HOTKEY_ACTIONS[message.wParam - 1])
+                except Exception as error:
+                    print(f'Grind hotkey failed ({type(error).__name__}).', flush=True)
+        for number in range(1, len(HOTKEY_ACTIONS) + 1):
+            user.UnregisterHotKey(None, number)
 
 
 class GrindService:
@@ -35,6 +116,7 @@ class GrindService:
         self.calibrating = False
         self.last_calibration = None
         self.lock = threading.Lock()
+        self.hotkeys = None
 
     # ----- data for the pages -------------------------------------------
     def settings(self):
@@ -46,14 +128,35 @@ class GrindService:
         with self.lock:
             current = self.settings()
             for key, value in changes.items():
-                if key == 'overlay' and isinstance(value, dict):
-                    current['overlay'].update({k: v for k, v in value.items() if k in DEFAULTS['overlay']})
-                elif key in DEFAULTS and key != 'overlay':
+                if key in ('overlay', 'hotkeys') and isinstance(value, dict):
+                    current[key].update({k: v for k, v in value.items() if k in DEFAULTS[key]})
+                elif key in DEFAULTS and key not in ('overlay', 'hotkeys'):
                     current[key] = value
             if not write_json(self.data / 'settings.json', current):
                 raise ValueError('unavailable')
         self.apply_overlay(current)
+        if 'hotkeys' in changes and self.hotkeys:
+            self.hotkeys.reload()
         return current
+
+    def command(self, action):
+        """Pause / resume / end for the capture process (grind_tracker.Tracker.command)."""
+        if action not in ('pause', 'resume', 'toggle', 'end'):
+            raise ValueError('invalid_request')
+        if not write_json(self.data / 'command.json', dict(id=uuid.uuid4().hex, action=action, at=time.time())):
+            raise ValueError('unavailable')
+        return True
+
+    def hotkey(self, action):
+        if action == 'overlay':
+            settings = self.settings()
+            self.save_settings(dict(overlay=dict(enabled=not settings['overlay']['enabled'])))
+        elif action == 'pause':
+            self.command('toggle')
+        elif action == 'end':
+            self.command('end')
+        elif action == 'edit':
+            self.edit_overlay(not self.editing)
 
     def live(self):
         try:
@@ -91,7 +194,10 @@ class GrindService:
     def run(self, name, value=None):
         if name == 'state':
             return dict(live=self.live(), settings=self.settings(), editing=self.editing,
-                        calibrating=self.calibrating, calibration=self.calibration())
+                        calibrating=self.calibrating, calibration=self.calibration(),
+                        hotkey_errors=dict(self.hotkeys.errors) if self.hotkeys else {})
+        if name == 'command':
+            return self.command(value)
         if name == 'history':
             return self.history()
         if name == 'settings':
@@ -107,6 +213,8 @@ class GrindService:
     def start(self):
         threading.Thread(target=self.calibrate_loop, daemon=True, name='grind-calibrate').start()
         self.apply_overlay(self.settings())
+        self.hotkeys = Hotkeys(self)
+        self.hotkeys.start()
 
     def calibrate_loop(self):
         while not self.stop.wait(30):
@@ -213,6 +321,8 @@ class GrindService:
     def close(self):
         """The main window is closing: the overlay must not keep the app alive."""
         self.stop.set()
+        if self.hotkeys:
+            self.hotkeys.stop()
         window, self.overlay = self.overlay, None
         if window is not None:
             try:
@@ -232,12 +342,13 @@ class OverlayAPI:
 
 
 def merge_profiles(current, learned):
-    """Learned sections replace current ones only when confirmed; a confirmed
-    section is never replaced by an unconfirmed result."""
+    """Learned sections fill only sections that are not confirmed yet: the
+    built-in layouts verified on a live session are never replaced by an
+    automatic result (an earlier calibrator confirmed mob control as kills)."""
     merged = json.loads(json.dumps(current))
-    for key in ('stat', 'snapshot', 'kill', 'spawn', 'pickup'):
+    for key in ('stat', 'snapshot', 'kill', 'spawn', 'pickup', 'buff'):
         new = learned.get(key) or {}
-        if new.get('confirmed'):
+        if new.get('confirmed') and not (merged.get(key) or {}).get('confirmed'):
             if key == 'snapshot' and (merged.get(key) or {}).get('exp') and not new.get('exp'):
                 new = dict(new, exp=merged[key]['exp'])
             merged[key] = new

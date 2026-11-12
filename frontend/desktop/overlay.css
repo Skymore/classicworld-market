@@ -24,3 +24,9 @@ body{font:12px/1.35 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;color:#
 .ov-loot.notable{color:#ffd27a}
 .ov-toast{margin-top:.4em;padding:.25em .5em;background:rgba(255,190,80,.22);border-left:3px solid #ffbe50;color:#ffe2a8}
 .ov-toast-inline{color:#ffd27a}
+.ov-buffs{display:flex;flex-direction:column;gap:.2em;margin:.3em 0}
+.ov-buffs span{position:relative;display:flex;justify-content:space-between;gap:.6em;padding:.05em .4em;background:rgba(255,255,255,.08);overflow:hidden;white-space:nowrap}
+.ov-buffs i{position:absolute;left:0;top:0;bottom:0;background:rgba(124,200,255,.22)}
+.ov-buffs em,.ov-buffs b{position:relative;font-style:normal}.ov-buffs em{overflow:hidden;text-overflow:ellipsis}
+.ov-buffs .warn{color:#ff9a8a;animation:ov-blink 1s steps(2) infinite}.ov-buffs .warn i{background:rgba(255,120,100,.3)}
+@keyframes ov-blink{50%{opacity:.55}}

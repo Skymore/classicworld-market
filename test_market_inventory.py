@@ -158,7 +158,11 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(self.inventory.view()['mesos'], 54321)
         self.inventory.observe(bytes.fromhex('7e0000000100000400')+struct.pack('<Q', 54252)+bytes(2), 'one')
         self.assertEqual(self.inventory.view()['mesos'], 54252)
-        self.inventory.observe(bytes.fromhex('7e000001')+bytes(44), 'one')
+        # Picked-up money sets flag byte 3 (live capture 2026-11-11).
+        self.inventory.observe(bytes.fromhex('7e0000010100000400')+struct.pack('<Q', 54308)+bytes(2), 'one')
+        self.assertEqual(self.inventory.view()['mesos'], 54308)
+        # Flag bytes are 0 or 1; anything else is an unknown layout.
+        self.inventory.observe(bytes.fromhex('7e000002')+bytes(44), 'one')
         self.assertIsNone(self.inventory.view()['mesos'])
 
     def test_dead_reader_and_disconnected_game(self):
