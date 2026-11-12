@@ -1,0 +1,87 @@
+import struct
+import unittest
+
+import grind_autobuff as autobuff
+import test_grind_tracker as base
+
+
+def key_table(presets):
+    """A 0x5F5 frame: presets are {scan: (kind, action)} or None for a default table."""
+    out = struct.pack('<H', autobuff.KEYMAP_OPCODE)
+    for rows in list(presets) + [None]:      # three presets and the controller table
+        if rows is None:
+            out += b'\x01'
+            continue
+        out += b'\x00' + b''.join(struct.pack('<BI', *rows.get(scan, (0, 0))) for scan in range(89))
+    return out + b'\x00'
+
+
+class KeyTableTest(unittest.TestCase):
+    def test_reads_skills_per_preset_and_follows_the_selected_preset(self):
+        class C:
+            skill_keys = key_preset = None
+        c = C()
+        frame = key_table([{18: (1, 3101004), 2: (2, 2002000)}, {16: (1, 3101004), 5: (4, 7)}, None])
+        autobuff.observe_server(c, autobuff.KEYMAP_OPCODE, frame)
+        self.assertEqual(c.skill_keys, [{3101004: 18}, {3101004: 16}, {}])
+        self.assertIsNone(autobuff.skill_key(c, 3101004))          # presets differ, none selected yet
+        autobuff.observe_client(c, autobuff.KEYMAP_INDEX, b'\0\0\x03\x01')
+        self.assertEqual(autobuff.key_name(autobuff.skill_key(c, 3101004)), 'q')
+        autobuff.observe_client(c, autobuff.KEYMAP_INDEX, b'\0\0\x00\x05\x00')   # an edit
+        self.assertIsNone(c.skill_keys)
+
+    def test_rejects_a_truncated_table(self):
+        with self.assertRaises(ValueError):
+            autobuff.skill_tables(key_table([{}, {}, {}])[:100])
+
+
+class AutoBuffTest(unittest.TestCase):
+    # The tracker test's fixture, without running its tests again here.
+    setUp, tearDown, send, kill, current = (base.TrackerTest.setUp, base.TrackerTest.tearDown,
+                                            base.TrackerTest.send, base.TrackerTest.kill, base.TrackerTest.current)
+
+    def start(self, foreground=42):
+        self.pressed = []
+        self.auto = autobuff.AutoBuff(press=self.pressed.append, foreground=lambda: foreground,
+                                      pid_of=lambda connection: 42, threaded=False)
+        self.tracker.connection('s1', ('1.2.3.4', 8585, '10.0.0.2', 50000))
+        character = self.tracker.characters['s1']
+        self.send(key_table([{18: (1, 3101004)}, {18: (1, 3101004)}, {18: (1, 3101004)}]))
+        for _ in range(4):
+            self.kill()
+        character.buffs[3101004] = (self.clock(), 30_000)
+        return character
+
+    def test_recasts_a_buff_about_to_end_with_its_key_once_per_retry(self):
+        self.start()
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])                  # 30 s left
+        self.clock.t += 28.5
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['e'])
+        self.clock.t += 3
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['e'])               # waiting for the retry
+        self.clock.t += autobuff.RETRY
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['e', 'e'])
+
+    def test_never_presses_into_another_window_or_a_paused_run(self):
+        self.start(foreground=7)
+        self.clock.t += 29
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])
+        self.auto.foreground = lambda: 42
+        self.current().status = 'paused'
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])
+
+    def test_a_skill_without_a_key_is_left_alone(self):
+        character = self.start()
+        character.buffs = {3001003: (self.clock(), 1000)}
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -93,6 +93,8 @@ def restore(collector, state, now=None):
         session = Session(collector, None, None, None, None, key[0], key[1])
         session.id = saved['session']
         session.market_location = saved.get('location')
+        if getattr(collector, 'grind', None) is not None:
+            collector.grind_call('connection', session.id, key)
         stream = Stream(saved['next'])
         stream.pending = [(offset, bytes.fromhex(data)) for offset, data in saved['pending']]
         decoder = Decoder(collector.observer(session))

@@ -201,6 +201,7 @@ class Collector:
                 session=Session(self,None,None,None,None,key[0],key[1])
                 flow['session']=session.id
                 flow['session_object']=session  # Saved by market_handoff across an update.
+                self.grind_call('connection',session.id,key)
                 self.invalidate_inventory()
                 flow['decoder']=Decoder(self.observer(session))
                 self.event('game_flow_detected',session=session.id)

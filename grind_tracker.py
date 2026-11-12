@@ -24,15 +24,17 @@ import grind_protocol as proto
 import grind_combat as combat
 from grind_data import exp_to_next, job_name
 from grind_skills import FOLLOW_UPS, skill_name
+import grind_autobuff as autobuff
 
 DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, end_after_seconds=600,
                 start_events=3, start_window=60, price_basis='typical', notable_value=500000,
-                count_mesos_spent=True, min_upload_seconds=300, buff_warn_seconds=10, buff_sound=True,
+                count_mesos_spent=True, min_upload_seconds=300, buff_warn_seconds=10, buff_sound=True, auto_buff=True,
                 hotkeys=dict(overlay='Ctrl+Alt+O', pause='Ctrl+Alt+P', end='Ctrl+Alt+E'),
                 overlay=dict(enabled=True, layout='slim', theme='dark', opacity=0.92, scale=1.0,
                              hide_in_capture=False, stream=False, x=None, y=None,
                              fields=['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent']))
 IDLE_CREDIT = 10
+AUTO_BUFF_OPS = (autobuff.KEYMAP_OPCODE,) + autobuff.PRESET_OPCODES
 RECENT = 8
 HISTORY_LIMIT = 500
 # A buff kept on over half the time on a map in the last three days stays on screen there.
@@ -216,6 +218,8 @@ class Character:
         self.table = None
         self.exp_messages = 0       # experience announced since the last experience update
         self.buffs = {}             # source -> (start, milliseconds)
+        self.skill_keys = None      # per keyboard preset: skill -> scan code (grind_autobuff)
+        self.key_preset = None
         self.pickups = collections.deque(maxlen=256)   # [t, item id, unmatched quantity]
         self.pending_loot = collections.deque(maxlen=256)
         self.uses = collections.deque(maxlen=256)      # [t, item id, unmatched quantity, slot]
@@ -240,6 +244,8 @@ class Tracker:
         self.prices = prices
         self.now = now
         self.characters = {}
+        self.connections = {}       # session -> captured TCP connection, for the game window
+        self.auto_buff = None
         self.finished = []          # summaries of runs ended this process
         self.settings_path = self.data / 'settings.json'
         self.profile_path = self.data / 'protocol.json'
@@ -290,6 +296,8 @@ class Tracker:
             character = self.characters[session] = Character(session)
             self.adopt(character)
         op = int.from_bytes(data[:2], 'little')
+        if op in AUTO_BUFF_OPS:
+            autobuff.observe_server(character, op, data)
         if op == 0x32:
             from classicworld_codec import opcode_table
             try:
@@ -321,6 +329,7 @@ class Tracker:
         if character is not None:
             character.client_seen = True
             character.client_at = self.now()
+            autobuff.observe_client(character, index, data)
         request = proto.consume_request(index, data, (self.profile.get('client') or {}).get('consume') or {})
         if request and character.bag_slots is not None:
             slot, item = request
@@ -914,6 +923,14 @@ class Tracker:
                 self.pause(run, 'idle', now)
             if run.status == 'paused' and now - run.paused_at > self.settings['end_after_seconds']:
                 self.end(character, now)
+        if self.settings.get('auto_buff'):
+            if self.auto_buff is None:
+                self.auto_buff = autobuff.AutoBuff()
+            try:
+                self.auto_buff.tick(self, now)
+            except Exception as error:   # noqa: BLE001 - never stop tracking over a key press
+                self.health['auto_buff_error'] += 1
+                print(f'Auto buff skipped ({type(error).__name__}).', flush=True)
         for run in list(self.restored):
             if run.paused_at is None or now - run.paused_at > self.settings['end_after_seconds']:
                 self.finish(run, now)
@@ -930,9 +947,14 @@ class Tracker:
         if now - self.last_publish >= 1 and (self.dirty or now - self.last_publish >= 5):
             self.publish(now)
 
+    def connection(self, session, connection):
+        """The captured TCP connection of a session: finds its game window for auto buffs."""
+        self.connections[session] = tuple(connection)
+
     def disconnect(self, session):
         """The connection closed or failed; its run waits for the same character."""
         character = self.characters.pop(session, None)
+        self.connections.pop(session, None)
         if character and character.run:
             self.pause(character.run, 'disconnect', self.now())
             self.restored.append(character.run)

@@ -2,10 +2,11 @@
 // window.pywebview.api.state(), never takes focus, is dragged to move and sized
 // from its corner.
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Volume2, VolumeX, Zap, ZapOff } from 'lucide-react';
 import { createRoot } from 'react-dom/client';
 import korean from '../../server/crates/market-web/src/i18n/ko.json';
-import { installKorean, applyLanguage } from './i18n';
-import { overlayFit, overlayScale, overlayState, type GrindSettings, type Live, type LootRow } from './grind';
+import { installKorean, applyLanguage, tr } from './i18n';
+import { overlayFit, overlayScale, overlayState, overlayToggle, type GrindSettings, type Live, type LootRow } from './grind';
 import { OverlayCard } from './overlay-card';
 
 document.documentElement.classList.add('overlay-page');
@@ -47,7 +48,23 @@ function Overlay() {
   }, []);
   if (!settings) return null;
   const scale = dragged ?? (settings.overlay.scale || 1);
-  return <OverlayCard live={live} settings={settings} toast={toast} scale={scale} cardRef={card} grip={<Grip scale={scale} preview={setDragged} />} />;
+  const toggle = (name: 'auto_buff' | 'buff_sound') => {
+    setSettings({ ...settings, [name]: !settings[name] });
+    overlayToggle(name).then(value => setSettings(s => s && { ...s, [name]: value })).catch(() => null);
+  };
+  return <OverlayCard live={live} settings={settings} toast={toast} scale={scale} cardRef={card}
+    grip={<><Switches settings={settings} toggle={toggle} /><Grip scale={scale} preview={setDragged} /></>} />;
+}
+
+/** Top-right on hover: auto buff and the spoken warning, the same switches as in settings. */
+function Switches({ settings, toggle }: { settings: GrindSettings; toggle(name: 'auto_buff' | 'buff_sound'): void }) {
+  const button = (name: 'auto_buff' | 'buff_sound', on: React.ReactNode, off: React.ReactNode, label: string) =>
+    <button type="button" className={settings[name] ? 'on' : ''} aria-pressed={settings[name]} title={label} aria-label={label}
+      onMouseDown={e => e.stopPropagation() /* not the window's drag-to-move */} onClick={() => toggle(name)}>{settings[name] ? on : off}</button>;
+  return <div className="ov-switches">
+    {button('auto_buff', <Zap size={12} />, <ZapOff size={12} />, tr('自动加 Buff', 'Auto buff'))}
+    {button('buff_sound', <Volume2 size={12} />, <VolumeX size={12} />, tr('读出快结束的 Buff', 'Say buffs about to end'))}
+  </div>;
 }
 
 /** Bottom-right corner: drag to size the overlay; the window follows through the bridge. */

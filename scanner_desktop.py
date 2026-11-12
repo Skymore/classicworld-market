@@ -1172,6 +1172,10 @@ def main(collector, argv=None):
                     return
         threading.Thread(target=bounded_close, daemon=True).start()
     webview.settings['ALLOW_FILE_URLS'] = False
+    # The overlay reads buff names aloud without a click in the page first.
+    flags = os.environ.get('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS', '')
+    if 'autoplay-policy' not in flags:
+        os.environ['WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS'] = (flags + ' --autoplay-policy=no-user-gesture-required').strip()
     webview.start(run, gui='edgechromium', private_mode=False,
                   icon=str(Path(__file__).resolve().parent / ('app-icon.ico' if getattr(sys, 'frozen', False) else 'assets/app-icon.ico')),
                   storage_path=str(collector.home/'desktop-webview'), debug=False)

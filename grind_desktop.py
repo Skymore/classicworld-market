@@ -436,6 +436,12 @@ class OverlayAPI:
     def fit(self, height):
         return self._service.fit_overlay(height)
 
+    def toggle(self, name):
+        """The overlay's own switches: auto buff and the spoken buff warning."""
+        if name not in ('auto_buff', 'buff_sound'):
+            raise ValueError('invalid_request')
+        return self._service.save_settings({name: not self._service.settings()[name]})[name]
+
 
 def overlay_styles(styles, stream=False):
     """Extended window styles of the overlay: never focused and off the taskbar.

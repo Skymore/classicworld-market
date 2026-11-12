@@ -7,11 +7,25 @@ import { useEffect, useRef, useState } from 'react';
 import { Clock3, Crosshair, Hourglass, Swords, TrendingUp } from 'lucide-react';
 import { itemIcon } from './format';
 import './overlay.css';
-import { tr } from './i18n';
+import { language, tr } from './i18n';
 import { big, clock, duration, mapLabel, percent, shownBuffs, statLine, type GrindSettings, type Live, type LootRow } from './grind';
 
 const I = 13;
 const ico = { width: '1.1em', height: '1.1em' }; // icons scale with the overlay's font size
+
+/** Reads a buff's name aloud in the page's language; a beep when Windows has no voice. */
+function say(text: string | null | undefined) {
+  const speech = window.speechSynthesis;
+  if (!text || !speech) return beep();
+  const lang = /[一-鿿]/.test(text) ? 'zh-CN' : /[가-힯]/.test(text) ? 'ko-KR'
+    : { zh: 'zh-CN', en: 'en-US', ko: 'ko-KR' }[language()];
+  const voices = speech.getVoices(), utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = lang; utterance.rate = 1.15;
+  const voice = voices.find(v => v.lang === lang) || voices.find(v => v.lang.startsWith(lang.slice(0, 2)));
+  if (voices.length && !voice) return beep();
+  if (voice) utterance.voice = voice;
+  speech.speak(utterance);
+}
 
 /** A short two-tone beep (no audio files in the bundle). */
 function beep() {
@@ -26,7 +40,7 @@ function beep() {
   } catch { /* no audio device */ }
 }
 
-/** Buff countdowns; beeps once when one crosses the warning time. */
+/** Buff countdowns; says a buff's name once when it crosses the warning time. */
 function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | null; settings: GrindSettings; icons?: boolean; tiles?: boolean }) {
   const [, tick] = useState(0);
   const warned = useRef(new Set<string>());
@@ -39,7 +53,7 @@ function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | 
     const key = `${b.source}:${Math.round(b.total)}:${Math.round(Date.now() / 1000 - (b.total - b.left))}`;
     if (b.left > 0 && b.left <= warn && !warned.current.has(key)) {
       warned.current.add(key);
-      if (settings.buff_sound && warn > 0) beep();
+      if (settings.buff_sound && warn > 0) say(b.name);
     }
   }
   if (!buffs.length) return null;
@@ -58,7 +72,7 @@ function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | 
 /** The overlay's card: the overlay window shows one, the settings page shows one per preset. */
 export function OverlayCard({ live, settings, toast = null, scale, cardRef, grip }: {
   live: Live | null; settings: GrindSettings; toast?: LootRow | null; scale: number;
-  cardRef?: React.Ref<HTMLDivElement>; grip?: React.ReactNode;
+  cardRef?: React.Ref<HTMLDivElement>; grip?: React.ReactNode;   // the overlay window's corner grip and switches
 }) {
   const o = settings.overlay, run = live?.runs?.[0] ?? null, show = (key: string) => o.fields.includes(key);
   const style = { '--alpha': String(o.opacity), fontSize: `${12 * scale}px` } as React.CSSProperties;

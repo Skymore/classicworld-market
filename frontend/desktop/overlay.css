@@ -124,3 +124,7 @@
 .ov-t-cute b,.ov-t-cute .party-metrics td{color:#5a2d47}.ov-t-cute .gold,.ov-t-cute .warn,.ov-t-cute .warn b{color:#d9487f}.ov-t-cute .rate-values>div:nth-child(2) b{color:#d9487f}.ov-t-cute .rate-peak{color:#d9487f}
 /* A pinned buff that ran out keeps its place, greyed, until it is recast. */
 .ov-buffs span.off{opacity:.5}.ov-buffs span.off img{filter:grayscale(1)}.ov-buffs span.off i{display:none}
+.ov-switches{position:absolute;top:2px;right:2px;z-index:3;display:flex;gap:2px;opacity:0;transition:opacity .15s}
+.ov:hover .ov-switches{opacity:1}
+.ov-switches button{display:grid;place-items:center;width:20px;height:20px;padding:0;border:1px solid rgba(255,255,255,.25);border-radius:4px;background:rgba(20,18,16,.85);color:#9b958a;cursor:pointer}
+.ov-switches button.on{color:#ffd76a;border-color:rgba(255,215,106,.55)}
