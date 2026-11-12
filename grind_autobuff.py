@@ -8,6 +8,7 @@ active and the game window of that very connection is in the foreground;
 presses are simulated through market_keyboard (SendInput or the VMware relay).
 """
 import ctypes
+import json
 import queue
 import struct
 import threading
@@ -16,10 +17,10 @@ import time
 KEYMAP_OPCODE = 0x5F5
 KEYMAP_INDEX = 212            # mapping-table index of the client's key-setting request
 PRESET_OPCODES = (0x8B, 0x1A9)
-LEAD = 2.0                    # recast a skill this many seconds before its buff ends
+LEAD = 3.0                    # recast a skill this many seconds before its buff ends
 ITEM_LATE = 1.0               # use an item this long after its buff ended (no time wasted)
 RETRY = 8.0                   # a recast that did not take is retried after this long
-GAP = 1.5                     # between two recasts (cast animations)
+GAP = 1.0                     # at most one press a second; several due ones queue, soonest first
 
 
 def skill_tables(plain):
@@ -131,6 +132,8 @@ class AutoBuff:
         self.tried = {}           # (session, skill) -> time of the last press
         self.last = 0.0
         self.pressed = 0
+        self.waiting = None       # why the last due buff was not pressed (state file and log)
+        self.last_press = None
         self.jobs = queue.Queue(maxsize=4)
         self.thread = None
 
@@ -150,16 +153,18 @@ class AutoBuff:
                 continue
             if character.hp is not None and character.hp <= 0:
                 continue
-            # Skill buffs ending soon or just ended (the tracker keeps those a
-            # little while), and pinned buffs that ran out: the player keeps them
-            # on here. Items only when pinned and a second after they ended. A
-            # buff the player renewed has its new time here, so it is skipped.
+            # Skill buffs the player cast in this run, and pinned buffs (the
+            # player keeps them on here): ending soon, or ended however long ago.
+            # Items only when pinned and a second after they ended. A buff the
+            # player renewed has its new time here, so it is skipped.
             pinned = tracker.pinned_buffs(character, now)
+            cast = {source for segment in run.segments for source in segment.buff_totals
+                    if source > 0 and run.casts.get(source)}
             due = {source: start + milliseconds / 1000 - now
                    for source, (start, milliseconds) in character.buffs.items()}
-            due.update({source: -3600 for source in pinned if source not in due})
+            due.update({source: -3600 for source in set(pinned) | cast if source not in due})
             for source, left in sorted(due.items(), key=lambda item: item[1]):
-                if source > 0 and left > LEAD:
+                if source > 0 and (left > LEAD or (source not in cast and source not in pinned)):
                     continue
                 if source < 0 and (source not in pinned or left > -ITEM_LATE
                                    or (character.bags is not None and character.bags.get(-source, 0) <= 0)):
@@ -172,11 +177,22 @@ class AutoBuff:
                     continue
                 pid = self.pid(connection, now)
                 if pid is None or self.foreground() != pid:
-                    return
+                    return self.wait('game_not_found' if pid is None else 'game_not_in_front', source)
                 self.tried[(character.session, source)] = now
                 self.last = now
+                self.waiting = None
+                self.last_press = dict(at=round(now), source=source, key=name)
+                print(json.dumps(dict(time=now, event='auto_buff', source=source, key=name)), flush=True)
                 self.queue(pid, name)
                 return
+
+    def wait(self, reason, source):
+        if self.waiting != reason:
+            print(json.dumps(dict(time=time.time(), event='auto_buff_waiting', reason=reason, source=source)), flush=True)
+        self.waiting = reason
+
+    def status(self):
+        return dict(pressed=self.pressed, last=self.last_press, waiting=self.waiting)
 
     def queue(self, pid, name):
         if not self.threaded:

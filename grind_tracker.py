@@ -1273,7 +1273,8 @@ class Tracker:
                      calibration=[dict(label=a, state=b) for a, b in calibration_summary(self.profile)],
                      recording=self.frames is not None and not self.frames.failed,
                      characters=[dict(c.facts(), map_id=c.map_id, buffs=self.buffs(c, now)) for c in self.characters.values()],
-                     protocol_warning=bool(self.suspect()))
+                     protocol_warning=bool(self.suspect()),
+                     auto_buff=self.auto_buff.status() if self.auto_buff else None)
         write_json(self.folder / 'grind_state.json', state)
         self.last_publish = now
         self.dirty = False

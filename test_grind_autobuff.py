@@ -1,3 +1,4 @@
+import collections
 import struct
 import unittest
 
@@ -50,6 +51,8 @@ class AutoBuffTest(unittest.TestCase):
         for _ in range(4):
             self.kill()
         character.buffs[3101004] = (self.clock(), 30_000)
+        self.current().casts[3101004] = 1                # the player cast it in this run
+        self.current().segment.buff_totals[3101004] = 30
         return character
 
     def test_recasts_a_buff_about_to_end_with_its_key_once_per_retry(self):
@@ -65,6 +68,41 @@ class AutoBuffTest(unittest.TestCase):
         self.clock.t += autobuff.RETRY
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, ['e', 'e'])
+
+    def test_skills_due_together_queue_one_a_second_soonest_first(self):
+        character = self.start()
+        self.send(key_table([{18: (1, 3101004), 19: (1, 3001003)}] * 3))
+        run = self.current()
+        run.casts[3001003] = 1
+        run.segment.buff_totals[3001003] = 30
+        character.buffs[3001003] = (self.clock() - 0.5, 30_000)   # ends half a second sooner
+        self.clock.t += 27.2                                       # 2.3 and 2.8 seconds left
+        self.auto.tick(self.tracker, self.clock())
+        self.clock.t += 0.5
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['r'])
+        self.clock.t += 0.5
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['r', 'e'])
+
+    def test_a_buff_that_ended_while_the_game_was_behind_is_recast_when_it_is_back(self):
+        character = self.start(foreground=7)
+        self.clock.t += 29
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.auto.status()['waiting'], 'game_not_in_front')
+        self.clock.t += 60
+        del character.buffs[3101004]                     # long gone from the live timers
+        self.auto.foreground = lambda: 42
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['e'])
+        self.assertEqual(self.auto.status()['last']['key'], 'e')
+
+    def test_a_buff_someone_else_cast_is_left_alone(self):
+        self.start()
+        self.current().casts.clear()
+        self.clock.t += 29
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])
 
     def test_never_presses_into_another_window_or_a_paused_run(self):
         self.start(foreground=7)
@@ -110,6 +148,8 @@ class AutoBuffTest(unittest.TestCase):
     def test_a_skill_without_a_key_is_left_alone(self):
         character = self.start()
         character.buffs = {3001003: (self.clock(), 1000)}
+        self.current().casts = collections.Counter({3001003: 1})
+        self.current().segment.buff_totals = {3001003: 1}
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, [])
 
