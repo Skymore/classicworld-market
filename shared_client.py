@@ -93,7 +93,9 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
         connection.execute('CREATE TABLE IF NOT EXISTS retries (path TEXT PRIMARY KEY, attempts INTEGER NOT NULL, retried REAL)')
         timeline=LocationTimeline(folder/'map_observations.jsonl')
         deferred={}
-        paths = sorted([*folder.glob('shop_*.json'), *folder.glob('presence_*.json'), *folder.glob('roster_*.json')])
+        paths = sorted([*folder.glob('shop_*.json'), *folder.glob('presence_*.json'), *folder.glob('roster_*.json'),
+                        *folder.glob('grind_*.json')])
+        paths = [p for p in paths if p.name != 'grind_state.json']
         records = {row[0]: (row[1], row[2]) for row in connection.execute('SELECT path,status,updated FROM sent')}
         attempts = dict(connection.execute('SELECT path,attempts FROM retries'))
         now = time.time()
@@ -128,7 +130,10 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
                                        (path.name,'rejected_final',updated));connection.commit()
                     records[path.name] = ('rejected_final', updated)
                     continue
-                if path.name.startswith('roster_'):
+                if path.name.startswith('grind_'):
+                    payload = data
+                    route = '/api/v1/collector/grind-session'
+                elif path.name.startswith('roster_'):
                     from market_presence import roster_payload
                     payload = roster_payload(data)
                     route = '/api/v1/collector/room-roster'
@@ -423,7 +428,8 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None, prepare_up
     class CaptureHandler(FileSystemEventHandler):
         def on_any_event(self,event):
             path=Path(getattr(event,'dest_path','') or event.src_path)
-            if not event.is_directory and (path.match('shop_*.json') or path.match('presence_*.json') or path.match('roster_*.json') or path.name=='map_observations.jsonl'):
+            if not event.is_directory and (path.match('shop_*.json') or path.match('presence_*.json') or path.match('roster_*.json')
+                                           or (path.match('grind_*.json') and path.name!='grind_state.json') or path.name=='map_observations.jsonl'):
                 capture_changed.set()
     observer=Observer()
     sources={folder.resolve(),*(Path(p).resolve() for p in config.get('extra_folders',[]))}
@@ -462,7 +468,7 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None, prepare_up
         if not args.proxy:
             from market_passive import run
             print('Receive-only capture: ' + args.backend + ' backend. Reconnect once, then browse manually.',flush=True)
-            run(folder,args.seconds,args.backend,stop_event=stopping,on_event=on_event);return
+            run(folder,args.seconds,args.backend,stop_event=stopping,on_event=on_event,config=config);return
         from market_proxy import Proxy
         print('Local proxy 127.0.0.1:1088. Reconnect game channel after importing profile. Browse manually. Close game session before stopping collector.',flush=True)
         asyncio.run(Proxy(folder,allow_requests=False,market_only=True).run())

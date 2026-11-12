@@ -18,6 +18,7 @@ import { normalizeOfferFilters } from "/web/js/lib/item-offer-filters.js?v=20261
 import { MapViewPanel, ZoomMap } from "./mapview";
 import { PlaceField, type Choice } from "./route-field";
 import { RouteOverview } from "./worldmap";
+import GrindResults from "../components/grind-results";
 import { secondaryLanguage } from "/web/js/lib/i18n.js";
 export function useNames() {
   const { language } = usePreferences();
@@ -581,6 +582,7 @@ function MapPage({ page }: { page: any }) {
           />
         ) : null}
         <Description text={map.description} />
+        <GrindResults mapId={map.id} />
         <div className="dgrid">
           <div className="dcol">
             <Well

@@ -20,8 +20,12 @@
       "_shared-Cwf5YL9D.js"
     ]
   },
-  "_catalogue-DpAjtMQr.js": {
-    "file": "chunks/catalogue-DpAjtMQr.js",
+  "_catalogue-B21_Aq-n.css": {
+    "file": "chunks/catalogue-B21_Aq-n.css",
+    "src": "_catalogue-B21_Aq-n.css"
+  },
+  "_catalogue-YiL0wSMT.js": {
+    "file": "chunks/catalogue-YiL0wSMT.js",
     "name": "catalogue",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -34,11 +38,15 @@
       "_shop-view-Cg2h0My8.js",
       "_equipment-summary-BAqE_aiN.js",
       "_list-rows-DtvcM4hK.js",
+      "_sweep-labels-CbOZ9kot.js",
       "_offer-filters-BdJSp6ek.js",
       "_crafting-CXB4nJ1A.js"
     ],
     "dynamicImports": [
       "src/pages/catalogue-search.tsx"
+    ],
+    "css": [
+      "chunks/catalogue-B21_Aq-n.css"
     ]
   },
   "_chevron-right-CY1gq-Mw.js": {
@@ -115,8 +123,8 @@
       "_shared-Cwf5YL9D.js"
     ]
   },
-  "_main-ZRei0Aql.js": {
-    "file": "chunks/main-ZRei0Aql.js",
+  "_main-Dh_JetJf.js": {
+    "file": "chunks/main-Dh_JetJf.js",
     "name": "main",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -368,7 +376,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-ZRei0Aql.js"
+      "_main-Dh_JetJf.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -424,7 +432,7 @@
     ]
   },
   "src/pages/catalogue-search.tsx": {
-    "file": "chunks/catalogue-search-DbAev_hL.js",
+    "file": "chunks/catalogue-search-D9khx8bE.js",
     "name": "catalogue-search",
     "src": "src/pages/catalogue-search.tsx",
     "isDynamicEntry": true,
@@ -433,16 +441,16 @@
       "_shell-M1akjSXI.js",
       "_dialog-BG3HsSV-.js",
       "_price-state-CM6xKDyT.js",
-      "_catalogue-DpAjtMQr.js"
+      "_catalogue-YiL0wSMT.js"
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-BSXEMHlB.js",
+    "file": "chunks/catalogue-j54PivN8.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_catalogue-DpAjtMQr.js"
+      "_catalogue-YiL0wSMT.js"
     ]
   },
   "src/pages/client.tsx": {
@@ -638,7 +646,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-ZRei0Aql.js"
+      "_main-Dh_JetJf.js"
     ]
   }
 }

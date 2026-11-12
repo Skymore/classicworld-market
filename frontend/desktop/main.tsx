@@ -6,6 +6,7 @@ import '../../web/css/base.css';
 import './style.css';
 import { useWorkspaceStatus } from './workspace';
 import ScanPage from './scan-page';
+import GrindPage from './grind-page';
 import BugReport from './bug-report';
 import { RemoteDebugTools, RemoteDebugBanner } from './remote-debug';
 import SitePage, { SITE_LABELS, type HostShell, type SitePageKey, type WatchSummary } from './site-page';
@@ -13,12 +14,12 @@ import { applyLanguage, language as currentLanguage, systemLanguage, tr, type La
 import { updateLabel } from './format';
 import { healthLabel, initial, isLive, type State, type Theme } from './state';
 
-type ClientTab = 'scan' | 'sweep' | 'account';
+type ClientTab = 'scan' | 'grind' | 'sweep' | 'account';
 type Tab = SitePageKey | ClientTab;
 // Sweep and account are pages too (built with the website, served by this PC), shown in the collector's group.
 // The website's sections, in its navigation order, then what only the collector does.
 const SITE_TABS: SitePageKey[] = ['home', 'dex', 'watch', 'selling', 'tools'];
-const CLIENT_TABS: [ClientTab, string, string][] = [['scan', '扫描采集', 'Scan'], ['sweep', '扫货', 'Sweep'], ['account', '账号', 'Account']];
+const CLIENT_TABS: [ClientTab, string, string][] = [['scan', '扫描采集', 'Scan'], ['grind', '刷图', 'Grind'], ['sweep', '扫货', 'Sweep'], ['account', '账号', 'Account']];
 const PAGE_TABS: SitePageKey[] = [...SITE_TABS, 'sweep', 'account'];
 const isSite = (tab: Tab): tab is SitePageKey => (PAGE_TABS as string[]).includes(tab);
 // One button cycles light → dark → system.
@@ -149,10 +150,11 @@ function App() {
       </div>
     </header>
     <RemoteDebugBanner state={state} update={setState} now={now} />
-    <main className={'desktop-main ' + (tab === 'scan' ? 'scan-main' : isSite(tab) ? 'workspace-main site-main' : 'workspace-main')}>
+    <main className={'desktop-main ' + (tab === 'scan' ? 'scan-main' : tab === 'grind' ? 'grind-main' : isSite(tab) ? 'workspace-main site-main' : 'workspace-main')}>
       {tab === 'scan' ? <ScanPage state={state} connected={connected} busy={busy} error={error} now={now} selected={selected} select={setSelected}
           action={action} sweep={sweep} openSweep={() => setTab('sweep')} />
         : null}
+      {connected && <GrindPage hidden={tab !== 'grind'} />}
       {/* Site pages stay mounted once opened: the watch page reports hits even while another tab is shown. */}
       {connected && PAGE_TABS.filter(page => page === 'watch' || opened.includes(page)).map(sitePage)}
     </main>

@@ -81,15 +81,43 @@ def game_owner(connection):
     return owns(connection)
 
 
+def grind_tracker(folder,config=None,stop=None):
+    """The grind tracker for this capture folder; None if it cannot start.
+
+    It only reads frames the collector already decoded. Its failures are
+    printed and disable it; they never stop capture."""
+    try:
+        from grind_pricing import Prices,site_fetch
+        from grind_tracker import Tracker
+        fetch=None
+        endpoint=(config or {}).get('endpoint','')
+        if config and config.get('token') and (endpoint=='https://mxd.ruit.me' or endpoint.startswith('http://127.0.0.1:')):
+            from shared_client import upload_opener
+            fetch=site_fetch(config,upload_opener)
+        prices=Prices(Path(folder)/'grind'/'prices.json',fetch)
+        if stop is not None:prices.start(stop)
+        return Tracker(folder,prices)
+    except Exception as error:
+        print(json.dumps(dict(time=time.time(),event='grind_unavailable',error=type(error).__name__,detail=str(error)[:200])),flush=True)
+        return None
+
+
 class Collector:
     market_only=True
-    def __init__(self,folder,owner=game_owner,on_event=None):
+    def __init__(self,folder,owner=game_owner,on_event=None,config=None,stop=None):
         self.folder=Path(folder);self.folder.mkdir(parents=True,exist_ok=True)
         self.owner=owner;self.flows={};self.ignored=0;self.captured=0;self.last_status=0;self.message_counts={};self.last_shop_at=None
         self.last_status_attempt=0
         self._status_warnings={}
         self.on_event=on_event
         self.inventory=Inventory()
+        self.grind=grind_tracker(self.folder,config,stop)
+    def grind_call(self,name,*args):
+        if self.grind is None:return
+        try:getattr(self.grind,name)(*args)
+        except Exception as error:
+            print(json.dumps(dict(time=time.time(),event='grind_disabled',where=name,error=type(error).__name__,detail=str(error)[:200])),flush=True)
+            self.grind=None
     def write_status(self, path, state):
         """UI diagnostics are best effort; file readers must not stop capture."""
         temporary=path.with_name(path.name+'.'+uuid.uuid4().hex+'.tmp')
@@ -156,6 +184,7 @@ class Collector:
     def invalidate_inventory(self, session=None):
         self.inventory.invalidate(session)
         self.publish_inventory()
+        if session is not None:self.grind_call('disconnect',session)
 
     def observer(self,session):
         def observe(plain):
@@ -164,6 +193,7 @@ class Collector:
             if self.inventory.revision != revision:
                 # Publish the actual stream delta now, not on the 2 s status tick.
                 self.publish_inventory()
+            self.grind_call('observe',session.id,plain,self.inventory)
             # Mapping tables are for active client requests, never needed here.
             opcode=int.from_bytes(plain[:2],'little')
             label=hex(opcode)
@@ -229,6 +259,7 @@ class Collector:
         self.event('reconnect_required',reason=reason)
     def tick(self,now=None):
         now=time.monotonic() if now is None else now
+        self.grind_call('tick')
         for key,flow in list(self.flows.items()):
             if not flow['failed']:
                 try:self.check_owner(key,flow,now)
@@ -432,8 +463,9 @@ def capture_health(collector,game_connected,elapsed):
     return 'waiting','Waiting for inbound game packets / 正在检查游戏入站收包。'
 
 
-def run(folder,seconds=0,backend="windivert",stop_event=None,on_event=None):
-    collector=Collector(folder,on_event=on_event);sniffer=WindowsSniffer() if backend=="windows" else Sniffer();collector.mode=getattr(sniffer,"mode","windivert-sniff-recv-only");packets=queue.Queue(maxsize=8192);overflow=threading.Event()
+def run(folder,seconds=0,backend="windivert",stop_event=None,on_event=None,config=None):
+    grind_stop=threading.Event()
+    collector=Collector(folder,on_event=on_event,config=config,stop=grind_stop);sniffer=WindowsSniffer() if backend=="windows" else Sniffer();collector.mode=getattr(sniffer,"mode","windivert-sniff-recv-only");packets=queue.Queue(maxsize=8192);overflow=threading.Event()
     def receive():
         while sniffer.handle is not None:
             try:raw=sniffer.recv()
@@ -495,6 +527,7 @@ def run(folder,seconds=0,backend="windivert",stop_event=None,on_event=None):
             collector.event('handoff_failed',reason=type(error).__name__)
         collector.inventory.invalidate()
         collector.write_status(collector.folder/'inventory_state.json', dict(alive_at=int(time.time()), holdings=None))
+        grind_stop.set();collector.grind_call('persist')
         collector.event('capture_stopped')
 
 

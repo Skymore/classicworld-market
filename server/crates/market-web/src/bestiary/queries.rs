@@ -702,6 +702,15 @@ impl VariantColumns {
     }
 }
 
+/// The item page's equipment group of a stored variant, as compact JSON
+/// `[[["key",value],...],remaining_upgrades,unknown_fields]` (the grind
+/// tracker builds the same string from a picked-up piece).
+pub fn equipment_group_json(value: &Value) -> String {
+    let variant = parse_variant(0, value);
+    let (stats, upgrades, unknown) = equipment_group_key(&variant);
+    serde_json::json!([stats, upgrades, unknown]).to_string()
+}
+
 fn parse_variant(id: i64, value: &Value) -> Variant {
     let value = equipment_for_display(value.clone());
     let stats = value

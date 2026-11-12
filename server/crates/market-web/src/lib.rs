@@ -36,6 +36,7 @@ pub mod devices;
 pub mod diagnostics;
 mod encoding;
 pub mod external;
+pub mod grind;
 pub mod i18n;
 pub mod ingest;
 pub mod legacy;
@@ -218,6 +219,7 @@ pub fn app_with_web(state: AppState, web_dir: Option<&std::path::Path>) -> Route
         .merge(api_headers(devices::router()))
         .merge(api_headers(sweep::router()))
         .merge(api_headers(push::router()))
+        .merge(api_headers(grind::router()))
         .merge(bestiary::routes())
         .layer(SetResponseHeaderLayer::if_not_present(
             header::X_CONTENT_TYPE_OPTIONS,

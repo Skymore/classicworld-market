@@ -1092,10 +1092,11 @@ class DesktopController:
 
 class DesktopAPI:
     """The only methods exposed to bundled, local React code."""
-    def __init__(self, controller):
+    def __init__(self, controller, grind=None):
         self._controller = controller
         from desktop_workspace import DesktopWorkspace
         self._workspace = DesktopWorkspace(controller.collector, controller.sweep)
+        self._grind = grind
 
     def ready(self):
         self._controller._ready = True
@@ -1106,6 +1107,11 @@ class DesktopAPI:
 
     def workspace(self, name, value=None):
         return self._workspace.run(name, value)
+
+    def grind(self, name, value=None):
+        if self._grind is None:
+            raise ValueError('unavailable')
+        return self._grind.run(name, value)
 
 
 def desktop_entry_url(assets):
@@ -1135,14 +1141,28 @@ def main(collector, argv=None):
     assets = Path(__file__).resolve().parent/'desktop_ui/index.html'
     if not assets.is_file():
         raise RuntimeError('界面文件缺失，请完整解压安装包。')
-    window = webview.create_window('枫叶市集 · 扫描与采集', desktop_entry_url(assets), js_api=DesktopAPI(controller),
+    overlay = assets.with_name('overlay.html')
+    grind = None
+    try:
+        from grind_desktop import GrindService
+        grind = GrindService(collector.folder, desktop_entry_url(overlay) if overlay.is_file() else None)
+    except Exception as error:
+        print(f'Grind tracker unavailable ({type(error).__name__}).', flush=True)
+    window = webview.create_window('枫叶市集 · 扫描与采集', desktop_entry_url(assets), js_api=DesktopAPI(controller, grind),
         width=MIN_SIZE[0], height=MIN_SIZE[1], resizable=True, min_size=MIN_SIZE, background_color='#e6e1d6',
         frameless=True, easy_drag=False, shadow=True)
     controller._window = window
     window.events.closing += controller.close
+    if grind is not None:
+        window.events.closing += grind.close
     window.events.maximized += lambda: controller._change(maximized=True)
     window.events.restored += lambda: controller._change(maximized=False)
     def run():
+        if grind is not None:
+            try:
+                grind.start()
+            except Exception as error:
+                print(f'Grind tracker unavailable ({type(error).__name__}).', flush=True)
         controller.pump(args.auto_start)
     if args.exit_after_stop:
         def bounded_close():

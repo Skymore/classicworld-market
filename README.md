@@ -132,6 +132,7 @@ python -m unittest test_scanner_recovery test_scanner_desktop test_unified_clien
 - [WATCH_LISTS.md](WATCH_LISTS.md)：关注清单
 - [PRICE_TRENDS.md](PRICE_TRENDS.md)：价格走势口径
 - [PLAYER_PRESENCE.md](PLAYER_PRESENCE.md)：玩家离场与报价失效
+- [GRIND_TRACKER.md](GRIND_TRACKER.md)：刷图记录、悬浮窗、协议标定与地图实测
 
 **采集、扫描与扫货**
 

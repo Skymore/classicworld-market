@@ -1,0 +1,26 @@
+/* Overlay window: transparent page, one translucent card. */
+html,body,#root{margin:0;height:100%;background:transparent;overflow:hidden;user-select:none}
+body{font:12px/1.35 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;color:#f4efe4}
+.ov{--alpha:.92;box-sizing:border-box;width:100%;min-height:100%;padding:.6em .8em;background:rgba(24,22,19,var(--alpha));border:1px solid rgba(255,214,140,.35);border-radius:6px;font-variant-numeric:tabular-nums}
+.ov.editing{outline:2px dashed #ffb44a;cursor:move}
+.ov-edit{margin-top:.4em;font-size:.9em;color:#ffcf86}
+.ov-compact{display:flex;align-items:center;padding:.35em .7em}
+.ov-line{display:flex;align-items:center;gap:.9em;white-space:nowrap}
+.ov-line small{opacity:.65}
+.ov-dot{display:inline-block;flex:none;width:.6em;height:.6em;background:#8b8f96;border-radius:1px}
+.ov-dot.on{background:#53c78b}.ov-dot.pause{background:#e4b24c}
+.ov-head{display:flex;align-items:center;gap:.6em;margin-bottom:.35em;white-space:nowrap}
+.ov-head span{min-width:0;overflow:hidden;text-overflow:ellipsis;opacity:.8}
+.ov-head em{margin-left:auto;font-style:normal;font-weight:700}
+.ov-row{display:flex;align-items:baseline;gap:.6em;margin:.18em 0;white-space:nowrap}
+.ov-row small{width:4.6em;flex:none;opacity:.6;overflow:hidden;text-overflow:ellipsis}
+.ov-row span{opacity:.8;overflow:hidden;text-overflow:ellipsis}
+.ov-row .big{font-size:1.35em}
+.gold{color:#ffd27a}.warn{color:#ff8a7a}
+.ov-bar{flex:1;height:.45em;min-width:3em;background:rgba(255,255,255,.14);overflow:hidden}
+.ov-bar i{display:block;height:100%;background:#7cc8ff}
+.ov-loot{display:flex;justify-content:space-between;gap:.6em;margin:.1em 0;white-space:nowrap;opacity:.9}
+.ov-loot span{min-width:0;overflow:hidden;text-overflow:ellipsis}.ov-loot small{opacity:.7}
+.ov-loot.notable{color:#ffd27a}
+.ov-toast{margin-top:.4em;padding:.25em .5em;background:rgba(255,190,80,.22);border-left:3px solid #ffbe50;color:#ffe2a8}
+.ov-toast-inline{color:#ffd27a}

@@ -21,7 +21,8 @@ export interface State {
 }
 declare global {
   interface Window {
-    pywebview?: { api: { ready(): Promise<State>; command(name: string, value?: unknown): Promise<State>; workspace(name: string, value?: unknown): Promise<any> } };
+    pywebview?: { api: { ready(): Promise<State>; command(name: string, value?: unknown): Promise<State>; workspace(name: string, value?: unknown): Promise<any>;
+      grind?(name: string, value?: unknown): Promise<any>; state?(): Promise<any> } };
   }
 }
 export const initial: State = {

@@ -129,7 +129,8 @@ def equip_record(data, start, end, slot, item):
     return dict(slot=slot, item_id=item, decoded=known,
                 stats=[dict(key=x['key'], value=x['value']) for x in eq.get('stats', [])] if known else [],
                 remaining_upgrades=eq.get('remaining_upgrades') if known else None,
-                enhancements=eq.get('enhancements') if known else None)
+                enhancements=eq.get('enhancements') if known else None,
+                unknown_fields=len(eq.get('unknown_fields') or []) if known else 0)
 
 
 def worn(section):
