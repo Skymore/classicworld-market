@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.32：修复鼠标停在换频道窗口上时，扫描一直认不出窗口、反复重试“读不到当前频道”的问题：打开前先把鼠标移开（只移动，不点击）。\n'
         'v0.7.31：修复同时开着市集扫描（另一个游戏客户端）刷图时，战利品和消耗全空、只记金币的问题，升级后重建历史会补回；结束的记录不再一律显示“击杀（按经验）”。\n'
         'v0.7.30：终极剑、终极斧、终极钝器、终极枪、终极矛、终极弓、终极弩等终极系列也显示在 Buff 里，可参与自动固定。\n'
         'v0.7.29：Buff 自动固定：同一角色最近 3 天在当前地图有 Buff 开着的时间超过一半，就固定显示在这张图上，过期后灰色显示“过期”提醒补上，重新施放后恢复倒计时；升级后重建历史补出数据。\n'
