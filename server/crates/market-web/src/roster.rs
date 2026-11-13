@@ -139,8 +139,15 @@ pub async fn upload(State(state): State<AppState>, headers: HeaderMap, body: Byt
         Ok(e) if e.valid(now) => e,
         _ => return error(StatusCode::BAD_REQUEST, "Invalid room roster"),
     };
-    match ingest(&state.write_db, collector.id, &event, now).await {
-        Ok(created) => Json(json!({"ok":true,"created":created})).into_response(),
+    // Finish the write even if the collector gives up waiting: it waits for the
+    // shared write lock and may recompute many items, which can outlast the
+    // collector's timeout. Dropped mid-way, every retry rolled back the same
+    // work again; finished, the retry is a quick duplicate.
+    let db = state.write_db.clone();
+    let id = collector.id;
+    match tokio::spawn(async move { ingest(&db, id, &event, now).await }).await {
+        Ok(Ok(created)) => Json(json!({"ok":true,"created":created})).into_response(),
+        Ok(Err(e)) => internal(e),
         Err(e) => internal(e),
     }
 }
