@@ -2,7 +2,7 @@
 // in full, and sharing (link plus a card image).
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Copy, Download, Link2, Share2 } from 'lucide-react';
-import { RunDetail, Spark, big, clock, signed, when, type GrindRun } from '../src/components/grind-run';
+import { RunDetail, Spark, big, clock, signed, span, when, type GrindRun } from '../src/components/grind-run';
 import { PeriodBoard } from '../src/components/grind-periods';
 import { copyCard, drawCard, saveCard } from '../src/lib/grind-card';
 import { language, tr } from './i18n';
@@ -24,24 +24,27 @@ export function HistoryView({ runs, reload }: { runs: Run[] | null; reload(): vo
   return <>
     {current && <RunPage run={current} back={() => { setOpen(null); reload(); }} />}
     <section className="stall grind-history-panel" style={current ? { display: 'none' } : undefined}>
-      <PeriodBoard runs={filtered} t={tr} english={english()} filters={<>
+      <PeriodBoard runs={filtered} t={tr} english={english()} idOf={run => run.id} filters={<>
         {names.length > 1 && <select value={who} onChange={e => setWho(e.target.value)} aria-label={tr('角色', 'Character')}>
           <option value="">{tr('全部角色', 'All characters')}</option>{names.map(n => <option key={n}>{n}</option>)}</select>}
         {maps.length > 1 && <select value={map} onChange={e => setMap(e.target.value)} aria-label={tr('地图', 'Map')}>
           <option value="">{tr('全部地图', 'All maps')}</option>{maps.map(n => <option key={n}>{n}</option>)}</select>}
-      </>}>{shown => <div className="grind-history-list" role="list">
-        <div className="grind-history-row head" aria-hidden="true">
+      </>}>{(shown, picks) => <div className="grind-history-list" role="list">
+        <div className="gp-line" aria-hidden="true">{picks && <span className="gp-pick" />}<div className="grind-history-row head">
           <span>{tr('时间', 'Time')}</span><span>{tr('地图 · 角色', 'Map · character')}</span><span>{tr('时长', 'Time')}</span>
           <span>{tr('经验/时', 'EXP/h')}</span><span>{tr('收益/时', 'Profit/h')}</span><span>{tr('击杀', 'Kills')}</span><span />
-        </div>
-        {shown.map(run => <button key={run.id} role="listitem" className="grind-history-row" onClick={() => setOpen(run.id)}>
+        </div></div>
+        {shown.map(run => <div className="gp-line" key={run.id} role="listitem">
+          {picks && <label className="gp-pick" title={tr('勾两场对比', 'Tick two to compare')}><input type="checkbox" checked={picks.has(run.id)}
+            disabled={picks.full && !picks.has(run.id)} onChange={() => picks.toggle(run.id)} aria-label={tr('选这一场对比', 'Compare this run')} /></label>}
+          <button className="grind-history-row" onClick={() => setOpen(run.id)}>
           <span>{when(run.started_at)}</span>
           <span className="who"><b>{run.map_name || '—'}</b>{run.segments?.length > 1 && <small> +{run.segments.length - 1}</small>}
             <small> {run.character?.name} · {run.job_name} {run.level ?? ''}</small>{run.share_url && <i className="shared">{tr('已分享', 'Shared')}</i>}</span>
-          <span>{clock(run.active_seconds)}</span><span>{big(run.exp_per_hour, english())}</span>
+          <span>{span(run.active_seconds, english())}</span><span>{big(run.exp_per_hour, english())}</span>
           <span className={run.net_per_hour ? "money" : undefined}>{signed(run.net_per_hour, english())}</span><span>{big(run.kills, english())}</span>
           <Spark run={run} />
-        </button>)}
+        </button></div>)}
       </div>}</PeriodBoard>
     </section>
   </>;

@@ -33,8 +33,9 @@
 .gp-map.head{font-size:11px;color:var(--ink-3)}
 .gp-empty{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:22px 14px;color:var(--ink-2)}
 @media (max-width:640px){
-  .gp-seg button,.gp-nav button{min-height:40px}.gp-nav button{width:40px;height:40px}
-  .gp-nav{flex:1}.gp-nav b{flex:1;min-width:0}
+  .gp-bar{padding:10px 12px;gap:8px}
+  .gp-seg button,.gp-nav button{min-height:40px}.gp-seg button{padding:0 11px}.gp-nav button{width:36px;height:40px}
+  .gp-nav{flex:1;min-width:0}.gp-nav b{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis}
   .gp-totals{grid-template-columns:repeat(2,minmax(0,1fr))}.gp-totals>div:first-child{grid-column:1/-1}
   .gp-map{grid-template-columns:minmax(0,1fr) 64px 76px}.gp-map .opt{display:none}
 }
@@ -51,3 +52,61 @@ button.gp-map[aria-pressed=true]{outline:1px solid var(--bar);outline-offset:-1p
 .gp-sort{padding:0;border:0;background:none;font:inherit;font-size:11px;color:var(--ink-3);text-align:right;cursor:pointer;white-space:nowrap}
 .gp-sort[aria-pressed=true]{color:var(--ink);font-weight:700}
 @media (max-width:640px){.gp-extra{margin-left:0;flex-wrap:wrap}.gp-sort.opt{display:none}}
+.gp-copy[aria-pressed=true]{background:var(--bar);border-color:var(--bar-lo);color:var(--bar-ink)}
+.gp-copy:disabled{opacity:.45;cursor:default}
+.gp-metric{display:flex;align-items:center;gap:4px;padding:8px 14px 0}
+.gp-metric small{margin-right:6px;font-size:11px;color:var(--ink-3)}
+.gp-metric button{padding:2px 9px;border:1px solid var(--edge);background:var(--sheet-hi);font:inherit;font-size:12px;color:var(--ink-2);cursor:pointer}
+.gp-metric button[aria-pressed=true]{background:var(--bar);border-color:var(--bar-lo);color:var(--bar-ink);font-weight:700}
+.gp-charts{display:flex;align-items:stretch;border-bottom:1px solid var(--rule)}
+.gp-charts .gp-bars{flex:1.4;border-bottom:0}
+.gp-bars .neg i,.gp-trend .neg i{background:#c0483a}
+.gp-trend{flex:1;display:flex;align-items:flex-end;gap:3px;height:78px;padding:10px 14px 6px;border-left:1px solid var(--rule);position:relative}
+.gp-trend-title{position:absolute;left:14px;top:4px;font-size:10px;color:var(--ink-3)}
+.gp-trend button{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;padding:12px 0 0;border:0;background:none;font:inherit;cursor:pointer}
+.gp-trend button:disabled{cursor:default}
+.gp-trend i{display:block;width:100%;min-height:2px;background:var(--rule)}
+.gp-trend .on i{background:var(--bar-soft);outline:1px solid var(--bar)}
+.gp-trend .now i{background:var(--bar)}
+.gp-trend small{height:10px;font-size:9px;line-height:1;color:var(--ink-3);white-space:nowrap}
+.gp-cal{padding:10px 14px;border-bottom:1px solid var(--rule)}
+.gp-cal-grid{display:flex;gap:3px;overflow-x:auto}
+.gp-cal-week{display:flex;flex-direction:column;gap:3px}
+.gp-cal-week small{height:12px;font-size:9px;line-height:12px;color:var(--ink-3);white-space:nowrap}
+.gp-cal-week button,.gp-cal-key i{width:12px;height:12px;padding:0;border:0;border-radius:2px;background:var(--rule);cursor:pointer}
+.gp-cal-week button:disabled{cursor:default}
+.gp-cal .l1{background:color-mix(in srgb,var(--bar) 30%,var(--sheet))}.gp-cal .l2{background:color-mix(in srgb,var(--bar) 55%,var(--sheet))}
+.gp-cal .l3{background:color-mix(in srgb,var(--bar) 78%,var(--sheet))}.gp-cal .l4{background:var(--bar)}
+.gp-cal-foot{display:flex;justify-content:space-between;gap:10px;margin-top:6px;font-size:11px;color:var(--ink-3)}
+.gp-cal-key{display:inline-flex;align-items:center;gap:3px}.gp-cal-key i{display:inline-block;cursor:default}
+.gp-compare{background:var(--sheet-hi)}.gp-compare small{color:var(--ink-3)}
+.gp-pick{display:flex;align-items:center;justify-content:center;width:28px;flex:none}
+.gp-pick input{width:15px;height:15px;cursor:pointer}
+.gp-line{display:flex;align-items:stretch;min-width:0}.gp-line>:last-child{flex:1;min-width:0}
+/* Two runs compared (grind-compare.tsx). */
+.gc-backdrop{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;background:rgba(20,16,10,.45);overflow:auto}
+.gc{width:min(720px,100%);background:var(--sheet);border:1px solid var(--edge);box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.gc-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--rule)}
+.gc-head h3{margin:0;font-size:15px}
+.gc-close{width:30px;height:30px;border:0;background:none;font-size:20px;line-height:1;color:var(--ink-2);cursor:pointer}
+.gc-who{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule);border-bottom:1px solid var(--rule)}
+.gc-who>div{display:flex;flex-direction:column;gap:2px;padding:8px 14px;background:var(--sheet);min-width:0}
+.gc-who i{width:22px;height:3px;border-radius:2px}
+.gc-who small{font-size:11px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gc-a i{background:#3b5f8a}.gc-b i{background:#d4862a}
+.gc-row .gc-a{color:#3b5f8a}.gc-row .gc-b{color:#d4862a}
+.gc-chart{margin:0;padding:10px 14px 4px;border-bottom:1px solid var(--rule)}
+.gc-chart svg{display:block;width:100%;height:170px}
+.gc-grid{stroke:var(--rule);stroke-dasharray:3 3}
+.gc-line-a,.gc-line-b{fill:none;stroke-width:2}.gc-line-a{stroke:#3b5f8a}.gc-line-b{stroke:#d4862a}
+.gc-chart figcaption{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-3)}
+.gc-table{padding:4px 8px 8px;font-size:13px}
+.gc-row{display:grid;grid-template-columns:minmax(0,1fr) 1fr 1fr 74px;gap:8px;padding:5px 6px;border-bottom:1px dashed var(--rule);font-variant-numeric:tabular-nums}
+.gc-row>span:not(:first-child){text-align:right;white-space:nowrap}
+.gc-row.head{font-size:11px;font-weight:700;color:var(--ink-3)}
+.gc-up{color:#2f8f4e;font-weight:700}.gc-down{color:#c0483a;font-weight:700}.gc-same{color:var(--ink-3)}
+.gc-note{margin:0;padding:6px 14px 12px;font-size:11px;color:var(--ink-3)}
+@media (max-width:640px){
+  .gp-charts{flex-direction:column}.gp-charts .gp-bars,.gp-trend{flex:none;height:86px}.gp-trend{border-left:0;border-top:1px solid var(--rule)}
+  .gc-backdrop{padding:0}.gc{min-height:100%}.gc-row{grid-template-columns:minmax(0,1fr) 1fr 1fr 56px}
+}

@@ -1,13 +1,18 @@
 // Grind history by day, week or month: totals, the active days, how the maps
 // compare, then that period's runs. Shared by the client and the website.
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { big, clock, signed, type GrindRun, type Words } from "./grind-run";
+import { big, span, signed, type GrindRun, type Words } from "./grind-run";
+import { RunCompare } from "./grind-compare";
 import "./grind-periods.css";
 
 type Mode = "day" | "week" | "month";
 type MapSort = "exp" | "time" | "net";
-/** Runs shorter than this are usually a map passed through; hidden on request. */
-const SHORT = 5 * 60;
+/** What the day bars and the period trend measure. */
+type Metric = "time" | "exp" | "rate" | "net";
+/** Ticking runs in the list: the two to compare. */
+export interface Picks { has(id: string): boolean; toggle(id: string): void; full: boolean }
+/** Runs shorter than this are a map passed through, not a grind: never listed or counted. */
+const SHORT = 2 * 60;
 type Run = Pick<GrindRun, "started_at" | "active_seconds" | "exp" | "net" | "kills" | "map_name">;
 
 const day = (at: Date) => new Date(at.getFullYear(), at.getMonth(), at.getDate());
@@ -45,21 +50,33 @@ function remembered(key?: string): { mode: Mode; at: number } | null {
   } catch { return null; }
 }
 
-export function PeriodBoard<T extends Run>({ runs, t, english, filters, remember, children }: {
-  runs: T[]; t: Words; english: boolean; filters?: ReactNode; remember?: string; children(shown: T[]): ReactNode;
+export function PeriodBoard<T extends Run>({ runs, t, english, filters, remember, idOf, children }: {
+  runs: T[]; t: Words; english: boolean; filters?: ReactNode; remember?: string;
+  /** Turns on ticking two runs to compare; the key of a run. */
+  idOf?: (run: T) => string;
+  children(shown: T[], picks: Picks | null): ReactNode;
 }) {
-  const latest = useMemo(() => runs.reduce((at, run) => Math.max(at, run.started_at), 0), [runs]);
+  const latest = useMemo(() => runs.reduce((at, run) => (run.active_seconds || 0) >= SHORT ? Math.max(at, run.started_at) : at, 0), [runs]);
   const [mode, setMode] = useState<Mode>(() => remembered(remember)?.mode ?? "week");
   // Opens on the period of the latest run, so the first screen is never empty.
   const [anchor, setAnchor] = useState(() => new Date(remembered(remember)?.at ?? (latest ? latest * 1000 : Date.now())));
   useEffect(() => {
     if (remember) try { sessionStorage.setItem(remember, JSON.stringify({ mode, at: anchor.getTime() })); } catch { /* storage unavailable */ }
   }, [remember, mode, anchor]);
-  const [hideShort, setHideShort] = useState(false), [onlyMap, setOnlyMap] = useState<string | null>(null);
+  const [onlyMap, setOnlyMap] = useState<string | null>(null);
   const [mapSort, setMapSort] = useState<MapSort>("exp"), [copied, setCopied] = useState(false);
+  const [metric, setMetric] = useState<Metric>("time"), [calendar, setCalendar] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]), [comparing, setComparing] = useState(false);
+  const picks: Picks | null = idOf ? {
+    has: id => picked.includes(id),
+    toggle: id => setPicked(list => list.includes(id) ? list.filter(x => x !== id) : [...list, id].slice(-2)),
+    full: picked.length >= 2,
+  } : null;
+  // A is the earlier run, B the later one, whichever was ticked first.
+  const pair = idOf && picked.length === 2 ? (picked.map(id => runs.find(run => idOf(run) === id)).filter(Boolean) as T[]).sort((x, y) => x.started_at - y.started_at) : [];
   const start = startOf(mode, anchor), end = shift(mode, start, 1);
   const within = (run: Run, from: Date, to: Date) => run.started_at * 1000 >= from.getTime() && run.started_at * 1000 < to.getTime();
-  const kept = useMemo(() => hideShort ? runs.filter(run => (run.active_seconds || 0) >= SHORT) : runs, [runs, hideShort]);
+  const kept = useMemo(() => runs.filter(run => (run.active_seconds || 0) >= SHORT), [runs]);
   const period = useMemo(() => kept.filter(run => within(run, start, end)), [kept, start.getTime(), end.getTime()]);
   const shown = useMemo(() => onlyMap ? period.filter(run => (run.map_name || "—") === onlyMap) : period, [period, onlyMap]);
   const seconds = total(shown, "active_seconds");
@@ -77,17 +94,35 @@ export function PeriodBoard<T extends Run>({ runs, t, english, filters, remember
       {ratio >= 0 ? "▲" : "▼"}{Math.abs(ratio * 100) >= 999 ? "999+" : Math.round(Math.abs(ratio * 100))}%</i>;
   };
 
+  const measure = (list: Run[]) => {
+    const time = total(list, "active_seconds");
+    return metric === "time" ? time : metric === "exp" ? total(list, "exp") : metric === "net" ? total(list, "net") : hourly(total(list, "exp"), time) ?? 0;
+  };
+  const show = (value: number) => metric === "time" ? span(value, english) : metric === "net" ? signed(value, english) : big(value, english) + (metric === "rate" ? t("/时", "/h") : "");
   const days = useMemo(() => {
     if (mode === "day") return [];
-    const list: { at: Date; seconds: number; exp: number }[] = [];
+    const list: { at: Date; seconds: number; value: number }[] = [];
     for (let at = start; at < end; at = shift("day", at, 1)) {
       const those = shown.filter(run => within(run, at, shift("day", at, 1)));
-      list.push({ at, seconds: total(those, "active_seconds"), exp: total(those, "exp") });
+      list.push({ at, seconds: total(those, "active_seconds"), value: measure(those) });
     }
     return list;
-  }, [shown, mode, start.getTime()]);
-  const longest = Math.max(1, ...days.map(d => d.seconds));
+  }, [shown, mode, start.getTime(), metric]);
+  const longest = Math.max(1, ...days.map(d => Math.abs(d.value)));
   const today = day(new Date()).getTime();
+  // The last 12 periods of the same size, this one last: the long trend.
+  const trend = useMemo(() => {
+    const list: { at: Date; value: number; seconds: number }[] = [];
+    for (let back = 11; back >= 0; back--) {
+      const from = shift(mode, start, -back), to = shift(mode, from, 1);
+      const those = kept.filter(run => within(run, from, to) && (!onlyMap || (run.map_name || "—") === onlyMap));
+      list.push({ at: from, value: measure(those), seconds: total(those, "active_seconds") });
+    }
+    return list;
+  }, [kept, mode, start.getTime(), onlyMap, metric]);
+  const trendTop = Math.max(1, ...trend.map(p => Math.abs(p.value)));
+  const short = (at: Date) => mode === "month" ? (english ? at.toLocaleDateString("en-US", { month: "short" }) : `${at.getMonth() + 1}月`)
+    : english ? `${at.getMonth() + 1}/${at.getDate()}` : `${at.getMonth() + 1}/${at.getDate()}`;
 
   const maps = useMemo(() => {
     const groups = new Map<string, Run[]>();
@@ -102,11 +137,11 @@ export function PeriodBoard<T extends Run>({ runs, t, english, filters, remember
     const hour = t("时", "h");
     const lines = [
       `${t("练级战报", "Grind report")} · ${label(mode, start, end, english)}${onlyMap ? ` · ${onlyMap}` : ""}`,
-      `${t("刷图", "Runs")} ${shown.length} · ${clock(seconds)}`,
+      `${t("刷图", "Runs")} ${shown.length} · ${span(seconds, english)}`,
       `${t("经验", "EXP")} ${big(total(shown, "exp"), english)} · ${big(hourly(total(shown, "exp"), seconds), english)}/${hour}`,
       `${t("净收益", "Net")} ${signed(total(shown, "net"), english)} · ${signed(hourly(total(shown, "net"), seconds), english)}/${hour}`,
       `${t("击杀", "Kills")} ${big(total(shown, "kills"), english)}`,
-      ...(onlyMap ? [] : maps.slice(0, 3).map(map => `${map.name}: ${clock(map.time)} · ${big(map.exp, english)} EXP/${hour} · ${signed(map.net, english)}/${hour}`)),
+      ...(onlyMap ? [] : maps.slice(0, 3).map(map => `${map.name}: ${span(map.time, english)} · ${big(map.exp, english)} EXP/${hour} · ${signed(map.net, english)}/${hour}`)),
       "mxd.ruit.me",
     ];
     navigator.clipboard?.writeText(lines.join("\n")).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); }, () => null);
@@ -124,32 +159,56 @@ export function PeriodBoard<T extends Run>({ runs, t, english, filters, remember
         <button type="button" aria-label={t("下一个", "Next")} disabled={end.getTime() > Date.now()} onClick={() => setAnchor(shift(mode, start, 1))}>›</button>
       </div>
       <div className="gp-extra">{filters}
-        <label className="gp-check"><input type="checkbox" checked={hideShort} onChange={e => setHideShort(e.target.checked)} />{t("隐藏 5 分钟以下", "Hide under 5 min")}</label>
+        <button type="button" className="gp-copy" aria-pressed={calendar} onClick={() => setCalendar(v => !v)}>{t("活跃日历", "Calendar")}</button>
         {shown.length > 0 && <button type="button" className="gp-copy" onClick={report}>{copied ? t("已复制", "Copied") : t("复制战报", "Copy report")}</button>}
       </div>
     </div>
+    {calendar && <ActivityCalendar runs={kept} t={t} english={english} pick={at => { setMode("day"); setAnchor(at); }} />}
+    {picks && picked.length > 0 && <div className="gp-chip gp-compare">
+      <span>{t(`已选 ${picked.length}/2 场`, `${picked.length}/2 selected`)}{picked.length < 2 && <small> · {t("再勾一场就能对比", "tick one more to compare")}</small>}</span>
+      <button type="button" className="gp-copy" disabled={pair.length < 2} onClick={() => setComparing(true)}>{t("对比", "Compare")}</button>
+      <button type="button" className="text-link" onClick={() => setPicked([])}>{t("取消选择", "Clear")}</button>
+    </div>}
+    {comparing && pair.length === 2 && <RunCompare a={pair[0] as unknown as GrindRun} b={pair[1] as unknown as GrindRun} t={t} english={english} close={() => setComparing(false)} />}
     {onlyMap && <div className="gp-chip"><span>{t("只看", "Only")} <b>{onlyMap}</b></span><button type="button" className="text-link" onClick={() => setOnlyMap(null)}>{t("全部地图", "All maps")}</button></div>}
     {shown.length === 0
       ? <div className="gp-empty"><span>{t("这段时间没有记录。", "No runs in this period.")}</span>
           {latest > 0 && <button type="button" className="text-link" onClick={() => setAnchor(new Date(latest * 1000))}>{t("去最近一次记录", "Go to the latest run")}</button>}</div>
       : <>
         <div className="gp-totals">
-          <div><small>{t("刷图", "Runs")}</small><b>{shown.length}<span> · {clock(seconds)}</span>{change(seconds, beforeSeconds)}</b></div>
+          <div><small>{t("刷图", "Runs")}</small><b>{shown.length}<span> · {span(seconds, english)}</span>{change(seconds, beforeSeconds)}</b></div>
           <div><small>{t("经验", "EXP")}</small><b>{big(total(shown, "exp"), english)}{change(total(shown, "exp"), total(before, "exp"))}</b></div>
           <div><small>{t("经验/时", "EXP/h")}</small><b>{big(hourly(total(shown, "exp"), seconds), english)}{change(hourly(total(shown, "exp"), seconds), hourly(total(before, "exp"), beforeSeconds))}</b></div>
           <div><small>{t("净收益", "Net")}</small><b><span className="money">{signed(total(shown, "net"), english)}</span>{change(total(shown, "net"), total(before, "net"))}</b></div>
           <div><small>{t("击杀", "Kills")}</small><b>{big(total(shown, "kills"), english)}{change(total(shown, "kills"), total(before, "kills"))}</b></div>
         </div>
-        {days.length > 0 && <div className={"gp-bars " + mode} role="group" aria-label={t("每天刷图时长", "Time per day")}>
+        <div className="gp-metric" role="group" aria-label={t("趋势指标", "Trend of")}>
+          <small>{t("趋势", "Trend")}</small>
+          {([["time", "时长", "Time"], ["exp", "经验", "EXP"], ["rate", "效率", "EXP/h"], ["net", "金币", "Net"]] as const).map(([key, zh, en]) =>
+            <button key={key} type="button" aria-pressed={metric === key} onClick={() => setMetric(key)}>{t(zh, en)}</button>)}
+        </div>
+        <div className="gp-charts">
+        {days.length > 0 && <div className={"gp-bars " + mode} role="group" aria-label={t("每天", "Per day")}>
           {days.map(d => <button key={d.at.getTime()} type="button" disabled={!d.seconds}
-            className={(d.seconds ? "on" : "") + (d.at.getTime() === today ? " today" : "")}
-            title={d.seconds ? `${label("day", d.at, shift("day", d.at, 1), english)} · ${clock(d.seconds)} · ${big(d.exp, english)} EXP` : label("day", d.at, shift("day", d.at, 1), english)}
+            className={(d.seconds ? "on" : "") + (d.value < 0 ? " neg" : "") + (d.at.getTime() === today ? " today" : "")}
+            title={d.seconds ? `${label("day", d.at, shift("day", d.at, 1), english)} · ${show(d.value)}` : label("day", d.at, shift("day", d.at, 1), english)}
             onClick={() => { setMode("day"); setAnchor(d.at); }}>
-            <i style={{ height: `${d.seconds / longest * 100}%` }} />
+            <i style={{ height: `${Math.abs(d.value) / longest * 100}%` }} />
             <small>{mode === "week" ? (english ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : ["一", "二", "三", "四", "五", "六", "日"])[(d.at.getDay() + 6) % 7]
               : d.at.getDate() === 1 || d.at.getDate() % 5 === 0 ? d.at.getDate() : ""}</small>
           </button>)}
         </div>}
+        <div className="gp-trend" role="group" aria-label={t("近 12 期", "Last 12 periods")}>
+          <small className="gp-trend-title">{t(`近 12 ${mode === "day" ? "天" : mode === "week" ? "周" : "个月"}`, `Last 12 ${mode === "day" ? "days" : mode === "week" ? "weeks" : "months"}`)}</small>
+          {trend.map((p, i) => <button key={p.at.getTime()} type="button" disabled={!p.seconds}
+            className={(p.seconds ? "on" : "") + (p.value < 0 ? " neg" : "") + (i === trend.length - 1 ? " now" : "")}
+            title={`${label(mode, p.at, shift(mode, p.at, 1), english)} · ${p.seconds ? show(p.value) : "—"}`}
+            onClick={() => setAnchor(p.at)}>
+            <i style={{ height: `${Math.abs(p.value) / trendTop * 100}%` }} />
+            <small>{i % 2 === 1 || i === trend.length - 1 ? short(p.at) : ""}</small>
+          </button>)}
+        </div>
+        </div>
         {maps.length > 1 && <div className="gp-maps">
           <div className="gp-map head"><span>{t("地图 · 点一下只看这张图", "Map · click to show only it")}</span><span className="opt">{t("次数", "Runs")}</span>
             {([["time", "时长", "Time", ""], ["exp", "经验/时", "EXP/h", ""], ["net", "收益/时", "Profit/h", "opt"]] as const).map(([key, zh, en, cls]) =>
@@ -157,11 +216,42 @@ export function PeriodBoard<T extends Run>({ runs, t, english, filters, remember
           {maps.slice(0, 8).map(map => <button type="button" className="gp-map" key={map.name} aria-pressed={onlyMap === map.name}
             onClick={() => setOnlyMap(onlyMap === map.name ? null : map.name)}>
             <i style={{ width: `${map.time / Math.max(1, periodSeconds) * 100}%` }} />
-            <span><b>{map.name}</b> <small>{Math.round(map.time / Math.max(1, periodSeconds) * 100)}%</small></span><span className="opt">{map.count}</span><span>{clock(map.time)}</span>
+            <span><b>{map.name}</b> <small>{Math.round(map.time / Math.max(1, periodSeconds) * 100)}%</small></span><span className="opt">{map.count}</span><span>{span(map.time, english)}</span>
             <span>{big(map.exp, english)}</span><span className={"opt" + (map.net ? " money" : "")}>{signed(map.net, english)}</span>
           </button>)}
         </div>}
-        {children(shown)}
+        {children(shown, picks)}
       </>}
+  </div>;
+}
+
+/** The last 26 weeks as a grid of days (Monday on top), darker for more time grinding. */
+function ActivityCalendar({ runs, t, english, pick }: { runs: Run[]; t: Words; english: boolean; pick(at: Date): void }) {
+  const today = day(new Date());
+  const first = startOf("week", shift("day", today, -7 * 25));
+  const seconds = new Map<number, number>();
+  for (const run of runs) {
+    const at = day(new Date(run.started_at * 1000)).getTime();
+    seconds.set(at, (seconds.get(at) || 0) + (run.active_seconds || 0));
+  }
+  const most = Math.max(1, ...seconds.values());
+  const weeks: Date[][] = [];
+  for (let at = first; at <= today; at = shift("day", at, 1)) {
+    if ((at.getDay() + 6) % 7 === 0) weeks.push([]);
+    weeks[weeks.length - 1].push(at);
+  }
+  const level = (value: number) => !value ? 0 : value >= most * .75 ? 4 : value >= most * .5 ? 3 : value >= most * .25 ? 2 : 1;
+  const activeDays = [...seconds].filter(([at, v]) => at >= first.getTime() && v > 0).length;
+  return <div className="gp-cal">
+    <div className="gp-cal-grid" role="grid" aria-label={t("活跃日历", "Activity calendar")}>
+      {weeks.map((week, i) => <div key={i} className="gp-cal-week" role="row">
+        <small>{week[0].getDate() <= 7 ? (english ? week[0].toLocaleDateString("en-US", { month: "short" }) : `${week[0].getMonth() + 1}月`) : ""}</small>
+        {week.map(at => { const value = seconds.get(at.getTime()) || 0;
+          return <button key={at.getTime()} type="button" role="gridcell" className={"l" + level(value)} disabled={!value}
+            title={`${label("day", at, shift("day", at, 1), english)} · ${value ? span(value, english) : t("没刷", "none")}`} onClick={() => pick(at)} />; })}
+      </div>)}
+    </div>
+    <div className="gp-cal-foot"><span>{t(`近 26 周 ${activeDays} 个活跃日`, `${activeDays} active days in 26 weeks`)}</span>
+      <span className="gp-cal-key">{t("少", "Less")}{[0, 1, 2, 3, 4].map(n => <i key={n} className={"l" + n} />)}{t("多", "More")}</span></div>
   </div>;
 }

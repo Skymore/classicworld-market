@@ -71,6 +71,13 @@ export function clock(seconds: number | null | undefined) {
   const s = Math.max(0, Math.round(seconds)), h = Math.floor(s / 3600);
   return `${h ? `${h}:` : ""}${String(Math.floor(s / 60) % 60).padStart(h ? 2 : 1, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
+/** A length of time in words ("1小时5分", "23分"), so it never reads like a clock time. */
+export function span(seconds: number | null | undefined, english = false) {
+  if (seconds == null || !Number.isFinite(seconds)) return "—";
+  const s = Math.max(0, Math.round(seconds)), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60;
+  if (english) return h ? `${h}h ${m}m` : m ? `${m}m` : `${s}s`;
+  return h ? `${h}小时${m ? `${m}分` : ""}` : m ? `${m}分` : `${s}秒`;
+}
 export function when(at: number) {
   const d = new Date(at * 1000);
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;

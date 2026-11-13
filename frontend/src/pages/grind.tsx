@@ -7,7 +7,7 @@ import { usePreferences, useWords } from "../providers";
 import { useAccount } from "../lib/query";
 import { ErrorState, Loading, usePageReady } from "../components/shared";
 import { SiteLink } from "../components/shell";
-import { RunDetail, Spark, big, clock, signed, when, type Comparison, type GrindRun } from "../components/grind-run";
+import { RunDetail, Spark, big, clock, signed, span, when, type Comparison, type GrindRun } from "../components/grind-run";
 import { PeriodBoard } from "../components/grind-periods";
 import { copyCard, drawCard, saveCard } from "../lib/grind-card";
 import { LiveView as ClientLive } from "../../desktop/grind-live";
@@ -110,7 +110,7 @@ function LiveStrip({ runs }: { runs: OpenRun[] }) {
         <SiteLink key={run.id} className="grind-live-card" href={`/grind/live/${run.id}`}>
           <LiveBadge run={run} />
           <span className="who"><b>{run.map_name || "—"}</b> <small>{run.character?.name} · {run.job_name} {run.level ?? ""}</small></span>
-          <span><small>{words("时长", "Length")}</small> {clock(run.active_seconds)}</span>
+          <span><small>{words("时长", "Length")}</small> {span(run.active_seconds, en)}</span>
           <span><small>{words("经验", "EXP")}</small> {big(run.exp_per_hour, en)}<small>/{words("时", "h")}</small></span>
           <span className={run.net_per_hour ? "money" : undefined}><small>{words("收益", "Profit")}</small> {signed(run.net_per_hour, en)}<small>/{words("时", "h")}</small></span>
         </SiteLink>
@@ -234,20 +234,22 @@ function MyRuns() {
   return (
     <>
     <LiveStrip runs={open} />
-    <PeriodBoard runs={runs} t={words} english={en} remember="grind.period">{(shown) => (
+    <PeriodBoard runs={runs} t={words} english={en} remember="grind.period" idOf={(run) => String(run.row)}>{(shown, picks) => (
       <div className="grind-list">
-        <div className="grind-list-row head"><span>{words("时间", "Time")}</span><span>{words("地图 · 角色", "Map · character")}</span><span>{words("时长", "Length")}</span>
-          <span>{words("经验/时", "EXP/h")}</span><span>{words("收益/时", "Profit/h")}</span><span /></div>
-        {shown.map((run) => (
-          <SiteLink key={run.row} className="grind-list-row" href={`/grind/run/${run.row}`}>
-            <span className="when">{when(run.started_at)}<em className="len"> · {clock(run.active_seconds)}</em></span>
+        <div className="gp-line">{picks && <span className="gp-pick" />}<div className="grind-list-row head"><span>{words("时间", "Time")}</span><span>{words("地图 · 角色", "Map · character")}</span><span>{words("时长", "Length")}</span>
+          <span>{words("经验/时", "EXP/h")}</span><span>{words("收益/时", "Profit/h")}</span><span /></div></div>
+        {shown.map((run) => (<div className="gp-line" key={run.row}>
+          {picks && <label className="gp-pick" title={words("勾两场对比", "Tick two to compare")}><input type="checkbox" checked={picks.has(String(run.row))}
+            disabled={picks.full && !picks.has(String(run.row))} onChange={() => picks.toggle(String(run.row))} aria-label={words("选这一场对比", "Compare this run")} /></label>}
+          <SiteLink className="grind-list-row" href={`/grind/run/${run.row}`}>
+            <span className="when">{when(run.started_at)}<em className="len"> · {span(run.active_seconds, en)}</em></span>
             <span className="who"><b>{run.map_name || "—"}</b> <small>{run.character?.name} · {run.job_name} {run.level ?? ""}</small>
               {run.share_code && <i>{words("已分享", "Shared")}</i>}</span>
-            <span>{clock(run.active_seconds)}</span>
+            <span>{span(run.active_seconds, en)}</span>
             <span>{big(run.exp_per_hour, en)}{run.exp_per_hour != null && <small>/{words("时", "h")}</small>}</span>
             <span className={run.net_per_hour ? "money" : undefined}>{signed(run.net_per_hour, en)}{run.net_per_hour != null && <small>/{words("时", "h")}</small>}</span>
             <Spark run={run} />
-          </SiteLink>
+          </SiteLink></div>
         ))}
       </div>
     )}</PeriodBoard>
@@ -270,7 +272,9 @@ function EveryoneRuns() {
   const query = useEveryone(true);
   if (query.isLoading) return <Loading />;
   if (query.isError) return <ErrorState retry={() => void query.refetch()} />;
-  const { live, runs } = query.data!;
+  const { live } = query.data!;
+  // Under 2 minutes is a map passed through, like everywhere else in the history.
+  const runs = query.data!.runs.filter((run) => (run.active_seconds || 0) >= 120);
   return (
     <>
       {live.length > 0 && <div className="grind-live-strip">
@@ -283,9 +287,9 @@ function EveryoneRuns() {
           <span>{words("经验/时", "EXP/h")}</span><span>{words("收益/时", "Profit/h")}</span><span /></div>
         {runs.map((run) => (
           <SiteLink key={run.row} className="grind-list-row" href={`/grind/admin/run/${run.row}`}>
-            <span className="when">{when(run.started_at)}<em className="len"> · {clock(run.active_seconds)}</em></span>
+            <span className="when">{when(run.started_at)}<em className="len"> · {span(run.active_seconds, en)}</em></span>
             <span className="who"><b>{run.map_name || "—"}</b> <small>{run.character?.name} · {run.job_name} {run.level ?? ""} · {ownerLabel(run.owner)}</small></span>
-            <span>{clock(run.active_seconds)}</span>
+            <span>{span(run.active_seconds, en)}</span>
             <span>{big(run.exp_per_hour, en)}{run.exp_per_hour != null && <small>/{words("时", "h")}</small>}</span>
             <span className={run.net_per_hour ? "money" : undefined}>{signed(run.net_per_hour, en)}{run.net_per_hour != null && <small>/{words("时", "h")}</small>}</span>
             <Spark run={run} />
