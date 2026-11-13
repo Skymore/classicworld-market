@@ -655,10 +655,11 @@ class Tracker:
                 sample = character.mob_attacks.get(oid)
                 if sample:
                     if own and character.run and character.run.status == 'active':
-                        # Hits to kill: own attacks that did damage, Final Attack included
-                        # (a hit of its own). Misses (0) widened the spread to 7-10 on mobs
-                        # most kills took 3-4; an explosion rides on the attack before it.
-                        sample['attacks'] += (damage['skill'] in PROCS or damage['skill'] not in FOLLOW_UPS) and total > 0
+                        # Hits to kill: every own attack message that did damage to it is one
+                        # hit, whatever the skill (Final Attack and the explosion included)
+                        # and however many damage lines it carries (Final Attack shows three).
+                        # Misses (0) widened the spread to 7-10 on mobs most kills took 3-4.
+                        sample['attacks'] += total > 0
                     else:
                         sample['mixed'] = True
         member = (character.party or {}).get(actor)
