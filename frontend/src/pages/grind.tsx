@@ -48,9 +48,12 @@ export default function GrindPage() {
   const run = route.pathname.match(/^\/grind\/run\/(\d+)/);
   const live = route.pathname.match(/^\/grind\/live\/([0-9a-f]{32})/);
   const watch = route.pathname.match(/^\/grind\/watch\/([A-Za-z0-9]{16})/);
+  const adminRun = route.pathname.match(/^\/grind\/admin\/run\/(\d+)/);
+  const adminLive = route.pathname.match(/^\/grind\/admin\/live\/([0-9a-f]{32})/);
   return (
     <div className="grind-site" data-grind-site>
-      {share ? <SharePage code={share[1]} /> : run ? <MyRun row={run[1]} /> : live ? <LiveRun id={live[1]} /> : watch ? <WatchRun code={watch[1]} /> : <Hub />}
+      {share ? <SharePage code={share[1]} /> : run ? <MyRun row={run[1]} /> : live ? <LiveRun id={live[1]} /> : watch ? <WatchRun code={watch[1]} />
+        : adminRun ? <AdminRun row={adminRun[1]} /> : adminLive ? <AdminLive id={adminLive[1]} /> : <Hub />}
     </div>
   );
 }
@@ -58,7 +61,9 @@ export default function GrindPage() {
 function Hub() {
   const words = useWords();
   const route = useLocation(), navigate = useNavigate();
-  const board = new URLSearchParams(route.search).get("tab") === "board";
+  const tab = new URLSearchParams(route.search).get("tab");
+  const board = tab === "board";
+  const admin = !!useAccount().data?.admin, everyone = admin && tab === "all";
   return (
     <>
       {board && <DownloadBanner compact />}
@@ -66,11 +71,12 @@ function Hub() {
         <div className="stall-bar grind-site-bar">
           <h1>{words("刷图", "Grind")}</h1>
           <nav>
-            <button aria-pressed={!board} onClick={() => navigate("/grind")}>{words("我的记录", "My runs")}</button>
+            <button aria-pressed={!board && !everyone} onClick={() => navigate("/grind")}>{words("我的记录", "My runs")}</button>
             <button aria-pressed={board} onClick={() => navigate("/grind?tab=board")}>{words("地图效率榜", "Map leaderboard")}</button>
+            {admin && <button aria-pressed={everyone} onClick={() => navigate("/grind?tab=all")}>{words("全部用户", "Everyone")}</button>}
           </nav>
         </div>
-        {board ? <Leaderboard /> : <MyRuns />}
+        {board ? <Leaderboard /> : everyone ? <EveryoneRuns /> : <MyRuns />}
       </section>
     </>
   );
@@ -246,6 +252,79 @@ function MyRuns() {
       </div>
     )}</PeriodBoard>
     </>
+  );
+}
+
+type Owner = { collector: number; nickname: string | null };
+type AdminData = { live: (OpenRun & { owner: Owner })[]; runs: (ListRun & { owner: Owner })[] };
+const ownerLabel = (owner?: Owner) => owner ? `${owner.nickname || "—"} · #${owner.collector}` : "";
+
+function useEveryone(refresh = false) {
+  return useQuery<AdminData>({ queryKey: ["grind-admin"], queryFn: () => getJson("/api/v1/admin/grind"),
+    refetchInterval: refresh ? 10_000 : false, staleTime: 5_000, retry: false });
+}
+
+/** Admins: every account's open runs and latest runs, each with its owner. */
+function EveryoneRuns() {
+  const words = useWords(), { language } = usePreferences(), en = language === "en";
+  const query = useEveryone(true);
+  if (query.isLoading) return <Loading />;
+  if (query.isError) return <ErrorState retry={() => void query.refetch()} />;
+  const { live, runs } = query.data!;
+  return (
+    <>
+      {live.length > 0 && <div className="grind-live-strip">
+        {live.map((run) => <SiteLink key={run.id} className="grind-live-card" href={`/grind/admin/live/${run.id}`}>
+          <LiveBadge run={run} /><b>{run.character?.name || "—"}</b>
+          <small>{ownerLabel(run.owner)} · {run.map_name || "—"} · {big(run.exp_per_hour, en)}/{words("时", "h")}</small></SiteLink>)}
+      </div>}
+      <div className="grind-list">
+        <div className="grind-list-row head"><span>{words("时间", "Time")}</span><span>{words("地图 · 角色 · 用户", "Map · character · user")}</span><span>{words("时长", "Length")}</span>
+          <span>{words("经验/时", "EXP/h")}</span><span>{words("收益/时", "Profit/h")}</span><span /></div>
+        {runs.map((run) => (
+          <SiteLink key={run.row} className="grind-list-row" href={`/grind/admin/run/${run.row}`}>
+            <span className="when">{when(run.started_at)}</span>
+            <span className="who"><b>{run.map_name || "—"}</b> <small>{run.character?.name} · {run.job_name} {run.level ?? ""} · {ownerLabel(run.owner)}</small></span>
+            <span>{clock(run.active_seconds)}</span>
+            <span>{big(run.exp_per_hour, en)}{run.exp_per_hour != null && <small>/{words("时", "h")}</small>}</span>
+            <span className={run.net_per_hour ? "money" : undefined}>{signed(run.net_per_hour, en)}{run.net_per_hour != null && <small>/{words("时", "h")}</small>}</span>
+            <Spark run={run} />
+          </SiteLink>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function AdminRun({ row }: { row: string }) {
+  const words = useWords(), { language } = usePreferences();
+  const query = useQuery<{ run: GrindRun; comparison: Comparison | null; owner: Owner }>({
+    queryKey: ["grind-admin-run", row], queryFn: () => getJson(`/api/v1/admin/grind/runs/${row}`), staleTime: 60_000, retry: false });
+  if (query.isLoading) return <Loading />;
+  if (query.isError) return <div className="grind-empty"><p>{words("找不到这条记录，或者当前账号不是管理员。", "Run not found, or this account is not an admin.")}</p></div>;
+  const data = query.data!;
+  return (
+    <section className="grind-page-run">
+      <SiteLink className="grind-back" href="/grind?tab=all">‹ {words("全部用户", "Everyone")} · {ownerLabel(data.owner)}</SiteLink>
+      <RunDetail run={data.run} t={words} english={language === "en"} comparison={data.comparison} />
+    </section>
+  );
+}
+
+function AdminLive({ id }: { id: string }) {
+  const words = useWords();
+  const query = useEveryone(true);
+  const run = query.data?.live.find((r) => r.id === id);
+  if (query.isLoading) return <Loading />;
+  if (!run) return <LiveEnded />;
+  return (
+    <section className="grind-page-run">
+      <div className="grind-live-head">
+        <SiteLink className="grind-back" href="/grind?tab=all">‹ {words("全部用户", "Everyone")} · {ownerLabel(run.owner)}</SiteLink>
+        <LiveBadge run={run} /><Ago at={run.live_at} />
+      </div>
+      <LiveBoard run={run} liveAt={run.live_at} />
+    </section>
   );
 }
 

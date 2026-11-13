@@ -291,12 +291,26 @@ class PotionTest(unittest.TestCase):
         self.clock.t += 2
         self.auto.tick(self.tracker, self.clock())
 
-    def test_smallest_potion_when_nothing_is_wasted_and_hp_is_under_four_hits(self):
-        character = self.ready()
-        self.drink(character, hp=1250 - 300)          # 4 hits = 1200: not low enough yet
+    def test_above_three_hits_nothing_below_it_the_smallest_that_wastes_nothing(self):
+        character = self.ready(hit=300)                    # danger 600, comfort 900
+        self.drink(character, hp=900)
+        self.assertEqual(self.pressed, [])                 # not topping up for its own sake
+        self.drink(character, hp=850)
+        self.assertEqual(self.pressed, ['1'])              # red 100, 150 missing
+
+    def test_between_the_lines_a_potion_that_would_be_wasted_waits(self):
+        character = self.ready(hit=300)
+        character.bags = {2000002: 5}                      # only white (500)
+        self.drink(character, hp=850)
         self.assertEqual(self.pressed, [])
-        self.drink(character, max_hp=1500, hp=1150)   # under 1200, missing 350 >= 100
-        self.assertEqual(self.pressed, ['1'])
+
+    def test_in_danger_the_smallest_potion_that_lifts_it_over_the_line(self):
+        character = self.ready(hit=300)                    # danger 600
+        self.drink(character, hp=500)
+        self.assertEqual(self.pressed, ['1'])              # needs 100: red
+        character.rise_at['hp'] = self.clock() + 0.1
+        self.drink(character, hp=400)
+        self.assertEqual(self.pressed, ['1', '2'])         # needs 200: orange
 
     def test_pet_setting_first_while_some_are_left(self):
         character = self.ready()
@@ -304,6 +318,7 @@ class PotionTest(unittest.TestCase):
         self.drink(character, hp=700)
         self.assertEqual(self.pressed, ['2'])
         character.bags[2000001] = 0
+        character.rise_at['hp'] = self.clock() + 0.5          # it took, then a hit
         self.drink(character, hp=700)
         self.assertEqual(self.pressed, ['2', '1'])
 
@@ -319,6 +334,18 @@ class PotionTest(unittest.TestCase):
         self.assertEqual(self.pressed, [])
         self.drink(character, mp=140)
         self.assertEqual(self.pressed, ['4'])
+
+    def test_a_potion_that_did_nothing_is_not_pressed_again_every_second(self):
+        character = self.ready()
+        self.drink(character, hp=700)
+        self.assertEqual(self.pressed, ['1'])
+        for _ in range(3):                                    # HP stays where it was
+            self.clock.t += 1.3
+            self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['1'])
+        self.clock.t += 2
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['1', '1'])
 
     def test_reads_the_pet_setting_and_vitals_from_the_server(self):
         character = self.ready()

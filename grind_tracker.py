@@ -224,6 +224,7 @@ class Character:
         self.mp = None
         self.max_mp = None
         self.pet_potions = {}       # 'hp' / 'mp' -> the item the pet was set to use
+        self.rise_at = {}           # 'hp' / 'mp' -> when it last went up (a potion took)
         self.table = None
         self.exp_messages = 0       # experience announced since the last experience update
         self.buffs = {}             # source -> (start, milliseconds)
@@ -470,6 +471,8 @@ class Tracker:
                 run.segment.max_hit = max(run.segment.max_hit, character.hp - hp)
             if character.hp is not None and hp < character.hp:
                 character.combat_at = now
+            if character.hp is not None and hp > character.hp:
+                character.rise_at['hp'] = now
             character.hp = hp
             if character.max_hp is not None and hp > character.max_hp:
                 character.max_hp = hp
@@ -479,6 +482,8 @@ class Tracker:
             run = character.run
             if character.mp is not None and mp < character.mp and run and run.segment:
                 run.segment.mp_cost = max(run.segment.mp_cost, character.mp - mp)
+            if character.mp is not None and mp > character.mp:
+                character.rise_at['mp'] = now
             character.mp = mp
             if character.max_mp is not None and mp > character.max_mp:
                 character.max_mp = mp

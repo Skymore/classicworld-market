@@ -50,6 +50,8 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/grind/runs/{id}", get(my_run))
         .route("/api/v1/grind/runs/{id}/share", post(share_mine))
         .route("/api/v1/grind/leaderboard", get(leaderboard))
+        .route("/api/v1/admin/grind", get(admin_overview))
+        .route("/api/v1/admin/grind/runs/{id}", get(admin_run))
 }
 
 /// `/g/<code>`: the site shell with the run in the title and link previews.
@@ -544,6 +546,95 @@ async fn my_live(State(state): State<AppState>, headers: HeaderMap) -> Response 
                 .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
             response
         }
+        Err(e) => internal(e),
+    }
+}
+
+async fn admin(state: &AppState, headers: &HeaderMap) -> Result<i64, Response> {
+    let account = account(state, headers).await?;
+    match crate::contributors::is_admin(state, account).await {
+        Ok(true) => Ok(account),
+        Ok(false) => Err(error(StatusCode::FORBIDDEN, "admin_only")),
+        Err(e) => Err(internal(e)),
+    }
+}
+
+/// Admins: every account's open runs and latest runs, each with its owner.
+async fn admin_overview(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if let Err(response) = admin(&state, &headers).await {
+        return response;
+    }
+    let live: Result<Vec<(Value, f64, i64, Option<String>)>, _> = sqlx::query_as(
+        "SELECT l.runs, extract(epoch FROM l.updated_at)::float8, l.collector_id, a.nickname
+         FROM grind_live l JOIN collectors c ON c.id = l.collector_id LEFT JOIN accounts a ON a.id = c.account_id
+         WHERE l.updated_at > now() - make_interval(secs => $1) ORDER BY l.updated_at DESC",
+    )
+    .bind(LIVE_SECONDS)
+    .fetch_all(&state.db)
+    .await;
+    let runs: Result<Vec<(i64, Value, i64, Option<String>)>, _> = sqlx::query_as(
+        "SELECT r.id, r.summary - 'rate_history' - 'loot' - 'consumables' - 'segments' - 'attacks' - 'casts' - 'mobs' - 'drops'
+                - 'recent' - 'buffs' - 'combat' - 'damage', r.collector_id, a.nickname
+         FROM grind_runs r JOIN collectors c ON c.id = r.collector_id LEFT JOIN accounts a ON a.id = c.account_id
+         ORDER BY r.started_at DESC LIMIT 300",
+    )
+    .fetch_all(&state.db)
+    .await;
+    let (live, runs) = match (live, runs) {
+        (Ok(l), Ok(r)) => (l, r),
+        (Err(e), _) | (_, Err(e)) => return internal(e),
+    };
+    let owner = |collector: i64, nickname: &Option<String>| json!({"collector": collector, "nickname": nickname});
+    let mut open = Vec::new();
+    for (list, at, collector, nickname) in &live {
+        for mut run in list.as_array().cloned().unwrap_or_default() {
+            if let Some(object) = run.as_object_mut() {
+                object.insert("live_at".into(), json!(at));
+                object.insert("owner".into(), owner(*collector, nickname));
+            }
+            open.push(run);
+        }
+    }
+    let finished: Vec<Value> = runs
+        .into_iter()
+        .map(|(id, mut run, collector, nickname)| {
+            if let Some(object) = run.as_object_mut() {
+                object.insert("row".into(), json!(id));
+                object.insert("owner".into(), owner(collector, &nickname));
+            }
+            run
+        })
+        .collect();
+    let mut response = Json(json!({"live": open, "runs": finished})).into_response();
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    response
+}
+
+/// Admins: one run of any account.
+async fn admin_run(State(state): State<AppState>, headers: HeaderMap, Path(id): Path<String>) -> Response {
+    if let Err(response) = admin(&state, &headers).await {
+        return response;
+    }
+    let Ok(id) = id.parse::<i64>() else {
+        return error(StatusCode::NOT_FOUND, "Not found");
+    };
+    let row: Result<Option<(Value, i64, Option<String>)>, _> = sqlx::query_as(
+        "SELECT r.summary, r.collector_id, a.nickname FROM grind_runs r JOIN collectors c ON c.id = r.collector_id
+         LEFT JOIN accounts a ON a.id = c.account_id WHERE r.id=$1",
+    )
+    .bind(id)
+    .fetch_optional(&state.db)
+    .await;
+    match row {
+        Ok(Some((run, collector, nickname))) => {
+            let compare = comparison(&state.db, &run, unix_now()).await.ok().flatten();
+            Json(json!({"row": id, "run": run, "comparison": compare,
+                        "owner": {"collector": collector, "nickname": nickname}}))
+            .into_response()
+        }
+        Ok(None) => error(StatusCode::NOT_FOUND, "Not found"),
         Err(e) => internal(e),
     }
 }

@@ -26,6 +26,7 @@ LEAD = 3.0                    # recast a skill this many seconds before its buff
 ITEM_LATE = 3.0               # use an item this long after its buff ended: sooner, the game may still say it is on
 RETRY = 1.5                   # a skill press the game missed (e.g. mid-attack) is retried this soon
 ITEM_RETRY = 3.0              # an item is retried more slowly: its buff confirmation must not race a second one
+POTION_STALL = 5.0            # a potion that did not raise HP / MP (chat open, a dialog, none left) waits this long
 POTION_GAP = 1.2              # between two HP (or two MP) potions: the first one's HP update arrives first
 HOLD = 0.12                   # key down time; shorter presses were missed while attacking
 GAP = 1.0                     # at most one press a second; several due ones queue, soonest first
@@ -100,8 +101,12 @@ def skill_key(character, skill):
     return tables[preset].get(skill)
 
 
-def pick_potion(character, kind, top):
-    """(item, amount restored, key) of the potion to use for 'hp' or 'mp'."""
+def pick_potion(character, kind, top, need=None):
+    """(item, amount restored, key) of the potion to use for 'hp' or 'mp'.
+
+    Normally the pet's setting, else the one that restores least. With `need`
+    (an emergency: restore at least this much), the pet's setting if it is
+    enough, else the smallest one that is, else the one that restores most."""
     from grind_potions import POTIONS
     flat_at, rate_at = (0, 2) if kind == 'hp' else (1, 3)
     choices = {}
@@ -113,10 +118,23 @@ def pick_potion(character, kind, top):
         name = key_name(scan) if scan is not None else None
         if name:
             choices[item] = (item, gain, name)
-    pet = (character.pet_potions or {}).get(kind)
-    if pet in choices:
-        return choices[pet]
-    return min(choices.values(), key=lambda c: c[1]) if choices else None
+    if not choices:
+        return None
+    pet = choices.get((character.pet_potions or {}).get(kind))
+    if need is None:
+        return pet or min(choices.values(), key=lambda c: c[1])
+    if pet and pet[1] >= need:
+        return pet
+    enough = [c for c in choices.values() if c[1] >= need]
+    return min(enough, key=lambda c: c[1]) if enough else max(choices.values(), key=lambda c: c[1])
+
+
+def potion_lines(kind, top, unit):
+    """(danger, comfort) for HP (unit: biggest single hit here) or MP (unit: dearest MP drop)."""
+    if not unit:
+        return 0.3 * top, 0.5 * top
+    danger, comfort = (2 * unit, 3 * unit) if kind == 'hp' else (2 * unit, 5 * unit)
+    return min(danger, top), min(comfort, top)
 
 
 def key_name(scan):
@@ -253,28 +271,41 @@ class AutoBuff:
     def potion_due(self, tracker, character, now):
         """(kind, item, key) of the HP or MP potion to drink now, or None.
 
+        Safety first, then no waste, and never topping up for its own sake:
+        - under the danger line (two of this map's biggest hits; two of the
+          dearest MP drops), drink now even if some is wasted, the potion that
+          lifts it back over the line;
+        - under the comfort line (three hits; five MP drops), drink only when
+          nothing is wasted (missing at least what it restores);
+        - above it, nothing. Until a hit (MP cost) is known: 30 % and 50 %.
         Potion: the pet's setting when it has a key and some are left, else the
-        one that restores least. HP: when it would not be wasted (missing HP at
-        least what it restores) and HP is under four of this map's biggest hits,
-        or HP is under two of them whatever the waste. MP: under five of the
-        dearest MP drop. Until a hit (or MP cost) is known: under 60 % (30 %)."""
+        one that restores least."""
         worst, cost = tracker.combat_limits(character, now)
         for kind in ('hp', 'mp'):
-            if now - self.potion_at.get((character.session, kind), -POTION_GAP) < POTION_GAP:
-                continue
             current, top = (character.hp, character.max_hp) if kind == 'hp' else (character.mp, character.max_mp)
+            since = now - self.potion_at.get((character.session, kind), -POTION_STALL)
+            if since < POTION_GAP:
+                continue
+            # The last one has not raised it yet: pressing every second only piles up
+            # (2026-11-12 22:24: three presses at the same 1219 HP). A hit right
+            # after a potion can leave HP lower, so look for any rise since.
+            pressed = self.potion_at.get((character.session, kind))
+            risen = (character.rise_at or {}).get(kind)
+            if since < POTION_STALL and pressed is not None and (risen is None or risen < pressed):
+                continue
             if current is None or not top:
                 continue
-            choice = pick_potion(character, kind, top)
-            if choice is None:
-                continue
-            item, gain, name = choice
-            if kind == 'hp':
-                want = (top - current >= gain and (current < 4 * worst if worst else current < 0.6 * top))                     or bool(worst and current < 2 * worst)
+            danger, comfort = potion_lines(kind, top, worst if kind == 'hp' else cost)
+            if current < danger:
+                choice = pick_potion(character, kind, top, need=danger - current)
+            elif current < comfort:
+                choice = pick_potion(character, kind, top)
+                if choice and top - current < choice[1]:
+                    choice = None      # it would be partly wasted, and there is no danger yet
             else:
-                want = current < 5 * cost if cost else current < 0.3 * top
-            if want:
-                return kind, item, name
+                choice = None
+            if choice:
+                return kind, choice[0], choice[2]
         return None
 
     def wait(self, reason, source):

@@ -97,9 +97,9 @@ class ItemAccountingTest(unittest.TestCase):
         self.assertIsNone(early['net_per_hour_1m'])
         summary = self.tracker.summarize(run, start+60, self.who)
         self.assertEqual(summary['exp_per_hour_1m'], 18000)
-        self.assertEqual(summary['net_per_hour_1m'], (100+114-50)*60)
+        self.assertEqual(summary['net_per_hour_1m'], (100+114-40)*60)
         self.assertEqual(summary['rate_history'][-1]['net'], summary['net_per_hour_1m'])
-        self.assertEqual(summary['consumables'][0]['cost'], 50)
+        self.assertEqual(summary['consumables'][0]['cost'], 40)
         expired = self.tracker.summarize(run, start+120, self.who)
         self.assertEqual((expired['exp_per_hour_1m'], expired['net_per_hour_1m']), (0, 0))
         run.status, run.paused_at = 'paused', start+60

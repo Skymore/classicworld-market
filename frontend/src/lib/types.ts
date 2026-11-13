@@ -45,6 +45,8 @@ export interface Account {
   has_password?: boolean;
   google_linked?: boolean;
   signed_in: boolean;
+  /** Signed in with Google under an email the server lists as an admin. */
+  admin?: boolean;
   mode?: string;
   linked?: boolean;
   temporary?: boolean;

@@ -4,8 +4,9 @@ Loot (use/etc/setup items): the item's median sale price (成交中位), else th
 NPC buy-back price, else nothing. Equipment: the median sale of the same
 attribute group as the item page groups offers (attributes other than
 defence, remaining upgrades, unknown fields), else the item's median, else
-NPC buy-back. Consumables used while grinding: the cheapest NPC shop price,
-else the median sale. Every value carries the basis it came from.
+NPC buy-back. Consumables used while grinding: the median sale too, like loot,
+so a potion costs what it would fetch; the cheapest NPC shop price only when
+it never sold. Every value carries the basis it came from.
 """
 import json
 import threading
@@ -164,10 +165,10 @@ class Prices:
         row = self.rows.get(item_id)
         if row is None:
             return None, None
-        if row.get('npc_shop') is not None:
-            return row['npc_shop'], '商店价'
         if row.get('typical'):
             return row['typical'], '成交中位'
+        if row.get('npc_shop') is not None:
+            return row['npc_shop'], '商店价'
         return 0, '无价格'
 
 

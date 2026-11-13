@@ -26,8 +26,14 @@ pub struct GoogleOAuth {
     client_id: String,
     client_secret: String,
     redirect_uri: String,
+    /// Accounts signed in with one of these Google-verified emails are admins.
+    #[serde(default)]
+    admin_emails: Vec<String>,
 }
 impl GoogleOAuth {
+    pub fn is_admin_email(&self, email: Option<&str>) -> bool {
+        email.is_some_and(|e| self.admin_emails.iter().any(|a| a.eq_ignore_ascii_case(e)))
+    }
     pub fn load(web: Option<&Path>, hostname: &str) -> anyhow::Result<Option<Self>> {
         let path = std::env::var_os("GOOGLE_OAUTH_CONFIG")
             .map(std::path::PathBuf::from)
@@ -133,6 +139,19 @@ pub(crate) struct Session {
     nickname_temporary: bool,
     csrf: String,
 }
+/// Whether the account signed in with Google under an email the private Google
+/// sign-in configuration lists as an admin. Admins can see every account's runs.
+pub(crate) async fn is_admin(state: &AppState, account: i64) -> sqlx::Result<bool> {
+    let Some(google) = state.google.as_ref() else {
+        return Ok(false);
+    };
+    let email: Option<String> = sqlx::query_scalar("SELECT email FROM accounts WHERE id=$1")
+        .bind(account)
+        .fetch_optional(&state.db)
+        .await?
+        .flatten();
+    Ok(google.is_admin_email(email.as_deref()))
+}
 pub(crate) async fn session(
     state: &AppState,
     headers: &HeaderMap,
@@ -192,7 +211,11 @@ async fn me(State(state): State<AppState>, headers: HeaderMap) -> Response {
         Ok(s) => s,
         Err(e) => return internal(e),
     };
-    Json(json!({"signed_in":true,"public_id":s.public_id,"username":s.username,"has_password":s.username.is_some(),"google_linked":s.google_linked,"nickname":s.nickname,"temporary":s.nickname_temporary,"listed":s.listed,"csrf":s.csrf,"collectors":devices,"stats":stats,"google_enabled":google_enabled(&state, &headers)})).into_response()
+    let admin = match is_admin(&state, s.id).await {
+        Ok(a) => a,
+        Err(e) => return internal(e),
+    };
+    Json(json!({"signed_in":true,"admin":admin,"public_id":s.public_id,"username":s.username,"has_password":s.username.is_some(),"google_linked":s.google_linked,"nickname":s.nickname,"temporary":s.nickname_temporary,"listed":s.listed,"csrf":s.csrf,"collectors":devices,"stats":stats,"google_enabled":google_enabled(&state, &headers)})).into_response()
 }
 async fn save_account(
     State(state): State<AppState>,
@@ -573,7 +596,7 @@ async fn begin_google(
         ("client_id", config.client_id.as_str()),
         ("redirect_uri", &config.redirect_uri),
         ("response_type", "code"),
-        ("scope", "openid"),
+        ("scope", "openid email"),
         ("state", &state_token),
         ("nonce", &nonce),
         ("code_challenge_method", "S256"),
@@ -614,12 +637,21 @@ struct GoogleClaims {
     nonce: String,
     iat: u64,
     azp: Option<String>,
+    #[serde(default)]
+    email: Option<String>,
+    #[serde(default)]
+    email_verified: Option<bool>,
+}
+/// A verified Google sign-in: the subject, and the email only when Google verified it.
+pub struct GoogleIdentity {
+    pub subject: String,
+    pub email: Option<String>,
 }
 async fn google_identity(
     config: &GoogleOAuth,
     code: &str,
     login: &LoginState,
-) -> anyhow::Result<String> {
+) -> anyhow::Result<GoogleIdentity> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
         .redirect(reqwest::redirect::Policy::none())
@@ -657,7 +689,7 @@ fn verify_identity(
     keys: &JwkSet,
     client_id: &str,
     nonce: &str,
-) -> anyhow::Result<String> {
+) -> anyhow::Result<GoogleIdentity> {
     let header = decode_header(token)?;
     anyhow::ensure!(header.alg == Algorithm::RS256, "Invalid algorithm");
     let key = header
@@ -679,7 +711,10 @@ fn verify_identity(
             && claims.azp.as_deref().is_none_or(|a| a == client_id),
         "Invalid identity claims"
     );
-    Ok(claims.sub)
+    let email = claims
+        .email
+        .filter(|e| claims.email_verified == Some(true) && e.len() <= 320 && e.contains('@'));
+    Ok(GoogleIdentity { subject: claims.sub, email })
 }
 async fn google_callback(
     State(state): State<AppState>,
@@ -716,7 +751,7 @@ async fn google_callback(
             _ => return fail(),
         }
     }
-    let subject = match google_identity(config, &code, &login).await {
+    let GoogleIdentity { subject, email } = match google_identity(config, &code, &login).await {
         Ok(s) => s,
         Err(_) => return fail(),
     };
@@ -730,6 +765,16 @@ async fn google_callback(
         Ok(a) => a,
         Err(e) => return e,
     };
+    if let Some(email) = &email {
+        if let Err(e) = sqlx::query("UPDATE accounts SET email=$2 WHERE id=$1")
+            .bind(account)
+            .bind(email)
+            .execute(&state.db)
+            .await
+        {
+            return internal(e);
+        }
+    }
     let target = login
         .link_code
         .map(|c| format!("/account?link={c}"))
@@ -838,8 +883,17 @@ mod tests {
         header.kid = Some("fixture".into());
         let signed = |v: &Value| jsonwebtoken::encode(&header, v, &key).unwrap();
         assert_eq!(
-            verify_identity(&signed(&claims), &keys, "test-client", "test-nonce").unwrap(),
+            verify_identity(&signed(&claims), &keys, "test-client", "test-nonce").unwrap().subject,
             "test-user"
+        );
+        // An email counts only when Google says it is verified.
+        let mut with_email = claims.clone();
+        with_email["email"] = json!("Owner@Example.com");
+        assert_eq!(verify_identity(&signed(&with_email), &keys, "test-client", "test-nonce").unwrap().email, None);
+        with_email["email_verified"] = json!(true);
+        assert_eq!(
+            verify_identity(&signed(&with_email), &keys, "test-client", "test-nonce").unwrap().email.as_deref(),
+            Some("Owner@Example.com")
         );
         for (field, bad) in [
             ("aud", json!("other-client")),

@@ -142,7 +142,7 @@ class TrackerTest(unittest.TestCase):
             self.kill()
         self.assertEqual(self.tracker.summarize(self.current(), self.clock())['map_name'], '射手村东部平原')
 
-    def test_values_loot_by_attribute_group_and_costs_consumables_at_shop_price(self):
+    def test_values_loot_by_attribute_group_and_costs_consumables_at_median_sale(self):
         for _ in range(4):
             self.kill()
         self.inv.equipment[3] = dict(slot=3, item_id=1082002, stats=[dict(key='weapon_attack', value=3)],
@@ -156,8 +156,8 @@ class TrackerTest(unittest.TestCase):
         self.kill()
         summary = self.tracker.summarize(self.current(), self.clock(), self.tracker.characters['s1'])
         self.assertEqual(summary['item_value'], 900000 + 5 * 12)
-        self.assertEqual(summary['consume_cost'], 3 * 50)
-        self.assertEqual(summary['net'], 900000 + 60 - 150)
+        self.assertEqual(summary['consume_cost'], 3 * 40)      # median sale, not the shop's 50
+        self.assertEqual(summary['net'], 900000 + 60 - 120)
         notable = [r for r in summary['recent'] if r['notable']]
         self.assertEqual(notable[0]['basis'], '同属性成交中位')
         potion = summary['consumables'][0]
