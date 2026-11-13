@@ -73,8 +73,9 @@ function chime(source: number, text: string | null | undefined) {
   }, 300);
 }
 
-/** A valuable drop to pick up: a two-note chime, then "有好东西掉了" (voice pack: drop_alert). */
-export function announceDrop() {
+/** A valuable drop to pick up: a two-note chime, "有好东西掉了" (voice pack: drop_alert), then
+ * the item's name in Windows speech (names are too many for the pack). No price. */
+export function announceDrop(name?: string | null) {
   try {
     const audio = new AudioContext(), gain = audio.createGain();
     gain.gain.value = 0.08; gain.connect(audio.destination);
@@ -84,7 +85,16 @@ export function announceDrop() {
     });
     setTimeout(() => audio.close(), 600);
   } catch { /* no audio device */ }
-  setTimeout(() => say(0, tr('有好东西掉了', 'Valuable drop'), 'drop_alert'), 300);
+  const item = name && !name.startsWith('#') ? name : null;
+  const phrase = tr('有好东西掉了', 'Valuable drop');
+  setTimeout(() => {
+    speaking = speaking.then(async () => {
+      const lang = language();
+      const played = await play(`voice/${lang}/drop_alert.mp3`) || (lang === 'ko' && await play('voice/en/drop_alert.mp3'));
+      // The clip says the phrase and the name follows; without the clip both are spoken.
+      if (played) { if (item) speak(item); } else speak(item ? `${phrase}，${item}` : phrase);
+    });
+  }, 300);
 }
 
 let lowHpAt = 0;
