@@ -13,7 +13,7 @@ import { copyCard, drawCard, saveCard } from "../lib/grind-card";
 import { LiveView as ClientLive } from "../../desktop/grind-live";
 import { setTextLanguage, type Lang } from "../../desktop/i18n";
 import { setGrindIconBase } from "../../desktop/skill-icons";
-import type { Live, RunSummary } from "../../desktop/grind";
+import { PAUSE_LABELS, type Live, type RunSummary } from "../../desktop/grind";
 import "../../desktop/grind-live.css";
 import "./grind.css";
 
@@ -88,7 +88,10 @@ function useLive(enabled: boolean) {
 function LiveBadge({ run }: { run: OpenRun }) {
   const words = useWords();
   const paused = run.status === "paused";
-  return <span className={"grind-live-badge" + (paused ? " paused" : "")}>{paused ? words("已暂停", "Paused") : words("实时", "Live")}</span>;
+  // Why it waits: "连接中断" (the capture lost the game connection; a channel change
+  // restores it) reads very differently from standing idle.
+  const reason = PAUSE_LABELS[(run as { pause_reason?: string | null }).pause_reason || ""];
+  return <span className={"grind-live-badge" + (paused ? " paused" : "")}>{paused ? words(...(reason || ["已暂停", "Paused"])) : words("实时", "Live")}</span>;
 }
 
 /** Open runs on top of the list, each linking to its live page. */

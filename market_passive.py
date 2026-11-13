@@ -80,6 +80,7 @@ class ClientDecoder:
             plain=aes_payload(bytes(self.buf[4:4+length]),self.iv)
             del self.buf[:4+length];self.iv=advance(self.iv);self.frames+=1
             self.observe(plain)
+    def resync(self,missing,data):return resync(self,missing,data,True)
 
 
 class Decoder:
@@ -98,6 +99,50 @@ class Decoder:
             plain=bytes((b-self.iv[0])&255 for b in self.buf[4:4+length])
             del self.buf[:4+length];self.iv=advance(self.iv);self.frames+=1
             self.observe(plain)
+    def resync(self,missing,data):return resync(self,missing,data,False)
+
+
+def resync(decoder,missing,data,client,frames=64):
+    """Continue after `missing` bytes the capture never saw, then `data`.
+
+    A lost segment used to leave the connection undecodable until the next
+    channel change. The cipher only needs the right IV, and the IV advances
+    once per frame: if the gap ends inside the frame in progress, that frame
+    is dropped and decoding resumes exactly after it; otherwise try 0..63
+    lost frames and take the earliest place where a frame header and the
+    next one both match their IVs (a false match is about 1 in 4 billion).
+    Returns the frames lost, or None when no alignment is certain."""
+    if decoder.iv is None:return None
+    iv,start,dropped=decoder.iv,None,0
+    if len(decoder.buf)>=4:
+        dropped=1
+        a,b=struct.unpack('<HH',bytes(decoder.buf[:4]));owed=4+(a^b)-len(decoder.buf)
+        iv=advance(iv)
+        if missing<owed:start=owed-missing      # the gap ended inside this frame
+    def header_ok(at,key):
+        if at+4>len(data):return False
+        a,b=struct.unpack_from('<HH',data,at);length=a^b
+        return length>=2 and data[at:at+4]==frame_header(length,key,client)
+    def confirmed(at,key):
+        if not header_ok(at,key):return False
+        a,b=struct.unpack_from('<HH',data,at);following=at+4+(a^b)
+        return header_ok(following,advance(key))
+    best=None
+    key=iv
+    for lost in range(frames if start is None else 1):
+        marker=frame_header(0,key,client)[:2]
+        at=data.find(marker,0 if start is None else start)
+        while at!=-1 and (best is None or at<best[0]):
+            if (start is None or at==start) and confirmed(at,key):
+                best=(at,lost,key);break
+            if start is not None:break
+            at=data.find(marker,at+1)
+        key=advance(key)
+    if best is None:return None
+    at,lost,key=best
+    decoder.buf=bytearray(data[at:]);decoder.iv=key
+    decoder.feed(b'')
+    return dropped+lost
 
 
 def game_owner(connection):
@@ -323,6 +368,45 @@ class Collector:
             if flow.get('session'): self.invalidate_inventory(flow['session'])
             if flow['stream'].pending or (flow['decoder'] and flow['decoder'].buf):self.fail(flow,'Incomplete stream on close')
             self.flows.pop(key,None)
+    def recover(self,flow):
+        """Skip a gap the capture will never fill (it is receive-only: the game
+        got those bytes, a retransmission will not come) instead of giving up
+        the connection. The market bag snapshot may have missed a change, so it
+        is dropped until the next full one; the grind run carries on."""
+        skipped=self.skip_gap(flow['stream'],flow['decoder'])
+        if skipped is None:
+            return False
+        missing,lost=skipped
+        session=flow.get('session')
+        if session:
+            self.inventory.invalidate(session);self.publish_inventory()
+            obj=flow.get('session_object')
+            if obj is not None and getattr(obj,'roster',None) is not None:obj.roster.reset()
+        self.event('stream_resynced',session=session,missing_bytes=missing,lost_frames=lost)
+        return True
+    @staticmethod
+    def skip_gap(stream,decoder):
+        """(missing bytes, lost frames) once `decoder` is aligned after the
+        stream's first gap, or None (nothing changes) when it cannot be."""
+        if decoder is None or decoder.iv is None or not stream.pending:return None
+        pending=sorted(stream.pending,key=lambda p:p[0])
+        missing=pending[0][0];data=bytearray();end=missing;used=0
+        for offset,chunk in pending:
+            if offset>end:break
+            if offset+len(chunk)>end:data.extend(chunk[end-offset:]);end=offset+len(chunk)
+            used+=1
+        saved=(bytearray(decoder.buf),decoder.iv,decoder.frames)
+        try:
+            lost=decoder.resync(missing,bytes(data))
+        except Exception:
+            decoder.buf,decoder.iv,decoder.frames=saved
+            return None
+        if lost is None:
+            return None
+        stream.next=(stream.next+end)&0xffffffff
+        stream.pending=[(pos-end,chunk) for pos,chunk in pending[used:]]
+        stream.gap_since=None
+        return missing,lost
     def fail(self,flow,reason):
         self.invalidate_inventory(flow.get('session'))
         flow['failed']=True;flow['buffer'].clear();flow['stream'].pending.clear()
@@ -341,7 +425,15 @@ class Collector:
                 if flow.get('session'): self.invalidate_inventory(flow['session'])
                 self.flows.pop(key,None);continue
             gap=flow['stream'].gap_since
-            if not flow['failed'] and gap is not None and now-gap>10:self.fail(flow,'TCP gap timeout')
+            if not flow['failed'] and gap is not None and now-gap>10 and not self.recover(flow):
+                self.fail(flow,'TCP gap timeout')
+            client=flow.get('client_stream')
+            if client is not None and not flow.get('client_failed') and client.gap_since is not None and now-client.gap_since>10:
+                skipped=self.skip_gap(client,flow.get('client_decoder'))
+                if skipped is None:
+                    flow['client_failed']=True;flow.pop('client_buffer',None)
+                else:
+                    self.event('client_stream_resynced',session=flow.get('session'),missing_bytes=skipped[0],lost_frames=skipped[1])
         if now-self.last_status_attempt>2:
             self.last_status_attempt=now
             self.publish_inventory()

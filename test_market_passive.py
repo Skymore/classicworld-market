@@ -142,6 +142,58 @@ class PassiveTests(unittest.TestCase):
             collector.receive(raw(140,b'gap'),2);collector.tick(13)
             self.assertTrue(next(iter(collector.flows.values()))['failed'])
 
+    def wire(self,iv,plains):
+        out=bytearray();boundaries=[]
+        for plain in plains:
+            boundaries.append(len(out))
+            out+=frame_header(len(plain),iv,False)+bytes((b+iv[0])&255 for b in plain);iv=advance(iv)
+        return bytes(out),boundaries
+
+    def gapped(self,cut_from,cut_to):
+        """Frames seen by a collector whose capture lost bytes [cut_from, cut_to) of the stream."""
+        with tempfile.TemporaryDirectory() as tmp:
+            collector=Collector(Path(tmp),owner=lambda _:True)
+            seen=[]
+            collector.observer=lambda session:(lambda plain:seen.append(plain))
+            iv=bytes([1,2,3,4])
+            plains=[bytes([10+i,0])+bytes(range(i%7,i%7+40+i*3)) for i in range(30)]
+            body,bounds=self.wire(iv,plains)
+            greeting=bytes.fromhex('1300010001000000010030')+bytes([9,9,9,9])+iv+bytes([8,0])
+            stream=greeting+body
+            base=101
+            collector.receive(raw(100,flags=0x12),1)
+            for at in range(0,len(stream),60):
+                chunk=stream[at:at+60]
+                lo,hi=len(greeting)+cut_from,len(greeting)+cut_to
+                kept=[(i,b) for i,b in enumerate(chunk,at) if not lo<=i<hi]
+                if not kept:continue
+                # Send the surviving bytes of this segment as one or two pieces.
+                pieces=[];cur=[]
+                for i,b in kept:
+                    if cur and i!=cur[-1][0]+1:pieces.append(cur);cur=[]
+                    cur.append((i,b))
+                pieces.append(cur)
+                for piece in pieces:
+                    collector.receive(raw(base+piece[0][0],bytes(b for _,b in piece)),1.5)
+            collector.tick(20)
+            flow=next(iter(collector.flows.values()))
+            return plains,bounds,seen,flow
+
+    def test_a_lost_segment_inside_one_frame_drops_only_that_frame(self):
+        plains,bounds,seen,flow=self.gapped(0,0)
+        self.assertEqual(seen,plains)
+        start=bounds[10]+10
+        plains,bounds,seen,flow=self.gapped(start,start+20)
+        self.assertFalse(flow['failed'])
+        self.assertEqual(seen,plains[:10]+plains[11:])
+
+    def test_several_lost_frames_are_found_again_by_their_headers(self):
+        plains,bounds,seen,flow=self.gapped(0,0)
+        start,end=bounds[8]+5,bounds[13]+7
+        plains,bounds,seen,flow=self.gapped(start,end)
+        self.assertFalse(flow['failed'])
+        self.assertEqual(seen,plains[:8]+plains[14:])
+
     def test_syn_retransmission_does_not_reset_and_new_syn_does(self):
         with tempfile.TemporaryDirectory() as tmp:
             collector=Collector(Path(tmp),owner=lambda _:True)
