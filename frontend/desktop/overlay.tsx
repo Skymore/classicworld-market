@@ -19,6 +19,7 @@ function Overlay() {
   const seen = useRef(0);
   const [drop, setDrop] = useState<GroundDrop | null>(null);
   const dropSeen = useRef<number | null>(null);
+  const pendingVoice = useRef<{ object: number; t: number; since: number } | null>(null);
   useEffect(() => {
     let alive = true;
     const poll = () => overlayState().then(s => {
@@ -31,8 +32,17 @@ function Overlay() {
       else if (newest && newest.t > dropSeen.current) {
         dropSeen.current = newest.t;
         setDrop(newest);
-        if (s.settings.buff_sound) announceDrop();
+        if (s.settings.buff_sound) pendingVoice.current = { object: newest.object, t: newest.t, since: Date.now() };
       } else setDrop(cur => cur && (drops.find(d => d.object === cur.object && d.t === cur.t) || cur)); // name and price arrive a moment later
+      // Say it once its name is known (a first drop of an item waits for the price list), at most 3 s later.
+      const waiting = pendingVoice.current;
+      if (waiting) {
+        const named = drops.find(d => d.object === waiting.object && d.t === waiting.t)?.name;
+        if ((named && !named.startsWith('#')) || Date.now() - waiting.since > 3000) {
+          pendingVoice.current = null;
+          announceDrop(named);
+        }
+      }
       // Picked up something worth showing (equipment, scrolls, stars, bullets, or notable value): name and price.
       const notable = s.live?.runs?.[0]?.recent?.find(r => r.alert || r.notable);
       if (notable && notable.t > seen.current) {
