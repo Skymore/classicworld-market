@@ -78,5 +78,30 @@ class ReplayTest(unittest.TestCase):
             self.assertEqual(replay_once(root, 'test-v2'), result)
 
 
+class RepriceTest(unittest.TestCase):
+    def test_runs_the_frames_did_not_rebuild_take_todays_prices_except_equipment(self):
+        import contextlib, json, sqlite3, tempfile
+        from pathlib import Path
+        from grind_pricing import Prices
+        from grind_replay import reprice_history
+        with tempfile.TemporaryDirectory() as folder:
+            data = Path(folder)
+            run = dict(id='r', started_at=0, active_seconds=3600, mesos=1000, mesos_spent=0,
+                       loot=[dict(item_id=4000019, quantity=10, value=50), dict(item_id=1442007, quantity=1, value=750000)],
+                       consumables=[dict(item_id=2000002, used=10, cost=3500)])
+            with contextlib.closing(sqlite3.connect(data / 'history.sqlite')) as db, db:
+                db.execute('CREATE TABLE runs (id TEXT PRIMARY KEY, summary TEXT)')
+                db.execute('INSERT INTO runs VALUES (?, ?)', ('r', json.dumps(run)))
+            prices = Prices()
+            prices.rows = {4000019: dict(typical=12), 2000002: dict(typical=300, npc_shop=350), 1442007: dict(typical=1350000)}
+            self.assertEqual(reprice_history(data, prices, 'v'), 1)
+            with contextlib.closing(sqlite3.connect(data / 'history.sqlite')) as db:
+                out = json.loads(db.execute('SELECT summary FROM runs').fetchone()[0])
+            self.assertEqual([r['value'] for r in out['loot']], [120, 750000])   # equipment kept
+            self.assertEqual(out['consume_cost'], 3000)                            # median sale, not the shop's 350
+            self.assertEqual(out['net'], 1000 + 750120 - 3000)
+            self.assertEqual(reprice_history(data, prices, 'v'), 0)                # once per version
+
+
 if __name__ == '__main__':
     unittest.main()

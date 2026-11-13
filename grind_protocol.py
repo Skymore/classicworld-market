@@ -339,7 +339,10 @@ def drop(data):
     owner) or None. `fresh`: just dropped (1), not already lying there when the map
     was entered (0) or another appearance (2). `owner`: the character or party it
     belongs to (party ID as in PartyInfo; 2026-11-12 every drop of a party session
-    named the party). An item's ID, or a mesos amount, is at 21; the owner at 25."""
+    named the party). An item's ID, or a mesos amount, is at 21; the owner at 25;
+    the mob that dropped it at 42. `thrown`: a player dropped it (no mob at 42, a
+    character owner, and 1 at 62; mob drops have 0 there). Equipment attributes
+    are not in this message: they are known only once it is picked up."""
     if opcode(data) != DROP or len(data) not in (115, 123) or data[2] != 0 or data[8] not in (0, 1):
         return None
     mesos = data[8] == 1
@@ -348,8 +351,10 @@ def drop(data):
     value = u32(data, 21)
     if not mesos and not 1_000_000 <= value < 10_000_000:
         return None
+    source = u32(data, 42)
     return dict(fresh=data[3] == 1, object=u32(data, 4), mesos=mesos,
-                item=None if mesos else value, amount=value if mesos else 1, owner=u32(data, 25))
+                item=None if mesos else value, amount=value if mesos else 1, owner=u32(data, 25),
+                source=source, thrown=source == 0 and data[29] == 0 and len(data) > 62 and data[62] == 1)
 
 
 def buff_mask(data):

@@ -326,6 +326,20 @@ class GroundDropTest(unittest.TestCase):
         self.send(self.drop(1442007, 586474, oid=1))          # the same drop again
         self.assertEqual([d['object'] for d in character.drops], [1, 2])
 
+    def test_thrown_items_are_ignored_and_the_killer_is_named(self):
+        character = self.tracker.characters['s1']
+        character.character_id, character.party_id = 165043, 586474
+        character.party = {82978: dict(name='SHadowFiend', channel=1)}
+        thrown = bytearray(self.drop(1442007, 165043, oid=9))
+        thrown[62] = 1
+        self.send(bytes(thrown))
+        character.deaths_seen[555] = (self.clock(), 82978)
+        mob_drop = bytearray(self.drop(1041076, 586474, oid=10))
+        mob_drop[29] = 1
+        mob_drop[42:46] = (555).to_bytes(4, 'little')
+        self.send(bytes(mob_drop))
+        self.assertEqual([(d['object'], d['by'], d['by_name']) for d in character.drops], [(10, 'party', 'SHadowFiend')])
+
     def test_party_info_names_the_party(self):
         character = self.tracker.characters['s1']
         character.character_id = 165043

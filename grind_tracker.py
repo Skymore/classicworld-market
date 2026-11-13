@@ -241,6 +241,7 @@ class Character:
         self.buff_ended = {}        # source -> when it last ended (cancel or time)
         self.combat_at = None       # last own attack or kill: buffs are kept up only in combat
         self.party_id = None        # owner of the party's drops
+        self.deaths_seen = {}       # mob object -> (time, killer character) for its drops
         self.drops = collections.deque(maxlen=20)   # valuable drops this character can pick up
         self.skill_keys = None      # per keyboard preset: skill -> scan code (grind_autobuff)
         self.key_preset = None
@@ -579,6 +580,13 @@ class Tracker:
         if oid is not None:
             # Only mobs this character hit count; other players' kills do not.
             attribution = character.kill_owners.pop(oid, None)
+            # Who killed it, for the drops that follow (ground_drop): this
+            # character, or the last party member the server credited with a hit.
+            killer = character.character_id if oid in character.hit else (attribution[1] if attribution else None)
+            character.deaths_seen[oid] = (now, killer)
+            if len(character.deaths_seen) > 200:
+                for old in list(character.deaths_seen)[:100]:
+                    del character.deaths_seen[old]
             if attribution and 0 <= now - attribution[0] <= 120:
                 self.health['attributed_kills'] += 1
                 actor = attribution[1]
@@ -643,7 +651,7 @@ class Tracker:
         (a party member's kill included): equipment, scrolls, throwing stars and
         bullets always, anything else worth at least the notable value."""
         drop = proto.drop(data)
-        if not drop or not drop['fresh'] or drop['mesos']:
+        if not drop or not drop['fresh'] or drop['mesos'] or drop['thrown']:
             return
         owner = drop['owner']
         if owner not in (character.character_id, character.party_id) or owner is None:
@@ -655,8 +663,13 @@ class Tracker:
         valuable = item // 1_000_000 == 1 or kind == 204 or kind in (207, 233)             or (unit or 0) >= self.settings['notable_value']
         if not valuable or any(d['object'] == drop['object'] for d in character.drops):
             return
+        death = character.deaths_seen.get(drop['source'])
+        killer = death[1] if death and 0 <= now - death[0] <= 10 else None
+        by = 'me' if killer is not None and killer == character.character_id else 'party' if killer is not None else None
+        member = (character.party or {}).get(killer) if by == 'party' else None
         character.drops.append(dict(t=round(now, 2), object=drop['object'], item_id=item,
-                                    name=self.name(item), value=unit))
+                                    name=self.name(item), value=unit, by=by,
+                                    by_name=member['name'] if member else None))
         self.dirty = True
 
     def party_update(self, character, data):
@@ -1213,7 +1226,10 @@ class Tracker:
         loot_events = [dict(t=e['t'], kind=e['kind'], item_id=e.get('item_id'), name=self.name(e.get('item_id')),
                             quantity=e.get('quantity'), unit=unit, basis=label, value=amount,
                             priced=label not in (None, '无价格'),
-                            stats=(e.get('piece') or {}).get('stats'), notable=e['kind'] == 'loot' and amount >= notable)
+                            stats=(e.get('piece') or {}).get('stats'), notable=e['kind'] == 'loot' and amount >= notable,
+                            # Picked up and worth showing with its price on the overlay.
+                            alert=e['kind'] == 'loot' and (amount >= notable or (e.get('item_id') or 0) // 1_000_000 == 1
+                                                           or (e.get('item_id') or 0) // 10000 in (204, 207, 233)))
                        for e, unit, label, amount in rows if e['kind'] == 'loot']
         recent_rows = loot_events[-RECENT:][::-1]
         loot_rows, stack_rows = [], {}

@@ -137,13 +137,59 @@ def replay_once(folder, version, stop=None, force=False, fetch=None):
                 raise OSError('Could not save replay results')
             updated = apply_results(data, tracker.results, first, last, version)
             identities = apply_identities(data, repair.results, tracker.prices, version)
+            repriced = reprice_history(data, tracker.prices, version)
         result = dict(version=version, state='done', frames=count, rebuilt=len(tracker.results),
-                      updated=updated, identities=identities, finished_at=time.time())
+                      updated=updated, identities=identities, repriced=repriced, finished_at=time.time())
         write_json(status, result)
         return result
     except Exception as error:
         write_json(status, dict(version=version, state='failed', error=type(error).__name__))
         return None
+
+
+def reprice_history(data, prices, version):
+    """Today's prices for runs the frames could not rebuild (older recordings, or
+    boundaries that no longer match): non-equipment loot and every consumable,
+    with the totals and hourly net. Equipment keeps its value: old rows lack the
+    remaining upgrades its attribute group needs. Sync re-uploads what changed."""
+    path = data / 'history.sqlite'
+    if not path.exists():
+        return 0
+    with contextlib.closing(sqlite3.connect(path, timeout=30)) as db:
+        rows = db.execute('SELECT id, summary FROM runs').fetchall()
+    runs = [(ident, json.loads(raw)) for ident, raw in rows]
+    wanted = {r.get('item_id') for _, s in runs for r in (s.get('loot') or []) + (s.get('consumables') or [])}
+    prices.refresh_now([i for i in wanted if i])
+    changed = []
+    for ident, summary in runs:
+        if summary.get('replay_version') == version or summary.get('repriced') == version:
+            continue
+        item_value = 0.0
+        for row in summary.get('loot') or []:
+            item = row.get('item_id')
+            if item and item // 1_000_000 != 1:
+                unit, label = prices.loot(item)
+                if unit is not None:
+                    row.update(unit=unit, basis=label, value=unit * (row.get('quantity') or 0), priced=True)
+            item_value += row.get('value') or 0
+        cost = 0.0
+        for row in summary.get('consumables') or []:
+            unit, _ = prices.consumable(row['item_id'])
+            if unit is not None:
+                row['cost'] = unit * (row.get('used') or 0)
+            cost += row.get('cost') or 0
+        if not summary.get('loot'):
+            item_value = summary.get('item_value') or 0
+        mesos, spent = summary.get('mesos') or 0, summary.get('mesos_spent') or 0
+        net = mesos + item_value - cost - spent
+        hours = (summary.get('active_seconds') or 0) / 3600
+        summary.update(item_value=round(item_value), consume_cost=round(cost), net=round(net),
+                       net_per_hour=net / hours if hours else summary.get('net_per_hour'), repriced=version)
+        changed.append((json.dumps(summary, ensure_ascii=False), ident))
+    if changed:
+        with contextlib.closing(sqlite3.connect(path, timeout=30)) as db, db:
+            db.executemany('UPDATE runs SET summary=? WHERE id=?', changed)
+    return len(changed)
 
 
 def apply_results(data, results, first, last, version):

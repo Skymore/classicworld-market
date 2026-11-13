@@ -3,12 +3,13 @@
 import { language, tr } from './i18n';
 
 export interface LootRow {
+  alert?: boolean;
   t: number; kind: string; item_id: number; name: string | null; quantity: number;
   priced?: boolean; unit: number; basis: string | null; value: number; stats?: { key: string; value: number }[] | null; notable: boolean;
 }
 export interface Consumable { item_id: number; name: string | null; used: number; cost?: number; acquired?: number; remaining: number | null; per_hour: number | null; minutes_left: number | null }
 /** A valuable item that just fell for this character or its party (grind_tracker.ground_drop). */
-export interface GroundDrop { t: number; object: number; item_id: number; name: string | null; value: number | null }
+export interface GroundDrop { t: number; object: number; item_id: number; name: string | null; value: number | null; by?: 'me' | 'party' | null; by_name?: string | null }
 export interface Buff { source: number; name: string | null; seconds: number; total: number; item_id: number | null; pinned?: boolean; proc?: boolean; on?: number | null }
 export interface CombatRow {
   dps_5m?: number | null; kills_5m?: number; exp_received_5m?: number | null; kill_exp_5m?: number | null; exp_contribution_5m?: number | null; exp_yield_5m?: number | null;

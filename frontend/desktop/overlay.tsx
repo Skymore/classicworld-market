@@ -33,7 +33,8 @@ function Overlay() {
         setDrop(newest);
         if (s.settings.buff_sound) announceDrop();
       }
-      const notable = s.live?.runs?.[0]?.recent?.find(r => r.notable);
+      // Picked up something worth showing (equipment, scrolls, stars, bullets, or notable value): name and price.
+      const notable = s.live?.runs?.[0]?.recent?.find(r => r.alert || r.notable);
       if (notable && notable.t > seen.current) {
         if (seen.current) setToast(notable);
         seen.current = notable.t;

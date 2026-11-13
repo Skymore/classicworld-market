@@ -170,7 +170,9 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
   const box = (content: React.ReactNode) => <div className={`ov ov-${o.layout} ov-t-${o.theme || 'dark'}`} style={style} ref={cardRef}>
     {!run || !['standard', 'detailed', 'slim'].includes(o.layout) ? <div className="ov-site">mxd.ruit.me</div> : null}
     {prompt && <div className="ov-prompt warn" role="alert">⚠ {prompt}</div>}
-    {drop && <div className="ov-drop gold" role="status"><img src={itemIcon(drop.item_id)} alt="" />{tr('掉落：', 'Dropped: ')}{drop.name || `#${drop.item_id}`}{drop.value ? <b> {big(drop.value)}</b> : null}</div>}
+    {drop && <div className="ov-drop gold" role="status"><img src={itemIcon(drop.item_id)} alt="" />
+      {drop.by === 'me' ? tr('你打出：', 'You dropped: ') : drop.by === 'party' ? tr(`队友${drop.by_name ? ` ${drop.by_name} ` : ''}打出：`, `${drop.by_name || 'Party'} dropped: `) : tr('掉落：', 'Dropped: ')}
+      {drop.name || `#${drop.item_id}`}{drop.value ? <b> {tr('约', '~')}{big(drop.value)}</b> : null}</div>}
     {content}{grip}</div>;
   if (!run) return box(<><div className="ov-line">{dot}<span>{live && !live.stale ? tr('打几只怪开始记录', 'Kill a few to start') : tr('等待客户端', 'Waiting for collector')}</span></div>
     {show('buffs') && <Buffs live={live} settings={settings} />}</>);
