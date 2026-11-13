@@ -136,6 +136,47 @@ class AutoBuffTest(unittest.TestCase):
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, ['2'])
 
+    def test_a_potion_is_pressed_once_per_ending_even_if_the_game_refuses(self):
+        character = self.start()
+        self.send(key_table([{3: (2, 2002000)}] * 3))
+        character.buffs = {}
+        character.bags = {2002000: 5}
+        self.current().casts.clear()
+        self.current().segment.buff_totals = {-2002000: 600}
+        character.buff_ended[-2002000] = self.clock()
+        for _ in range(6):
+            self.clock.t += autobuff.ITEM_RETRY + 0.5
+            self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['2'])                     # the dialog is not asked again
+        character.buff_ended[-2002000] = self.clock()            # it came back and ended again
+        self.clock.t += autobuff.ITEM_LATE + 0.5
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['2', '2'])
+
+    def test_a_potion_never_seen_on_this_session_is_not_pressed(self):
+        character = self.start()
+        self.send(key_table([{3: (2, 2002000)}] * 3))
+        character.buffs, character.buff_ended = {}, {}
+        character.bags = {2002000: 5}
+        self.current().segment.buff_totals = {-2002000: 600}
+        self.clock.t += 10
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])
+
+    def test_a_channel_change_keeps_the_buffs_that_are_still_on(self):
+        character = self.start()
+        character.key = 'hero'
+        self.current().character['key'] = 'hero'
+        character.buffs[-2002000] = (self.clock(), 600_000)
+        self.tracker.disconnect('s1')
+        from grind_tracker import Character
+        fresh = self.tracker.characters['s2'] = Character('s2')
+        fresh.key = 'hero'
+        self.tracker.adopt_by_key(fresh)
+        self.assertIn(-2002000, fresh.buffs)
+        self.assertIn(3101004, fresh.buffs)
+        self.assertIsNotNone(fresh.run)
+
     def test_a_buff_someone_else_cast_is_left_alone(self):
         self.start()
         self.current().casts.clear()

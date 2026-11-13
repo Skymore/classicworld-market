@@ -402,7 +402,32 @@ class Tracker:
         character.staged_combat.clear()
         self.dirty = True
 
+    CARRIED = ('buffs', 'buff_masks', 'buff_on', 'buff_ended', 'pet_potions')
+
+    def carry_buffs(self, character, source):
+        """A channel change opens a new connection, and the server does not send the
+        buffs that are still on again. Without them, auto buff took a potion with
+        5 minutes left as long gone and pressed it (2026-11-12 19:06), and the game
+        kept asking. Copy what the old connection knew; newer news on this one wins."""
+        for name in self.CARRIED:
+            known, mine = source.get(name) or {}, getattr(character, name)
+            for key, value in known.items():
+                mine.setdefault(key, value)
+        character.combat_at = max(character.combat_at or 0, source.get('combat_at') or 0) or None
+
+    @staticmethod
+    def buff_state(character):
+        state = {name: dict(getattr(character, name)) for name in Tracker.CARRIED}
+        state['combat_at'] = character.combat_at
+        return state
+
     def adopt_by_key(self, character):
+        carried = self.__dict__.setdefault('carried', {})
+        for other in self.characters.values():
+            if other is not character and other.key == character.key:
+                self.carry_buffs(character, self.buff_state(other))
+        if character.key in carried:
+            self.carry_buffs(character, carried.pop(character.key))
         for other in self.characters.values():
             if other is not character and other.key == character.key and other.run:
                 character.run, other.run = other.run, None
@@ -1000,6 +1025,8 @@ class Tracker:
         """The connection closed or failed; its run waits for the same character."""
         character = self.characters.pop(session, None)
         self.connections.pop(session, None)
+        if character and character.key:
+            self.__dict__.setdefault('carried', {})[character.key] = self.buff_state(character)
         if character and character.run:
             self.pause(character.run, 'disconnect', self.now())
             self.restored.append(character.run)

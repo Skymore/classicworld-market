@@ -165,6 +165,7 @@ class AutoBuff:
         self.waiting = None       # why the last due buff was not pressed (state file and log)
         self.last_press = None
         self.potion_at = {}       # (session, 'hp' / 'mp') -> time of the last potion
+        self.item_tried = {}      # (character, item buff) -> the ending it was pressed for
         self.jobs = queue.Queue(maxsize=4)
         self.thread = None
 
@@ -224,6 +225,14 @@ class AutoBuff:
                 wait = RETRY if source > 0 else ITEM_RETRY
                 if now - self.tried.get((character.session, source), -wait) < wait:
                     continue
+                # An item is pressed once per ending: if the game refuses (its effect
+                # is still on), it asks with a dialog, and pressing again only asks
+                # again. The next try waits for this buff to come and go once more.
+                if source < 0 and source not in character.buffs and source not in character.buff_ended:
+                    continue      # never seen on or ending here: it may well still be on
+                ending = round(now + left, 1)
+                if source < 0 and self.item_tried.get((character.key, source)) == ending:
+                    continue
                 scan = skill_key(character, source)
                 name = key_name(scan) if scan is not None else None
                 if name is None:
@@ -232,6 +241,8 @@ class AutoBuff:
                 if pid is None or self.foreground() != pid:
                     return self.wait('game_not_found' if pid is None else 'game_not_in_front', source)
                 self.tried[(character.session, source)] = now
+                if source < 0:
+                    self.item_tried[(character.key, source)] = ending
                 self.last = now
                 self.waiting = None
                 self.last_press = dict(at=round(now), source=source, key=name)

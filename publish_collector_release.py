@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.42：修复换频道后自动加 Buff 把还在生效的药水和技能当成已过期、反复按键弹框的问题：换频道时保留 Buff 计时；药水每次结束只按一次，游戏拒绝就不再重按。\n'
         'v0.7.41：抓包漏掉一段数据（例如后台下载更新时）后能自动接上继续解码，不用再换频道；以前会一直“瞎着”，刷图记录显示暂停直到换频道。网站实时页的暂停标签会写明原因。\n'
         'v0.7.40：修复客户端升级交接时，升级前最后一瞬间的记录可能没接上，导致经验或背包基准不对的问题；配合服务端优化，房间名单等上传不再一直超时积压。\n'
         'v0.7.39：自动加 Buff 和 Buff 语音提醒只在战斗中进行（10 秒内攻击、击杀或被打）；药水类 Buff 改为结束 3 秒后再用，避免弹框；识别服务端提前取消的 Buff，终极系列每次从没有到有都会提醒，以前漏了大半。\n'
