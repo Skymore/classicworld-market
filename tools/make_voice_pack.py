@@ -11,10 +11,13 @@ monster drops in the Mapledex reference, plus all scrolls, stars and bullets
 (which the drop alert always announces), named as the site names them: pass a
 JSON file {item id: {zh, en}} exported from the site's items table as the first
 argument (otherwise the Mapledex names). An item without a file is read by
-Windows speech. Delete a language folder to regenerate it.
+Windows speech. Chinese only for now, trimmed and re-encoded small (16 kHz, 24 kbit/s):
+clients before v0.7.55 refuse an update archive over 80 MB.
+Delete a language folder to regenerate it.
 
-Needs edge-tts (Microsoft neural voices, online), which is not a project
-dependency: `python -m pip install edge-tts` in a separate environment, then
+Needs edge-tts (Microsoft neural voices, online), miniaudio and lameenc, which
+are not project dependencies: `python -m pip install edge-tts miniaudio lameenc`
+in a separate environment, then
 run this script with that interpreter from the repository root.
 """
 import asyncio
@@ -91,7 +94,6 @@ def lines():
 
 def drop_names():
     """(lang, 'item/<id>', text) for the items the drop alert can name."""
-    korean = json.loads((ROOT / 'server/crates/market-web/src/i18n/ko-game.json').read_text(encoding='utf-8'))['items']
     site = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8')) if len(sys.argv) > 1 else {}
     seen = set()
     for kind in ('equips', 'items'):
@@ -105,17 +107,28 @@ def drop_names():
             source = f"item/{item['id']}"
             if names.get('cw') or names.get('zh'):
                 yield 'zh', source, names.get('cw') or names['zh']
-            if names.get('en'):
-                yield 'en', source, names['en']
-            if korean.get(str(item['id'])):
-                yield 'ko', source, korean[str(item['id'])]
+
+
+def compact(path):
+    """Trim the silence around a clip and re-encode it at 16 kHz mono, 24 kbit/s."""
+    import array
+    import lameenc
+    import miniaudio
+    samples = miniaudio.decode_file(str(path), output_format=miniaudio.SampleFormat.SIGNED16, nchannels=1, sample_rate=16000).samples
+    loud = [i for i in range(0, len(samples), 160) if max(abs(x) for x in samples[i:i + 160]) > 600]
+    if loud:
+        samples = samples[max(0, loud[0] - 800):min(len(samples), loud[-1] + 1760)]
+    encoder = lameenc.Encoder()
+    encoder.set_bit_rate(24); encoder.set_in_sample_rate(16000); encoder.set_channels(1); encoder.set_quality(2)
+    path.write_bytes(encoder.encode(array.array('h', samples).tobytes()) + encoder.flush())
 
 
 async def main():
     import edge_tts
     todo = [row for row in [*lines(), *drop_names()] if not (OUT / row[0] / f'{row[1]}.mp3').exists()]
     for lang in VOICES:
-        (OUT / lang / 'item').mkdir(parents=True, exist_ok=True)
+        (OUT / lang).mkdir(parents=True, exist_ok=True)
+    (OUT / 'zh' / 'item').mkdir(exist_ok=True)
     gate = asyncio.Semaphore(6)
 
     async def make(lang, source, text):
@@ -123,6 +136,8 @@ async def main():
             target = OUT / lang / f'{source}.mp3'
             await edge_tts.Communicate(text, VOICES[lang], rate='+10%').save(str(target) + '.part')
             Path(str(target) + '.part').replace(target)
+            if source.startswith('item/'):
+                compact(target)
     await asyncio.gather(*(make(*row) for row in todo))
     print(f'{len(todo)} files written to {OUT}')
 
