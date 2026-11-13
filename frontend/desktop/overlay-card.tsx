@@ -74,8 +74,10 @@ function chime(source: number, text: string | null | undefined) {
 }
 
 /** A valuable drop to pick up: a two-note chime, "有好东西掉了" (voice pack: drop_alert), then
- * the item's name in Windows speech (names are too many for the pack). No price. */
-export function announceDrop(name?: string | null) {
+ * the item's name in the same voice (voice/<lang>/item/<id>.mp3). An item outside the pack is
+ * read by Windows speech, by the name nameOf() gives once the clip ends (a first drop's name
+ * arrives with the price list). No price. */
+export function announceDrop(itemId: number, nameOf: () => string | null | undefined) {
   try {
     const audio = new AudioContext(), gain = audio.createGain();
     gain.gain.value = 0.08; gain.connect(audio.destination);
@@ -85,14 +87,17 @@ export function announceDrop(name?: string | null) {
     });
     setTimeout(() => audio.close(), 600);
   } catch { /* no audio device */ }
-  const item = name && !name.startsWith('#') ? name : null;
-  const phrase = tr('有好东西掉了', 'Valuable drop');
+  const named = () => { const name = nameOf(); return name && !name.startsWith('#') ? name : null; };
   setTimeout(() => {
     speaking = speaking.then(async () => {
       const lang = language();
       const played = await play(`voice/${lang}/drop_alert.mp3`) || (lang === 'ko' && await play('voice/en/drop_alert.mp3'));
-      // The clip says the phrase and the name follows; without the clip both are spoken.
-      if (played) { if (item) speak(item); } else speak(item ? `${phrase}，${item}` : phrase);
+      if (played) {
+        if (!await play(`voice/${lang}/item/${itemId}.mp3`)) speak(named());
+      } else {
+        const item = named(), phrase = tr('有好东西掉了', 'Valuable drop');
+        speak(item ? `${phrase}，${item}` : phrase);
+      }
     });
   }, 300);
 }

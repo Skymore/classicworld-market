@@ -19,7 +19,7 @@ function Overlay() {
   const seen = useRef(0);
   const [drop, setDrop] = useState<GroundDrop | null>(null);
   const dropSeen = useRef<number | null>(null);
-  const pendingVoice = useRef<{ object: number; t: number; since: number } | null>(null);
+  const dropsNow = useRef<GroundDrop[]>([]);
   useEffect(() => {
     let alive = true;
     const poll = () => overlayState().then(s => {
@@ -27,22 +27,15 @@ function Overlay() {
       setLive(s.live); setSettings(s.settings); applyLanguage(s.language || 'system');
       // A valuable item fell for this character or its party: show it for 8 s and announce it.
       const drops = (s.live?.characters || []).flatMap(c => c.drops || []);
+      dropsNow.current = drops;
       const newest = drops.reduce<GroundDrop | null>((best, d) => !best || d.t > best.t ? d : best, null);
       if (dropSeen.current === null) dropSeen.current = newest?.t ?? 0;
       else if (newest && newest.t > dropSeen.current) {
         dropSeen.current = newest.t;
         setDrop(newest);
-        if (s.settings.buff_sound) pendingVoice.current = { object: newest.object, t: newest.t, since: Date.now() };
+        // Named by its clip; an item outside the voice pack by whatever name has arrived by then.
+        if (s.settings.buff_sound) announceDrop(newest.item_id, () => dropsNow.current.find(d => d.object === newest.object && d.t === newest.t)?.name);
       } else setDrop(cur => cur && (drops.find(d => d.object === cur.object && d.t === cur.t) || cur)); // name and price arrive a moment later
-      // Say it once its name is known (a first drop of an item waits for the price list), at most 3 s later.
-      const waiting = pendingVoice.current;
-      if (waiting) {
-        const named = drops.find(d => d.object === waiting.object && d.t === waiting.t)?.name;
-        if ((named && !named.startsWith('#')) || Date.now() - waiting.since > 3000) {
-          pendingVoice.current = null;
-          announceDrop(named);
-        }
-      }
       // Picked up something worth showing (equipment, scrolls, stars, bullets, or notable value): name and price.
       const notable = s.live?.runs?.[0]?.recent?.find(r => r.alert || r.notable);
       if (notable && notable.t > seen.current) {

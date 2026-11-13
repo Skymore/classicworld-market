@@ -6,7 +6,12 @@ duration in the Mapledex reference. Korean names come from the game's own
 Korean strings (data/reference/cw-client/ko-names.json, exported from the
 client's Data/Etc/Language/ko); a skill missing there uses KOREAN below, keyed
 by the English name, and the overlay falls back to the English file after that.
-Delete a language folder to regenerate it.
+Drop names (voice/<lang>/item/<id>.mp3, said after "有好东西掉了"): every item a
+monster drops in the Mapledex reference, plus all scrolls, stars and bullets
+(which the drop alert always announces), named as the site names them: pass a
+JSON file {item id: {zh, en}} exported from the site's items table as the first
+argument (otherwise the Mapledex names). An item without a file is read by
+Windows speech. Delete a language folder to regenerate it.
 
 Needs edge-tts (Microsoft neural voices, online), which is not a project
 dependency: `python -m pip install edge-tts` in a separate environment, then
@@ -84,11 +89,33 @@ def lines():
             yield 'ko', -item['id'], ko
 
 
+def drop_names():
+    """(lang, 'item/<id>', text) for the items the drop alert can name."""
+    korean = json.loads((ROOT / 'server/crates/market-web/src/i18n/ko-game.json').read_text(encoding='utf-8'))['items']
+    site = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8')) if len(sys.argv) > 1 else {}
+    seen = set()
+    for kind in ('equips', 'items'):
+        for item in json.loads((ROOT / f'data/reference/mapledex/{kind}.json').read_text(encoding='utf-8'))['items']:
+            if item['id'] in seen or not (item.get('droppedBy') or item['id'] // 10000 in (204, 207, 233)):
+                continue
+            seen.add(item['id'])
+            names = item['n']
+            ours = site.get(str(item['id'])) or {}
+            names = dict(names, cw=ours.get('zh') or names.get('cw'), en=ours.get('en') or names.get('en'))
+            source = f"item/{item['id']}"
+            if names.get('cw') or names.get('zh'):
+                yield 'zh', source, names.get('cw') or names['zh']
+            if names.get('en'):
+                yield 'en', source, names['en']
+            if korean.get(str(item['id'])):
+                yield 'ko', source, korean[str(item['id'])]
+
+
 async def main():
     import edge_tts
-    todo = [row for row in lines() if not (OUT / row[0] / f'{row[1]}.mp3').exists()]
+    todo = [row for row in [*lines(), *drop_names()] if not (OUT / row[0] / f'{row[1]}.mp3').exists()]
     for lang in VOICES:
-        (OUT / lang).mkdir(parents=True, exist_ok=True)
+        (OUT / lang / 'item').mkdir(parents=True, exist_ok=True)
     gate = asyncio.Semaphore(6)
 
     async def make(lang, source, text):
