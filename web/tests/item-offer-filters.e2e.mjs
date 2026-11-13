@@ -256,7 +256,7 @@ try {
     assert.equal(await known.locator('.sale-equipment').isVisible(),true,'captured stats are visible without clicking');
     assert.match(await known.locator('.sale-equipment').textContent(),mobile?/敏 \+2/:/DEX \+2/);
     const unknown=salePanel.locator('[data-sale-stats]').last();
-    assert.match(await unknown.locator('.sale-equipment').textContent(),mobile?/属性未采集/:/not captured/);
+    assert.match(await unknown.locator('.sale-equipment').textContent(),mobile?/属性未知/:/Unknown stats/);
     assert.equal(await salePanel.locator('details,summary,.tip').count(),0,'sales use compact direct summaries');
     revision++;broadcast();await waitRevision();assert.equal(await known.locator('.sale-equipment').isVisible(),true,'SSE keeps captured stats visible');
     await salePanel.screenshot({path:path.join(output,`sale-stats-${mobile?'mobile':'desktop'}.png`)});

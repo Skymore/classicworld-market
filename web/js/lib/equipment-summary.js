@@ -6,7 +6,7 @@ const fields={weapon_attack:['物攻','Weapon ATK'],magic_attack:['魔攻','Magi
 export function equipmentSummary(row,en=false){
  if(Math.floor(Number(row.item_id)/1000000)!==1)return '';
  const eq=row.equipment;
- if(!eq||eq.status!=='candidate')return '';
+ if(!eq||eq.status!=='candidate')return row.source==='mesowatch'?say(en,'属性未知','Unknown stats'):'';
  const values=new Map();
  for(const stat of Array.isArray(eq.stats)?eq.stats:[]){
   if(fields[stat?.key]&&Number.isInteger(stat.value)&&stat.value>=0&&stat.value<=65535)values.set(stat.key,stat.value);

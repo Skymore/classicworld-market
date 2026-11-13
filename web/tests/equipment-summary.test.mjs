@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 const source=await readFile(new URL('../js/lib/equipment-summary.js',import.meta.url),'utf8');
 const {equipmentSummary}=await import('data:text/javascript,'+encodeURIComponent(source));
+test('external equipment is explicitly unknown and never borrows catalogue stats',()=>{
+ const row={item_id:1402007,source:'mesowatch',equipment:null,base_stats:{weapon_attack:100}};
+ assert.equal(equipmentSummary(row),'属性未知');
+ assert.equal(equipmentSummary(row,true),'Unknown stats');
+ assert.equal(equipmentSummary({...row,item_id:4010001}),'');
+});
 test('different equipment offers keep their captured values and remaining zero slots',()=>{
  const row={item_id:1072128,equipment:{status:'candidate',stats:[{key:'weapon_defense',value:18},{key:'dex',value:2}],remaining_upgrades:0,enhancements:1}};
  assert.equal(equipmentSummary(row),'敏 +2 · 物防 +18 · 强化 +1 · 可升 0');

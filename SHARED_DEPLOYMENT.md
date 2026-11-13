@@ -41,7 +41,7 @@ PostgreSQL 的非默认参数用 `ALTER SYSTEM` 写入 `shared_data/postgres/pos
 
 安装及启用：
 
-1. 从已推送 `main` 构建 `cargo build --release -p market-web --bin market-web --bin import_mesowatch`，按网站发布流程上线匹配迁移的 web。将导入器复制到私有 `shared_data/mesowatch-sync/bin/import_mesowatch.exe`，不要放进网站包。
+1. 从已推送 `main` 构建 `cargo build --release -p market-web --bin market-web` 并发布。同步每次从 `shared_data/deploy/current.json` 解析当前发布的 `bin/market-web.exe --import-mesowatch`，与网站共用迁移和导入实现，无需单独复制导入器。私有 `mesowatch.importer` 仅供显式覆盖；常规运行不设置，以免固定在旧版本。
 2. 在共享目录运行 `.venv/Scripts/python.exe mesowatch_sync.py --prepare-extension`。这只生成私有加载目录、稳定扩展标识和本机配对配置，不安装扩展。加载目录为 `shared_data/mesowatch-sync/extension`，包含私有 `config.js`，不得提交 Git、打包到网站或发给其他人。
 3. 在日常使用的 Chrome 的 `chrome://extensions` 页面开启开发者模式，加载这个已解压目录。扩展仅申请 `alarms`、`scripting`、`storage` 以及 meso.watch/127.0.0.1 的访问权限，不申请 cookie、浏览历史、任意网站或调试器权限。点击扩展图标可打开同步页查看网站验证状态。
 4. 先运行 `.venv/Scripts/python.exe mesowatch_sync.py --browser-only` 验证真实清单能被读取。确认目标仍为 `Classic World`；页面显示名称 Windia 不用于猜测市场映射。
@@ -49,9 +49,9 @@ PostgreSQL 的非默认参数用 `ALTER SYSTEM` 写入 `shared_data/postgres/pos
 
 扩展从仅绑定 `127.0.0.1:18767` 的桥接服务领取固定范围的只读 JSON 请求，令牌只在扩展后台和本机间使用，不进入 MesoWatch 页面。接收端校验 Host、扩展 Origin（存在时）、令牌、任务 ID 和消息大小；原始 JSON 最终还要通过市场、物品编号、英文名、版本、成交类型和价格校验。不要把这个端口加入 Cloudflare Tunnel。
 
-外部装备（1xxxxxx）因缺少单件属性不下载、不导入。每轮先执行的 `--prune` 会将旧外部装备证据移至数据库隔离表并逐物品重算，不影响本站采集的装备。跨来源成交按用户指定规则合并：同角色名、同物品、同统一单价，发现时间相差不超过 6 小时（含边界），按时间最近一对一配对，优先保留本站记录参与统计。角色名缺失不匹配，不拿店铺标题代替；数量、成交类型和位置不作为额外门槛。MesoWatch 的 `seller` 只作为 `owner_name` 返回，未知店铺名留空。
+外部装备（1xxxxxx）下载并以“属性未知”接入，`variant_id` 为空，不补造属性、强化次数或剩余卷轴数。在物品页与已采集属性分组分开，市场列表、成交及平铺报价显示“属性未知”；不进入普通属性装备建议价。整体成交趋势仍包含全部属性状态，筛选具体属性时只使用对应属性的记录。每轮 `--prune` 仅清理被新导出取代的旧挂单，不再隔离装备。启用新策略时重新检查未变化清单中的装备，保留原隔离表作为历史证据；由来源原文重新导入并按成交 ID 去重。跨来源成交按用户指定规则合并：同角色名、同物品、同统一单价，发现时间相差不超过 6 小时（含边界），按时间最近一对一配对，优先保留本站记录参与统计。角色名缺失不匹配，不拿店铺标题代替；数量、成交类型和位置不作为额外门槛。MesoWatch 的 `seller` 只作为 `owner_name` 返回，未知店铺名留空。
 
-迁移 0051 新增 `cross_source_sale_matches` 派生关联表；原始成交不删除。上传、外部导入和角色补全都在重算受影响物品前更新关联，价格、趋势和成交列表统一读取去重视图。首次升级后用匹配迁移版本的私有导入器执行 `--deduplicate`，逐物品回填历史并释放上传锁，不全库锁定。导入器和网站必须一起升级，旧导入器不能继续对新迁移运行。此规则是推定合并，6 小时内同角色同价的不同交易可能被配对，不能宣称精确订单去重。
+迁移 0051 新增 `cross_source_sale_matches` 派生关联表；原始成交不删除。上传、外部导入和角色补全都在重算受影响物品前更新关联，价格、趋势和成交列表统一读取去重视图。首次升级后用当前发布的 `market-web.exe --import-mesowatch --deduplicate`，逐物品回填历史并释放上传锁，不全库锁定。定时同步自动使用当前发布入口；离线 `import_mesowatch` 工具仍必须与数据库迁移版本匹配。此规则是推定合并，6 小时内同角色同价的不同交易可能被配对，不能宣称精确订单去重。
 
 正常每轮获取 `/data/list.json`，清单未变就不下载物品；按清单每一行内容的哈希选择变化物品，访问 `/data/markets/Classic%20World/item/<id>.json`，至少间隔 1 秒，默认 2 秒。首次和积压同步固定当前清单版本，每次最多 150 个物品，未完成时 60 秒后继续，避免高频物品一直插队使尾部永远不同步；完整轮次结束后等待 30 分钟。清单的统计数字只用于变化检测，不进入我们的报价样本。来源若修订原始文件但清单内容完全不变，这种修订无法通过清单增量检测发现。
 

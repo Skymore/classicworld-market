@@ -6,7 +6,8 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 const {chromium}=createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE||'playwright');
 const root=path.resolve(fileURLToPath(new URL('..',import.meta.url))), now=Date.now()/1000, streams=new Set();
-const product={item_id:4010001,name_zh:'铁矿石',name_en:'Iron Ore',category:'其他',typical:300,low:290,sales_window:4,last_seen:now};
+const ore={item_id:4010001,name_zh:'铁矿石',name_en:'Iron Ore',category:'其他',typical:300,low:290,sales_window:4,last_seen:now};
+let product=ore, gear=false;
 let local=false;
 const record=()=>({...product,id:'row',shop:local?'Local shop':null,owner_name:local?'LocalRole':'ExternalRole',source:local?'packet':'mesowatch',
   time:now,observed:now,unit_price:300,sale_unit_price:300,kind:'found_sold',quantity:null,stock:null,location:{room:7}});
@@ -20,7 +21,10 @@ const server=createServer(async(req,res)=>{
     if(url.pathname==='/api/v1/market/period-default')data={default_hours:'all'};
     if(url.pathname==='/api/v1/market/records')data={records:[record()]};
     if(url.pathname==='/api/v1/catalog/page') data={kind:'item',page:{item:{...product,id:product.item_id},stats:null,droppers:[],npc_offers:[],npc_sell:null,
-      market:{as_of:now,base_stats:[],days:[],sale_points:[],listings:[],sales:[{kind:'found_sold',unit_price:300,quantity:null,shop:'',owner_name:'ExternalRole',room:7,detected_at:new Date(now*1000).toISOString(),merged_count:1}]}}};
+      market:{as_of:now,base_stats:[],days:[],sale_points:[],listings:gear?[
+        {shop:'Known shop',owner_name:'NativeRole',channel:1,room:1,unit_price:50000,stock:1,seen_at:new Date(now*1000).toISOString(),variant:{id:1,stats:[{key:'weapon_attack',value:50}],remaining_upgrades:7,enhancements:0}},
+        {shop:'',owner_name:'ExternalRole',channel:null,room:7,unit_price:300,stock:null,seen_at:new Date(now*1000).toISOString(),variant:null}
+      ]:[],sales:[{kind:'found_sold',unit_price:300,quantity:null,shop:'',owner_name:'ExternalRole',room:7,detected_at:new Date(now*1000).toISOString(),merged_count:1}]}}};
     res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));return;
   }
   const file=url.pathname.startsWith('/web/')?path.resolve(root,'.'+url.pathname.slice(4)):path.join(root,'index.html');
@@ -32,6 +36,7 @@ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
 try {
   for(const width of [390,1280]) {
+    product=ore;gear=false;
     const page=await browser.newPage({viewport:{width,height:900},isMobile:width<640,hasTouch:width<640});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(10000);
     for(const mode of ['recent','lastsale']) {
@@ -48,6 +53,25 @@ try {
     await page.goto(`http://127.0.0.1:${server.address().port}/item/4010001?lang=en`);
     const saleOwner=page.locator('.sales-list .ss').first();await saleOwner.waitFor({state:width<640?'attached':'visible'});
     assert.equal(await saleOwner.textContent(),'ExternalRole');assert.equal(await saleOwner.getAttribute('title'),'Player name');
+    gear=true;local=false;product={...ore,item_id:1402007,name_zh:'扎德',name_en:'Zard',category:'装备'};
+    for(const mode of ['recent','lastsale']) {
+      await page.goto(`http://127.0.0.1:${server.address().port}/?lang=en&hours=all&sort=${mode}`);
+      const unknown=page.locator('[data-price-records] .offer-equipment');await unknown.waitFor();
+      assert.equal(await unknown.textContent(),'Unknown stats');
+    }
+    for(const lang of ['zh','en']) {
+      await page.goto(`http://127.0.0.1:${server.address().port}/item/1402007?lang=${lang}&hours=all`);
+      const group=page.locator('[data-offer-group=unstated]');await group.waitFor();
+      assert.equal(await group.locator('.og-stats').textContent(),lang==='zh'?'属性未知':'Unknown stats');
+      assert.equal(await group.locator('.record-shop-text').textContent(),'ExternalRole');
+      assert.equal(await group.locator('[data-piece-item]').count(),0,'unknown gear cannot open a fabricated captured-piece tooltip');
+      assert.equal(await page.locator('[data-equipment-group]').count(),1,'known stats stay in a separate group');
+      assert.equal(await page.locator('.sale-equipment').first().textContent(),lang==='zh'?'属性未知':'Unknown stats');
+      await page.locator('[data-offer-view=list]').click();
+      assert.equal(await page.locator('.where-well .offer-equipment').filter({hasText:lang==='zh'?'属性未知':'Unknown stats'}).count(),1);
+      assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+      await page.locator('[data-offer-view=groups]').click();
+    }
     assert.deepEqual(errors,[]);await page.close();console.log(`PASS ${width}px: external roles on home/item pages and native shop/role toggle`);
   }
 } finally {await browser.close();for(const stream of streams)stream.end();await new Promise(resolve=>server.close(resolve));}

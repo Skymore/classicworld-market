@@ -606,7 +606,7 @@ export default function Item({ page }: { page: any }) {
         <OfferRow
           plain
           hideIdentity
-          detail={detail}
+          detail={detail ?? (equipment && !row.variant ? words("属性未知", "Unknown stats") : undefined)}
           onShop={() => openShop(row)}
           row={{
             ...row,
@@ -709,7 +709,7 @@ export default function Item({ page }: { page: any }) {
                         {summary ||
                           (row.variant
                             ? words("暂无可显示属性", "No decoded stats")
-                            : words("属性未采集", "Stats not captured"))}
+                            : words("属性未知", "Unknown stats"))}
                       </span>
                     </span>
                   ) : (
@@ -1415,7 +1415,7 @@ export default function Item({ page }: { page: any }) {
                         </SiteLink>
                       ) : (
                         <div className="offer-group-head">
-                          <span className="og-stats">{words("属性未采集", "Stats not captured")}</span>
+                          <span className="og-stats">{words("属性未知", "Unknown stats")}</span>
                           <span className="attr-count">{words(`${count(group.offers)} 件`, `${count(group.offers)}`)}</span>
                           <span className="og-low">
                             {words("· 最低 ", "· from ")}

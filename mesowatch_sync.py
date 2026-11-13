@@ -80,9 +80,18 @@ def validate_list(doc):
 def import_points(root, path):
     native = read_json(root / 'shared_data/native-runtime.json', {})
     settings = native.get('mesowatch', {})
-    binary = Path(settings.get('importer', root / 'shared_data/mesowatch-sync/bin/import_mesowatch.exe'))
+    if settings.get('importer'):
+        command = [str(settings['importer'])]
+    else:
+        # Resolve on every call: the deployed web binary owns the same migrations
+        # as the database, even when a deployment occurs between sync batches.
+        commit = read_json(root / 'shared_data/deploy/current.json', {}).get('commit', '')
+        if not re.fullmatch(r'[0-9a-f]{40}', commit):
+            raise RuntimeError('No valid active release for the MesoWatch importer')
+        command = [str(root / 'shared_data/deploy/releases' / commit / 'bin/market-web.exe'),
+                   '--import-mesowatch']
     env = dict(os.environ, DATABASE_URL=native['database_url'])
-    result = subprocess.run([str(binary), str(path)], env=env, capture_output=True,
+    result = subprocess.run([*command, str(path)], env=env, capture_output=True,
                             text=True, encoding='utf-8', timeout=300,
                             creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     if result.returncode:
@@ -98,6 +107,14 @@ def sync_once(root, reader, importer=None, max_items=150):
     snapshot = home / 'snapshot'
     state_path = home / 'state.json'
     state = read_json(state_path, {'items': {}})
+    if state.get('equipment_policy') != 'unknown':
+        # Revisit an unchanged list after enabling equipment, including evidence
+        # acknowledged before the old exclusion policy moved it out of the market.
+        state.pop('completed_list_hash', None)
+        for source_id, cached in state['items'].items():
+            if numeric_id(source_id) // 1_000_000 == 1:
+                cached.pop('imported_summary', None)
+        state['equipment_policy'] = 'unknown'
     # Finish a frozen list before starting a newer one. Otherwise frequently
     # changing top-volume items can starve the tail of an initial full sync.
     listing = read_json(snapshot / 'list.json') if state.get('active_list_hash') else None
@@ -119,8 +136,7 @@ def sync_once(root, reader, importer=None, max_items=150):
     selected, rejected = [], []
     for item in listing['items']:
         try:
-            reason = ('equipment_without_attributes' if numeric_id(item['id']) // 1_000_000 == 1
-                      else mapping_status(item, local))
+            reason = mapping_status(item, local)
         except (ValueError, TypeError):
             reason = 'unsupported_id'
         if reason != 'same_id_and_name':

@@ -3,8 +3,10 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
 
-from mesowatch_sync import LIST_URL, ITEM_BASE, BrowserBlocked, read_json, sync_once, write_json
+from mesowatch_sync import LIST_URL, ITEM_BASE, BrowserBlocked, read_json, sync_once, write_json, import_points
 
 
 class Reader:
@@ -41,6 +43,16 @@ class SyncTests(unittest.TestCase):
     def importer(self, path):
         self.imports.append(read_json(path))
         return dict(sales_added=0,changed_sales=0,skipped_items=[],skipped_points=0)
+
+    def test_importer_tracks_the_active_release_instead_of_a_stale_private_binary(self):
+        write_json(self.root/'shared_data/native-runtime.json',{'database_url':'test-only'})
+        with patch('mesowatch_sync.subprocess.run',return_value=SimpleNamespace(returncode=0,stdout='{}')) as run:
+            for commit in ['a'*40,'b'*40]:
+                write_json(self.root/'shared_data/deploy/current.json',{'commit':commit})
+                import_points(self.root,'--prune')
+                self.assertEqual(run.call_args.args[0],[str(self.root/'shared_data/deploy/releases'/commit/'bin/market-web.exe'),'--import-mesowatch','--prune'])
+            write_json(self.root/'shared_data/deploy/current.json',{'commit':'../bad'})
+            with self.assertRaises(RuntimeError):import_points(self.root,'--prune')
 
     def test_unchanged_list_skips_items_and_only_changed_item_is_downloaded(self):
         reader = Reader(self.listing, self.docs)
@@ -100,14 +112,25 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(result['imported'],1)
         self.assertNotIn(ITEM_BASE+'basil_04010001.json',reader.calls)
 
-    def test_external_equipment_is_never_downloaded(self):
+    def test_enabling_equipment_revisits_unchanged_list_and_preserves_raw_unknown_stats(self):
         self.listing['items'].append(dict(id='basil:01402007',name='Zard',unitBasis='item'))
+        with sqlite3.connect(self.root/'item_database/items.sqlite') as db:
+            db.execute("INSERT INTO items VALUES(1402007,'Zard','扎德')")
+        db.close()
+        self.docs['basil_01402007.json']=dict(market='Classic World',id='basil:01402007',
+            generated_at=self.listing['generated_at'],sales=[],listings=[dict(seller='Role',price=500,
+                up=True,lastSeen=self.listing['generated_at'])])
         reader=Reader(self.listing,self.docs)
+        sync_once(self.root,reader,self.importer)
+        state_path=self.root/'shared_data/mesowatch-sync/state.json'
+        state=read_json(state_path);state.pop('equipment_policy')
+        write_json(state_path,state);self.imports.clear();reader.calls.clear()
         result=sync_once(self.root,reader,self.importer)
-        self.assertEqual(result['rejected'],1)
-        self.assertNotIn(ITEM_BASE+'basil_01402007.json',reader.calls)
-        rejected=read_json(self.root/'shared_data/mesowatch-sync/rejected-items.json')
-        self.assertEqual(rejected[0]['reason'],'equipment_without_attributes')
+        self.assertEqual((result['imported'],result['rejected']),(1,0))
+        self.assertEqual(self.imports[0]['items'][0]['item_id'],1402007)
+        self.assertEqual(self.imports[0]['manifest']['equipment_policy'],'unknown')
+        self.assertNotIn('equipment',self.imports[0]['listings'][0])
+        self.assertEqual(sync_once(self.root,reader,self.importer)['status'],'unchanged')
 
     def test_stale_item_is_not_acknowledged(self):
         self.listing['items'][0]['lastSold'] = '2026-11-10T11:59:30Z'

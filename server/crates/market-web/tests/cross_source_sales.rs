@@ -57,6 +57,33 @@ async fn counts(db: &TestDb) -> (i64, i64, i64) {
 }
 
 #[tokio::test]
+async fn unknown_equipment_duplicate_keeps_the_native_captured_piece() {
+    let Some(db) = setup().await else { return };
+    sqlx::query("INSERT INTO items(id,name_en,category) VALUES (1402007,'Iron Ore','装备')")
+        .execute(&db.pool)
+        .await
+        .unwrap();
+    let now = unix_now();
+    let c = db.collector("native").await;
+    let mut captured = native(now - 100., true, 1, 1402007, 50000, 1);
+    captured["items"][0]["equipment"] = json!({"status":"candidate","stats":[{"key":"weapon_attack","value":55}],"enhancements":1,"remaining_upgrades":6,"unknown_fields":[]});
+    send(&db, &c, &captured, false).await;
+    external(&db, &[now - 200.], 50000., "RoleName", 1402007, "equipment").await;
+    assert_eq!(counts(&db).await, (2, 1, 1));
+    let row: (String, Option<i64>) =
+        sqlx::query_as("SELECT source,variant_id FROM market_sales WHERE item_id=1402007")
+            .fetch_one(&db.pool)
+            .await
+            .unwrap();
+    assert_eq!(row.0, "collector");
+    assert!(
+        row.1.is_some(),
+        "matched evidence keeps the native piece's captured stats"
+    );
+    db.close().await;
+}
+
+#[tokio::test]
 async fn six_hour_rule_is_one_to_one_and_ignores_unknown_quantity_kind_and_location() {
     let Some(db) = setup().await else { return };
     let now = unix_now();

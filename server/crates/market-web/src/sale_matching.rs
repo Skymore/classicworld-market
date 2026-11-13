@@ -29,7 +29,7 @@ pub async fn reconcile(conn: &mut PgConnection, items: &[i32]) -> sqlx::Result<(
         sqlx::query_as(
             "SELECT id,item_id,(extract(epoch FROM detected_at)*1000000)::bigint,observation_id,slot,shop_id,
                     market_unit_price(item_id,price,bundle),market_price_unit(item_id)
-             FROM sales WHERE source='collector' AND item_id=ANY($1) AND item_id>=2000000 AND shop_id IS NOT NULL",
+             FROM sales WHERE source='collector' AND item_id=ANY($1) AND shop_id IS NOT NULL",
         )
         .bind(items)
         .fetch_all(&mut *conn)
@@ -62,7 +62,7 @@ pub async fn reconcile(conn: &mut PgConnection, items: &[i32]) -> sqlx::Result<(
     let external: Vec<(i64, i32, String, f64, String, i64, i64)> = sqlx::query_as(
         "SELECT id,item_id,source_seller,source_price,source_unit,
                 (extract(epoch FROM detected_at)*1000000)::bigint,dense_rank() OVER (ORDER BY source_key)
-         FROM sales WHERE source='mesowatch' AND item_id=ANY($1) AND item_id>=2000000
+         FROM sales WHERE source='mesowatch' AND item_id=ANY($1)
            AND NULLIF(btrim(source_seller),'') IS NOT NULL
            AND source_price IS NOT NULL AND source_unit IS NOT NULL",
     )
