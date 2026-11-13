@@ -8,6 +8,12 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    if std::env::args().nth(1).as_deref() == Some("--import-mesowatch") {
+        let path = std::env::args()
+            .nth(2)
+            .context("missing MesoWatch import path or action")?;
+        return market_web::external::run_import(&path).await;
+    }
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| "info,sqlx=warn".into()),

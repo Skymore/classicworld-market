@@ -63,7 +63,7 @@ try {
     assert.equal(await page.locator('.home-market').count(), 0, 'the market overview is gone');
     assert.equal(await page.locator('.react-prices .stall-bar [role=tablist]').getAttribute('aria-label'), '价格表');
     assert.equal(await page.locator('.react-prices [data-period]').count(), 1, 'the price table keeps 统计范围');
-    assert.deepEqual(await page.locator('[data-nav-key]:visible').evaluateAll(links => links.map(link => link.dataset.navKey)), ['home', 'agent', 'dex', 'watch', 'tools']);
+    assert.deepEqual(await page.locator('[data-nav-key]:visible').evaluateAll(links => links.map(link => link.dataset.navKey)), ['home', 'agent', 'dex', 'watch', 'grind', 'tools']);
     assert.equal(await page.locator('[data-nav-key=home]:visible').getAttribute('aria-current'), 'page');
     assert.equal(await page.title(), '首页 · 枫叶市集');
     if (screenshots) await page.screenshot({ path: path.join(screenshots, `fixture-top-${mobile ? 'phone' : 'desktop'}.png`) });

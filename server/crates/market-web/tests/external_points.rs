@@ -11,72 +11,66 @@ use market_web::{
 use serde_json::{json, Value};
 
 #[tokio::test]
-async fn external_equipment_is_rejected_and_legacy_evidence_is_removed_without_touching_native_sales(
-) {
+async fn external_equipment_stays_unknown_without_changing_known_gear_recommendations() {
     let Some(db) = TestDb::new().await else {
         return;
     };
     let now = unix_now();
-    sqlx::query("INSERT INTO items(id,name_en,category) VALUES (4010001,'Iron Ore','其他'),(1402007,'Zard','装备')")
-        .execute(&db.pool).await.unwrap();
-    // Simulate evidence left by the previous importer, before equipment filtering.
-    external::import(
-        &db.pool,
-        &points(now, 4010001, "Iron Ore", "item", &[10.]),
-        "legacy",
-        now,
-    )
-    .await
-    .unwrap();
-    sqlx::query("UPDATE sales SET item_id=1402007 WHERE source='mesowatch'")
-        .execute(&db.pool)
-        .await
-        .unwrap();
-    sqlx::query("UPDATE external_market_listings SET item_id=1402007 WHERE source='mesowatch'")
+    sqlx::query("INSERT INTO items(id,name_en,category) VALUES (1402007,'Zard','装备')")
         .execute(&db.pool)
         .await
         .unwrap();
     native(&db, now, 1402007, 50000, 1).await;
-    let rejected = external::import(
-        &db.pool,
-        &points(now, 1402007, "Zard", "item", &[1.]),
-        "new-equipment",
-        now,
-    )
-    .await
-    .unwrap();
-    assert_eq!(rejected.skipped_items, vec!["basil:01402007"]);
-    assert_eq!(external::exclude_equipment(&db.pool, now).await.unwrap(), 1);
-    assert_eq!(external::exclude_equipment(&db.pool, now).await.unwrap(), 0);
-    assert_eq!(
-        sqlx::query_scalar::<_, i64>(
-            "SELECT count(*) FROM sales WHERE item_id=1402007 AND source='collector'"
-        )
-        .fetch_one(&db.pool)
+    let before: Value =
+        sqlx::query_scalar("SELECT recommendation FROM item_stats WHERE item_id=1402007")
+            .fetch_one(&db.pool)
+            .await
+            .unwrap();
+    let input = points(now, 1402007, "Zard", "item", &[1.]);
+    let result = external::import(&db.pool, &input, "unknown-equipment", now)
         .await
-        .unwrap(),
-        1
-    );
+        .unwrap();
+    assert_eq!(result.sales_added, 1);
+    assert!(result.skipped_items.is_empty());
+    let after: Value =
+        sqlx::query_scalar("SELECT recommendation FROM item_stats WHERE item_id=1402007")
+            .fetch_one(&db.pool)
+            .await
+            .unwrap();
     assert_eq!(
-        sqlx::query_scalar::<_, i64>(
-            "SELECT count(*) FROM sales WHERE item_id=1402007 AND source='mesowatch'"
-        )
-        .fetch_one(&db.pool)
-        .await
-        .unwrap(),
-        0
+        before, after,
+        "unknown equipment must not dilute ordinary equipment recommendations"
     );
-    assert!(external::quote_rows(&db.pool, &[1402007], now - 3600.)
+    assert!(!after["price"].is_null());
+    let quotes = external::quote_rows(&db.pool, &[1402007], now - 3600.)
+        .await
+        .unwrap();
+    assert_eq!(quotes[0]["variant"], "unknown");
+    assert!(quotes[0]["equipment"].is_null());
+    assert_eq!(quotes[0]["owner_name"], "Listing seller");
+    let page = market_web::bestiary::queries::item_page(&db.pool, 1402007, now)
         .await
         .unwrap()
-        .is_empty());
+        .unwrap();
+    assert!(page
+        .market
+        .listings
+        .iter()
+        .any(|row| row.variant.is_none() && row.owner_name.as_deref() == Some("Listing seller")));
+    assert!(page.market.sales.iter().any(|row| row.variant.is_some()));
+    assert!(page.market.sales.iter().any(|row| row.variant.is_none()));
+    assert_eq!(external::prune_superseded(&db.pool).await.unwrap(), 0);
+    assert!(
+        external::import(&db.pool, &input, "unknown-equipment", now)
+            .await
+            .unwrap()
+            .duplicate_import
+    );
     assert_eq!(
-        sqlx::query_scalar::<_, i64>(
-            "SELECT count(*) FROM external_market_excluded_evidence WHERE item_id=1402007"
-        )
-        .fetch_one(&db.pool)
-        .await
-        .unwrap(),
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM sales WHERE item_id=1402007")
+            .fetch_one(&db.pool)
+            .await
+            .unwrap(),
         2
     );
     db.close().await;
@@ -151,9 +145,12 @@ fn points(now: f64, item: i32, name: &str, unit: &str, prices: &[f64]) -> Points
 
 async fn native(db: &TestDb, now: f64, item: i32, price: i64, bundle: i32) {
     let c = db.collector("native").await;
-    let value = json!({"version":1,"world":"ClassicWorld","complete":true,"observed_at":now-60.0,
+    let mut value = json!({"version":1,"world":"ClassicWorld","complete":true,"observed_at":now-60.0,
       "observation_id":"native-sale","title":"Local shop","shop_id":1,"location":{"channel":1,"room":1},
       "items":[{"item_id":item,"slot":1,"price":price,"bundle":bundle,"stock":0}]});
+    if item / 1_000_000 == 1 {
+        value["items"][0]["equipment"] = json!({"status":"candidate","stats":[{"key":"weapon_attack","value":50}],"enhancements":0,"remaining_upgrades":7,"unknown_fields":[]});
+    }
     let upload = validate(&value, now).unwrap();
     ingest(
         &db.pool,
@@ -252,12 +249,14 @@ async fn merges_points_recomputes_and_retries_without_duplicate_samples() {
         .await
         .unwrap()
         .unwrap();
+    assert!(ssr.market.listings.iter().any(|q| q.stock.is_none()
+        && q.shop.is_empty()
+        && q.owner_name.as_deref() == Some("Listing seller")));
     assert!(ssr
         .market
-        .listings
+        .sales
         .iter()
-        .any(|q| q.stock.is_none() && q.shop.is_empty() && q.owner_name.as_deref() == Some("Listing seller")));
-    assert!(ssr.market.sales.iter().any(|s| s.shop.is_empty() && s.owner_name.as_deref() == Some("seller0")));
+        .any(|s| s.shop.is_empty() && s.owner_name.as_deref() == Some("seller0")));
     let query = views::SalesQuery {
         limit: 2,
         before: None,

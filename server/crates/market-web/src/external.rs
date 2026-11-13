@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use sqlx::{PgConnection, PgPool, Row};
 
-use crate::stats;
+use crate::{stats, unix_now, MIGRATOR};
 
 #[derive(Debug, Deserialize)]
 pub struct Points {
@@ -248,10 +248,6 @@ async fn import_item(db: &PgPool, points: &Points, fingerprint: &str, now: f64) 
             (1_000_000..=5_999_999).contains(&item.item_id),
             "Invalid item id"
         );
-        if item.item_id / 1_000_000 == 1 {
-            outcome.skipped_items.push(item.source_item_id.clone());
-            continue;
-        }
         ensure!(
             item.unit_basis == unit(item.item_id),
             "Incompatible unit for {}",
@@ -459,45 +455,28 @@ pub async fn prune_superseded(db: &PgPool) -> Result<u64> {
     Ok(result.rows_affected())
 }
 
-/// Move previously imported equipment to an excluded-evidence ledger. It has
-/// no reliable per-piece attributes and must not affect native equipment prices.
-pub async fn exclude_equipment(db: &PgPool, now: f64) -> Result<usize> {
-    let mut coordinator = db.begin().await?;
-    sqlx::query("SELECT pg_advisory_xact_lock($1)")
-        .bind(stats::WRITE_LOCK + 2)
-        .execute(&mut *coordinator)
+/// Shared by the active release and the standalone offline importer.
+pub async fn run_import(path: &str) -> anyhow::Result<()> {
+    let db = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(2)
+        .connect(&std::env::var("DATABASE_URL")?)
         .await?;
-    let items: Vec<i32> = sqlx::query_scalar("SELECT item_id FROM sales WHERE source='mesowatch' AND item_id>=1000000 AND item_id<2000000
-        UNION SELECT item_id FROM external_market_listings WHERE source='mesowatch' AND item_id>=1000000 AND item_id<2000000 ORDER BY item_id")
-        .fetch_all(&mut *coordinator).await?;
-    for &item in &items {
-        let mut tx = db.begin().await?;
-        sqlx::query("INSERT INTO external_market_excluded_evidence(source,kind,source_key,item_id,payload)
-            SELECT source,'sale',source_key,item_id,to_jsonb(s) FROM sales s WHERE source='mesowatch' AND item_id=$1
-            ON CONFLICT(source,kind,source_key) DO NOTHING")
-            .bind(item).execute(&mut *tx).await?;
-        sqlx::query("INSERT INTO external_market_excluded_evidence(source,kind,source_key,item_id,payload)
-            SELECT source,'listing',source_key,item_id,to_jsonb(q) FROM external_market_listings q WHERE source='mesowatch' AND item_id=$1
-            ON CONFLICT(source,kind,source_key) DO NOTHING")
-            .bind(item).execute(&mut *tx).await?;
-        sqlx::query("DELETE FROM sales WHERE source='mesowatch' AND item_id=$1")
-            .bind(item)
-            .execute(&mut *tx)
-            .await?;
-        sqlx::query("DELETE FROM external_market_listings WHERE source='mesowatch' AND item_id=$1")
-            .bind(item)
-            .execute(&mut *tx)
-            .await?;
-        stats::lock_writes(&mut tx).await?;
-        let as_of: f64 = sqlx::query_scalar("UPDATE market_state SET version=version+1 RETURNING COALESCE(extract(epoch FROM as_of)::float8,$1)")
-            .bind(now).fetch_one(&mut *tx).await?;
-        stats::recompute_items(&mut tx, &[item], as_of, now, &HashMap::new()).await?;
-        crate::realtime::notify_market(&mut tx, Some(&[item])).await?;
-        tx.commit().await?;
-        tokio::task::yield_now().await;
+    MIGRATOR.run(&db).await?;
+    if path == "--deduplicate" {
+        let matched = crate::sale_matching::backfill(&db, unix_now()).await?;
+        println!("{}", serde_json::json!({"cross_source_matches":matched}));
+        return Ok(());
     }
-    coordinator.commit().await?;
-    Ok(items.len())
+    if path == "--prune" {
+        let removed = prune_superseded(&db).await?;
+        println!("{}", serde_json::json!({"listings_removed":removed}));
+        return Ok(());
+    }
+    let raw = std::fs::read(path)?;
+    let points: Points = serde_json::from_slice(&raw)?;
+    let result = import(&db, &points, &hex::encode(Sha256::digest(&raw)), unix_now()).await?;
+    println!("{}", serde_json::to_string_pretty(&result)?);
+    Ok(())
 }
 
 pub async fn quote_rows(

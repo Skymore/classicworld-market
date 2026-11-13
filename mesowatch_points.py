@@ -51,8 +51,7 @@ def build(snapshot, catalog, source_ids=None):
         if source_ids is not None and source_id not in source_ids:
             continue
         try:
-            status = ('equipment_without_attributes' if numeric_id(source_id) // 1_000_000 == 1
-                      else mapping_status(item, local))
+            status = mapping_status(item, local)
         except ValueError:
             status = 'unsupported_id'
         if status != 'same_id_and_name':
@@ -94,7 +93,7 @@ def build(snapshot, catalog, source_ids=None):
     return dict(version=1, source='mesowatch', world='ClassicWorld', generated_at=max(versions),
                 manifest=dict(built_at=datetime.now(timezone.utc).isoformat(), files=files,
                               notice=listing.get('notice'), terms=listing.get('terms'),
-                              rejected_items=rejected, raw_points_only=True),
+                              rejected_items=rejected, raw_points_only=True, equipment_policy='unknown'),
                 items=items, sales=sales, listings=quotes)
 
 
