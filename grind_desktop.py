@@ -257,7 +257,13 @@ class GrindService:
         from grind_replay import replay_once
         from collector_update import VERSION
         def replay_and_reconcile():
-            replay_once(self.folder, VERSION, self.stop)
+            fetch = None
+            config = self.sync.config()
+            if config:
+                from grind_pricing import site_fetch
+                from shared_client import upload_opener
+                fetch = site_fetch(config, upload_opener)
+            replay_once(self.folder, VERSION, self.stop, fetch=fetch)
             if not self.stop.is_set():
                 try:
                     from grind_reconcile import prepare

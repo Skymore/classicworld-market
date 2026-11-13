@@ -8,7 +8,7 @@ import { Clock3, Crosshair, Hourglass, Swords, TrendingUp } from 'lucide-react';
 import { itemIcon } from './format';
 import './overlay.css';
 import { language, tr } from './i18n';
-import { big, clock, duration, mapLabel, percent, shownBuffs, statLine, type GrindSettings, type Live, type LootRow } from './grind';
+import { big, channelPrompt, clock, duration, mapLabel, percent, shownBuffs, statLine, type GrindSettings, type Live, type LootRow } from './grind';
 
 const I = 13;
 const ico = { width: '1.1em', height: '1.1em' }; // icons scale with the overlay's font size
@@ -137,8 +137,10 @@ export function OverlayCard({ live, settings, toast = null, scale, cardRef, grip
   const o = settings.overlay, run = live?.runs?.[0] ?? null, show = (key: string) => o.fields.includes(key);
   const style = { '--alpha': String(o.opacity), fontSize: `${12 * scale}px` } as React.CSSProperties;
   const dot = <i className={'ov-dot ' + (run?.status === 'active' ? 'on' : run ? 'pause' : 'off')} />;
+  const prompt = channelPrompt(run);
   const box = (content: React.ReactNode) => <div className={`ov ov-${o.layout} ov-t-${o.theme || 'dark'}`} style={style} ref={cardRef}>
-    {!run || !['standard', 'detailed', 'slim'].includes(o.layout) ? <div className="ov-site">mxd.ruit.me</div> : null}{content}{grip}</div>;
+    {!run || !['standard', 'detailed', 'slim'].includes(o.layout) ? <div className="ov-site">mxd.ruit.me</div> : null}
+    {prompt && <div className="ov-prompt warn" role="alert">⚠ {prompt}</div>}{content}{grip}</div>;
   if (!run) return box(<><div className="ov-line">{dot}<span>{live && !live.stale ? tr('打几只怪开始记录', 'Kill a few to start') : tr('等待客户端', 'Waiting for collector')}</span></div>
     {show('buffs') && <Buffs live={live} settings={settings} />}</>);
   const rate = run.exp_per_hour, usedPotions = run.consumables.filter(c => c.used > 0), potion = usedPotions[0];

@@ -16,7 +16,7 @@ export interface CombatRow {
 }
 export interface Segment { map_id: number; level: number | null; job: number | null; started_at: number; active_seconds: number; exp: number; kills: number; mesos: number }
 export interface RunSummary {
-  id: string; status: 'active' | 'paused' | 'ended'; pause_reason: string | null; in_combat?: boolean;
+  id: string; status: 'active' | 'paused' | 'ended'; pause_reason: string | null; in_combat?: boolean; channel_change?: string[];
   character: { key: unknown; name: string | null; level: number | null; job: number | null };
   job_name: string | null; level: number | null; level_start: number | null; exp_now: number | null; exp_percent: number | null;
   map_id: number | null; map_name?: string | null; started_at: number; ended_at: number | null;
@@ -121,6 +121,19 @@ export function statLine(stats: { key: string; value: number }[] | null | undefi
   return (stats || []).filter(s => STAT_LABELS[s.key]).map(s => `${tr(...STAT_LABELS[s.key])}+${s.value}`).join(' ');
 }
 
+/** Why a channel change would help, from the client (grind_tracker.channel_change). */
+const CHANNEL_REASONS: Record<string, [string, string]> = {
+  capture: ['游戏数据中断，记录已暂停', 'game data lost, recording paused'],
+  keys: ['读不到键位，自动加 Buff 和喝药已暂停', 'no key table, auto buff and potions are off'],
+  identity: ['击杀暂按经验估算', 'kills estimated from EXP'],
+  attacks: ['看不到攻击数据，DPS 和技能统计缺失', 'no attack data, DPS and skills missing'],
+};
+/** "请换一次频道：…" when a channel change would fix something, else null. */
+export function channelPrompt(run: { channel_change?: string[] } | null | undefined) {
+  const reasons = (run?.channel_change || []).map(code => CHANNEL_REASONS[code]).filter(Boolean);
+  if (!reasons.length) return null;
+  return tr('请换一次频道：', 'Change channel once: ') + reasons.map(r => tr(r[0], r[1])).join(tr('；', '; '));
+}
 export const PAUSE_LABELS: Record<string, [string, string]> = {
   map: ['离开地图', 'Left the map'], manual: ['手动暂停', 'Paused by you'], idle: ['空闲', 'Idle'], disconnect: ['连接中断', 'Disconnected'], end: ['已结束', 'Ended'],
 };

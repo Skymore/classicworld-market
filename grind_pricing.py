@@ -32,6 +32,14 @@ def group_key(piece):
                       separators=(',', ':'))
 
 
+def client_version():
+    try:
+        from collector_update import VERSION
+        return VERSION
+    except Exception:
+        return None
+
+
 class Prices:
     def __init__(self, cache_path=None, fetch=None):
         self.cache_path = Path(cache_path) if cache_path else None
@@ -50,6 +58,11 @@ class Prices:
             try:
                 saved = json.loads(self.cache_path.read_text(encoding='utf-8'))
                 self.rows = {int(k): v for k, v in (saved.get('items') or {}).items()}
+                if saved.get('version') != client_version():
+                    # A new client may price differently (v0.7.44: the last 72 hours,
+                    # per attribute group): ask again instead of waiting out REFRESH.
+                    for row in self.rows.values():
+                        row['at'] = 0
                 self.maps = {int(k): v for k, v in (saved.get('maps') or {}).items()}
                 self.mobs = {int(k): v for k, v in (saved.get('mobs') or {}).items()}
             except (OSError, ValueError, AttributeError):
@@ -131,13 +144,22 @@ class Prices:
                 self.wanted_mobs.discard(mob_id)
         self.save()
 
+    def refresh_now(self, ids):
+        """Fetch these items now, in batches (a rebuild, before it prices anything)."""
+        ids = sorted({i for i in ids if i})
+        for start in range(0, len(ids), BATCH):
+            with self.lock:
+                self.wanted |= set(ids[start:start + BATCH])
+            self.failed_at = 0
+            self.refresh_once()
+
     def save(self):
         if not self.cache_path:
             return
         try:
             self.cache_path.parent.mkdir(parents=True, exist_ok=True)
             temporary = self.cache_path.with_name(self.cache_path.name + '.tmp')
-            temporary.write_text(json.dumps(dict(items=self.rows, maps=self.maps, mobs=self.mobs)), encoding='utf-8')
+            temporary.write_text(json.dumps(dict(version=client_version(), items=self.rows, maps=self.maps, mobs=self.mobs)), encoding='utf-8')
             temporary.replace(self.cache_path)
         except OSError:
             pass

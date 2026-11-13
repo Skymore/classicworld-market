@@ -24,6 +24,20 @@ class LootPriceTests(unittest.TestCase):
         prices.rows[1442007]['groups'][0]['median'] = 500000
         self.assertEqual(prices.loot(1442007, piece), (500000, '同属性成交中位'))
 
+    def test_a_cache_from_another_client_version_is_asked_again(self):
+        import json, tempfile, time
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'prices.json'
+            path.write_text(json.dumps(dict(version='0.0.1', items={'1442007': dict(typical=750000, at=time.time())})))
+            asked = []
+            prices = Prices(path, fetch=lambda ids, maps=(), mobs=(): asked.append(list(ids)) or {'prices': {'1442007': {'typical': 240000}}})
+            prices.want([1442007])
+            prices.refresh_once()
+            self.assertEqual(asked, [[1442007]])
+            self.assertEqual(prices.rows[1442007]['typical'], 240000)
+            self.assertNotEqual(json.loads(path.read_text())['version'], '0.0.1')
+
     def test_consumables_cost_their_median_sale_and_the_shop_only_when_never_sold(self):
         prices = Prices()
         prices.rows[2060001] = dict(npc_shop=2, typical=1.4375)

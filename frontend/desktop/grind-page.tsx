@@ -6,7 +6,7 @@ import { BuffStrip, LiveView } from './grind-live';
 import { sampleLive } from './overlay-sample';
 import { tr } from './i18n';
 import {
-  grind, statusLabel,
+  channelPrompt, grind, statusLabel,
   type GrindSettings, type GrindState, type HotkeyAction, type Live, type RunSummary,
 } from './grind';
 
@@ -60,6 +60,7 @@ export default function GrindPage({ hidden }: { hidden: boolean }) {
         <label className="check-chip"><input type="checkbox" checked={settings.overlay.enabled} onChange={e => save({ overlay: { enabled: e.target.checked } })} />{tr('悬浮窗', 'Overlay')}</label>
       </span>}
     </div></section>
+    {channelPrompt(run) && <div role="alert" className="error-banner"><AlertCircle size={18} /><span>{channelPrompt(run)}</span></div>}
     {live?.protocol_warning && <div role="alert" className="error-banner"><AlertCircle size={18} />
       <span>{tr('游戏报文格式可能已变化，部分数字暂不可信；已自动开始录制，请把客户端更新到最新版。', 'The game messages may have changed; some numbers are unreliable. Recording started; update the collector.')}</span></div>}
     <div className="grind-body">

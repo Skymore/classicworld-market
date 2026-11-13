@@ -128,3 +128,4 @@
 .ov:hover .ov-switches{opacity:1}
 .ov-switches button{display:grid;place-items:center;width:20px;height:20px;padding:0;border:1px solid rgba(255,255,255,.25);border-radius:4px;background:rgba(20,18,16,.85);color:#9b958a;cursor:pointer}
 .ov-switches button.on{color:#ffd76a;border-color:rgba(255,215,106,.55)}
+.ov-prompt{font-weight:700;white-space:normal;line-height:1.3;margin-bottom:.35em}

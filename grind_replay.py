@@ -27,7 +27,7 @@ class ReplayTracker(Tracker):
         self.last_publish = now
 
 
-def replay_once(folder, version, stop=None, force=False):
+def replay_once(folder, version, stop=None, force=False, fetch=None):
     folder = Path(folder)
     data = folder / 'grind'
     status = data / 'replay.json'
@@ -51,7 +51,11 @@ def replay_once(folder, version, stop=None, force=False):
             settings.update(enabled=True, record_frames=False, upload=False)
             write_json(Path(temporary) / 'grind/settings.json', settings)
             clock = [0.0]
-            tracker = ReplayTracker(temporary, Prices(data / 'prices.json'), now=lambda: clock[0])
+            prices = Prices(data / 'prices.json', fetch)
+            # Rebuilt history uses today's prices: fetch them first rather than
+            # pricing with a cache an older client filled.
+            prices.refresh_now(list(prices.rows))
+            tracker = ReplayTracker(temporary, prices, now=lambda: clock[0])
             from grind_history_repair import HistoryRepair, apply_identities
             repair = HistoryRepair(data)
             inventories, first, last = {}, {}, {}

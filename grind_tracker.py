@@ -1066,6 +1066,8 @@ class Tracker:
 
     # ----- valuation and summaries --------------------------------------
     def value(self, run):
+        # Items already in the ledger are asked again once their price is stale.
+        self.prices.want({e['item_id'] for e in run.ledger if e['kind'] in ('loot', 'used')})
         basis = self.settings['price_basis']
         loot = cost = 0
         pending = 0
@@ -1247,6 +1249,7 @@ class Tracker:
             casts=[dict(skill=k, name=skill_name(k), count=v) for k, v in run.casts.most_common() if v],
             buffs=self.buffs(character, now),
             in_combat=self.in_combat(character, now),
+            channel_change=self.channel_change(run, character, now),
             segments=[s.to_json() for s in run.segments])
 
     def timeline(self, run, rows, now, points=48):
@@ -1305,6 +1308,28 @@ class Tracker:
                             on=character.buff_on.get(source)))
         out += [self.buff_row(source, 0, total, True) for source, total in pinned.items() if source not in shown]
         return sorted(out, key=lambda b: b['seconds'])
+
+    def channel_change(self, run, character, now):
+        """Why a channel change would help, as codes the pages turn into a clear
+        prompt: only a new connection brings the key table, the character ID and
+        an undamaged stream back.
+        - capture: the game connection was lost (the run waits as disconnected);
+        - keys: no key table, so auto buff and auto potions are off;
+        - identity: no character ID yet, kills are estimated from experience;
+        - attacks: none of the player's own messages, so no DPS or skills."""
+        if run.status == 'paused' and run.pause_reason == 'disconnect':
+            return ['capture']
+        if character is None or run.status != 'active':
+            return []
+        reasons = []
+        if (self.settings.get('auto_buff') or self.settings.get('auto_potion')) and not character.skill_keys:
+            reasons.append('keys')
+        if character.character_id is None:
+            reasons.append('identity')
+        if now - run.started_at > 60 and (not character.client_seen
+                                          or (character.client_at is not None and now - character.client_at > 60)):
+            reasons.append('attacks')
+        return reasons
 
     def in_combat(self, character, now):
         """Own attack, kill or hit taken in the last COMBAT_SECONDS: buffs are recast and
