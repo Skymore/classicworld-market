@@ -209,6 +209,7 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
     {(show('dps') || show('kills')) && <div className="ov-stats minor">
       {show('dps') && <div className="ov-stat"><small>DPS</small><b>{big(run.dps)}</b></div>}
       {show('kills') && <div className="ov-stat"><small>{tr('击杀/时', 'Kills/h')}</small><b>{big(run.kills_per_hour)}</b></div>}</div>}
+    <Ground live={live} />
     {show('buffs') && <Buffs live={live} settings={settings} tiles />}
     {show('potions') && usedPotions.length > 0 && <div className="ov-tally"><small>{tr('消耗', 'Used')}</small>
       <span className="ov-icons">{usedPotions.slice(0, 3).map(c => <span key={c.item_id} title={c.name || ''}><img src={itemIcon(c.item_id)} alt="" />{c.used}</span>)}</span>
@@ -231,6 +232,7 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
     {show('profit') && <RateMetrics run={run} kind="net" />}
     {show('dps') && <div className="ov-row"><CrosshairIcon /><b>{big(run.dps)}</b><span className="dim">DPS · 1m</span></div>}
     {show('level') && <div className="ov-row">{level}</div>}
+    <Ground live={live} />
     {show('buffs') && <Buffs live={live} settings={settings} icons />}
     {party}{toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}</>);
   if (o.layout === 'rail') return box(<>
@@ -261,9 +263,31 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
     {(show('kills') || detailed) && <div className="ov-row"><Swords size={I} style={ico} /><b>{big(run.kills)}</b>
       <span className="dim">{`${big(run.kills_per_hour)}/h`}</span></div>}
     {show('kills') && <div className="ov-mobs">{run.mobs.slice(0, detailed ? 3 : 2).map(m => <div className="ov-loot" key={m.mob_id}><span><img src={mobIcon(m.mob_id)} alt="" />{m.name}</span><b>×{m.kills}</b></div>)}</div>}
+    <Ground live={live} />
     {show('buffs') && <Buffs live={live} settings={settings} />}
     {party}
     {toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}
   </>);
+}
+/** Valuable drops of this character or its party (newest first): still on the ground and for
+ * how long (they vanish at about 120 s), who picked each up, or that nobody did. */
+function Ground({ live }: { live: Live | null }) {
+  const now = live?.alive_at || Date.now() / 1000;
+  const rows = (live?.characters || []).flatMap(c => c.drops || []).filter(d => d.how !== 'gone')
+    .sort((a, b) => b.t - a.t).slice(0, 4);
+  if (!rows.length) return null;
+  const status = (d: GroundDrop) => {
+    if (!d.how) {
+      const age = Math.max(0, Math.round(now - d.t));
+      return <b className={age >= 90 ? 'warn' : 'dim'}>{tr(`地上 ${age}秒`, `on ground ${age}s`)}</b>;
+    }
+    if (d.how === 'expired') return <b className="warn">{tr('没人捡，消失了', 'expired')}</b>;
+    const who = d.taker === 'me' ? tr('你', 'You') : d.taker_name || tr('别人', 'Someone');
+    return <b className={d.taker === 'other' ? 'warn' : 'ok'}>✓ {d.how === 'pet' ? tr(`${who}的宠物捡了`, `${who}'s pet`) : tr(`${who}捡了`, `${who}`)}</b>;
+  };
+  return <div className="ov-ground" aria-label={tr('掉落', 'Drops')}>{rows.map(d =>
+    <div className={'ov-ground-row' + (d.how ? ' done' : '')} key={`${d.object}@${d.t}`}>
+      <span><img src={itemIcon(d.item_id)} alt="" />{d.name && !d.name.startsWith('#') ? d.name : `#${d.item_id}`}
+        <small>{d.by === 'me' ? tr('你打的', 'yours') : d.by === 'party' ? d.by_name || tr('队友', 'party') : ''}</small></span>{status(d)}</div>)}</div>;
 }
 function CrosshairIcon() { return <Crosshair size={I} style={ico} />; }

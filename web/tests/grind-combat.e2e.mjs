@@ -38,11 +38,11 @@ const run = {
 const settings = { buff_warn_seconds: 10, buff_sound: false, hotkeys: {}, overlay: {
   enabled: true, layout: 'standard', theme: 'dark', opacity: .92, scale: 1, fields,
 } };
-async function bridge(page, overlay = null) {
-  await page.addInitScript(({ run, settings, overlay }) => {
+async function bridge(page, overlay = null, characters = []) {
+  await page.addInitScript(({ run, settings, overlay, characters }) => {
     window.testRun = run;
     if (overlay) Object.assign(settings.overlay, overlay);
-    const live = () => ({ alive_at: Date.now() / 1000, stale: false, runs: [structuredClone(window.testRun)], finished: [], calibration: [], characters: [] });
+    const live = () => ({ alive_at: Date.now() / 1000, stale: false, runs: [structuredClone(window.testRun)], finished: [], calibration: [], characters: characters.map(c => ({ ...c, drops: c.drops.map(d => ({ ...d, t: Date.now() / 1000 - d.age, gone: d.age_gone == null ? undefined : Date.now() / 1000 - d.age_gone })) })) });
     const state = { version: '0.7.15', phase: 'idle', mode: 'scan', message: '', room: null, channel: null, visited: 0,
       uploaded: 0, capture: 'connected', upload: 'ready', updates: 'up_to_date', selected: 12,
       windows: [{ id: 12, title: 'MapleStory', pid: 42 }], theme: 'light', language: 'zh', activities: [], maximized: false };
@@ -51,7 +51,7 @@ async function bridge(page, overlay = null) {
       grind: async () => ({ live: live(), settings, editing: false, calibrating: false, calibration: null }),
       state: async () => ({ live: live(), settings, editing: false, language: 'zh' }),
     } };
-  }, { run, settings, overlay });
+  }, { run, settings, overlay, characters });
 }
 try {
   const page = await browser.newPage({ viewport: { width: 880, height: 900 } });
@@ -154,5 +154,27 @@ try {
     assert.deepEqual(errors, []);
     await page.close();
   }
-  console.log('Grind combat table, live updates, all 20 overlay combinations and the slim preset passed.');
+  // Valuable drops sit between the rates and the buffs: on the ground and for how long, who picked each up, or that nobody did.
+  {
+    const page = await browser.newPage({ viewport: { width: 260, height: 520 } });
+    const drops = [
+      { age: 95, object: 1, item_id: 1302004, name: '九龙刀', value: 240000, by: 'party', by_name: 'SHadowFiend' },
+      { age: 40, age_gone: 5, object: 2, item_id: 2040001, name: '头盔命中率卷轴：中级', value: 10000, by: 'me', how: 'pet', taker: 'me', taker_name: 'Me' },
+      { age: 130, age_gone: 3, object: 3, item_id: 1442007, name: '#1442007', value: null, by: 'party', how: 'expired' },
+      { age: 20, age_gone: 2, object: 4, item_id: 1041076, name: '红色侠客衣', value: 5000, by: 'party', by_name: 'Pig', how: 'picked', taker: 'party', taker_name: 'Pig' },
+      { age: 10, age_gone: 1, object: 5, item_id: 1041077, name: '不显示', value: 1, how: 'gone' },
+    ];
+    await bridge(page, { layout: 'slim', theme: 'dark', fields: ['time', 'exp_rate', 'profit', 'level', 'buffs'] }, [{ name: 'Me', level: 70, job: 230, map_id: 1, buffs: [], drops }]);
+    await page.goto(base + '/overlay.html');
+    await page.locator('.ov-ground-row').first().waitFor();
+    const rows = (await page.locator('.ov-ground-row > b').allInnerTexts()).map(t => t.replace(/\d+秒/, 'N秒'));
+    assert.deepEqual(rows, ['✓ Pig捡了', '✓ 你的宠物捡了', '地上 N秒', '没人捡，消失了']);
+    assert.equal(await page.locator('.ov-ground-row > b.warn').count(), 2, 'over 90 s on the ground and expired are red');
+    const ground = await page.locator('.ov-ground').boundingBox(), stat = await page.locator('.ov-slim > .ov-stat').last().boundingBox();
+    assert(ground.y > stat.y, 'drops come after the rates');
+    if (out) await page.screenshot({ path: path.join(out, 'grind-slim-drops.png') });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'drops: no horizontal clipping');
+    await page.close();
+  }
+  console.log('Grind combat table, live updates, all 20 overlay combinations, the slim preset and its drop list passed.');
 } finally { await browser.close(); server.close(); }

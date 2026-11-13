@@ -592,6 +592,9 @@ class Tracker:
         if op == proto.DROP:
             self.ground_drop(character, data, now)
             return
+        if op == proto.LEAVE:
+            self.ground_leave(character, data, now)
+            return
         if op in combat.REMOTE_ATTACKS:
             actor = proto.u32(data, 2)
             # Own attacks are counted from the client direction only.
@@ -730,13 +733,29 @@ class Tracker:
         killer = death[1] if death else None
         by = 'me' if killer is not None and killer == character.character_id else 'party' if killer is not None else None
         member = (character.party or {}).get(killer) if by == 'party' else None
-        found = dict(t=round(now, 2), object=drop['object'], item_id=item,
+        found = dict(t=round(now, 2), object=drop['object'], item_id=item, map_id=character.map_id,
                      name=self.name(item), value=unit, by=by, by_name=member['name'] if member else None)
         character.drops.append(found)
         run = character.run
         if run and run.status == 'active' and len(run.finds) < 100:
             run.finds.append(dict(t=found['t'], item_id=item, by=by, by_name=found['by_name']))
         self.dirty = True
+
+    def ground_leave(self, character, data, now):
+        """A valuable drop left the ground: who picked it up (or their pet), or nobody
+        did and it expired. The overlay lists it until a moment after."""
+        left = proto.leave(data)
+        if not left:
+            return
+        for drop in character.drops:
+            if drop['object'] == left['object'] and not drop.get('gone'):
+                taker = left['taker']
+                member = (character.party or {}).get(taker) if taker is not None else None
+                drop.update(gone=round(now, 2), how=left['how'], taker='me' if taker == character.character_id
+                            else 'party' if member else None if taker is None else 'other',
+                            taker_name=character.name if taker == character.character_id else member['name'] if member else None)
+                self.dirty = True
+                return
 
     def party_update(self, character, data):
         kind = data[2] if len(data) > 2 else None
@@ -1565,6 +1584,14 @@ class Tracker:
         rows = [dict(f, name=self.name(f['item_id']), value=self.prices.loot(f['item_id'])[0]) for f in run.finds]
         return sorted(rows, key=lambda r: -(r['value'] or 0))
 
+    @staticmethod
+    def drop_shown(character, drop, now):
+        """Listed on the overlay while on the ground in this map (drops expire after
+        about 120 s) and 15 s after it left; the newest minute always (the alert)."""
+        if drop.get('gone'):
+            return now - drop['gone'] <= 15 or now - drop['t'] <= 60
+        return now - drop['t'] <= 60 or (now - drop['t'] <= 130 and drop.get('map_id') == character.map_id)
+
     def drop_view(self, drop):
         """A ground drop as shown: the first drop of an item comes before its name and
         price arrive (prices.want is asynchronous), so look them up again each time."""
@@ -1590,7 +1617,7 @@ class Tracker:
                      calibration=[dict(label=a, state=b) for a, b in calibration_summary(self.profile)],
                      recording=self.frames is not None and not self.frames.failed,
                      characters=[dict(c.facts(), map_id=c.map_id, buffs=self.buffs(c, now),
-                                      drops=[self.drop_view(d) for d in c.drops if now - d['t'] <= 60]) for c in self.characters.values()],
+                                      drops=[self.drop_view(d) for d in c.drops if self.drop_shown(c, d, now)]) for c in self.characters.values()],
                      protocol_warning=bool(self.suspect()),
                      auto_buff=self.auto_buff.status() if self.auto_buff else None)
         write_json(self.folder / 'grind_state.json', state)

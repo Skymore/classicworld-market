@@ -347,6 +347,19 @@ class GroundDropTest(unittest.TestCase):
         self.send(self.drop(1442007, 586474, oid=1))          # the same drop again
         self.assertEqual([d['object'] for d in character.drops], [1, 2])
 
+    def test_who_picked_up_a_drop_or_that_it_expired(self):
+        character = self.tracker.characters['s1']
+        character.character_id, character.party_id = 165043, 586474
+        character.name, character.party = 'Me', {82978: dict(name='SHadowFiend', channel=1)}
+        for oid in (1, 2, 3, 4):
+            self.send(self.drop(1442007, 586474, oid=oid))
+        leave = lambda oid, how, tail=b'': (0x472).to_bytes(2, 'little') + oid.to_bytes(4, 'little') + bytes([how]) + tail
+        self.send(leave(1, 2, (82978).to_bytes(4, 'little')))
+        self.send(leave(2, 5, (165043).to_bytes(4, 'little') + bytes(4)))
+        self.send(leave(3, 0))
+        self.assertEqual([(d.get('how'), d.get('taker'), d.get('taker_name')) for d in character.drops],
+                         [('picked', 'party', 'SHadowFiend'), ('pet', 'me', 'Me'), ('expired', None, None), (None, None, None)])
+
     def test_thrown_items_are_ignored_and_the_killer_is_named(self):
         character = self.tracker.characters['s1']
         character.character_id, character.party_id = 165043, 586474

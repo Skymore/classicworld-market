@@ -331,6 +331,7 @@ def valid_source(source):
 
 CANCEL_BUFF = 0x80
 DROP = 0x471
+LEAVE = 0x472
 
 
 def drop(data):
@@ -355,6 +356,20 @@ def drop(data):
     return dict(fresh=data[3] == 1, object=u32(data, 4), mesos=mesos,
                 item=None if mesos else value, amount=value if mesos else 1, owner=u32(data, 25),
                 source=source, thrown=source == 0 and data[29] == 0 and len(data) > 62 and data[62] == 1)
+
+
+def leave(data):
+    """Something leaving the ground (2026-11-13 live, 0x472, 6 recordings): the object
+    at 2, how at 6: 0 it expired (about 120 s after it fell), 1 it just went (7 bytes
+    each), 2 a character picked it up (its ID at 7; 11 bytes), 5 a character's pet
+    did (the owner at 7, then the pet's slot; 15 bytes). Returns dict(object, how,
+    taker) with how 'expired', 'gone', 'picked' or 'pet', or None."""
+    if opcode(data) != LEAVE or len(data) < 7:
+        return None
+    how = {(0, 7): 'expired', (1, 7): 'gone', (2, 11): 'picked', (5, 15): 'pet'}.get((data[6], len(data)))
+    if how is None:
+        return None
+    return dict(object=u32(data, 2), how=how, taker=u32(data, 7) if len(data) >= 11 else None)
 
 
 def buff_mask(data):

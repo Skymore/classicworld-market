@@ -134,3 +134,11 @@
 .ov-switches button.on{color:#ffd76a;border-color:rgba(255,215,106,.55)}
 .ov-prompt{font-weight:700;white-space:normal;line-height:1.3;margin-bottom:.35em}
 .ov-drop{display:flex;align-items:center;gap:.4em;font-weight:700;margin-bottom:.35em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ov-drop img{width:1.6em;height:1.6em;object-fit:contain}
+.ov-ground{display:flex;flex-direction:column;gap:.2em;margin:0 0 .55em}
+.ov-ground-row{display:flex;align-items:center;justify-content:space-between;gap:.6em;white-space:nowrap;min-width:0}
+.ov-ground-row>span{display:flex;align-items:center;gap:.35em;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ov-ground-row img{width:1.4em;height:1.4em;object-fit:contain;flex:none}
+.ov-ground-row small{opacity:.6;font-size:.85em}
+.ov-ground-row>b{font-weight:700;font-size:.9em;flex:none}
+.ov-ground-row.done{opacity:.7}
+.ov .ok{color:#7ed99a}.ov-t-market .ok,.ov-t-cute .ok{color:#2e8b57}
