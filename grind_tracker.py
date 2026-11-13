@@ -648,11 +648,16 @@ class Tracker:
         if damage is None:
             character.mob_attacks.clear()
         else:
-            for oid in {oid for oid, _ in damage['targets']}:
+            dealt = collections.Counter()
+            for oid, hits in damage['targets']:
+                dealt[oid] += sum(hits) if isinstance(hits, (list, tuple)) else (hits or 0)
+            for oid, total in dealt.items():
                 sample = character.mob_attacks.get(oid)
                 if sample:
                     if own and character.run and character.run.status == 'active':
-                        sample['attacks'] += damage['skill'] not in FOLLOW_UPS
+                        # Hits to kill: own attacks that did damage. Misses (0) widened the
+                        # spread to 7-10 on mobs most kills took 3-4; follow-ups are extra hits.
+                        sample['attacks'] += damage['skill'] not in FOLLOW_UPS and total > 0
                     else:
                         sample['mixed'] = True
         member = (character.party or {}).get(actor)
@@ -1127,6 +1132,7 @@ class Tracker:
             item_cost = sum(amount for entry, _, _, amount in rows if entry['kind'] == 'used' and entry['item_id'] == item)
             consumables.append(dict(item_id=item, name=self.name(item), used=count, cost=item_cost, acquired=drops[item], remaining=remaining,
                                     per_hour=per_hour, minutes_left=(remaining / per_hour * 60) if remaining is not None and per_hour else None))
+        consumables.sort(key=lambda row: (-(row['cost'] or 0), -row['used'], row['item_id']))
         notable = self.settings['notable_value']
         if character and character.character_id is not None:
             run.combat.player(character.character_id, character.name, True)
@@ -1184,7 +1190,8 @@ class Tracker:
                 loot_rows.append(row)
                 if item // 1000000 != 1:
                     stack_rows[item] = row
-        loot_rows.sort(key=lambda row: row['t'], reverse=True)
+        # Biggest amount first everywhere (overlay, live page, history); newest breaks ties.
+        loot_rows.sort(key=lambda row: (-(row['value'] or 0), -row['t']))
         cash_events = [(e['t'], e['mesos'] * (1 if e['kind'] == 'mesos' else -1))
                        for e in run.ledger if e['kind'] in ('mesos', 'spent')]
         cash_events += [(e['t'], amount * (1 if e['kind'] == 'loot' else -1)) for e, _, _, amount in rows]

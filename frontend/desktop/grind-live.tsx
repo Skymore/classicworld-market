@@ -41,7 +41,7 @@ export function LiveView({ run, live, warn }: { run: RunSummary | null; live: Li
       <section className="well">
         <div className="well-h"><h3>{tr('本次战利品', 'Loot this run')}</h3><b className="amount money">+{big(run.mesos + run.item_value)} <MesosIcon size={12} /></b></div>
         {run.mesos > 0 && <div className="grind-row grind-account-row grind-mesos"><MesosIcon size={24} /><span className="t"><b>{tr('金币', 'Mesos')}</b></span><span /><span className="amount">+{big(run.mesos)} <MesosIcon size={12} /></span></div>}
-        {(run.loot || run.recent || []).map((row, i) => <div className={'grind-row grind-account-row' + (row.notable ? ' notable' : '')} key={i}>
+        {byValue(run.loot || run.recent || []).map((row, i) => <div className={'grind-row grind-account-row' + (row.notable ? ' notable' : '')} key={i}>
           <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
           <span className="t"><b>{row.name}</b>{row.stats?.length ? <small className="stats"> {statLine(row.stats)}</small> : null}</span>
           <span className="quantity">×{row.quantity}</span><span className="amount" title={row.basis || ''}>{row.priced === false || !row.basis || row.basis === '无价格' ? <small>{tr('待估价', 'Unpriced')}</small> : <>+{big(row.value)} <MesosIcon size={12} aria-label={tr('金币', 'mesos')} /></>}</span>
@@ -50,7 +50,7 @@ export function LiveView({ run, live, warn }: { run: RunSummary | null; live: Li
       </section>
       <section className="well">
         <div className="well-h"><h3>{tr('消耗品', 'Consumables')}</h3><b className="amount money">−{big(run.consume_cost)} <MesosIcon size={12} /></b></div>
-        {run.consumables.filter(row => row.used > 0).map(row => <div className="grind-row grind-account-row" key={row.item_id}>
+        {run.consumables.filter(row => row.used > 0).sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0) || b.used - a.used).map(row => <div className="grind-row grind-account-row" key={row.item_id}>
           <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
           <span className="t"><b>{row.name}</b></span>
           <span className="quantity">×{row.used}</span><span className="amount">−{big(row.cost ?? null)} <MesosIcon size={12} aria-label={tr('金币', 'mesos')} /></span>
@@ -87,3 +87,7 @@ export function BuffStrip({ live, warn }: { live: Live | null; warn: number }) {
       <b>{b.left > 0 ? clock(b.left) : tr('过期', 'Out')}</b></div>)}</div></section>;
 }
 
+/** Biggest amounts first; the data keeps loot newest first for the overlay. */
+function byValue<T extends { value?: number | null }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+}

@@ -214,7 +214,9 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
   const s = (v: number | null | undefined) => signed(v, english);
   const name = run.character?.name || (run.job_name ? t(`一位${run.job_name}`, `A ${run.job_name}`) : t("冒险家", "Adventurer"));
   const levels = run.level_start && run.level && run.level_start !== run.level ? `${run.level_start}→${run.level}` : String(run.level ?? run.character?.level ?? "—");
-  const loot = run.loot?.length ? run.loot : run.drops || [];
+  // Biggest amounts first in both lists (the data keeps loot newest first for the overlay).
+  const loot = [...(run.loot?.length ? run.loot : run.drops || [])].sort((a, b) => ((b as { value?: number }).value ?? 0) - ((a as { value?: number }).value ?? 0));
+  const used = [...(run.consumables || [])].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0) || b.used - a.used);
   const lootTotal = (run.mesos || 0) + (run.item_value || 0);
   const costTotal = (run.consume_cost || 0) + (run.mesos_spent || 0);
   const segments = run.segments || [];
@@ -272,7 +274,7 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
         {profit && (
           <section className="gr-well">
             <h3>{t("消耗", "Used")}<b className="money">{s(-costTotal)}</b></h3>
-            <Rows rows={run.consumables || []} limit={12} render={(row, i) => (
+            <Rows rows={used} limit={12} render={(row, i) => (
               <div className="gr-row" key={i}><img src={icon(row.item_id)} alt="" loading="lazy" />
                 <span className="t">{row.name || `#${row.item_id}`}</span><small>×{b(row.used)}</small>
                 {row.cost != null && <span className="v">{s(-row.cost)}</span>}</div>

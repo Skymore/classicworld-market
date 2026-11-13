@@ -203,10 +203,10 @@ export function OverlayCard({ live, settings, toast = null, scale, cardRef, grip
     {show('dps') && <div className="ov-row"><CrosshairIcon /><b className="big">{big(run.dps)}</b><span className="dim">DPS · 1m</span></div>}
     {show('profit') && <RateMetrics run={run} kind="net" />}
     <div className="ov-accounts">
-    {show('potions') && potion && <section className="ov-account"><div className="ov-account-heading"><b className="ov-account-title">{tr('消耗', 'Used')}</b><b className="amount">−{big(run.consume_cost)} <MesosIcon size={12} /></b></div>
+    {show('potions') && potion && <section className="ov-account"><div className="ov-account-heading"><b className="ov-account-title">{tr('消耗', 'Used')}</b><b className="amount gold">−{big(run.consume_cost)} <MesosIcon size={12} /></b></div>
       {usedPotions.map(c => <div className="ov-loot ov-account-row" key={c.item_id}>
         <span><img src={itemIcon(c.item_id)} alt="" />{c.name}</span><b className="quantity">×{c.used}</b><b className="amount">−{big(c.cost ?? null)} <MesosIcon size={11} aria-label={tr('金币', 'mesos')} /></b></div>)}</section>}
-    {show('recent') && <section className="ov-account"><div className="ov-account-heading"><b className="ov-account-title">{tr('战利品', 'Loot')}</b><b className="amount">+{big(run.mesos + run.item_value)} <MesosIcon size={12} /></b></div>{run.mesos > 0 && <div className="ov-loot ov-account-row ov-mesos"><span><MesosIcon size={15} />{tr('金币', 'Mesos')}</span><b className="quantity"></b><b className="amount">+{big(run.mesos)} <MesosIcon size={11} /></b></div>}{loot(detailed ? 6 : 2)}</section>}
+    {show('recent') && <section className="ov-account"><div className="ov-account-heading"><b className="ov-account-title">{tr('战利品', 'Loot')}</b><b className="amount gold">+{big(run.mesos + run.item_value)} <MesosIcon size={12} /></b></div>{run.mesos > 0 && <div className="ov-loot ov-account-row ov-mesos"><span><MesosIcon size={15} />{tr('金币', 'Mesos')}</span><b className="quantity"></b><b className="amount">+{big(run.mesos)} <MesosIcon size={11} /></b></div>}{loot(detailed ? 6 : 2)}</section>}
     </div>
     {(show('kills') || detailed) && <div className="ov-row"><Swords size={I} style={ico} /><b>{big(run.kills)}</b>
       <span className="dim">{`${big(run.kills_per_hour)}/h`}</span></div>}
