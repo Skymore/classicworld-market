@@ -240,7 +240,7 @@ function MyRuns() {
           <span>{words("经验/时", "EXP/h")}</span><span>{words("收益/时", "Profit/h")}</span><span /></div>
         {shown.map((run) => (
           <SiteLink key={run.row} className="grind-list-row" href={`/grind/run/${run.row}`}>
-            <span className="when">{when(run.started_at)}</span>
+            <span className="when">{when(run.started_at)}<em className="len"> · {clock(run.active_seconds)}</em></span>
             <span className="who"><b>{run.map_name || "—"}</b> <small>{run.character?.name} · {run.job_name} {run.level ?? ""}</small>
               {run.share_code && <i>{words("已分享", "Shared")}</i>}</span>
             <span>{clock(run.active_seconds)}</span>
@@ -283,7 +283,7 @@ function EveryoneRuns() {
           <span>{words("经验/时", "EXP/h")}</span><span>{words("收益/时", "Profit/h")}</span><span /></div>
         {runs.map((run) => (
           <SiteLink key={run.row} className="grind-list-row" href={`/grind/admin/run/${run.row}`}>
-            <span className="when">{when(run.started_at)}</span>
+            <span className="when">{when(run.started_at)}<em className="len"> · {clock(run.active_seconds)}</em></span>
             <span className="who"><b>{run.map_name || "—"}</b> <small>{run.character?.name} · {run.job_name} {run.level ?? ""} · {ownerLabel(run.owner)}</small></span>
             <span>{clock(run.active_seconds)}</span>
             <span>{big(run.exp_per_hour, en)}{run.exp_per_hour != null && <small>/{words("时", "h")}</small>}</span>
