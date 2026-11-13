@@ -27,6 +27,12 @@ async fn main() -> Result<()> {
         .max_connections(2)
         .connect_lazy_with(db.connect_options().as_ref().clone());
     tokio::spawn(refresh_stats(maintenance_db, config.stats_refresh));
+    // Writers mark items; one connection of its own recomputes them every 2 s.
+    stats::defer_recompute(true);
+    let dirty_db = PgPoolOptions::new()
+        .max_connections(1)
+        .connect_lazy_with(db.connect_options().as_ref().clone());
+    tokio::spawn(recompute_dirty(dirty_db));
     tokio::spawn(market_web::traffic::prune(db.clone()));
     tokio::spawn({
         let db = db.clone();
@@ -121,6 +127,31 @@ async fn refresh_stats(db: PgPool, every: Duration) {
             Ok(true) => tracing::info!("item stats refreshed"),
             Ok(false) => {}
             Err(err) => tracing::warn!(error = %err, "item stats refresh failed"),
+        }
+    }
+}
+
+async fn recompute_dirty(db: PgPool) {
+    let mut tick = tokio::time::interval(Duration::from_secs(2));
+    loop {
+        tick.tick().await;
+        loop {
+            let started = std::time::Instant::now();
+            match stats::recompute_dirty(&db, unix_now()).await {
+                Ok(n) => {
+                    let ms = started.elapsed().as_millis();
+                    if ms >= 2000 {
+                        tracing::info!(items = n, elapsed_ms = ms as u64, "slow background stats pass");
+                    }
+                    if n < stats::DIRTY_BATCH {
+                        break;
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!(error = %err, "background stats pass failed");
+                    break;
+                }
+            }
         }
     }
 }

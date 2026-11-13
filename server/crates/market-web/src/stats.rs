@@ -8,6 +8,7 @@
 //! untouched items lag by at most one refresh interval.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use market_core::pricing::UpgradeState;
 use market_core::report::{item_figures, ItemFigures, Listing, SaleEvent, Window, WindowFigures};
@@ -378,6 +379,14 @@ fn compute(items: &[i32], data: &ItemData, _as_of: f64, now: f64) -> Vec<(i32, I
 
 /// Recompute `items` inside the caller's write transaction. `seen_at` raises
 /// `last_seen_at` for the items the upload showed.
+static DEFERRED: AtomicBool = AtomicBool::new(false);
+
+/// The server turns this on at startup and runs `recompute_dirty` in the
+/// background. Off (tools, tests), writers recompute in their own transaction.
+pub fn defer_recompute(on: bool) {
+    DEFERRED.store(on, Ordering::Relaxed);
+}
+
 pub async fn recompute_items(
     conn: &mut PgConnection,
     items: &[i32],
@@ -389,7 +398,68 @@ pub async fn recompute_items(
         return Ok(());
     }
     crate::sale_matching::reconcile(conn, items).await?;
+    if DEFERRED.load(Ordering::Relaxed) {
+        // Loading whole sale histories took most of every write's time under the
+        // shared lock (2026-11-12: 78 % of upload, 85 % of roster time), and
+        // busy items were recomputed on nearly every upload. Mark them instead.
+        return mark_dirty(conn, items, seen_at).await;
+    }
     recompute_prices(conn, items, as_of, now, seen_at).await
+}
+
+async fn mark_dirty(conn: &mut PgConnection, items: &[i32], seen_at: &HashMap<i32, f64>) -> sqlx::Result<()> {
+    let seen: Vec<Option<f64>> = items.iter().map(|item| seen_at.get(item).copied()).collect();
+    sqlx::query(
+        "INSERT INTO stats_dirty (item_id, seen_at)
+         SELECT item, to_timestamp(seen) FROM unnest($1::int4[], $2::float8[]) AS x(item, seen)
+         ON CONFLICT (item_id) DO UPDATE SET seen_at = GREATEST(stats_dirty.seen_at, EXCLUDED.seen_at)",
+    )
+    .bind(items)
+    .bind(&seen)
+    .execute(conn)
+    .await?;
+    Ok(())
+}
+
+/// Most items one background pass recomputes.
+pub const DIRTY_BATCH: usize = 300;
+
+/// Recompute the items writers marked, outside the write lock: claim a batch in
+/// a short transaction (an item marked again meanwhile is simply recomputed on
+/// the next pass), then compute and write its figures and notify readers.
+/// Returns how many items were recomputed.
+pub async fn recompute_dirty(db: &PgPool, now: f64) -> sqlx::Result<usize> {
+    let claimed: Vec<(i32, Option<f64>)> = sqlx::query_as(
+        "DELETE FROM stats_dirty WHERE item_id IN (
+           SELECT item_id FROM stats_dirty ORDER BY marked_at LIMIT $1 FOR UPDATE SKIP LOCKED)
+         RETURNING item_id, extract(epoch FROM seen_at)::float8",
+    )
+    .bind(DIRTY_BATCH as i64)
+    .fetch_all(db)
+    .await?;
+    if claimed.is_empty() {
+        return Ok(0);
+    }
+    let mut items: Vec<i32> = claimed.iter().map(|(item, _)| *item).collect();
+    items.sort_unstable();
+    let seen_at: HashMap<i32, f64> = claimed.iter().filter_map(|(item, seen)| seen.map(|s| (*item, s))).collect();
+    let result = async {
+        let mut tx = db.begin().await?;
+        let as_of: Option<f64> = sqlx::query_scalar("SELECT extract(epoch FROM as_of)::float8 FROM market_state")
+            .fetch_one(&mut *tx)
+            .await?;
+        recompute_prices(&mut tx, &items, as_of.unwrap_or(now), now, &seen_at).await?;
+        crate::realtime::notify_market(&mut tx, Some(&items[..])).await?;
+        tx.commit().await
+    }
+    .await;
+    if let Err(err) = result {
+        // Put the batch back so a failed pass loses nothing.
+        let mut conn = db.acquire().await?;
+        mark_dirty(&mut conn, &items, &seen_at).await?;
+        return Err(err);
+    }
+    Ok(items.len())
 }
 
 // Clock/window changes cannot create new cross-source matches. Reuse the
