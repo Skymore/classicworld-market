@@ -39,3 +39,15 @@
   .gp-map{grid-template-columns:minmax(0,1fr) 64px 76px}.gp-map .opt{display:none}
 }
 .gp-extra select{padding:4px 6px;border:1px solid var(--rule);background:var(--sheet);font:inherit;font-size:13px;color:inherit}
+.gp-check{display:inline-flex;align-items:center;gap:5px;font-size:13px;color:var(--ink-2);white-space:nowrap;cursor:pointer}
+.gp-copy{min-height:30px;padding:0 12px;border:1px solid var(--edge);background:var(--sheet-hi);font:inherit;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;white-space:nowrap}
+.gp-delta{margin-left:6px;font-size:11px;font-style:normal;font-weight:700;vertical-align:middle}
+.gp-delta.up{color:#2f8f4e}.gp-delta.down{color:#c0483a}
+.gp-chip{display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--rule);font-size:13px;background:var(--bar-soft)}
+button.gp-map{width:100%;border:0;background:none;font:inherit;color:inherit;text-align:inherit;cursor:pointer}
+button.gp-map:hover{background:var(--sheet-hi)}
+button.gp-map[aria-pressed=true]{outline:1px solid var(--bar);outline-offset:-1px}
+.gp-map small{font-weight:400;color:var(--ink-3)}
+.gp-sort{padding:0;border:0;background:none;font:inherit;font-size:11px;color:var(--ink-3);text-align:right;cursor:pointer;white-space:nowrap}
+.gp-sort[aria-pressed=true]{color:var(--ink);font-weight:700}
+@media (max-width:640px){.gp-extra{margin-left:0;flex-wrap:wrap}.gp-sort.opt{display:none}}

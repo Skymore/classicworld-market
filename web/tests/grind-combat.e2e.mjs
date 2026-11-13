@@ -133,20 +133,22 @@ try {
       await page.close();
     }
   }
-  // The everyday preset: two large rates, one line each for consumables and loot, and a corner to size it by.
+  // The everyday preset: EXP, level and profit stacked, each with its run total; one line each for consumables and loot.
   for (const theme of ['dark', 'market', 'cute', 'maple']) {
-    const page = await browser.newPage({ viewport: { width: 260, height: 300 } });
+    const page = await browser.newPage({ viewport: { width: 260, height: 400 } });
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await bridge(page, { layout: 'slim', theme, fields: ['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent'] });
     await page.goto(base + '/overlay.html');
     await page.locator('.ov-stat').first().waitFor();
-    assert.equal(await page.locator('.ov-stats .ov-stat').count(), 2);
+    assert.equal(await page.locator('.ov-slim > .ov-stat').count(), 2);
+    assert.deepEqual(await page.locator('.ov-total').allInnerTexts(), ['本场 +1万', '本场净 +1.2万']);
     assert.equal(await page.locator('.ov-tally').count(), 2);
     for (const row of await page.locator('.ov-tally').all()) assert((await row.boundingBox()).height < 34, `slim/${theme}: consumables and loot keep to one line each`);
     assert.equal(await page.locator('.ov-team').count(), 0);
     assert.equal(await page.locator('.rate-chart').count(), 0);
     assert.equal(await page.locator('.ov-buffs.tiles span').count(), 3);
-    assert((await page.locator('.ov').boundingBox()).height < 320, `slim/${theme}: the card stays small`);
+    assert((await page.locator('.ov').boundingBox()).height < 380, `slim/${theme}: the card stays small`);
+    if (out) await page.screenshot({ path: path.join(out, `grind-slim-${theme}.png`) });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `slim/${theme}: no horizontal clipping`);
     assert.equal(await page.locator('.ov-grip').count(), 1);
     assert.deepEqual(errors, []);

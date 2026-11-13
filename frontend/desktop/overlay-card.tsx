@@ -187,10 +187,10 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
   if (o.layout === 'slim') return box(<>
     <div className="ov-head">{dot}<b className="ov-job">{run.job_name ? `${run.job_name} · ` : ''}Lv.{run.level ?? '—'}</b><span>{mapLabel(run)}</span>
       {show('time') && <em><Clock3 size={I} style={ico} />{clock(run.active_seconds)}</em>}</div>
-    {(show('exp_rate') || show('profit')) && <div className="ov-stats">
-      {show('exp_rate') && <RateStat run={run} kind="exp" />}{show('profit') && <RateStat run={run} kind="net" />}</div>}
+    {show('exp_rate') && <RateStat run={run} kind="exp" />}
     {show('level') && <div className="ov-level"><b>{percent(run.exp_percent, 1)}</b>
-      <span className="ov-bar"><i style={{ width: `${Math.min(100, run.exp_percent ?? 0)}%` }} /></span><span className="dim">{duration(run.eta_seconds)}</span></div>}
+      <span className="ov-bar"><i style={{ width: `${Math.min(100, run.exp_percent ?? 0)}%` }} /></span><span className="dim">{tr('升级', 'up in')} {duration(run.eta_seconds)}</span></div>}
+    {show('profit') && <RateStat run={run} kind="net" />}
     {(show('dps') || show('kills')) && <div className="ov-stats minor">
       {show('dps') && <div className="ov-stat"><small>DPS</small><b>{big(run.dps)}</b></div>}
       {show('kills') && <div className="ov-stat"><small>{tr('击杀/时', 'Kills/h')}</small><b>{big(run.kills_per_hour)}</b></div>}</div>}

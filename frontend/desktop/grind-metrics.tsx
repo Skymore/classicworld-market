@@ -23,12 +23,14 @@ export function RateStat({ run, kind }: { run: RunSummary; kind: 'exp' | 'net' }
   const low = Math.min(...values, average ?? Infinity), span = Math.max(1, Math.max(...values, average ?? -Infinity) - low);
   const y = (value: number) => 22 - (value - low) / span * 20;
   const points = values.map((v, i) => `${i / Math.max(1, values.length - 1) * 100},${y(v)}`).join(' ');
+  // Read top to bottom: how fast now (big), the run's average beside it, then what
+  // the run has made so far; the line below spans the card.
   return <div className="ov-stat" aria-label={kind === 'exp' ? tr('经验', 'EXP') : tr('金币净收益', 'Net mesos')}>
-    <small>{kind === 'exp' ? tr('经验/时', 'EXP/h') : tr('收益/时', 'Profit/h')}</small>
-    <b className="gold">{big(minute ?? average)}</b>
-    <span className="dim">{tr('平均', 'avg')} {big(average)}
-      {minute != null && average ? <i className={'rate-trend ' + (minute >= average ? 'up' : 'down')}>{minute >= average ? '▲' : '▼'}</i> : null}</span>
-    <span className="dim ov-total">{tr('累计', 'total')} <b>{signed(kind === 'exp' ? run.exp : run.net)}</b></span>
+    <div className="ov-stat-top"><small>{kind === 'exp' ? tr('经验/时 · 实时', 'EXP/h · live') : tr('收益/时 · 实时', 'Profit/h · live')}</small>
+      <span className="dim">{tr('平均', 'avg')} {big(average)}
+        {minute != null && average ? <i className={'rate-trend ' + (minute >= average ? 'up' : 'down')}>{minute >= average ? '▲' : '▼'}</i> : null}</span></div>
+    <div className="ov-stat-mid"><b className="gold">{big(minute ?? average)}</b>
+      <span className="ov-total">{kind === 'exp' ? tr('本场', 'run') : tr('本场净', 'run net')} <b>{signed(kind === 'exp' ? run.exp : run.net)}</b></span></div>
     {values.length > 1 && <svg className="ov-trend" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
       <polygon points={`0,24 ${points} 100,24`} fill="currentColor" opacity=".1" />
       {average != null && <line x1="0" x2="100" y1={y(average)} y2={y(average)} stroke="currentColor" opacity=".4" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />}

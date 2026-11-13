@@ -13,6 +13,10 @@
 .ov-slim .ov-head{margin-bottom:.7em;font-size:.95em}
 .ov-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1em;margin:0 0 .7em}
 .ov-stat{display:flex;flex-direction:column;min-width:0}
+.ov-slim>.ov-stat{margin:0 0 .6em}
+.ov-stat-top,.ov-stat-mid{display:flex;align-items:baseline;justify-content:space-between;gap:.6em;min-width:0;white-space:nowrap}
+.ov-stat-mid>b{font-size:1.8em;line-height:1.15;font-weight:800}
+.ov-stat .ov-total{font-size:.9em;opacity:.85}.ov-stat .ov-total b{font-weight:700}
 .ov-stat small{font-size:.85em;opacity:.6}
 .ov-stat>b{font-size:1.8em;line-height:1.2;font-weight:800;white-space:nowrap}
 .ov-stat .dim{font-size:.85em;white-space:nowrap}
