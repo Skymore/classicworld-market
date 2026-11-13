@@ -8,7 +8,7 @@ import { Clock3, Crosshair, Hourglass, Swords, TrendingUp } from 'lucide-react';
 import { itemIcon } from './format';
 import './overlay.css';
 import { language, tr } from './i18n';
-import { big, channelPrompt, clock, duration, mapLabel, percent, shownBuffs, statLine, type GrindSettings, type Live, type LootRow } from './grind';
+import { big, channelPrompt, clock, duration, mapLabel, percent, shownBuffs, statLine, type GrindSettings, type GroundDrop, type Live, type LootRow } from './grind';
 
 const I = 13;
 const ico = { width: '1.1em', height: '1.1em' }; // icons scale with the overlay's font size
@@ -71,6 +71,20 @@ function chime(source: number, text: string | null | undefined) {
     if (!await play(`voice/${lang}/${source}.mp3`) && !(lang === 'ko' && await play(`voice/en/${source}.mp3`))) speak(text);
     chiming.delete(source);
   }, 300);
+}
+
+/** A valuable drop to pick up: a two-note chime, then "有好东西掉了" (voice pack: drop_alert). */
+export function announceDrop() {
+  try {
+    const audio = new AudioContext(), gain = audio.createGain();
+    gain.gain.value = 0.08; gain.connect(audio.destination);
+    [988, 1319].forEach((hz, i) => {
+      const tone = audio.createOscillator(); tone.type = 'sine'; tone.frequency.value = hz; tone.connect(gain);
+      tone.start(audio.currentTime + i * 0.12); tone.stop(audio.currentTime + i * 0.12 + 0.11);
+    });
+    setTimeout(() => audio.close(), 600);
+  } catch { /* no audio device */ }
+  setTimeout(() => say(0, tr('有好东西掉了', 'Valuable drop'), 'drop_alert'), 300);
 }
 
 let lowHpAt = 0;
@@ -138,8 +152,8 @@ function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | 
 }
 
 /** The overlay's card: the overlay window shows one, the settings page shows one per preset. */
-export function OverlayCard({ live, settings, toast = null, scale, cardRef, grip }: {
-  live: Live | null; settings: GrindSettings; toast?: LootRow | null; scale: number;
+export function OverlayCard({ live, settings, toast = null, drop = null, scale, cardRef, grip }: {
+  live: Live | null; settings: GrindSettings; toast?: LootRow | null; drop?: GroundDrop | null; scale: number;
   cardRef?: React.Ref<HTMLDivElement>; grip?: React.ReactNode;   // the overlay window's corner grip and switches
 }) {
   const o = settings.overlay, run = live?.runs?.[0] ?? null, show = (key: string) => o.fields.includes(key);
@@ -155,7 +169,9 @@ export function OverlayCard({ live, settings, toast = null, scale, cardRef, grip
   const prompt = channelPrompt(run);
   const box = (content: React.ReactNode) => <div className={`ov ov-${o.layout} ov-t-${o.theme || 'dark'}`} style={style} ref={cardRef}>
     {!run || !['standard', 'detailed', 'slim'].includes(o.layout) ? <div className="ov-site">mxd.ruit.me</div> : null}
-    {prompt && <div className="ov-prompt warn" role="alert">⚠ {prompt}</div>}{content}{grip}</div>;
+    {prompt && <div className="ov-prompt warn" role="alert">⚠ {prompt}</div>}
+    {drop && <div className="ov-drop gold" role="status"><img src={itemIcon(drop.item_id)} alt="" />{tr('掉落：', 'Dropped: ')}{drop.name || `#${drop.item_id}`}{drop.value ? <b> {big(drop.value)}</b> : null}</div>}
+    {content}{grip}</div>;
   if (!run) return box(<><div className="ov-line">{dot}<span>{live && !live.stale ? tr('打几只怪开始记录', 'Kill a few to start') : tr('等待客户端', 'Waiting for collector')}</span></div>
     {show('buffs') && <Buffs live={live} settings={settings} />}</>);
   const rate = run.exp_per_hour, usedPotions = run.consumables.filter(c => c.used > 0), potion = usedPotions[0];

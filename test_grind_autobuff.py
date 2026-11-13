@@ -302,6 +302,40 @@ class ChartAndVitalsTest(unittest.TestCase):
         self.assertEqual(self.tracker.vitals(character, self.clock())['danger'], 900)
 
 
+class GroundDropTest(unittest.TestCase):
+    setUp, tearDown, send = base.TrackerTest.setUp, base.TrackerTest.tearDown, base.TrackerTest.send
+
+    @staticmethod
+    def drop(item, owner, fresh=1, oid=7):
+        data = bytearray(123)
+        data[0:2] = (0x471).to_bytes(2, 'little')
+        data[3] = fresh
+        data[4:8] = oid.to_bytes(4, 'little')
+        data[21:25] = item.to_bytes(4, 'little')
+        data[25:29] = owner.to_bytes(4, 'little')
+        return bytes(data)
+
+    def test_valuable_drops_for_me_or_my_party_are_kept_others_are_not(self):
+        character = self.tracker.characters['s1']
+        character.character_id, character.party_id = 165043, 586474
+        self.send(self.drop(1442007, 586474, oid=1))          # a party member's kill: equipment
+        self.send(self.drop(2040001, 165043, oid=2))          # mine: a scroll
+        self.send(self.drop(4000019, 165043, oid=3))          # mine, but cheap
+        self.send(self.drop(1442007, 999999, oid=4))          # someone else's
+        self.send(self.drop(1442007, 586474, fresh=0, oid=5)) # was already on the ground
+        self.send(self.drop(1442007, 586474, oid=1))          # the same drop again
+        self.assertEqual([d['object'] for d in character.drops], [1, 2])
+
+    def test_party_info_names_the_party(self):
+        character = self.tracker.characters['s1']
+        character.character_id = 165043
+        info = bytearray(16)
+        info[0:4] = bytes.fromhex('a7000d01')
+        info[4:8] = (586474).to_bytes(4, 'little')
+        self.send(bytes(info))
+        self.assertEqual(character.party_id, 586474)
+
+
 class CancelTest(unittest.TestCase):
     setUp, tearDown, send = base.TrackerTest.setUp, base.TrackerTest.tearDown, base.TrackerTest.send
 

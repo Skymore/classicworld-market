@@ -330,6 +330,26 @@ def valid_source(source):
 
 
 CANCEL_BUFF = 0x80
+DROP = 0x471
+
+
+def drop(data):
+    """An item or mesos appearing on the ground (2026-11-12 live, 0x471: 115 bytes
+    for mesos, 123 for an item). Returns dict(fresh, object, mesos, item, amount,
+    owner) or None. `fresh`: just dropped (1), not already lying there when the map
+    was entered (0) or another appearance (2). `owner`: the character or party it
+    belongs to (party ID as in PartyInfo; 2026-11-12 every drop of a party session
+    named the party). An item's ID, or a mesos amount, is at 21; the owner at 25."""
+    if opcode(data) != DROP or len(data) not in (115, 123) or data[2] != 0 or data[8] not in (0, 1):
+        return None
+    mesos = data[8] == 1
+    if mesos != (len(data) == 115):
+        return None
+    value = u32(data, 21)
+    if not mesos and not 1_000_000 <= value < 10_000_000:
+        return None
+    return dict(fresh=data[3] == 1, object=u32(data, 4), mesos=mesos,
+                item=None if mesos else value, amount=value if mesos else 1, owner=u32(data, 25))
 
 
 def buff_mask(data):

@@ -55,7 +55,8 @@ KOREAN = {
 }
 
 
-WARNINGS = {'hp_low': {'zh': '血量低', 'en': 'Low HP', 'ko': '체력 부족'}}
+WARNINGS = {'hp_low': {'zh': '血量低', 'en': 'Low HP', 'ko': '체력 부족'},
+            'drop_alert': {'zh': '有好东西掉了', 'en': 'Valuable drop', 'ko': '좋은 아이템이 떨어졌어요'}}
 
 
 def lines():

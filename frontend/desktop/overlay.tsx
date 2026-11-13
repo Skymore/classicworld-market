@@ -6,8 +6,8 @@ import { Volume2, VolumeX } from 'lucide-react';
 import { createRoot } from 'react-dom/client';
 import korean from '../../server/crates/market-web/src/i18n/ko.json';
 import { installKorean, applyLanguage, tr } from './i18n';
-import { overlayFit, overlayScale, overlayState, overlayToggle, type GrindSettings, type Live, type LootRow } from './grind';
-import { OverlayCard } from './overlay-card';
+import { overlayFit, overlayScale, overlayState, overlayToggle, type GroundDrop, type GrindSettings, type Live, type LootRow } from './grind';
+import { OverlayCard, announceDrop } from './overlay-card';
 
 document.documentElement.classList.add('overlay-page');
 installKorean(korean);
@@ -17,11 +17,22 @@ function Overlay() {
   const [live, setLive] = useState<Live | null>(null), [settings, setSettings] = useState<GrindSettings | null>(null);
   const [toast, setToast] = useState<LootRow | null>(null), [dragged, setDragged] = useState<number | null>(null);
   const seen = useRef(0);
+  const [drop, setDrop] = useState<GroundDrop | null>(null);
+  const dropSeen = useRef<number | null>(null);
   useEffect(() => {
     let alive = true;
     const poll = () => overlayState().then(s => {
       if (!alive) return;
       setLive(s.live); setSettings(s.settings); applyLanguage(s.language || 'system');
+      // A valuable item fell for this character or its party: show it for 8 s and announce it.
+      const drops = (s.live?.characters || []).flatMap(c => c.drops || []);
+      const newest = drops.reduce<GroundDrop | null>((best, d) => !best || d.t > best.t ? d : best, null);
+      if (dropSeen.current === null) dropSeen.current = newest?.t ?? 0;
+      else if (newest && newest.t > dropSeen.current) {
+        dropSeen.current = newest.t;
+        setDrop(newest);
+        if (s.settings.buff_sound) announceDrop();
+      }
       const notable = s.live?.runs?.[0]?.recent?.find(r => r.notable);
       if (notable && notable.t > seen.current) {
         if (seen.current) setToast(notable);
@@ -34,6 +45,7 @@ function Overlay() {
     return () => { alive = false; clearInterval(id); window.removeEventListener('pywebviewready', poll); };
   }, []);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(null), 6000); return () => clearTimeout(id); }, [toast]);
+  useEffect(() => { if (!drop) return; const id = setTimeout(() => setDrop(null), 8000); return () => clearTimeout(id); }, [drop]);
   // The window is exactly as tall as the card, so nothing invisible sits over the game.
   const watcher = useRef<ResizeObserver | null>(null);
   const card = useCallback((element: HTMLDivElement | null) => {
@@ -52,7 +64,7 @@ function Overlay() {
     setSettings({ ...settings, [name]: !settings[name] });
     overlayToggle(name).then(value => setSettings(s => s && { ...s, [name]: value })).catch(() => null);
   };
-  return <OverlayCard live={live} settings={settings} toast={toast} scale={scale} cardRef={card}
+  return <OverlayCard live={live} settings={settings} toast={toast} drop={drop} scale={scale} cardRef={card}
     grip={<><Switches settings={settings} toggle={toggle} /><Grip scale={scale} preview={setDragged} /></>} />;
 }
 

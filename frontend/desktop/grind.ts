@@ -7,6 +7,8 @@ export interface LootRow {
   priced?: boolean; unit: number; basis: string | null; value: number; stats?: { key: string; value: number }[] | null; notable: boolean;
 }
 export interface Consumable { item_id: number; name: string | null; used: number; cost?: number; acquired?: number; remaining: number | null; per_hour: number | null; minutes_left: number | null }
+/** A valuable item that just fell for this character or its party (grind_tracker.ground_drop). */
+export interface GroundDrop { t: number; object: number; item_id: number; name: string | null; value: number | null }
 export interface Buff { source: number; name: string | null; seconds: number; total: number; item_id: number | null; pinned?: boolean; proc?: boolean; on?: number | null }
 export interface CombatRow {
   dps_5m?: number | null; kills_5m?: number; exp_received_5m?: number | null; kill_exp_5m?: number | null; exp_contribution_5m?: number | null; exp_yield_5m?: number | null;
@@ -39,7 +41,7 @@ export interface RunSummary {
 export interface Live {
   alive_at: number; stale: boolean; runs: RunSummary[]; finished: RunSummary[]; recording: boolean;
   calibration: { label: string; state: string }[];
-  characters: { name: string | null; level: number | null; job: number | null; map_id: number | null; buffs: Buff[] }[];
+  characters: { name: string | null; level: number | null; job: number | null; map_id: number | null; buffs: Buff[]; drops?: GroundDrop[] }[];
   protocol_warning?: boolean;
 }
 export interface OverlaySettings {

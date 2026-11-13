@@ -240,6 +240,8 @@ class Character:
         self.buff_on = {}           # source -> when it last turned on (not a refresh)
         self.buff_ended = {}        # source -> when it last ended (cancel or time)
         self.combat_at = None       # last own attack or kill: buffs are kept up only in combat
+        self.party_id = None        # owner of the party's drops
+        self.drops = collections.deque(maxlen=20)   # valuable drops this character can pick up
         self.skill_keys = None      # per keyboard preset: skill -> scan code (grind_autobuff)
         self.key_preset = None
         self.pickups = collections.deque(maxlen=256)   # [t, item id, unmatched quantity]
@@ -534,6 +536,9 @@ class Tracker:
         if op == combat.PARTY:
             self.party_update(character, data)
             return
+        if op == proto.DROP:
+            self.ground_drop(character, data, now)
+            return
         if op in combat.REMOTE_ATTACKS:
             actor = proto.u32(data, 2)
             # Own attacks are counted from the client direction only.
@@ -633,8 +638,39 @@ class Tracker:
                 self.prices.want([-source])
             self.dirty = True
 
+    def ground_drop(self, character, data, now):
+        """Remember a valuable item that just fell for this character or its party
+        (a party member's kill included): equipment, scrolls, throwing stars and
+        bullets always, anything else worth at least the notable value."""
+        drop = proto.drop(data)
+        if not drop or not drop['fresh'] or drop['mesos']:
+            return
+        owner = drop['owner']
+        if owner not in (character.character_id, character.party_id) or owner is None:
+            return
+        item = drop['item']
+        self.prices.want([item])
+        kind = item // 10000
+        unit, _ = self.prices.loot(item)
+        valuable = item // 1_000_000 == 1 or kind == 204 or kind in (207, 233)             or (unit or 0) >= self.settings['notable_value']
+        if not valuable or any(d['object'] == drop['object'] for d in character.drops):
+            return
+        character.drops.append(dict(t=round(now, 2), object=drop['object'], item_id=item,
+                                    name=self.name(item), value=unit))
+        self.dirty = True
+
     def party_update(self, character, data):
         kind = data[2] if len(data) > 2 else None
+        # The party's ID names its drops (proto.drop owner): PartyInfo has it at 4,
+        # a join after the joiner's name; leaving the party clears it.
+        if kind == 0x0D and len(data) > 8 and data[3] == 1:
+            character.party_id = proto.u32(data, 4)
+        elif kind == 0x13 and len(data) > 9:
+            size = int.from_bytes(data[3:5], 'little')
+            if 0 < size <= 13 and len(data) >= 9 + size:
+                character.party_id = proto.u32(data, 5 + size)
+        elif kind == 0x10 and proto.u32(data, 3) == character.character_id:
+            character.party_id = None
         if kind in (0x0D, 0x10, 0x13):
             character.party = combat.party(data, character.character_id)
         elif kind == 0x2A and len(data) == 16 and data[3] == 1:
@@ -1471,7 +1507,8 @@ class Tracker:
         state = dict(alive_at=now, runs=runs, finished=self.finished[:5],
                      calibration=[dict(label=a, state=b) for a, b in calibration_summary(self.profile)],
                      recording=self.frames is not None and not self.frames.failed,
-                     characters=[dict(c.facts(), map_id=c.map_id, buffs=self.buffs(c, now)) for c in self.characters.values()],
+                     characters=[dict(c.facts(), map_id=c.map_id, buffs=self.buffs(c, now),
+                                      drops=[d for d in c.drops if now - d['t'] <= 60]) for c in self.characters.values()],
                      protocol_warning=bool(self.suspect()),
                      auto_buff=self.auto_buff.status() if self.auto_buff else None)
         write_json(self.folder / 'grind_state.json', state)

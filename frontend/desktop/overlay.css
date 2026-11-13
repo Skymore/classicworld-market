@@ -129,3 +129,4 @@
 .ov-switches button{display:grid;place-items:center;width:20px;height:20px;padding:0;border:1px solid rgba(255,255,255,.25);border-radius:4px;background:rgba(20,18,16,.85);color:#9b958a;cursor:pointer}
 .ov-switches button.on{color:#ffd76a;border-color:rgba(255,215,106,.55)}
 .ov-prompt{font-weight:700;white-space:normal;line-height:1.3;margin-bottom:.35em}
+.ov-drop{display:flex;align-items:center;gap:.4em;font-weight:700;margin-bottom:.35em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ov-drop img{width:1.6em;height:1.6em;object-fit:contain}
