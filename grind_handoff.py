@@ -4,6 +4,10 @@ import json
 import tempfile
 from pathlib import Path
 
+# Frames recorded before 0.7.40 carry times rounded to the nearest millisecond,
+# up to half a millisecond after they were seen.
+ROUNDING = 0.0005
+
 
 def encode(value):
     if isinstance(value, dict):
@@ -75,7 +79,7 @@ def legacy(tracker, sessions, cutoff):
         for line in reversed(path.read_bytes().splitlines()):
             try:
                 row = json.loads(line)
-                if row.get('s') not in remaining or row['t'] > cutoff:
+                if row.get('s') not in remaining or row['t'] > cutoff + ROUNDING:
                     continue
                 data = bytes.fromhex(row['h'])
             except (KeyError, ValueError, TypeError):
@@ -131,7 +135,7 @@ def recover_inventory(data, session, cutoff):
         for line in reversed(path.read_bytes().splitlines()):
             try:
                 row = json.loads(line)
-                if row.get('s') != session or row.get('c') or row['t'] > cutoff:
+                if row.get('s') != session or row.get('c') or row['t'] > cutoff + ROUNDING:
                     continue
                 payload = bytes.fromhex(row['h'])
             except (KeyError, ValueError, TypeError):

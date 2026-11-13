@@ -517,6 +517,13 @@ async fn sell(db: &TestDb, item: i64, prices: &[i64], hours: f64) {
         .await
         .unwrap();
     }
+    // A real sale always rewrites the item's figures, which is what tells the
+    // read cache its watch snapshot is out of date; rows inserted directly do not.
+    sqlx::query("UPDATE item_stats SET as_of=as_of WHERE item_id=$1")
+        .bind(item as i32)
+        .execute(&db.pool)
+        .await
+        .unwrap();
 }
 fn first_group(run: &Value, item: i64) -> Value {
     run["plan"]["watches"]
@@ -672,8 +679,10 @@ async fn live_edits_skip_unpriced_percentile_groups_without_failing_the_write() 
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    // Once quotes exist, the next watch write prices the group.
+    // Once trades exist (the rule is priced from sale prices, not from asks),
+    // the next watch write prices the group.
     quote(&db, item, &[100, 200, 300, 400]).await;
+    sell(&db, item, &[100, 200, 300, 400], 1.0).await;
     watch(&s, &w, GLOVE, 500, 2, 1).await;
     let view = run_view(&s, &w).await;
     assert_eq!(view["plan_version"], 3);

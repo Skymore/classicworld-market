@@ -31,6 +31,7 @@ pub async fn test_db() -> Option<TestDb> {
     let mut admin = PgConnection::connect(&url)
         .await
         .expect("connect to DATABASE_URL");
+    sweep_stale(&mut admin).await;
     admin
         .execute(format!("CREATE SCHEMA {schema}").as_str())
         .await
@@ -52,6 +53,29 @@ pub async fn test_db() -> Option<TestDb> {
         .expect("pool");
     MIGRATOR.run(&pool).await.expect("migrations");
     Some(TestDb { pool, url, schema })
+}
+
+static SWEPT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// A test that panics leaves its schema in the shared database. Once per test
+/// process, drop test schemas whose migration table was written over an hour
+/// ago (a running test's is minutes old). Best effort: needs a superuser.
+async fn sweep_stale(admin: &mut PgConnection) {
+    if SWEPT.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let stale: Vec<String> = sqlx::query_scalar(
+        "SELECT n.nspname::text FROM pg_namespace n
+         JOIN pg_class c ON c.relnamespace = n.oid AND c.relname = '_sqlx_migrations'
+         WHERE n.nspname ~ '^test_[0-9]+_[0-9]+$'
+           AND (pg_stat_file(pg_relation_filepath(c.oid))).modification < now() - interval '1 hour'",
+    )
+    .fetch_all(&mut *admin)
+    .await
+    .unwrap_or_default();
+    for schema in stale {
+        let _ = admin.execute(format!("DROP SCHEMA IF EXISTS {schema} CASCADE").as_str()).await;
+    }
 }
 
 impl TestDb {

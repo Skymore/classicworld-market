@@ -7,6 +7,7 @@ table (the raw client opcode changes per connection). Files rotate at
 FILE_LIMIT; only files older than seven days are pruned. Nothing is uploaded.
 """
 import json
+import math
 import time
 from pathlib import Path
 
@@ -52,7 +53,9 @@ class FrameLog:
         except OSError:
             self.failed = True
             return
-        record = dict(t=round(now, 3), s=str(session), h=plain.hex())
+        # Rounded down: a time rounded up could pass the handoff cutoff taken a
+        # moment later, and the frame would be left out of the replay.
+        record = dict(t=math.floor(now * 1000) / 1000, s=str(session), h=plain.hex())
         if client:
             record.update(c=1, i=index)
         line = json.dumps(record) + '\n'
