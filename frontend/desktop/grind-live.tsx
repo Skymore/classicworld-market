@@ -57,6 +57,15 @@ export function LiveView({ run, live, warn }: { run: RunSummary | null; live: Li
         </div>)}
         {!run.consumables.some(row => row.used > 0) && <p className="note">{tr('还没有使用消耗品。', 'No consumables used yet.')}</p>}
       </section>
+      {!!run.finds?.length && <section className="well">
+        <div className="well-h"><h3>{tr('全队好掉落', 'Party finds')}</h3></div>
+        {run.finds.map((row, i) => <div className="grind-row grind-account-row" key={i}>
+          <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
+          <span className="t"><b>{row.name || `#${row.item_id}`}</b></span>
+          <span className="quantity">{row.by === 'me' ? tr('自己', 'You') : row.by === 'party' ? row.by_name || tr('队友', 'Party') : ''}</span>
+          <span className="amount">{row.value != null ? <>{big(row.value)} <MesosIcon size={12} /></> : <small>{tr('待估价', 'Unpriced')}</small>}</span>
+        </div>)}
+      </section>}
       <section className="well grind-kills">
         <div className="well-h"><h3>{tr('击杀', 'Kills')}</h3>
           {run.hp_drops > 0 && <small>{tr(`HP 下降 ${run.hp_drops} 次 · 共 ${big(run.hp_lost)}`, `HP lost ${run.hp_drops}× · ${big(run.hp_lost)}`)}</small>}</div>

@@ -37,6 +37,8 @@ export interface GrindRun {
   loot?: { item_id: number; name: string | null; quantity: number; value: number }[];
   drops?: { item_id: number; name: string | null; quantity: number; value?: number }[];
   consumables?: { item_id: number; name: string | null; used: number; cost?: number }[];
+  /** Valuable drops for the player or the party, whoever picked them up. */
+  finds?: { t: number; item_id: number; name: string | null; value?: number | null; by?: "me" | "party" | null; by_name?: string | null }[];
   mobs?: { mob_id: number; name: string; kills: number; attack_distribution?: { attacks: number; kills: number }[] }[];
   attacks?: { skill: number; name: string; count: number; follow_up?: boolean }[];
   casts?: { skill: number; name: string; count: number }[];
@@ -271,6 +273,17 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
           {loot.length > 12 && <p className="gr-more">{t(`还有 ${loot.length - 12} 种`, `${loot.length - 12} more`)}</p>}
           {!loot.length && <p className="gr-more">{t("没有拾取。", "Nothing picked up.")}</p>}
         </section>
+        {!!run.finds?.length && (
+          <section className="gr-well">
+            <h3>{t("全队好掉落", "Party finds")}</h3>
+            <Rows rows={run.finds} limit={12} render={(row, i) => (
+              <div className="gr-row" key={i}><img src={icon(row.item_id)} alt="" loading="lazy" />
+                <span className="t">{row.name || `#${row.item_id}`}</span>
+                <small>{row.by === "me" ? t("自己", "You") : row.by === "party" ? row.by_name || t("队友", "Party") : ""}</small>
+                {profit && row.value != null && <span className="v">{s(row.value)}</span>}</div>
+            )} />
+          </section>
+        )}
         {profit && (
           <section className="gr-well">
             <h3>{t("消耗", "Used")}<b className="money">{s(-costTotal)}</b></h3>

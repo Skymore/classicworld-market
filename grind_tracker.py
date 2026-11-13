@@ -86,6 +86,35 @@ def equipment_pieces(inventory):
     return pieces, examples
 
 
+class Cumulative:
+    """Running total of (time, amount) gains, read at any time with each gain
+    spread evenly over the gap since the one before it (at most SPREAD seconds).
+    Kills arrive in whole chunks: counting them whole made a sliding minute jump
+    by a full kill each time one crossed its edge, a saw-tooth line. Spread out,
+    the edge cuts through part of a kill, as an EXP bar read between kills does."""
+    SPREAD = 60
+
+    def __init__(self, events):
+        events = sorted(events)
+        self.at = [t for t, _ in events]
+        self.gain = [v for _, v in events]
+        self.total = [0.0]
+        for v in self.gain:
+            self.total.append(self.total[-1] + v)
+
+    def __call__(self, t):
+        i = bisect.bisect_left(self.at, t)
+        value = self.total[i]
+        if 0 < i < len(self.at):   # the first gain has nothing before it to spread over
+            begin = max(self.at[i - 1], self.at[i] - self.SPREAD)
+            if t > begin:
+                value += self.gain[i] * (t - begin) / (self.at[i] - begin)
+        return value
+
+    def window(self, t, seconds):
+        return self(t) - self(t - seconds)
+
+
 class Segment:
     def __init__(self, map_id, level, job, now):
         self.map_id, self.level, self.job = map_id, level, job
@@ -100,6 +129,11 @@ class Segment:
         self.buff_totals = {}                # buff source -> its last full duration in seconds
         self.max_hit = 0                     # biggest single HP drop here
         self.mp_cost = 0                     # biggest single MP drop (the dearest skill)
+        # Drop rates for the map page: every mob this character or its party killed
+        # here, and every item that fell from those (picked up or not). None on
+        # segments saved before this was counted.
+        self.seen_kills = 0
+        self.seen_drops = collections.Counter()
 
     def to_json(self):
         return dict(map_id=self.map_id, level=self.level, job=self.job, started_at=self.started_at,
@@ -107,7 +141,8 @@ class Segment:
                     drops={str(k): v for k, v in self.drops.items()}, mobs={str(k): v for k, v in self.mobs.items()},
                     buffs={str(k): round(v, 1) for k, v in self.buffs.items() if v >= 1},
                     buff_totals={str(k): v for k, v in self.buff_totals.items()},
-                    max_hit=self.max_hit, mp_cost=self.mp_cost)
+                    max_hit=self.max_hit, mp_cost=self.mp_cost, seen_kills=self.seen_kills,
+                    seen_drops={str(k): v for k, v in self.seen_drops.items()})
 
     @classmethod
     def from_json(cls, data):
@@ -120,6 +155,8 @@ class Segment:
         segment.buffs = collections.Counter({int(k): v for k, v in (data.get('buffs') or {}).items()})
         segment.buff_totals = {int(k): v for k, v in (data.get('buff_totals') or {}).items()}
         segment.max_hit, segment.mp_cost = data.get('max_hit') or 0, data.get('mp_cost') or 0
+        segment.seen_kills = data.get('seen_kills')
+        segment.seen_drops = collections.Counter({int(k): v for k, v in (data.get('seen_drops') or {}).items()})
         return segment
 
 
@@ -151,6 +188,7 @@ class Run:
         self.gaps = 0
         self.level_start = character.get('level')
         self.kills_by_exp = None   # last known: kills counted from experience, not kill messages
+        self.finds = []            # valuable drops for this character or its party (ground_drop)
 
     def add_exp(self, event):
         self.exp_events.append(event)
@@ -188,13 +226,13 @@ class Run:
                     hp_lost=self.hp_lost, hp_drops=self.hp_drops,
                     attacks={str(k): v for k, v in self.attacks.items() if v}, casts={str(k): v for k, v in self.casts.items() if v},
                     combat=self.combat.to_json(), kill_attacks=self.kill_attacks,
-                    level_start=self.level_start, kills_by_exp=self.kills_by_exp)
+                    level_start=self.level_start, kills_by_exp=self.kills_by_exp, finds=self.finds)
 
     @classmethod
     def from_json(cls, data):
         run = cls(data['character'], data['started_at'])
         for key in ('id', 'status', 'pause_reason', 'paused_at', 'idle_seconds', 'last_gain', 'credited_until',
-                    'ledger', 'deaths', 'exp_lost', 'gaps', 'level_start', 'hp_lost', 'hp_drops', 'kills_by_exp'):
+                    'ledger', 'deaths', 'exp_lost', 'gaps', 'level_start', 'hp_lost', 'hp_drops', 'kills_by_exp', 'finds'):
             setattr(run, key, data.get(key, getattr(run, key)))
         run.exp_events = [tuple(e) for e in data.get('exp_events') or []]
         run.exp_minutes = collections.Counter({int(k): v for k, v in (data.get('exp_minutes') or {}).items()})
@@ -583,7 +621,12 @@ class Tracker:
             # Who killed it, for the drops that follow (ground_drop): this
             # character, or the last party member the server credited with a hit.
             killer = character.character_id if oid in character.hit else (attribution[1] if attribution else None)
-            character.deaths_seen[oid] = (now, killer)
+            run = character.run
+            counted = None
+            if killer is not None and (killer == character.character_id or killer in (character.party or {}))                     and run and run.status == 'active' and run.segment and run.segment.seen_kills is not None:
+                run.segment.seen_kills += 1
+                counted = (run.id, len(run.segments) - 1)   # plain data: reconcile snapshots this
+            character.deaths_seen[oid] = (now, killer, counted)
             if len(character.deaths_seen) > 200:
                 for old in list(character.deaths_seen)[:100]:
                     del character.deaths_seen[old]
@@ -658,18 +701,27 @@ class Tracker:
             return
         item = drop['item']
         self.prices.want([item])
+        death = character.deaths_seen.get(drop['source'])
+        if death and not 0 <= now - death[0] <= 10:
+            death = None
+        if death and death[2]:
+            run_id, index = death[2]
+            if character.run and character.run.id == run_id and index < len(character.run.segments):
+                character.run.segments[index].seen_drops[item] += 1
         kind = item // 10000
         unit, _ = self.prices.loot(item)
         valuable = item // 1_000_000 == 1 or kind == 204 or kind in (207, 233)             or (unit or 0) >= self.settings['notable_value']
         if not valuable or any(d['object'] == drop['object'] for d in character.drops):
             return
-        death = character.deaths_seen.get(drop['source'])
-        killer = death[1] if death and 0 <= now - death[0] <= 10 else None
+        killer = death[1] if death else None
         by = 'me' if killer is not None and killer == character.character_id else 'party' if killer is not None else None
         member = (character.party or {}).get(killer) if by == 'party' else None
-        character.drops.append(dict(t=round(now, 2), object=drop['object'], item_id=item,
-                                    name=self.name(item), value=unit, by=by,
-                                    by_name=member['name'] if member else None))
+        found = dict(t=round(now, 2), object=drop['object'], item_id=item,
+                     name=self.name(item), value=unit, by=by, by_name=member['name'] if member else None)
+        character.drops.append(found)
+        run = character.run
+        if run and run.status == 'active' and len(run.finds) < 100:
+            run.finds.append(dict(t=found['t'], item_id=item, by=by, by_name=found['by_name']))
         self.dirty = True
 
     def party_update(self, character, data):
@@ -1254,22 +1306,14 @@ class Tracker:
                        for e in run.ledger if e['kind'] in ('mesos', 'spent')]
         cash_events += [(e['t'], amount * (1 if e['kind'] == 'loot' else -1)) for e, _, _, amount in rows]
         chart_end = now if run.status == 'active' else (run.paused_at or run.credited_until)
-        def indexed(events):
-            events = sorted(events)
-            stamps, totals = [], [0]
-            for stamp, value in events:
-                stamps.append(stamp)
-                totals.append(totals[-1] + value)
-            return stamps, totals
-        exp_index, cash_index = indexed(run.exp_events), indexed(cash_events)
+        exp_index, cash_index = Cumulative(run.exp_events), Cumulative(cash_events)
         rate_history = []
         for stamp in [chart_end - n * 10 for n in range(30, -1, -1)]:
             span = min(60, stamp - run.started_at)
             if span < 30:
                 continue
             def window(index):
-                stamps, totals = index
-                return (totals[bisect.bisect_right(stamps, stamp)] - totals[bisect.bisect_right(stamps, stamp - 60)]) * 3600 / span
+                return index.window(stamp, 60) * 3600 / span
             rate_history.append(dict(t=stamp, exp=window(exp_index), net=window(cash_index)))
         net_1m = rate_history[-1]['net'] if rate_history and run.status == 'active' else None
         return dict(
@@ -1289,7 +1333,7 @@ class Tracker:
             net=money['net'], net_per_hour=money['net'] / hours if hours else None,
             net_per_hour_1m=net_1m, rate_history=rate_history, timeline=self.timeline(run, rows, now),
             cash_per_hour=money['cash'] / hours if hours else None, pending_prices=money['pending'],
-            recent=recent_rows, loot=loot_rows, consumables=consumables,
+            recent=recent_rows, loot=loot_rows, consumables=consumables, finds=self.finds(run),
             drops=[dict(item_id=i, name=self.name(i), quantity=q) for i, q in drops.most_common()],
             mobs=[dict(mob_id=m, kills=k, name=(self.prices.mob(m) or {}).get('name') or f'#{m}',
                        attack_samples=sum(run.kill_attacks.get(str(m), {}).values()),
@@ -1334,13 +1378,10 @@ class Tracker:
                 money.append((entry['t'], -entry['mesos']))
         money += [(entry['t'], amount if entry['kind'] == 'loot' else -amount) for entry, _, _, amount in rows]
         money.sort()
-        # Prefix sums: each point is two binary searches, not a pass over the run.
+        # Prefix sums (Cumulative): each point is a few binary searches, not a pass over the run.
         def windowed(events):
-            at = [e[0] for e in events]
-            total = [0.0]
-            for _, v in events:
-                total.append(total[-1] + v)
-            return [round(total[bisect.bisect_right(at, t)] - total[bisect.bisect_right(at, t - window)]) for t in times]
+            total = Cumulative(events)
+            return [round(total.window(t, window)) for t in times]
         exp = windowed([(slot * SLOT + SLOT / 2, v) for slot, v in slots])
         net = windowed(money)
         return dict(start=start, first=first, step=step, window=window, exp=exp, net=net, bucket=step)
@@ -1505,6 +1546,17 @@ class Tracker:
                 worst = max(worst, s.max_hit)
         return worst, cost
 
+    def finds(self, run):
+        """The run's valuable drops (its party's included), dearest first, at today's prices."""
+        rows = [dict(f, name=self.name(f['item_id']), value=self.prices.loot(f['item_id'])[0]) for f in run.finds]
+        return sorted(rows, key=lambda r: -(r['value'] or 0))
+
+    def drop_view(self, drop):
+        """A ground drop as shown: the first drop of an item comes before its name and
+        price arrive (prices.want is asynchronous), so look them up again each time."""
+        unit, _ = self.prices.loot(drop['item_id'])
+        return dict(drop, name=self.name(drop['item_id']), value=unit if unit is not None else drop['value'])
+
     def name(self, item_id):
         row = self.prices.row(item_id) if item_id else None
         return {4000156: '肋骨', 4000157: '骨盆'}.get(item_id) or (row or {}).get('name') or (f'#{item_id}' if item_id else None)
@@ -1524,7 +1576,7 @@ class Tracker:
                      calibration=[dict(label=a, state=b) for a, b in calibration_summary(self.profile)],
                      recording=self.frames is not None and not self.frames.failed,
                      characters=[dict(c.facts(), map_id=c.map_id, buffs=self.buffs(c, now),
-                                      drops=[d for d in c.drops if now - d['t'] <= 60]) for c in self.characters.values()],
+                                      drops=[self.drop_view(d) for d in c.drops if now - d['t'] <= 60]) for c in self.characters.values()],
                      protocol_warning=bool(self.suspect()),
                      auto_buff=self.auto_buff.status() if self.auto_buff else None)
         write_json(self.folder / 'grind_state.json', state)
@@ -1580,6 +1632,9 @@ class Tracker:
                                  item_value=round(item_value), consume_cost=round(cost),
                                  drops=[dict(item_id=i, quantity=q) for i, q in s.drops.most_common(200)],
                                  mobs=[dict(mob_id=m, kills=k) for m, k in s.mobs.most_common(50)]))
+            if s.seen_kills is not None:
+                segments[-1].update(seen_kills=s.seen_kills,
+                                    seen_drops=[dict(item_id=i, quantity=q) for i, q in s.seen_drops.most_common(200)])
         if not segments:
             return
         payload = dict(event_id=run.id, started_at=run.started_at, ended_at=summary['ended_at'], segments=segments)

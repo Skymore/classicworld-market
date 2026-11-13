@@ -66,6 +66,20 @@ pub struct SegmentIn {
     pub drops: Vec<Count>,
     #[serde(default)]
     pub mobs: Vec<MobCount>,
+    /// Mobs the uploader or its party killed here, and what fell from them
+    /// (picked up or not): the map page's drop rates. None from older clients.
+    #[serde(default)]
+    pub seen_kills: Option<i32>,
+    #[serde(default)]
+    pub seen_drops: Vec<Count>,
+}
+
+fn valid_counts(counts: &[Count]) -> bool {
+    counts.len() <= 200
+        && counts.iter().map(|d| d.item_id).collect::<HashSet<_>>().len() == counts.len()
+        && counts
+            .iter()
+            .all(|d| (1..100_000_000).contains(&d.item_id) && (1..=1_000_000).contains(&d.quantity))
 }
 
 #[derive(Debug, Deserialize)]
@@ -130,6 +144,9 @@ impl SegmentIn {
             && (0..=10_000_000_000_000).contains(&self.consume_cost)
             && self.drops.len() <= 200
             && self.mobs.len() <= 50
+            && self.seen_kills.is_none_or(|k| (0..=1_000_000).contains(&k))
+            && (self.seen_kills.is_some() || self.seen_drops.is_empty())
+            && valid_counts(&self.seen_drops)
             && unique_drops
             && unique_mobs
             && self.drops.iter().all(|d| {
@@ -163,7 +180,8 @@ pub async fn ingest(db: &PgPool, collector: i64, run: &Upload) -> sqlx::Result<b
         let idx = idx as i16;
         sqlx::query(
             "INSERT INTO grind_segments (session_id, idx, map_id, job, level, active_seconds, exp, kills,
-             kills_estimated, mesos, item_value, consume_cost) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+             kills_estimated, mesos, item_value, consume_cost, seen_kills)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
         )
         .bind(id)
         .bind(idx)
@@ -177,15 +195,19 @@ pub async fn ingest(db: &PgPool, collector: i64, run: &Upload) -> sqlx::Result<b
         .bind(s.mesos)
         .bind(s.item_value)
         .bind(s.consume_cost)
+        .bind(s.seen_kills)
         .execute(&mut *tx)
         .await?;
-        if !s.drops.is_empty() {
-            let items: Vec<i32> = s.drops.iter().map(|d| d.item_id).collect();
-            let counts: Vec<i32> = s.drops.iter().map(|d| d.quantity).collect();
-            sqlx::query(
-                "INSERT INTO grind_drops (session_id, idx, item_id, quantity)
-                 SELECT $1, $2, * FROM unnest($3::int[], $4::int[])",
-            )
+        for (table, rows) in [("grind_drops", &s.drops), ("grind_seen_drops", &s.seen_drops)] {
+            if rows.is_empty() {
+                continue;
+            }
+            let items: Vec<i32> = rows.iter().map(|d| d.item_id).collect();
+            let counts: Vec<i32> = rows.iter().map(|d| d.quantity).collect();
+            sqlx::query(&format!(
+                "INSERT INTO {table} (session_id, idx, item_id, quantity)
+                 SELECT $1, $2, * FROM unnest($3::int[], $4::int[])"
+            ))
             .bind(id)
             .bind(idx)
             .bind(&items)
@@ -425,7 +447,9 @@ async fn prices(
 }
 
 /// Map results: one row per (level band of 5, job) with the middle half of
-/// per-segment hourly rates, plus drops per thousand kills.
+/// per-segment hourly rates, plus drops per thousand kills. A segment that
+/// counted its party's kills and everything they dropped uses those; older
+/// ones count the uploader's own kills and pickups.
 pub async fn map_summary(db: &PgPool, map: i32, now: f64) -> sqlx::Result<Value> {
     type Row = (
         i16,
@@ -466,12 +490,18 @@ pub async fn map_summary(db: &PgPool, map: i32, now: f64) -> sqlx::Result<Value>
     .await?;
     let drops: Vec<DropRow> = sqlx::query_as(
         "WITH seg AS (
-           SELECT g.session_id, g.idx, g.kills FROM grind_segments g JOIN grind_sessions x ON x.id = g.session_id
-           WHERE g.map_id = $1 AND g.active_seconds >= $2 AND x.ended_at >= to_timestamp($3))
+           SELECT g.session_id, g.idx, g.seen_kills IS NOT NULL AS seen
+           FROM grind_segments g JOIN grind_sessions x ON x.id = g.session_id
+           WHERE g.map_id = $1 AND g.active_seconds >= $2 AND x.ended_at >= to_timestamp($3)),
+         d AS (
+           SELECT d.session_id, d.item_id, d.quantity FROM grind_seen_drops d
+             JOIN seg ON seg.session_id = d.session_id AND seg.idx = d.idx AND seg.seen
+           UNION ALL
+           SELECT d.session_id, d.item_id, d.quantity FROM grind_drops d
+             JOIN seg ON seg.session_id = d.session_id AND seg.idx = d.idx AND NOT seg.seen)
          SELECT d.item_id, COALESCE(NULLIF(i.name_zh, ''), i.name_en), i.name_en, sum(d.quantity)::int8,
            count(DISTINCT d.session_id)::int8
-         FROM grind_drops d JOIN seg ON seg.session_id = d.session_id AND seg.idx = d.idx
-         LEFT JOIN items i ON i.id = d.item_id
+         FROM d LEFT JOIN items i ON i.id = d.item_id
          GROUP BY d.item_id, i.name_zh, i.name_en ORDER BY sum(d.quantity) DESC LIMIT 40",
     )
     .bind(map)
@@ -480,7 +510,7 @@ pub async fn map_summary(db: &PgPool, map: i32, now: f64) -> sqlx::Result<Value>
     .fetch_all(db)
     .await?;
     let total_kills: i64 = sqlx::query_scalar(
-        "SELECT COALESCE(sum(g.kills), 0)::int8 FROM grind_segments g JOIN grind_sessions x ON x.id = g.session_id
+        "SELECT COALESCE(sum(COALESCE(g.seen_kills, g.kills)), 0)::int8 FROM grind_segments g JOIN grind_sessions x ON x.id = g.session_id
          WHERE g.map_id = $1 AND g.active_seconds >= $2 AND x.ended_at >= to_timestamp($3)",
     )
     .bind(map)

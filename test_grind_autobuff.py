@@ -1,8 +1,10 @@
+import json
 import collections
 import struct
 import unittest
 
 import grind_autobuff as autobuff
+import grind_tracker
 import test_grind_tracker as base
 
 
@@ -333,12 +335,47 @@ class GroundDropTest(unittest.TestCase):
         thrown = bytearray(self.drop(1442007, 165043, oid=9))
         thrown[62] = 1
         self.send(bytes(thrown))
-        character.deaths_seen[555] = (self.clock(), 82978)
+        character.deaths_seen[555] = (self.clock(), 82978, None)
         mob_drop = bytearray(self.drop(1041076, 586474, oid=10))
         mob_drop[29] = 1
         mob_drop[42:46] = (555).to_bytes(4, 'little')
         self.send(bytes(mob_drop))
         self.assertEqual([(d['object'], d['by'], d['by_name']) for d in character.drops], [(10, 'party', 'SHadowFiend')])
+
+    def test_party_kills_and_their_drops_count_for_the_map_and_the_run(self):
+        character = self.tracker.characters['s1']
+        character.character_id, character.party_id = 165043, 586474
+        character.party = {165043: dict(name='me', channel=1), 82978: dict(name='SHadowFiend', channel=1)}
+        run = grind_tracker.Run(dict(key='k'), self.clock())
+        run.segments.append(grind_tracker.Segment(100, 30, 410, self.clock()))
+        character.run = run
+        segment = run.segment
+        # Deaths are counted where the tracker sees them; here, by hand: mine, a teammate's, a stranger's.
+        for oid, killer in ((501, 165043), (502, 82978), (503, 999)):
+            killed = (run.id, 0) if killer in character.party else None
+            if killed:
+                segment.seen_kills += 1
+            character.deaths_seen[oid] = (self.clock(), killer, killed)
+        for oid, source, item in ((21, 501, 4000019), (22, 502, 1041076), (23, 503, 4000019)):
+            data = bytearray(self.drop(item, 586474, oid=oid))
+            data[29] = 1
+            data[42:46] = source.to_bytes(4, 'little')
+            self.send(bytes(data))
+        self.assertEqual((segment.seen_kills, dict(segment.seen_drops)), (2, {4000019: 1, 1041076: 1}))
+        self.assertEqual([(f['item_id'], f['by'], f['by_name']) for f in run.finds], [(1041076, 'party', 'SHadowFiend')])
+        restored = grind_tracker.Run.from_json(json.loads(json.dumps(run.to_json())))
+        self.assertEqual((restored.finds, restored.segment.seen_kills, dict(restored.segment.seen_drops)),
+                         (run.finds, 2, {4000019: 1, 1041076: 1}))
+
+    def test_drop_name_and_price_fill_in_once_the_price_arrives(self):
+        character = self.tracker.characters['s1']
+        character.character_id = 165043
+        self.tracker.prices.rows.pop(1302004, None)
+        self.send(self.drop(1302004, 165043, oid=11))
+        self.assertEqual(self.tracker.drop_view(character.drops[0])['name'], '#1302004')
+        self.tracker.prices.rows[1302004] = dict(name='九龙刀', typical=240000)
+        shown = self.tracker.drop_view(character.drops[0])
+        self.assertEqual((shown['name'], shown['value']), ('九龙刀', 240000))
 
     def test_party_info_names_the_party(self):
         character = self.tracker.characters['s1']
@@ -466,3 +503,18 @@ class PotionTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class CumulativeTest(unittest.TestCase):
+    def test_a_sliding_minute_does_not_jump_a_whole_kill_at_its_edges(self):
+        # A kill every 6 or 14 seconds (10 on average), 600 EXP each: 3600 a minute.
+        t, kills = 0.0, []
+        for n in range(60):
+            t += 6 if n % 2 else 14
+            kills.append((t, 600))
+        total = grind_tracker.Cumulative(kills)
+        rates = [total.window(s, 60) for s in range(120, 540, 10)]
+        self.assertLess(max(rates) - min(rates), 600 * 0.6)   # whole kills: a full 600 swing
+        self.assertAlmostEqual(sum(rates) / len(rates), 3600, delta=150)
+        self.assertEqual(total(t), 600 * 60)
+        self.assertEqual(total(kills[0][0] - 1), 0)

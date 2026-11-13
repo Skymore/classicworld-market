@@ -32,7 +32,7 @@ function Overlay() {
         dropSeen.current = newest.t;
         setDrop(newest);
         if (s.settings.buff_sound) announceDrop();
-      }
+      } else setDrop(cur => cur && (drops.find(d => d.object === cur.object && d.t === cur.t) || cur)); // name and price arrive a moment later
       // Picked up something worth showing (equipment, scrolls, stars, bullets, or notable value): name and price.
       const notable = s.live?.runs?.[0]?.recent?.find(r => r.alert || r.notable);
       if (notable && notable.t > seen.current) {
@@ -46,7 +46,8 @@ function Overlay() {
     return () => { alive = false; clearInterval(id); window.removeEventListener('pywebviewready', poll); };
   }, []);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(null), 6000); return () => clearTimeout(id); }, [toast]);
-  useEffect(() => { if (!drop) return; const id = setTimeout(() => setDrop(null), 8000); return () => clearTimeout(id); }, [drop]);
+  const dropKey = drop ? `${drop.object}@${drop.t}` : null;
+  useEffect(() => { if (!dropKey) return; const id = setTimeout(() => setDrop(null), 8000); return () => clearTimeout(id); }, [dropKey]);
   // The window is exactly as tall as the card, so nothing invisible sits over the game.
   const watcher = useRef<ResizeObserver | null>(null);
   const card = useCallback((element: HTMLDivElement | null) => {

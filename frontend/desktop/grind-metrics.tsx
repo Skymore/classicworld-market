@@ -14,6 +14,8 @@ export function rateHistory(run: RunSummary): { t: number; exp: number; net: num
 }
 
 /** One rate as a label, a large live number and the session average; the mark says which way the live rate leans. */
+const signed = (value: number | null | undefined) => value == null ? '—' : (value > 0 ? '+' : '') + big(value);
+
 export function RateStat({ run, kind }: { run: RunSummary; kind: 'exp' | 'net' }) {
   const average = kind === 'exp' ? run.exp_per_hour : run.net_per_hour;
   const minute = kind === 'exp' ? run.exp_per_hour_1m : run.net_per_hour_1m;
@@ -26,6 +28,7 @@ export function RateStat({ run, kind }: { run: RunSummary; kind: 'exp' | 'net' }
     <b className="gold">{big(minute ?? average)}</b>
     <span className="dim">{tr('平均', 'avg')} {big(average)}
       {minute != null && average ? <i className={'rate-trend ' + (minute >= average ? 'up' : 'down')}>{minute >= average ? '▲' : '▼'}</i> : null}</span>
+    <span className="dim ov-total">{tr('累计', 'total')} <b>{signed(kind === 'exp' ? run.exp : run.net)}</b></span>
     {values.length > 1 && <svg className="ov-trend" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
       <polygon points={`0,24 ${points} 100,24`} fill="currentColor" opacity=".1" />
       {average != null && <line x1="0" x2="100" y1={y(average)} y2={y(average)} stroke="currentColor" opacity=".4" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />}

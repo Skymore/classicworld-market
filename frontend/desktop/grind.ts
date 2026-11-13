@@ -19,6 +19,8 @@ export interface CombatRow {
 }
 export interface Segment { map_id: number; level: number | null; job: number | null; started_at: number; active_seconds: number; exp: number; kills: number; mesos: number }
 export interface RunSummary {
+  /** Valuable drops for the player or its party this run, dearest first (grind_tracker.finds). */
+  finds?: { t: number; item_id: number; name: string | null; value: number | null; by?: 'me' | 'party' | null; by_name?: string | null }[];
   id: string; status: 'active' | 'paused' | 'ended'; pause_reason: string | null; in_combat?: boolean; channel_change?: string[];
   vitals?: { hp: number; max_hp: number; mp: number | null; max_mp: number | null; danger: number } | null;
   character: { key: unknown; name: string | null; level: number | null; job: number | null };

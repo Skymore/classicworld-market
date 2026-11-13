@@ -125,6 +125,37 @@ async fn runs_store_once_and_map_results_group_by_level_band_and_job() {
 }
 
 #[tokio::test]
+async fn map_drop_rates_count_the_party_when_the_client_saw_it() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let who = db.collector("party").await;
+    let now = unix_now();
+    let map = 104040001;
+    // An older client: its own 200 kills and 20 pickups.
+    let old = upload(now, &format!("{:032x}", 1), json!([segment(map, 23, 410, 1800, 1, 200)]));
+    assert!(grind::ingest(&db.pool, who.id, &old).await.unwrap());
+    // A newer one: the party killed 600 here and 90 fell (it picked up 20 itself).
+    let mut seen = segment(map, 23, 410, 1800, 1, 200);
+    seen["seen_kills"] = json!(600);
+    seen["seen_drops"] = json!([{"item_id": 4000019, "quantity": 90}, {"item_id": 1041076, "quantity": 1}]);
+    let new = upload(now, &format!("{:032x}", 2), json!([seen]));
+    assert!(new.valid(now));
+    assert!(grind::ingest(&db.pool, who.id, &new).await.unwrap());
+    let summary = grind::map_summary(&db.pool, map, now).await.unwrap();
+    assert_eq!(summary["kills"], 800, "{summary}");
+    let drops = summary["drops"].as_array().unwrap();
+    let etc = drops.iter().find(|d| d["item_id"] == 4000019).unwrap();
+    assert_eq!(etc["quantity"], 110);
+    assert!(drops.iter().any(|d| d["item_id"] == 1041076));
+    // Seen drops without a kill count are not a drop rate.
+    let mut orphan = segment(map, 23, 410, 1800, 1, 200);
+    orphan["seen_drops"] = json!([{"item_id": 4000019, "quantity": 1}]);
+    assert!(!upload(now, &format!("{:032x}", 3), json!([orphan])).valid(now));
+    db.close().await;
+}
+
+#[tokio::test]
 async fn equipment_prices_use_the_item_page_groups() {
     let Some(db) = TestDb::new().await else {
         return;

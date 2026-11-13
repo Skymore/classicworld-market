@@ -272,9 +272,19 @@ pub fn public_view(mut run: Value, show_name: bool, show_profit: bool) -> Value 
             for key in MONEY {
                 object.remove(key);
             }
-            if let Some(Value::Array(rows)) = object.get_mut("drops") {
+            for key in ["drops", "finds"] {
+                if let Some(Value::Array(rows)) = object.get_mut(key) {
+                    for row in rows.iter_mut().filter_map(Value::as_object_mut) {
+                        row.remove("value");
+                    }
+                }
+            }
+        }
+        if !show_name {
+            // Teammates' names go with the player's own.
+            if let Some(Value::Array(rows)) = object.get_mut("finds") {
                 for row in rows.iter_mut().filter_map(Value::as_object_mut) {
-                    row.remove("value");
+                    row.remove("by_name");
                 }
             }
         }
@@ -573,7 +583,7 @@ async fn admin_overview(State(state): State<AppState>, headers: HeaderMap) -> Re
     .fetch_all(&state.db)
     .await;
     let runs: Result<Vec<(i64, Value, i64, Option<String>)>, _> = sqlx::query_as(
-        "SELECT r.id, r.summary - 'rate_history' - 'loot' - 'consumables' - 'segments' - 'attacks' - 'casts' - 'mobs' - 'drops'
+        "SELECT r.id, r.summary - 'rate_history' - 'loot' - 'consumables' - 'segments' - 'attacks' - 'casts' - 'mobs' - 'drops' - 'finds'
                 - 'recent' - 'buffs' - 'combat' - 'damage', r.collector_id, a.nickname
          FROM grind_runs r JOIN collectors c ON c.id = r.collector_id LEFT JOIN accounts a ON a.id = c.account_id
          ORDER BY r.started_at DESC LIMIT 300",
@@ -649,7 +659,7 @@ async fn account(state: &AppState, headers: &HeaderMap) -> Result<i64, Response>
 /// Runs of every client linked to this account, newest first, without the bulky rows.
 pub async fn runs_of(db: &PgPool, account: i64, limit: i64) -> sqlx::Result<Value> {
     let rows: Vec<(i64, Value, Option<String>)> = sqlx::query_as(
-        "SELECT r.id, r.summary - 'rate_history' - 'loot' - 'consumables' - 'segments' - 'attacks' - 'casts' - 'mobs' - 'drops'
+        "SELECT r.id, r.summary - 'rate_history' - 'loot' - 'consumables' - 'segments' - 'attacks' - 'casts' - 'mobs' - 'drops' - 'finds'
                 - 'recent' - 'buffs' - 'combat' - 'damage',
            (SELECT code FROM grind_shares s WHERE s.run=r.id ORDER BY created_at LIMIT 1)
          FROM grind_runs r JOIN collectors c ON c.id = r.collector_id
