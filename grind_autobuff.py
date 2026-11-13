@@ -86,8 +86,34 @@ def observe_client(character, index, data):
         return
     if len(data) == 4 and data[2] == 3 and data[3] < 3:
         character.key_preset = data[3]
+    elif one_key_edit(character, data):
+        pass
     else:
-        character.skill_keys = None   # edited; wait for the next full table
+        character.skill_keys = None   # another kind of edit; wait for the next full table
+
+
+def one_key_edit(character, data):
+    """Apply the player moving one thing onto a key, e.g. a potion dragged to 4.
+
+    2026-11-12 live, 19 bytes: opcode, 00 01, eight FF bytes, preset, key (scan
+    code), kind (1 skill, 2 item, 0 cleared), skill / item ID. Dropping the whole
+    table on such an edit stopped auto buff and potions until the next channel
+    change, since the server only sends the table when a connection opens."""
+    if len(data) != 19 or data[2:4] != bytes((0, 1)) or data[4:12] != bytes((0xFF,)) * 8:
+        return False
+    preset, scan, kind = data[12], data[13], data[14]
+    action = int.from_bytes(data[15:19], 'little')
+    tables = character.skill_keys
+    if not tables or preset >= len(tables) or scan >= 89 or kind not in (0, 1, 2, 4, 5, 6):
+        return False
+    table = tables[preset]
+    for source in [s for s, at in table.items() if at == scan]:
+        del table[source]
+    if kind == 1:
+        table[action] = scan
+    elif kind == 2 and action:
+        table[-action] = scan
+    return True
 
 
 def skill_key(character, skill):

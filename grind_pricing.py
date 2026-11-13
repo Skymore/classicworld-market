@@ -1,10 +1,12 @@
 """Prices for the grind ledger, fetched from the site and cached locally.
 
+Every median is over the last 72 hours of sales only (the site sends it so).
 Loot (use/etc/setup items): the item's median sale price (成交中位), else the
 NPC buy-back price, else nothing. Equipment: the median sale of the same
 attribute group as the item page groups offers (attributes other than
-defence, remaining upgrades, unknown fields), else the item's median, else
-NPC buy-back. Consumables used while grinding: the median sale too, like loot,
+defence, remaining upgrades, unknown fields), else that group's lowest ask
+right now (what it would sell against), else the item's median, else NPC
+buy-back. Consumables used while grinding: the median sale too, like loot,
 so a potion costs what it would fetch; the cheapest NPC shop price only when
 it never sold. Every value carries the basis it came from.
 """
@@ -151,6 +153,9 @@ class Prices:
                 for group in row.get('groups') or []:
                     if group.get('key') == key and group.get('median'):
                         return group['median'], '同属性成交中位'
+                for group in row.get('groups') or []:
+                    if group.get('key') == key and group.get('lowest_ask'):
+                        return group['lowest_ask'], '同属性最低挂单'
             if row.get('typical'):
                 return row['typical'], '成交中位'
         sell = row.get('npc_sell') or NPC_SELL.get(item_id)

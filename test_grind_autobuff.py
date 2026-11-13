@@ -31,6 +31,20 @@ class KeyTableTest(unittest.TestCase):
         autobuff.observe_client(c, autobuff.KEYMAP_INDEX, b'\0\0\x00\x05\x00')   # an edit
         self.assertIsNone(c.skill_keys)
 
+    def test_moving_a_potion_onto_a_key_updates_the_table_instead_of_dropping_it(self):
+        class C:
+            skill_keys = key_preset = None
+        c = C()
+        autobuff.observe_server(c, autobuff.KEYMAP_OPCODE, key_table([{5: (1, 3101004)}, {5: (1, 3101004), 6: (1, 3001003)}, None]))
+        autobuff.observe_client(c, autobuff.KEYMAP_INDEX, bytes.fromhex('00000301'))
+        # Live 22:25:38: item 2012000 onto scan 5 ("4") in preset 1.
+        autobuff.observe_client(c, autobuff.KEYMAP_INDEX, bytes.fromhex('0e620001ffffffffffffffff01050260b31e00'))
+        self.assertIsNotNone(c.skill_keys)
+        self.assertEqual(autobuff.skill_key(c, -2012000), 5)
+        self.assertIsNone(autobuff.skill_key(c, 3101004))          # what was on that key is gone
+        self.assertEqual(autobuff.skill_key(c, 3001003), 6)
+        self.assertEqual(c.skill_keys[0], {3101004: 5})            # other presets untouched
+
     def test_rejects_a_truncated_table(self):
         with self.assertRaises(ValueError):
             autobuff.skill_tables(key_table([{}, {}, {}])[:100])

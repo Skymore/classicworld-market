@@ -253,6 +253,19 @@ fn ids_param(query: &Option<String>, name: &str) -> Option<Vec<i32>> {
 
 /// `{"prices": {"<item>": {name, typical, npc_shop, npc_sell, groups}},
 ///   "maps": {"<map>": {name, is_town}}, "mobs": {"<mob>": {name}}}`.
+/// Loot is priced from the last 72 hours of sales only: prices move fast, and
+/// a 30-day median kept old prices (2026-11-12: a 73-attack 九龙刀 at 750 000
+/// from late October, while it sold for 350 000 to 550 000 that week).
+const RECENT_SECONDS: f64 = 72.0 * 3600.0;
+
+fn recent_prices(newest_first: &[(f64, f64)], now: f64) -> Vec<f64> {
+    newest_first
+        .iter()
+        .filter(|(at, _)| now - at <= RECENT_SECONDS)
+        .map(|(_, price)| *price)
+        .collect()
+}
+
 pub async fn price_rows(
     db: &PgPool,
     items: &[i32],
@@ -278,37 +291,77 @@ pub async fn price_rows(
         .copied()
         .filter(|id| id / 1_000_000 == 1)
         .collect();
-    let sales: Vec<(i32, Value, f64)> = if equipment.is_empty() {
+    let sales: Vec<(i32, Value, f64, f64)> = if equipment.is_empty() {
         vec![]
     } else {
         sqlx::query_as(
-            "SELECT s.item_id, v.stats, s.unit_price::float8 FROM market_sales s
+            "SELECT s.item_id, v.stats, s.unit_price::float8, extract(epoch FROM s.detected_at)::float8 FROM market_sales s
              JOIN equipment_variants v ON v.id = s.variant_id
-             WHERE s.item_id = ANY($1) AND s.detected_at >= to_timestamp($2) AND s.unit_price > 0",
+             WHERE s.item_id = ANY($1) AND s.detected_at >= to_timestamp($2) AND s.unit_price > 0
+             ORDER BY s.detected_at DESC",
         )
         .bind(&equipment)
         .bind(now - SALE_DAYS * 86400.)
         .fetch_all(db)
         .await?
     };
-    let mut groups: HashMap<i32, BTreeMap<String, Vec<f64>>> = HashMap::new();
-    for (item, stats, price) in sales {
+    // Current stock per attribute group: its lowest ask prices a drop whose group
+    // did not sell in the last 72 hours better than the whole item's median.
+    let asks: Vec<(i32, Value, f64)> = if equipment.is_empty() {
+        vec![]
+    } else {
+        sqlx::query_as(
+            "SELECT l.item_id, v.stats, market_unit_price(l.item_id, l.price, l.bundle)::float8 FROM listings l
+             JOIN equipment_variants v ON v.id = l.variant_id
+             WHERE l.item_id = ANY($1) AND l.stock > 0 AND l.price > 0 AND l.last_seen_at >= to_timestamp($2)",
+        )
+        .bind(&equipment)
+        .bind(now - RECENT_SECONDS)
+        .fetch_all(db)
+        .await?
+    };
+    let mut lowest: HashMap<(i32, String), f64> = HashMap::new();
+    for (item, stats, price) in asks {
+        let slot = lowest.entry((item, crate::bestiary::queries::equipment_group_json(&stats))).or_insert(price);
+        *slot = slot.min(price);
+    }
+    let mut groups: HashMap<i32, BTreeMap<String, Vec<(f64, f64)>>> = HashMap::new();
+    for (item, stats, price, at) in sales {
         groups
             .entry(item)
             .or_default()
             .entry(crate::bestiary::queries::equipment_group_json(&stats))
             .or_default()
-            .push(price);
+            .push((at, price));
     }
+    // Every item's own median over the same 72 hours; the site's figure only
+    // when it did not sell in that time.
+    let recent: HashMap<i32, f64> = sqlx::query_as::<_, (i32, f64)>(
+        "SELECT item_id, percentile_cont(0.5) WITHIN GROUP (ORDER BY unit_price)::float8 FROM market_sales
+         WHERE item_id = ANY($1) AND detected_at >= to_timestamp($2) AND unit_price > 0 GROUP BY item_id",
+    )
+    .bind(items)
+    .bind(now - RECENT_SECONDS)
+    .fetch_all(db)
+    .await?
+    .into_iter()
+    .collect();
     let mut prices = serde_json::Map::new();
     for (id, zh, en, typical, shop) in rows {
-        let item_groups: Vec<Value> = groups
-            .remove(&id)
-            .unwrap_or_default()
+        let typical = recent.get(&id).copied().or(typical);
+        let mut sold = groups.remove(&id).unwrap_or_default();
+        let mut keys: Vec<String> = sold.keys().cloned().collect();
+        keys.extend(lowest.keys().filter(|(item, _)| *item == id).map(|(_, key)| key.clone()));
+        keys.sort();
+        keys.dedup();
+        let item_groups: Vec<Value> = keys
             .into_iter()
-            .map(|(key, mut values)| {
+            .filter_map(|key| {
+                let mut values = recent_prices(&sold.remove(&key).unwrap_or_default(), now);
                 values.sort_by(f64::total_cmp);
-                json!({"key": key, "median": median(&values), "sales": values.len()})
+                let ask = lowest.get(&(id, key.clone())).copied();
+                (!values.is_empty() || ask.is_some()).then(|| json!({"key": key,
+                    "median": median(&values), "sales": values.len(), "lowest_ask": ask}))
             })
             .collect();
         prices.insert(
@@ -478,5 +531,19 @@ async fn map_results(
         )
             .into_response(),
         Err(err) => internal(err),
+    }
+}
+
+#[cfg(test)]
+mod recent_price_tests {
+    use super::recent_prices;
+
+    #[test]
+    fn only_the_last_72_hours_price_a_group() {
+        let day = 86400.0;
+        let now = 100.0 * day;
+        let sales = [(now - 1.0 * day, 500.0), (now - 2.9 * day, 480.0), (now - 3.1 * day, 520.0), (now - 20.0 * day, 800.0)];
+        assert_eq!(recent_prices(&sales, now), vec![500.0, 480.0]);
+        assert!(recent_prices(&[(now - 4.0 * day, 700.0)], now).is_empty());
     }
 }

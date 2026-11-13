@@ -15,6 +15,15 @@ class LootPriceTests(unittest.TestCase):
         self.assertEqual(prices.loot(4000156, basis='none'), (0, '不计'))
         self.assertEqual(prices.loot(4999999), (None, None))
 
+    def test_equipment_without_recent_sales_in_its_group_uses_the_groups_lowest_ask(self):
+        from grind_pricing import group_key
+        piece = dict(stats=[dict(key='weapon_attack', value=73)], remaining_upgrades=7)
+        prices = Prices()
+        prices.rows[1442007] = dict(typical=1350000, groups=[dict(key=group_key(piece), median=None, sales=0, lowest_ask=240000)])
+        self.assertEqual(prices.loot(1442007, piece), (240000, '同属性最低挂单'))
+        prices.rows[1442007]['groups'][0]['median'] = 500000
+        self.assertEqual(prices.loot(1442007, piece), (500000, '同属性成交中位'))
+
     def test_consumables_cost_their_median_sale_and_the_shop_only_when_never_sold(self):
         prices = Prices()
         prices.rows[2060001] = dict(npc_shop=2, typical=1.4375)
