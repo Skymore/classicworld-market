@@ -194,6 +194,25 @@ class AutoBuffTest(unittest.TestCase):
         self.assertIn(3101004, fresh.buffs)
         self.assertIsNotNone(fresh.run)
 
+    def test_the_newest_connection_wins_when_several_knew_a_buff(self):
+        # Two older connections of the same character: the first saw the first drink,
+        # the second the refill 400 s later. The new one must keep the refill.
+        from grind_tracker import Character
+        t0 = self.clock()
+        old, newer = Character('a'), Character('b')
+        for c in (old, newer):
+            c.key = 'hero'
+        old.buffs[-2002004] = (t0, 600_000)
+        newer.buffs[-2002004] = (t0 + 400, 600_000)
+        for order in ((old, newer), (newer, old)):
+            self.tracker.characters.clear()
+            for c in order:
+                self.tracker.characters[c.session] = c
+            fresh = self.tracker.characters['c'] = Character('c')
+            fresh.key = 'hero'
+            self.tracker.adopt_by_key(fresh)
+            self.assertEqual(fresh.buffs[-2002004][0], t0 + 400)
+
     def test_a_buff_someone_else_cast_is_left_alone(self):
         self.start()
         self.current().casts.clear()

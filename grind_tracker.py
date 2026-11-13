@@ -458,11 +458,25 @@ class Tracker:
         """A channel change opens a new connection, and the server does not send the
         buffs that are still on again. Without them, auto buff took a potion with
         5 minutes left as long gone and pressed it (2026-11-12 19:06), and the game
-        kept asking. Copy what the old connection knew; newer news on this one wins."""
+        kept asking. Copy what the old connection knew; the newest news wins, from
+        whichever connection: after several channel changes the oldest connection
+        still held a speed potion's first drink, and copied first, it hid the
+        refill a later one saw, so the potion showed as running out (2026-11-13)."""
         for name in self.CARRIED:
             known, mine = source.get(name) or {}, getattr(character, name)
             for key, value in known.items():
-                mine.setdefault(key, value)
+                if name == 'buffs':
+                    start = value[0]
+                    if key not in mine or start > mine[key][0]:
+                        mine[key] = tuple(value)
+                        if 'buff_masks' in source and key in source['buff_masks']:
+                            character.buff_masks[key] = source['buff_masks'][key]
+                elif name in ('buff_on', 'buff_ended'):
+                    mine[key] = max(mine.get(key, value), value)
+                elif name != 'buff_masks':
+                    mine.setdefault(key, value)
+        for key, value in (source.get('buff_masks') or {}).items():
+            character.buff_masks.setdefault(key, value)
         character.combat_at = max(character.combat_at or 0, source.get('combat_at') or 0) or None
 
     @staticmethod
