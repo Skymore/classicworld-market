@@ -194,9 +194,7 @@ function SettingsView({ state, settings, save, refresh }: {
     </section>
     <section className="well"><div className="well-h"><h3>{tr('Buff 与热键', 'Buffs and hotkeys')}</h3></div>
       <NumberField label={tr('Buff 快结束时提醒', 'Warn before a buff ends')} unit={tr('秒', 's')} value={settings.buff_warn_seconds} min={0} max={120} onChange={v => save({ buff_warn_seconds: v })} />
-      <Check label={tr('提醒时读出技能名', 'Say the skill name with the warning')} checked={settings.buff_sound} onChange={v => save({ buff_sound: v })} />
-      <Check label={tr('自动加 Buff（按游戏键位设置按键，药水只用固定的）', 'Auto buff (presses the key set in the game; potions only when pinned)')} checked={settings.auto_buff} onChange={v => save({ auto_buff: v })} />
-      <Check label={tr('自动喝药（HP、MP，优先宠物设置的药水）', "Auto potions (HP and MP; the pet's potions first)")} checked={settings.auto_potion} onChange={v => save({ auto_potion: v })} />
+      <Check label={tr('语音提醒：快结束的 Buff 读技能名，血量低时提醒', 'Spoken warnings: buff names before they end, and low HP')} checked={settings.buff_sound} onChange={v => save({ buff_sound: v })} />
       {HOTKEYS.map(([key, zh, en]) => <HotkeyField key={key} label={tr(zh, en)} value={settings.hotkeys?.[key] || ''}
         error={state.hotkey_errors?.[key]} onChange={v => save({ hotkeys: { [key]: v } })} />)}
     </section>

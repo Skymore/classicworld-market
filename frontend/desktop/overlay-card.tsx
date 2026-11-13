@@ -42,11 +42,11 @@ function speak(text: string | null | undefined) {
 let speaking = Promise.resolve();
 /** Says a buff's name from the bundled voice pack (voice/<lang>/<source>.mp3, built by
  * tools/make_voice_pack.py), one after another; Korean falls back to English clips. */
-function say(source: number, text: string | null | undefined) {
+function say(source: number, text: string | null | undefined, clip: string = String(source)) {
   speaking = speaking.then(async () => {
     const lang = language();
-    if (await play(`voice/${lang}/${source}.mp3`)) return;
-    if (lang === 'ko' && await play(`voice/en/${source}.mp3`)) return;
+    if (await play(`voice/${lang}/${clip}.mp3`)) return;
+    if (lang === 'ko' && await play(`voice/en/${clip}.mp3`)) return;
     speak(text);
   });
 }
@@ -71,6 +71,14 @@ function chime(source: number, text: string | null | undefined) {
     if (!await play(`voice/${lang}/${source}.mp3`) && !(lang === 'ko' && await play(`voice/en/${source}.mp3`))) speak(text);
     chiming.delete(source);
   }, 300);
+}
+
+let lowHpAt = 0;
+/** "血量低" from the voice pack (voice/<lang>/hp_low.mp3), at most every 8 s. */
+function sayLowHp() {
+  if (Date.now() - lowHpAt < 8000) return;
+  lowHpAt = Date.now();
+  say(0, tr('血量低', 'Low HP'), 'hp_low');
 }
 
 /** A short two-tone beep (no audio files in the bundle). */
@@ -135,6 +143,13 @@ export function OverlayCard({ live, settings, toast = null, scale, cardRef, grip
   cardRef?: React.Ref<HTMLDivElement>; grip?: React.ReactNode;   // the overlay window's corner grip and switches
 }) {
   const o = settings.overlay, run = live?.runs?.[0] ?? null, show = (key: string) => o.fields.includes(key);
+  // Low HP: said once each time HP falls under the danger line (two of the map's biggest hits).
+  const vitals = run?.vitals, low = !!vitals && vitals.hp > 0 && vitals.hp < vitals.danger;
+  const wasLow = useRef(false);
+  useEffect(() => {
+    if (low && !wasLow.current && settings.buff_sound && grip) sayLowHp();
+    wasLow.current = low;
+  }, [low, settings.buff_sound, grip]);
   const style = { '--alpha': String(o.opacity), fontSize: `${12 * scale}px` } as React.CSSProperties;
   const dot = <i className={'ov-dot ' + (run?.status === 'active' ? 'on' : run ? 'pause' : 'off')} />;
   const prompt = channelPrompt(run);

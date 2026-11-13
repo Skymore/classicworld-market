@@ -55,8 +55,14 @@ KOREAN = {
 }
 
 
+WARNINGS = {'hp_low': {'zh': '血量低', 'en': 'Low HP', 'ko': '체력 부족'}}
+
+
 def lines():
-    """(lang, source, text) for every file of the pack."""
+    """(lang, source, text) for every file of the pack (a source is also a warning's name)."""
+    for name, texts in WARNINGS.items():
+        for lang, text in texts.items():
+            yield lang, name, text
     game = json.loads((ROOT / 'data/reference/cw-client/ko-names.json').read_text(encoding='utf-8'))
     for skill, (zh, en) in SKILLS.items():
         yield 'zh', skill, zh

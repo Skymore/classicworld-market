@@ -1,3 +1,4 @@
+import { timelineRates } from './grind';
 import { MesosIcon } from './mesos-icon';
 import { useState } from 'react';
 import { Coins, Sparkles } from 'lucide-react';
@@ -8,9 +9,8 @@ import './grind-metrics.css';
 /** Hourly rates over the whole run (timeline buckets); older summaries only had the last 20 minutes. */
 export function rateHistory(run: RunSummary): { t: number; exp: number; net: number }[] {
   const line = run.timeline;
-  return line && line.exp.length > 1
-    ? line.exp.map((exp, i) => ({ t: line.start + (i + .5) * line.bucket, exp: exp * 3600 / line.bucket, net: (line.net[i] || 0) * 3600 / line.bucket }))
-    : run.rate_history || [];
+  if (!line || line.exp.length < 2) return run.rate_history || [];
+  return timelineRates(line);
 }
 
 /** One rate as a label, a large live number and the session average; the mark says which way the live rate leans. */

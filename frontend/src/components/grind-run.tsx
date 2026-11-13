@@ -1,6 +1,7 @@
 // One grind run in full: used by the client's history detail and the
 // website's run and share pages. Text comes from the host's `t(zh, en)`.
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { timelineRates } from "../../desktop/grind";
 import "./grind-run.css";
 
 export type Words = (zh: string, en: string) => string;
@@ -40,7 +41,7 @@ export interface GrindRun {
   attacks?: { skill: number; name: string; count: number; follow_up?: boolean }[];
   casts?: { skill: number; name: string; count: number }[];
   segments?: { map_id: number; map_name?: string | null; active_seconds: number; started_at: number }[];
-  timeline?: { start: number; bucket: number; exp: number[]; net: number[] };
+  timeline?: { start: number; bucket: number; last?: number; first?: number; step?: number; window?: number; exp: number[]; net: number[] };
 }
 export interface Comparison { level_from: number; level_to: number; job: number | null; runs: number; exp_better_than: number; exp_per_hour_median: number | null }
 
@@ -79,8 +80,7 @@ export interface ChartPoint { t: number; exp: number; net: number }
 export function timelinePoints(run: Pick<GrindRun, "timeline">): ChartPoint[] {
   const line = run.timeline;
   if (!line || line.exp.length < 2) return [];
-  return line.exp.map((exp, i) => ({ t: line.start + (i + 0.5) * line.bucket, exp: (exp * 3600) / line.bucket,
-    net: ((line.net[i] || 0) * 3600) / line.bucket }));
+  return timelineRates(line);
 }
 
 const hhmm = (t: number) => { const d = new Date(t * 1000); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
@@ -199,7 +199,7 @@ export function RunChart({ run, t, english }: { run: GrindRun; t: Words; english
   const points = timelinePoints(run);
   if (points.length < 2) return null;
   return <RateChart points={points} t={t} english={english}
-    title={t(`整场 · 每点 ${clock(run.timeline!.bucket)}`, `Whole run · ${clock(run.timeline!.bucket)} per point`)}
+    title={run.timeline!.window ? t(`整场 · 每点为前 1 分钟`, `Whole run · each point is the minute before it`) : t(`整场 · 每点 ${clock(run.timeline!.bucket)}`, `Whole run · ${clock(run.timeline!.bucket)} per point`)}
     average={{ exp: run.exp_per_hour }} />;
 }
 

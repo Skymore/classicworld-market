@@ -58,16 +58,16 @@ class ServiceTest(unittest.TestCase):
             self.assertIsNone(service.live())
             self.assertEqual(service.history(), [])
 
-    def test_overlay_switches_flip_auto_buff_and_the_spoken_warning_only(self):
+    def test_the_overlay_switch_flips_only_the_spoken_warnings(self):
         from grind_desktop import OverlayAPI
         with tempfile.TemporaryDirectory() as folder:
             api = OverlayAPI(GrindService(folder))
-            self.assertTrue(api.state()['settings']['auto_buff'])          # on by default
-            self.assertFalse(api.toggle('auto_buff'))
+            settings = api.state()['settings']
+            self.assertEqual((settings['auto_buff'], settings['auto_potion']), (False, False))   # switched off
             self.assertFalse(api.toggle('buff_sound'))
-            self.assertEqual((api.state()['settings']['auto_buff'], api.state()['settings']['buff_sound']), (False, False))
-            with self.assertRaises(ValueError):
-                api.toggle('enabled')
+            for name in ('auto_buff', 'auto_potion', 'enabled'):
+                with self.assertRaises(ValueError):
+                    api.toggle(name)
 
     def test_overlay_is_dragged_and_sized_directly(self):
         with tempfile.TemporaryDirectory() as folder:

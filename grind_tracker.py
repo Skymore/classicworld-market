@@ -15,6 +15,7 @@ import collections
 import bisect
 import contextlib
 import json
+import math
 import sqlite3
 import time
 import uuid
@@ -28,12 +29,15 @@ import grind_autobuff as autobuff
 
 DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, end_after_seconds=600,
                 start_events=3, start_window=60, price_basis='typical', notable_value=500000,
-                count_mesos_spent=True, min_upload_seconds=300, buff_warn_seconds=10, buff_sound=True, auto_buff=True, auto_potion=True,
+                count_mesos_spent=True, min_upload_seconds=300, buff_warn_seconds=10, buff_sound=True, auto_buff=False, auto_potion=False,
                 hotkeys=dict(overlay='Ctrl+Alt+O', pause='Ctrl+Alt+P', end='Ctrl+Alt+E'),
                 overlay=dict(enabled=True, layout='slim', theme='dark', opacity=0.92, scale=1.0,
                              hide_in_capture=False, stream=False, x=None, y=None,
                              fields=['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent']))
 IDLE_CREDIT = 10
+SLOT = 10                   # seconds per experience slot kept for the chart
+CHART_WINDOW = 60           # each chart point is the rate over the minute before it
+CHART_POINTS = 360
 COMBAT_SECONDS = 10
 AUTO_BUFF_OPS = (autobuff.KEYMAP_OPCODE,) + autobuff.PRESET_OPCODES + tuple(autobuff.PET_POTION_OPCODES)
 RECENT = 8
@@ -135,6 +139,7 @@ class Run:
         self.ledger = []          # dicts: t, kind, item_id, quantity, mesos, piece
         self.exp_events = []      # (t, exp) for windowed rates
         self.exp_minutes = collections.Counter()   # unix minute -> exp, the whole run
+        self.exp_slots = collections.Counter()     # unix 10-second slot -> exp, the whole run (charts)
         self.deaths = 0
         self.exp_lost = 0
         self.hp_lost = 0
@@ -150,6 +155,7 @@ class Run:
     def add_exp(self, event):
         self.exp_events.append(event)
         self.exp_minutes[int(event[0] // 60)] += event[1]
+        self.exp_slots[int(event[0] // SLOT)] += event[1]
 
     @property
     def segment(self):
@@ -177,7 +183,8 @@ class Run:
                     last_gain=self.last_gain, credited_until=self.credited_until,
                     segments=[s.to_json() for s in self.segments], ledger=self.ledger,
                     exp_events=[e for e in self.exp_events if e[0] >= self.credited_until - 1260],
-                    exp_minutes={str(k): v for k, v in self.exp_minutes.items()}, deaths=self.deaths, exp_lost=self.exp_lost, gaps=self.gaps,
+                    exp_minutes={str(k): v for k, v in self.exp_minutes.items()},
+                    exp_slots={str(k): v for k, v in self.exp_slots.items()}, deaths=self.deaths, exp_lost=self.exp_lost, gaps=self.gaps,
                     hp_lost=self.hp_lost, hp_drops=self.hp_drops,
                     attacks={str(k): v for k, v in self.attacks.items() if v}, casts={str(k): v for k, v in self.casts.items() if v},
                     combat=self.combat.to_json(), kill_attacks=self.kill_attacks,
@@ -191,6 +198,7 @@ class Run:
             setattr(run, key, data.get(key, getattr(run, key)))
         run.exp_events = [tuple(e) for e in data.get('exp_events') or []]
         run.exp_minutes = collections.Counter({int(k): v for k, v in (data.get('exp_minutes') or {}).items()})
+        run.exp_slots = collections.Counter({int(k): v for k, v in (data.get('exp_slots') or {}).items()})
         run.attacks = collections.Counter({int(k): v for k, v in (data.get('attacks') or {}).items()})
         run.casts = collections.Counter({int(k): v for k, v in (data.get('casts') or {}).items()})
         run.combat = combat.Meter(data.get('combat'))
@@ -1005,14 +1013,8 @@ class Tracker:
                 self.pause(run, 'idle', now)
             if run.status == 'paused' and now - run.paused_at > self.settings['end_after_seconds']:
                 self.end(character, now)
-        if self.settings.get('auto_buff') or self.settings.get('auto_potion'):
-            if self.auto_buff is None:
-                self.auto_buff = autobuff.AutoBuff()
-            try:
-                self.auto_buff.tick(self, now)
-            except Exception as error:   # noqa: BLE001 - never stop tracking over a key press
-                self.health['auto_buff_error'] += 1
-                print(f'Auto buff skipped ({type(error).__name__}).', flush=True)
+        # Auto buff and auto potions are switched off (2026-11-12): no key is ever
+        # pressed. grind_autobuff still reads the key table for the prompts.
         for run in list(self.restored):
             if run.paused_at is None or now - run.paused_at > self.settings['end_after_seconds']:
                 self.finish(run, now)
@@ -1250,16 +1252,49 @@ class Tracker:
             buffs=self.buffs(character, now),
             in_combat=self.in_combat(character, now),
             channel_change=self.channel_change(run, character, now),
+            vitals=self.vitals(character, now),
             segments=[s.to_json() for s in run.segments])
 
     def timeline(self, run, rows, now, points=48):
-        """The whole run in at most `points` equal buckets: exp and net per bucket.
-
-        Exp comes from per-minute totals kept for the whole run; net from the
-        ledger (money in and out, valued loot and consumables)."""
+        """Chart data for the whole run: a point every 10 seconds (wider for long
+        runs, at most CHART_POINTS), each the experience and net of the minute
+        before it, so the line shows the rate of the last minute like the live
+        figure. Runs saved before 10-second slots existed use per-minute buckets."""
         start = run.started_at
         end = now if run.status == 'active' else max(run.credited_until, start + 60)
-        size = max(60.0, (end - start) / points)
+        if not run.exp_slots and run.exp_minutes:
+            return self.minute_timeline(run, rows, start, end, points)
+        step = max(SLOT, math.ceil((end - start) / CHART_POINTS / SLOT) * SLOT)
+        first = min(end, start + CHART_WINDOW)
+        times = []
+        t = first
+        while t < end:
+            times.append(t)
+            t += step
+        times.append(end)
+        window = min(CHART_WINDOW, max(SLOT, end - start))
+        slots = sorted(run.exp_slots.items())
+        money = []
+        for entry in run.ledger:
+            if entry['kind'] == 'mesos':
+                money.append((entry['t'], entry['mesos']))
+            elif entry['kind'] == 'spent':
+                money.append((entry['t'], -entry['mesos']))
+        money += [(entry['t'], amount if entry['kind'] == 'loot' else -amount) for entry, _, _, amount in rows]
+        money.sort()
+        # Prefix sums: each point is two binary searches, not a pass over the run.
+        def windowed(events):
+            at = [e[0] for e in events]
+            total = [0.0]
+            for _, v in events:
+                total.append(total[-1] + v)
+            return [round(total[bisect.bisect_right(at, t)] - total[bisect.bisect_right(at, t - window)]) for t in times]
+        exp = windowed([(slot * SLOT + SLOT / 2, v) for slot, v in slots])
+        net = windowed(money)
+        return dict(start=start, first=first, step=step, window=window, exp=exp, net=net, bucket=step)
+
+    def minute_timeline(self, run, rows, start, end, points):
+        size = math.ceil(max(60.0, (end - start) / points) / 60) * 60
         count = max(1, min(points, int((end - start) // size) + 1))
         exp = [0.0] * count
         net = [0.0] * count
@@ -1273,7 +1308,9 @@ class Tracker:
                 net[slot(entry['t'])] -= entry['mesos']
         for entry, _, _, amount in rows:
             net[slot(entry['t'])] += amount if entry['kind'] == 'loot' else -amount
-        return dict(start=start, bucket=round(size, 1), exp=[round(v) for v in exp], net=[round(v) for v in net])
+        last = min(size, max(60.0, end - (start + (count - 1) * size)))
+        return dict(start=start, bucket=round(size, 1), last=round(last, 1),
+                    exp=[round(v) for v in exp], net=[round(v) for v in net])
 
     def kills_estimated(self, run, character):
         """Live runs ask the character; ended runs keep what was last seen."""
@@ -1309,6 +1346,16 @@ class Tracker:
         out += [self.buff_row(source, 0, total, True) for source, total in pinned.items() if source not in shown]
         return sorted(out, key=lambda b: b['seconds'])
 
+    def vitals(self, character, now):
+        """HP and MP for the low-HP warning: danger is two of this map's biggest
+        single hits (30 % of max HP until a hit is known)."""
+        if character is None or character.hp is None or not character.max_hp:
+            return None
+        worst, _ = self.combat_limits(character, now)
+        danger = min(character.max_hp, 2 * worst) if worst else 0.3 * character.max_hp
+        return dict(hp=character.hp, max_hp=character.max_hp, mp=character.mp, max_mp=character.max_mp,
+                    danger=round(danger))
+
     def channel_change(self, run, character, now):
         """Why a channel change would help, as codes the pages turn into a clear
         prompt: only a new connection brings the key table, the character ID and
@@ -1322,8 +1369,6 @@ class Tracker:
         if character is None or run.status != 'active':
             return []
         reasons = []
-        if (self.settings.get('auto_buff') or self.settings.get('auto_potion')) and not character.skill_keys:
-            reasons.append('keys')
         if character.character_id is None:
             reasons.append('identity')
         if now - run.started_at > 60 and (not character.client_seen

@@ -59,6 +59,7 @@ class AutoBuffTest(unittest.TestCase):
         self.pressed = []
         self.auto = autobuff.AutoBuff(press=self.pressed.append, foreground=lambda: foreground,
                                       pid_of=lambda connection: 42, threaded=False)
+        self.tracker.settings.update(auto_buff=True, auto_potion=True)   # off in the client; the module is still tested
         self.tracker.connection('s1', ('1.2.3.4', 8585, '10.0.0.2', 50000))
         character = self.tracker.characters['s1']
         self.send(key_table([{18: (1, 3101004)}, {18: (1, 3101004)}, {18: (1, 3101004)}]))
@@ -270,13 +271,35 @@ class ChannelPromptTest(unittest.TestCase):
         run = self.current()
         self.clock.t += 120
         reasons = self.tracker.channel_change(run, character, self.clock())
-        self.assertIn('keys', reasons)                       # no key table yet: auto buff is off
         self.assertIn('attacks', reasons)                    # none of the player's own messages
         self.send(key_table([{18: (1, 3101004)}] * 3))
         character.client_seen, character.client_at, character.character_id = True, self.clock(), 1
         self.assertEqual(self.tracker.channel_change(run, character, self.clock()), [])
         self.tracker.disconnect('s1')
         self.assertEqual(self.tracker.channel_change(run, None, self.clock()), ['capture'])
+
+
+class ChartAndVitalsTest(unittest.TestCase):
+    setUp, tearDown, send, kill, current = AutoBuffTest.setUp, AutoBuffTest.tearDown, AutoBuffTest.send, AutoBuffTest.kill, AutoBuffTest.current
+
+    def test_each_chart_point_is_the_minute_before_it_without_a_saw_tooth(self):
+        for _ in range(4):
+            self.kill(after=1)
+        run = self.current()
+        for i in range(70 * 6):                       # 70 minutes, a kill every 10 s
+            run.add_exp((self.clock() + i * 10, 400))
+        line = self.tracker.timeline(run, [], self.clock() + 70 * 60)
+        self.assertEqual((line['window'], line['step']), (60, 20))
+        steady = line['exp'][5:-5]
+        self.assertEqual(min(steady), max(steady))    # 6 kills a minute at every point
+        self.assertEqual(steady[0], 6 * 400)
+
+    def test_low_hp_line_is_two_of_the_maps_biggest_hits(self):
+        character = self.tracker.characters['s1']
+        character.hp, character.max_hp = 1500, 2000
+        self.assertEqual(self.tracker.vitals(character, self.clock())['danger'], 600)   # 30 % until a hit is known
+        self.tracker.combat_limits = lambda c, now: (450, 0)
+        self.assertEqual(self.tracker.vitals(character, self.clock())['danger'], 900)
 
 
 class CancelTest(unittest.TestCase):

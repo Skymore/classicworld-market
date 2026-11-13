@@ -17,6 +17,7 @@ export interface CombatRow {
 export interface Segment { map_id: number; level: number | null; job: number | null; started_at: number; active_seconds: number; exp: number; kills: number; mesos: number }
 export interface RunSummary {
   id: string; status: 'active' | 'paused' | 'ended'; pause_reason: string | null; in_combat?: boolean; channel_change?: string[];
+  vitals?: { hp: number; max_hp: number; mp: number | null; max_mp: number | null; danger: number } | null;
   character: { key: unknown; name: string | null; level: number | null; job: number | null };
   job_name: string | null; level: number | null; level_start: number | null; exp_now: number | null; exp_percent: number | null;
   map_id: number | null; map_name?: string | null; started_at: number; ended_at: number | null;
@@ -29,7 +30,7 @@ export interface RunSummary {
   loot?: LootRow[]; recent?: LootRow[]; consumables: Consumable[]; drops: { item_id: number; name: string | null; quantity: number }[];
   mobs: { mob_id: number; kills: number; name: string; attack_samples?: number; attack_distribution?: { attacks: number; kills: number }[] }[]; segments: Segment[];
   buffs: Buff[]; hp_lost: number; hp_drops: number;
-  timeline?: { start: number; bucket: number; exp: number[]; net: number[] };
+  timeline?: { start: number; bucket: number; last?: number; first?: number; step?: number; window?: number; exp: number[]; net: number[] };
   share_url?: string | null;
   attack_count: number; attacks: { skill: number; name: string; count: number; follow_up?: boolean }[]; casts: { skill: number; name: string; count: number }[];
   damage?: number | null; dps?: number | null; average_dps?: number | null;
@@ -75,7 +76,7 @@ export const overlayScale = (value: number) => api()?.scale?.(value) ?? Promise.
 /** The card's height in CSS pixels; the overlay window takes it. */
 export const overlayFit = (height: number) => api()?.fit?.(height) ?? Promise.reject(new Error('unavailable'));
 /** The overlay's own switches; resolves to the new value. */
-export const overlayToggle = (name: 'auto_buff' | 'auto_potion' | 'buff_sound') => api()?.toggle?.(name) ?? Promise.reject(new Error('unavailable'));
+export const overlayToggle = (name: 'buff_sound') => api()?.toggle?.(name) ?? Promise.reject(new Error('unavailable'));
 
 /** 1.2万 / 3.4亿 in Chinese and Korean, 12K / 3.4M / 1.2B in English. */
 export function big(value: number | null | undefined) {
@@ -156,3 +157,16 @@ export const shownBuffs = (live: Live | null) =>
 /** Seconds left now: the state is written each second, so count down locally in between. */
 export const buffLeft = (buff: Buff, live: Live | null) =>
   Math.max(0, buff.seconds - (live ? Date.now() / 1000 - live.alive_at : 0));
+
+/** Points of a run's timeline as hourly rates. Rolling (step and window): each point is
+ * the minute before it, every 10 s or so. Older runs: whole-minute buckets. */
+export function timelineRates(line: { start: number; bucket: number; last?: number; first?: number; step?: number; window?: number; exp: number[]; net: number[] }) {
+  if (line.window && line.step) {
+    const first = line.first ?? line.start + line.window, window = line.window;
+    return line.exp.map((exp, i) => ({ t: Math.min(first + i * line.step!, first + (line.exp.length - 1) * line.step!), exp: exp * 3600 / window, net: (line.net[i] || 0) * 3600 / window }));
+  }
+  return line.exp.map((exp, i) => {
+    const span = i === line.exp.length - 1 && line.last ? line.last : line.bucket;
+    return { t: line.start + (i + .5) * line.bucket, exp: exp * 3600 / span, net: (line.net[i] || 0) * 3600 / span };
+  });
+}
