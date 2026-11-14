@@ -324,11 +324,11 @@ mod tests {
         .into_string();
         assert!(html.contains(r#"viewBox="0 0 3928 2050""#), "{html}");
         // The monster stands on the spawn point at game size (36 x 36 game
-        // pixels), enlarged with every other monster on this big map:
-        // bottom edge at y, centred on x.
+        // pixels, the scene's scale even on this big map): bottom edge at y,
+        // centred on x.
         assert!(
             html.contains(
-                r#"href="/web/images/mobs/stand/4.png" x="2695.5" y="1299" width="51" height="51""#
+                r#"href="/web/images/mobs/stand/4.png" x="2703" y="1314" width="36" height="36""#
             ),
             "{html}"
         );

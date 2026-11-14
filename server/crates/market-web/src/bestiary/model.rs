@@ -501,22 +501,13 @@ static STAND_SIZES: std::sync::LazyLock<std::collections::HashMap<i32, (i32, i32
             .collect()
     });
 
-/// Box units per game pixel at which a mid-sized monster (about 75 game
-/// pixels) still shows as large as a head icon; below it every monster is
-/// drawn larger by the same factor, so they keep their sizes relative to
-/// each other on big maps.
-const STAND_READABLE: f64 = 75.0;
-
 impl SpawnPoint {
-    /// Box units are world pixels, so monsters stand at game size; `icon`
-    /// is a head icon's side in box units.
+    /// Box units are world pixels, so monsters stand at game size, the same
+    /// scale as the scene; `icon` is a head icon's side in box units, for
+    /// monsters without a standing sprite.
     pub fn new(mob_id: i32, x: i32, y: i32, mob_time: i32, icon: i32) -> Self {
         let (w, h, stand) = match STAND_SIZES.get(&mob_id) {
-            Some(&(w, h)) => {
-                let k = (f64::from(icon) / STAND_READABLE).max(1.0);
-                let scaled = |v: i32| (f64::from(v) * k).round() as i32;
-                (scaled(w), scaled(h), true)
-            }
+            Some(&(w, h)) => (w, h, true),
             None => (icon, icon, false),
         };
         Self {
