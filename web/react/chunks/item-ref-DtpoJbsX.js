@@ -1,0 +1,1 @@
+import{Lt as e,U as t}from"./shared-Cwf5YL9D.js";import{r as n}from"./shell-DONtAYlu.js";var r=e(),i=(e,n)=>`/item/${e}?hours=${t()}${n?`&variant=${n}`:``}`;function a({id:e,variant:t,className:a,children:o}){return(0,r.jsx)(n,{href:i(e,t),className:`item-link`+(a?` `+a:``),"data-item-link":e,onClick:e=>e.stopPropagation(),children:o})}export{i as n,a as t};
