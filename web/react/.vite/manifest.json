@@ -31,14 +31,14 @@
     "file": "chunks/catalogue-B21_Aq-n.css",
     "src": "_catalogue-B21_Aq-n.css"
   },
-  "_catalogue-Bto9hEw_.js": {
-    "file": "chunks/catalogue-Bto9hEw_.js",
+  "_catalogue-DrDzPbSR.js": {
+    "file": "chunks/catalogue-DrDzPbSR.js",
     "name": "catalogue",
     "imports": [
       "_shared-Cwf5YL9D.js",
       "_assistant-icon-hY0GfDkf.js",
       "_shell-DONtAYlu.js",
-      "_item-market-BznqKqrm.js",
+      "_item-market-DWTwTHNX.js",
       "_user-round-D3OeLOOV.js",
       "_item-offer-filters-Bqp-qBXH.js",
       "_live-BeLEbRYy.js",
@@ -46,6 +46,7 @@
       "_equipment-summary-F022Yyuh.js",
       "_list-rows-YXCukBMq.js",
       "_sweep-labels-CbOZ9kot.js",
+      "_item-ref-CC1fqWQH.js",
       "_offer-filters-BdJSp6ek.js",
       "_crafting-CXB4nJ1A.js"
     ],
@@ -91,13 +92,22 @@
     "file": "chunks/equipment-summary-F022Yyuh.js",
     "name": "equipment-summary"
   },
-  "_item-market-BznqKqrm.js": {
-    "file": "chunks/item-market-BznqKqrm.js",
+  "_item-market-DWTwTHNX.js": {
+    "file": "chunks/item-market-DWTwTHNX.js",
     "name": "item-market"
   },
   "_item-offer-filters-Bqp-qBXH.js": {
     "file": "chunks/item-offer-filters-Bqp-qBXH.js",
     "name": "item-offer-filters"
+  },
+  "_item-ref-CC1fqWQH.js": {
+    "file": "chunks/item-ref-CC1fqWQH.js",
+    "name": "item-ref",
+    "imports": [
+      "_shared-Cwf5YL9D.js",
+      "_shell-DONtAYlu.js",
+      "_embed-MErqN2al.js"
+    ]
   },
   "_item-tip-6-ki30ae.js": {
     "file": "chunks/item-tip-6-ki30ae.js",
@@ -130,15 +140,15 @@
       "_shared-Cwf5YL9D.js"
     ]
   },
-  "_main-C280Eong.js": {
-    "file": "chunks/main-C280Eong.js",
+  "_main-DfGd4HWv.js": {
+    "file": "chunks/main-DfGd4HWv.js",
     "name": "main",
     "imports": [
       "_shared-Cwf5YL9D.js",
       "_assistant-icon-hY0GfDkf.js",
       "_shell-DONtAYlu.js",
       "_watch-ids-D1BfyfvC.js",
-      "_item-market-BznqKqrm.js",
+      "_item-market-DWTwTHNX.js",
       "_user-round-D3OeLOOV.js",
       "_item-tip-6-ki30ae.js",
       "_embed-MErqN2al.js",
@@ -281,14 +291,15 @@
     "file": "style.css",
     "src": "_style.css"
   },
-  "_sweep-content-DWyaSW7Q.js": {
-    "file": "chunks/sweep-content-DWyaSW7Q.js",
+  "_sweep-content-DZCcj9S4.js": {
+    "file": "chunks/sweep-content-DZCcj9S4.js",
     "name": "sweep-content",
     "imports": [
       "_shared-Cwf5YL9D.js",
       "_useQueries-B7Ch8IAA.js",
       "_watch-reminders-pyT7no6d.js",
-      "_sweep-labels-CbOZ9kot.js"
+      "_sweep-labels-CbOZ9kot.js",
+      "_item-ref-CC1fqWQH.js"
     ]
   },
   "_sweep-labels-CbOZ9kot.js": {
@@ -384,7 +395,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-C280Eong.js"
+      "_main-DfGd4HWv.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -428,7 +439,7 @@
     ]
   },
   "src/pages/alerts.tsx": {
-    "file": "chunks/alerts-DeaQcGtC.js",
+    "file": "chunks/alerts-tMMvpbuz.js",
     "name": "alerts",
     "src": "src/pages/alerts.tsx",
     "isDynamicEntry": true,
@@ -437,11 +448,12 @@
       "_list-rows-YXCukBMq.js",
       "_push-B4Y7dGVV.js",
       "_toasts-01kozFWL.js",
-      "_list-copy-C2h7saeH.js"
+      "_list-copy-C2h7saeH.js",
+      "_item-ref-CC1fqWQH.js"
     ]
   },
   "src/pages/catalogue-search.tsx": {
-    "file": "chunks/catalogue-search-CBJ2GxpA.js",
+    "file": "chunks/catalogue-search-B42-5HLs.js",
     "name": "catalogue-search",
     "src": "src/pages/catalogue-search.tsx",
     "isDynamicEntry": true,
@@ -450,16 +462,16 @@
       "_shell-DONtAYlu.js",
       "_dialog-BG3HsSV-.js",
       "_price-state-CM6xKDyT.js",
-      "_catalogue-Bto9hEw_.js"
+      "_catalogue-DrDzPbSR.js"
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-Vllekvjg.js",
+    "file": "chunks/catalogue-9Za-ImIK.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_catalogue-Bto9hEw_.js"
+      "_catalogue-DrDzPbSR.js"
     ]
   },
   "src/pages/client.tsx": {
@@ -521,27 +533,29 @@
     ]
   },
   "src/pages/enhancement.tsx": {
-    "file": "chunks/enhancement-GLndCmDX.js",
+    "file": "chunks/enhancement-BU4FpQSf.js",
     "name": "enhancement",
     "src": "src/pages/enhancement.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shared-Cwf5YL9D.js",
-      "_useQueries-B7Ch8IAA.js"
+      "_useQueries-B7Ch8IAA.js",
+      "_item-ref-CC1fqWQH.js"
     ],
     "css": [
       "chunks/tools-BE0-9YPc.css"
     ]
   },
   "src/pages/grind.tsx": {
-    "file": "chunks/grind-BVCNka6w.js",
+    "file": "chunks/grind-CClNVdoU.js",
     "name": "grind",
     "src": "src/pages/grind.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shared-Cwf5YL9D.js",
       "_shell-DONtAYlu.js",
-      "_createLucideIcon-tgWCcnX0.js"
+      "_createLucideIcon-tgWCcnX0.js",
+      "_item-ref-CC1fqWQH.js"
     ],
     "css": [
       "chunks/grind-Dpb-mbga.css"
@@ -591,7 +605,7 @@
     ]
   },
   "src/pages/selling.tsx": {
-    "file": "chunks/selling-CDR0SdBu.js",
+    "file": "chunks/selling-DoKp2T5E.js",
     "name": "selling",
     "src": "src/pages/selling.tsx",
     "isDynamicEntry": true,
@@ -599,11 +613,12 @@
       "_shared-Cwf5YL9D.js",
       "_shell-DONtAYlu.js",
       "_useQueries-B7Ch8IAA.js",
-      "_item-market-BznqKqrm.js",
+      "_item-market-DWTwTHNX.js",
       "_embed-MErqN2al.js",
       "_equipment-summary-F022Yyuh.js",
       "_account-api-BBft_6am.js",
-      "_sweep-content-DWyaSW7Q.js"
+      "_item-ref-CC1fqWQH.js",
+      "_sweep-content-DZCcj9S4.js"
     ],
     "css": [
       "chunks/selling-rWNgZLUe.css"
@@ -635,7 +650,7 @@
     ]
   },
   "src/pages/watch.tsx": {
-    "file": "chunks/watch-Oh6ojuhR.js",
+    "file": "chunks/watch-D4rd6I11.js",
     "name": "watch",
     "src": "src/pages/watch.tsx",
     "isDynamicEntry": true,
@@ -657,9 +672,10 @@
       "_watch-alerts-C99nYueo.js",
       "_sweep-labels-CbOZ9kot.js",
       "_dialog-BG3HsSV-.js",
+      "_item-ref-CC1fqWQH.js",
       "_offer-filters-BdJSp6ek.js",
       "_tabs-BfSYh60e.js",
-      "_sweep-content-DWyaSW7Q.js"
+      "_sweep-content-DZCcj9S4.js"
     ],
     "css": [
       "chunks/watch-BSsDRJRR.css"
@@ -671,7 +687,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-C280Eong.js"
+      "_main-DfGd4HWv.js"
     ]
   }
 }

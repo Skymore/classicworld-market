@@ -24,6 +24,18 @@ class LootPriceTests(unittest.TestCase):
         prices.rows[1442007]['groups'][0]['median'] = 500000
         self.assertEqual(prices.loot(1442007, piece), (500000, '同属性成交中位'))
 
+    def test_equipment_groups_by_the_key_stats_the_site_sends(self):
+        from grind_pricing import group_key
+        keys = ['weapon_attack', 'magic_attack', 'int', 'luk']
+        sold = dict(stats=[dict(key='int', value=3), dict(key='weapon_defense', value=28), dict(key='hp', value=5)],
+                    remaining_upgrades=7)
+        piece = dict(stats=[dict(key='int', value=3), dict(key='weapon_defense', value=27), dict(key='hp', value=4)],
+                     remaining_upgrades=7)
+        prices = Prices()
+        prices.rows[1052075] = dict(typical=7000, key_stats=keys,
+                                    groups=[dict(key=group_key(sold, keys), median=5555, sales=1)])
+        self.assertEqual(prices.loot(1052075, piece), (5555, '同属性成交中位'))
+
     def test_a_cache_from_another_client_version_is_asked_again(self):
         import json, tempfile, time
         from pathlib import Path

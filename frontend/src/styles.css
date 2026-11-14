@@ -1204,3 +1204,18 @@ html[data-embed]:has(.embed-nav) { --embed-nav-height: 58px; }
   text-align: left;
   white-space: normal;
 }
+
+/* Item links (components/item-ref.tsx): every item opens its page. */
+.item-link {
+  color: inherit;
+  text-decoration: none;
+}
+.item-link:hover {
+  text-decoration: underline;
+}
+.item-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}

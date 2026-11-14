@@ -16,6 +16,7 @@ import { useProvidePageContext } from "../lib/assistant";
 import {
   hasBonus,
   groupEquipmentVariants,
+  keyStats,
   mainStat,
   makeLadder,
   timestamp,
@@ -134,7 +135,6 @@ const STAT_SHORT: Record<string, [string, string]> = {
   accuracy: ["命中", "ACC"], acc: ["命中", "ACC"], avoid: ["回避", "AVOID"], eva: ["回避", "AVOID"],
   speed: ["移速", "Speed"], jump: ["跳跃", "Jump"],
 };
-const DEFENCE = ["weapon_defense", "magic_defense", "pdd", "mdd"];
 const STAT_ORDER = [
   "critical_rate", "critical_damage",
   "weapon_attack", "magic_attack", "str", "dex", "int", "luk", "hp", "mp",
@@ -749,7 +749,7 @@ export default function Item({ page }: { page: any }) {
   // Stat sets: highest main stat first (cheapest on ties); without a main stat, cheapest first.
   const lowest = (offers: any[]) => Math.min(...offers.map((row: any) => row.unit_price));
   const mainOf = (variant: any) => variant.stats.find((stat: any) => stat.key === main)?.value ?? -1;
-  const variants = groupEquipmentVariants(filtered.rows).sort(
+  const variants = groupEquipmentVariants(filtered.rows, keyStats(item.req_job_mask)).sort(
     (a: any, b: any) =>
       (main ? mainOf(b.variant) - mainOf(a.variant) : 0) || lowest(a.offers) - lowest(b.offers),
   );
@@ -818,16 +818,10 @@ export default function Item({ page }: { page: any }) {
     return out;
   };
   const count = (offers: any[]) => offers.reduce((n: number, row: any) => n + (row.merged_count || 1), 0);
-  // The header carries the shared stats; a row keeps what still varies: enhancements and defence rolls.
+  // The header carries the key stats; a row adds only its enhancements (defence and other rolls do not show).
   const groupDetail = (row: any, group: any) => {
     if (!group.variant) return undefined;
-    const parts = (row.variant?.stats || [])
-      .filter(
-        (stat: any) =>
-          DEFENCE.includes(stat.key) &&
-          group.variant.stats.some((shared: any) => shared.key === stat.key && shared.maxValue > shared.value),
-      )
-      .map((stat: any) => `${words(...(STAT_SHORT[stat.key] || [stat.key, stat.key]))} ${stat.value}`);
+    const parts: string[] = [];
     const enhancements = row.variant?.enhancements;
     if (Number.isInteger(enhancements) && enhancements > 0)
       parts.push(words(`强化 +${enhancements}`, `Enhancements +${enhancements}`));

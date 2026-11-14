@@ -14,9 +14,11 @@ const holdings = { observed_at: Math.floor(now), mesos: 1234567, categories: [2,
     { slot: 1, item_id: 1452016, decoded: true, stats: [{ key: 'weapon_attack', value: 59 }, { key: 'dex', value: 3 }], remaining_upgrades: 7, enhancements: 0 },
     { slot: 4, item_id: 1040002, decoded: false, stats: [], remaining_upgrades: null, enhancements: null },
   ] };
-const gearSale = (price, attack, days = 1) => ({ sale_unit_price: price, time: now - days * 86400,
-  equipment: { status: 'candidate', stats: [{ key: 'weapon_attack', value: attack }], remaining_upgrades: 7, enhancements: 0 } });
-const gearSales = { 1452016: [gearSale(100000, 59), gearSale(120000, 59), gearSale(140000, 59), gearSale(500000, 60)],
+// 关键属性：弓箭手的敏捷、力量，物攻魔攻，暴击；防御不分组。
+const gearSale = (price, attack, days = 1, extra = [{ key: 'dex', value: 3 }]) => ({ sale_unit_price: price, time: now - days * 86400,
+  equipment: { status: 'candidate', stats: [{ key: 'weapon_attack', value: attack }, ...extra], remaining_upgrades: 7, enhancements: 0 } });
+const gearSales = { 1452016: [gearSale(100000, 59), gearSale(120000, 59, 1, [{ key: 'dex', value: 3 }, { key: 'weapon_defense', value: 9 }]),
+    gearSale(140000, 59), gearSale(500000, 60), gearSale(900000, 59, 1, [{ key: 'dex', value: 5 }])],
   1040002: [gearSale(3000, 0), gearSale(5000, 0)] };
 const products = [
   { item_id: 2000002, name_zh: '白色药水', name_en: 'White Potion', category: '消耗品', sales_window: 30, typical_window_low: 290.4, typical_window: 300, icon_url: '' },
@@ -40,7 +42,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/v1/npc-sell') data = { prices: Object.fromEntries(Object.entries(npc).filter(([id]) => url.searchParams.get('ids').split(',').includes(id))) };
     if (url.pathname === '/api/v1/watchlist/catalog') data = { items: [] };
     if (url.pathname === '/api/v1/collector/inventory') data = { holdings: gameConnected ? holdings : null };
-    if (url.pathname.startsWith('/api/v1/item/')) data = { sales: gearSales[url.pathname.split('/').at(-1)] || [], listings: [] };
+    if (url.pathname.startsWith('/api/v1/item/')) data = { sales: gearSales[url.pathname.split('/').at(-1)] || [], listings: [], product: { jobs: url.pathname.endsWith('1452016') ? ['弓箭手'] : [] } };
     if (url.pathname === '/api/v1/crafting/prices') data = { prices: [] };
     res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(data));
   }
@@ -70,7 +72,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await page.goto(origin + '/selling?lang=zh');
-  // 装备栏是默认页：同物攻 59 的三笔成交（排除物攻 60 的高价），25% 110,000、中位 120,000。
+  // 装备栏是默认页：物攻 59、敏 3 的三笔成交（防御不同也算；排除物攻 60、敏 5 的高价），25% 110,000、中位 120,000。
   await page.locator('[data-selling-item="eq:1:1452016"]').click();
   const bow = page.locator('[data-selling-row="eq:1:1452016"]');
   await bow.waitFor();

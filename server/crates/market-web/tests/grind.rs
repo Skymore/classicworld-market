@@ -179,13 +179,15 @@ async fn equipment_prices_use_the_item_page_groups() {
     assert_eq!(row["name"], "工地手套");
     assert_eq!(row["typical"], 12345.5);
     assert_eq!(row["groups"], json!([]));
-    // The group key is the tracker's: attributes other than defence, sorted,
+    // The group key is the tracker's: key stats (common gloves: all four
+    // stats, attack, critical), sorted,
     // then remaining upgrades and the unknown field count.
     let key = market_web::bestiary::queries::equipment_group_json(&json!({
         "status": "candidate", "remaining_upgrades": 5, "unknown_fields": [],
         "stats": [{"key": "weapon_defense", "label": "物理防御", "value": 2},
                   {"key": "weapon_attack", "label": "物理攻击", "value": 2},
-                  {"key": "dex", "label": "敏捷", "value": 1}]}));
+                  {"key": "dex", "label": "敏捷", "value": 1}]}),
+        &market_core::item::key_stats(None));
     assert_eq!(key, r#"[[["dex",1],["weapon_attack",2]],5,0]"#);
     db.close().await;
 }

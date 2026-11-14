@@ -3,8 +3,8 @@
 Every median is over the last 72 hours of sales only (the site sends it so).
 Loot (use/etc/setup items): the item's median sale price (成交中位), else the
 NPC buy-back price, else nothing. Equipment: the median sale of the same
-attribute group as the item page groups offers (attributes other than
-defence, remaining upgrades, unknown fields), else that group's lowest ask
+attribute group as the item page groups offers (the key stats the site
+sends per item, remaining upgrades, unknown fields), else that group's lowest ask
 right now (what it would sell against), else the item's median, else NPC
 buy-back. Consumables used while grinding: the median sale too, like loot,
 so a potion costs what it would fetch; the cheapest NPC shop price only when
@@ -25,9 +25,12 @@ DEFENCE = {'weapon_defense', 'magic_defense', 'pdd', 'mdd'}
 RECHARGEABLE = (207, 233)
 
 
-def group_key(piece):
-    """The item page's equipment group: same JSON shape on both sides."""
-    stats = sorted([s['key'], s['value']] for s in piece.get('stats') or [] if s['key'] not in DEFENCE)
+def group_key(piece, keys=None):
+    """The item page's equipment group: same JSON shape on both sides. `keys`:
+    the item's key stats from the site (main and secondary stats of its jobs,
+    attack, critical); without them every stat but defence."""
+    stats = sorted([s['key'], s['value']] for s in piece.get('stats') or []
+                   if (s['key'] in keys if keys is not None else s['key'] not in DEFENCE))
     return json.dumps([stats, piece.get('remaining_upgrades'), piece.get('unknown_fields') or 0],
                       separators=(',', ':'))
 
@@ -171,7 +174,7 @@ class Prices:
             return 0, '不计'
         if basis == 'typical':
             if piece is not None:
-                key = group_key(piece)
+                key = group_key(piece, row.get('key_stats'))
                 for group in row.get('groups') or []:
                     if group.get('key') == key and group.get('median'):
                         return group['median'], '同属性成交中位'

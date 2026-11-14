@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ItemLink } from "../components/item-ref";
 import { useQueries } from "@tanstack/react-query";
 import {
   calculateMixedEnhancement,
@@ -373,7 +374,7 @@ export default function Enhancement() {
                 >
                   <span className="enhance-selected">
                     <Slot size={24} url={row.icon_url} />
-                    <a href={"/item/" + row.id}>{name(row)}</a>
+                    <ItemLink id={row.id}>{name(row)}</ItemLink>
                     <b>
                       {number(row.successRate * 100)}% · +{row.gain}
                     </b>

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { ItemLink } from "./item-ref";
 import { useQueries } from "@tanstack/react-query";
 import { getJson, qs, api } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
 import { reminderTokens } from "/web/js/lib/watch-reminders.js?v=20261106-server-caps";
@@ -108,7 +109,7 @@ export function SweepRules({
       {watches.map((watch) => (
         <div className="sweep-row" key={watch.item_id}>
           <div className="sweep-row-main">
-            <b>{name(watch.item_id)}</b>
+            <b><ItemLink id={watch.item_id}>{name(watch.item_id)}</ItemLink></b>
             {watch.groups.map((group, i) => (
               <small key={group.id || i}>
                 {i > 0 && words("或 · ", "or · ")}
@@ -270,7 +271,7 @@ export function RulesTable({
                 <span className="item">
                   <Slot url={row(watch.item_id)?.icon_url} size={24} />
                   <span className="item-text">
-                    <b>{name(watch.item_id)}</b>
+                    <b><ItemLink id={watch.item_id}>{name(watch.item_id)}</ItemLink></b>
                     <small className="cond-inline">{conditions(watch)}</small>
                   </span>
                 </span>
@@ -351,7 +352,7 @@ export function RecentPurchases({
               <span className="item">
                 <Slot url={row(purchase.item_id)?.icon_url} size={24} />
                 <span className="item-text">
-                  <b>{row(purchase.item_id) ? itemName(row(purchase.item_id)) : purchase.item_id}</b>
+                  <b><ItemLink id={purchase.item_id}>{row(purchase.item_id) ? itemName(row(purchase.item_id)) : purchase.item_id}</ItemLink></b>
                   <small className={"sweep-status " + purchase.status} data-purchase-label>
                     {[
                       bought ? purchaseAmount(purchase, words) : purchaseLabel(purchase, words),

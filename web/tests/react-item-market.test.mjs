@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {tierBounds,makeLadder,offerGroups,hasBonus,groupEquipmentVariants} from '../../frontend/src/lib/item-market.ts';
+import {tierBounds,makeLadder,offerGroups,hasBonus,groupEquipmentVariants,keyStats} from '../../frontend/src/lib/item-market.ts';
 test('React price ladder matches the established iron-ore tiers and counts each quote and sale once',()=>{
  const prices=Array.from({length:100},(_,i)=>300+i*3);const tiers=tierBounds(prices);assert(tiers.length>=6&&tiers.length<=10);assert(tiers.some(tier=>tier.lo===400&&tier.hi===449));
  const market={days:[{},{}],listings:[{unit_price:400},{unit_price:449},{unit_price:500}],sale_points:[{day:0,price:410},{day:1,price:500}]};const ladder=makeLadder(market);assert.equal(ladder.tiers.reduce((n,tier)=>n+tier.listings,0),3);assert.equal(ladder.grid.flat().reduce((a,b)=>a+b,0),2);assert.equal(ladder.grid[ladder.index(410)][0],1);assert.equal(ladder.grid[ladder.index(500)][1],1);
@@ -35,8 +35,16 @@ test('equipment groups ignore defence and enhancement counts but retain upgrade 
  assert.equal(groups[0].variant.enhancements,0);assert.equal(groups[0].variant.maxEnhancements,1);
  assert.equal(groups[2].variant.remaining_upgrades,6,'remaining upgrade slots still separate groups');
  assert.equal(Math.min(...groups[0].offers.map(row=>row.unit_price)),50);
- assert.deepEqual(groups[0].variant.stats.find(stat=>stat.key==='weapon_defense'),{key:'weapon_defense',value:10,maxValue:20});
- assert.deepEqual(groups[0].variant.stats.find(stat=>stat.key==='magic_defense'),{key:'magic_defense',value:5,maxValue:9});
- assert.deepEqual(rows,before,'grouped ranges never overwrite the individual captured stats');
+ assert.deepEqual(groups[0].variant.stats,[{key:'dex',value:2}],'a group shows its key stats only, no defence');
+ assert.deepEqual(rows,before,'grouping never overwrites the individual captured stats');
  assert.deepEqual(groupEquipmentVariants([]),[]);
+});
+
+test('key stats follow the jobs that can wear the item, plus attack and critical',()=>{
+ assert.deepEqual([...keyStats(2)].sort(),['critical_damage','critical_rate','int','luk','magic_attack','weapon_attack']);
+ assert.ok(keyStats(9).includes('luk')&&keyStats(9).includes('str')&&!keyStats(9).includes('int'));
+ for(const common of [null,0,-1])assert.ok(['str','dex','int','luk'].every(key=>keyStats(common).includes(key)));
+ // Two robes for magicians: the same INT, only defence and HP differ, one group.
+ const robe=(id,def,hp)=>({variant:{id,stats:[{key:'int',value:3},{key:'weapon_defense',value:def},{key:'hp',value:hp}],remaining_upgrades:7}});
+ assert.equal(groupEquipmentVariants([robe(1,27,5),robe(2,28,4)],keyStats(2)).length,1);
 });

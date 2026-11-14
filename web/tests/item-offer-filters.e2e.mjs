@@ -209,13 +209,15 @@ try {
     assert.equal(await page.locator('[data-offer-view=groups]').getAttribute('aria-checked'),'true');
     assert.equal(await page.locator('[data-equipment-group]').count(),3);
     assert.equal(await page.locator('[data-more=groups]').count(),0,'enhancement counts no longer add another group');
-    const plain=page.locator('[data-equipment-group]').filter({hasText:'10–30'});
+    // Groups show key stats only: defence neither splits nor shows.
+    const plain=page.locator('[data-equipment-group]').filter({hasText:mobile?'力':'STR'});
     assert.equal(await plain.count(),1);assert.equal(await plain.locator('.attr-count').textContent(),mobile?'3 件':'3');
     assert.match(await plain.textContent(),/1万|10K/,'group minimum includes all defence and enhancement counts');
     assert.doesNotMatch((await page.locator('.offer-group-head').allTextContents()).join(' '),/\+\d/,'headers have no plus sign and no enhancement counts');
+    assert.doesNotMatch((await page.locator('.offer-group-head').allTextContents()).join(' '),/物防|魔防|DEF/,'headers show no defence');
     assert.deepEqual(await visibleRows(),['plain-a','plain-b','def-enhanced','dex2-a','dex2-b','dex4'],'each set lists its own offers, cheapest first');
     const plainOffers=page.locator('.offer-group').filter({has:plain}).locator('[data-quote]');
-    assert.deepEqual(await plainOffers.locator('.offer-equipment').allTextContents(),mobile?['物防 10 · 魔防 5','物防 15 · 魔防 9','物防 30 · 魔防 5 · 强化 +1']:['DEF 10 · M.DEF 5','DEF 15 · M.DEF 9','DEF 30 · M.DEF 5 · Enhancements +1'],'rows keep only what varies inside the set');
+    assert.deepEqual(await plainOffers.locator('.offer-equipment').allTextContents(),mobile?['强化 +1']:['Enhancements +1'],'rows add only their enhancements, no defence');
     await page.screenshot({path:path.join(output,`offer-groups-${mobile?'mobile':'desktop'}.png`)});
 
     assert.equal(await page.locator('[data-equipment-stat]').count(),0,'one filter dialog serves the entire page');

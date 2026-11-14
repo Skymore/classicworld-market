@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ItemLink } from "../components/item-ref";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { getJson } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
 import { itemName } from "/web/js/lib/i18n.js";
@@ -9,7 +10,7 @@ import { SiteLink } from "../components/shell";
 import { isEnglish, useItemRows } from "../components/sweep-content";
 import { getAccountJson, useAccountTopics } from "../lib/account-api";
 import { embedded, embeddedHost, embeddedLocal } from "../lib/embed";
-import { mainStat } from "../lib/item-market";
+import { keyStats, mainStat } from "../lib/item-market";
 import { useAccount } from "../lib/query";
 import type { Device, EquipmentPiece, Holdings } from "../lib/sweep-labels";
 import "./selling.css";
@@ -104,26 +105,36 @@ export function salePrices(product: any): Prices {
   };
 }
 
+/** 市场接口的职业名（`jobs`）换回 `req_job_mask`。 */
+const JOB_BITS: Record<string, number> = { 战士: 1, 魔法师: 2, 弓箭手: 4, 飞侠: 8, 海盗: 16 };
+export function jobMaskOf(jobs: unknown): number | null {
+  if (!Array.isArray(jobs) || !jobs.length || !jobs.every((job) => job in JOB_BITS)) return null;
+  return jobs.reduce((mask: number, job: string) => mask | JOB_BITS[job], 0);
+}
+
 /**
- * 一件装备的参考价：同名装备里主属性相同（武器比攻击）的成交；没有主属性的装备比
- * 全部属性。没有可比成交时用同名全部成交并标明属性不同。近 30 天够 3 笔就只用近 30 天。
- * 清单里已不在背包的装备（没有属性）按同名全部成交。
+ * 一件装备的参考价：同名装备里关键属性（可用职业的主副属性、物攻魔攻、暴击）和剩余升级
+ * 次数都相同的成交；防御、HP 等不影响。没有可比成交时用同名全部成交并标明属性不同。
+ * 近 30 天够 3 笔就只用近 30 天。清单里已不在背包的装备（没有属性）按同名全部成交。
  */
-export function gearPrices(piece: EquipmentPiece | undefined, itemId: number, sales: any[] | undefined, now = Date.now() / 1000): Prices {
+export function gearPrices(
+  piece: EquipmentPiece | undefined,
+  itemId: number,
+  sales: any[] | undefined,
+  jobMask: number | null = null,
+  now = Date.now() / 1000,
+): Prices {
   const rows = (sales || []).filter(
     (s) => positive(s.sale_unit_price) && s.equipment?.status === "candidate" && Array.isArray(s.equipment.stats),
   );
   const value = (stats: { key: string; value: number }[], key: string) => stats.find((s) => s.key === key)?.value ?? 0;
-  const main = mainStat(itemId);
+  const main = mainStat(itemId, jobMask);
   const known = Boolean(piece?.decoded);
   const mine = (key: string) => value(piece?.stats || [], key);
-  const keys = (stats: { key: string; value: number }[]) =>
-    stats.filter((s) => s.value > 0).map((s) => `${s.key}=${s.value}`).sort().join(",");
-  const same = !known
-    ? []
-    : main
-      ? rows.filter((s) => value(s.equipment.stats, main) === mine(main))
-      : rows.filter((s) => keys(s.equipment.stats) === keys(piece!.stats));
+  const wanted = keyStats(jobMask);
+  const signature = (equipment: { stats: { key: string; value: number }[]; remaining_upgrades?: number | null }) =>
+    JSON.stringify([wanted.map((key) => value(equipment.stats, key)), equipment.remaining_upgrades ?? null]);
+  const same = !known ? [] : rows.filter((s) => signature(s.equipment) === signature(piece!));
   let pool = same.length ? same : rows;
   const recent = pool.filter((s) => Number(s.time) >= now - 30 * 86400);
   if (recent.length >= 3) pool = recent;
@@ -249,7 +260,9 @@ function useGearSales(ids: number[]) {
       queryFn: async ({ signal }: { signal: AbortSignal }) => (await getJson(`/api/v1/item/${id}`, { signal })).data,
     })),
   });
-  return new Map<number, any[] | undefined>(unique.map((id, i) => [id, (results[i].data as any)?.sales]));
+  return new Map<number, { sales?: any[]; jobs?: string[] }>(
+    unique.map((id, i) => [id, { sales: (results[i].data as any)?.sales, jobs: (results[i].data as any)?.product?.jobs }]),
+  );
 }
 
 export default function Selling() {
@@ -375,7 +388,7 @@ export default function Selling() {
     const isGear = isGearKey(key);
     const piece = isGear ? gear.get(key) : undefined;
     const quantity = isGear ? (piece ? 1 : 0) : (held.get(key) ?? 0);
-    const prices = isGear ? gearPrices(piece, id, gearSales.get(id)) : salePrices(products.get(id));
+    const prices = isGear ? gearPrices(piece, id, gearSales.get(id)?.sales, jobMaskOf(gearSales.get(id)?.jobs ?? rowOf(id)?.jobs)) : salePrices(products.get(id));
     const chosen = line.strat || plan.global;
     // 选中的档位没有数据时，这一行改为等玩家手填。
     const strat: Strategy = chosen !== "manual" && prices[chosen] == null ? "manual" : chosen;
@@ -591,9 +604,13 @@ export default function Selling() {
           {!rows.length && <p className="selling-empty">{words("在背包里点选要卖的物品", "Pick items from your bag")}</p>}
           {rows.map((r) => (
             <div className={"selling-row" + (r.warn ? " bad" : "")} key={r.key} data-selling-row={r.key}>
-              <Slot url={icon(r.id)} size={32} />
+              <ItemLink id={r.id}>
+                <Slot url={icon(r.id)} size={32} />
+              </ItemLink>
               <div className="selling-who">
-                <b>{name(r.id)}</b>
+                <b>
+                  <ItemLink id={r.id}>{name(r.id)}</ItemLink>
+                </b>
                 {r.piece && <small className="selling-stats" data-selling-stats>{summary(r.piece)}</small>}
                 <small>{basisText(r)}</small>
                 <small className={r.belowNpc ? "selling-warn" : ""} data-selling-npc>

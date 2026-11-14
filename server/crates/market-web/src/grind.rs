@@ -313,6 +313,19 @@ pub async fn price_rows(
         .copied()
         .filter(|id| id / 1_000_000 == 1)
         .collect();
+    // Equipment groups by key stats, which follow the jobs that can wear it.
+    let masks: HashMap<i32, Option<i16>> = if equipment.is_empty() {
+        HashMap::new()
+    } else {
+        sqlx::query_as::<_, (i32, Option<i16>)>("SELECT id, req_job_mask FROM items WHERE id = ANY($1)")
+            .bind(&equipment)
+            .fetch_all(db)
+            .await?
+            .into_iter()
+            .collect()
+    };
+    let keys_of = |item: i32| market_core::item::key_stats(masks.get(&item).copied().flatten().map(i64::from));
+    let group_of = |item: i32, stats: &Value| crate::bestiary::queries::equipment_group_json(stats, &keys_of(item));
     let sales: Vec<(i32, Value, f64, f64)> = if equipment.is_empty() {
         vec![]
     } else {
@@ -344,7 +357,7 @@ pub async fn price_rows(
     };
     let mut lowest: HashMap<(i32, String), f64> = HashMap::new();
     for (item, stats, price) in asks {
-        let slot = lowest.entry((item, crate::bestiary::queries::equipment_group_json(&stats))).or_insert(price);
+        let slot = lowest.entry((item, group_of(item, &stats))).or_insert(price);
         *slot = slot.min(price);
     }
     let mut groups: HashMap<i32, BTreeMap<String, Vec<(f64, f64)>>> = HashMap::new();
@@ -352,7 +365,7 @@ pub async fn price_rows(
         groups
             .entry(item)
             .or_default()
-            .entry(crate::bestiary::queries::equipment_group_json(&stats))
+            .entry(group_of(item, &stats))
             .or_default()
             .push((at, price));
     }
@@ -389,7 +402,8 @@ pub async fn price_rows(
         prices.insert(
             id.to_string(),
             json!({"name": zh, "name_en": en, "typical": typical, "npc_shop": shop,
-                   "npc_sell": sell.get(&id), "groups": item_groups}),
+                   "npc_sell": sell.get(&id), "groups": item_groups,
+                   "key_stats": (id / 1_000_000 == 1).then(|| keys_of(id))}),
         );
     }
     let map_rows: Vec<(i32, String, String, bool)> = sqlx::query_as(

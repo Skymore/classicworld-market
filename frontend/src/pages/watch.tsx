@@ -1,4 +1,5 @@
 import { useQueries } from "@tanstack/react-query";
+import { ItemLink, itemPath } from "../components/item-ref";
 import { useLocation, useNavigate } from "react-router-dom";
 import { SiteLink } from "../components/shell";
 import WatchGroups, { sweepable, trackOnly } from "../components/watch-groups";
@@ -549,7 +550,7 @@ export default function Watch() {
                   <article className="well wcard open" data-card={id} key={id}>
                     <div className="wc-head">
                       <Slot url={item.icon_url} size={32} />
-                      <a className="wc-name" href={"/item/" + id}>
+                      <ItemLink className="wc-name" id={id}>
                         <b>{itemName(item)}</b>
                         <small>
                           {[
@@ -560,7 +561,7 @@ export default function Watch() {
                             .filter(Boolean)
                             .join(" · ")}
                         </small>
-                      </a>
+                      </ItemLink>
                       <div className="wc-nums">
                         <span>
                           <small>{t("watch.lowest")}</small>
@@ -736,7 +737,7 @@ export default function Watch() {
                   data-match-group={id}
                   key={id}
                 >
-                  <SiteLink className="wmg-head" href={"/item/" + id}>
+                  <SiteLink className="wmg-head" href={itemPath(id)}>
                     <Slot url={item.icon_url} size={24} />
                     <b>{itemName(item)}</b>
                     <span className="wmg-count">

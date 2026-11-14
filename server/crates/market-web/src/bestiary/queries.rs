@@ -157,16 +157,16 @@ pub struct ItemSelection {
     pub equipment: String,
 }
 
-fn equipment_group_key(variant: &Variant) -> (Vec<(&str, i64)>, Option<i64>, usize) {
+/// An equipment piece's price group: its key stats (`key_stats` of the item's
+/// jobs), remaining upgrades and unknown field count.
+fn equipment_group_key<'a>(
+    variant: &'a Variant,
+    keys: &[&str],
+) -> (Vec<(&'a str, i64)>, Option<i64>, usize) {
     let mut stats: Vec<_> = variant
         .stats
         .iter()
-        .filter(|s| {
-            !matches!(
-                s.key.as_str(),
-                "weapon_defense" | "magic_defense" | "pdd" | "mdd"
-            )
-        })
+        .filter(|s| keys.contains(&s.key.as_str()))
         .map(|s| (s.key.as_str(), s.value))
         .collect();
     stats.sort_unstable();
@@ -209,11 +209,18 @@ pub async fn item_page_selected(
                 .fetch_optional(db)
                 .await?;
         let base = record.as_ref().map(reference_stats).unwrap_or_default();
+        let mask: Option<i16> =
+            sqlx::query_scalar("SELECT req_job_mask FROM items WHERE id=$1")
+                .bind(id)
+                .fetch_optional(db)
+                .await?
+                .flatten();
+        let keys = market_core::item::key_stats(mask.map(i64::from));
         let mut ids: Vec<i64> = variants
             .iter()
             .filter(|variant| {
                 selected_variant.as_ref().is_none_or(|selected| {
-                    equipment_group_key(selected) == equipment_group_key(variant)
+                    equipment_group_key(selected, &keys) == equipment_group_key(variant, &keys)
                 }) && selection.attributes.iter().all(|(key, minimum)| {
                     variant
                         .stats
@@ -703,11 +710,12 @@ impl VariantColumns {
 }
 
 /// The item page's equipment group of a stored variant, as compact JSON
-/// `[[["key",value],...],remaining_upgrades,unknown_fields]` (the grind
-/// tracker builds the same string from a picked-up piece).
-pub fn equipment_group_json(value: &Value) -> String {
+/// `[[["key",value],...],remaining_upgrades,unknown_fields]` over the `keys`
+/// (`key_stats`) only. The grind tracker builds the same string from a
+/// picked-up piece and the `key_stats` the price row sends.
+pub fn equipment_group_json(value: &Value, keys: &[&str]) -> String {
     let variant = parse_variant(0, value);
-    let (stats, upgrades, unknown) = equipment_group_key(&variant);
+    let (stats, upgrades, unknown) = equipment_group_key(&variant, keys);
     serde_json::json!([stats, upgrades, unknown]).to_string()
 }
 

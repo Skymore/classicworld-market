@@ -60,7 +60,8 @@ pub fn item_page(page: &ItemPage, ctx: &Ctx) -> Markup {
                 @if let Some(selected) = &page.selected_variant {
                     div.selected-attributes data-selected-attributes {
                         div.tags {
-                            @for s in selected.stats.iter().filter(|s| !matches!(s.key.as_str(), "weapon_defense" | "magic_defense" | "pdd" | "mdd") && s.value > 0) {
+                            @let keys = market_core::item::key_stats(page.item.req_job_mask.map(i64::from));
+                            @for s in selected.stats.iter().filter(|s| keys.contains(&s.key.as_str()) && s.value > 0) {
                                 span.tagx { (&s.label) " +" (s.value) }
                             }
                             @if let Some(left) = selected.remaining_upgrades { span.tagx { (ctx.t("可升级", "Upgrades left")) " " (left) } }

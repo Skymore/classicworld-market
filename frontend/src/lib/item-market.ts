@@ -12,11 +12,30 @@ export function hasBonus(variant: any, base: [string, number][]) {
   );
 }
 
-// Defence rolls and successful enhancement counts do not split identical stats.
-// Keep the original offers intact; ranges belong only to the grouped cards.
-export function groupEquipmentVariants(rows: any[]) {
-  const defence = (key: string) =>
-    ["weapon_defense", "magic_defense", "pdd", "mdd"].includes(key);
+// The stats that set an equipment piece's price: main and secondary stat of
+// every job that can wear it (all four for common or unknown items), weapon
+// and magic attack (gloves and others take attack scrolls), critical rate and
+// damage. Defence, HP/MP, accuracy, avoid, speed and jump do not split prices.
+// Mirrors key_stats in server/crates/market-core/src/item.rs.
+const JOB_KEY_STATS: [number, string[]][] = [
+  [1, ["str", "dex"]],
+  [2, ["int", "luk"]],
+  [4, ["dex", "str"]],
+  [8, ["luk", "dex"]],
+  [16, ["str", "dex"]],
+];
+export function keyStats(jobMask?: number | null): string[] {
+  const worn = JOB_KEY_STATS.filter(([bit]) => jobMask != null && jobMask > 0 && (jobMask & bit) !== 0).flatMap(
+    ([, stats]) => stats,
+  );
+  return [
+    ...new Set(["weapon_attack", "magic_attack", "critical_rate", "critical_damage", ...(worn.length ? worn : ["str", "dex", "int", "luk"])]),
+  ];
+}
+
+// Offers grouped by key stats, remaining upgrades and unknown fields; the
+// group shows only its key stats. Keep the original offers intact.
+export function groupEquipmentVariants(rows: any[], keys: string[] = keyStats()) {
   const groups = new Map<
     string,
     { key: string; variant: any; offers: any[] }
@@ -25,7 +44,7 @@ export function groupEquipmentVariants(rows: any[]) {
     const variant = row.variant;
     if (!variant) continue;
     const stats = (variant.stats || [])
-      .filter((stat: any) => !defence(stat.key))
+      .filter((stat: any) => keys.includes(stat.key))
       .map((stat: any) => [stat.key, stat.value])
       .sort(([a]: any, [b]: any) => a.localeCompare(b));
     const key = JSON.stringify([
@@ -39,7 +58,7 @@ export function groupEquipmentVariants(rows: any[]) {
         key,
         variant: {
           ...variant,
-          stats: (variant.stats || []).map((stat: any) => ({ ...stat })),
+          stats: (variant.stats || []).filter((stat: any) => keys.includes(stat.key)).map((stat: any) => ({ ...stat })),
         },
         offers: [],
       };
@@ -53,27 +72,6 @@ export function groupEquipmentVariants(rows: any[]) {
     );
     group.variant.enhancements = Math.min(...enhancements);
     group.variant.maxEnhancements = Math.max(...enhancements);
-    for (const key of ["weapon_defense", "magic_defense", "pdd", "mdd"]) {
-      const values = group.offers.flatMap((row) =>
-        (row.variant.stats || [])
-          .filter(
-            (stat: any) => stat.key === key && Number.isFinite(stat.value),
-          )
-          .map((stat: any) => stat.value),
-      );
-      if (!values.length) continue;
-      const stat = group.variant.stats.find((stat: any) => stat.key === key);
-      const source = group.offers
-        .flatMap((row) => row.variant.stats || [])
-        .find((stat: any) => stat.key === key);
-      const range = {
-        ...source,
-        value: Math.min(...values),
-        maxValue: Math.max(...values),
-      };
-      if (stat) Object.assign(stat, range);
-      else group.variant.stats.push(range);
-    }
   }
   return [...groups.values()];
 }

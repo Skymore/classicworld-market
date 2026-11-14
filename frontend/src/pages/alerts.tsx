@@ -6,6 +6,7 @@ import {
   type FormEvent,
 } from "react";
 import { createAlertsStore } from "/web/js/lib/collector-alert-store.js";
+import { ItemLink } from "../components/item-ref";
 import { t, itemName } from "/web/js/lib/i18n.js";
 import { ago, fullTime, meso } from "/web/js/lib/format.js";
 import { api, qs } from "/web/js/lib/api.js?v=20261022-auto-watch-2";
@@ -108,7 +109,7 @@ function Deal({ row, history }: { row: any; history: boolean }) {
     <article className="well dcard" data-deal={row.id}>
       <div className="wc-head">
         <Slot url={item.icon_url} size={32} />
-        <a className="wc-name" href={"/item/" + Number(row.item_id)}>
+        <ItemLink className="wc-name" id={Number(row.item_id)}>
           <b>{itemName(item)}</b>
           <small>
             {[
@@ -120,7 +121,7 @@ function Deal({ row, history }: { row: any; history: boolean }) {
               .filter(Boolean)
               .join(" · ")}
           </small>
-        </a>
+        </ItemLink>
         <span
           className="dc-margin"
           title={t("alerts.after_fee", { pct: pct(row.margin) })}

@@ -1,6 +1,7 @@
 // One grind run in full: used by the client's history detail and the
 // website's run and share pages. Text comes from the host's `t(zh, en)`.
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ItemLink } from "./item-ref";
 import { timelineRates } from "../../desktop/grind";
 import "./grind-run.css";
 
@@ -274,7 +275,7 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
           {profit && (run.mesos || 0) > 0 && <div className="gr-row"><span className="coin" aria-hidden="true" /><span className="t">{t("金币", "Mesos")}</span><span className="v money">{s(run.mesos)}</span></div>}
           <Rows rows={loot} limit={12} render={(row, i) => (
             <div className="gr-row" key={i}><img src={icon(row.item_id)} alt="" loading="lazy" />
-              <span className="t">{row.name || `#${row.item_id}`}</span><small>×{b(row.quantity)}</small>
+              <span className="t"><ItemLink id={row.item_id}>{row.name || `#${row.item_id}`}</ItemLink></span><small>×{b(row.quantity)}</small>
               {profit && "value" in row && row.value != null && <span className="v">{s(row.value)}</span>}</div>
           )} />
           {loot.length > 12 && <p className="gr-more">{t(`还有 ${loot.length - 12} 种`, `${loot.length - 12} more`)}</p>}
@@ -285,7 +286,7 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
             <h3>{t("全队好掉落", "Party finds")}</h3>
             <Rows rows={run.finds} limit={12} render={(row, i) => (
               <div className="gr-row" key={i}><img src={icon(row.item_id)} alt="" loading="lazy" />
-                <span className="t">{row.name || `#${row.item_id}`}</span>
+                <span className="t"><ItemLink id={row.item_id}>{row.name || `#${row.item_id}`}</ItemLink></span>
                 <small>{row.by === "me" ? t("自己", "You") : row.by === "party" ? row.by_name || t("队友", "Party") : ""}</small>
                 {profit && row.value != null && <span className="v">{s(row.value)}</span>}</div>
             )} />
@@ -296,7 +297,7 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
             <h3>{t("消耗", "Used")}<b className="money">{s(-costTotal)}</b></h3>
             <Rows rows={used} limit={12} render={(row, i) => (
               <div className="gr-row" key={i}><img src={icon(row.item_id)} alt="" loading="lazy" />
-                <span className="t">{row.name || `#${row.item_id}`}</span><small>×{b(row.used)}</small>
+                <span className="t"><ItemLink id={row.item_id}>{row.name || `#${row.item_id}`}</ItemLink></span><small>×{b(row.used)}</small>
                 {row.cost != null && <span className="v">{s(-row.cost)}</span>}</div>
             )} />
             {(run.mesos_spent || 0) > 0 && <div className="gr-row"><span className="coin" aria-hidden="true" /><span className="t">{t("技能花费金币", "Mesos spent")}</span><span className="v">{s(-(run.mesos_spent || 0))}</span></div>}

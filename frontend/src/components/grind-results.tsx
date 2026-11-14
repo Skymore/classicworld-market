@@ -2,6 +2,7 @@
 // (`/api/v1/grind/map/{id}`, server `grind::map_summary`). Hidden until a
 // level band has a full segment.
 import { useMemo, useState } from "react";
+import { itemPath } from "./item-ref";
 import { useQuery } from "@tanstack/react-query";
 import { usePreferences, useWords } from "../providers";
 import { mesos } from "../lib/sweep-labels";
@@ -88,7 +89,7 @@ export default function GrindResults({ mapId }: { mapId: number }) {
         <div className="grind-drops-list">
           <div className="sub-h">{words("实测掉落", "Measured drops")}<small>{words(`共 ${number(query.data!.kills)} 只`, `${number(query.data!.kills)} kills`)}</small></div>
           {query.data!.drops.slice(0, 16).map((d) => (
-            <a key={d.item_id} className="drow" href={`/item/${d.item_id}`}>
+            <a key={d.item_id} className="drow" href={itemPath(d.item_id)}>
               <img src={`https://mxdgcw.dvg.cn/dbsource/icon/item/${d.item_id}.png`} alt="" width={24} height={24} loading="lazy" />
               <span className="t"><b>{words(d.name || d.name_en || `#${d.item_id}`, d.name_en || d.name || `#${d.item_id}`)}</b></span>
               <span className="r">{d.per_1000_kills != null ? words(`每千只 ${d.per_1000_kills.toFixed(1)}`, `${d.per_1000_kills.toFixed(1)} / 1k`) : number(d.quantity)}</span>
