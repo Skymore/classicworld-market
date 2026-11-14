@@ -269,7 +269,7 @@ export function RulesTable({
                 data-sweep-rule={watch.item_id}
               >
                 <span className="item">
-                  <Slot url={row(watch.item_id)?.icon_url} size={24} />
+                  <ItemLink id={watch.item_id}><Slot url={row(watch.item_id)?.icon_url} size={24} /></ItemLink>
                   <span className="item-text">
                     <b><ItemLink id={watch.item_id}>{name(watch.item_id)}</ItemLink></b>
                     <small className="cond-inline">{conditions(watch)}</small>
@@ -350,7 +350,7 @@ export function RecentPurchases({
                 {clockTime(purchase.settled_at || purchase.created_at, isEnglish())}
               </span>
               <span className="item">
-                <Slot url={row(purchase.item_id)?.icon_url} size={24} />
+                <ItemLink id={purchase.item_id}><Slot url={row(purchase.item_id)?.icon_url} size={24} /></ItemLink>
                 <span className="item-text">
                   <b><ItemLink id={purchase.item_id}>{row(purchase.item_id) ? itemName(row(purchase.item_id)) : purchase.item_id}</ItemLink></b>
                   <small className={"sweep-status " + purchase.status} data-purchase-label>

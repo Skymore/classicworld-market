@@ -373,7 +373,7 @@ export default function Enhancement() {
                   key={row.id}
                 >
                   <span className="enhance-selected">
-                    <Slot size={24} url={row.icon_url} />
+                    <ItemLink id={row.id}><Slot size={24} url={row.icon_url} /></ItemLink>
                     <ItemLink id={row.id}>{name(row)}</ItemLink>
                     <b>
                       {number(row.successRate * 100)}% · +{row.gain}

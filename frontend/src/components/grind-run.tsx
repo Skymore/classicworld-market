@@ -1,8 +1,9 @@
 // One grind run in full: used by the client's history detail and the
 // website's run and share pages. Text comes from the host's `t(zh, en)`.
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ItemLink } from "./item-ref";
+import { EntityLink, EntityRow } from "./entity-ref";
 import { timelineRates } from "../../desktop/grind";
+import { mobIcon, skillIcon } from "../../desktop/skill-icons";
 import "./grind-run.css";
 
 export type Words = (zh: string, en: string) => string;
@@ -48,7 +49,6 @@ export interface GrindRun {
 }
 export interface Comparison { level_from: number; level_to: number; job: number | null; runs: number; exp_better_than: number; exp_per_hour_median: number | null }
 
-const icon = (id: number) => `https://mxdgcw.dvg.cn/dbsource/icon/item/${id}.png`;
 
 /** 1.2万 / 3.4亿 (zh, ko) or 12K / 3.4M (en). */
 export function big(value: number | null | undefined, english = false) {
@@ -226,7 +226,8 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
   const levels = run.level_start && run.level && run.level_start !== run.level ? `${run.level_start}→${run.level}` : String(run.level ?? run.character?.level ?? "—");
   // Biggest amounts first in both lists (the data keeps loot newest first for the overlay).
   const loot = [...(run.loot?.length ? run.loot : run.drops || [])].sort((a, b) => ((b as { value?: number }).value ?? 0) - ((a as { value?: number }).value ?? 0));
-  const used = [...(run.consumables || [])].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0) || b.used - a.used);
+  // A potion counted with no use (bought or moved back) is not a cost.
+  const used = (run.consumables || []).filter((row) => row.used > 0).sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0) || b.used - a.used);
   const lootTotal = (run.mesos || 0) + (run.item_value || 0);
   const costTotal = (run.consume_cost || 0) + (run.mesos_spent || 0);
   const segments = run.segments || [];
@@ -240,7 +241,7 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
     <article className="gr-run" data-grind-run>
       <header className="gr-head">
         <div>
-          <h2>{run.map_name || (run.map_id ? t(`地图 ${run.map_id}`, `Map ${run.map_id}`) : t("刷图", "Grind"))}</h2>
+          <h2>{run.map_id ? <EntityLink kind="map" id={run.map_id}>{run.map_name || t(`地图 ${run.map_id}`, `Map ${run.map_id}`)}</EntityLink> : run.map_name || t("刷图", "Grind")}</h2>
           <p>{name} · {run.job_name || "—"} · Lv.{levels} · {when(run.started_at)}{run.ended_at ? `–${when(run.ended_at).slice(-5)}` : ""}</p>
         </div>
         {actions && <div className="gr-actions">{actions}</div>}
@@ -262,21 +263,23 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
       <RunChart run={run} t={t} english={english} />
       {segments.length > 1 && (
         <div className="gr-segments" aria-label={t("分段", "Segments")}>
-          {segments.map((seg, i) => (
-            <span key={i} style={{ flex: seg.active_seconds / segmentTotal }} title={`${seg.map_name || seg.map_id} · ${clock(seg.active_seconds)}`}>
-              {seg.active_seconds / segmentTotal > 0.12 ? seg.map_name || seg.map_id : ""}
-            </span>
-          ))}
+          {segments.map((seg, i) => {
+            const label = seg.map_name || (seg.map_id === run.map_id && run.map_name) || t("其他地图", "Another map");
+            return (
+              <EntityLink key={i} kind="map" id={seg.map_id} className="gr-seg" style={{ flex: seg.active_seconds / segmentTotal }} title={`${label} · ${clock(seg.active_seconds)}`}>
+                {seg.active_seconds / segmentTotal > 0.12 ? label : ""}
+              </EntityLink>
+            );
+          })}
         </div>
       )}
       <div className="gr-columns">
         <section className="gr-well">
           <h3>{t("战利品", "Loot")}{profit && <b className="money">{s(lootTotal)}</b>}</h3>
-          {profit && (run.mesos || 0) > 0 && <div className="gr-row"><span className="coin" aria-hidden="true" /><span className="t">{t("金币", "Mesos")}</span><span className="v money">{s(run.mesos)}</span></div>}
+          {profit && (run.mesos || 0) > 0 && <div className="drow"><span className="eicon"><span className="coin" aria-hidden="true" /></span><span className="t"><b>{t("金币", "Mesos")}</b></span><span className="r money">{s(run.mesos)}</span></div>}
           <Rows rows={loot} limit={12} render={(row, i) => (
-            <div className="gr-row" key={i}><img src={icon(row.item_id)} alt="" loading="lazy" />
-              <span className="t"><ItemLink id={row.item_id}>{row.name || `#${row.item_id}`}</ItemLink></span><small>×{b(row.quantity)}</small>
-              {profit && "value" in row && row.value != null && <span className="v">{s(row.value)}</span>}</div>
+            <EntityRow key={i} kind="item" id={row.item_id} name={row.name} note={`×${b(row.quantity)}`}
+              value={profit && "value" in row && row.value ? s(row.value) : null} />
           )} />
           {loot.length > 12 && <p className="gr-more">{t(`还有 ${loot.length - 12} 种`, `${loot.length - 12} more`)}</p>}
           {!loot.length && <p className="gr-more">{t("没有拾取。", "Nothing picked up.")}</p>}
@@ -285,10 +288,9 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
           <section className="gr-well">
             <h3>{t("全队好掉落", "Party finds")}</h3>
             <Rows rows={run.finds} limit={12} render={(row, i) => (
-              <div className="gr-row" key={i}><img src={icon(row.item_id)} alt="" loading="lazy" />
-                <span className="t"><ItemLink id={row.item_id}>{row.name || `#${row.item_id}`}</ItemLink></span>
-                <small>{row.by === "me" ? t("自己", "You") : row.by === "party" ? row.by_name || t("队友", "Party") : ""}</small>
-                {profit && row.value != null && <span className="v">{s(row.value)}</span>}</div>
+              <EntityRow key={i} kind="item" id={row.item_id} name={row.name}
+                note={row.by === "me" ? t("自己", "You") : row.by === "party" ? row.by_name || t("队友", "Party") : null}
+                value={profit && row.value ? s(row.value) : null} />
             )} />
           </section>
         )}
@@ -296,27 +298,28 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
           <section className="gr-well">
             <h3>{t("消耗", "Used")}<b className="money">{s(-costTotal)}</b></h3>
             <Rows rows={used} limit={12} render={(row, i) => (
-              <div className="gr-row" key={i}><img src={icon(row.item_id)} alt="" loading="lazy" />
-                <span className="t"><ItemLink id={row.item_id}>{row.name || `#${row.item_id}`}</ItemLink></span><small>×{b(row.used)}</small>
-                {row.cost != null && <span className="v">{s(-row.cost)}</span>}</div>
+              <EntityRow key={i} kind="item" id={row.item_id} name={row.name} note={`×${b(row.used)}`}
+                value={row.cost ? s(-row.cost) : null} />
             )} />
-            {(run.mesos_spent || 0) > 0 && <div className="gr-row"><span className="coin" aria-hidden="true" /><span className="t">{t("技能花费金币", "Mesos spent")}</span><span className="v">{s(-(run.mesos_spent || 0))}</span></div>}
-            {!run.consumables?.length && !run.mesos_spent && <p className="gr-more">{t("没有消耗。", "Nothing used.")}</p>}
+            {(run.mesos_spent || 0) > 0 && <div className="drow"><span className="eicon"><span className="coin" aria-hidden="true" /></span><span className="t"><b>{t("技能花费金币", "Mesos spent")}</b></span><span className="r">{s(-(run.mesos_spent || 0))}</span></div>}
+            {!used.length && !run.mesos_spent && <p className="gr-more">{t("没有消耗。", "Nothing used.")}</p>}
           </section>
         )}
         <section className="gr-well">
           <h3>{t("击杀", "Kills")}<b>{b(run.kills)}</b></h3>
           <Rows rows={run.mobs || []} limit={8} render={(mob, i) => {
             const n = perKill(mob);
-            return <div className="gr-row" key={i}><span className="t">{mob.name}</span>
-              {n != null && <small>{t(`平均 ${n.toFixed(1)} 下`, `${n.toFixed(1)} hits`)}</small>}<span className="v">{b(mob.kills)}</span></div>;
+            return <EntityRow key={i} kind="mob" id={mob.mob_id} name={mob.name} icon={mobIcon(mob.mob_id)}
+              note={n != null ? t(`平均 ${n.toFixed(1)} 下`, `${n.toFixed(1)} hits`) : null} value={b(mob.kills)} />;
           }} />
           {(run.attacks?.length || run.casts?.length) ? <h3 className="sub">{t("技能", "Skills")}<b>{b(run.attack_count)}</b></h3> : null}
           <Rows rows={run.attacks || []} limit={6} render={(row, i) => (
-            <div className="gr-row" key={"a" + i}><span className="t">{row.skill ? row.name : t("普通攻击", "Basic attack")}</span>{row.follow_up && <small title={t("命中后自动追加，不计入攻击次数", "Triggered after a hit; not counted as an attack")}>{t("追加", "follow-up")}</small>}<span className="v">{b(row.count)}</span></div>
+            <EntityRow key={"a" + i} kind="skill" id={row.skill} name={row.skill ? row.name : t("普通攻击", "Basic attack")} icon={row.skill ? skillIcon(row.skill) : null}
+              note={row.follow_up ? t("追加", "follow-up") : null} value={b(row.count)}
+              title={row.follow_up ? t("命中后自动追加，不计入攻击次数", "Triggered after a hit; not counted as an attack") : undefined} />
           )} />
           <Rows rows={run.casts || []} limit={6} render={(row, i) => (
-            <div className="gr-row" key={"c" + i}><span className="t">{row.name}</span><small>{t("施放", "cast")}</small><span className="v">{b(row.count)}</span></div>
+            <EntityRow key={"c" + i} kind="skill" id={row.skill} name={row.name} icon={skillIcon(row.skill)} note={t("施放", "cast")} value={b(row.count)} />
           )} />
           {(run.hp_drops || run.deaths) ? (
             <p className="gr-more">{t(`受伤 ${b(run.hp_drops)} 次 · ${b(run.hp_lost)} HP`, `Hit ${b(run.hp_drops)}× · ${b(run.hp_lost)} HP`)}{run.deaths ? t(` · 死亡 ${run.deaths}`, ` · ${run.deaths} deaths`) : ""}</p>

@@ -549,7 +549,7 @@ export default function Watch() {
                 return (
                   <article className="well wcard open" data-card={id} key={id}>
                     <div className="wc-head">
-                      <Slot url={item.icon_url} size={32} />
+                      <ItemLink id={id}><Slot url={item.icon_url} size={32} /></ItemLink>
                       <ItemLink className="wc-name" id={id}>
                         <b>{itemName(item)}</b>
                         <small>

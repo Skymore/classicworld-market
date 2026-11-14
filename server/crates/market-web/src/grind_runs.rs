@@ -292,6 +292,56 @@ pub fn public_view(mut run: Value, show_name: bool, show_profit: bool) -> Value 
     run
 }
 
+/// Fills `map_name` on runs and their segments that the client sent without
+/// one (its own name table is short), so no page has to show a bare map id.
+pub async fn name_maps(db: &PgPool, runs: &mut [Value]) -> sqlx::Result<()> {
+    fn missing(row: &Value) -> Option<i32> {
+        let named = row
+            .get("map_name")
+            .and_then(Value::as_str)
+            .is_some_and(|n| !n.trim().is_empty());
+        (!named)
+            .then(|| row.get("map_id").and_then(Value::as_i64))
+            .flatten()
+            .and_then(|id| i32::try_from(id).ok())
+    }
+    let mut ids: Vec<i32> = Vec::new();
+    for run in runs.iter() {
+        ids.extend(missing(run));
+        if let Some(Value::Array(segments)) = run.get("segments") {
+            ids.extend(segments.iter().filter_map(missing));
+        }
+    }
+    ids.sort_unstable();
+    ids.dedup();
+    if ids.is_empty() {
+        return Ok(());
+    }
+    let names: std::collections::HashMap<i32, String> = sqlx::query_as::<_, (i32, String)>(
+        "SELECT id, COALESCE(NULLIF(name_zh, ''), name_en) FROM maps
+         WHERE id = ANY($1) AND COALESCE(NULLIF(name_zh, ''), name_en) IS NOT NULL",
+    )
+    .bind(&ids)
+    .fetch_all(db)
+    .await?
+    .into_iter()
+    .collect();
+    let fill = |row: &mut Value| {
+        if let Some(name) = missing(row).and_then(|id| names.get(&id)) {
+            if let Some(object) = row.as_object_mut() {
+                object.insert("map_name".into(), json!(name));
+            }
+        }
+    };
+    for run in runs.iter_mut() {
+        fill(run);
+        if let Some(Value::Array(segments)) = run.get_mut("segments") {
+            segments.iter_mut().for_each(fill);
+        }
+    }
+    Ok(())
+}
+
 /// How this run's EXP/h compares with uploads from the same map and level
 /// band (and job when there are enough). None below five comparable runs.
 pub async fn comparison(db: &PgPool, run: &Value, now: f64) -> sqlx::Result<Option<Value>> {
@@ -347,9 +397,10 @@ pub async fn load_share(db: &PgPool, code: &str, now: f64) -> sqlx::Result<Optio
     .bind(code)
     .fetch_optional(db)
     .await?;
-    let Some((summary, show_name, show_profit, views, created)) = row else {
+    let Some((mut summary, show_name, show_profit, views, created)) = row else {
         return Ok(None);
     };
+    name_maps(db, std::slice::from_mut(&mut summary)).await?;
     let compare = comparison(db, &summary, now).await?;
     Ok(Some(
         json!({"code": code, "run": public_view(summary, show_name, show_profit), "show_name": show_name,
@@ -379,7 +430,12 @@ pub const MAX_LIVE: usize = 4;
 const LIVE_SECONDS: i32 = 90;
 
 /// Replaces a client's open runs; an empty list clears them. Returns how many were kept.
-pub async fn store_live(db: &PgPool, collector: i64, runs: &[Value], now: f64) -> sqlx::Result<usize> {
+pub async fn store_live(
+    db: &PgPool,
+    collector: i64,
+    runs: &[Value],
+    now: f64,
+) -> sqlx::Result<usize> {
     let kept: Vec<Value> = runs
         .iter()
         .filter(|run| run.is_object() && validate(run, now).is_some())
@@ -438,7 +494,11 @@ fn live_code() -> String {
 }
 
 /// The watch code of one of the account's open runs (made once per run); None when it is not open.
-pub async fn live_share_code(db: &PgPool, account: i64, run_id: &str) -> sqlx::Result<Option<String>> {
+pub async fn live_share_code(
+    db: &PgPool,
+    account: i64,
+    run_id: &str,
+) -> sqlx::Result<Option<String>> {
     let collector: Option<i64> = sqlx::query_scalar(
         "SELECT l.collector_id FROM grind_live l JOIN collectors c ON c.id = l.collector_id
          WHERE c.account_id = $1 AND l.updated_at > now() - make_interval(secs => $3)
@@ -513,7 +573,8 @@ async fn watch(
         return response;
     }
     match watch_run(&state.db, &code).await {
-        Ok(Some((run, at))) => {
+        Ok(Some((mut run, at))) => {
+            let _ = name_maps(&state.db, std::slice::from_mut(&mut run)).await;
             let mut response = Json(json!({"run": run, "live_at": at})).into_response();
             response
                 .headers_mut()
@@ -623,7 +684,11 @@ async fn admin_overview(State(state): State<AppState>, headers: HeaderMap) -> Re
 }
 
 /// Admins: one run of any account.
-async fn admin_run(State(state): State<AppState>, headers: HeaderMap, Path(id): Path<String>) -> Response {
+async fn admin_run(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
     if let Err(response) = admin(&state, &headers).await {
         return response;
     }
@@ -638,7 +703,8 @@ async fn admin_run(State(state): State<AppState>, headers: HeaderMap, Path(id): 
     .fetch_optional(&state.db)
     .await;
     match row {
-        Ok(Some((run, collector, nickname))) => {
+        Ok(Some((mut run, collector, nickname))) => {
+            let _ = name_maps(&state.db, std::slice::from_mut(&mut run)).await;
             let compare = comparison(&state.db, &run, unix_now()).await.ok().flatten();
             Json(json!({"row": id, "run": run, "comparison": compare,
                         "owner": {"collector": collector, "nickname": nickname}}))
@@ -669,17 +735,18 @@ pub async fn runs_of(db: &PgPool, account: i64, limit: i64) -> sqlx::Result<Valu
     .bind(limit)
     .fetch_all(db)
     .await?;
-    Ok(Value::Array(
-        rows.into_iter()
-            .map(|(id, mut run, code)| {
-                if let Some(object) = run.as_object_mut() {
-                    object.insert("row".into(), json!(id));
-                    object.insert("share_code".into(), json!(code));
-                }
-                run
-            })
-            .collect(),
-    ))
+    let mut runs: Vec<Value> = rows
+        .into_iter()
+        .map(|(id, mut run, code)| {
+            if let Some(object) = run.as_object_mut() {
+                object.insert("row".into(), json!(id));
+                object.insert("share_code".into(), json!(code));
+            }
+            run
+        })
+        .collect();
+    name_maps(db, &mut runs).await?;
+    Ok(Value::Array(runs))
 }
 
 async fn my_runs(State(state): State<AppState>, headers: HeaderMap) -> Response {
@@ -714,7 +781,8 @@ async fn my_run(
     .fetch_optional(&state.db)
     .await;
     match row {
-        Ok(Some((run, code))) => {
+        Ok(Some((mut run, code))) => {
+            let _ = name_maps(&state.db, std::slice::from_mut(&mut run)).await;
             let compare = comparison(&state.db, &run, unix_now()).await.ok().flatten();
             Json(json!({"row": id, "run": run, "share_code": code, "comparison": compare}))
                 .into_response()

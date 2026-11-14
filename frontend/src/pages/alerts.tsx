@@ -108,7 +108,7 @@ function Deal({ row, history }: { row: any; history: boolean }) {
   return (
     <article className="well dcard" data-deal={row.id}>
       <div className="wc-head">
-        <Slot url={item.icon_url} size={32} />
+        <ItemLink id={Number(row.item_id)}><Slot url={item.icon_url} size={32} /></ItemLink>
         <ItemLink className="wc-name" id={Number(row.item_id)}>
           <b>{itemName(item)}</b>
           <small>

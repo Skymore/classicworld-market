@@ -22,19 +22,9 @@ html[data-device=tablet] .dwrap{padding:12px}
 .sub-h.ruled{border-top:1px solid var(--rule)}
 .chips a.chip{display:inline-flex;align-items:center}
 
-/* ---------- one row for every bestiary list ---------- */
-.drow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;min-height:52px;padding:4px 10px;border-top:1px solid var(--rule)}
-.well-h+.drow,.sub-h+.drow{border-top:0}
-a.drow:hover{background:var(--bar-soft)}
-.drow .t{min-width:0;overflow-wrap:anywhere}
-.drow .t b{font-weight:700}
-.drow .s{display:block;font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.drow .r{font-size:13px;font-weight:700;color:var(--ink-2);white-space:nowrap}
+/* The list row (.drow) is in base.css: the same row on every page. */
 /* Server-drawn mob pages list ten drops first; the browser page expands the rest. */
 .dgrid .well:not(.all)>.extra{display:none}
-.drow .mobpic{width:44px;height:44px;background:var(--sheet-lo);border:1px solid var(--rule);border-radius:2px}
-.drow .mobpic img{max-width:40px;max-height:40px}
-.glyph{display:grid;place-items:center;width:32px;height:32px;margin:0 6px;color:var(--bar);background:var(--sheet-lo);border:1px solid var(--rule);border-radius:2px;font-size:13px;font-weight:800}
 
 /* ---------- mob and map pages ---------- */
 .dex .ihead.solo{grid-template-columns:minmax(0,1fr)}
@@ -157,7 +147,8 @@ html[data-device=desktop] .route-form{grid-template-columns:minmax(0,1fr) minmax
 .catalogue-grid .s{white-space:normal;overflow:visible;font-size:11px;line-height:1.35}
 .catalogue-grid .s .sub{display:block}
 .catalogue-grid .lv{display:inline-block;font-size:11px;white-space:nowrap}
-.catalogue-grid .glyph{margin:0}
+.catalogue-grid .glyph{width:32px;height:32px;margin:0}
+.catalogue-grid .mobpic{width:44px;height:44px}.catalogue-grid .mobpic img{max-width:40px;max-height:40px}
 @media(max-width:1050px){.catalogue-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.catalogue-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:8px}.catalogue-grid>.drow{gap:6px;padding:7px;min-height:76px}.catalogue-grid .mobpic{width:32px;height:32px}.catalogue-grid .mobpic img{max-width:30px;max-height:30px}}
 @media(max-width:359px){.catalogue-grid{grid-template-columns:minmax(0,1fr)}}
