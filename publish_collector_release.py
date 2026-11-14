@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.57：掉落装备按关键属性估价：可用职业的主副属性、物攻魔攻、暴击和剩余升级次数相同就算同属性，防御、HP 不同不再拆开（和网站商品页的分组一致）。\n'
         'v0.7.56：悬浮窗大字改为平均速度、实时速度放在右上角；经验和技能之间列出地上的好东西：掉下多少秒、谁捡走了、没人捡消失了。\n'
         'v0.7.55：掉落语音里的物品名改用和语音包同一个声音，内置 1227 个常见掉落物品的中文名（英文和韩文界面暂时仍用 Windows 语音）。\n'
         'v0.7.54：掉落语音在“有好东西掉了”后面接着读出掉的是什么（不读价格）。\n'
