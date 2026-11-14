@@ -11,6 +11,8 @@ import { Zoomable } from "./zoom";
 type Point = { x: number; y: number };
 
 export const headUrl = (mobId: number) => `/web/images/mobs/head/${mobId}.png`;
+// The picture on a spawn point: the standing sprite at game size, or the head.
+const spawnUrl = (s: any) => (s.stand ? `/web/images/mobs/stand/${s.mob_id}.png` : headUrl(s.mob_id));
 
 const fmt = (v: number) => String(Math.round(v * 10) / 10);
 
@@ -175,19 +177,18 @@ export function MapSvg({
                         className="mv-shadow"
                         cx={s.x}
                         cy={s.y}
-                        rx={fmt(u * 0.36)}
-                        ry={fmt(u * 0.12)}
+                        rx={fmt(s.w * 0.38)}
+                        ry={fmt(s.w * 0.12)}
                       />
                       {s.mob_time > 0 && (
-                        <circle className="mv-timed" cx={s.x} cy={fmt(s.y - u * 0.5)} r={fmt(u * 0.62)} />
+                        <circle
+                          className="mv-timed"
+                          cx={s.x}
+                          cy={fmt(s.y - s.h * 0.5)}
+                          r={fmt(Math.max(s.w, s.h) * 0.62)}
+                        />
                       )}
-                      <image
-                        href={headUrl(s.mob_id)}
-                        x={fmt(s.x - u / 2)}
-                        y={fmt(s.y - u)}
-                        width={u}
-                        height={u}
-                      />
+                      <image href={spawnUrl(s)} x={fmt(s.x - s.w / 2)} y={s.y - s.h} width={s.w} height={s.h} />
                     </>,
                     {
                       className: "mv-mob" + (focus === s.mob_id ? " on" : ""),

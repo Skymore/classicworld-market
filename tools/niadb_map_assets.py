@@ -18,7 +18,14 @@ that stopped resumes. Two seconds between requests.
 
 `heads` turns each sprite into web/images/mobs/head/<id>.png: the first
 frame, transparent borders trimmed, the top of tall mobs kept, fitted into
-48x48. The map view shows them at 24 px on the spawn points.
+48x48. The map view's monster list shows them.
+
+`stands` turns each sprite into web/images/mobs/stand/<id>.png: the first
+frame with transparent borders trimmed, at the game's own size, and writes
+each one's width and height to
+server/crates/market-web/src/bestiary/mob-stands.json. The map view stands
+these on the spawn points at world scale, so a snail stays small and a stone
+golem large.
 
 `worldmap` saves NiaDB's world map: /_data/worldmap-spots.json (each
 region's spots, from the client's WorldMap.wz: position, marker type, main
@@ -84,6 +91,8 @@ SITE = "https://meowdb.com"
 # Cloudflare in front of the site rejects urllib's default agent.
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36"
 HEAD_SIZE = 48
+STANDS = ROOT / "web" / "images" / "mobs" / "stand"
+STAND_SIZES = ROOT / "server" / "crates" / "market-web" / "src" / "bestiary" / "mob-stands.json"
 WORLDMAP = ROOT / "web" / "images" / "worldmap"
 # Region pictures and their sizes, as NiaDB's world map page lists them.
 REGION_IMAGES = {
@@ -210,6 +219,30 @@ def heads():
         "mobs": made,
     })
     print(f"{len(made)} heads in {HEADS}")
+
+
+def stands():
+    """First frame, trimmed, at its own size; sizes for the server."""
+    from PIL import Image
+
+    STANDS.mkdir(parents=True, exist_ok=True)
+    sources = read_json(SPRITES / "sources.json")
+    sizes = {}
+    for mob_id in sources["mobs"]:
+        with Image.open(SPRITES / f"{mob_id}.png") as image:
+            image.seek(0)
+            frame = image.convert("RGBA")
+            box = frame.getchannel("A").point(lambda a: 255 if a > 16 else 0).getbbox()
+            if box:
+                frame = frame.crop(box)
+            frame.save(STANDS / f"{mob_id}.png", optimize=True)
+            sizes[str(mob_id)] = [frame.width, frame.height]
+    write_json(STAND_SIZES, {
+        "note": "Made by tools/niadb_map_assets.py stands: each monster's standing sprite "
+                "(web/images/mobs/stand/<id>.png) in game pixels, [width, height].",
+        "sizes": sizes,
+    })
+    print(f"{len(sizes)} standing sprites in {STANDS}")
 
 
 def near_lossless_webp(body, level):
@@ -539,6 +572,7 @@ def main():
     f = sub.add_parser("fetch", help="download minimaps and monster sprites")
     f.add_argument("--pause", type=float, default=2.0, help="seconds between requests")
     sub.add_parser("heads", help="make the 48 px head icons from the sprites")
+    sub.add_parser("stands", help="make the standing sprites at game size and their size table")
     w = sub.add_parser("worldmap", help="download the world map data and pictures")
     w.add_argument("--pause", type=float, default=2.0, help="seconds between requests")
     c = sub.add_parser("scenes", help="download and scale the rendered map scenes")
@@ -563,6 +597,8 @@ def main():
         fetch(args.pause)
     elif args.command == "worldmap":
         worldmap(args.pause)
+    elif args.command == "stands":
+        stands()
     else:
         heads()
 

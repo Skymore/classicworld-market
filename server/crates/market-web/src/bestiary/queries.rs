@@ -1907,12 +1907,7 @@ pub async fn map_view(db: &PgPool, map_id: i32, layers: Layers) -> sqlx::Result<
         .await?;
         for (mob_id, x, y, mob_time) in rows {
             if let Some(p) = place(x, y) {
-                spawns.push(SpawnPoint {
-                    mob_id,
-                    x: p.x,
-                    y: p.y,
-                    mob_time,
-                });
+                spawns.push(SpawnPoint::new(mob_id, p.x, p.y, mob_time, icon));
             }
         }
     }

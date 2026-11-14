@@ -1,5 +1,5 @@
-//! The map view: the client minimap as an SVG with each monster's head on
-//! its spawn points, portals that link to where they lead, and NPCs.
+//! The map view: the client minimap as an SVG with each monster standing on
+//! its spawn points at game size, portals that link to where they lead, and NPCs.
 //! Positions and sizes are SVG attributes in the minimap's own units, so the
 //! page still needs no inline styles. `frontend/src/pages/mapview.tsx` draws
 //! the same picture and adds the toggles; keep the two in step.
@@ -8,11 +8,20 @@ use maud::{html, Markup};
 
 use super::shell::Ctx;
 use crate::bestiary::format::Lang;
-use crate::bestiary::model::{MapMob, MapView, Point, PortalPoint, SceneImage};
+use crate::bestiary::model::{MapMob, MapView, Point, PortalPoint, SceneImage, SpawnPoint};
 
 /// A mob's head icon, made by `tools/niadb_map_assets.py heads`.
 pub(crate) fn head_url(mob_id: i32) -> String {
     format!("/web/images/mobs/head/{mob_id}.png")
+}
+
+/// The picture on a spawn point: the standing sprite (`stands`), or the head.
+fn spawn_url(s: &SpawnPoint) -> String {
+    if s.stand {
+        format!("/web/images/mobs/stand/{}.png", s.mob_id)
+    } else {
+        head_url(s.mob_id)
+    }
 }
 
 /// Wide maps keep a readable size on phones and scroll sideways instead.
@@ -127,12 +136,13 @@ pub(crate) fn map_svg(ctx: &Ctx, view: &MapView, title: &str, marks: &Marks) -> 
                         };
                         @let body = html! {
                             title { (tip) }
-                            ellipse.mv-shadow cx=(s.x) cy=(s.y) rx=(fmt(u * 0.36)) ry=(fmt(u * 0.12)) {}
+                            @let (w, h) = (f64::from(s.w), f64::from(s.h));
+                            ellipse.mv-shadow cx=(s.x) cy=(s.y) rx=(fmt(w * 0.38)) ry=(fmt(w * 0.12)) {}
                             @if s.mob_time > 0 {
-                                circle.mv-timed cx=(s.x) cy=(fmt(f64::from(s.y) - u * 0.5)) r=(fmt(u * 0.62)) {}
+                                circle.mv-timed cx=(s.x) cy=(fmt(f64::from(s.y) - h * 0.5)) r=(fmt(w.max(h) * 0.62)) {}
                             }
-                            image href=(head_url(s.mob_id)) x=(fmt(f64::from(s.x) - u / 2.0)) y=(fmt(f64::from(s.y) - u))
-                                width=(view.icon) height=(view.icon) {}
+                            image href=(spawn_url(s)) x=(fmt(f64::from(s.x) - w / 2.0)) y=(s.y - s.h)
+                                width=(s.w) height=(s.h) {}
                         };
                         @if marks.links {
                             a.mv-mob href=(ctx.href(&format!("/mob/{}", s.mob_id))) data-mob=(s.mob_id) { (body) }
@@ -269,12 +279,7 @@ mod tests {
             icon: 107,
             image_url: Some("/web/images/minimaps/1000.png".into()),
             scene: None,
-            spawns: vec![SpawnPoint {
-                mob_id: 4,
-                x: 2721,
-                y: 1350,
-                mob_time: 0,
-            }],
+            spawns: vec![SpawnPoint::new(4, 2721, 1350, 0, 107)],
             portals: vec![PortalPoint {
                 x: 88,
                 y: 1681,
@@ -318,9 +323,13 @@ mod tests {
         )
         .into_string();
         assert!(html.contains(r#"viewBox="0 0 3928 2050""#), "{html}");
-        // The head stands on the spawn point: bottom edge at y, centred on x.
+        // The monster stands on the spawn point at game size (36 x 36 game
+        // pixels), enlarged with every other monster on this big map:
+        // bottom edge at y, centred on x.
         assert!(
-            html.contains(r#"x="2667.5" y="1243" width="107" height="107""#),
+            html.contains(
+                r#"href="/web/images/mobs/stand/4.png" x="2695.5" y="1299" width="51" height="51""#
+            ),
             "{html}"
         );
         assert!(html.contains("<title>蘑菇仔 Lv.3</title>"));

@@ -690,12 +690,7 @@ fn small_view() -> MapView {
         icon: 27,
         image_url: Some("/web/images/minimaps/10001010.png".into()),
         scene: None,
-        spawns: vec![SpawnPoint {
-            mob_id: 2,
-            x: 300,
-            y: 400,
-            mob_time: 0,
-        }],
+        spawns: vec![SpawnPoint::new(2, 300, 400, 0, 27)],
         portals: vec![PortalPoint {
             x: 950,
             y: 420,
@@ -762,8 +757,8 @@ fn map_page_draws_the_view_route_strip_and_quests() {
     let html = pages::map_page(&page, &zh()).into_string();
     assert!(html.contains(r#"<figure class="mapvis">"#));
     assert!(
-        html.contains(r#"href="/web/images/mobs/head/2.png""#),
-        "the head on its spawn point"
+        html.contains(r#"href="/web/images/mobs/stand/2.png""#),
+        "the monster on its spawn point"
     );
     assert!(html.contains("<title>传送口 → 射手村</title>"));
     assert!(

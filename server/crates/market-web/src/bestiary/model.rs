@@ -477,6 +477,58 @@ pub struct SpawnPoint {
     /// Seconds before it returns when the map sets a timer (bosses); 0 for
     /// the normal wave respawn.
     pub mob_time: i32,
+    /// The picture's size in box units, standing on (`x`, `y`).
+    pub w: i32,
+    pub h: i32,
+    /// Whether the picture is the standing sprite (`/web/images/mobs/stand/`)
+    /// rather than the head icon, for monsters without one.
+    pub stand: bool,
+}
+
+/// Standing sprite sizes in game pixels, from `tools/niadb_map_assets.py stands`.
+static STAND_SIZES: std::sync::LazyLock<std::collections::HashMap<i32, (i32, i32)>> =
+    std::sync::LazyLock::new(|| {
+        #[derive(serde::Deserialize)]
+        struct Table {
+            sizes: std::collections::HashMap<String, (i32, i32)>,
+        }
+        let table: Table = serde_json::from_str(include_str!("mob-stands.json"))
+            .expect("mob-stands.json is valid");
+        table
+            .sizes
+            .into_iter()
+            .filter_map(|(id, size)| Some((id.parse().ok()?, size)))
+            .collect()
+    });
+
+/// Box units per game pixel at which a mid-sized monster (about 75 game
+/// pixels) still shows as large as a head icon; below it every monster is
+/// drawn larger by the same factor, so they keep their sizes relative to
+/// each other on big maps.
+const STAND_READABLE: f64 = 75.0;
+
+impl SpawnPoint {
+    /// Box units are world pixels, so monsters stand at game size; `icon`
+    /// is a head icon's side in box units.
+    pub fn new(mob_id: i32, x: i32, y: i32, mob_time: i32, icon: i32) -> Self {
+        let (w, h, stand) = match STAND_SIZES.get(&mob_id) {
+            Some(&(w, h)) => {
+                let k = (f64::from(icon) / STAND_READABLE).max(1.0);
+                let scaled = |v: i32| (f64::from(v) * k).round() as i32;
+                (scaled(w), scaled(h), true)
+            }
+            None => (icon, icon, false),
+        };
+        Self {
+            mob_id,
+            x,
+            y,
+            mob_time,
+            w,
+            h,
+            stand,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
