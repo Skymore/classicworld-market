@@ -3,22 +3,30 @@
 // `EntityTag` the same icon and name inline, `EntityLink` just the link.
 // Use these instead of hand-built `/item/<id>` links or bare names, so
 // everything shown can be opened and every list looks alike (`.drow`, base.css).
+// The collector window (frontend/desktop) builds this file too, without the
+// site's router or period setting: the website registers both in main.tsx
+// with setSiteLinks, and anywhere else links open the public site.
 import type React from "react";
-import type { ReactNode } from "react";
-import { readPeriod } from "/web/js/lib/period.js?v=20261022-regressions-1";
+import type { ComponentType, ReactNode } from "react";
 import { embeddedHost, embeddedLocal } from "../lib/embed";
-import { SiteLink } from "./shell";
 
 export type EntityKind = "item" | "mob" | "map" | "npc" | "skill";
 
 const SITE = "https://mxd.ruit.me";
 const ICONS = "/web/img/grind-icons";
 
+type Anchor = ComponentType<React.ComponentProps<"a"> & { href: string }>;
+let site: { Link: Anchor; period: () => string } | null = null;
+/** The website's in-app link and the visitor's price period (main.tsx). */
+export function setSiteLinks(Link: Anchor, period: () => string) {
+  site = { Link, period };
+}
+
 export const itemIconUrl = (id: number) => `https://mxdgcw.dvg.cn/dbsource/icon/item/${id}.png`;
 
 /** The item page, over the period the visitor picked. */
 export const itemPath = (id: number, variant?: number | null) =>
-  `/item/${id}?hours=${readPeriod()}${variant ? `&variant=${variant}` : ""}`;
+  `/item/${id}?hours=${site?.period() ?? "72"}${variant ? `&variant=${variant}` : ""}`;
 
 /** The page of a thing, or null when it has none (skills). */
 export function entityPath(kind: EntityKind, id: number, variant?: number | null): string | null {
@@ -82,16 +90,17 @@ export function EntityLink({
   };
   if (!path) return <span {...props}>{children}</span>;
   const stop = (event: React.MouseEvent) => event.stopPropagation();
-  if (embeddedHost || embeddedLocal)
+  if (!site || embeddedHost || embeddedLocal)
     return (
       <a href={SITE + path} target="_blank" rel="noopener" onClick={stop} {...props}>
         {children}
       </a>
     );
+  const { Link } = site;
   return (
-    <SiteLink href={path} onClick={stop} {...props}>
+    <Link href={path} onClick={stop} {...props}>
       {children}
-    </SiteLink>
+    </Link>
   );
 }
 

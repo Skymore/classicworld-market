@@ -32,7 +32,8 @@ import {
   usePreferences,
   initializePreferences,
 } from "./providers";
-import { AppShell } from "./components/shell";
+import { AppShell, SiteLink } from "./components/shell";
+import { setSiteLinks } from "./components/entity-ref";
 import { ensureStyle, useStyles } from "./lib/styles";
 import { queryClient, prefetchPriceTable } from "./lib/query";
 import {
@@ -48,7 +49,7 @@ import { Loading, ErrorState, Stall } from "./components/shared";
 import "./styles.css";
 import { trackPage } from "/web/js/lib/traffic.js";
 import { t } from "/web/js/lib/i18n.js";
-import { resolvePeriod } from "/web/js/lib/period.js";
+import { readPeriod, resolvePeriod } from "/web/js/lib/period.js";
 import Home, { loadPriceTable } from "./pages/home";
 
 /** The price table lives on the home page: old /prices and /sales links keep their query. */
@@ -59,6 +60,7 @@ function priceTablePath(url: URL) {
   return url.pathname + url.search + url.hash;
 }
 // The router restores scroll itself (lib/page-memory), after data renders.
+setSiteLinks(SiteLink, readPeriod);
 if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 const legacyPricePath = priceTablePath(new URL(location.href));
 if (legacyPricePath) history.replaceState(history.state, "", legacyPricePath);
