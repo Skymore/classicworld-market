@@ -164,7 +164,7 @@ try {
       { age: 20, age_gone: 2, object: 4, item_id: 1041076, name: '红色侠客衣', value: 5000, by: 'party', by_name: 'Pig', how: 'picked', taker: 'party', taker_name: 'Pig' },
       { age: 10, age_gone: 1, object: 5, item_id: 1041077, name: '不显示', value: 1, how: 'gone' },
     ];
-    await bridge(page, { layout: 'slim', theme: 'dark', fields: ['time', 'exp_rate', 'profit', 'level', 'buffs'] }, [{ name: 'Me', level: 70, job: 230, map_id: 1, buffs: [], drops }]);
+    await bridge(page, { layout: 'slim', theme: 'dark', fields: ['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent'] }, [{ name: 'Me', level: 70, job: 230, map_id: 1, buffs: [], drops }]);
     await page.goto(base + '/overlay.html');
     await page.locator('.ov-ground-row').first().waitFor();
     const rows = (await page.locator('.ov-ground-row > b').allInnerTexts()).map(t => t.replace(/\d+秒/, 'N秒'));
@@ -172,6 +172,7 @@ try {
     assert.equal(await page.locator('.ov-ground-row > b.warn').count(), 2, 'over 90 s on the ground and expired are red');
     const ground = await page.locator('.ov-ground').boundingBox(), stat = await page.locator('.ov-slim > .ov-stat').last().boundingBox();
     assert(ground.y > stat.y, 'drops come after the rates');
+    assert.equal(await page.locator('.ov-tally').count(), 2, 'consumables and loot stay below the buffs');
     if (out) await page.screenshot({ path: path.join(out, 'grind-slim-drops.png') });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'drops: no horizontal clipping');
     await page.close();
