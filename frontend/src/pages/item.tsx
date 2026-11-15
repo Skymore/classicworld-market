@@ -753,31 +753,14 @@ export default function Item({ page }: { page: any }) {
     (a: any, b: any) =>
       (main ? mainOf(b.variant) - mainOf(a.variant) : 0) || lowest(a.offers) - lowest(b.offers),
   );
-  // Attribute table: only stats that differ between sets get a column; shared ones go in the header.
+  // Attribute table: every group lists all of its key stats, including ones every set shares.
   const baseStat = (key: string) =>
     (market.base_stats || []).find(([stat]: [string, number]) => stat === key)?.[1] as number | undefined;
-  const statText = (variant: any, key: string) => {
-    const stat = variant.stats.find((row: any) => row.key === key);
-    return stat ? `${stat.value}${stat.maxValue > stat.value ? `–${stat.maxValue}` : ""}` : null;
-  };
   const presentKeys = [...new Set<string>(variants.flatMap(({ variant }: any) => variant.stats.map((stat: any) => stat.key)))].sort(
     (a, b) => (a === main ? -1 : b === main ? 1 : 0) || STAT_ORDER.indexOf(a) - STAT_ORDER.indexOf(b),
   );
-  const differs = (text: (variant: any) => unknown) => new Set(variants.map(({ variant }: any) => text(variant))).size > 1;
-  const single = variants.length <= 1;
-  const attrKeys = presentKeys.filter((key) => single || differs((variant) => statText(variant, key)));
-  const attrSlots = variants.some(({ variant }: any) => variant.remaining_upgrades != null) &&
-    (single || differs((variant) => variant.remaining_upgrades));
-  const attrShared = single
-    ? []
-    : [
-        ...presentKeys
-          .filter((key) => !attrKeys.includes(key))
-          .map((key) => `${words(...(STAT_SHORT[key] || [key, key]))} ${statText(variants[0].variant, key)}`),
-        ...(!attrSlots && variants[0]?.variant.remaining_upgrades != null
-          ? [words(`可升 ${variants[0].variant.remaining_upgrades}`, `${variants[0].variant.remaining_upgrades} slots`)]
-          : []),
-      ];
+  const attrKeys = presentKeys;
+  const attrSlots = variants.some(({ variant }: any) => variant.remaining_upgrades != null);
   // Grouped view: a thin header per stat set, then its offers in the chosen order.
   // Offers without captured stats come last under their own header.
   const grouped = equipment && offerView !== "list";
@@ -1319,7 +1302,6 @@ export default function Item({ page }: { page: any }) {
                     {selectedVariant
                       ? words("已选这组属性", "This stat set")
                       : words(`${variants.length} 种属性`, `${variants.length} stat sets`)}
-                    {attrShared.length > 0 && words(` · 都是 ${attrShared.join(" · ")}`, ` · all ${attrShared.join(" · ")}`)}
                   </span>
                   <button
                     type="button"
