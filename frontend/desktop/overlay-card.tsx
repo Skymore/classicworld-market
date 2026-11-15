@@ -335,7 +335,7 @@ function UpdateButton({ update, onUpdate }: { update: ClientUpdate | null; onUpd
   if (update.state === 'requested' || update.state === 'restarting') return <span className="ov-updating">{tr('正在更新…', 'Updating…')}</span>;
   if (update.state !== 'ready_to_update') return <span />;
   const tag = update.version ? 'v' + update.version.replace(/^v/, '') : tr('新版本', 'new version');
-  return <button type="button" className="ov-update" title={tr('客户端会短暂重启，游戏无需退出', 'The collector restarts briefly; the game stays open')}
+  return <button type="button" data-press="update" className="ov-update" title={tr('客户端会短暂重启，游戏无需退出', 'The collector restarts briefly; the game stays open')}
     onMouseDown={e => e.stopPropagation()} onClick={onUpdate}>{tr(`更新到 ${tag}`, `Update to ${tag}`)}</button>;
 }
 
@@ -350,9 +350,9 @@ function Controls({ paused, command }: { paused: boolean; command?(action: 'togg
   useEffect(() => { if (!armed) return; const id = setTimeout(() => setArmed(false), 3000); return () => clearTimeout(id); }, [armed]);
   const keep = (e: React.MouseEvent) => e.stopPropagation(); // not the window's drag-to-move
   return <div className="ov-controls">
-    <button type="button" onMouseDown={keep} onClick={() => command?.('toggle')}>
+    <button type="button" data-press="pause" onMouseDown={keep} onClick={() => command?.('toggle')}>
       {paused ? <Play size={I} style={ico} /> : <Pause size={I} style={ico} />}{paused ? tr('继续', 'Resume') : tr('暂停', 'Pause')}</button>
-    <button type="button" className={'end' + (armed ? ' armed' : '')} onMouseDown={keep}
+    <button type="button" data-press="end" className={'end' + (armed ? ' armed' : '')} onMouseDown={keep}
       onClick={() => { if (armed) { setArmed(false); command?.('end'); } else setArmed(true); }}>
       <Square size={I} style={ico} />{armed ? tr('再点一次结束', 'Click again to end') : tr('结束', 'End')}</button>
   </div>;

@@ -65,7 +65,7 @@ export interface GrindState {
   hotkey_errors?: Partial<Record<HotkeyAction, 'invalid' | 'taken'>>;
 }
 
-type Api = { grind?(name: string, value?: unknown): Promise<any>; state?(): Promise<any>; scale?(value: number): Promise<number>; fit?(height: number): Promise<unknown>; toggle?(name: string): Promise<boolean>; command?(action: string): Promise<boolean>; update?(): Promise<boolean> };
+type Api = { grind?(name: string, value?: unknown): Promise<any>; state?(): Promise<any>; scale?(value: number): Promise<number>; fit?(height: number): Promise<unknown>; toggle?(name: string): Promise<boolean>; command?(action: string): Promise<boolean>; update?(): Promise<boolean>; regions?(regions: unknown[]): Promise<boolean> };
 const api = () => ((window as { pywebview?: { api?: Api } }).pywebview?.api ?? null) as Api | null;
 export const grind = (name: string, value?: unknown) => {
   const bridge = api();
@@ -81,6 +81,8 @@ export const overlayState = () => {
 export interface ClientUpdate { state: string | null; version: string | null }
 /** The overlay's update button: the collector window's own "update to vX". */
 export const overlayUpdate = () => api()?.update?.() ?? Promise.reject(new Error('unavailable'));
+/** Where the overlay's buttons are (CSS px): the client reads clicks from the system mouse. */
+export const overlayRegions = (regions: unknown[]) => api()?.regions?.(regions) ?? Promise.reject(new Error('unavailable'));
 /** The overlay's corner grip: the size the user dragged to. */
 export const overlayScale = (value: number) => api()?.scale?.(value) ?? Promise.reject(new Error('unavailable'));
 /** The card's height in CSS pixels; the overlay window takes it. */

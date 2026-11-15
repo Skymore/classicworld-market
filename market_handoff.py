@@ -11,6 +11,14 @@ An update therefore hands over in three overlapping steps:
 3. The new collector starts its own capture, restores the snapshot, replays the
    spool and continues live. TCP sequence numbers drop the overlaps.
 
+The order matters: the helper must record before the old capture stops. 5 of
+40 updates by 2026-11-15 failed because a stale ready marker let the capture stop
+first; the helper then started 4-6 s later and its start-up cleanup deleted the
+snapshot just saved. Now the marker is removed before the helper starts and only
+a fresh one counts, the helper never deletes a snapshot, and a skipped hand-off
+logs why (handoff_skipped; update-helper.log: helper_not_recording,
+helper_start_failed, helper_started_late).
+
 Nothing here sends packets. Every failure falls back to the old behaviour: the
 connection is not restored and the player changes channel once. The spool holds
 raw game packets only for the hand-off and is deleted when it is consumed.
@@ -39,8 +47,8 @@ def _write(path, data):
     os.replace(temporary, path)
 
 
-def clear(folder):
-    for name in (SNAPSHOT, SPOOL, READY, TAKEN, DONE):
+def clear(folder, names=(SNAPSHOT, SPOOL, READY, TAKEN, DONE)):
+    for name in names:
         try:
             (Path(folder)/name).unlink()
         except OSError:
@@ -190,10 +198,14 @@ def resume(collector, wait=6):
         try:
             state = json.loads((folder/SNAPSHOT).read_text(encoding='utf-8'))
         except (OSError, ValueError):
+            if (folder/SPOOL).exists():
+                collector.event('handoff_skipped', reason='no_snapshot')
             return 0
         # Without a recording the missing packets would only show up as a gap.
-        if (state.get('version') != 1 or not 0 <= time.time()-state['time'] <= MAX_AGE
-                or not (folder/READY).exists() or not (folder/SPOOL).exists()):
+        reason = ('version' if state.get('version') != 1 else 'old_snapshot' if not 0 <= time.time()-state['time'] <= MAX_AGE
+                  else 'no_recording' if not (folder/READY).exists() or not (folder/SPOOL).exists() else None)
+        if reason:
+            collector.event('handoff_skipped', reason=reason)
             return 0
         (folder/TAKEN).write_text('1', encoding='utf-8')
         deadline = time.monotonic()+wait
@@ -231,7 +243,9 @@ def record(folder, sniffer=None, seconds=RECORD_SECONDS):
     folder = Path(folder)
     try:
         folder.mkdir(parents=True, exist_ok=True)
-        clear(folder)
+        # Never the snapshot: the old collector may already have saved it (it is
+        # replaced by the next save, and expires after MAX_AGE).
+        clear(folder, (SPOOL, READY, TAKEN, DONE))
         if sniffer is None:
             from market_passive import WindowsSniffer
             sniffer = WindowsSniffer()

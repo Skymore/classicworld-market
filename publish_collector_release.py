@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.71：悬浮窗的按钮和拖动改由客户端从系统鼠标读取，游戏在前台时也能点、拖动更跟手、屏幕缩放下不漂移；修复更新重启偶尔接管不了游戏连接（要换频道才恢复）。\n'
         'v0.7.70：修复更新后用报文重算失败；正在进行的一场也会按新代码重算并更新实时面板；读不到背包的时段按前后两次背包差值补记消耗、拾取和金币；Buff 提醒只由悬浮窗读，不再和设置页预览重复。\n'
         'v0.7.69：药水 Buff 收到服务器结束消息后 1 秒就提醒、自动喝（原来等 3 秒）。\n'
         'v0.7.68：龙血、速度药水等药水 Buff 以服务器的结束消息为准（实测比标称时长晚 0～7 秒结束）：标称时间到后显示“将结束”，真正结束 3 秒后再提醒和自动喝；收不到结束消息时按标称时间后 10 秒。\n'

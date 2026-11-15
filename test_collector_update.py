@@ -266,6 +266,30 @@ class CollectorUpdate(unittest.TestCase):
             # Started while the capture was still running, waiting on the recorder's marker.
             self.assertEqual(events,[('helper',False,captures/'handoff-spool.ready')])
 
+    def test_a_marker_left_by_an_earlier_helper_does_not_count_as_recording(self):
+        # 2026-11-15: capture stopped 4-6 s before the helper recorded (5 of 40 updates).
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);marker=root/'handoff-spool.ready';marker.write_text('1')
+            old=time.time()-600;os.utime(marker,(old,old))
+            with patch.object(update.subprocess,'Popen') as popen:
+                self.assertFalse(update.start_helper(root/'plan.json',root/'bundle',marker,wait=.3))
+            popen.assert_called_once()
+            self.assertFalse(marker.exists())          # removed before this helper started
+            def records(*args,**kwargs):
+                marker.write_text('1')                 # this helper's own marker
+            with patch.object(update.subprocess,'Popen',side_effect=records):
+                self.assertTrue(update.start_helper(root/'plan.json',root/'bundle',marker,wait=2))
+
+    def test_the_helper_does_not_remove_a_saved_snapshot(self):
+        import market_handoff as handoff
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/handoff.SNAPSHOT).write_text('{}')
+            class Sniffer:
+                def recv(self):time.sleep(.05);raise OSError('closed')
+                def close(self):pass
+            thread=handoff.record(root,Sniffer(),seconds=.2);thread.join(2)
+            self.assertTrue((root/handoff.SNAPSHOT).exists())
+
     def test_helper_keeps_recording_until_the_new_collector_takes_over(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);plan,bundle,old=self.staged(root,handoff=str(root/'captures'))

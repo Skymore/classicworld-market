@@ -14,7 +14,7 @@ import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
-VERSION = '0.7.70'
+VERSION = '0.7.71'
 LATEST = 'https://mxd.ruit.me/web/releases/stable.json'
 DOWNLOAD_BASES = ('https://mxd.ruit.me/web/releases/', 'https://download.ruit.me/collector/')
 EXE = 'ClassicWorldCollector.exe'
@@ -356,15 +356,34 @@ def prune(install, keep=1):
 
 
 def start_helper(path, bundle, ready=None, wait=15):
-    """Run the staged release's update helper; optionally wait until it records packets."""
+    """Run the staged release's update helper; optionally wait until it records packets.
+
+    Returns True once this helper reports recording (or when not asked to wait). A
+    marker left by an earlier helper must not count: capture would then stop before
+    this one records, and the connections could not be handed over (5 of 40 updates
+    by 2026-11-15, each with the capture stopped 4-6 s before the helper started)."""
     path = Path(path)
+    if ready:
+        try:
+            Path(ready).unlink()
+        except OSError:
+            pass
+    started = time.time()
     subprocess.Popen([str(Path(bundle)/EXE), '--apply-update', str(path)], cwd=path.parent,
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True,
         creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     HELPERS.add(str(path))
+    if not ready:
+        return True
     deadline = time.monotonic()+wait
-    while ready and not Path(ready).exists() and time.monotonic() < deadline:
+    while time.monotonic() < deadline:
+        try:
+            if Path(ready).stat().st_mtime >= started-1:
+                return True
+        except OSError:
+            pass
         time.sleep(.1)
+    return False
 
 
 def apply_plan(path, executable=None):
@@ -541,9 +560,10 @@ def start_checker(home, stop, ready, argv, wakeup=None, endpoint=None, *, interv
                         # The helper starts recording before this capture stops.
                         try:
                             from market_handoff import READY
-                            start_helper(path, bundle, Path(handoff)/READY)
-                        except Exception:
-                            pass
+                            if not start_helper(path, bundle, Path(handoff)/READY):
+                                helper_log(home, 'helper_not_recording')
+                        except Exception as error:
+                            helper_log(home, 'helper_start_failed', error=type(error).__name__)
                     stop.set()
                     if wakeup: wakeup.set()
                     return

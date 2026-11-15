@@ -7,6 +7,7 @@ captures/grind/protocol.json from the recorded frames.
 """
 import contextlib
 import ctypes
+import os
 import json
 import sqlite3
 import threading
@@ -121,6 +122,7 @@ class GrindService:
         self.last_calibration = None
         self.lock = threading.Lock()
         self.hotkeys = None
+        self.mouse = None   # grind_overlay_mouse.OverlayMouse: the overlay's clicks and drags
         from grind_sync import RunSync
         self.sync = RunSync(self.folder)
 
@@ -293,6 +295,10 @@ class GrindService:
         self.apply_overlay(self.settings())
         self.hotkeys = Hotkeys(self)
         self.hotkeys.start()
+        if os.name == 'nt':
+            from grind_overlay_mouse import OverlayMouse
+            self.mouse = OverlayMouse(self)
+            self.mouse.start()
 
     def calibrate_loop(self):
         while not self.stop.wait(30):
@@ -347,7 +353,7 @@ class GrindService:
                 x = (screen.width - width - 24) if screen else 40
                 y = 96
             self.overlay = webview.create_window('枫叶市集 · 刷图 · mxd.ruit.me', self.assets, js_api=OverlayAPI(self),
-                width=width, height=height, x=x, y=y, resizable=False, frameless=True, easy_drag=True,
+                width=width, height=height, x=x, y=y, resizable=False, frameless=True, easy_drag=False,   # grind_overlay_mouse moves it
                 on_top=True, focus=False, transparent=True, shadow=False, background_color='#000000')
             self.overlay.events.shown += lambda: self.style_overlay(settings)
             self.overlay.events.moved += lambda *_: self.overlay_moved()
@@ -435,6 +441,8 @@ class GrindService:
         self.stop.set()
         if self.hotkeys:
             self.hotkeys.stop()
+        if self.mouse:
+            self.mouse.stop()
         if self.move_timer:
             self.move_timer.cancel()
         window, self.overlay = self.overlay, None
@@ -470,6 +478,12 @@ class OverlayAPI:
         if action not in ('toggle', 'end'):
             raise ValueError('invalid_request')
         return self._service.command(action)
+
+    def regions(self, regions):
+        """Where the page's buttons and grip are (CSS pixels), for the mouse hook."""
+        if self._service.mouse is not None and isinstance(regions, list) and len(regions) <= 32:
+            self._service.mouse.pointer.set_regions(regions)
+        return True
 
     def toggle(self, name):
         """The overlay's own switch: spoken warnings (buffs, low HP)."""

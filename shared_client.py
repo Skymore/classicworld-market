@@ -482,8 +482,11 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None, prepare_up
         if owner_thread:owner_thread.join(timeout=20)
         if update_ready and (upload_thread is None or not upload_thread.is_alive()):
             path,bundle=update_ready[0]
-            from collector_update import HELPERS,start_helper
-            if str(path) not in HELPERS:start_helper(path,bundle)
+            from collector_update import HELPERS,start_helper,helper_log
+            if str(path) not in HELPERS:
+                # Capture has already stopped: the connections cannot be handed over.
+                helper_log(args.home,'helper_started_late')
+                start_helper(path,bundle)
 
 
 if __name__=='__main__':

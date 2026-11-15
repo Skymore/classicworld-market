@@ -6,10 +6,24 @@ import { Volume2, VolumeX } from 'lucide-react';
 import { createRoot } from 'react-dom/client';
 import korean from '../../server/crates/market-web/src/i18n/ko.json';
 import { installKorean, applyLanguage, tr } from './i18n';
-import { overlayCommand, overlayFit, overlayScale, overlayState, overlayToggle, overlayUpdate, type ClientUpdate, type GroundDrop, type GrindSettings, type Live, type LootRow } from './grind';
+import { overlayCommand, overlayFit, overlayRegions, overlayScale, overlayState, overlayToggle, overlayUpdate, type ClientUpdate, type GroundDrop, type GrindSettings, type Live, type LootRow } from './grind';
 import { OverlayCard, announceDrop } from './overlay-card';
 
 document.documentElement.classList.add('overlay-page');
+// The client reads the overlay's clicks from the system mouse (the game in front can keep
+// them from the page) and presses the button here; it needs to know where each one is.
+(window as unknown as { __overlayPress?(id: string): void }).__overlayPress = id =>
+  (document.querySelector(`[data-press="${id}"]`) as HTMLElement | null)?.click();
+let reported = '';
+function reportRegions() {
+  const regions = [...document.querySelectorAll<HTMLElement>('[data-press]')].map(el => {
+    const r = el.getBoundingClientRect();
+    return { id: el.dataset.press, x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
+  }).filter(r => r.w > 0 && r.h > 0);
+  const text = JSON.stringify(regions);
+  if (text !== reported) { reported = text; overlayRegions(regions).catch(() => { reported = ''; }); }
+}
+setInterval(reportRegions, 500);
 installKorean(korean);
 applyLanguage('system');
 
@@ -80,7 +94,7 @@ type Switch = 'buff_sound';
 function Switches({ settings, toggle }: { settings: GrindSettings; toggle(name: Switch): void }) {
   const button = (name: Switch, on: React.ReactNode, off: React.ReactNode, label: string) =>
     <button type="button" className={settings[name] ? 'on' : ''} aria-pressed={settings[name]} title={label} aria-label={label}
-      onMouseDown={e => e.stopPropagation() /* not the window's drag-to-move */} onClick={() => toggle(name)}>{settings[name] ? on : off}</button>;
+      data-press={name} onMouseDown={e => e.stopPropagation() /* not the window's drag-to-move */} onClick={() => toggle(name)}>{settings[name] ? on : off}</button>;
   return <div className="ov-switches">
     {button('buff_sound', <Volume2 size={12} />, <VolumeX size={12} />, tr('语音提醒（Buff、低血量）', 'Spoken warnings (buffs, low HP)'))}
   </div>;
@@ -95,7 +109,7 @@ function Grip({ scale, preview }: { scale: number; preview(scale: number | null)
     const sent = d.next; d.busy = true;
     overlayScale(sent).catch(() => null).finally(() => { d.busy = false; if (drag.current === d && d.next !== sent) send(); });
   };
-  return <i className="ov-grip" aria-hidden="true"
+  return <i className="ov-grip" aria-hidden="true" data-press="grip"
     onMouseDown={e => e.stopPropagation() /* the window's drag-to-move must not start from this corner */}
     onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); drag.current = { x: e.screenX, scale, width: window.innerWidth, next: scale, busy: false }; }}
     onPointerMove={e => {
