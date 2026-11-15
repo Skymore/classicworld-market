@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.61：悬浮窗分成三个区：经验、净收益和掉落、Buff，各自一块卡片。\n'
         'v0.7.60：悬浮窗速度曲线改成平滑曲线；经验/净收益下面分左右两栏（左边距升级或金币，右边实时和走势线，不再压线）；“收益”改叫“净收益”；消耗和战利品上移到净收益下面；精简样式加宽约 14%。\n'
         'v0.7.59：悬浮窗参照枫记：经验/收益按“平均大字、右边本场累计、走势线上标实时”排列，去掉“本场”字样；标题行显示“记录中”，最下面加“暂停”“结束”按钮（结束要再点一次确认）。\n'
         'v0.7.58：刷图记录里的物品、怪物、技能和地图整行都能点开图鉴页；消耗里用量为 0 的不再显示；没有名字的地图不再显示编号。\n'

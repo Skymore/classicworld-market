@@ -13,7 +13,7 @@
 .ov-slim .ov-head{margin-bottom:.7em;font-size:.95em}
 .ov-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1em;margin:0 0 .7em}
 .ov-stat{display:flex;flex-direction:column;min-width:0}
-.ov-slim>.ov-stat{margin:0 0 .6em}
+.ov-slim .ov-sec>.ov-stat{margin:0 0 .5em}
 .ov-stat-top,.ov-stat-mid{display:flex;align-items:baseline;justify-content:space-between;gap:.6em;min-width:0;white-space:nowrap}
 .ov-stat-mid .ov-avg{display:inline-flex;align-items:baseline;gap:.3em}.ov-stat-mid .ov-avg>b{font-size:1.8em;line-height:1.15;font-weight:800}
 .ov-trend-row{display:flex;align-items:center;gap:.6em;margin-top:.3em}.ov-trend-box{flex:1;min-width:0;display:flex;align-items:center;gap:.6em}.ov-trend-row .ov-live{flex:none;font-size:.8em;white-space:nowrap}
@@ -157,3 +157,9 @@
 .ov-t-market .ov-rec.on,.ov-t-cute .ov-rec.on{color:#2e8b57}.ov-t-market .ov-rec.pause,.ov-t-cute .ov-rec.pause{color:#b07400}
 .ov-t-market .ov-controls button{color:#8a5a00;background:#fff6dc;border-color:#d9b25f}.ov-t-market .ov-controls button.end{color:#b3261e;background:#fdecea;border-color:#e3a39d}
 .ov-t-cute .ov-controls button{color:#c0568a;background:#fff0f6;border-color:#f3b4cf}.ov-t-cute .ov-controls button.end{color:#d0405c;background:#ffecef;border-color:#f2a7b4}
+.ov-sec{border-radius:.6em;padding:.55em .65em;margin:0 0 .5em;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09)}
+.ov-sec>:last-child{margin-bottom:0}.ov-sec .ov-ground{margin-top:.45em}.ov-sec .ov-tally:first-child{margin-top:0}
+.ov-sec-buffs{padding:.45em .55em}.ov-sec-buffs .ov-buffs{margin:0}
+.ov-t-market .ov-sec,.ov-t-cute .ov-sec{background:rgba(255,255,255,.65);border-color:rgba(0,0,0,.08)}
+.ov-t-maple .ov-sec{background:rgba(0,0,0,.18);border-color:rgba(255,255,255,.12)}
+.ov-t-market .ov-head .ov-rec{background:#f4efe4;border-color:transparent}

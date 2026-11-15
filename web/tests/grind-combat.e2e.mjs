@@ -136,12 +136,12 @@ try {
   }
   // The everyday preset: EXP, level and profit stacked, each with its run total; one line each for consumables and loot.
   for (const theme of ['dark', 'market', 'cute', 'maple']) {
-    const page = await browser.newPage({ viewport: { width: 296, height: 460 } });
+    const page = await browser.newPage({ viewport: { width: 296, height: 520 } });
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await bridge(page, { layout: 'slim', theme, fields: ['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent'] });
     await page.goto(base + '/overlay.html');
     await page.locator('.ov-stat').first().waitFor();
-    assert.equal(await page.locator('.ov-slim > .ov-stat').count(), 2);
+    assert.equal(await page.locator('.ov-slim .ov-sec > .ov-stat').count(), 2);
     assert.deepEqual(await page.locator('.ov-total').allInnerTexts(), ['经验 +1万', '净收益 +1.2万']);
     assert.equal(await page.locator('.ov-tally').count(), 2);
     for (const row of await page.locator('.ov-tally').all()) assert((await row.boundingBox()).height < 34, `slim/${theme}: consumables and loot keep to one line each`);
@@ -149,7 +149,7 @@ try {
     assert.equal(await page.locator('.rate-chart').count(), 0);
     assert.equal(await page.locator('.ov-buffs.tiles span').count(), 3);
     const height = (await page.locator('.ov').boundingBox()).height;
-    assert(height < 430, `slim/${theme}: the card stays small (${height})`);
+    assert(height < 480, `slim/${theme}: the card stays small (${height})`);
     if (out) await page.screenshot({ path: path.join(out, `grind-slim-${theme}.png`) });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `slim/${theme}: no horizontal clipping`);
     assert.equal(await page.locator('.ov-grip').count(), 1);
@@ -158,7 +158,7 @@ try {
   }
   // Valuable drops sit between the rates and the buffs: on the ground and for how long, who picked each up, or that nobody did.
   {
-    const page = await browser.newPage({ viewport: { width: 296, height: 560 } });
+    const page = await browser.newPage({ viewport: { width: 296, height: 620 } });
     const drops = [
       { age: 95, object: 1, item_id: 1302004, name: '九龙刀', value: 240000, by: 'party', by_name: 'SHadowFiend' },
       { age: 40, age_gone: 5, object: 2, item_id: 2040001, name: '头盔命中率卷轴：中级', value: 10000, by: 'me', how: 'pet', taker: 'me', taker_name: 'Me' },
@@ -172,9 +172,10 @@ try {
     const rows = (await page.locator('.ov-ground-row > b').allInnerTexts()).map(t => t.replace(/\d+秒/, 'N秒'));
     assert.deepEqual(rows, ['✓ Pig捡了', '✓ 你的宠物捡了', '地上 N秒', '没人捡，消失了']);
     assert.equal(await page.locator('.ov-ground-row > b.warn').count(), 2, 'over 90 s on the ground and expired are red');
-    const ground = await page.locator('.ov-ground').boundingBox(), stat = await page.locator('.ov-slim > .ov-stat').last().boundingBox();
+    const ground = await page.locator('.ov-ground').boundingBox(), stat = await page.locator('.ov-slim .ov-sec > .ov-stat').last().boundingBox();
     assert(ground.y > stat.y, 'drops come after the rates');
     assert.equal(await page.locator('.ov-tally').count(), 2, 'consumables and loot right after the rates');
+    assert.equal(await page.locator('.ov-slim > .ov-sec').count(), 3, 'three sections: EXP, profit and drops, buffs');
     assert((await page.locator('.ov-tally').last().boundingBox()).y < ground.y, 'consumables and loot above the drops');
     // Recording status in the header; pause and end at the bottom (end asks for a second click).
     assert.equal(await page.locator('.ov-head .ov-rec.on').innerText(), '记录中');
