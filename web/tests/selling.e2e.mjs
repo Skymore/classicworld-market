@@ -35,7 +35,7 @@ const products = [
   { item_id: 1041059, name_zh: '黑神圣法衣', name_en: 'Black Amoria Top', category: '装备', sales_10d: 5, icon_url: '' },
   { item_id: 1040002, name_zh: '白色背心', name_en: 'White Undershirt', category: '装备', sales_10d: 2, icon_url: '' },
 ];
-const npc = { 2000002: 300, 4004000: 5000, 1452016: 20000 };
+const npc = { 2000002: 300, 4004000: 5000, 1452016: 20000, 1041059: 4000 };
 let gameConnected = true;
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
@@ -91,6 +91,11 @@ try {
   // 成交中位 120,000 是 NPC 20,000 的 6 倍：摆摊；列出中位和 25% 比 NPC 多多少。
   assert.match(await bow.locator('[data-selling-npc]').textContent(), /摆摊NPC 20,000 · 中位 \+100,000 · 25% \+90,000/);
   assert.equal(await page.locator('[data-selling-item="eq:1:1452016"] [data-selling-verdict]').getAttribute('data-selling-verdict'), 'stall');
+  assert.equal(await bow.locator('[data-selling-gain]').textContent(), '比 NPC +100,000');
+  // 法师上衣中位 7,500 是 NPC 4,000 的 1.9 倍，但只多赚 3,500，不到 10,000：差不多。
+  const topItem = page.locator('[data-selling-item="eq:2:1041059"]');
+  await page.waitForFunction(() => document.querySelector('[data-selling-item="eq:2:1041059"] [data-selling-verdict]')?.getAttribute('data-selling-verdict') === 'close');
+  assert.match(await topItem.locator('.selling-ref').textContent(), /差不多\+3,500/);
   // 属性没解析的装备：72 小时内同名不够 3 笔，用能拿到的全部同名成交。
   await page.locator('[data-selling-item="eq:4:1040002"]').click();
   await page.waitForFunction(() => /同名 · 2 笔/.test(document.querySelector('[data-selling-row="eq:4:1040002"]')?.textContent || ''));
@@ -151,6 +156,9 @@ try {
   await page.reload();
   await page.locator('[data-selling-row="2000002"]').waitFor();
   assert.equal(await page.locator('[data-selling-row]').count(), 3);
+  // 合计突出比全卖 NPC 多赚：1,395,000 − (300×600 + 5,000×45) = +990,000。
+  await page.waitForFunction(() => document.querySelector('[data-selling-gain-total]')?.textContent === '+990,000');
+  assert.equal(await page.locator('[data-selling-row="2000002"] [data-selling-gain]').textContent(), '比 NPC +90,000');
   // 合计里按档位计数：药水卖 NPC、母矿摆摊，卷轴没成交不计；一键移出卖 NPC 的。
   assert.match(await page.locator('[data-selling-tally]').textContent(), /摆摊 1差不多 0卖 NPC 1/);
   assert.match(await page.locator('[data-selling-row="2040804"] [data-selling-npc]').textContent(), /NPC 不收/);

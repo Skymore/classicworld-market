@@ -141,13 +141,19 @@ export function gearPrices(
     window,
   };
 }
-/** 摆摊还是卖 NPC：成交中位不到 NPC 回收价 1.1 倍卖 NPC，1.5 倍以内差不多，更高摆摊；NPC 不收只能摆摊。 */
+/**
+ * 摆摊还是卖 NPC，按成交中位比 NPC 回收价的倍数和这批（数量 × 差价）多赚的金币：
+ * 不到 1.1 倍或多赚不到 2,000 卖 NPC；不到 1.5 倍或多赚不到 10,000 差不多；否则摆摊。NPC 不收只能摆摊。
+ */
 export type Verdict = "stall" | "close" | "npc" | "only" | "none";
-export function verdict(mid: number | null, npc: number | null): Verdict {
+export const NPC_GAIN_MAX = 2_000;
+export const STALL_GAIN_MIN = 10_000;
+export function verdict(mid: number | null, npc: number | null, quantity = 1): Verdict {
   if (mid == null) return "none";
   if (npc == null || npc <= 0) return "only";
-  if (mid <= npc * 1.1) return "npc";
-  if (mid <= npc * 1.5) return "close";
+  const gain = (mid - npc) * Math.max(1, quantity);
+  if (mid <= npc * 1.1 || gain < NPC_GAIN_MAX) return "npc";
+  if (mid <= npc * 1.5 || gain < STALL_GAIN_MIN) return "close";
   return "stall";
 }
 const signed = (value: number) => (value > 0 ? "+" : value < 0 ? "−" : "±") + Math.abs(Math.round(value)).toLocaleString("en-US");
@@ -423,8 +429,10 @@ export default function Selling() {
       npcTotal += (npc ?? 0) * selling;
     }
     // 摆摊价不高于 NPC 回收价时，直接卖给 NPC 更划算。
-    const vd = verdict(prices.s50, npc);
-    return { key, id, piece, isGear, line, bundle, groups, quantity, prices, strat, unit, selling, warn, total, npc, vd };
+    const vd = verdict(prices.s50, npc, selling);
+    // 按选中的单价，这一行摆摊比卖 NPC 多赚多少。
+    const gain = total != null && npc != null ? total - npc * selling : null;
+    return { key, id, piece, isGear, line, bundle, groups, quantity, prices, strat, unit, selling, warn, total, npc, vd, gain };
   });
   const VD_LABEL: Record<Verdict, [string, string]> = {
     stall: ["摆摊", "Stall"],
@@ -435,7 +443,7 @@ export default function Selling() {
   };
   const badge = (vd: Verdict) =>
     vd === "none" ? null : (
-      <i className={"selling-vd " + vd} data-selling-verdict={vd}>
+      <i className={"selling-vd vd-" + vd} data-selling-verdict={vd}>
         {words(...VD_LABEL[vd])}
       </i>
     );
@@ -581,7 +589,9 @@ export default function Selling() {
                     ? gearPrices(item.piece, gearSales.get(item.item_id)?.sales, jobMask(item.item_id))
                     : salePrices(products.get(item.item_id))
                 ).s50;
-                const vd = verdict(mid, npcSell.get(item.item_id) ?? null);
+                const npc = npcSell.get(item.item_id) ?? null;
+                const vd = verdict(mid, npc, item.quantity);
+                const gain = mid != null && npc != null ? (mid - npc) * item.quantity : null;
                 return (
                   <li key={item.key}>
                     <button
@@ -599,7 +609,7 @@ export default function Selling() {
                       {mid != null && (
                         <span className="selling-ref">
                           {badge(vd)}
-                          {n(mid)}
+                          {gain == null ? n(mid) : <b className={"selling-gain vd-" + vd}>{signed(gain)}</b>}
                         </span>
                       )}
                       <i className="selling-tick" aria-hidden="true" />
@@ -632,6 +642,29 @@ export default function Selling() {
                 </button>
               ))}
             </div>
+            <span className="grow" />
+              {rows.length > 0 && (
+                <span className="selling-tally" data-selling-tally>
+                  {badge("stall")} {tally.stall}
+                  {badge("close")} {tally.close}
+                  {badge("npc")} {tally.npc}
+                  {tally.npc > 0 && (
+                    <button
+                      type="button"
+                      className="selling-drop"
+                      onClick={() =>
+                        setPlan((p) => {
+                          const drop = new Set(rows.filter((r) => r.vd === "npc").map((r) => r.key));
+                          const lines = Object.fromEntries(Object.entries(p.lines).filter(([key]) => !drop.has(key)));
+                          return { ...p, lines, order: p.order.filter((key) => !drop.has(key)) };
+                        })
+                      }
+                    >
+                      {words("移出卖 NPC 的", "Remove NPC items")}
+                    </button>
+                  )}
+                </span>
+              )}
           </div>
           {!rows.length && <p className="selling-empty">{words("在背包里点选要卖的物品", "Pick items from your bag")}</p>}
           {rows.map((r) => (
@@ -712,6 +745,12 @@ export default function Selling() {
               )}
               <div className="selling-total">
                 <b>{n(r.total)}</b>
+                {r.gain != null && (
+                  <small className={"selling-gain " + (r.gain > 0 ? "up" : "down")} data-selling-gain>
+                    {words("比 NPC ", "vs NPC ")}
+                    {signed(r.gain)}
+                  </small>
+                )}
                 {r.warn ? (
                   <small className="selling-warn">{r.warn}</small>
                 ) : (
@@ -728,33 +767,18 @@ export default function Selling() {
               <small>{words("预计收入（未扣税）", "Expected income (before tax)")}</small>
               <b data-selling-total>{grand ? n(grand) : "—"}</b>
             </div>
+            {grand > 0 && (
+              <div className={"selling-gainbox " + (grand - npcTotal > 0 ? "up" : "down")}>
+                <small>{words("比全卖 NPC 多赚", "More than selling all to NPC")}</small>
+                <b data-selling-gain-total>{signed(grand - npcTotal)}</b>
+              </div>
+            )}
             <small>
               {words(`占摊位 ${slots} 格`, `${slots} shop slots`)}
               <br />
-              {grand ? words("比全卖 NPC ", "vs all to NPC ") + signed(grand - npcTotal) : words("全卖 NPC —", "All to NPC —")}
+              {words("全卖 NPC ", "All to NPC ")}
+              {grand ? n(npcTotal) : "—"}
             </small>
-            {rows.length > 0 && (
-              <small className="selling-tally" data-selling-tally>
-                {badge("stall")} {tally.stall}
-                {badge("close")} {tally.close}
-                {badge("npc")} {tally.npc}
-                {tally.npc > 0 && (
-                  <button
-                    type="button"
-                    className="selling-drop"
-                    onClick={() =>
-                      setPlan((p) => {
-                        const drop = new Set(rows.filter((r) => r.vd === "npc").map((r) => r.key));
-                        const lines = Object.fromEntries(Object.entries(p.lines).filter(([key]) => !drop.has(key)));
-                        return { ...p, lines, order: p.order.filter((key) => !drop.has(key)) };
-                      })
-                    }
-                  >
-                    {words("移出卖 NPC 的", "Remove NPC items")}
-                  </button>
-                )}
-              </small>
-            )}
             <span className="grow" />
             {rows.length > 0 && (
               <>

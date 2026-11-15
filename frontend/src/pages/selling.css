@@ -36,11 +36,12 @@ html[data-embed][data-page=selling] .dwrap{max-width:1680px}
 /* 摆摊 / 差不多 / 卖 NPC 档位 */
 .selling-vd{display:inline-block;flex:none;padding:0 5px;margin-right:6px;font-style:normal;font-size:11px;font-weight:700;line-height:18px;border:1px solid currentColor;white-space:nowrap}
 .selling-ref .selling-vd{margin:0}
-.selling-vd.stall,.selling-vd.only{color:#2f7a3e;background:color-mix(in srgb,#2f7a3e 12%,transparent)}
-.selling-vd.close{color:#9a6512;background:color-mix(in srgb,#b47722 14%,transparent)}
-.selling-vd.npc{color:var(--maple-ink);background:color-mix(in srgb,var(--maple) 12%,transparent)}
+.selling-vd.vd-stall,.selling-vd.vd-only{color:#2f7a3e;background:color-mix(in srgb,#2f7a3e 12%,transparent)}
+.selling-vd.vd-close{color:#9a6512;background:color-mix(in srgb,#b47722 14%,transparent)}
+.selling-vd.vd-npc{color:var(--maple-ink);background:color-mix(in srgb,var(--maple) 12%,transparent)}
 .selling-who small.selling-vs{display:flex;align-items:center;flex-wrap:wrap;color:var(--ink-2);margin-top:4px}
-.selling-foot .selling-tally{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.selling-strat .grow{flex:1}
+.selling-tally{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .selling-tally .selling-vd{margin:0 0 0 6px}
 .selling-tally .selling-vd:first-child{margin-left:0}
 .selling-drop{margin-left:10px;font-size:12px;color:var(--maple-ink);text-decoration:underline}
@@ -91,11 +92,26 @@ html[data-embed][data-page=selling] .dwrap{max-width:1680px}
 .selling-step button{width:28px;height:30px;border:1px solid var(--edge);background:var(--sheet-hi);font-size:15px}
 .selling-step b{min-width:20px;text-align:center;color:var(--ink)}
 .selling-total{grid-area:total;text-align:right;min-width:0}
-.selling-total b{font-size:16px}
+.selling-total b{display:block;font-size:16px}
 .selling-foot{position:sticky;bottom:0;z-index:2;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 12px;background:var(--sheet-lo);border-top:2px solid var(--edge)}
 .selling-foot small{display:block;font-size:12px;color:var(--ink-3)}
 .selling-foot b{font-size:22px;font-weight:800;color:var(--bar-text)}
 .selling-foot .grow{flex:1}
+
+/* 摆摊比卖 NPC 多赚的金币：绿色多、红色少 */
+.selling-gain{font-weight:800;font-style:normal}
+.selling-ref .selling-gain{font-size:13px}
+.selling-ref .selling-gain.vd-stall,.selling-ref .selling-gain.vd-only{color:#2f7a3e}
+.selling-ref .selling-gain.vd-close{color:#9a6512}
+.selling-ref .selling-gain.vd-npc{color:var(--maple-ink)}
+.selling-total small.selling-gain{display:inline-block;margin-top:4px;padding:1px 6px;font-size:13px;color:#fff}
+.selling-total small.selling-gain.up{background:#2f7a3e}
+.selling-total small.selling-gain.down{background:var(--maple)}
+.selling-foot .selling-gainbox{padding:4px 12px;border:2px solid currentColor}
+.selling-foot .selling-gainbox small{color:inherit}
+.selling-foot .selling-gainbox b{color:inherit}
+.selling-gainbox.up{color:#2f7a3e;background:color-mix(in srgb,#2f7a3e 10%,transparent)}
+.selling-gainbox.down{color:var(--maple-ink);background:color-mix(in srgb,var(--maple) 10%,transparent)}
 
 /* 清单宽度不够一行时：名称和合计一行，价格、数量各占一行 */
 @container (max-width:900px){
