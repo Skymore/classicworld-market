@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.63：悬浮窗战利品一行只算物品价值，金币已在左栏单独显示，不再重复计入。\n'
         'v0.7.62：悬浮窗战利品和消耗改成绿色 + 和红色 − 两行；左栏金币去掉文字，只留图标和数字。\n'
         'v0.7.61：悬浮窗分成三个区：经验、净收益和掉落、Buff，各自一块卡片。\n'
         'v0.7.60：悬浮窗速度曲线改成平滑曲线；经验/净收益下面分左右两栏（左边距升级或金币，右边实时和走势线，不再压线）；“收益”改叫“净收益”；消耗和战利品上移到净收益下面；精简样式加宽约 14%。\n'
