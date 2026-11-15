@@ -408,8 +408,8 @@ impl Parts {
             c1 -= 1;
         }
         let (mut best, mut run) = (0, 0);
-        for x in c0..c1 {
-            if self.cp[x] == 0.0 {
+        for &v in &self.cp[c0..c1] {
+            if v == 0.0 {
                 run += 1;
                 best = best.max(run);
             } else {
