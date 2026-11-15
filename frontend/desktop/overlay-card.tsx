@@ -126,11 +126,13 @@ function beep() {
 /** Buff countdowns; says a buff's name once when it crosses the warning time. A Final
  * Attack (triggered by hits) chimes when it turns on instead and stays quiet when it ends. */
 const ITEM_LATE = 3;   // grind_autobuff.ITEM_LATE: an item buff is used this long after it ends
+const AGAIN = 10;      // a warning is said once more this long after, if nothing was cast
 
 function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | null; settings: GrindSettings; icons?: boolean; tiles?: boolean }) {
   const [, tick] = useState(0);
-  const warned = useRef(new Map<number, number>());   // source -> end time it was announced for
-  const items = useRef(new Map<number, { ends: number; name: string | null }>());   // item buffs seen on: when they end
+  // source -> the cast's end time, when it was last said, how many times (at most twice)
+  const warned = useRef(new Map<number, { ends: number; at: number; times: number; name: string | null }>());
+  const items = useRef(new Map<number, { ends: number; name: string | null; at?: number }>());   // item buffs seen on: when they end
   const procs = useRef<Map<number, number> | null>(null);   // Final Attack source -> turn-on time announced
   useEffect(() => { const id = setInterval(() => tick(n => n + 1), 250); return () => clearInterval(id); }, []);
   const warn = settings.buff_warn_seconds ?? 3;
@@ -149,24 +151,32 @@ function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | 
     announced.set(b.source, b.on);
     if (!first && fighting) chime(b.source, b.name);
   }
+  // Each warning is said twice: again AGAIN seconds later if the buff was not cast (or
+  // used) again by then. Final Attacks are never warned.
   const now = Date.now() / 1000;
+  const on = (source: number) => buffs.find(b => b.source === source && b.left > 0);
   for (const b of buffs) if (b.item_id && b.left > 0) items.current.set(b.source, { ends: now + b.left, name: b.name });
   for (const [source, item] of items.current) {
-    if (buffs.some(b => b.source === source && b.left > 0)) continue;   // still on (or used again)
-    if (now - item.ends > 30) { items.current.delete(source); continue; }
-    if (now - item.ends >= ITEM_LATE && fighting) {
-      items.current.delete(source);
-      say(source, item.name);
-    }
+    if (on(source)) continue;   // still on, or used again
+    if (now - item.ends > ITEM_LATE + AGAIN + 30) { items.current.delete(source); continue; }
+    if (!fighting) continue;
+    if (item.at === undefined && now - item.ends >= ITEM_LATE) { item.at = now; say(source, item.name); }
+    else if (item.at !== undefined && now - item.at >= AGAIN) { items.current.delete(source); say(source, item.name); }
   }
   for (const b of buffs) {
-    if (b.proc || b.item_id || !fighting) continue;
-    // The end time drifts by a second between state writes; one announcement per cast.
-    const ends = Date.now() / 1000 + b.left, said = warned.current.get(b.source);
-    if (b.left > 0 && b.left <= warn && (said === undefined || Math.abs(said - ends) > 5)) {
-      warned.current.set(b.source, ends);
-      if (warn > 0) say(b.source, b.name);
+    if (b.proc || b.item_id || !fighting || warn <= 0) continue;
+    // The end time drifts by a second between state writes; one warning per cast.
+    const ends = now + b.left, said = warned.current.get(b.source);
+    if (b.left > 0 && b.left <= warn && (said === undefined || Math.abs(said.ends - ends) > 5)) {
+      warned.current.set(b.source, { ends, at: now, times: 1, name: b.name });
+      say(b.source, b.name);
     }
+  }
+  for (const [source, said] of warned.current) {
+    const current = on(source);
+    if (current && Math.abs(now + current.left - said.ends) > 5) { warned.current.delete(source); continue; }   // cast again
+    if (said.times >= 2 || now - said.at > AGAIN + 30) continue;
+    if (fighting && now - said.at >= AGAIN) { said.times = 2; say(source, said.name); }
   }
   if (!buffs.length) return null;
   if (tiles) {
