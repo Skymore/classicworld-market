@@ -24,6 +24,11 @@ PRESET_OPCODES = (0x8B, 0x1A9)
 PET_POTION_OPCODES = {0x5F6: 'hp', 0x5F7: 'mp'}
 LEAD = 3.0                    # recast a skill this many seconds before its buff ends
 ITEM_LATE = 3.0               # use an item this long after its buff ended: sooner, the game may still say it is on
+# An item buff (Dragon Blood, potions) is over only when the server says so: its
+# cancel came 0-7 s after the nominal end in 30 recorded endings (2026-11-15), and
+# the game asks to confirm a potion used before that. Without a cancel, it is taken
+# as over this long after the nominal end.
+ITEM_WAIT = 10.0
 RETRY = 1.5                   # a skill press the game missed (e.g. mid-attack) is retried this soon
 ITEM_RETRY = 3.0              # an item is retried more slowly: its buff confirmation must not race a second one
 POTION_STALL = 5.0            # a potion that did not raise HP / MP (chat open, a dialog, none left) waits this long
@@ -254,7 +259,9 @@ class AutoBuff:
             pinned = tracker.pinned_buffs(character, now)
             cast = {source for segment in run.segments for source in segment.buff_totals
                     if (source > 0 and run.casts.get(source)) or source < 0}
-            due = {source: start + milliseconds / 1000 - now
+            # An item still on is over at the server's cancel (it then moves to
+            # buff_ended, used ITEM_LATE later); without one, used ITEM_WAIT after its nominal end.
+            due = {source: start + milliseconds / 1000 + (ITEM_WAIT - ITEM_LATE if source < 0 else 0) - now
                    for source, (start, milliseconds) in character.buffs.items()}
             due.update({source: character.buff_ended.get(source, now - 3600) - now
                         for source in set(pinned) | cast if source not in due})

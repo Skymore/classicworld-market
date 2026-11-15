@@ -245,6 +245,9 @@ class AutoBuffTest(unittest.TestCase):
         self.assertEqual(self.pressed, [])
         self.clock.t += 12
         self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])                  # nominally over, but the server has not ended it
+        self.clock.t += 8                                   # no cancel came: over ITEM_WAIT after the nominal end
+        self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, ['2'])
         character.bags = {2002004: 0}
         self.clock.t += autobuff.RETRY + 2
@@ -260,7 +263,36 @@ class AutoBuffTest(unittest.TestCase):
         self.tracker.pinned_buffs = lambda c, now: {}
         self.clock.t += 13.2
         self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])                  # 3 s past nominal: the game may still have it on
+        self.clock.t += 7
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, ['2'])               # no cancel: ITEM_WAIT after the nominal end
+
+    def test_a_potion_is_used_again_three_seconds_after_the_server_ends_it(self):
+        character = self.start()
+        self.send(key_table([{3: (2, 2002004)}] * 3))
+        character.buffs = {-2002004: (self.clock(), 10_000)}
+        character.bags = {2002004: 5}
+        self.current().segment.buff_totals[-2002004] = 10
+        self.tracker.pinned_buffs = lambda c, now: {}
+        self.clock.t += 14                                  # the server's cancel, 4 s late
+        del character.buffs[-2002004]
+        character.buff_ended[-2002004] = self.clock()
+        self.clock.t += 2
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])
+        self.clock.t += 1.2
+        self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, ['2'])
+
+    def test_an_item_buff_past_its_time_shows_as_ending_until_the_server_ends_it(self):
+        character = self.start()
+        character.buffs = {-2002004: (self.clock(), 10_000)}
+        self.clock.t += 12
+        row = next(b for b in self.tracker.buffs(character, self.clock()) if b['source'] == -2002004)
+        self.assertEqual((row['seconds'], row.get('ending')), (0, True))
+        self.clock.t += 9                                   # 11 s past nominal, still no cancel: over
+        self.assertFalse(any(b['source'] == -2002004 for b in self.tracker.buffs(character, self.clock())))
 
     def test_an_unused_unpinned_potion_is_never_used(self):
         character = self.start()

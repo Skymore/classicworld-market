@@ -214,19 +214,24 @@ try {
         if (now > t0 + 4) ends[3101004] = t0 + 200;   // cast again after its first warning
         const buffs = [{ source: 3001000, name: '集中术', item_id: null, total: 120 }, { source: -2012000, name: '龙血', item_id: 2012000, total: 180 },
           { source: 3101004, name: '无形箭', item_id: null, total: 200 }, { source: 3100001, name: '终极弓', item_id: null, total: 60, proc: true, on: t0 }]
-          .map(b => ({ ...b, seconds: b.proc ? Math.max(0.1, t0 + 4 - now) : Math.round((ends[b.source] - now) * 10) / 10 })).filter(b => b.seconds > 0);
+          .map(b => ({ ...b, seconds: b.proc ? Math.max(0.1, t0 + 4 - now) : Math.round((ends[b.source] - now) * 10) / 10 }))
+          // 龙血 is nominally over at 2 s; the server ends it at 4 s (0-7 s late in recordings): "ending" until then.
+          .map(b => b.source === -2012000 && b.seconds <= 0 && now < t0 + 4 ? { ...b, seconds: 0, ending: true } : b)
+          .filter(b => b.seconds > 0 || b.ending);
         return { alive_at: now, stale: false, runs: [{ ...structuredClone(run), in_combat: true, buffs }], finished: [], calibration: [], characters: [] };
       };
       const shown = { ...settings, buff_sound: true, buff_warn_seconds: 3, overlay: { ...settings.overlay, layout: 'slim', fields: ['buffs'] } };
       window.pywebview = { api: { state: async () => ({ live: live(), settings: shown, editing: false, language: 'zh' }), fit: async () => 0, scale: async v => v } };
     }, { run, settings });
     await page.goto(base + '/overlay.html');
-    await page.waitForTimeout(17000);
+    await page.waitForTimeout(3000);
+    assert.equal(await page.locator('.ov-buffs .ending b').innerText(), '将结束', 'an item buff past its time but not ended by the server');
+    await page.waitForTimeout(16000);
     const said = await page.evaluate(() => window.said.filter(([, src]) => !src.includes('drop_alert')));
     const at = name => said.filter(([, src]) => src.includes(name)).map(([t]) => t);
     assert.deepEqual(at('/3001000.mp3'), [3, 13], `a skill: 3 s before it ends, again 10 s later (${JSON.stringify(said)})`);
     const item = at('/-2012000.mp3');
-    assert(item.length === 2 && item[0] >= 5 && item[1] - item[0] >= 10, `an item buff: 3 s after it ends, again 10 s later (${JSON.stringify(said)})`);
+    assert(item.length === 2 && item[0] >= 7 && item[1] - item[0] >= 10, `an item buff: 3 s after the server ends it, again 10 s later (${JSON.stringify(said)})`);
     assert.deepEqual(at('/3101004.mp3'), [2], `cast again after the first warning: not said again (${JSON.stringify(said)})`);
     assert.deepEqual(at('/3100001.mp3'), [], `a Final Attack is never warned (${JSON.stringify(said)})`);
     await page.close();

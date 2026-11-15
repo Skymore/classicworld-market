@@ -11,7 +11,7 @@ export interface Consumable { item_id: number; name: string | null; used: number
 /** A valuable item that just fell for this character or its party (grind_tracker.ground_drop). */
 export interface GroundDrop { t: number; object: number; item_id: number; name: string | null; value: number | null; by?: 'me' | 'party' | null; by_name?: string | null;
   gone?: number; how?: 'expired' | 'gone' | 'picked' | 'pet'; taker?: 'me' | 'party' | 'other' | null; taker_name?: string | null }
-export interface Buff { source: number; name: string | null; seconds: number; total: number; item_id: number | null; pinned?: boolean; proc?: boolean; on?: number | null }
+export interface Buff { source: number; name: string | null; seconds: number; total: number; item_id: number | null; pinned?: boolean; proc?: boolean; on?: number | null; ending?: boolean }
 export interface CombatRow {
   dps_5m?: number | null; kills_5m?: number; exp_received_5m?: number | null; kill_exp_5m?: number | null; exp_contribution_5m?: number | null; exp_yield_5m?: number | null;
   character_id: number; name: string | null; self: boolean; away: boolean; partial: boolean;
@@ -165,7 +165,7 @@ export function currentBuffs(live: Live | null): Buff[] {
 }
 /** Live buffs, plus pinned ones that ran out (shown greyed until recast). */
 export const shownBuffs = (live: Live | null) =>
-  currentBuffs(live).map(b => ({ ...b, left: buffLeft(b, live) })).filter(b => b.left > 0 || b.pinned);
+  currentBuffs(live).map(b => ({ ...b, left: buffLeft(b, live) })).filter(b => b.left > 0 || b.pinned || b.ending);
 /** Seconds left now: the state is written each second, so count down locally in between. */
 export const buffLeft = (buff: Buff, live: Live | null) =>
   Math.max(0, buff.seconds - (live ? Date.now() / 1000 - live.alive_at : 0));

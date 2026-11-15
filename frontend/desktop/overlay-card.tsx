@@ -125,22 +125,23 @@ function beep() {
 
 /** Buff countdowns; says a buff's name once when it crosses the warning time. A Final
  * Attack (triggered by hits) chimes when it turns on instead and stays quiet when it ends. */
-const ITEM_LATE = 3;   // grind_autobuff.ITEM_LATE: an item buff is used this long after it ends
+const ITEM_LATE = 3;   // grind_autobuff.ITEM_LATE: an item buff is used this long after the server ends it
 const AGAIN = 10;      // a warning is said once more this long after, if nothing was cast
 
 function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | null; settings: GrindSettings; icons?: boolean; tiles?: boolean }) {
   const [, tick] = useState(0);
   // source -> the cast's end time, when it was last said, how many times (at most twice)
   const warned = useRef(new Map<number, { ends: number; at: number; times: number; name: string | null }>());
-  const items = useRef(new Map<number, { ends: number; name: string | null; at?: number }>());   // item buffs seen on: when they end
+  // Item buffs seen on (or ending: nominally over, not yet ended by the server): last seen then.
+  const items = useRef(new Map<number, { ends: number; name: string | null; at?: number }>());
   const procs = useRef<Map<number, number> | null>(null);   // Final Attack source -> turn-on time announced
   useEffect(() => { const id = setInterval(() => tick(n => n + 1), 250); return () => clearInterval(id); }, []);
   const warn = settings.buff_warn_seconds ?? 3;
   const buffs = shownBuffs(live);
   // An item buff (龙血, 药水…) cannot be used again while it is on (the game asks to confirm),
   // so it is not flagged before it ends: said ITEM_LATE seconds after, like auto buff uses it.
-  const state = (b: { left: number; proc?: boolean; item_id?: number | null }) => b.left <= 0 ? 'off' : b.left <= warn && !b.proc && !b.item_id ? 'warn' : '';
-  const left = (b: { left: number }) => b.left > 0 ? clock(b.left) : tr('过期', 'Out');
+  const state = (b: { left: number; proc?: boolean; item_id?: number | null; ending?: boolean }) => b.ending ? 'ending' : b.left <= 0 ? 'off' : b.left <= warn && !b.proc && !b.item_id ? 'warn' : '';
+  const left = (b: { left: number; ending?: boolean }) => b.ending ? tr('将结束', 'Ending') : b.left > 0 ? clock(b.left) : tr('过期', 'Out');
   // Spoken only while fighting (an attack or kill in the last 10 s), like auto buff.
   const fighting = settings.buff_sound && !!live?.runs?.[0]?.in_combat;
   // A Final Attack is announced each time it turns on (the server's `on` time, which
@@ -154,8 +155,9 @@ function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | 
   // Each warning is said twice: again AGAIN seconds later if the buff was not cast (or
   // used) again by then. Final Attacks are never warned.
   const now = Date.now() / 1000;
-  const on = (source: number) => buffs.find(b => b.source === source && b.left > 0);
-  for (const b of buffs) if (b.item_id && b.left > 0) items.current.set(b.source, { ends: now + b.left, name: b.name });
+  const on = (source: number) => buffs.find(b => b.source === source && (b.left > 0 || b.ending));
+  // An item buff ends when it leaves the list: the server's cancel (or ITEM_WAIT after its nominal end).
+  for (const b of buffs) if (b.item_id && (b.left > 0 || b.ending)) items.current.set(b.source, { ends: now, name: b.name });
   for (const [source, item] of items.current) {
     if (on(source)) continue;   // still on, or used again
     if (now - item.ends > ITEM_LATE + AGAIN + 30) { items.current.delete(source); continue; }

@@ -35,6 +35,7 @@ DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, 
                              hide_in_capture=False, stream=False, x=None, y=None,
                              fields=['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent']))
 IDLE_CREDIT = 10
+ITEM_WAIT = autobuff.ITEM_WAIT
 SLOT = 10                   # seconds per experience slot kept for the chart
 CHART_WINDOW = 60           # each chart point is the rate over the minute before it
 CHART_POINTS = 360
@@ -1468,6 +1469,11 @@ class Tracker:
                 character.buff_ended[source] = start + milliseconds / 1000
                 continue
             if left <= 0:
+                if source < 0 and left > -(ITEM_WAIT - autobuff.ITEM_LATE):
+                    # Nominally over, but the server has not ended it yet: still on in the game.
+                    # Without a cancel it leaves the list so the overlay says it at ITEM_WAIT.
+                    shown.add(source)
+                    out.append(dict(self.buff_row(source, 0, milliseconds / 1000, source in pinned), ending=True))
                 continue
             shown.add(source)
             # `on`: when it last turned on, so a Final Attack cancelled and given again
