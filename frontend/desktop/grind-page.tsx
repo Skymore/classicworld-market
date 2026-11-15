@@ -138,7 +138,7 @@ const PRESETS: { key: string; zh: string; en: string; layout: GrindSettings['ove
 ];
 
 /** The overlay window's width for each shape at 100% (grind_desktop.OVERLAY_SIZES). */
-const WIDTH: Record<GrindSettings['overlay']['layout'], number> = { slim: 260, compact: 840, standard: 330, detailed: 360, rail: 140, big: 290 };
+const WIDTH: Record<GrindSettings['overlay']['layout'], number> = { slim: 296, compact: 840, standard: 330, detailed: 360, rail: 140, big: 290 };
 
 /** The overlay as it will look, drawn small. */
 function OverlayPreview({ settings, layout, fields, live, scale, wide = false }: {

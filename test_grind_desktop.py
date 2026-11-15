@@ -93,7 +93,7 @@ class ServiceTest(unittest.TestCase):
             self.assertEqual(service.settings()['overlay']['x'], 321)
             service.overlay = None
             self.assertEqual(service.fit_overlay(187.4), 187)
-            self.assertEqual(service.overlay_size(dict(settings['overlay'], layout='slim', scale=1.5)), (390, 187))
+            self.assertEqual(service.overlay_size(dict(settings['overlay'], layout='slim', scale=1.5)), (444, 187))
             self.assertEqual(service.fit_overlay(5), 24)
             with self.assertRaises(ValueError):
                 service.fit_overlay(None)

@@ -1,5 +1,6 @@
 // One grind run in full: used by the client's history detail and the
 // website's run and share pages. Text comes from the host's `t(zh, en)`.
+import { smoothPath } from "./smooth-path";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EntityLink, EntityRow } from "./entity-ref";
 import { timelineRates } from "../../desktop/grind";
@@ -179,8 +180,8 @@ export function RateChart({ points, t, english, title, showNet = true, average }
           ))}
           <line x1={L} x2={W - R} y1={H - B} y2={H - B} className="base" />
           {average?.exp != null && <line x1={L} x2={W - R} y1={yExp(average.exp)} y2={yExp(average.exp)} className="avg exp" />}
-          <polyline points={path(yExp, "exp")} className="exp" />
-          {showNet && <polyline points={path(yNet, "net")} className="net" />}
+          <path d={smoothPath(path(yExp, "exp"))} className="line exp" />
+          {showNet && <path d={smoothPath(path(yNet, "net"))} className="line net" />}
           <g className="peak exp">
             <circle cx={expAt.x} cy={expAt.y} r="4" />
             <text x={expAt.x} y={expBelow ? expAt.y + 17 : expAt.y - 8} textAnchor={anchor(expAt.x)}>{t("最高", "Peak")} {b(points[expPeak].exp)}</text>

@@ -5,6 +5,7 @@ import { Coins, Sparkles } from 'lucide-react';
 import { big, type RunSummary } from './grind';
 import { tr } from './i18n';
 import './grind-metrics.css';
+import { smoothPath } from '../src/components/smooth-path';
 
 /** Hourly rates over the whole run (timeline buckets); older summaries only had the last 20 minutes. */
 export function rateHistory(run: RunSummary): { t: number; exp: number; net: number }[] {
@@ -16,7 +17,7 @@ export function rateHistory(run: RunSummary): { t: number; exp: number; net: num
 /** One rate as a label, a large live number and the session average; the mark says which way the live rate leans. */
 const signed = (value: number | null | undefined) => value == null ? '—' : (value > 0 ? '+' : '') + big(value);
 
-export function RateStat({ run, kind }: { run: RunSummary; kind: 'exp' | 'net' }) {
+export function RateStat({ run, kind, side }: { run: RunSummary; kind: 'exp' | 'net'; side?: React.ReactNode }) {
   const average = kind === 'exp' ? run.exp_per_hour : run.net_per_hour;
   const minute = kind === 'exp' ? run.exp_per_hour_1m : run.net_per_hour_1m;
   const values = rateHistory(run).map(p => p[kind]);
@@ -24,19 +25,24 @@ export function RateStat({ run, kind }: { run: RunSummary; kind: 'exp' | 'net' }
   const y = (value: number) => 22 - (value - low) / span * 20;
   const points = values.map((v, i) => `${i / Math.max(1, values.length - 1) * 100},${y(v)}`).join(' ');
   // As 枫记 lays it out: the label; the run's average (big, steady) with an arrow for the
-  // last minute against it, the run's total on the right; the last minute ("实时") sits
-  // on the trend line below.
+  // last minute against it, the run's total on the right; below, two columns: `side` on the
+  // left (time to the next level, or mesos picked up), the last minute ("实时") over the trend
+  // line on the right.
   const trend = minute != null && average ? (minute >= average ? 'up' : 'down') : null;
   return <div className="ov-stat" aria-label={kind === 'exp' ? tr('经验', 'EXP') : tr('金币净收益', 'Net mesos')}>
-    <div className="ov-stat-top"><small>{kind === 'exp' ? tr('经验/时', 'EXP/h') : tr('收益/时', 'Profit/h')}</small></div>
+    <div className="ov-stat-top"><small>{kind === 'exp' ? tr('经验/时', 'EXP/h') : tr('净收益/时', 'Net/h')}</small></div>
     <div className="ov-stat-mid"><span className="ov-avg"><b className="gold">{big(average ?? minute)}</b>
       {trend && <i className={'rate-trend ' + trend}>{trend === 'up' ? '▲' : '▼'}</i>}</span>
-      <span className="ov-total">{kind === 'exp' ? tr('经验', 'EXP') : tr('收益', 'Net')} <b>{signed(kind === 'exp' ? run.exp : run.net)}</b></span></div>
-    {minute != null && <div className="ov-live dim">{tr('实时', 'live')} {big(minute)}/h</div>}
+      <span className="ov-total">{kind === 'exp' ? tr('经验', 'EXP') : tr('净收益', 'Net')} <b>{signed(kind === 'exp' ? run.exp : run.net)}</b></span></div>
+    <div className={'ov-trend-row' + (side ? ' split' : '')}>
+    {side && <div className="ov-side">{side}</div>}
+    <div className="ov-trend-box">
+    {minute != null && <span className="ov-live dim">{tr('实时', 'live')} <b>{big(minute)}</b>/h</span>}
     {values.length > 1 && <svg className="ov-trend" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
-      <polygon points={`0,24 ${points} 100,24`} fill="currentColor" opacity=".1" />
+      <path d={`${smoothPath(points)} L100,24 L0,24 Z`} fill="currentColor" opacity=".1" />
       {average != null && <line x1="0" x2="100" y1={y(average)} y2={y(average)} stroke="currentColor" opacity=".4" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />}
-      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.5" vectorEffect="non-scaling-stroke" /></svg>}
+      <path d={smoothPath(points)} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /></svg>}
+    </div></div>
   </div>;
 }
 
@@ -77,7 +83,7 @@ export function RateMetrics({ run, kind }: { run: RunSummary; kind: 'exp' | 'net
       onPointerMove={e => { const box = e.currentTarget.getBoundingClientRect(); const t = start + Math.max(0, Math.min(1, (e.clientX - box.left) / box.width)) * span; if (history.length) setSelected(history.reduce((best, p, i) => Math.abs(p.t - t) < Math.abs(history[best].t - t) ? i : best, 0)); }} preserveAspectRatio="none" role="img" aria-label={tr(`${name}整场每小时趋势`, `${name} hourly rate over the whole run`)}>
       {low <= 0 && high >= 0 && <line x1="2" x2="298" y1={y(0)} y2={y(0)} stroke="currentColor" opacity=".2" />}
       {average != null && average >= low && average <= high && <line x1="2" x2="298" y1={y(average)} y2={y(average)} stroke="currentColor" opacity=".45" strokeDasharray="4 3"><title>{tr('本次平均', 'Session average')} {big(average)}/h</title></line>}
-      {history.length > 1 && <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />}
+      {history.length > 1 && <path d={smoothPath(points)} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
       {active && <g className="rate-cursor"><line x1={x(active.t)} x2={x(active.t)} y1="4" y2="72" stroke="currentColor" opacity=".4" /><circle cx={x(active.t)} cy={y(active[kind])} r="3" fill="currentColor" /></g>}
       {yTicks.map((v, i) => <line key={i} x1="2" x2="298" y1={y(v)} y2={y(v)} stroke="currentColor" opacity=".08" vectorEffect="non-scaling-stroke" />)}
     </svg></div>

@@ -1,6 +1,7 @@
 // Two runs side by side: what each made, how fast, and their EXP/h over the
 // run's own clock on one chart. Opened from the history list (two ticked).
 import { useEffect, type ReactNode } from "react";
+import { smoothPath } from "./smooth-path";
 import { big, span, signed, timelinePoints, when, type GrindRun, type Words } from "./grind-run";
 
 type Row = { label: string; a: number | null | undefined; b: number | null | undefined; show(v: number | null | undefined): ReactNode; lower?: boolean };
@@ -66,7 +67,7 @@ function CompareChart({ a, b, t, english }: { a: GrindRun; b: GrindRun; t: Words
   return <figure className="gc-chart">
     <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={t("经验/时对比", "EXP/h compared")}>
       {[0.5, 1].map(f => <line key={f} x1={pad} x2={width - pad} y1={y(maxY * f)} y2={y(maxY * f)} className="gc-grid" />)}
-      {lines.map((points, i) => points.length > 1 && <polyline key={i} points={path(points)} className={i ? "gc-line-b" : "gc-line-a"} vectorEffect="non-scaling-stroke" />)}
+      {lines.map((points, i) => points.length > 1 && <path key={i} d={smoothPath(path(points))} className={i ? "gc-line-b" : "gc-line-a"} vectorEffect="non-scaling-stroke" />)}
     </svg>
     <figcaption><span>{t("经验/时", "EXP/h")} · {t("最高", "max")} {big(maxY, english)}</span><span>{t(`开场后 ${Math.round(maxX)} 分钟`, `${Math.round(maxX)} min in`)}</span></figcaption>
   </figure>;

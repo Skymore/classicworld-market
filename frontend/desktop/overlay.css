@@ -16,7 +16,9 @@
 .ov-slim>.ov-stat{margin:0 0 .6em}
 .ov-stat-top,.ov-stat-mid{display:flex;align-items:baseline;justify-content:space-between;gap:.6em;min-width:0;white-space:nowrap}
 .ov-stat-mid .ov-avg{display:inline-flex;align-items:baseline;gap:.3em}.ov-stat-mid .ov-avg>b{font-size:1.8em;line-height:1.15;font-weight:800}
-.ov-stat .ov-live{font-size:.8em;margin:.2em 0 -1.4em;position:relative;z-index:1;width:max-content}
+.ov-trend-row{display:flex;align-items:center;gap:.6em;margin-top:.3em}.ov-trend-box{flex:1;min-width:0;display:flex;align-items:center;gap:.6em}.ov-trend-row .ov-live{flex:none;font-size:.8em;white-space:nowrap}
+.ov-trend-row.split{align-items:flex-end}.ov-trend-row.split .ov-trend-box{flex-direction:column;align-items:stretch;gap:.1em}.ov-trend-row.split .ov-live{align-self:flex-start}
+.ov-side{flex:0 0 42%;display:flex;flex-direction:column;min-width:0;white-space:nowrap}.ov-side small{font-size:.8em;opacity:.6}.ov-side b{font-weight:700;display:inline-flex;align-items:center;gap:.25em}.ov-trend-row .ov-live b{font-weight:700}.ov .ov-trend-row .ov-trend{flex:1;min-width:0;width:auto;margin:0}
 .ov-stat .ov-total{font-size:.9em;opacity:.85}.ov-stat .ov-total b{font-weight:700}
 .ov-stat small{font-size:.85em;opacity:.6}
 .ov-stat>b{font-size:1.8em;line-height:1.2;font-weight:800;white-space:nowrap}

@@ -203,21 +203,22 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
   if (o.layout === 'slim') return box(<>
     <div className="ov-head">{dot}<b className="ov-job">{run.job_name ? `${run.job_name} · ` : ''}Lv.{run.level ?? '—'}</b><span>{mapLabel(run)}</span>
       {show('time') && <em><Clock3 size={I} style={ico} />{clock(run.active_seconds)}</em>}<Recording run={run} /></div>
-    {show('exp_rate') && <RateStat run={run} kind="exp" />}
+    {show('exp_rate') && <RateStat run={run} kind="exp" side={show('level') && <><small>{tr('距升级', 'Next level')}</small><b>{duration(run.eta_seconds)}</b></>} />}
     {show('level') && <div className="ov-level"><b>{percent(run.exp_percent, 1)}</b>
-      <span className="ov-bar"><i style={{ width: `${Math.min(100, run.exp_percent ?? 0)}%` }} /></span><span className="dim">{tr('升级', 'up in')} {duration(run.eta_seconds)}</span></div>}
-    {show('profit') && <RateStat run={run} kind="net" />}
+      <span className="ov-bar"><i style={{ width: `${Math.min(100, run.exp_percent ?? 0)}%` }} /></span>
+      {!show('exp_rate') && <span className="dim">{tr('升级', 'up in')} {duration(run.eta_seconds)}</span>}</div>}
+    {show('profit') && <RateStat run={run} kind="net" side={<><small>{tr('金币', 'Mesos')}</small><b><MesosIcon size={12} />+{big(run.mesos)}</b></>} />}
     {(show('dps') || show('kills')) && <div className="ov-stats minor">
       {show('dps') && <div className="ov-stat"><small>DPS</small><b>{big(run.dps)}</b></div>}
       {show('kills') && <div className="ov-stat"><small>{tr('击杀/时', 'Kills/h')}</small><b>{big(run.kills_per_hour)}</b></div>}</div>}
-    <Ground live={live} />
-    {show('buffs') && <Buffs live={live} settings={settings} tiles />}
     {show('potions') && usedPotions.length > 0 && <div className="ov-tally"><small>{tr('消耗', 'Used')}</small>
       <span className="ov-icons">{usedPotions.slice(0, 3).map(c => <span key={c.item_id} title={c.name || ''}><img src={itemIcon(c.item_id)} alt="" />{c.used}</span>)}</span>
       <b>−{big(run.consume_cost)}</b></div>}
     {show('recent') && <div className="ov-tally"><small>{tr('战利品', 'Loot')}</small>
       <span className="ov-icons">{(run.loot || run.recent || []).slice(0, 3).map((row, i) => <span key={i} className={row.notable ? 'gold' : ''} title={row.name || ''}><img src={itemIcon(row.item_id)} alt="" />{row.quantity}</span>)}</span>
       <b className="gold">+{big(run.mesos + run.item_value)}</b></div>}
+    <Ground live={live} />
+    {show('buffs') && <Buffs live={live} settings={settings} tiles />}
     {party}{toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}
     <div className="ov-site foot">mxd.ruit.me</div></>);
   if (o.layout === 'compact') return box(<><div className="ov-line">{dot}

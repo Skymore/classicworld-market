@@ -13,8 +13,8 @@
 .gr-plot{position:relative}
 .gr-chart svg{display:block;width:100%;height:auto;overflow:visible;outline:none;touch-action:pan-y}
 .gr-chart svg:focus-visible{outline:2px solid var(--maple);outline-offset:2px}
-.gr-chart polyline{fill:none;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:round}
-.gr-chart polyline.exp{stroke:#3f78b5}.gr-chart polyline.net{stroke:var(--maple)}
+.gr-chart path.line{fill:none;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.gr-chart path.line.exp{stroke:#3f78b5}.gr-chart path.line.net{stroke:var(--maple)}
 .gr-chart .axis,.gr-chart text.axis{font-size:11px;fill:var(--ink-3)}
 .gr-chart text.exp{fill:#3f78b5}.gr-chart text.net{fill:var(--maple-ink)}
 .gr-chart line.grid{stroke:currentColor;opacity:.08}.gr-chart line.base{stroke:currentColor;opacity:.3}
