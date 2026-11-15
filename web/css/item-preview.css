@@ -1,7 +1,7 @@
 .item-peek{position:fixed;z-index:110;width:320px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain;background:#1b2231;color:#eef1f6;border:2px solid #8199bb;border-radius:4px;box-shadow:0 6px 20px #0006;font-size:13px;line-height:1.4;font-variant-numeric:tabular-nums}
 .item-peek[hidden],.peek-scrim[hidden]{display:none}
 .peek-scrim{position:fixed;inset:0;z-index:109;background:var(--scrim)}
-.item-peek.is-mobile{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));width:auto;max-width:420px;margin-inline:auto}
+.item-peek.is-mobile{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom) + var(--vv-gap,0px));width:auto;max-width:420px;margin-inline:auto}
 html:has(.item-peek.is-mobile:not([hidden])){overflow:hidden}
 .peek-close{position:absolute;top:4px;right:4px;z-index:2;display:grid;place-items:center;width:44px;min-height:44px;color:#fff;background:#263650;border:1px solid #8199bb;border-radius:2px;font-size:24px;cursor:pointer}
 .peek-head{display:flex;align-items:center;gap:10px;padding:12px 104px 10px 12px;background:#2c3e5b}

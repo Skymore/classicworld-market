@@ -155,6 +155,28 @@ try {
     await page.setViewportSize({ width: 390, height: 844 });
     await frames(page);
     await footerClear();
+    // iOS 26 home-screen apps can keep a layout viewport taller than the visible
+    // area after the keyboard closes: the dock and the page end must stay reachable.
+    const lifted = await page.evaluate(async () => {
+      const hidden = 94, view = visualViewport;
+      Object.defineProperty(view, 'height', { configurable: true, get: () => innerHeight - hidden });
+      view.dispatchEvent(new Event('resize'));
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      scrollTo(0, document.documentElement.scrollHeight);
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      const visible = innerHeight - hidden;
+      const result = { dock: document.querySelector('.dock').getBoundingClientRect().bottom, footer: document.querySelector('.home-foot').getBoundingClientRect().bottom, dockTop: document.querySelector('.dock').getBoundingClientRect().top, visible };
+      delete view.height;
+      view.dispatchEvent(new Event('resize'));
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      result.reset = getComputedStyle(document.documentElement).getPropertyValue('--vv-gap');
+      return result;
+    });
+    assert.equal(Math.round(lifted.dock), lifted.visible, `the dock sits on the visible bottom: ${JSON.stringify(lifted)}`);
+    assert(lifted.footer <= lifted.dockTop - 12, `the page end scrolls above the lifted dock: ${JSON.stringify(lifted)}`);
+    assert.equal(lifted.reset, '', 'the lift goes away once the viewport is right again');
+    await frames(page);
+    await footerClear();
     const reads = marketReads;
     const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/market');
     generation++;

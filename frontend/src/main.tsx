@@ -34,6 +34,7 @@ import {
 } from "./providers";
 import { AppShell, SiteLink } from "./components/shell";
 import { setSiteLinks } from "./components/entity-ref";
+import { watchViewportGap } from "./lib/viewport-gap";
 import { ensureStyle, useStyles } from "./lib/styles";
 import { queryClient, prefetchPriceTable } from "./lib/query";
 import {
@@ -61,6 +62,7 @@ function priceTablePath(url: URL) {
 }
 // The router restores scroll itself (lib/page-memory), after data renders.
 setSiteLinks(SiteLink, readPeriod);
+watchViewportGap();
 if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 const legacyPricePath = priceTablePath(new URL(location.href));
 if (legacyPricePath) history.replaceState(history.state, "", legacyPricePath);

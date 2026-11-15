@@ -129,7 +129,7 @@ a.drow:hover{background:var(--bar-soft)}
 @media (max-width:640px){
   /* Reserve home-indicator space while browser toolbars cover it too, so
      collapsing the bars cannot grow the page after a completed swipe. */
-  .app{width:100%;max-width:430px;min-width:0;margin:0 auto;padding:0 var(--gap) calc(var(--dock-h) + max(34px,env(safe-area-inset-bottom,0px)) + 20px)}
+  .app{width:100%;max-width:430px;min-width:0;margin:0 auto;padding:0 var(--gap) calc(var(--dock-h) + max(34px,env(safe-area-inset-bottom,0px)) + 20px + var(--vv-gap,0px))}
   /* Keep controls readable so focusing them does not trigger iOS zoom. */
   input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),textarea,select{font-size:max(16px,1em)!important}
 }
@@ -137,7 +137,7 @@ a.drow:hover{background:var(--bar-soft)}
 .brand{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-weight:800;font-size:18px;letter-spacing:.04em}
 .fresh{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-3)}
 .fresh i{flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:var(--bar)}
-.dock{position:fixed;left:0;right:0;bottom:0;z-index:40;display:grid;grid-template-columns:repeat(5,1fr);height:calc(var(--dock-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--sheet);border-top:2px solid var(--edge);box-shadow:inset 0 1px 0 var(--bevel-hi)}
+.dock{position:fixed;left:0;right:0;bottom:var(--vv-gap,0px);z-index:40;display:grid;grid-template-columns:repeat(5,1fr);height:calc(var(--dock-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--sheet);border-top:2px solid var(--edge);box-shadow:inset 0 1px 0 var(--bevel-hi)}
 .dock a{position:relative;display:grid;grid-template-rows:28px 16px;align-content:center;justify-items:center;align-items:center;gap:4px;min-height:44px;min-width:0;font-size:12px;color:var(--ink-2)}
 .dock .dock-icon{display:grid;place-items:center;width:28px;height:28px;line-height:0}
 .dock .dock-icon svg{display:block;width:24px;height:24px;flex:none}
@@ -222,7 +222,7 @@ a.drow:hover{background:var(--bar-soft)}
 #filter-root .scrim{position:fixed;inset:0;z-index:45;background:var(--scrim)}
 .fpanel{background:var(--sheet);border:2px solid var(--edge);border-radius:2px;box-shadow:var(--hard);text-align:left}
 /* 手机从底部弹出；平板和桌面挂在工具栏右下 */
-@media (max-width:640px){.fpanel{position:fixed;left:0;right:0;bottom:0;z-index:46;max-height:88vh;overflow:auto;border-left:0;border-right:0;border-bottom:0;border-radius:6px 6px 0 0;padding-bottom:env(safe-area-inset-bottom)}}
+@media (max-width:640px){.fpanel{position:fixed;left:0;right:0;bottom:var(--vv-gap,0px);z-index:46;max-height:88vh;overflow:auto;border-left:0;border-right:0;border-bottom:0;border-radius:6px 6px 0 0;padding-bottom:env(safe-area-inset-bottom)}}
 @media (min-width:641px){.fpanel{position:absolute;right:12px;top:calc(100% + 6px);z-index:25;width:380px}}
 .fhead{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 4px 0 12px;background:var(--bar);color:var(--bar-ink);border-bottom:2px solid var(--edge)}
 .fhead h3{flex:1;font-size:15px;font-weight:700;letter-spacing:.06em}
@@ -404,7 +404,7 @@ a.drow:hover{background:var(--bar-soft)}
 .grip-zone{display:grid;place-items:center;height:20px}
 .grip{width:40px;height:4px;background:var(--edge);box-shadow:0 1px 0 var(--bevel-hi)}
 .sheet .stall-bar{border-top:2px solid var(--edge)}
-.actbar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;gap:8px;padding:10px var(--gap) calc(10px + env(safe-area-inset-bottom));background:var(--sheet);border-top:2px solid var(--edge)}
+.actbar{position:fixed;left:0;right:0;bottom:var(--vv-gap,0px);z-index:40;display:flex;gap:8px;padding:10px var(--gap) calc(10px + env(safe-area-inset-bottom));background:var(--sheet);border-top:2px solid var(--edge)}
 .actbar .btn{flex:1}
 .actbar .btn:first-child{flex:0 0 auto}
 

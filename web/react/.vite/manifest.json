@@ -147,8 +147,8 @@
       "_shared-Cwf5YL9D.js"
     ]
   },
-  "_main-CRZeVoTd.js": {
-    "file": "chunks/main-CRZeVoTd.js",
+  "_main-BLXZ2nsg.js": {
+    "file": "chunks/main-BLXZ2nsg.js",
     "name": "main",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -403,7 +403,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CRZeVoTd.js"
+      "_main-BLXZ2nsg.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -696,7 +696,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-CRZeVoTd.js"
+      "_main-BLXZ2nsg.js"
     ]
   }
 }
