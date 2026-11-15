@@ -144,6 +144,7 @@ try {
     assert.equal(await page.locator('.ov-slim .ov-sec > .ov-stat').count(), 2);
     assert.deepEqual(await page.locator('.ov-total').allInnerTexts(), ['经验 +1万', '净收益 +1.2万']);
     assert.equal(await page.locator('.ov-tally').count(), 2);
+    assert.deepEqual(await page.locator('.ov-tally .ov-sign').allInnerTexts(), ['+', '−'], 'loot is a plus row, consumables a minus row');
     for (const row of await page.locator('.ov-tally').all()) assert((await row.boundingBox()).height < 34, `slim/${theme}: consumables and loot keep to one line each`);
     assert.equal(await page.locator('.ov-team').count(), 0);
     assert.equal(await page.locator('.rate-chart').count(), 0);

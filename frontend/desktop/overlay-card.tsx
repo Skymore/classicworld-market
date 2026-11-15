@@ -212,13 +212,13 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
       {show('dps') && <div className="ov-stat"><small>DPS</small><b>{big(run.dps)}</b></div>}
       {show('kills') && <div className="ov-stat"><small>{tr('击杀/时', 'Kills/h')}</small><b>{big(run.kills_per_hour)}</b></div>}</div>}</section>}
     {(show('profit') || show('potions') || show('recent') || groundRows(live).length > 0) && <section className="ov-sec">
-    {show('profit') && <RateStat run={run} kind="net" side={<><small>{tr('金币', 'Mesos')}</small><b><MesosIcon size={12} />+{big(run.mesos)}</b></>} />}
-    {show('potions') && usedPotions.length > 0 && <div className="ov-tally"><small>{tr('消耗', 'Used')}</small>
-      <span className="ov-icons">{usedPotions.slice(0, 3).map(c => <span key={c.item_id} title={c.name || ''}><img src={itemIcon(c.item_id)} alt="" />{c.used}</span>)}</span>
-      <b>−{big(run.consume_cost)}</b></div>}
-    {show('recent') && <div className="ov-tally"><small>{tr('战利品', 'Loot')}</small>
+    {show('profit') && <RateStat run={run} kind="net" side={<b className="ov-mesos" title={tr('拾取的金币', 'Mesos picked up')}><MesosIcon size={14} />+{big(run.mesos)}</b>} />}
+    {show('recent') && <div className="ov-tally loot"><i className="ov-sign plus" title={tr('战利品', 'Loot')}>+</i>
       <span className="ov-icons">{(run.loot || run.recent || []).slice(0, 3).map((row, i) => <span key={i} className={row.notable ? 'gold' : ''} title={row.name || ''}><img src={itemIcon(row.item_id)} alt="" />{row.quantity}</span>)}</span>
-      <b className="gold">+{big(run.mesos + run.item_value)}</b></div>}
+      <b className="plus">+{big(run.mesos + run.item_value)}</b></div>}
+    {show('potions') && usedPotions.length > 0 && <div className="ov-tally used"><i className="ov-sign minus" title={tr('消耗', 'Used')}>−</i>
+      <span className="ov-icons">{usedPotions.slice(0, 3).map(c => <span key={c.item_id} title={c.name || ''}><img src={itemIcon(c.item_id)} alt="" />{c.used}</span>)}</span>
+      <b className="minus">−{big(run.consume_cost)}</b></div>}
     <Ground live={live} /></section>}
     {show('buffs') && shownBuffs(live).length > 0 && <section className="ov-sec ov-sec-buffs"><Buffs live={live} settings={settings} tiles /></section>}
     {party}{toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}
