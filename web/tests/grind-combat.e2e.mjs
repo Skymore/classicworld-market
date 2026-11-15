@@ -193,5 +193,31 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'drops: no horizontal clipping');
     await page.close();
   }
-  console.log('Grind combat table, live updates, all 20 overlay combinations, the slim preset and its drop list passed.');
+  // Spoken buff warnings: a skill 3 s before it ends; an item buff (龙血) 3 s after it ends,
+  // since the game asks to confirm one used while it is still on.
+  {
+    const page = await browser.newPage({ viewport: { width: 296, height: 620 } });
+    await page.addInitScript(({ run, settings }) => {
+      const t0 = Date.now() / 1000;
+      window.said = [];
+      window.Audio = class { constructor(src) { this.src = src; } play() { window.said.push([Math.round(Date.now() / 1000 - t0), this.src]); setTimeout(() => this.onended?.(), 10); return Promise.resolve(); } };
+      const ends = { 3001000: t0 + 6, '-2012000': t0 + 2 };
+      const live = () => {
+        const now = Date.now() / 1000;
+        const buffs = [{ source: 3001000, name: '集中术', item_id: null, total: 120 }, { source: -2012000, name: '龙血', item_id: 2012000, total: 180 }]
+          .map(b => ({ ...b, seconds: Math.round((ends[b.source] - now) * 10) / 10 })).filter(b => b.seconds > 0);
+        return { alive_at: now, stale: false, runs: [{ ...structuredClone(run), in_combat: true, buffs }], finished: [], calibration: [], characters: [] };
+      };
+      const shown = { ...settings, buff_sound: true, buff_warn_seconds: 3, overlay: { ...settings.overlay, layout: 'slim', fields: ['buffs'] } };
+      window.pywebview = { api: { state: async () => ({ live: live(), settings: shown, editing: false, language: 'zh' }), fit: async () => 0, scale: async v => v } };
+    }, { run, settings });
+    await page.goto(base + '/overlay.html');
+    await page.waitForTimeout(7500);
+    const said = await page.evaluate(() => window.said.filter(([, src]) => !src.includes('drop_alert')));
+    const at = name => said.find(([, src]) => src.includes(name))?.[0];
+    assert.equal(at('/3001000.mp3'), 3, `the skill is said 3 s before it ends (${JSON.stringify(said)})`);
+    assert(at('/-2012000.mp3') >= 5, `the item buff is said 3 s after it ends, not before (${JSON.stringify(said)})`);
+    await page.close();
+  }
+  console.log('Grind combat table, live updates, all 20 overlay combinations, the slim preset and its drop list, and the buff warning timing passed.');
 } finally { await browser.close(); server.close(); }

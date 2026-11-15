@@ -64,8 +64,8 @@ export default function GrindPage({ hidden }: { hidden: boolean }) {
     {live?.protocol_warning && <div role="alert" className="error-banner"><AlertCircle size={18} />
       <span>{tr('游戏报文格式可能已变化，部分数字暂不可信；已自动开始录制，请把客户端更新到最新版。', 'The game messages may have changed; some numbers are unreliable. Recording started; update the collector.')}</span></div>}
     <div className="grind-body">
-      {view === 'live' && !run && <BuffStrip live={live ?? null} warn={settings?.buff_warn_seconds ?? 10} />}
-      {view === 'live' && <LiveView run={run} live={live ?? null} warn={settings?.buff_warn_seconds ?? 10} />}
+      {view === 'live' && !run && <BuffStrip live={live ?? null} warn={settings?.buff_warn_seconds ?? 3} />}
+      {view === 'live' && <LiveView run={run} live={live ?? null} warn={settings?.buff_warn_seconds ?? 3} />}
       {view === 'history' && <HistoryView runs={history as any} reload={loadHistory} />}
       {view === 'settings' && settings && state && <SettingsView state={state} settings={settings} save={save} refresh={load} />}
     </div>

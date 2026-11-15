@@ -32,7 +32,7 @@ class FrameLogTest(unittest.TestCase):
             files = list((Path(folder) / 'frames').glob('frames_*.jsonl'))
             self.assertEqual([(t, s, d) for t, s, d in read_frames(files)], [(10, 'abc', b'\x7e\x00\x01'), (11, 'abc', b'\x78\x05x')])
 
-    def test_retains_seven_days_without_size_eviction(self):
+    def test_retains_thirty_days_without_size_eviction(self):
         import os
         from grind_frames import RETENTION_SECONDS
         with tempfile.TemporaryDirectory() as folder:
@@ -57,6 +57,16 @@ class ServiceTest(unittest.TestCase):
             self.assertNotIn('bogus', on_disk['overlay'])
             self.assertIsNone(service.live())
             self.assertEqual(service.history(), [])
+
+    def test_buff_warnings_move_to_three_seconds_once(self):
+        from grind_tracker import load_settings
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'settings.json'
+            path.write_text(json.dumps(dict(buff_warn_seconds=10)), encoding='utf-8')     # saved before the change
+            self.assertEqual(load_settings(path)['buff_warn_seconds'], 3)
+            path.write_text(json.dumps(dict(buff_warn_seconds=8, buff_warn_version=2)), encoding='utf-8')
+            self.assertEqual(load_settings(path)['buff_warn_seconds'], 8)                 # chosen since: kept
+            self.assertEqual(load_settings(Path(folder) / 'missing.json')['buff_warn_seconds'], 3)
 
     def test_the_overlay_switch_flips_only_the_spoken_warnings(self):
         from grind_desktop import OverlayAPI

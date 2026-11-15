@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.65：技能 Buff 统一在结束前 3 秒提醒；龙血这类药水 Buff 改为结束后 3 秒提醒（没结束就喝游戏会弹窗确认），快结束时也不再变红。\n'
         'v0.7.64：修复换装备（两件互换，如换披风）后背包读不到、消耗和战利品停止记录；背包读不到时悬浮窗提示换频道；本地报文改为保留 30 天并压缩，更新后会用报文重建记录。\n'
         'v0.7.63：悬浮窗战利品一行只算物品价值，金币已在左栏单独显示，不再重复计入。\n'
         'v0.7.62：悬浮窗战利品和消耗改成绿色 + 和红色 − 两行；左栏金币去掉文字，只留图标和数字。\n'

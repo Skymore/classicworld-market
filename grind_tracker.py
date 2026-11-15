@@ -29,7 +29,7 @@ import grind_autobuff as autobuff
 
 DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, end_after_seconds=600,
                 start_events=3, start_window=60, price_basis='typical', notable_value=500000,
-                count_mesos_spent=True, min_upload_seconds=300, buff_warn_seconds=10, buff_sound=True, auto_buff=False, auto_potion=False,
+                count_mesos_spent=True, min_upload_seconds=300, buff_warn_seconds=3, buff_warn_version=2, buff_sound=True, auto_buff=False, auto_potion=False,
                 hotkeys=dict(overlay='Ctrl+Alt+O', pause='Ctrl+Alt+P', end='Ctrl+Alt+E'),
                 overlay=dict(enabled=True, layout='slim', theme='dark', opacity=0.92, scale=1.0,
                              hide_in_capture=False, stream=False, x=None, y=None,
@@ -59,6 +59,11 @@ def load_settings(path):
                 settings[key] = value
     except (OSError, ValueError, AttributeError):
         pass
+    else:
+        # 2026-11-15: buffs are warned 3 s before they end (was 10 s by default); move
+        # settings saved before then once. Item buffs are said 3 s after (overlay).
+        if not isinstance(saved, dict) or saved.get('buff_warn_version', 1) < 2:
+            settings['buff_warn_seconds'] = DEFAULTS['buff_warn_seconds']
     return settings
 
 

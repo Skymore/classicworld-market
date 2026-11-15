@@ -125,14 +125,19 @@ function beep() {
 
 /** Buff countdowns; says a buff's name once when it crosses the warning time. A Final
  * Attack (triggered by hits) chimes when it turns on instead and stays quiet when it ends. */
+const ITEM_LATE = 3;   // grind_autobuff.ITEM_LATE: an item buff is used this long after it ends
+
 function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | null; settings: GrindSettings; icons?: boolean; tiles?: boolean }) {
   const [, tick] = useState(0);
   const warned = useRef(new Map<number, number>());   // source -> end time it was announced for
+  const items = useRef(new Map<number, { ends: number; name: string | null }>());   // item buffs seen on: when they end
   const procs = useRef<Map<number, number> | null>(null);   // Final Attack source -> turn-on time announced
   useEffect(() => { const id = setInterval(() => tick(n => n + 1), 250); return () => clearInterval(id); }, []);
-  const warn = settings.buff_warn_seconds ?? 10;
+  const warn = settings.buff_warn_seconds ?? 3;
   const buffs = shownBuffs(live);
-  const state = (b: { left: number; proc?: boolean }) => b.left <= 0 ? 'off' : b.left <= warn && !b.proc ? 'warn' : '';
+  // An item buff (龙血, 药水…) cannot be used again while it is on (the game asks to confirm),
+  // so it is not flagged before it ends: said ITEM_LATE seconds after, like auto buff uses it.
+  const state = (b: { left: number; proc?: boolean; item_id?: number | null }) => b.left <= 0 ? 'off' : b.left <= warn && !b.proc && !b.item_id ? 'warn' : '';
   const left = (b: { left: number }) => b.left > 0 ? clock(b.left) : tr('过期', 'Out');
   // Spoken only while fighting (an attack or kill in the last 10 s), like auto buff.
   const fighting = settings.buff_sound && !!live?.runs?.[0]?.in_combat;
@@ -144,8 +149,18 @@ function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | 
     announced.set(b.source, b.on);
     if (!first && fighting) chime(b.source, b.name);
   }
+  const now = Date.now() / 1000;
+  for (const b of buffs) if (b.item_id && b.left > 0) items.current.set(b.source, { ends: now + b.left, name: b.name });
+  for (const [source, item] of items.current) {
+    if (buffs.some(b => b.source === source && b.left > 0)) continue;   // still on (or used again)
+    if (now - item.ends > 30) { items.current.delete(source); continue; }
+    if (now - item.ends >= ITEM_LATE && fighting) {
+      items.current.delete(source);
+      say(source, item.name);
+    }
+  }
   for (const b of buffs) {
-    if (b.proc || !fighting) continue;
+    if (b.proc || b.item_id || !fighting) continue;
     // The end time drifts by a second between state writes; one announcement per cast.
     const ends = Date.now() / 1000 + b.left, said = warned.current.get(b.source);
     if (b.left > 0 && b.left <= warn && (said === undefined || Math.abs(said - ends) > 5)) {
