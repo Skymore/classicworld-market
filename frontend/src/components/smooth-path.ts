@@ -30,3 +30,25 @@ export function smoothPath(points: string | [number, number][]): string {
   }
   return d;
 }
+
+/** Rates as drawn: averaged down to about `target` points, then a light 1-2-1 moving
+ * average. Each raw point is the minute before it (it jumps kill to kill, and to 0 over
+ * a break), so a curve through all of them stays jagged however its corners are drawn;
+ * this reads like a 3-5 minute trend. Read-outs (live, average, peak) use the raw values. */
+export function smoothRates<T extends { t: number }>(points: T[], keys: (keyof T)[], target = 48): T[] {
+  if (points.length <= 3) return points;
+  const size = Math.max(1, Math.ceil(points.length / target));
+  const buckets: T[] = [];
+  for (let start = 0; start < points.length; start += size) {
+    const slice = points.slice(start, start + size);
+    const bucket = { ...slice[slice.length - 1] } as T;
+    for (const key of keys) bucket[key] = slice.reduce((sum, p) => sum + Number(p[key] ?? 0), 0) / slice.length as T[keyof T];
+    buckets.push(bucket);
+  }
+  return buckets.map((point, i) => {
+    if (i === 0 || i === buckets.length - 1) return point;
+    const smooth = { ...point };
+    for (const key of keys) smooth[key] = (Number(buckets[i - 1][key]) + 2 * Number(point[key]) + Number(buckets[i + 1][key])) / 4 as T[keyof T];
+    return smooth;
+  });
+}

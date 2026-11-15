@@ -1,7 +1,7 @@
 // Two runs side by side: what each made, how fast, and their EXP/h over the
 // run's own clock on one chart. Opened from the history list (two ticked).
 import { useEffect, type ReactNode } from "react";
-import { smoothPath } from "./smooth-path";
+import { smoothPath, smoothRates } from "./smooth-path";
 import { big, span, signed, timelinePoints, when, type GrindRun, type Words } from "./grind-run";
 
 type Row = { label: string; a: number | null | undefined; b: number | null | undefined; show(v: number | null | undefined): ReactNode; lower?: boolean };
@@ -57,7 +57,7 @@ export function RunCompare({ a, b, t, english, close }: { a: GrindRun; b: GrindR
 
 /** EXP/h of both runs against minutes since each started. */
 function CompareChart({ a, b, t, english }: { a: GrindRun; b: GrindRun; t: Words; english: boolean }) {
-  const lines = [a, b].map(run => timelinePoints(run).map(p => ({ x: (p.t - run.started_at) / 60, y: p.exp })));
+  const lines = [a, b].map(run => smoothRates(timelinePoints(run), ["exp"]).map(p => ({ x: (p.t - run.started_at) / 60, y: p.exp })));
   const all = lines.flat();
   if (all.length < 2) return <p className="gc-note">{t("这两场没有走势数据。", "No rate history for these runs.")}</p>;
   const width = 640, height = 170, pad = 6;

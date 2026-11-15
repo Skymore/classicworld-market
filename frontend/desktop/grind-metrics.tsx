@@ -5,7 +5,7 @@ import { Coins, Sparkles } from 'lucide-react';
 import { big, type RunSummary } from './grind';
 import { tr } from './i18n';
 import './grind-metrics.css';
-import { smoothPath } from '../src/components/smooth-path';
+import { smoothPath, smoothRates } from '../src/components/smooth-path';
 
 /** Hourly rates over the whole run (timeline buckets); older summaries only had the last 20 minutes. */
 export function rateHistory(run: RunSummary): { t: number; exp: number; net: number }[] {
@@ -20,7 +20,7 @@ const signed = (value: number | null | undefined) => value == null ? '—' : (va
 export function RateStat({ run, kind, side }: { run: RunSummary; kind: 'exp' | 'net'; side?: React.ReactNode }) {
   const average = kind === 'exp' ? run.exp_per_hour : run.net_per_hour;
   const minute = kind === 'exp' ? run.exp_per_hour_1m : run.net_per_hour_1m;
-  const values = rateHistory(run).map(p => p[kind]);
+  const values = smoothRates(rateHistory(run), ['exp', 'net']).map(p => p[kind]);
   const low = Math.min(...values, average ?? Infinity), span = Math.max(1, Math.max(...values, average ?? -Infinity) - low);
   const y = (value: number) => 22 - (value - low) / span * 20;
   const points = values.map((v, i) => `${i / Math.max(1, values.length - 1) * 100},${y(v)}`).join(' ');
@@ -52,7 +52,7 @@ export function RateMetrics({ run, kind }: { run: RunSummary; kind: 'exp' | 'net
   const total = kind === 'exp' ? run.exp : run.net;
   const average = kind === 'exp' ? run.exp_per_hour : run.net_per_hour;
   const minute = kind === 'exp' ? run.exp_per_hour_1m : run.net_per_hour_1m;
-  const history = rateHistory(run);
+  const history = smoothRates(rateHistory(run), ['exp', 'net']);
   const values = history.map(p => p[kind]);
   const minimum = Math.min(...(values.length ? values : [minute ?? 0])), maximum = Math.max(...(values.length ? values : [minute ?? 0]));
   const padding = Math.max(1, (maximum - minimum) * .12, Math.abs(maximum) * .01);

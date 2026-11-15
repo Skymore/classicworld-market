@@ -147,8 +147,8 @@
       "_shared-Cwf5YL9D.js"
     ]
   },
-  "_main-BxAWmT89.js": {
-    "file": "chunks/main-BxAWmT89.js",
+  "_main-BEapyoUN.js": {
+    "file": "chunks/main-BEapyoUN.js",
     "name": "main",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -403,7 +403,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BxAWmT89.js"
+      "_main-BEapyoUN.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -555,7 +555,7 @@
     ]
   },
   "src/pages/grind.tsx": {
-    "file": "chunks/grind-DHy-FNtL.js",
+    "file": "chunks/grind-Bb6kAZiH.js",
     "name": "grind",
     "src": "src/pages/grind.tsx",
     "isDynamicEntry": true,
@@ -696,7 +696,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BxAWmT89.js"
+      "_main-BEapyoUN.js"
     ]
   }
 }

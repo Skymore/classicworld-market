@@ -1,6 +1,6 @@
 // One grind run in full: used by the client's history detail and the
 // website's run and share pages. Text comes from the host's `t(zh, en)`.
-import { smoothPath } from "./smooth-path";
+import { smoothPath, smoothRates } from "./smooth-path";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EntityLink, EntityRow } from "./entity-ref";
 import { timelineRates } from "../../desktop/grind";
@@ -100,9 +100,10 @@ function ticks(low: number, high: number, count = 3) {
 }
 
 /** EXP/h (left axis) and net/h (right axis) with time axis, hover read-out and peak marks. */
-export function RateChart({ points, t, english, title, showNet = true, average }: {
+export function RateChart({ points: raw, t, english, title, showNet = true, average }: {
   points: ChartPoint[]; t: Words; english: boolean; title?: string; showNet?: boolean; average?: { exp?: number | null; net?: number | null };
 }) {
+  const points = smoothRates(raw, ["exp", "net"]);
   const [hover, setHover] = useState<number | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(600);
