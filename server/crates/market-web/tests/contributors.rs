@@ -930,7 +930,7 @@ async fn google_start_uses_pkce_nonce_and_single_browser_state() {
     assert_eq!(result.0, StatusCode::SEE_OTHER);
     let url = url::Url::parse(result.1["location"].to_str().unwrap()).unwrap();
     let params: std::collections::HashMap<_, _> = url.query_pairs().collect();
-    assert_eq!(params["scope"], "openid");
+    assert_eq!(params["scope"], "openid email"); // the email names admins (google-oauth.json admins)
     assert_eq!(params["code_challenge_method"], "S256");
     assert_eq!(
         params["redirect_uri"],
