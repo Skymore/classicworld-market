@@ -407,8 +407,15 @@ pub async fn recompute_items(
     recompute_prices(conn, items, as_of, now, seen_at).await
 }
 
-async fn mark_dirty(conn: &mut PgConnection, items: &[i32], seen_at: &HashMap<i32, f64>) -> sqlx::Result<()> {
-    let seen: Vec<Option<f64>> = items.iter().map(|item| seen_at.get(item).copied()).collect();
+async fn mark_dirty(
+    conn: &mut PgConnection,
+    items: &[i32],
+    seen_at: &HashMap<i32, f64>,
+) -> sqlx::Result<()> {
+    let seen: Vec<Option<f64>> = items
+        .iter()
+        .map(|item| seen_at.get(item).copied())
+        .collect();
     sqlx::query(
         "INSERT INTO stats_dirty (item_id, seen_at)
          SELECT item, to_timestamp(seen) FROM unnest($1::int4[], $2::float8[]) AS x(item, seen)
@@ -442,12 +449,16 @@ pub async fn recompute_dirty(db: &PgPool, now: f64) -> sqlx::Result<usize> {
     }
     let mut items: Vec<i32> = claimed.iter().map(|(item, _)| *item).collect();
     items.sort_unstable();
-    let seen_at: HashMap<i32, f64> = claimed.iter().filter_map(|(item, seen)| seen.map(|s| (*item, s))).collect();
+    let seen_at: HashMap<i32, f64> = claimed
+        .iter()
+        .filter_map(|(item, seen)| seen.map(|s| (*item, s)))
+        .collect();
     let result = async {
         let mut tx = db.begin().await?;
-        let as_of: Option<f64> = sqlx::query_scalar("SELECT extract(epoch FROM as_of)::float8 FROM market_state")
-            .fetch_one(&mut *tx)
-            .await?;
+        let as_of: Option<f64> =
+            sqlx::query_scalar("SELECT extract(epoch FROM as_of)::float8 FROM market_state")
+                .fetch_one(&mut *tx)
+                .await?;
         recompute_prices(&mut tx, &items, as_of.unwrap_or(now), now, &seen_at).await?;
         crate::realtime::notify_market(&mut tx, Some(&items[..])).await?;
         tx.commit().await

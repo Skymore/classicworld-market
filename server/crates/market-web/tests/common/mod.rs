@@ -34,7 +34,9 @@ async fn sweep_stale(admin: &PgPool) {
     .await
     .unwrap_or_default();
     for name in stale {
-        let _ = sqlx::query(&format!("DROP DATABASE IF EXISTS {name}")).execute(admin).await;
+        let _ = sqlx::query(&format!("DROP DATABASE IF EXISTS {name}"))
+            .execute(admin)
+            .await;
     }
 }
 

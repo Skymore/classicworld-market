@@ -76,7 +76,12 @@ pub struct SegmentIn {
 
 fn valid_counts(counts: &[Count]) -> bool {
     counts.len() <= 200
-        && counts.iter().map(|d| d.item_id).collect::<HashSet<_>>().len() == counts.len()
+        && counts
+            .iter()
+            .map(|d| d.item_id)
+            .collect::<HashSet<_>>()
+            .len()
+            == counts.len()
         && counts
             .iter()
             .all(|d| (1..100_000_000).contains(&d.item_id) && (1..=1_000_000).contains(&d.quantity))
@@ -198,7 +203,10 @@ pub async fn ingest(db: &PgPool, collector: i64, run: &Upload) -> sqlx::Result<b
         .bind(s.seen_kills)
         .execute(&mut *tx)
         .await?;
-        for (table, rows) in [("grind_drops", &s.drops), ("grind_seen_drops", &s.seen_drops)] {
+        for (table, rows) in [
+            ("grind_drops", &s.drops),
+            ("grind_seen_drops", &s.seen_drops),
+        ] {
             if rows.is_empty() {
                 continue;
             }
@@ -317,15 +325,21 @@ pub async fn price_rows(
     let masks: HashMap<i32, Option<i16>> = if equipment.is_empty() {
         HashMap::new()
     } else {
-        sqlx::query_as::<_, (i32, Option<i16>)>("SELECT id, req_job_mask FROM items WHERE id = ANY($1)")
-            .bind(&equipment)
-            .fetch_all(db)
-            .await?
-            .into_iter()
-            .collect()
+        sqlx::query_as::<_, (i32, Option<i16>)>(
+            "SELECT id, req_job_mask FROM items WHERE id = ANY($1)",
+        )
+        .bind(&equipment)
+        .fetch_all(db)
+        .await?
+        .into_iter()
+        .collect()
     };
-    let keys_of = |item: i32| market_core::item::key_stats(masks.get(&item).copied().flatten().map(i64::from));
-    let group_of = |item: i32, stats: &Value| crate::bestiary::queries::equipment_group_json(stats, &keys_of(item));
+    let keys_of = |item: i32| {
+        market_core::item::key_stats(masks.get(&item).copied().flatten().map(i64::from))
+    };
+    let group_of = |item: i32, stats: &Value| {
+        crate::bestiary::queries::equipment_group_json(stats, &keys_of(item))
+    };
     let sales: Vec<(i32, Value, f64, f64)> = if equipment.is_empty() {
         vec![]
     } else {
@@ -357,7 +371,9 @@ pub async fn price_rows(
     };
     let mut lowest: HashMap<(i32, String), f64> = HashMap::new();
     for (item, stats, price) in asks {
-        let slot = lowest.entry((item, group_of(item, &stats))).or_insert(price);
+        let slot = lowest
+            .entry((item, group_of(item, &stats)))
+            .or_insert(price);
         *slot = slot.min(price);
     }
     let mut groups: HashMap<i32, BTreeMap<String, Vec<(f64, f64)>>> = HashMap::new();
@@ -386,7 +402,12 @@ pub async fn price_rows(
         let typical = recent.get(&id).copied().or(typical);
         let mut sold = groups.remove(&id).unwrap_or_default();
         let mut keys: Vec<String> = sold.keys().cloned().collect();
-        keys.extend(lowest.keys().filter(|(item, _)| *item == id).map(|(_, key)| key.clone()));
+        keys.extend(
+            lowest
+                .keys()
+                .filter(|(item, _)| *item == id)
+                .map(|(_, key)| key.clone()),
+        );
         keys.sort();
         keys.dedup();
         let item_groups: Vec<Value> = keys
@@ -395,8 +416,10 @@ pub async fn price_rows(
                 let mut values = recent_prices(&sold.remove(&key).unwrap_or_default(), now);
                 values.sort_by(f64::total_cmp);
                 let ask = lowest.get(&(id, key.clone())).copied();
-                (!values.is_empty() || ask.is_some()).then(|| json!({"key": key,
-                    "median": median(&values), "sales": values.len(), "lowest_ask": ask}))
+                (!values.is_empty() || ask.is_some()).then(|| {
+                    json!({"key": key,
+                    "median": median(&values), "sales": values.len(), "lowest_ask": ask})
+                })
             })
             .collect();
         prices.insert(
@@ -586,7 +609,12 @@ mod recent_price_tests {
     fn only_the_last_72_hours_price_a_group() {
         let day = 86400.0;
         let now = 100.0 * day;
-        let sales = [(now - 1.0 * day, 500.0), (now - 2.9 * day, 480.0), (now - 3.1 * day, 520.0), (now - 20.0 * day, 800.0)];
+        let sales = [
+            (now - 1.0 * day, 500.0),
+            (now - 2.9 * day, 480.0),
+            (now - 3.1 * day, 520.0),
+            (now - 20.0 * day, 800.0),
+        ];
         assert_eq!(recent_prices(&sales, now), vec![500.0, 480.0]);
         assert!(recent_prices(&[(now - 4.0 * day, 700.0)], now).is_empty());
     }

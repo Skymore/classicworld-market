@@ -220,7 +220,9 @@ async fn ingest_one(
         .items
         .extend(reconcile_owner_listings(tx, shop).await?);
     if upload.stall.is_some() {
-        changes.items.extend(retire_replaced_stalls(tx, Some(shop)).await?);
+        changes
+            .items
+            .extend(retire_replaced_stalls(tx, Some(shop)).await?);
     }
     // Read the stored time back so last_seen_at has the database precision.
     let seen: f64 = sqlx::query_scalar(
@@ -524,7 +526,10 @@ pub(crate) async fn retire_replaced_stalls(
 pub async fn retire_all_replaced_stalls(db: &PgPool, now: f64) -> sqlx::Result<usize> {
     let mut tx = db.begin().await?;
     lock_writes(&mut tx).await?;
-    let items: Vec<i32> = retire_replaced_stalls(&mut tx, None).await?.into_iter().collect();
+    let items: Vec<i32> = retire_replaced_stalls(&mut tx, None)
+        .await?
+        .into_iter()
+        .collect();
     if !items.is_empty() {
         let as_of: f64 = sqlx::query_scalar(
             "UPDATE market_state SET version=version+1 RETURNING extract(epoch FROM as_of)::float8",

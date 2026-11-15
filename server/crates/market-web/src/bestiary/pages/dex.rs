@@ -605,7 +605,9 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
                 (false, true, Lang::Zh) => format!("没有找到{which}「{query}」"),
                 (false, true, Lang::En | Lang::Ko) => format!("No {which} matches “{query}”"),
                 (false, false, Lang::Zh) => format!("{which}「{query}」有多个地图，选一个"),
-                (false, false, Lang::En | Lang::Ko) => format!("Several maps match “{query}”; pick one"),
+                (false, false, Lang::En | Lang::Ko) => {
+                    format!("Several maps match “{query}”; pick one")
+                }
             };
             html! {
                 section.well {
@@ -664,7 +666,9 @@ fn route_outcome(page: &RoutePage, ctx: &Ctx) -> Markup {
                 (true, Lang::Zh) => format!("没有找到怪物「{query}」"),
                 (true, Lang::En | Lang::Ko) => format!("No monster matches “{query}”"),
                 (false, Lang::Zh) => format!("「{query}」有多只怪物，选一只"),
-                (false, Lang::En | Lang::Ko) => format!("Several monsters match “{query}”; pick one"),
+                (false, Lang::En | Lang::Ko) => {
+                    format!("Several monsters match “{query}”; pick one")
+                }
             };
             html! {
                 section.well {

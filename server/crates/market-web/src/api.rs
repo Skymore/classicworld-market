@@ -968,7 +968,9 @@ async fn market_room(
         return error(StatusCode::TOO_MANY_REQUESTS, "Rate limited");
     }
     let number = |name: &str, max: i16| {
-        query_param(&query, name).and_then(|v| v.parse::<i16>().ok()).filter(|v| (1..=max).contains(v))
+        query_param(&query, name)
+            .and_then(|v| v.parse::<i16>().ok())
+            .filter(|v| (1..=max).contains(v))
     };
     let (Some(channel), Some(room)) = (number("channel", 60), number("room", 30)) else {
         return error(StatusCode::BAD_REQUEST, "Choose a channel and a room");

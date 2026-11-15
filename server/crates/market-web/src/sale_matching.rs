@@ -24,8 +24,20 @@ fn price_bits(p: f64) -> u64 {
 /// unit, within 6 hours; nearest pairs win one-to-one. Each side is read with
 /// its own index and paired in memory: a single SQL join let the planner walk
 /// every sale by shop and held the write lock for minutes on busy items.
+/// (sale id, item, detected at µs, observation, slot, shop, unit price, price unit).
+type CollectorSale = (
+    i64,
+    i32,
+    i64,
+    Option<i64>,
+    Option<i32>,
+    Option<i64>,
+    Option<f64>,
+    Option<String>,
+);
+
 pub async fn reconcile(conn: &mut PgConnection, items: &[i32]) -> sqlx::Result<()> {
-    let collector: Vec<(i64, i32, i64, Option<i64>, Option<i32>, Option<i64>, Option<f64>, Option<String>)> =
+    let collector: Vec<CollectorSale> =
         sqlx::query_as(
             "SELECT id,item_id,(extract(epoch FROM detected_at)*1000000)::bigint,observation_id,slot,shop_id,
                     market_unit_price(item_id,price,bundle),market_price_unit(item_id)

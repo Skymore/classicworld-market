@@ -630,12 +630,17 @@ async fn admin(state: &AppState, headers: &HeaderMap) -> Result<i64, Response> {
     }
 }
 
+/// (runs, updated at, collector, owner's nickname) of a live row.
+type LiveRow = (Value, f64, i64, Option<String>);
+/// (run id, summary, collector, owner's nickname).
+type OwnedRun = (i64, Value, i64, Option<String>);
+
 /// Admins: every account's open runs and latest runs, each with its owner.
 async fn admin_overview(State(state): State<AppState>, headers: HeaderMap) -> Response {
     if let Err(response) = admin(&state, &headers).await {
         return response;
     }
-    let live: Result<Vec<(Value, f64, i64, Option<String>)>, _> = sqlx::query_as(
+    let live: Result<Vec<LiveRow>, _> = sqlx::query_as(
         "SELECT l.runs, extract(epoch FROM l.updated_at)::float8, l.collector_id, a.nickname
          FROM grind_live l JOIN collectors c ON c.id = l.collector_id LEFT JOIN accounts a ON a.id = c.account_id
          WHERE l.updated_at > now() - make_interval(secs => $1) ORDER BY l.updated_at DESC",
@@ -643,7 +648,7 @@ async fn admin_overview(State(state): State<AppState>, headers: HeaderMap) -> Re
     .bind(LIVE_SECONDS)
     .fetch_all(&state.db)
     .await;
-    let runs: Result<Vec<(i64, Value, i64, Option<String>)>, _> = sqlx::query_as(
+    let runs: Result<Vec<OwnedRun>, _> = sqlx::query_as(
         "SELECT r.id, r.summary - 'rate_history' - 'loot' - 'consumables' - 'segments' - 'attacks' - 'casts' - 'mobs' - 'drops' - 'finds'
                 - 'recent' - 'buffs' - 'combat' - 'damage', r.collector_id, a.nickname
          FROM grind_runs r JOIN collectors c ON c.id = r.collector_id LEFT JOIN accounts a ON a.id = c.account_id

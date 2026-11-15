@@ -662,7 +662,13 @@ pub async fn rooms_overview(db: &PgPool) -> sqlx::Result<Value> {
     .await?;
     let rooms: Vec<Value> = rows
         .iter()
-        .map(|r| json!([r.get::<i16,_>("channel"), r.get::<i16,_>("room"), r.get::<i32,_>("stalls")]))
+        .map(|r| {
+            json!([
+                r.get::<i16, _>("channel"),
+                r.get::<i16, _>("room"),
+                r.get::<i32, _>("stalls")
+            ])
+        })
         .collect();
     Ok(json!({"rooms": rooms}))
 }
@@ -1147,7 +1153,7 @@ fn grouped_quotes(rows: &[Value], limit: usize) -> Vec<Value> {
 /// more (299 -> 300, 1234 -> 1240, 145 stays), so offers at the round price
 /// just above the cutoff are included too.
 fn round_cap(price: f64) -> f64 {
-    if !(price >= 1.0) || !price.is_finite() {
+    if !price.is_finite() || price < 1.0 {
         return price;
     }
     let mut step = 10f64.powi(price.log10().floor() as i32);

@@ -714,7 +714,10 @@ fn verify_identity(
     let email = claims
         .email
         .filter(|e| claims.email_verified == Some(true) && e.len() <= 320 && e.contains('@'));
-    Ok(GoogleIdentity { subject: claims.sub, email })
+    Ok(GoogleIdentity {
+        subject: claims.sub,
+        email,
+    })
 }
 async fn google_callback(
     State(state): State<AppState>,
@@ -883,16 +886,26 @@ mod tests {
         header.kid = Some("fixture".into());
         let signed = |v: &Value| jsonwebtoken::encode(&header, v, &key).unwrap();
         assert_eq!(
-            verify_identity(&signed(&claims), &keys, "test-client", "test-nonce").unwrap().subject,
+            verify_identity(&signed(&claims), &keys, "test-client", "test-nonce")
+                .unwrap()
+                .subject,
             "test-user"
         );
         // An email counts only when Google says it is verified.
         let mut with_email = claims.clone();
         with_email["email"] = json!("Owner@Example.com");
-        assert_eq!(verify_identity(&signed(&with_email), &keys, "test-client", "test-nonce").unwrap().email, None);
+        assert_eq!(
+            verify_identity(&signed(&with_email), &keys, "test-client", "test-nonce")
+                .unwrap()
+                .email,
+            None
+        );
         with_email["email_verified"] = json!(true);
         assert_eq!(
-            verify_identity(&signed(&with_email), &keys, "test-client", "test-nonce").unwrap().email.as_deref(),
+            verify_identity(&signed(&with_email), &keys, "test-client", "test-nonce")
+                .unwrap()
+                .email
+                .as_deref(),
             Some("Owner@Example.com")
         );
         for (field, bad) in [

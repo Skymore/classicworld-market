@@ -209,12 +209,11 @@ pub async fn item_page_selected(
                 .fetch_optional(db)
                 .await?;
         let base = record.as_ref().map(reference_stats).unwrap_or_default();
-        let mask: Option<i16> =
-            sqlx::query_scalar("SELECT req_job_mask FROM items WHERE id=$1")
-                .bind(id)
-                .fetch_optional(db)
-                .await?
-                .flatten();
+        let mask: Option<i16> = sqlx::query_scalar("SELECT req_job_mask FROM items WHERE id=$1")
+            .bind(id)
+            .fetch_optional(db)
+            .await?
+            .flatten();
         let keys = market_core::item::key_stats(mask.map(i64::from));
         let mut ids: Vec<i64> = variants
             .iter()

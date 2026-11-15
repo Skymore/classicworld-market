@@ -22,9 +22,8 @@ use sqlx::PgPool;
 use crate::AppState;
 
 /// Chinese interface text -> Korean.
-static UI: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
-    serde_json::from_str(include_str!("ko.json")).expect("i18n/ko.json is valid")
-});
+static UI: LazyLock<HashMap<String, String>> =
+    LazyLock::new(|| serde_json::from_str(include_str!("ko.json")).expect("i18n/ko.json is valid"));
 
 #[derive(Deserialize)]
 struct Game {
@@ -161,7 +160,10 @@ pub async fn load_names(db: &PgPool) {
 /// Loaded only by Korean visitors; the asset revision in the URL busts caches.
 pub async fn names_api(State(state): State<AppState>) -> Response {
     load_names(&state.db).await;
-    let body = NAMES_JSON.get().cloned().unwrap_or_else(|| r#"{"zh":{},"en":{}}"#.into());
+    let body = NAMES_JSON
+        .get()
+        .cloned()
+        .unwrap_or_else(|| r#"{"zh":{},"en":{}}"#.into());
     let mut response = ([(header::CONTENT_TYPE, "application/json")], body).into_response();
     response.headers_mut().insert(
         header::CACHE_CONTROL,
@@ -194,7 +196,12 @@ pub fn guess(headers: &HeaderMap) -> &'static str {
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
     for tag in accept.split(',') {
-        let code = tag.split(';').next().unwrap_or("").trim().to_ascii_lowercase();
+        let code = tag
+            .split(';')
+            .next()
+            .unwrap_or("")
+            .trim()
+            .to_ascii_lowercase();
         if code.starts_with("zh") {
             return "zh";
         }
@@ -221,9 +228,10 @@ pub fn guess(headers: &HeaderMap) -> &'static str {
 /// visitor, so never cached.
 pub async fn guess_api(headers: HeaderMap) -> Response {
     let mut response = axum::Json(serde_json::json!({ "lang": guess(&headers) })).into_response();
-    response
-        .headers_mut()
-        .insert(header::CACHE_CONTROL, HeaderValue::from_static("private, no-store"));
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
     response
 }
 
@@ -246,9 +254,15 @@ mod tests {
         assert_eq!(guess(&h), "ko");
         h.insert("cf-ipcountry", HeaderValue::from_static("US"));
         assert_eq!(guess(&h), "en");
-        h.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("ko-KR,ko;q=0.9"));
+        h.insert(
+            header::ACCEPT_LANGUAGE,
+            HeaderValue::from_static("ko-KR,ko;q=0.9"),
+        );
         assert_eq!(guess(&h), "ko");
-        h.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("fr-FR, zh-CN;q=0.5"));
+        h.insert(
+            header::ACCEPT_LANGUAGE,
+            HeaderValue::from_static("fr-FR, zh-CN;q=0.5"),
+        );
         assert_eq!(guess(&h), "zh");
     }
 
@@ -260,7 +274,11 @@ mod tests {
             // Placeholders survive translation.
             for n in 0..6 {
                 let p = format!("{{{n}}}");
-                assert_eq!(zh.contains(&p), ko.contains(&p), "placeholder {p} in {zh:?} -> {ko:?}");
+                assert_eq!(
+                    zh.contains(&p),
+                    ko.contains(&p),
+                    "placeholder {p} in {zh:?} -> {ko:?}"
+                );
             }
         }
     }

@@ -36,7 +36,9 @@ impl Lang {
         match self {
             Self::Zh => zh,
             Self::En => en,
-            Self::Ko => crate::i18n::text(&zh, &en).map(str::to_string).unwrap_or(en),
+            Self::Ko => crate::i18n::text(&zh, &en)
+                .map(str::to_string)
+                .unwrap_or(en),
         }
     }
 

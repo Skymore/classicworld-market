@@ -79,13 +79,22 @@ pub fn key_stats(mask: Option<i64>) -> Vec<&'static str> {
         (8, ["luk", "dex"]),
         (16, ["str", "dex"]),
     ];
-    let mut keys = vec!["weapon_attack", "magic_attack", "critical_rate", "critical_damage"];
+    let mut keys = vec![
+        "weapon_attack",
+        "magic_attack",
+        "critical_rate",
+        "critical_damage",
+    ];
     let worn: Vec<&str> = JOBS
         .iter()
         .filter(|(bit, _)| mask.is_some_and(|m| m > 0 && m & bit != 0))
         .flat_map(|(_, stats)| *stats)
         .collect();
-    let stats = if worn.is_empty() { vec!["str", "dex", "int", "luk"] } else { worn };
+    let stats = if worn.is_empty() {
+        vec!["str", "dex", "int", "luk"]
+    } else {
+        worn
+    };
     for stat in stats {
         if !keys.contains(&stat) {
             keys.push(stat);
@@ -104,11 +113,20 @@ mod tests {
         magician.sort_unstable();
         assert_eq!(
             magician,
-            ["critical_damage", "critical_rate", "int", "luk", "magic_attack", "weapon_attack"]
+            [
+                "critical_damage",
+                "critical_rate",
+                "int",
+                "luk",
+                "magic_attack",
+                "weapon_attack"
+            ]
         );
         assert!(key_stats(Some(9)).contains(&"luk") && !key_stats(Some(9)).contains(&"int"));
         for common in [None, Some(0), Some(-1)] {
-            assert!(["str", "dex", "int", "luk"].iter().all(|s| key_stats(common).contains(s)));
+            assert!(["str", "dex", "int", "luk"]
+                .iter()
+                .all(|s| key_stats(common).contains(s)));
         }
     }
 

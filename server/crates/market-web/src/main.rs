@@ -147,7 +147,11 @@ async fn recompute_dirty(db: PgPool) {
                 Ok(n) => {
                     let ms = started.elapsed().as_millis();
                     if ms >= 2000 {
-                        tracing::info!(items = n, elapsed_ms = ms as u64, "slow background stats pass");
+                        tracing::info!(
+                            items = n,
+                            elapsed_ms = ms as u64,
+                            "slow background stats pass"
+                        );
                     }
                     if n < stats::DIRTY_BATCH {
                         break;

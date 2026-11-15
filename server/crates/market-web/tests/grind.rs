@@ -133,12 +133,17 @@ async fn map_drop_rates_count_the_party_when_the_client_saw_it() {
     let now = unix_now();
     let map = 104040001;
     // An older client: its own 200 kills and 20 pickups.
-    let old = upload(now, &format!("{:032x}", 1), json!([segment(map, 23, 410, 1800, 1, 200)]));
+    let old = upload(
+        now,
+        &format!("{:032x}", 1),
+        json!([segment(map, 23, 410, 1800, 1, 200)]),
+    );
     assert!(grind::ingest(&db.pool, who.id, &old).await.unwrap());
     // A newer one: the party killed 600 here and 90 fell (it picked up 20 itself).
     let mut seen = segment(map, 23, 410, 1800, 1, 200);
     seen["seen_kills"] = json!(600);
-    seen["seen_drops"] = json!([{"item_id": 4000019, "quantity": 90}, {"item_id": 1041076, "quantity": 1}]);
+    seen["seen_drops"] =
+        json!([{"item_id": 4000019, "quantity": 90}, {"item_id": 1041076, "quantity": 1}]);
     let new = upload(now, &format!("{:032x}", 2), json!([seen]));
     assert!(new.valid(now));
     assert!(grind::ingest(&db.pool, who.id, &new).await.unwrap());
@@ -182,12 +187,14 @@ async fn equipment_prices_use_the_item_page_groups() {
     // The group key is the tracker's: key stats (common gloves: all four
     // stats, attack, critical), sorted,
     // then remaining upgrades and the unknown field count.
-    let key = market_web::bestiary::queries::equipment_group_json(&json!({
+    let key = market_web::bestiary::queries::equipment_group_json(
+        &json!({
         "status": "candidate", "remaining_upgrades": 5, "unknown_fields": [],
         "stats": [{"key": "weapon_defense", "label": "物理防御", "value": 2},
                   {"key": "weapon_attack", "label": "物理攻击", "value": 2},
                   {"key": "dex", "label": "敏捷", "value": 1}]}),
-        &market_core::item::key_stats(None));
+        &market_core::item::key_stats(None),
+    );
     assert_eq!(key, r#"[[["dex",1],["weapon_attack",2]],5,0]"#);
     db.close().await;
 }

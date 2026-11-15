@@ -43,7 +43,10 @@ pub fn patterns(query: &str) -> Vec<String> {
     let mut patterns = Vec::new();
     // Korean: names are stored in Chinese and English, so a Korean query
     // matches the names whose Korean (client language pack) contains it.
-    if normalized.chars().any(|c| ('\u{ac00}'..='\u{d7a3}').contains(&c)) {
+    if normalized
+        .chars()
+        .any(|c| ('\u{ac00}'..='\u{d7a3}').contains(&c))
+    {
         let names = crate::i18n::names_containing(&normalized, 300);
         let mut options: Vec<String> = names
             .iter()

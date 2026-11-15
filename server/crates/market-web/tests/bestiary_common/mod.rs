@@ -74,7 +74,9 @@ async fn sweep_stale(admin: &mut PgConnection) {
     .await
     .unwrap_or_default();
     for schema in stale {
-        let _ = admin.execute(format!("DROP SCHEMA IF EXISTS {schema} CASCADE").as_str()).await;
+        let _ = admin
+            .execute(format!("DROP SCHEMA IF EXISTS {schema} CASCADE").as_str())
+            .await;
     }
 }
 
