@@ -8,7 +8,7 @@ import { Clock3, Crosshair, Hourglass, Pause, Play, Square, Swords, TrendingUp }
 import { itemIcon } from './format';
 import './overlay.css';
 import { language, tr } from './i18n';
-import { big, channelPrompt, clock, duration, mapLabel, percent, shownBuffs, statLine, statusLabel, type GrindSettings, type GroundDrop, type Live, type LootRow } from './grind';
+import { type ClientUpdate, big, channelPrompt, clock, duration, mapLabel, percent, shownBuffs, statLine, statusLabel, type GrindSettings, type GroundDrop, type Live, type LootRow } from './grind';
 
 const I = 13;
 const ico = { width: '1.1em', height: '1.1em' }; // icons scale with the overlay's font size
@@ -192,10 +192,11 @@ function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | 
 }
 
 /** The overlay's card: the overlay window shows one, the settings page shows one per preset. */
-export function OverlayCard({ live, settings, toast = null, drop = null, scale, cardRef, grip, command }: {
+export function OverlayCard({ live, settings, toast = null, drop = null, scale, cardRef, grip, command, update = null, onUpdate }: {
   live: Live | null; settings: GrindSettings; toast?: LootRow | null; drop?: GroundDrop | null; scale: number;
   cardRef?: React.Ref<HTMLDivElement>; grip?: React.ReactNode;   // the overlay window's corner grip and switches
   command?(action: 'toggle' | 'end'): void;                      // the overlay window's pause and end buttons
+  update?: ClientUpdate | null; onUpdate?(): void;               // a client update, offered beside the site name
 }) {
   const o = settings.overlay, run = live?.runs?.[0] ?? null, show = (key: string) => o.fields.includes(key);
   // Low HP: said once each time HP falls under the danger line (two of the map's biggest hits).
@@ -247,7 +248,7 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
     <Ground live={live} /></section>}
     {show('buffs') && shownBuffs(live).length > 0 && <section className="ov-sec ov-sec-buffs"><Buffs live={live} settings={settings} tiles /></section>}
     {party}{toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}
-    <div className="ov-site foot">mxd.ruit.me</div></>);
+    <div className="ov-foot"><UpdateButton update={update} onUpdate={onUpdate} /><span className="ov-site">mxd.ruit.me</span></div></>);
   if (o.layout === 'compact') return box(<><div className="ov-line">{dot}
     {show('time') && <span><Clock3 size={I} style={ico} /><b>{clock(run.active_seconds)}</b></span>}
     {show('level') && <span><TrendingUp size={I} style={ico} />{percent(run.exp_percent, 1)}</span>}
@@ -321,6 +322,16 @@ function Ground({ live }: { live: Live | null }) {
       <span><img src={itemIcon(d.item_id)} alt="" />{d.name && !d.name.startsWith('#') ? d.name : `#${d.item_id}`}
         <small>{d.by === 'me' ? tr('你打的', 'yours') : d.by === 'party' ? d.by_name || tr('队友', 'party') : ''}</small></span>{status(d)}</div>)}</div>;
 }
+/** "更新到 vX" when the collector has a release ready (same as its window's footer). */
+function UpdateButton({ update, onUpdate }: { update: ClientUpdate | null; onUpdate?(): void }) {
+  if (!update || !onUpdate) return <span />;
+  if (update.state === 'requested' || update.state === 'restarting') return <span className="ov-updating">{tr('正在更新…', 'Updating…')}</span>;
+  if (update.state !== 'ready_to_update') return <span />;
+  const tag = update.version ? 'v' + update.version.replace(/^v/, '') : tr('新版本', 'new version');
+  return <button type="button" className="ov-update" title={tr('客户端会短暂重启，游戏无需退出', 'The collector restarts briefly; the game stays open')}
+    onMouseDown={e => e.stopPropagation()} onClick={onUpdate}>{tr(`更新到 ${tag}`, `Update to ${tag}`)}</button>;
+}
+
 /** "● 记录中" or why it is paused. */
 function Recording({ run }: { run: { status: string } & Parameters<typeof statusLabel>[0] }) {
   return <b className={'ov-rec ' + (run.status === 'active' ? 'on' : 'pause')}>{statusLabel(run)}</b>;

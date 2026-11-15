@@ -108,6 +108,7 @@ class Hotkeys:
 
 class GrindService:
     def __init__(self, folder, assets=None):
+        self.updater = None   # (status() -> dict, update() -> None) from the collector window
         self.folder = Path(folder)
         self.data = self.folder / 'grind'
         self.assets = assets
@@ -160,6 +161,23 @@ class GrindService:
             self.command('toggle')
         elif action == 'end':
             self.command('end')
+
+    def update_status(self):
+        """{state, version} of a client update the overlay can offer, or None."""
+        if not self.updater:
+            return None
+        try:
+            status = self.updater[0]()
+        except Exception:
+            return None
+        return dict(state='requested' if status.get('update_requested') else status.get('updates'),
+                    version=status.get('update_version'))
+
+    def request_update(self):
+        if not self.updater or (self.update_status() or {}).get('state') != 'ready_to_update':
+            raise ValueError('unavailable')
+        self.updater[1]()
+        return True
 
     def language(self):
         """The collector window's language choice, so the overlay matches it."""
@@ -434,7 +452,12 @@ class OverlayAPI:
 
     def state(self):
         live = self._service.live()
-        return dict(live=live, settings=self._service.settings(), language=self._service.language())
+        return dict(live=live, settings=self._service.settings(), language=self._service.language(),
+                    update=self._service.update_status())
+
+    def update(self):
+        """The overlay's update button: the collector window's own "update to vX"."""
+        return self._service.request_update()
 
     def scale(self, value):
         return self._service.scale_overlay(value)

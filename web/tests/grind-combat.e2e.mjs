@@ -49,7 +49,8 @@ async function bridge(page, overlay = null, characters = []) {
     window.pywebview = { api: { ready: async () => state, command: async () => state,
       workspace: async () => ({ linked: false }),
       grind: async () => ({ live: live(), settings, editing: false, calibrating: false, calibration: null }),
-      state: async () => ({ live: live(), settings, editing: false, language: 'zh' }),
+      state: async () => ({ live: live(), settings, editing: false, language: 'zh', update: window.testUpdate ?? null }),
+      update: async () => { window.updated = true; return true; },
       command: async action => { (window.commands ||= []).push(action); return true; },
     } };
   }, { run, settings, overlay, characters });
@@ -169,8 +170,14 @@ try {
       { age: 10, age_gone: 1, object: 5, item_id: 1041077, name: '不显示', value: 1, how: 'gone' },
     ];
     await bridge(page, { layout: 'slim', theme: 'dark', fields: ['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent'] }, [{ name: 'Me', level: 70, job: 230, map_id: 1, buffs: [], drops }]);
+    await page.addInitScript(() => { window.testUpdate = { state: 'ready_to_update', version: '0.7.99' }; });
     await page.goto(base + '/overlay.html');
     await page.locator('.ov-ground-row').first().waitFor();
+    // A client update ready: offered on the site line at the bottom.
+    assert.equal(await page.locator('.ov-foot .ov-update').innerText(), '更新到 v0.7.99');
+    await page.locator('.ov-foot .ov-update').click();
+    assert.equal(await page.evaluate(() => window.updated), true);
+    assert.equal(await page.locator('.ov-foot .ov-updating').innerText(), '正在更新…');
     const rows = (await page.locator('.ov-ground-row > b').allInnerTexts()).map(t => t.replace(/\d+秒/, 'N秒'));
     assert.deepEqual(rows, ['✓ Pig捡了', '✓ 你的宠物捡了', '地上 N秒', '没人捡，消失了']);
     assert.equal(await page.locator('.ov-ground-row > b.warn').count(), 2, 'over 90 s on the ground and expired are red');

@@ -6,7 +6,7 @@ import { Volume2, VolumeX } from 'lucide-react';
 import { createRoot } from 'react-dom/client';
 import korean from '../../server/crates/market-web/src/i18n/ko.json';
 import { installKorean, applyLanguage, tr } from './i18n';
-import { overlayCommand, overlayFit, overlayScale, overlayState, overlayToggle, type GroundDrop, type GrindSettings, type Live, type LootRow } from './grind';
+import { overlayCommand, overlayFit, overlayScale, overlayState, overlayToggle, overlayUpdate, type ClientUpdate, type GroundDrop, type GrindSettings, type Live, type LootRow } from './grind';
 import { OverlayCard, announceDrop } from './overlay-card';
 
 document.documentElement.classList.add('overlay-page');
@@ -20,11 +20,12 @@ function Overlay() {
   const [drop, setDrop] = useState<GroundDrop | null>(null);
   const dropSeen = useRef<number | null>(null);
   const dropsNow = useRef<GroundDrop[]>([]);
+  const [update, setUpdate] = useState<ClientUpdate | null>(null);
   useEffect(() => {
     let alive = true;
     const poll = () => overlayState().then(s => {
       if (!alive) return;
-      setLive(s.live); setSettings(s.settings); applyLanguage(s.language || 'system');
+      setLive(s.live); setSettings(s.settings); applyLanguage(s.language || 'system'); setUpdate(s.update ?? null);
       // A valuable item fell for this character or its party: show it for 8 s and announce it.
       const drops = (s.live?.characters || []).flatMap(c => c.drops || []);
       dropsNow.current = drops;
@@ -70,6 +71,7 @@ function Overlay() {
     overlayToggle(name).then(value => setSettings(s => s && { ...s, [name]: value })).catch(() => null);
   };
   return <OverlayCard live={live} settings={settings} toast={toast} drop={drop} scale={scale} cardRef={card} command={action => { overlayCommand(action).catch(() => null); }}
+    update={update} onUpdate={() => { setUpdate(u => u && { ...u, state: 'requested' }); overlayUpdate().catch(() => null); }}
     grip={<><Switches settings={settings} toggle={toggle} /><Grip scale={scale} preview={setDragged} /></>} />;
 }
 

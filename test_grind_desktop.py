@@ -68,6 +68,21 @@ class ServiceTest(unittest.TestCase):
             self.assertEqual(load_settings(path)['buff_warn_seconds'], 8)                 # chosen since: kept
             self.assertEqual(load_settings(Path(folder) / 'missing.json')['buff_warn_seconds'], 3)
 
+    def test_the_overlay_offers_the_collector_update(self):
+        from grind_desktop import OverlayAPI
+        with tempfile.TemporaryDirectory() as folder:
+            service, asked = GrindService(folder), []
+            api = OverlayAPI(service)
+            self.assertIsNone(api.state()['update'])
+            status = dict(updates='up_to_date', update_version=None, update_requested=False)
+            service.updater = (lambda: status, lambda: asked.append(True))
+            with self.assertRaises(ValueError):
+                api.update()                                   # nothing to install
+            status.update(updates='ready_to_update', update_version='0.7.99')
+            self.assertEqual(api.state()['update'], dict(state='ready_to_update', version='0.7.99'))
+            self.assertTrue(api.update())
+            self.assertEqual(asked, [True])
+
     def test_the_overlay_switch_flips_only_the_spoken_warnings(self):
         from grind_desktop import OverlayAPI
         with tempfile.TemporaryDirectory() as folder:

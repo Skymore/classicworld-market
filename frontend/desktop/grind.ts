@@ -65,7 +65,7 @@ export interface GrindState {
   hotkey_errors?: Partial<Record<HotkeyAction, 'invalid' | 'taken'>>;
 }
 
-type Api = { grind?(name: string, value?: unknown): Promise<any>; state?(): Promise<any>; scale?(value: number): Promise<number>; fit?(height: number): Promise<unknown>; toggle?(name: string): Promise<boolean>; command?(action: string): Promise<boolean> };
+type Api = { grind?(name: string, value?: unknown): Promise<any>; state?(): Promise<any>; scale?(value: number): Promise<number>; fit?(height: number): Promise<unknown>; toggle?(name: string): Promise<boolean>; command?(action: string): Promise<boolean>; update?(): Promise<boolean> };
 const api = () => ((window as { pywebview?: { api?: Api } }).pywebview?.api ?? null) as Api | null;
 export const grind = (name: string, value?: unknown) => {
   const bridge = api();
@@ -75,8 +75,12 @@ export const grind = (name: string, value?: unknown) => {
 export const overlayState = () => {
   const bridge = api();
   if (!bridge?.state) return Promise.reject(new Error('unavailable'));
-  return bridge.state() as Promise<{ live: Live | null; settings: GrindSettings; language?: 'zh' | 'en' | 'ko' | 'system' }>;
+  return bridge.state() as Promise<{ live: Live | null; settings: GrindSettings; language?: 'zh' | 'en' | 'ko' | 'system'; update?: ClientUpdate | null }>;
 };
+/** A client update the collector window offers: ready_to_update, requested, restarting, … */
+export interface ClientUpdate { state: string | null; version: string | null }
+/** The overlay's update button: the collector window's own "update to vX". */
+export const overlayUpdate = () => api()?.update?.() ?? Promise.reject(new Error('unavailable'));
 /** The overlay's corner grip: the size the user dragged to. */
 export const overlayScale = (value: number) => api()?.scale?.(value) ?? Promise.reject(new Error('unavailable'));
 /** The card's height in CSS pixels; the overlay window takes it. */
