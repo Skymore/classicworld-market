@@ -42,21 +42,31 @@ def frame_files(folder):
     return [found[name] for name in sorted(found)]
 
 
+def current_path(path):
+    """The file as it is now: a plain file listed a moment ago may have been
+    compressed since (2026-11-15: a replay failed on exactly that)."""
+    path = Path(path)
+    if path.name.endswith('.gz') or path.exists():
+        return path
+    compressed = path.with_name(path.name + '.gz')
+    return compressed if compressed.exists() else path
+
+
 def frame_size(path):
     """Bytes to read: a plain file can still be growing, so take its size now;
     a compressed one is complete."""
-    path = Path(path)
+    path = current_path(path)
     return UNBOUNDED if path.name.endswith('.gz') else path.stat().st_size
 
 
 def open_frames(path):
-    path = Path(path)
+    path = current_path(path)
     return gzip.open(path, 'rb') if path.name.endswith('.gz') else path.open('rb')
 
 
 def frame_lines(path):
     """All lines of a recording (bytes), plain or compressed."""
-    path = Path(path)
+    path = current_path(path)
     data = path.read_bytes()
     return (gzip.decompress(data) if path.name.endswith('.gz') else data).splitlines()
 

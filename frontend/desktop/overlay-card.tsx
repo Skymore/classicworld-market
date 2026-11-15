@@ -128,7 +128,11 @@ function beep() {
 const ITEM_LATE = 1;   // grind_autobuff.ITEM_LATE: an item buff is used this long after the server ends it
 const AGAIN = 10;      // a warning is said once more this long after, if nothing was cast
 
-function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | null; settings: GrindSettings; icons?: boolean; tiles?: boolean }) {
+function Buffs({ live, settings, icons = false, tiles = false, voice = false, section = false }: {
+  live: Live | null; settings: GrindSettings; icons?: boolean; tiles?: boolean;
+  voice?: boolean;     // only the overlay window speaks (not the settings page's preview of it)
+  section?: boolean;   // wrapped in its own card, shown only while there are buffs (the component stays mounted)
+}) {
   const [, tick] = useState(0);
   // source -> the cast's end time, when it was last said, how many times (at most twice)
   const warned = useRef(new Map<number, { ends: number; at: number; times: number; name: string | null }>());
@@ -143,7 +147,7 @@ function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | 
   const state = (b: { left: number; proc?: boolean; item_id?: number | null; ending?: boolean }) => b.ending ? 'ending' : b.left <= 0 ? 'off' : b.left <= warn && !b.proc && !b.item_id ? 'warn' : '';
   const left = (b: { left: number; ending?: boolean }) => b.ending ? tr('将结束', 'Ending') : b.left > 0 ? clock(b.left) : tr('过期', 'Out');
   // Spoken only while fighting (an attack or kill in the last 10 s), like auto buff.
-  const fighting = settings.buff_sound && !!live?.runs?.[0]?.in_combat;
+  const fighting = voice && settings.buff_sound && !!live?.runs?.[0]?.in_combat;
   // A Final Attack is announced each time it turns on (the server's `on` time, which
   // also catches a cancel and a new one between two state writes), not on every refresh.
   const first = procs.current === null, announced = procs.current ??= new Map();
@@ -184,9 +188,10 @@ function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | 
   if (tiles) {
     // Two rows of five in a fixed order, so a buff keeps its place while others come and go.
     const ordered = [...buffs].sort((a, b) => a.source - b.source), more = ordered.length - 10;
-    return <div className="ov-buffs tiles">{ordered.slice(0, more > 0 ? 9 : 10).map(b => <span key={b.source} className={state(b)} title={b.name || ''}>
+    const grid = <div className="ov-buffs tiles">{ordered.slice(0, more > 0 ? 9 : 10).map(b => <span key={b.source} className={state(b)} title={b.name || ''}>
       <img src={b.item_id ? itemIcon(b.item_id) : skillIcon(b.source)} alt="" /><b>{left(b)}</b><i style={{ width: `${Math.min(100, b.left / b.total * 100)}%` }} /></span>)}
       {more > 0 && <span className="more"><b>+{more + 1}</b></span>}</div>;
+    return section ? <section className="ov-sec ov-sec-buffs">{grid}</section> : grid;
   }
   return <div className={'ov-buffs' + (icons ? ' icons' : '')}>{buffs.slice(0, 6).map(b => <span key={b.source} className={state(b)} title={b.name || ''}>
     <i style={{ width: `${Math.min(100, b.left / b.total * 100)}%` }} />
@@ -219,7 +224,7 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
       {drop.name || `#${drop.item_id}`}{drop.value ? <b> {tr('约', '~')}{big(drop.value)}</b> : null}</div>}
     {content}{run && run.status !== 'ended' && <Controls paused={run.status !== 'active'} command={command} />}{grip}</div>;
   if (!run) return box(<><div className="ov-line">{dot}<span>{live && !live.stale ? tr('打几只怪开始记录', 'Kill a few to start') : tr('等待客户端', 'Waiting for collector')}</span></div>
-    {show('buffs') && <Buffs live={live} settings={settings} />}</>);
+    {show('buffs') && <Buffs live={live} settings={settings} voice={!!grip} />}</>);
   const rate = run.exp_per_hour, usedPotions = run.consumables.filter(c => c.used > 0), potion = usedPotions[0];
   const level = <><TrendingUp size={I} style={ico} /><span className="ov-bar"><i style={{ width: `${Math.min(100, run.exp_percent ?? 0)}%` }} /></span>
     <span>{percent(run.exp_percent, 1)}</span><span className="dim"><Hourglass size={I} style={ico} />{duration(run.eta_seconds)}</span></>;
@@ -248,7 +253,7 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
       <span className="ov-icons">{usedPotions.slice(0, 3).map(c => <span key={c.item_id} title={c.name || ''}><img src={itemIcon(c.item_id)} alt="" />{c.used}</span>)}</span>
       <b className="minus">−{big(run.consume_cost)}</b></div>}
     <Ground live={live} /></section>}
-    {show('buffs') && shownBuffs(live).length > 0 && <section className="ov-sec ov-sec-buffs"><Buffs live={live} settings={settings} tiles /></section>}
+    {show('buffs') && <Buffs live={live} settings={settings} tiles section voice={!!grip} />}
     {party}{toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}
     <div className="ov-foot"><UpdateButton update={update} onUpdate={onUpdate} /><span className="ov-site">mxd.ruit.me</span></div></>);
   if (o.layout === 'compact') return box(<><div className="ov-line">{dot}
@@ -257,7 +262,7 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
     {show('kills') && <span><Swords size={I} style={ico} />{big(run.kills_per_hour)}</span>}
     {show('dps') && <span title="DPS · 1m"><CrosshairIcon /><b>{big(run.dps)}</b><small>DPS</small></span>}
     {show('potions') && potionChip}
-    {show('buffs') && <Buffs live={live} settings={settings} icons />}
+    {show('buffs') && <Buffs live={live} settings={settings} icons voice={!!grip} />}
     {toast && <span className="ov-toast-inline"><img src={itemIcon(toast.item_id)} alt="" />{big(toast.value)}</span>}</div><div className="ov-compact-metrics">{show('exp_rate') && <RateMetrics run={run} kind="exp" />}{show('profit') && <RateMetrics run={run} kind="net" />}</div>{party}</>);
   if (o.layout === 'big') return box(<>
     {show('exp_rate') && <RateMetrics run={run} kind="exp" />}
@@ -265,7 +270,7 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
     {show('dps') && <div className="ov-row"><CrosshairIcon /><b>{big(run.dps)}</b><span className="dim">DPS · 1m</span></div>}
     {show('level') && <div className="ov-row">{level}</div>}
     <Ground live={live} />
-    {show('buffs') && <Buffs live={live} settings={settings} icons />}
+    {show('buffs') && <Buffs live={live} settings={settings} icons voice={!!grip} />}
     {party}{toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}</>);
   if (o.layout === 'rail') return box(<>
     <div className="ov-cell">{dot}<b>{clock(run.active_seconds)}</b></div>
@@ -276,7 +281,7 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
     {show('kills') && <div className="ov-cell"><Swords size={I} style={ico} />{big(run.kills)}</div>}
     {show('dps') && <div className="ov-cell"><CrosshairIcon /><b>{big(run.dps)}</b><small>DPS</small></div>}
     {show('potions') && potion && <div className="ov-cell"><img src={itemIcon(potion.item_id)} alt="" />{tr('用', 'Used ')}{potion.used}</div>}
-    {show('buffs') && <Buffs live={live} settings={settings} icons />}
+    {show('buffs') && <Buffs live={live} settings={settings} icons voice={!!grip} />}
     {party}{toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" /><b>{big(toast.value)}</b></div>}</>);
   const detailed = o.layout === 'detailed';
   return box(<>
@@ -296,7 +301,7 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
       <span className="dim">{`${big(run.kills_per_hour)}/h`}</span></div>}
     {show('kills') && <div className="ov-mobs">{run.mobs.slice(0, detailed ? 3 : 2).map(m => <div className="ov-loot" key={m.mob_id}><span><img src={mobIcon(m.mob_id)} alt="" />{m.name}</span><b>×{m.kills}</b></div>)}</div>}
     <Ground live={live} />
-    {show('buffs') && <Buffs live={live} settings={settings} />}
+    {show('buffs') && <Buffs live={live} settings={settings} voice={!!grip} />}
     {party}
     {toast && <div className="ov-toast"><img src={itemIcon(toast.item_id)} alt="" />{toast.name} <b>{big(toast.value)}</b></div>}
   </>);

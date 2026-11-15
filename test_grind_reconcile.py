@@ -69,6 +69,26 @@ class ReconcileTest(unittest.TestCase):
         self.assertEqual((self.character.run.segment.exp, self.character.run.segment.kills), (240, 6))
         self.assertEqual(self.count_history(), 0)
 
+    def test_an_unsplit_open_run_is_rebuilt_by_a_new_version(self):
+        # No fragment in history: the open run is still replayed with this version's
+        # parser and its damaged counts replaced (2026-11-15: an equipment swap).
+        with contextlib.closing(sqlite3.connect(self.folder/'grind/history.sqlite')) as db, db:
+            db.execute('DELETE FROM runs')
+        report = prepare(self.folder)
+        self.assertEqual(report['retire'], [])
+        self.assertEqual((report['before'], report['after']), (dict(exp=160, kills=4), dict(exp=200, kills=5)))
+        apply_pending(self.tracker)
+        self.assertEqual((self.character.run.segment.exp, self.character.run.segment.kills), (200, 5))
+        self.assertEqual(self.character.run.id, self.run.id)
+
+    def test_a_run_whose_start_was_not_recorded_is_left_alone(self):
+        with contextlib.closing(sqlite3.connect(self.folder/'grind/history.sqlite')) as db, db:
+            db.execute('DELETE FROM runs')
+        for path in (self.folder/'grind/frames').glob('frames_*.jsonl'):
+            lines = path.read_text(encoding='ascii').splitlines(True)
+            path.write_text(''.join(line for line in lines if json.loads(line).get('t', 0) > self.run.started_at + 1), encoding='ascii')
+        self.assertIsNone(prepare(self.folder))
+
     def test_manual_end_during_rebuild_keeps_history(self):
         prepare(self.folder)
         self.clock[0] += 2

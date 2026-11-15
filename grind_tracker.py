@@ -36,6 +36,7 @@ DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, 
                              fields=['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent']))
 IDLE_CREDIT = 10
 ITEM_WAIT = autobuff.ITEM_WAIT
+BLIND_LIMIT = 3600   # a longer gap between two known bag states is not bridged
 SLOT = 10                   # seconds per experience slot kept for the chart
 CHART_WINDOW = 60           # each chart point is the rate over the minute before it
 CHART_POINTS = 360
@@ -195,6 +196,10 @@ class Run:
         self.level_start = character.get('level')
         self.kills_by_exp = None   # last known: kills counted from experience, not kill messages
         self.finds = []            # valuable drops for this character or its party (ground_drop)
+        # [time, map, {item: quantity}, mesos, connection]: the bags as last known in this run. After a
+        # stretch where they could not be followed (a restart that could not take over the
+        # connection, an update we could not read), the next known bags are compared to this.
+        self.bags_seen = None
 
     def add_exp(self, event):
         self.exp_events.append(event)
@@ -232,7 +237,10 @@ class Run:
                     hp_lost=self.hp_lost, hp_drops=self.hp_drops,
                     attacks={str(k): v for k, v in self.attacks.items() if v}, casts={str(k): v for k, v in self.casts.items() if v},
                     combat=self.combat.to_json(), kill_attacks=self.kill_attacks,
-                    level_start=self.level_start, kills_by_exp=self.kills_by_exp, finds=self.finds)
+                    level_start=self.level_start, kills_by_exp=self.kills_by_exp, finds=self.finds,
+                    bags_seen=None if self.bags_seen is None else [self.bags_seen[0], self.bags_seen[1],
+                                                                   {str(k): v for k, v in self.bags_seen[2].items()},
+                                                                   self.bags_seen[3], None])
 
     @classmethod
     def from_json(cls, data):
@@ -248,6 +256,10 @@ class Run:
         run.combat = combat.Meter(data.get('combat'))
         run.kill_attacks = data.get('kill_attacks', {})
         run.segments = [Segment.from_json(s) for s in data.get('segments') or []]
+        seen = data.get('bags_seen')
+        if seen and len(seen) >= 4 and isinstance(seen[2], dict):
+            # Saved without its connection: the next process never shares it.
+            run.bags_seen = [seen[0], seen[1], {int(k): v for k, v in seen[2].items()}, seen[3], None]
         return run
 
 
@@ -446,6 +458,8 @@ class Tracker:
             return
         if new_map != character.map_id and character.run and character.run.status == 'active':
             self.pause(character.run, 'map', now)
+        if character.run and character.map_id is not None and new_map != character.map_id:
+            character.run.bags_seen = None   # another map (a town): its purchases are not loot
         character.map_id = new_map
         self.prices.want_map(new_map)
         character.arming.clear()
@@ -841,6 +855,7 @@ class Tracker:
 
     def inventory(self, character, inventory, now, rebase=False):
         bags = bag_totals(inventory)
+        self.bridge_blind(character, bags, inventory.mesos, now, rebase or character.bags is None)
         previous_slots = character.bag_slots
         character.bag_slots = None if inventory.slots is None else dict(inventory.slots)
         pieces = equipment_pieces(inventory)
@@ -884,6 +899,56 @@ class Tracker:
                 for _ in range(max(0, extra)):
                     self.loot(character, key[0], 1, examples[key], now)
             character.pieces = pieces
+
+    def bridge_blind(self, character, bags, mesos, now, blind):
+        """Bags known again after a stretch we could not follow: what changed in between
+        is the difference between the two (2026-11-15: a restart that could not take over
+        the connection left 4.6 min unseen). Less is used, more is picked up; both marked
+        estimated. Only on the same map: leaving it (a town trip) or a manual pause
+        forgets the old contents; an idle or disconnect pause (no data at all) does not."""
+        run = character.run
+        if run is None:
+            return
+        if run.status != 'active' and run.pause_reason in ('map', 'manual'):
+            run.bags_seen = None   # left the map, or paused by the player: purchases are not loot
+            return
+        seen = run.bags_seen
+        if bags is None:
+            # Mesos still read while the bags are not are already counted live (stat frames).
+            if seen and mesos is not None:
+                seen[3] = mesos
+            return
+        # Last known through another connection (a reconnect, or a new process): what
+        # happened between the two was not seen either.
+        blind = blind or (seen is not None and seen[4] != character.session)
+        if not blind and seen and seen[2] == bags and seen[3] == mesos:
+            seen[0], seen[1] = now, character.map_id
+            return
+        if (blind and seen and now - seen[0] <= BLIND_LIMIT
+                and (seen[1] is None or character.map_id is None or seen[1] == character.map_id)):
+            before = seen[2]
+            for item in set(before) | set(bags):
+                delta = bags.get(item, 0) - before.get(item, 0)
+                if delta < 0 and item // 1000000 == 2 and item // 10000 not in (207, 233):
+                    self.prices.want([item])
+                    self.record_blind(run, dict(t=now, kind='used', item_id=item, quantity=-delta, estimated=True))
+                elif delta > 0:
+                    self.prices.want([item])
+                    self.record_blind(run, dict(t=now, kind='loot', item_id=item, quantity=delta, estimated=True))
+            if seen[3] is not None and mesos is not None and mesos != seen[3]:
+                if mesos > seen[3]:
+                    self.record_blind(run, dict(t=now, kind='mesos', mesos=mesos - seen[3], estimated=True))
+                elif self.settings['count_mesos_spent']:
+                    self.record_blind(run, dict(t=now, kind='spent', mesos=seen[3] - mesos, estimated=True))
+        run.bags_seen = [now, character.map_id, dict(bags), mesos if mesos is not None else (seen[3] if seen else None), character.session]
+
+    def record_blind(self, run, entry):
+        """A bridged change belongs to this run even if it is paused right now (an idle
+        pause while nothing could be read): record it directly."""
+        entry['seg'] = len(run.segments) - 1
+        run.ledger.append(entry)
+        self.apply(run, entry)
+        self.dirty = True
 
     # ----- ledger --------------------------------------------------------
     def record(self, character, entry, now):

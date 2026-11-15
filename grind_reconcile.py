@@ -93,8 +93,10 @@ def prepare(folder):
         fragments = [r for r in history if r['character'].get('key') == key
                      and target['started_at'] < r['started_at'] <= target['last_gain']
                      and r.get('ended_at', 0) <= current['saved_at']]
-        if not fragments:
-            continue
+        # Without fragments the open run is still rebuilt with this version's
+        # parser (a fix then repairs it too: 2026-11-15, 47 min of consumables lost
+        # to an unread equipment swap), when the recording covers its start.
+        covered = False
         clock, offsets, inventories, evidence = [0.0], {}, {}, set()
         with tempfile.TemporaryDirectory(prefix='grind-reconcile-') as tmp:
             tracker = setup(Path(tmp)/'grind', target, clock, Prices(data/'prices.json'), load_settings(data/'settings.json'))
@@ -105,9 +107,10 @@ def prepare(folder):
                 c = tracker.characters.get(record.get('s'))
                 if c and c.key == key:
                     evidence.update(r['id'] for r in fragments if abs(r['started_at'] - record['t']) <= .002)
+                    covered = covered or record['t'] <= target['started_at'] + .002
             candidates = [c.run for c in tracker.characters.values() if c.run and c.key == key
                           and abs(c.run.started_at - target['started_at']) <= .002]
-            if len(candidates) != 1 or not evidence:
+            if len(candidates) != 1 or not (evidence if fragments else covered):
                 continue
             rebuilt = candidates[0]
             rebuilt.id = target['id']

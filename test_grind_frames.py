@@ -46,6 +46,15 @@ class FrameFileTests(unittest.TestCase):
         rest = [record['t'] for _, _, record in frames(self.data, offsets)]
         self.assertEqual(rest, [1001, 1002])
 
+    def test_a_file_compressed_after_it_was_listed_is_still_read(self):
+        plain = self.folder / 'frames_20261115_120000_aaaa.jsonl'
+        plain.write_text(lines(3), encoding='ascii')
+        listed = frame_files(self.folder)
+        compress(plain)                                 # by the background thread, meanwhile
+        self.assertEqual([t for t, _, _ in read_frames(listed)], [1000, 1001, 1002])
+        with grind_frames.open_frames(listed[0]) as stream:
+            self.assertEqual(len(stream.read().splitlines()), 3)
+
     def test_both_forms_present_reads_the_plain_one_once(self):
         plain = self.folder / 'frames_20261115_120000_aaaa.jsonl'
         plain.write_text(lines(3), encoding='ascii')

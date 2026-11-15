@@ -42,8 +42,14 @@ def replay_once(folder, version, stop=None, force=False, fetch=None):
         return None
     now = time.time()
     # Snapshot file sizes: never chase a live writer or read a partial last line.
-    files = [(p, frame_size(p)) for p in frame_files(data / 'frames')
-             if p.stat().st_mtime >= now - RETENTION_SECONDS]
+    files = []
+    for p in frame_files(data / 'frames'):
+        try:
+            if p.stat().st_mtime >= now - RETENTION_SECONDS:
+                files.append((p, frame_size(p)))
+        except OSError:
+            continue   # compressed or pruned meanwhile; listed again next version
+
     write_json(status, dict(version=version, state='running', started_at=now))
     try:
         with tempfile.TemporaryDirectory(prefix='grind-replay-') as temporary:
