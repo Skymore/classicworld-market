@@ -11,6 +11,7 @@ const now = Date.now() / 1000;
 const holdings = { observed_at: Math.floor(now), mesos: 1234567, categories: [2, 3, 4],
   items: [{ item_id: 2000002, quantity: 600 }, { item_id: 4004000, quantity: 45 }, { item_id: 2040804, quantity: 2 }],
   equipment: [
+    { slot: 2, item_id: 1041059, decoded: true, stats: [{ key: 'int', value: 2 }, { key: 'luk', value: 2 }, { key: 'weapon_defense', value: 28 }, { key: 'hp', value: 5 }], remaining_upgrades: 7, enhancements: 0 },
     { slot: 1, item_id: 1452016, decoded: true, stats: [{ key: 'weapon_attack', value: 59 }, { key: 'dex', value: 3 }], remaining_upgrades: 7, enhancements: 0 },
     { slot: 4, item_id: 1040002, decoded: false, stats: [], remaining_upgrades: null, enhancements: null },
   ] };
@@ -19,12 +20,19 @@ const gearSale = (price, attack, days = 1, extra = [{ key: 'dex', value: 3 }]) =
   equipment: { status: 'candidate', stats: [{ key: 'weapon_attack', value: attack }, ...extra], remaining_upgrades: 7, enhancements: 0 } });
 const gearSales = { 1452016: [gearSale(100000, 59), gearSale(120000, 59, 1, [{ key: 'dex', value: 3 }, { key: 'weapon_defense', value: 9 }]),
     gearSale(140000, 59), gearSale(500000, 60), gearSale(900000, 59, 1, [{ key: 'dex', value: 5 }])],
-  1040002: [gearSale(3000, 0), gearSale(5000, 0)] };
+  1040002: [gearSale(3000, 0), gearSale(5000, 0)],
+  // 法师上衣：72 小时内同属性只有 1 笔，改用 72 小时内同名全部（含没解析属性的），更早的不算。
+  1041059: [{ sale_unit_price: 6555, time: now - 3600, equipment: { status: 'candidate', stats: [{ key: 'int', value: 2 }, { key: 'luk', value: 2 }], remaining_upgrades: 7 } },
+    { sale_unit_price: 7000, time: now - 7200, equipment: { status: 'candidate', stats: [{ key: 'int', value: 1 }, { key: 'luk', value: 2 }], remaining_upgrades: 7 } },
+    { sale_unit_price: 8000, time: now - 7200, equipment: { status: 'unsupported', stats: [] } },
+    { sale_unit_price: 9000, time: now - 7200, equipment: { status: 'unsupported', stats: [] } },
+    { sale_unit_price: 1000, time: now - 5 * 86400, equipment: { status: 'unsupported', stats: [] } }] };
 const products = [
   { item_id: 2000002, name_zh: '白色药水', name_en: 'White Potion', category: '消耗品', sales_window: 30, typical_window_low: 290.4, typical_window: 300, icon_url: '' },
   { item_id: 4004000, name_zh: '力量母矿', name_en: 'Power Crystal Ore', category: '其他', sales_window: 0, typical_low: 22000, typical: 25000, icon_url: '' },
   { item_id: 2040804, name_zh: '手套攻击卷轴', name_en: 'Gloves ATT Scroll', category: '消耗品', sales_window: 0, icon_url: '' },
   { item_id: 1452016, name_zh: '火焰弓', name_en: 'Fire Bow', category: '装备', sales_window: 4, sales_10d: 4, icon_url: '' },
+  { item_id: 1041059, name_zh: '黑神圣法衣', name_en: 'Black Amoria Top', category: '装备', sales_10d: 5, icon_url: '' },
   { item_id: 1040002, name_zh: '白色背心', name_en: 'White Undershirt', category: '装备', sales_10d: 2, icon_url: '' },
 ];
 const npc = { 2000002: 300, 4004000: 5000, 1452016: 20000 };
@@ -42,7 +50,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/v1/npc-sell') data = { prices: Object.fromEntries(Object.entries(npc).filter(([id]) => url.searchParams.get('ids').split(',').includes(id))) };
     if (url.pathname === '/api/v1/watchlist/catalog') data = { items: [] };
     if (url.pathname === '/api/v1/collector/inventory') data = { holdings: gameConnected ? holdings : null };
-    if (url.pathname.startsWith('/api/v1/item/')) data = { sales: gearSales[url.pathname.split('/').at(-1)] || [], listings: [], product: { jobs: url.pathname.endsWith('1452016') ? ['弓箭手'] : [] } };
+    if (url.pathname.startsWith('/api/v1/item/')) data = { sales: gearSales[url.pathname.split('/').at(-1)] || [], listings: [], product: { jobs: url.pathname.endsWith('1452016') ? ['弓箭手'] : url.pathname.endsWith('1041059') ? ['魔法师'] : [] } };
     if (url.pathname === '/api/v1/crafting/prices') data = { prices: [] };
     res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(data));
   }
@@ -77,14 +85,22 @@ try {
   const bow = page.locator('[data-selling-row="eq:1:1452016"]');
   await bow.waitFor();
   assert.match(await bow.locator('[data-selling-stats]').textContent(), /物攻 \+59.*敏 \+3.*可升 7/);
-  await page.waitForFunction(() => /同物攻 59 · 成交 3 笔/.test(document.querySelector('[data-selling-row="eq:1:1452016"]')?.textContent || ''));
+  await page.waitForFunction(() => /同属性 · 72h 3 笔/.test(document.querySelector('[data-selling-row="eq:1:1452016"]')?.textContent || ''));
   assert.match(await bow.getByRole('radio', { name: /成交 25%/ }).textContent(), /110,000/);
   assert.equal(await total(page), '120,000');
   assert.match(await bow.locator('[data-selling-npc]').textContent(), /20,000/);
-  // 属性没解析的装备：按同名全部成交并标明。
+  // 属性没解析的装备：72 小时内同名不够 3 笔，用能拿到的全部同名成交。
   await page.locator('[data-selling-item="eq:4:1040002"]').click();
-  await page.waitForFunction(() => /同名 · 成交 2 笔（属性不同）/.test(document.querySelector('[data-selling-row="eq:4:1040002"]')?.textContent || ''));
+  await page.waitForFunction(() => /同名 · 2 笔/.test(document.querySelector('[data-selling-row="eq:4:1040002"]')?.textContent || ''));
   assert.equal(await total(page), '124,000');
+  // 法师上衣只列关键属性（智、运、可升），72 小时内同名 4 笔：25% 6,889、中位 7,500。
+  await page.locator('[data-selling-item="eq:2:1041059"]').click();
+  const top = page.locator('[data-selling-row="eq:2:1041059"]');
+  await page.waitForFunction(() => /同名 · 72h 4 笔/.test(document.querySelector('[data-selling-row="eq:2:1041059"]')?.textContent || ''));
+  assert.equal(await top.locator('[data-selling-stats]').textContent(), '智 +2 · 运 +2 · 可升 7');
+  assert.match(await top.getByRole('radio', { name: /成交 25%/ }).textContent(), /6,889/);
+  assert.equal(await total(page), '131,500');
+  await top.getByRole('button', { name: '移出清单' }).click();
   if (process.env.SELLING_SHOTS) await page.screenshot({ path: path.join(process.env.SELLING_SHOTS, 'selling-gear.png'), fullPage: true });
   await bow.getByRole('button', { name: '移出清单' }).click();
   await page.locator('[data-selling-row="eq:4:1040002"]').getByRole('button', { name: '移出清单' }).click();
@@ -94,16 +110,20 @@ try {
   await row.waitFor();
   // 默认成交中位 300，每组 100 × 6 组。
   assert.equal(await total(page), '180,000');
-  // 价格竖排：成交 25%、成交中位、手动自上而下同一列。
+  // 价格并排：成交 25%、成交中位、手动从左到右同一行。
   const boxes = await Promise.all(['button[role=radio] >> nth=0', 'button[role=radio] >> nth=1', 'label']
     .map(s => row.locator('.selling-prices ' + s).boundingBox()));
   for (let i = 1; i < boxes.length; i++) {
-    assert.equal(Math.round(boxes[i].x), Math.round(boxes[0].x));
-    assert.ok(boxes[i].y > boxes[i - 1].y);
+    assert.equal(Math.round(boxes[i].y), Math.round(boxes[0].y));
+    assert.ok(boxes[i].x > boxes[i - 1].x);
   }
+  // 整行不超出清单：移除按钮在清单右边以内。
+  const planBox = await page.locator('[data-selling-plan]').boundingBox();
+  const xBox = await row.locator('.selling-x').boundingBox();
+  assert.ok(xBox.x + xBox.width <= planBox.x + planBox.width, `${xBox.x + xBox.width} > ${planBox.x + planBox.width}`);
   assert.match(await row.locator('[data-selling-npc]').textContent(), /300/);
   // 300 不高于 NPC 回收 300：提示卖 NPC。
-  assert.match(await row.textContent(), /直接卖 NPC 更划算/);
+  assert.match(await row.textContent(), /卖 NPC 更划算/);
   // 成交 25%：290.4 向上取整 291。
   await row.getByRole('radio', { name: /成交 25%/ }).click();
   assert.equal(await total(page), '174,600');
@@ -131,7 +151,7 @@ try {
   assert.equal(await page.locator('[data-selling-row]').count(), 3);
   assert.deepEqual(errors, []);
   if (process.env.SELLING_SHOTS) await page.screenshot({ path: path.join(process.env.SELLING_SHOTS, 'selling-desktop.png'), fullPage: true });
-  console.log('PASS desktop: equipment by main stat, unread stats fallback, bag, vertical prices, sold 25%/median, manual, NPC price, saved plan');
+  console.log('PASS desktop: equipment by main stat, unread stats fallback, bag, side-by-side prices, key stats, 72h same-stat fallback, sold 25%/median, manual, NPC price, saved plan');
 
   // 客户端的「摆摊」栏目：同一页面经本机回环打开，读本机背包；没有页内导航和面包屑。
   const client = await browser.newPage({ viewport: { width: 1920, height: 1000 } });

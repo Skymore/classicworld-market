@@ -10,7 +10,7 @@ import { SiteLink } from "../components/shell";
 import { isEnglish, useItemRows } from "../components/sweep-content";
 import { getAccountJson, useAccountTopics } from "../lib/account-api";
 import { embedded, embeddedHost, embeddedLocal } from "../lib/embed";
-import { keyStats, mainStat } from "../lib/item-market";
+import { keyStats } from "../lib/item-market";
 import { useAccount } from "../lib/query";
 import type { Device, EquipmentPiece, Holdings } from "../lib/sweep-labels";
 import "./selling.css";
@@ -35,10 +35,10 @@ interface Prices {
   count: number;
   /** 普通物品：72 小时无成交、按最近成交。 */
   recent?: boolean;
-  /** 装备：same 同属性 / all 同名全部（属性不同）/ none。 */
+  /** 装备：same 同关键属性 / all 同名全部 / none。 */
   basis?: "same" | "all" | "none";
-  main?: string | null;
-  mainValue?: number;
+  /** 装备：72 小时内，或能拿到的全部成交。 */
+  window?: "72h" | "all";
 }
 const PLAN_KEY = "selling.plan.v1";
 /** 上次读到的背包：游戏断开后页面仍可用。 */
@@ -49,10 +49,6 @@ const BAGS: [number, string, string][] = [
   [3, "设置", "Set-up"],
   [4, "其他", "Etc"],
 ];
-const MAIN_LABEL: Record<string, [string, string]> = {
-  weapon_attack: ["物攻", "Weapon ATK"],
-  magic_attack: ["魔攻", "Magic ATK"],
-};
 const DEVICES_KEY = ["selling-devices"] as const;
 const gearKey = (piece: EquipmentPiece) => `eq:${piece.slot}:${piece.item_id}`;
 const isGearKey = (key: string) => key.startsWith("eq:");
@@ -113,39 +109,36 @@ export function jobMaskOf(jobs: unknown): number | null {
 }
 
 /**
- * 一件装备的参考价：同名装备里关键属性（可用职业的主副属性、物攻魔攻、暴击）和剩余升级
- * 次数都相同的成交；防御、HP 等不影响。没有可比成交时用同名全部成交并标明属性不同。
- * 近 30 天够 3 笔就只用近 30 天。清单里已不在背包的装备（没有属性）按同名全部成交。
+ * 一件装备的参考价：72 小时内关键属性（可用职业的主副属性、物攻魔攻、暴击）和剩余升级次数
+ * 都相同的成交够 3 笔就用它们；防御、HP 等不影响。不够时用 72 小时内同名全部成交（含没解析
+ * 属性的），仍不够 3 笔就用能拿到的同名全部成交。
  */
 export function gearPrices(
   piece: EquipmentPiece | undefined,
-  itemId: number,
   sales: any[] | undefined,
   jobMask: number | null = null,
   now = Date.now() / 1000,
 ): Prices {
-  const rows = (sales || []).filter(
-    (s) => positive(s.sale_unit_price) && s.equipment?.status === "candidate" && Array.isArray(s.equipment.stats),
-  );
+  const rows = (sales || []).filter((s) => positive(s.sale_unit_price));
   const value = (stats: { key: string; value: number }[], key: string) => stats.find((s) => s.key === key)?.value ?? 0;
-  const main = mainStat(itemId, jobMask);
-  const known = Boolean(piece?.decoded);
-  const mine = (key: string) => value(piece?.stats || [], key);
   const wanted = keyStats(jobMask);
   const signature = (equipment: { stats: { key: string; value: number }[]; remaining_upgrades?: number | null }) =>
     JSON.stringify([wanted.map((key) => value(equipment.stats, key)), equipment.remaining_upgrades ?? null]);
-  const same = !known ? [] : rows.filter((s) => signature(s.equipment) === signature(piece!));
-  let pool = same.length ? same : rows;
-  const recent = pool.filter((s) => Number(s.time) >= now - 30 * 86400);
-  if (recent.length >= 3) pool = recent;
+  const recent = rows.filter((s) => Number(s.time) >= now - 72 * 3600);
+  const same = !piece?.decoded
+    ? []
+    : recent.filter(
+        (s) => s.equipment?.status === "candidate" && Array.isArray(s.equipment.stats) && signature(s.equipment) === signature(piece),
+      );
+  const [pool, basis, window]: [any[], Prices["basis"], Prices["window"]] =
+    same.length >= 3 ? [same, "same", "72h"] : recent.length >= 3 ? [recent, "all", "72h"] : [rows, "all", "all"];
   const prices = pool.map((s) => Number(s.sale_unit_price)).sort((a, b) => a - b);
   return {
     s25: prices.length ? Math.ceil(percentile(prices, 0.25)) : null,
     s50: prices.length ? Math.ceil(percentile(prices, 0.5)) : null,
     count: prices.length,
-    basis: !prices.length ? "none" : same.length ? "same" : "all",
-    main: known ? main : null,
-    mainValue: main ? mine(main) : undefined,
+    basis: prices.length ? basis : "none",
+    window,
   };
 }
 function defaults(quantity: number): Line {
@@ -323,11 +316,17 @@ export default function Selling() {
     return row ? itemName(row) : String(id);
   };
   const icon = (id: number) => rowOf(id)?.icon_url as string | undefined;
-  const summary = (piece: EquipmentPiece) =>
-    piece.decoded
-      ? equipmentSummary({ item_id: piece.item_id, equipment: { ...piece, status: "candidate" } }, isEnglish()) ||
-        words("无附加属性", "No bonus stats")
-      : words("属性未解析", "Stats not decoded");
+  const jobMask = (id: number) => jobMaskOf(gearSales.get(id)?.jobs ?? rowOf(id)?.jobs);
+  /** 只列关键属性（可用职业的主副属性、物攻魔攻、暴击）和剩余升级次数。 */
+  const summary = (piece: EquipmentPiece) => {
+    if (!piece.decoded) return words("属性未解析", "Stats not decoded");
+    const wanted = keyStats(jobMask(piece.item_id));
+    const stats = (piece.stats || []).filter((s) => wanted.includes(s.key));
+    return (
+      equipmentSummary({ item_id: piece.item_id, equipment: { ...piece, stats, status: "candidate" } }, isEnglish()) ||
+      words("无关键属性", "No key stats")
+    );
+  };
 
   type BagItem = { key: string; item_id: number; quantity: number; piece?: EquipmentPiece };
   const itemsOf = (tab: number): BagItem[] =>
@@ -388,7 +387,7 @@ export default function Selling() {
     const isGear = isGearKey(key);
     const piece = isGear ? gear.get(key) : undefined;
     const quantity = isGear ? (piece ? 1 : 0) : (held.get(key) ?? 0);
-    const prices = isGear ? gearPrices(piece, id, gearSales.get(id)?.sales, jobMaskOf(gearSales.get(id)?.jobs ?? rowOf(id)?.jobs)) : salePrices(products.get(id));
+    const prices = isGear ? gearPrices(piece, gearSales.get(id)?.sales, jobMask(id)) : salePrices(products.get(id));
     const chosen = line.strat || plan.global;
     // 选中的档位没有数据时，这一行改为等玩家手填。
     const strat: Strategy = chosen !== "manual" && prices[chosen] == null ? "manual" : chosen;
@@ -420,17 +419,13 @@ export default function Selling() {
     const p = r.prices;
     if (!r.isGear)
       return p.count
-        ? words(`成交 ${p.count} 笔`, `${p.count} sales`)
+        ? words(`72h ${p.count} 笔`, `72h ${p.count} sales`)
         : p.recent
-          ? words("72 小时无成交，按最近成交", "No sales in 72 h; recent sales")
+          ? words("72h 无成交，按最近成交", "None in 72h; recent sales")
           : words("无成交", "No sales");
-    if (p.basis === "same" && p.main)
-      return words(
-        `同${MAIN_LABEL[p.main]?.[0] ?? ""} ${p.mainValue} · 成交 ${p.count} 笔`,
-        `Same ${MAIN_LABEL[p.main]?.[1] ?? ""} ${p.mainValue} · ${p.count} sales`,
-      );
-    if (p.basis === "same") return words(`同属性 · 成交 ${p.count} 笔`, `Same stats · ${p.count} sales`);
-    if (p.basis === "all") return words(`同名 · 成交 ${p.count} 笔（属性不同）`, `Same item · ${p.count} sales (other stats)`);
+    const span = p.window === "72h" ? "72h " : "";
+    if (p.basis === "same") return words(`同属性 · ${span}${p.count} 笔`, `Same stats · ${span}${p.count} sales`);
+    if (p.basis === "all") return words(`同名 · ${span}${p.count} 笔`, `Same item · ${span}${p.count} sales`);
     return words("无成交", "No sales");
   };
 
@@ -603,8 +598,8 @@ export default function Selling() {
           </div>
           {!rows.length && <p className="selling-empty">{words("在背包里点选要卖的物品", "Pick items from your bag")}</p>}
           {rows.map((r) => (
-            <div className={"selling-row" + (r.warn ? " bad" : "")} key={r.key} data-selling-row={r.key}>
-              <ItemLink id={r.id}>
+            <div className={"selling-row" + (r.isGear ? " gear" : "") + (r.warn ? " bad" : "")} key={r.key} data-selling-row={r.key}>
+              <ItemLink id={r.id} className="selling-icon">
                 <Slot url={icon(r.id)} size={32} />
               </ItemLink>
               <div className="selling-who">
@@ -612,10 +607,14 @@ export default function Selling() {
                   <ItemLink id={r.id}>{name(r.id)}</ItemLink>
                 </b>
                 {r.piece && <small className="selling-stats" data-selling-stats>{summary(r.piece)}</small>}
-                <small>{basisText(r)}</small>
-                <small className={r.belowNpc ? "selling-warn" : ""} data-selling-npc>
-                  {words("NPC 回收", "NPC buys")} {n(r.npc)}
-                  {r.belowNpc && words("，直接卖 NPC 更划算", "; sell to the NPC")}
+                <small>
+                  {basisText(r)}
+                  {" · "}
+                  <span className={r.belowNpc ? "selling-warn" : ""} data-selling-npc>
+                    {words("NPC ", "NPC ")}
+                    {n(r.npc)}
+                    {r.belowNpc && words("，卖 NPC 更划算", "; sell to the NPC")}
+                  </span>
                 </small>
               </div>
               <div className="selling-prices" role="radiogroup" aria-label={words("单价", "Unit price")}>
@@ -630,28 +629,23 @@ export default function Selling() {
                     onClick={() => update(r.key, { strat: key })}
                   >
                     <small>{key === "s25" ? words("成交 25%", "Sold 25%") : words("成交中位", "Sold median")}</small>
-                    <span>{r.prices[key] == null ? words("无数据", "No data") : n(r.prices[key])}</span>
+                    <span>{r.prices[key] == null ? "—" : n(r.prices[key])}</span>
                   </button>
                 ))}
                 <label className={r.strat === "manual" ? "on" : ""}>
                   <small>{words("手动", "Manual")}</small>
                   <input
                     inputMode="numeric"
-                    placeholder={words("输入单价", "Unit price")}
+                    placeholder={words("单价", "Price")}
                     value={r.line.manual}
                     onFocus={() => r.line.manual && update(r.key, { strat: "manual" })}
                     onChange={(e) => update(r.key, { strat: "manual", manual: e.target.value.replace(/\D/g, "").slice(0, 10) })}
                   />
                 </label>
               </div>
-              {r.isGear ? (
-                <div className="selling-amount">
-                  <small>{words("1 件", "1 piece")}</small>
-                </div>
-              ) : (
+              {!r.isGear && (
                 <div className="selling-amount">
                   <div className="selling-step">
-                    <span>{words("每组", "Per lot")}</span>
                     <input
                       inputMode="numeric"
                       value={r.line.bundle}
@@ -675,8 +669,11 @@ export default function Selling() {
               )}
               <div className="selling-total">
                 <b>{n(r.total)}</b>
-                {!r.isGear && r.unit != null && <small>{words("每组", "Per lot")} {n(r.unit * r.bundle)}</small>}
-                {r.warn && <small className="selling-warn">{r.warn}</small>}
+                {r.warn ? (
+                  <small className="selling-warn">{r.warn}</small>
+                ) : (
+                  !r.isGear && r.unit != null && <small>{words("每组", "Per lot")} {n(r.unit * r.bundle)}</small>
+                )}
               </div>
               <button type="button" className="selling-x" onClick={() => toggle(r.key)} aria-label={words("移出清单", "Remove")}>
                 ×
