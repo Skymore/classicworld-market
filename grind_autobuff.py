@@ -23,7 +23,7 @@ PRESET_OPCODES = (0x8B, 0x1A9)
 # the key table: opcode, item ID (0 = none). 2026-11-12 live: 2000001, 2010005.
 PET_POTION_OPCODES = {0x5F6: 'hp', 0x5F7: 'mp'}
 LEAD = 3.0                    # recast a skill this many seconds before its buff ends
-ITEM_LATE = 3.0               # use an item this long after its buff ended: sooner, the game may still say it is on
+ITEM_LATE = 1.0               # use an item this long after the server ended its buff (the game has it off by then)
 # An item buff (Dragon Blood, potions) is over only when the server says so: its
 # cancel came 0-7 s after the nominal end in 30 recorded endings (2026-11-15), and
 # the game asks to confirm a potion used before that. Without a cancel, it is taken

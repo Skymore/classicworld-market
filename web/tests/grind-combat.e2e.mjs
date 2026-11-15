@@ -201,7 +201,7 @@ try {
     await page.close();
   }
   // Spoken buff warnings, each twice (again 10 s later unless cast again): a skill 3 s before
-  // it ends; an item buff (龙血) 3 s after, since the game asks to confirm one used while still on.
+  // it ends; an item buff (龙血) 1 s after the server ends it, since the game asks to confirm one used while still on.
   {
     const page = await browser.newPage({ viewport: { width: 296, height: 620 } });
     await page.addInitScript(({ run, settings }) => {
@@ -231,7 +231,7 @@ try {
     const at = name => said.filter(([, src]) => src.includes(name)).map(([t]) => t);
     assert.deepEqual(at('/3001000.mp3'), [3, 13], `a skill: 3 s before it ends, again 10 s later (${JSON.stringify(said)})`);
     const item = at('/-2012000.mp3');
-    assert(item.length === 2 && item[0] >= 7 && item[1] - item[0] >= 10, `an item buff: 3 s after the server ends it, again 10 s later (${JSON.stringify(said)})`);
+    assert(item.length === 2 && item[0] >= 5 && item[1] - item[0] >= 10, `an item buff: 1 s after the server ends it, again 10 s later (${JSON.stringify(said)})`);
     assert.deepEqual(at('/3101004.mp3'), [2], `cast again after the first warning: not said again (${JSON.stringify(said)})`);
     assert.deepEqual(at('/3100001.mp3'), [], `a Final Attack is never warned (${JSON.stringify(said)})`);
     await page.close();

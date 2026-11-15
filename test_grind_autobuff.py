@@ -137,7 +137,7 @@ class AutoBuffTest(unittest.TestCase):
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, ['e'])
 
-    def test_a_potion_buff_is_used_three_seconds_after_the_server_cancels_it(self):
+    def test_a_potion_buff_is_used_a_second_after_the_server_cancels_it(self):
         character = self.start()
         self.send(key_table([{3: (2, 2002004)}] * 3))
         character.buffs = {}
@@ -146,10 +146,10 @@ class AutoBuffTest(unittest.TestCase):
         self.current().segment.buff_totals = {-2002004: 600}
         character.buff_ended[-2002004] = self.clock()          # cancelled just now
         self.auto.tick(self.tracker, self.clock())
-        self.clock.t += 2.5
+        self.clock.t += .5
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, [])
-        self.clock.t += 1
+        self.clock.t += .7
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, ['2'])
 
@@ -268,7 +268,7 @@ class AutoBuffTest(unittest.TestCase):
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, ['2'])               # no cancel: ITEM_WAIT after the nominal end
 
-    def test_a_potion_is_used_again_three_seconds_after_the_server_ends_it(self):
+    def test_a_potion_is_used_again_a_second_after_the_server_ends_it(self):
         character = self.start()
         self.send(key_table([{3: (2, 2002004)}] * 3))
         character.buffs = {-2002004: (self.clock(), 10_000)}
@@ -276,12 +276,14 @@ class AutoBuffTest(unittest.TestCase):
         self.current().segment.buff_totals[-2002004] = 10
         self.tracker.pinned_buffs = lambda c, now: {}
         self.clock.t += 14                                  # the server's cancel, 4 s late
+        self.auto.tick(self.tracker, self.clock())
+        self.assertEqual(self.pressed, [])                  # still on in the game until then
         del character.buffs[-2002004]
         character.buff_ended[-2002004] = self.clock()
-        self.clock.t += 2
+        self.clock.t += .5
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, [])
-        self.clock.t += 1.2
+        self.clock.t += .7
         self.auto.tick(self.tracker, self.clock())
         self.assertEqual(self.pressed, ['2'])
 

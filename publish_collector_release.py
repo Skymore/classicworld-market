@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.69：药水 Buff 收到服务器结束消息后 1 秒就提醒、自动喝（原来等 3 秒）。\n'
         'v0.7.68：龙血、速度药水等药水 Buff 以服务器的结束消息为准（实测比标称时长晚 0～7 秒结束）：标称时间到后显示“将结束”，真正结束 3 秒后再提醒和自动喝；收不到结束消息时按标称时间后 10 秒。\n'
         'v0.7.67：悬浮窗底部网址字号调大；有新版本时同一行出现“更新到 vX”按钮，点了直接更新。\n'
         'v0.7.66：Buff 提醒改为两次，第一次后 10 秒还没补上再提醒一次；终极系列不提醒。\n'

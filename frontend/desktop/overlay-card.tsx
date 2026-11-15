@@ -125,7 +125,7 @@ function beep() {
 
 /** Buff countdowns; says a buff's name once when it crosses the warning time. A Final
  * Attack (triggered by hits) chimes when it turns on instead and stays quiet when it ends. */
-const ITEM_LATE = 3;   // grind_autobuff.ITEM_LATE: an item buff is used this long after the server ends it
+const ITEM_LATE = 1;   // grind_autobuff.ITEM_LATE: an item buff is used this long after the server ends it
 const AGAIN = 10;      // a warning is said once more this long after, if nothing was cast
 
 function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | null; settings: GrindSettings; icons?: boolean; tiles?: boolean }) {
