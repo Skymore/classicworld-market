@@ -135,6 +135,7 @@ const CHANNEL_REASONS: Record<string, [string, string]> = {
   keys: ['读不到键位，自动加 Buff 和喝药已暂停', 'no key table, auto buff and potions are off'],
   identity: ['击杀暂按经验估算', 'kills estimated from EXP'],
   attacks: ['看不到攻击数据，DPS 和技能统计缺失', 'no attack data, DPS and skills missing'],
+  bags: ['读不到背包，战利品和消耗没在记', 'bags unknown, loot and consumables not counted'],
 };
 /** "请换一次频道：…" when a channel change would fix something, else null. */
 export function channelPrompt(run: { channel_change?: string[] } | null | undefined) {

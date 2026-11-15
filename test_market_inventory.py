@@ -228,6 +228,17 @@ class EquipmentBagTests(unittest.TestCase):
         self.inventory.observe(update(struct.pack('<BBhH', 1, 2, 2, 99)), 'one')
         self.assertEqual(self.inventory.slots[(2, 2)], (2000001, 99))
 
+    def test_two_pieces_trading_places_keep_potions_live(self):
+        # 2026-11-15 live layout: both moved pieces refreshed, then one move (count 3).
+        slots = dict(self.inventory.slots)
+        payload = struct.pack('<HBBIBBB', 0x72, 1, 1, 3, 0, 5, 1) + gear(1, 1302000, ((16, 17),), 5)
+        payload += struct.pack('<BB', 5, 1) + gear(-11, 1452001)
+        payload += struct.pack('<BBhhB', 2, 1, 1, -11, 99)
+        self.inventory.observe(payload, 'one')
+        self.assertEqual(self.inventory.slots, slots)
+        self.assertEqual(self.inventory.worn[11]['item_id'], 1302000)
+        self.assertEqual(self.inventory.equipment[1]['item_id'], 1452001)
+
     def test_refresh_move_rejects_mismatched_source(self):
         payload = struct.pack('<HBBIBBB', 0x72, 1, 1, 2, 0, 5, 1) + gear(-11, 1452001)
         payload += struct.pack('<BBhhB', 2, 1, -5, 9, 99)

@@ -4,15 +4,79 @@ Frames stay on this PC (captures/grind/frames). Each line is
 {"t": unix time, "s": connection session, "h": frame hex}; the player's own
 messages add "c": 1 and "i", the opcode's index in the connection's mapping
 table (the raw client opcode changes per connection). Files rotate at
-FILE_LIMIT; only files older than seven days are pruned. Nothing is uploaded.
+FILE_LIMIT or hourly; files older than 30 days are pruned. Nothing is uploaded.
+
+A closed file (untouched for COMPRESS_AFTER) is gzipped in the background to
+frames_*.jsonl.gz (about 8x smaller, so 30 days fit in roughly a gigabyte).
+Every new client version replays these files once (grind_replay, and the open
+run through grind_reconcile), so a parser fix also repairs recorded history.
+Read them through frame_files / open_frames / frame_lines: a file's name
+without ".gz" and its uncompressed byte offsets stay the same after compression.
 """
+import gzip
 import json
 import math
+import threading
 import time
 from pathlib import Path
 
 FILE_LIMIT = 48 * 1024 * 1024
-RETENTION_SECONDS = 7 * 24 * 3600
+RETENTION_SECONDS = 30 * 24 * 3600
+COMPRESS_AFTER = 3600
+UNBOUNDED = float('inf')
+
+
+def frame_name(path):
+    """The recording's name, the same before and after compression."""
+    name = Path(path).name
+    return name[:-3] if name.endswith('.gz') else name
+
+
+def frame_files(folder):
+    """Recordings oldest first, plain or compressed; while a file is being
+    compressed both exist, and the plain one is used."""
+    folder = Path(folder)
+    found = {}
+    for path in list(folder.glob('frames_*.jsonl.gz')) + list(folder.glob('frames_*.jsonl')):
+        found[frame_name(path)] = path   # plain ones last: they win
+    return [found[name] for name in sorted(found)]
+
+
+def frame_size(path):
+    """Bytes to read: a plain file can still be growing, so take its size now;
+    a compressed one is complete."""
+    path = Path(path)
+    return UNBOUNDED if path.name.endswith('.gz') else path.stat().st_size
+
+
+def open_frames(path):
+    path = Path(path)
+    return gzip.open(path, 'rb') if path.name.endswith('.gz') else path.open('rb')
+
+
+def frame_lines(path):
+    """All lines of a recording (bytes), plain or compressed."""
+    path = Path(path)
+    data = path.read_bytes()
+    return (gzip.decompress(data) if path.name.endswith('.gz') else data).splitlines()
+
+
+def compress(path):
+    """frames_x.jsonl -> frames_x.jsonl.gz, then remove the plain file."""
+    path = Path(path)
+    target = path.with_name(path.name + '.gz')
+    part = path.with_name(path.name + '.gz.part')
+    try:
+        with path.open('rb') as source, gzip.open(part, 'wb', compresslevel=6) as out:
+            while True:
+                chunk = source.read(1024 * 1024)
+                if not chunk:
+                    break
+                out.write(chunk)
+        part.replace(target)
+        path.unlink(missing_ok=True)
+    except OSError:
+        part.unlink(missing_ok=True)
 
 
 class FrameLog:
@@ -35,12 +99,24 @@ class FrameLog:
         self.prune(now)
 
     def prune(self, now=None):
-        cutoff = (time.time() if now is None else now) - RETENTION_SECONDS
-        files = sorted(self.folder.glob('frames_*.jsonl'), key=lambda p: p.stat().st_mtime)
-        for old in files:
-            if old.stat().st_mtime >= cutoff or old == self.path:
+        now = time.time() if now is None else now
+        cutoff = now - RETENTION_SECONDS
+        closed = []
+        for old in list(self.folder.glob('frames_*.jsonl')) + list(self.folder.glob('frames_*.jsonl.gz')):
+            if old == self.path:
                 continue
-            old.unlink(missing_ok=True)
+            try:
+                modified = old.stat().st_mtime
+            except OSError:
+                continue
+            if modified < cutoff:
+                old.unlink(missing_ok=True)
+            elif old.name.endswith('.jsonl') and modified < now - COMPRESS_AFTER:
+                closed.append(old)
+        if closed:
+            # Off the capture thread: a 48 MB file takes about half a second.
+            threading.Thread(target=lambda: [compress(p) for p in closed], daemon=True,
+                             name='grind-frames-compress').start()
 
     def write(self, session, plain, now=None, index=None, client=False):
         if self.failed or len(plain) < 2:
@@ -95,8 +171,8 @@ def read_client_frames(paths):
     """(time, session, mapping index, bytes) of the player's own recorded messages."""
     for path in paths:
         try:
-            lines = Path(path).read_text(encoding='ascii').splitlines()
-        except (OSError, UnicodeDecodeError):
+            lines = frame_lines(path)
+        except (OSError, EOFError, gzip.BadGzipFile):
             continue
         for line in lines:
             try:
@@ -111,8 +187,8 @@ def read_frames(paths):
     """(time, session, bytes) of recorded server frames, in file then line order."""
     for path in paths:
         try:
-            lines = Path(path).read_text(encoding='ascii').splitlines()
-        except (OSError, UnicodeDecodeError):
+            lines = frame_lines(path)
+        except (OSError, EOFError, gzip.BadGzipFile):
             continue
         for line in lines:
             try:

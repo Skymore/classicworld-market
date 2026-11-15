@@ -291,8 +291,11 @@ class ChannelPromptTest(unittest.TestCase):
         character = self.tracker.characters['s1']
         run = self.current()
         self.clock.t += 120
+        character.bags = None                                # an update we could not read
         reasons = self.tracker.channel_change(run, character, self.clock())
         self.assertIn('attacks', reasons)                    # none of the player's own messages
+        self.assertIn('bags', reasons)                       # bags unknown: loot and consumables blind
+        character.bags = {}
         self.send(key_table([{18: (1, 3101004)}] * 3))
         character.client_seen, character.client_at, character.character_id = True, self.clock(), 1
         self.assertEqual(self.tracker.channel_change(run, character, self.clock()), [])

@@ -6,7 +6,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from grind_frames import RETENTION_SECONDS
+from grind_frames import RETENTION_SECONDS, frame_files, frame_size, open_frames
 from grind_pricing import Prices
 from grind_tracker import Tracker, load_settings, write_json
 from market_inventory import Inventory
@@ -42,7 +42,7 @@ def replay_once(folder, version, stop=None, force=False, fetch=None):
         return None
     now = time.time()
     # Snapshot file sizes: never chase a live writer or read a partial last line.
-    files = [(p, p.stat().st_size) for p in sorted((data / 'frames').glob('frames_*.jsonl'))
+    files = [(p, frame_size(p)) for p in frame_files(data / 'frames')
              if p.stat().st_mtime >= now - RETENTION_SECONDS]
     write_json(status, dict(version=version, state='running', started_at=now))
     try:
@@ -69,7 +69,7 @@ def replay_once(folder, version, stop=None, force=False, fetch=None):
             boundaries.sort(key=lambda row: row[0], reverse=True)
             ticks = count = 0
             for path, size in files:
-                with path.open('rb') as stream:
+                with open_frames(path) as stream:
                     while stream.tell() < size:
                         line = stream.readline()
                         if stream.tell() > size or not line.endswith(b'\n'):

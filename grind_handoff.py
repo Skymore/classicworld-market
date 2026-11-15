@@ -3,6 +3,7 @@ import collections
 import json
 import tempfile
 from pathlib import Path
+from grind_frames import frame_files, frame_lines
 
 # Frames recorded before 0.7.40 carry times rounded to the nearest millisecond,
 # up to half a millisecond after they were seen.
@@ -73,10 +74,10 @@ def legacy(tracker, sessions, cutoff):
     from grind_pricing import Prices
     from market_inventory import Inventory
     remaining, records = set(sessions), []
-    for path in sorted((tracker.data / 'frames').glob('frames_*.jsonl'), reverse=True):
+    for path in reversed(frame_files(tracker.data / 'frames')):
         if not remaining:
             break
-        for line in reversed(path.read_bytes().splitlines()):
+        for line in reversed(frame_lines(path)):
             try:
                 row = json.loads(line)
                 if row.get('s') not in remaining or row['t'] > cutoff + ROUNDING:
@@ -131,8 +132,8 @@ def recover_inventory(data, session, cutoff):
     """Replay a known session's last full bag snapshot after a parser upgrade."""
     from market_inventory import Inventory
     rows, found = [], False
-    for path in sorted((data/'frames').glob('frames_*.jsonl'), reverse=True):
-        for line in reversed(path.read_bytes().splitlines()):
+    for path in reversed(frame_files(data/'frames')):
+        for line in reversed(frame_lines(path)):
             try:
                 row = json.loads(line)
                 if row.get('s') != session or row.get('c') or row['t'] > cutoff + ROUNDING:

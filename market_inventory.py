@@ -255,22 +255,38 @@ class Inventory:
 
     def update(self, data):
         # Equipment refresh + equip/unequip, with an opaque final sequence byte.
-        # Observed as mode 5 followed by a mode 2 move of the same source slot.
-        # Bound the equipment record by the final operation, never scan its body
-        # for apparent item operations. Ordinary bags are unaffected.
-        if (len(data) >= 70 and data[2:4] == b'\x01\x01'
-                and data[4:9] == b'\x02\0\0\0\0' and data[9:11] == b'\x05\x01'
-                and data[-7:-5] == b'\x02\x01'):
+        # Observed as mode 5 refreshes of the moved pieces followed by a mode 2
+        # move: one refresh (the source slot), or two when two pieces trade
+        # places (2026-11-15 live: a worn cape and the bag cape, count 3).
+        # Bound each record by the next operation, never scan its body for
+        # apparent item operations. Ordinary bags are unaffected.
+        if (len(data) >= 70 and data[2:4] == b'' and data[8] == 0
+                and data[9:11] == b'' and data[-7:-5] == b''):
+            count = struct.unpack_from('<I', data, 4)[0]
             source, destination = struct.unpack_from('<hh', data, len(data)-5)
-            found = equip_header(data, 11)
-            if (not found or found[0] != source or not destination or abs(destination) > 1000
+            if (count not in (2, 3) or not source or not destination or abs(destination) > 1000
                     or source > self.capacities[0] or destination > self.capacities[0]):
+                raise ValueError('Invalid equipment refresh/move')
+            starts = [11]
+            if count == 3:
+                # The second refresh is the other slot of the move, as "05 01" and a valid record.
+                first = equip_header(data, 11)
+                other = destination if first and first[0] == source else source
+                second = next((p for p in range(41, len(data)-7-30)
+                               if data[p:p+2] == b'' and (equip_header(data, p+2) or (None,))[0] == other), None)
+                if second is None:
+                    raise ValueError('Invalid equipment refresh/move')
+                starts.append(second+2)
+            ends = [start-2 for start in starts[1:]] + [len(data)-7]
+            records = [(equip_header(data, start), start, end) for start, end in zip(starts, ends)]
+            if any(not found or found[0] not in (source, destination) for found, _, _ in records)                     or records[0][0][0] != source:
                 raise ValueError('Invalid equipment refresh/move')
             if self.equipment is not None and self.worn is not None:
                 bag, worn = dict(self.equipment), dict(self.worn)
+                for (slot, item, _), start, end in records:
+                    (bag if slot > 0 else worn)[abs(slot)] = equip_record(data, start, end, abs(slot), item)
                 first, a = (bag, source) if source > 0 else (worn, -source)
                 second, b = (bag, destination) if destination > 0 else (worn, -destination)
-                first[a] = equip_record(data, 11, len(data)-7, a, found[1])
                 moved = first.pop(a)
                 if b in second:
                     first[a] = dict(second.pop(b), slot=a)

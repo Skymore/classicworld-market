@@ -1489,7 +1489,10 @@ class Tracker:
         - capture: the game connection was lost (the run waits as disconnected);
         - keys: no key table, so auto buff and auto potions are off;
         - identity: no character ID yet, kills are estimated from experience;
-        - attacks: none of the player's own messages, so no DPS or skills."""
+        - attacks: none of the player's own messages, so no DPS or skills;
+        - bags: the bags are unknown (no inventory snapshot yet, or an update we could
+          not read), so loot and consumables are not counted until the snapshot a
+          new connection sends (2026-11-15: a cape swap left a run blind for 47 min)."""
         if run.status == 'paused' and run.pause_reason == 'disconnect':
             return ['capture']
         if character is None or run.status != 'active':
@@ -1500,6 +1503,8 @@ class Tracker:
         if now - run.started_at > 60 and (not character.client_seen
                                           or (character.client_at is not None and now - character.client_at > 60)):
             reasons.append('attacks')
+        if now - run.started_at > 30 and character.bags is None:
+            reasons.append('bags')
         return reasons
 
     def in_combat(self, character, now):

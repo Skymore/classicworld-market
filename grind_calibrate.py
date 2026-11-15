@@ -368,7 +368,8 @@ def complete(profile):
 
 if __name__ == '__main__':
     folder = Path(sys.argv[1] if len(sys.argv) > 1 else '.')
-    files = sorted(folder.glob('frames_*.jsonl')) if folder.is_dir() else [folder]
+    from grind_frames import frame_files
+    files = frame_files(folder) if folder.is_dir() else [folder]
     result = calibrate(read_frames(files))
     print(json.dumps(result, ensure_ascii=False, indent=1))
     for label, state in summary(result):

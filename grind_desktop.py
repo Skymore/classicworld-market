@@ -284,14 +284,14 @@ class GrindService:
 
     def calibrate_once(self, force=False):
         from grind_calibrate import calibrate, complete, summary
-        from grind_frames import read_frames
+        from grind_frames import frame_files, read_frames
         from grind_protocol import load_profile, save_profile
         if self.calibrating:
             return
         current = load_profile(self.data / 'protocol.json')
         if complete(current) and not force:
             return
-        files = sorted((self.data / 'frames').glob('frames_*.jsonl'), key=lambda p: p.stat().st_mtime, reverse=True)
+        files = sorted(frame_files(self.data / 'frames'), key=lambda p: p.stat().st_mtime, reverse=True)
         chosen, total = [], 0
         for path in files:
             size = path.stat().st_size

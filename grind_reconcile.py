@@ -11,6 +11,7 @@ import tempfile
 import time
 from pathlib import Path
 
+from grind_frames import frame_files, frame_name, frame_size, open_frames
 from grind_handoff import encode, decode, snapshot, restore
 from grind_pricing import Prices
 from grind_tracker import Tracker, load_settings, write_json
@@ -56,18 +57,21 @@ def replay_record(tracker, inventories, record, clock):
 
 
 def frames(data, offsets=None):
-    for path in sorted((data/'frames').glob('frames_*.jsonl')):
-        start = (offsets or {}).get(path.name, 0)
-        size = path.stat().st_size
+    # Offsets are by name without ".gz" and in uncompressed bytes, so a file
+    # compressed between the two passes continues where it left off.
+    for path in frame_files(data/'frames'):
+        name = frame_name(path)
+        start = (offsets or {}).get(name, 0)
+        size = frame_size(path)
         if size < start:
             raise ValueError('Recording was truncated')
-        with path.open('rb') as stream:
+        with open_frames(path) as stream:
             stream.seek(start)
             while stream.tell() < size:
                 line = stream.readline()
                 if not line.endswith(b'\n') or stream.tell() > size:
                     break
-                yield path.name, stream.tell(), json.loads(line)
+                yield name, stream.tell(), json.loads(line)
 
 
 def setup(folder, target, clock, prices, settings=None):
