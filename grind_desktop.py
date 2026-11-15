@@ -442,6 +442,12 @@ class OverlayAPI:
     def fit(self, height):
         return self._service.fit_overlay(height)
 
+    def command(self, action):
+        """The overlay's pause / resume and end buttons."""
+        if action not in ('toggle', 'end'):
+            raise ValueError('invalid_request')
+        return self._service.command(action)
+
     def toggle(self, name):
         """The overlay's own switch: spoken warnings (buffs, low HP)."""
         if name not in ('buff_sound',):

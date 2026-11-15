@@ -15,7 +15,8 @@
 .ov-stat{display:flex;flex-direction:column;min-width:0}
 .ov-slim>.ov-stat{margin:0 0 .6em}
 .ov-stat-top,.ov-stat-mid{display:flex;align-items:baseline;justify-content:space-between;gap:.6em;min-width:0;white-space:nowrap}
-.ov-stat-mid>b{font-size:1.8em;line-height:1.15;font-weight:800}
+.ov-stat-mid .ov-avg{display:inline-flex;align-items:baseline;gap:.3em}.ov-stat-mid .ov-avg>b{font-size:1.8em;line-height:1.15;font-weight:800}
+.ov-stat .ov-live{font-size:.8em;margin:.2em 0 -1.4em;position:relative;z-index:1;width:max-content}
 .ov-stat .ov-total{font-size:.9em;opacity:.85}.ov-stat .ov-total b{font-weight:700}
 .ov-stat small{font-size:.85em;opacity:.6}
 .ov-stat>b{font-size:1.8em;line-height:1.2;font-weight:800;white-space:nowrap}
@@ -142,3 +143,15 @@
 .ov-ground-row>b{font-weight:700;font-size:.9em;flex:none}
 .ov-ground-row.done{opacity:.7}
 .ov .ok{color:#7ed99a}.ov-t-market .ok,.ov-t-cute .ok{color:#2e8b57}
+.ov-rec{flex:none;font-size:.8em;font-weight:700;padding:.1em .55em;border-radius:1em;border:1px solid currentColor}
+.ov-rec.on{color:#7ed99a}.ov-rec.on::before{content:'';display:inline-block;width:.5em;height:.5em;border-radius:50%;background:currentColor;margin-right:.3em;vertical-align:.08em;animation:ov-blink 1.6s steps(2) infinite}
+.ov-rec.pause{color:#ffcf6a}
+.ov-head em+.ov-rec{margin-left:.2em}.ov-head .ov-rec:first-of-type:not(em+.ov-rec){margin-left:auto}
+.ov-controls{display:grid;grid-template-columns:1fr 1fr;gap:.5em;margin-top:.6em}
+.ov-controls button{display:inline-flex;align-items:center;justify-content:center;gap:.35em;font:inherit;font-size:.9em;font-weight:700;padding:.35em .5em;border-radius:.5em;cursor:pointer;color:#ffd27a;background:rgba(255,210,122,.1);border:1px solid rgba(255,210,122,.45)}
+.ov-controls button.end{color:#ff8a7a;background:rgba(255,138,122,.08);border-color:rgba(255,138,122,.45)}
+.ov-controls button.armed{background:rgba(255,138,122,.3)}
+.ov-controls button:hover{filter:brightness(1.2)}
+.ov-t-market .ov-rec.on,.ov-t-cute .ov-rec.on{color:#2e8b57}.ov-t-market .ov-rec.pause,.ov-t-cute .ov-rec.pause{color:#b07400}
+.ov-t-market .ov-controls button{color:#8a5a00;background:#fff6dc;border-color:#d9b25f}.ov-t-market .ov-controls button.end{color:#b3261e;background:#fdecea;border-color:#e3a39d}
+.ov-t-cute .ov-controls button{color:#c0568a;background:#fff0f6;border-color:#f3b4cf}.ov-t-cute .ov-controls button.end{color:#d0405c;background:#ffecef;border-color:#f2a7b4}

@@ -4,11 +4,11 @@ import { mobIcon, skillIcon } from './skill-icons';
 import { RateMetrics, RateStat } from './grind-metrics';
 // What the grind overlay shows, for a layout, a theme and a set of fields.
 import { useEffect, useRef, useState } from 'react';
-import { Clock3, Crosshair, Hourglass, Swords, TrendingUp } from 'lucide-react';
+import { Clock3, Crosshair, Hourglass, Pause, Play, Square, Swords, TrendingUp } from 'lucide-react';
 import { itemIcon } from './format';
 import './overlay.css';
 import { language, tr } from './i18n';
-import { big, channelPrompt, clock, duration, mapLabel, percent, shownBuffs, statLine, type GrindSettings, type GroundDrop, type Live, type LootRow } from './grind';
+import { big, channelPrompt, clock, duration, mapLabel, percent, shownBuffs, statLine, statusLabel, type GrindSettings, type GroundDrop, type Live, type LootRow } from './grind';
 
 const I = 13;
 const ico = { width: '1.1em', height: '1.1em' }; // icons scale with the overlay's font size
@@ -167,9 +167,10 @@ function Buffs({ live, settings, icons = false, tiles = false }: { live: Live | 
 }
 
 /** The overlay's card: the overlay window shows one, the settings page shows one per preset. */
-export function OverlayCard({ live, settings, toast = null, drop = null, scale, cardRef, grip }: {
+export function OverlayCard({ live, settings, toast = null, drop = null, scale, cardRef, grip, command }: {
   live: Live | null; settings: GrindSettings; toast?: LootRow | null; drop?: GroundDrop | null; scale: number;
   cardRef?: React.Ref<HTMLDivElement>; grip?: React.ReactNode;   // the overlay window's corner grip and switches
+  command?(action: 'toggle' | 'end'): void;                      // the overlay window's pause and end buttons
 }) {
   const o = settings.overlay, run = live?.runs?.[0] ?? null, show = (key: string) => o.fields.includes(key);
   // Low HP: said once each time HP falls under the danger line (two of the map's biggest hits).
@@ -188,7 +189,7 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
     {drop && <div className="ov-drop gold" role="status"><img src={itemIcon(drop.item_id)} alt="" />
       {drop.by === 'me' ? tr('你打出：', 'You dropped: ') : drop.by === 'party' ? tr(`队友${drop.by_name ? ` ${drop.by_name} ` : ''}打出：`, `${drop.by_name || 'Party'} dropped: `) : tr('掉落：', 'Dropped: ')}
       {drop.name || `#${drop.item_id}`}{drop.value ? <b> {tr('约', '~')}{big(drop.value)}</b> : null}</div>}
-    {content}{grip}</div>;
+    {content}{run && run.status !== 'ended' && <Controls paused={run.status !== 'active'} command={command} />}{grip}</div>;
   if (!run) return box(<><div className="ov-line">{dot}<span>{live && !live.stale ? tr('打几只怪开始记录', 'Kill a few to start') : tr('等待客户端', 'Waiting for collector')}</span></div>
     {show('buffs') && <Buffs live={live} settings={settings} />}</>);
   const rate = run.exp_per_hour, usedPotions = run.consumables.filter(c => c.used > 0), potion = usedPotions[0];
@@ -201,7 +202,7 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
   const party = show('party') && <PartyMetrics run={run} compact />;
   if (o.layout === 'slim') return box(<>
     <div className="ov-head">{dot}<b className="ov-job">{run.job_name ? `${run.job_name} · ` : ''}Lv.{run.level ?? '—'}</b><span>{mapLabel(run)}</span>
-      {show('time') && <em><Clock3 size={I} style={ico} />{clock(run.active_seconds)}</em>}</div>
+      {show('time') && <em><Clock3 size={I} style={ico} />{clock(run.active_seconds)}</em>}<Recording run={run} /></div>
     {show('exp_rate') && <RateStat run={run} kind="exp" />}
     {show('level') && <div className="ov-level"><b>{percent(run.exp_percent, 1)}</b>
       <span className="ov-bar"><i style={{ width: `${Math.min(100, run.exp_percent ?? 0)}%` }} /></span><span className="dim">{tr('升级', 'up in')} {duration(run.eta_seconds)}</span></div>}
@@ -249,7 +250,7 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
   const detailed = o.layout === 'detailed';
   return box(<>
     <div className="ov-head"><div className="ov-site">mxd.ruit.me</div>{dot}<b className="ov-job">{run.job_name || '—'} · Lv.{run.level ?? '—'}</b><span>{mapLabel(run)}</span>
-      {show('time') && <em><Clock3 size={I} style={ico} />{clock(run.active_seconds)}</em>}</div>
+      {show('time') && <em><Clock3 size={I} style={ico} />{clock(run.active_seconds)}</em>}<Recording run={run} /></div>
     {show('exp_rate') && <RateMetrics run={run} kind="exp" />}
     {show('level') && <div className="ov-row">{level}</div>}
     {show('dps') && <div className="ov-row"><CrosshairIcon /><b className="big">{big(run.dps)}</b><span className="dim">DPS · 1m</span></div>}
@@ -289,5 +290,23 @@ function Ground({ live }: { live: Live | null }) {
     <div className={'ov-ground-row' + (d.how ? ' done' : '')} key={`${d.object}@${d.t}`}>
       <span><img src={itemIcon(d.item_id)} alt="" />{d.name && !d.name.startsWith('#') ? d.name : `#${d.item_id}`}
         <small>{d.by === 'me' ? tr('你打的', 'yours') : d.by === 'party' ? d.by_name || tr('队友', 'party') : ''}</small></span>{status(d)}</div>)}</div>;
+}
+/** "● 记录中" or why it is paused. */
+function Recording({ run }: { run: { status: string } & Parameters<typeof statusLabel>[0] }) {
+  return <b className={'ov-rec ' + (run.status === 'active' ? 'on' : 'pause')}>{statusLabel(run)}</b>;
+}
+
+/** Bottom of the card: pause / resume, and end (a second click within 3 s confirms). */
+function Controls({ paused, command }: { paused: boolean; command?(action: 'toggle' | 'end'): void }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => { if (!armed) return; const id = setTimeout(() => setArmed(false), 3000); return () => clearTimeout(id); }, [armed]);
+  const keep = (e: React.MouseEvent) => e.stopPropagation(); // not the window's drag-to-move
+  return <div className="ov-controls">
+    <button type="button" onMouseDown={keep} onClick={() => command?.('toggle')}>
+      {paused ? <Play size={I} style={ico} /> : <Pause size={I} style={ico} />}{paused ? tr('继续', 'Resume') : tr('暂停', 'Pause')}</button>
+    <button type="button" className={'end' + (armed ? ' armed' : '')} onMouseDown={keep}
+      onClick={() => { if (armed) { setArmed(false); command?.('end'); } else setArmed(true); }}>
+      <Square size={I} style={ico} />{armed ? tr('再点一次结束', 'Click again to end') : tr('结束', 'End')}</button>
+  </div>;
 }
 function CrosshairIcon() { return <Crosshair size={I} style={ico} />; }

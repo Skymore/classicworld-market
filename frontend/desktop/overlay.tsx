@@ -6,7 +6,7 @@ import { Volume2, VolumeX } from 'lucide-react';
 import { createRoot } from 'react-dom/client';
 import korean from '../../server/crates/market-web/src/i18n/ko.json';
 import { installKorean, applyLanguage, tr } from './i18n';
-import { overlayFit, overlayScale, overlayState, overlayToggle, type GroundDrop, type GrindSettings, type Live, type LootRow } from './grind';
+import { overlayCommand, overlayFit, overlayScale, overlayState, overlayToggle, type GroundDrop, type GrindSettings, type Live, type LootRow } from './grind';
 import { OverlayCard, announceDrop } from './overlay-card';
 
 document.documentElement.classList.add('overlay-page');
@@ -69,7 +69,7 @@ function Overlay() {
     setSettings({ ...settings, [name]: !settings[name] });
     overlayToggle(name).then(value => setSettings(s => s && { ...s, [name]: value })).catch(() => null);
   };
-  return <OverlayCard live={live} settings={settings} toast={toast} drop={drop} scale={scale} cardRef={card}
+  return <OverlayCard live={live} settings={settings} toast={toast} drop={drop} scale={scale} cardRef={card} command={action => { overlayCommand(action).catch(() => null); }}
     grip={<><Switches settings={settings} toggle={toggle} /><Grip scale={scale} preview={setDragged} /></>} />;
 }
 

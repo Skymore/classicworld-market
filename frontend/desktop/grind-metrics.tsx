@@ -23,14 +23,16 @@ export function RateStat({ run, kind }: { run: RunSummary; kind: 'exp' | 'net' }
   const low = Math.min(...values, average ?? Infinity), span = Math.max(1, Math.max(...values, average ?? -Infinity) - low);
   const y = (value: number) => 22 - (value - low) / span * 20;
   const points = values.map((v, i) => `${i / Math.max(1, values.length - 1) * 100},${y(v)}`).join(' ');
-  // Read top to bottom: the run's average (big, steady), the last minute beside it
-  // (jumps kill to kill), then what the run has made so far; the line below spans the card.
+  // As 枫记 lays it out: the label; the run's average (big, steady) with an arrow for the
+  // last minute against it, the run's total on the right; the last minute ("实时") sits
+  // on the trend line below.
+  const trend = minute != null && average ? (minute >= average ? 'up' : 'down') : null;
   return <div className="ov-stat" aria-label={kind === 'exp' ? tr('经验', 'EXP') : tr('金币净收益', 'Net mesos')}>
-    <div className="ov-stat-top"><small>{kind === 'exp' ? tr('经验/时 · 平均', 'EXP/h · avg') : tr('收益/时 · 平均', 'Profit/h · avg')}</small>
-      {minute != null && <span className="dim">{tr('实时', 'live')} {big(minute)}
-        {average ? <i className={'rate-trend ' + (minute >= average ? 'up' : 'down')}>{minute >= average ? '▲' : '▼'}</i> : null}</span>}</div>
-    <div className="ov-stat-mid"><b className="gold">{big(average ?? minute)}</b>
-      <span className="ov-total">{kind === 'exp' ? tr('本场', 'run') : tr('本场净', 'run net')} <b>{signed(kind === 'exp' ? run.exp : run.net)}</b></span></div>
+    <div className="ov-stat-top"><small>{kind === 'exp' ? tr('经验/时', 'EXP/h') : tr('收益/时', 'Profit/h')}</small></div>
+    <div className="ov-stat-mid"><span className="ov-avg"><b className="gold">{big(average ?? minute)}</b>
+      {trend && <i className={'rate-trend ' + trend}>{trend === 'up' ? '▲' : '▼'}</i>}</span>
+      <span className="ov-total">{kind === 'exp' ? tr('经验', 'EXP') : tr('收益', 'Net')} <b>{signed(kind === 'exp' ? run.exp : run.net)}</b></span></div>
+    {minute != null && <div className="ov-live dim">{tr('实时', 'live')} {big(minute)}/h</div>}
     {values.length > 1 && <svg className="ov-trend" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
       <polygon points={`0,24 ${points} 100,24`} fill="currentColor" opacity=".1" />
       {average != null && <line x1="0" x2="100" y1={y(average)} y2={y(average)} stroke="currentColor" opacity=".4" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />}

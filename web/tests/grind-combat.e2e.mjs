@@ -50,6 +50,7 @@ async function bridge(page, overlay = null, characters = []) {
       workspace: async () => ({ linked: false }),
       grind: async () => ({ live: live(), settings, editing: false, calibrating: false, calibration: null }),
       state: async () => ({ live: live(), settings, editing: false, language: 'zh' }),
+      command: async action => { (window.commands ||= []).push(action); return true; },
     } };
   }, { run, settings, overlay, characters });
 }
@@ -141,13 +142,14 @@ try {
     await page.goto(base + '/overlay.html');
     await page.locator('.ov-stat').first().waitFor();
     assert.equal(await page.locator('.ov-slim > .ov-stat').count(), 2);
-    assert.deepEqual(await page.locator('.ov-total').allInnerTexts(), ['本场 +1万', '本场净 +1.2万']);
+    assert.deepEqual(await page.locator('.ov-total').allInnerTexts(), ['经验 +1万', '收益 +1.2万']);
     assert.equal(await page.locator('.ov-tally').count(), 2);
     for (const row of await page.locator('.ov-tally').all()) assert((await row.boundingBox()).height < 34, `slim/${theme}: consumables and loot keep to one line each`);
     assert.equal(await page.locator('.ov-team').count(), 0);
     assert.equal(await page.locator('.rate-chart').count(), 0);
     assert.equal(await page.locator('.ov-buffs.tiles span').count(), 3);
-    assert((await page.locator('.ov').boundingBox()).height < 380, `slim/${theme}: the card stays small`);
+    const height = (await page.locator('.ov').boundingBox()).height;
+    assert(height < 430, `slim/${theme}: the card stays small (${height})`);
     if (out) await page.screenshot({ path: path.join(out, `grind-slim-${theme}.png`) });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `slim/${theme}: no horizontal clipping`);
     assert.equal(await page.locator('.ov-grip').count(), 1);
@@ -173,6 +175,16 @@ try {
     const ground = await page.locator('.ov-ground').boundingBox(), stat = await page.locator('.ov-slim > .ov-stat').last().boundingBox();
     assert(ground.y > stat.y, 'drops come after the rates');
     assert.equal(await page.locator('.ov-tally').count(), 2, 'consumables and loot stay below the buffs');
+    // Recording status in the header; pause and end at the bottom (end asks for a second click).
+    assert.equal(await page.locator('.ov-head .ov-rec.on').innerText(), '记录中');
+    assert.deepEqual(await page.locator('.ov-controls button').allInnerTexts(), ['暂停', '结束']);
+    await page.locator('.ov-controls button').first().click();
+    await page.locator('.ov-controls button.end').click();
+    assert.equal(await page.locator('.ov-controls button.end').innerText(), '再点一次结束');
+    assert.deepEqual(await page.evaluate(() => window.commands), ['toggle'], 'one click on end does nothing yet');
+    await page.locator('.ov-controls button.end').click();
+    assert.deepEqual(await page.evaluate(() => window.commands), ['toggle', 'end']);
+    await page.mouse.move(0, 0); await page.waitForTimeout(300);
     if (out) await page.screenshot({ path: path.join(out, 'grind-slim-drops.png') });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'drops: no horizontal clipping');
     await page.close();

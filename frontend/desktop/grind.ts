@@ -65,7 +65,7 @@ export interface GrindState {
   hotkey_errors?: Partial<Record<HotkeyAction, 'invalid' | 'taken'>>;
 }
 
-type Api = { grind?(name: string, value?: unknown): Promise<any>; state?(): Promise<any>; scale?(value: number): Promise<number>; fit?(height: number): Promise<unknown>; toggle?(name: string): Promise<boolean> };
+type Api = { grind?(name: string, value?: unknown): Promise<any>; state?(): Promise<any>; scale?(value: number): Promise<number>; fit?(height: number): Promise<unknown>; toggle?(name: string): Promise<boolean>; command?(action: string): Promise<boolean> };
 const api = () => ((window as { pywebview?: { api?: Api } }).pywebview?.api ?? null) as Api | null;
 export const grind = (name: string, value?: unknown) => {
   const bridge = api();
@@ -82,6 +82,7 @@ export const overlayScale = (value: number) => api()?.scale?.(value) ?? Promise.
 /** The card's height in CSS pixels; the overlay window takes it. */
 export const overlayFit = (height: number) => api()?.fit?.(height) ?? Promise.reject(new Error('unavailable'));
 /** The overlay's own switches; resolves to the new value. */
+export const overlayCommand = (action: 'toggle' | 'end') => api()?.command?.(action) ?? Promise.reject(new Error('unavailable'));
 export const overlayToggle = (name: 'buff_sound') => api()?.toggle?.(name) ?? Promise.reject(new Error('unavailable'));
 
 /** 1.2万 / 3.4亿 in Chinese and Korean, 12K / 3.4M / 1.2B in English. */
