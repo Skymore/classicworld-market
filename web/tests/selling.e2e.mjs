@@ -88,7 +88,9 @@ try {
   await page.waitForFunction(() => /同属性 · 72h 3 笔/.test(document.querySelector('[data-selling-row="eq:1:1452016"]')?.textContent || ''));
   assert.match(await bow.getByRole('radio', { name: /成交 25%/ }).textContent(), /110,000/);
   assert.equal(await total(page), '120,000');
-  assert.match(await bow.locator('[data-selling-npc]').textContent(), /20,000/);
+  // 成交中位 120,000 是 NPC 20,000 的 6 倍：摆摊；列出中位和 25% 比 NPC 多多少。
+  assert.match(await bow.locator('[data-selling-npc]').textContent(), /摆摊NPC 20,000 · 中位 \+100,000 · 25% \+90,000/);
+  assert.equal(await page.locator('[data-selling-item="eq:1:1452016"] [data-selling-verdict]').getAttribute('data-selling-verdict'), 'stall');
   // 属性没解析的装备：72 小时内同名不够 3 笔，用能拿到的全部同名成交。
   await page.locator('[data-selling-item="eq:4:1040002"]').click();
   await page.waitForFunction(() => /同名 · 2 笔/.test(document.querySelector('[data-selling-row="eq:4:1040002"]')?.textContent || ''));
@@ -122,14 +124,14 @@ try {
   const xBox = await row.locator('.selling-x').boundingBox();
   assert.ok(xBox.x + xBox.width <= planBox.x + planBox.width, `${xBox.x + xBox.width} > ${planBox.x + planBox.width}`);
   assert.match(await row.locator('[data-selling-npc]').textContent(), /300/);
-  // 300 不高于 NPC 回收 300：提示卖 NPC。
-  assert.match(await row.textContent(), /卖 NPC 更划算/);
+  // 中位 300 不高于 NPC 回收 300：卖 NPC，背包里也标出来。
+  assert.match(await row.locator('[data-selling-npc]').textContent(), /卖 NPCNPC 300 · 中位 ±0 · 25% −9/);
+  assert.equal(await page.locator('[data-selling-item="2000002"] [data-selling-verdict]').getAttribute('data-selling-verdict'), 'npc');
   // 成交 25%：290.4 向上取整 291。
   await row.getByRole('radio', { name: /成交 25%/ }).click();
   assert.equal(await total(page), '174,600');
   await row.locator('input[inputmode=numeric]').first().fill('450');
   assert.equal(await total(page), '270,000');
-  assert.doesNotMatch(await row.textContent(), /更划算/);
   // 72 小时无成交：退到最近成交价，标注出来。
   await page.getByRole('tab', { name: '其他' }).click();
   await page.locator('[data-selling-item="4004000"]').click();
@@ -149,9 +151,15 @@ try {
   await page.reload();
   await page.locator('[data-selling-row="2000002"]').waitFor();
   assert.equal(await page.locator('[data-selling-row]').count(), 3);
+  // 合计里按档位计数：药水卖 NPC、母矿摆摊，卷轴没成交不计；一键移出卖 NPC 的。
+  assert.match(await page.locator('[data-selling-tally]').textContent(), /摆摊 1差不多 0卖 NPC 1/);
+  assert.match(await page.locator('[data-selling-row="2040804"] [data-selling-npc]').textContent(), /NPC 不收/);
   assert.deepEqual(errors, []);
   if (process.env.SELLING_SHOTS) await page.screenshot({ path: path.join(process.env.SELLING_SHOTS, 'selling-desktop.png'), fullPage: true });
-  console.log('PASS desktop: equipment by main stat, unread stats fallback, bag, side-by-side prices, key stats, 72h same-stat fallback, sold 25%/median, manual, NPC price, saved plan');
+  await page.getByRole('button', { name: '移出卖 NPC 的' }).click();
+  assert.equal(await page.locator('[data-selling-row]').count(), 2);
+  assert.equal(await page.locator('[data-selling-row="2000002"]').count(), 0);
+  console.log('PASS desktop: equipment by main stat, unread stats fallback, bag, side-by-side prices, key stats, 72h same-stat fallback, sold 25%/median, manual, NPC price and stall/NPC tiers, saved plan');
 
   // 客户端的「摆摊」栏目：同一页面经本机回环打开，读本机背包；没有页内导航和面包屑。
   const client = await browser.newPage({ viewport: { width: 1920, height: 1000 } });

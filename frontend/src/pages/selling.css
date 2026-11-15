@@ -32,7 +32,18 @@ html[data-embed][data-page=selling] .dwrap{max-width:1680px}
 .selling-item{flex:1;min-width:0}
 .selling-item b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .selling-item small{display:block;font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.selling-ref{font-size:12px;color:var(--ink-2);white-space:nowrap}
+.selling-ref{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);white-space:nowrap}
+/* 摆摊 / 差不多 / 卖 NPC 档位 */
+.selling-vd{display:inline-block;flex:none;padding:0 5px;margin-right:6px;font-style:normal;font-size:11px;font-weight:700;line-height:18px;border:1px solid currentColor;white-space:nowrap}
+.selling-ref .selling-vd{margin:0}
+.selling-vd.stall,.selling-vd.only{color:#2f7a3e;background:color-mix(in srgb,#2f7a3e 12%,transparent)}
+.selling-vd.close{color:#9a6512;background:color-mix(in srgb,#b47722 14%,transparent)}
+.selling-vd.npc{color:var(--maple-ink);background:color-mix(in srgb,var(--maple) 12%,transparent)}
+.selling-who small.selling-vs{display:flex;align-items:center;flex-wrap:wrap;color:var(--ink-2);margin-top:4px}
+.selling-foot .selling-tally{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.selling-tally .selling-vd{margin:0 0 0 6px}
+.selling-tally .selling-vd:first-child{margin-left:0}
+.selling-drop{margin-left:10px;font-size:12px;color:var(--maple-ink);text-decoration:underline}
 .selling-tick{flex:none;width:18px;height:18px;border:1px solid var(--edge);background:var(--sheet-hi);display:grid;place-items:center}
 .selling-list button.on .selling-tick{background:var(--bar);border-color:var(--edge)}
 .selling-list button.on .selling-tick::after{content:'';width:9px;height:5px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:translateY(-1px) rotate(-45deg)}
@@ -90,7 +101,7 @@ html[data-embed][data-page=selling] .dwrap{max-width:1680px}
 @container (max-width:900px){
   .selling-row{grid-template-columns:32px minmax(0,1fr) auto 24px;grid-template-areas:"icon who total x" ". prices prices prices" ". amount amount amount";gap:8px 10px}
   .selling-row.gear{grid-template-areas:"icon who total x" ". prices prices prices"}
-  .selling-total{align-self:start}
+  .selling-total,.selling-x{align-self:start}
   .selling-amount{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
   .selling-amount small{margin:0}
 }
