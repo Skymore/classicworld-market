@@ -27,12 +27,8 @@
       "_createLucideIcon-tgWCcnX0.js"
     ]
   },
-  "_catalogue-ClmwH_PQ.css": {
-    "file": "chunks/catalogue-ClmwH_PQ.css",
-    "src": "_catalogue-ClmwH_PQ.css"
-  },
-  "_catalogue-DJca7C7F.js": {
-    "file": "chunks/catalogue-DJca7C7F.js",
+  "_catalogue-B3Q5YRXL.js": {
+    "file": "chunks/catalogue-B3Q5YRXL.js",
     "name": "catalogue",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -56,6 +52,10 @@
     "css": [
       "chunks/catalogue-ClmwH_PQ.css"
     ]
+  },
+  "_catalogue-ClmwH_PQ.css": {
+    "file": "chunks/catalogue-ClmwH_PQ.css",
+    "src": "_catalogue-ClmwH_PQ.css"
   },
   "_chevron-right-CY1gq-Mw.js": {
     "file": "chunks/chevron-right-CY1gq-Mw.js",
@@ -147,8 +147,8 @@
       "_shared-Cwf5YL9D.js"
     ]
   },
-  "_main-D4Ogwpbz.js": {
-    "file": "chunks/main-D4Ogwpbz.js",
+  "_main-BxAWmT89.js": {
+    "file": "chunks/main-BxAWmT89.js",
     "name": "main",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -403,7 +403,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-D4Ogwpbz.js"
+      "_main-BxAWmT89.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -461,7 +461,7 @@
     ]
   },
   "src/pages/catalogue-search.tsx": {
-    "file": "chunks/catalogue-search-DpqsEbjH.js",
+    "file": "chunks/catalogue-search-E7stdu-i.js",
     "name": "catalogue-search",
     "src": "src/pages/catalogue-search.tsx",
     "isDynamicEntry": true,
@@ -470,16 +470,16 @@
       "_shell-DONtAYlu.js",
       "_dialog-BG3HsSV-.js",
       "_price-state-CM6xKDyT.js",
-      "_catalogue-DJca7C7F.js"
+      "_catalogue-B3Q5YRXL.js"
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-BU0-GMMO.js",
+    "file": "chunks/catalogue-CbLnFyBy.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_catalogue-DJca7C7F.js"
+      "_catalogue-B3Q5YRXL.js"
     ]
   },
   "src/pages/client.tsx": {
@@ -696,7 +696,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-D4Ogwpbz.js"
+      "_main-BxAWmT89.js"
     ]
   }
 }
