@@ -192,6 +192,7 @@ v0.7.15 刷图页“战斗统计”显示角色、近 30 秒 DPS、总伤害和�
 - `/g/<短码>`：公开分享页，服务端注入 OG 标题与描述，隐藏的角色名和金额不下发；附同等级档同职业的经验/时对比和醒目的下载客户端入口。`GET /api/v1/grind/share/{code}` 每次访问计数。
 - `/grind`：登录后看自己账号下所有客户端同步的记录（`GET /api/v1/grind/runs`、`/runs/{id}`），近 7 天汇总，单条详情；详情页可直接分享（`POST /api/v1/grind/runs/{id}/share`，需登录与 CSRF，只能分享自己账号的记录）。
 - 下载客户端入口每页只放一个：分享页顶部按钮，排行榜页顶部横幅，没有记录或未登录时的空状态按钮。
+- `/grind?tab=all`（全部用户）：所有人都能看所有客户端正在刷和最近的记录（`GET /api/v1/grind/everyone`、`/api/v1/grind/everyone/runs/{id}`，详情页 `/grind/all/run/<行号>`、`/grind/all/live/<场次>`）。只有管理员看得到角色名和用户；其他人看到的数据在服务器上去掉名字（`grind_runs::anonymize`：角色名和 key、用户、分享码，伤害表里本人记为“本人”、队友依次记为“队友 1、2…”，谁找到掉落的名字），地图、职业、等级、物品、怪物照常（2026-11-16）。
 - `/grind?tab=board`：近 30 天各等级档的地图排行（`GET /api/v1/grind/leaderboard?level=&job=`），来自匿名分段。
 
 迁移 `0053_grind_runs.sql` 新增 `grind_runs`、`grind_shares`。

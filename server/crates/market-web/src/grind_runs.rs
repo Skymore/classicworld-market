@@ -50,6 +50,8 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/grind/runs/{id}", get(my_run))
         .route("/api/v1/grind/runs/{id}/share", post(share_mine))
         .route("/api/v1/grind/leaderboard", get(leaderboard))
+        .route("/api/v1/grind/everyone", get(everyone))
+        .route("/api/v1/grind/everyone/runs/{id}", get(everyone_run))
         .route("/api/v1/admin/grind", get(admin_overview))
         .route("/api/v1/admin/grind/runs/{id}", get(admin_run))
 }
@@ -712,11 +714,94 @@ type LiveRow = (Value, f64, i64, Option<String>);
 /// (run id, summary, collector, owner's nickname).
 type OwnedRun = (i64, Value, i64, Option<String>);
 
+/// Without names, for everyone who is not an admin: the character, the account, party
+/// members in the damage table (本人 / 队友 1, 2…), who found a drop, the share code.
+pub fn anonymize(run: &mut Value) {
+    let Some(object) = run.as_object_mut() else {
+        return;
+    };
+    if let Some(character) = object.get_mut("character").and_then(Value::as_object_mut) {
+        character.remove("name");
+        character.remove("key");
+        character.remove("id");
+    }
+    object.remove("owner");
+    object.remove("share_code");
+    object.remove("party");
+    if let Some(players) = object.get_mut("combat").and_then(Value::as_array_mut) {
+        let mut mates = 0;
+        for player in players.iter_mut().filter_map(Value::as_object_mut) {
+            let own = player.get("self").and_then(Value::as_bool).unwrap_or(false);
+            let label = if own {
+                "本人".to_string()
+            } else {
+                mates += 1;
+                format!("队友 {mates}")
+            };
+            player.insert("name".into(), json!(label));
+            player.remove("character_id");
+        }
+    }
+    for list in ["finds", "drops", "recent", "ground"] {
+        if let Some(rows) = object.get_mut(list).and_then(Value::as_array_mut) {
+            for row in rows.iter_mut().filter_map(Value::as_object_mut) {
+                for key in ["by_name", "taker_name", "taker"] {
+                    row.remove(key);
+                }
+            }
+        }
+    }
+}
+
+async fn viewer_is_admin(state: &AppState, headers: &HeaderMap) -> Result<bool, Response> {
+    match crate::contributors::session(state, headers).await? {
+        Some(session) => crate::contributors::is_admin(state, session.id)
+            .await
+            .map_err(internal),
+        None => Ok(false),
+    }
+}
+
+/// Everyone: every client's open runs and latest runs; names only for admins.
+async fn everyone(
+    State(state): State<AppState>,
+    ClientAddr(addr): ClientAddr,
+    headers: HeaderMap,
+) -> Response {
+    if let Err(response) = reader(&state, &headers, &addr, "grind-everyone").await {
+        return response;
+    }
+    match viewer_is_admin(&state, &headers).await {
+        Ok(full) => overview(&state, full).await,
+        Err(response) => response,
+    }
+}
+
+/// Everyone: one run of any client; names only for admins.
+async fn everyone_run(
+    State(state): State<AppState>,
+    ClientAddr(addr): ClientAddr,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    if let Err(response) = reader(&state, &headers, &addr, "grind-everyone").await {
+        return response;
+    }
+    match viewer_is_admin(&state, &headers).await {
+        Ok(full) => one_run(&state, &id, full).await,
+        Err(response) => response,
+    }
+}
+
 /// Admins: every account's open runs and latest runs, each with its owner.
 async fn admin_overview(State(state): State<AppState>, headers: HeaderMap) -> Response {
     if let Err(response) = admin(&state, &headers).await {
         return response;
     }
+    overview(&state, true).await
+}
+
+async fn overview(state: &AppState, full: bool) -> Response {
     let live: Result<Vec<LiveRow>, _> = sqlx::query_as(
         "SELECT l.runs, extract(epoch FROM l.updated_at)::float8, l.collector_id, a.nickname
          FROM grind_live l JOIN collectors c ON c.id = l.collector_id LEFT JOIN accounts a ON a.id = c.account_id
@@ -745,6 +830,9 @@ async fn admin_overview(State(state): State<AppState>, headers: HeaderMap) -> Re
                 object.insert("live_at".into(), json!(at));
                 object.insert("owner".into(), owner(*collector, nickname));
             }
+            if !full {
+                anonymize(&mut run);
+            }
             open.push(run);
         }
     }
@@ -755,10 +843,13 @@ async fn admin_overview(State(state): State<AppState>, headers: HeaderMap) -> Re
                 object.insert("row".into(), json!(id));
                 object.insert("owner".into(), owner(collector, &nickname));
             }
+            if !full {
+                anonymize(&mut run);
+            }
             run
         })
         .collect();
-    let mut response = Json(json!({"live": open, "runs": finished})).into_response();
+    let mut response = Json(json!({"live": open, "runs": finished, "names": full})).into_response();
     response
         .headers_mut()
         .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
@@ -774,6 +865,10 @@ async fn admin_run(
     if let Err(response) = admin(&state, &headers).await {
         return response;
     }
+    one_run(&state, &id, true).await
+}
+
+async fn one_run(state: &AppState, id: &str, full: bool) -> Response {
     let Ok(id) = id.parse::<i64>() else {
         return error(StatusCode::NOT_FOUND, "Not found");
     };
@@ -788,8 +883,15 @@ async fn admin_run(
         Ok(Some((mut run, collector, nickname))) => {
             let _ = name_maps(&state.db, std::slice::from_mut(&mut run)).await;
             let compare = comparison(&state.db, &run, unix_now()).await.ok().flatten();
-            Json(json!({"row": id, "run": run, "comparison": compare,
-                        "owner": {"collector": collector, "nickname": nickname}}))
+            if !full {
+                anonymize(&mut run);
+                return Json(json!({"row": id, "run": run, "comparison": compare, "names": false}))
+                    .into_response();
+            }
+            Json(
+                json!({"row": id, "run": run, "comparison": compare, "names": true,
+                        "owner": {"collector": collector, "nickname": nickname}}),
+            )
             .into_response()
         }
         Ok(None) => error(StatusCode::NOT_FOUND, "Not found"),

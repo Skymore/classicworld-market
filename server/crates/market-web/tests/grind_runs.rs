@@ -289,3 +289,35 @@ async fn a_client_that_stopped_pushing_leaves_its_open_run_as_provisional_histor
         .unwrap();
     assert_eq!(exp, 23000);
 }
+
+#[test]
+fn everyone_sees_runs_without_names() {
+    let mut run = json!({"id": "a".repeat(32), "map_name": "野猪的领土", "share_code": "abc",
+        "character": {"name": "PepperSwaggg", "key": "PepperSwaggg", "level": 47, "job": 410},
+        "combat": [{"name": "PepperSwaggg", "self": true, "character_id": 1, "damage": 9},
+                   {"name": "EmberTime", "self": false, "character_id": 2, "damage": 5},
+                   {"name": "QPCAA", "self": false, "character_id": 3, "damage": 4}],
+        "finds": [{"name": "双枝短刀", "by": "party", "by_name": "Wickyo"}],
+        "mobs": [{"name": "野猪"}]});
+    grind_runs::anonymize(&mut run);
+    let text = run.to_string();
+    for name in ["PepperSwaggg", "EmberTime", "QPCAA", "Wickyo", "abc"] {
+        assert!(!text.contains(name), "{name} left in {text}");
+    }
+    assert_eq!(run["character"], json!({"level": 47, "job": 410}));
+    let names: Vec<&str> = run["combat"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["本人", "队友 1", "队友 2"]);
+    assert_eq!(
+        (
+            run["map_name"].as_str(),
+            run["mobs"][0]["name"].as_str(),
+            run["finds"][0]["name"].as_str()
+        ),
+        (Some("野猪的领土"), Some("野猪"), Some("双枝短刀"))
+    ); // items, mobs and maps stay
+}

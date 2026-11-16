@@ -147,8 +147,8 @@
       "_shared-Cwf5YL9D.js"
     ]
   },
-  "_main-BpsxSKVd.js": {
-    "file": "chunks/main-BpsxSKVd.js",
+  "_main-Dhs4cGpQ.js": {
+    "file": "chunks/main-Dhs4cGpQ.js",
     "name": "main",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -403,7 +403,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BpsxSKVd.js"
+      "_main-Dhs4cGpQ.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -555,7 +555,7 @@
     ]
   },
   "src/pages/grind.tsx": {
-    "file": "chunks/grind-DpzmhRok.js",
+    "file": "chunks/grind-BqbXF7Yj.js",
     "name": "grind",
     "src": "src/pages/grind.tsx",
     "isDynamicEntry": true,
@@ -696,7 +696,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BpsxSKVd.js"
+      "_main-Dhs4cGpQ.js"
     ]
   }
 }
