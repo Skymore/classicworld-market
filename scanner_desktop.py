@@ -786,7 +786,8 @@ class DesktopController:
                     # after repairing storage/credentials. No request storm.
                     self._cancel.wait()
                     break
-                delay = retry_delay(attempts, error)
+                from collector_recovery import recovery_cooldown
+                delay = max(retry_delay(attempts, error), recovery_cooldown(error, self._position_failures))
                 self._retry_at = time.time() + delay
                 self._retry_deadline = time.monotonic() + delay
                 self._change(next_retry_at=self._retry_at)

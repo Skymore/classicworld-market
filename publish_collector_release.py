@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.78：游戏连续没有切换频道时不再停下等人处理，改为每 5 分钟自动重试。\n'
         'v0.7.77：修复部分角色背包读不出、战利品和消耗一直为空；更新后自动用本机报文重建历史。\n'
         'v0.7.75：报文补传最近 7 天（新的先传）。\n'
         'v0.7.74：悬浮窗去掉拖右下角改大小，改在设置里选大小；报文一直录制、保留 30 天，并自动上传到网站（内测）。\n'

@@ -142,6 +142,19 @@ def bounded_recovery_failure(error):
             or transport_failure(error) is not None)
 
 
+CHANNEL_STALL_COOLDOWN = 300
+
+
+def recovery_cooldown(error, position_failures=0):
+    """Seconds to wait before the next attempt when retrying sooner would only repeat a stall."""
+    from channel_packet_state import PacketChannelConfirmationError
+    error=recovery_error(error)
+    if (isinstance(error,PacketChannelConfirmationError)
+            and error.reason=='channel_change_not_started' and position_failures>=3):
+        return CHANNEL_STALL_COOLDOWN
+    return 0
+
+
 def failure_state(error, position_failures=0):
     error=recovery_error(error)
     from vmware_keyboard_bridge import transport_failure
@@ -175,7 +188,7 @@ def failure_state(error, position_failures=0):
     if isinstance(error,PacketChannelConfirmationError):
         if error.reason=='channel_change_not_started':
             if position_failures>=3:
-                return 'needs_attention','切换频道后游戏一直没有连接新频道，已停止重复切频道。请查看游戏是否有弹窗或角色卡住，处理后点击停止再开始。'
+                return 'waiting_game','游戏连续没有切换频道，5 分钟后自动重试。'
             return 'rebuilding','游戏没有切换频道，正在重试。'
         if position_failures>=3:
             return 'needs_attention','频道收包连续失败，已停止重复切频道。请报 Bug 或开启远程调试。'
