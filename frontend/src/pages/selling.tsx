@@ -39,6 +39,8 @@ interface Prices {
   basis?: "same" | "all" | "none";
   /** 装备：72 小时内，或能拿到的全部成交。 */
   window?: "72h" | "all";
+  /** 装备没有够数的同属性成交时，关键属性在同名已知属性里的排位（0 最差、1 最好）和参与比较的件数。 */
+  rank?: { q: number; n: number };
 }
 const PLAN_KEY = "selling.plan.v1";
 /** 上次读到的背包：游戏断开后页面仍可用。 */
@@ -108,37 +110,59 @@ export function jobMaskOf(jobs: unknown): number | null {
   return jobs.reduce((mask: number, job: string) => mask | JOB_BITS[job], 0);
 }
 
+/** 关键属性的综合分：物攻、魔攻按 3 倍计，主副属性和暴击按 1 倍计。 */
+const RANK_WEIGHT: Record<string, number> = { weapon_attack: 3, magic_attack: 3 };
+/** 至少这么多件带属性的同名装备（成交加在售）才按属性排位定价。 */
+export const RANK_MIN = 5;
+
 /**
  * 一件装备的参考价：72 小时内关键属性（可用职业的主副属性、物攻魔攻、暴击）和剩余升级次数
  * 都相同的成交够 3 笔就用它们；防御、HP 等不影响。不够时用 72 小时内同名全部成交（含没解析
- * 属性的），仍不够 3 笔就用能拿到的同名全部成交。
+ * 属性的），仍不够 3 笔就用能拿到的同名全部成交。用同名成交时，按这件装备的关键属性在同名
+ * 带属性的成交和在售里排第几，取成交价的对应分位：排位 q 的中位取 q 分位、25% 取 q/2 分位，
+ * 属性居中时就是普通的中位和 25%。q 限制在 5%–95%，避免取到最高最低的个别价。
  */
 export function gearPrices(
   piece: EquipmentPiece | undefined,
-  sales: any[] | undefined,
+  market: { sales?: any[]; listings?: any[] } | undefined,
   jobMask: number | null = null,
   now = Date.now() / 1000,
 ): Prices {
-  const rows = (sales || []).filter((s) => positive(s.sale_unit_price));
+  const rows = (market?.sales || []).filter((s) => positive(s.sale_unit_price));
   const value = (stats: { key: string; value: number }[], key: string) => stats.find((s) => s.key === key)?.value ?? 0;
   const wanted = keyStats(jobMask);
   const signature = (equipment: { stats: { key: string; value: number }[]; remaining_upgrades?: number | null }) =>
     JSON.stringify([wanted.map((key) => value(equipment.stats, key)), equipment.remaining_upgrades ?? null]);
+  const decoded = (e: any) => e?.status === "candidate" && Array.isArray(e.stats);
   const recent = rows.filter((s) => Number(s.time) >= now - 72 * 3600);
   const same = !piece?.decoded
     ? []
-    : recent.filter(
-        (s) => s.equipment?.status === "candidate" && Array.isArray(s.equipment.stats) && signature(s.equipment) === signature(piece),
-      );
+    : recent.filter((s) => decoded(s.equipment) && signature(s.equipment) === signature(piece));
   const [pool, basis, window]: [any[], Prices["basis"], Prices["window"]] =
     same.length >= 3 ? [same, "same", "72h"] : recent.length >= 3 ? [recent, "all", "72h"] : [rows, "all", "all"];
   const prices = pool.map((s) => Number(s.sale_unit_price)).sort((a, b) => a - b);
+  let rank: Prices["rank"];
+  if (basis === "all" && piece?.decoded && prices.length) {
+    const score = (stats: { key: string; value: number }[]) =>
+      wanted.reduce((sum, key) => sum + value(stats, key) * (RANK_WEIGHT[key] ?? 1), 0);
+    const known = [...(market?.sales || []), ...(market?.listings || [])].map((r) => r.equipment).filter(decoded);
+    const sameSlots = known.filter((e) => (e.remaining_upgrades ?? null) === (piece.remaining_upgrades ?? null));
+    const peers = sameSlots.length >= RANK_MIN ? sameSlots : known;
+    if (peers.length >= RANK_MIN) {
+      const mine = score(piece.stats);
+      const below = peers.filter((e) => score(e.stats) < mine).length;
+      const equal = peers.filter((e) => score(e.stats) === mine).length;
+      rank = { q: (below + equal / 2) / peers.length, n: peers.length };
+    }
+  }
+  const q = rank ? Math.min(0.95, Math.max(0.05, rank.q)) : 0.5;
   return {
-    s25: prices.length ? Math.ceil(percentile(prices, 0.25)) : null,
-    s50: prices.length ? Math.ceil(percentile(prices, 0.5)) : null,
+    s25: prices.length ? Math.ceil(percentile(prices, q / 2)) : null,
+    s50: prices.length ? Math.ceil(percentile(prices, q)) : null,
     count: prices.length,
     basis: prices.length ? basis : "none",
     window,
+    rank,
   };
 }
 /**
@@ -270,8 +294,11 @@ function useGearSales(ids: number[]) {
       queryFn: async ({ signal }: { signal: AbortSignal }) => (await getJson(`/api/v1/item/${id}`, { signal })).data,
     })),
   });
-  return new Map<number, { sales?: any[]; jobs?: string[] }>(
-    unique.map((id, i) => [id, { sales: (results[i].data as any)?.sales, jobs: (results[i].data as any)?.product?.jobs }]),
+  return new Map<number, { sales?: any[]; listings?: any[]; jobs?: string[] }>(
+    unique.map((id, i) => {
+      const data = results[i].data as any;
+      return [id, { sales: data?.sales, listings: data?.listings, jobs: data?.product?.jobs }];
+    }),
   );
 }
 
@@ -404,7 +431,7 @@ export default function Selling() {
     const isGear = isGearKey(key);
     const piece = isGear ? gear.get(key) : undefined;
     const quantity = isGear ? (piece ? 1 : 0) : (held.get(key) ?? 0);
-    const prices = isGear ? gearPrices(piece, gearSales.get(id)?.sales, jobMask(id)) : salePrices(products.get(id));
+    const prices = isGear ? gearPrices(piece, gearSales.get(id), jobMask(id)) : salePrices(products.get(id));
     const chosen = line.strat || plan.global;
     // 选中的档位没有数据时，这一行改为等玩家手填。
     const strat: Strategy = chosen !== "manual" && prices[chosen] == null ? "manual" : chosen;
@@ -460,7 +487,14 @@ export default function Selling() {
           : words("无成交", "No sales");
     const span = p.window === "72h" ? "72h " : "";
     if (p.basis === "same") return words(`同属性 · ${span}${p.count} 笔`, `Same stats · ${span}${p.count} sales`);
-    if (p.basis === "all") return words(`同名 · ${span}${p.count} 笔`, `Same item · ${span}${p.count} sales`);
+    if (p.basis === "all") {
+      const base = words(`同名 · ${span}${p.count} 笔`, `Same item · ${span}${p.count} sales`);
+      if (!p.rank) return base;
+      const pct = Math.round(p.rank.q * 100);
+      return pct < 50
+        ? words(`${base} · 属性低于 ${100 - pct}% 同名`, `${base} · stats below ${100 - pct}%`)
+        : words(`${base} · 属性高于 ${pct}% 同名`, `${base} · stats above ${pct}%`);
+    }
     return words("无成交", "No sales");
   };
 
@@ -586,7 +620,7 @@ export default function Selling() {
                 const on = Boolean(plan.lines[item.key]);
                 const mid = (
                   item.piece
-                    ? gearPrices(item.piece, gearSales.get(item.item_id)?.sales, jobMask(item.item_id))
+                    ? gearPrices(item.piece, gearSales.get(item.item_id), jobMask(item.item_id))
                     : salePrices(products.get(item.item_id))
                 ).s50;
                 const npc = npcSell.get(item.item_id) ?? null;
