@@ -380,7 +380,7 @@ def buff_mask(data):
 def cancel_mask(data):
     """Stat flags a cancel message ends (2026-11-12 live: 0x80, 01 01, a counter, then
     the same 124-byte flag block as the buff message), or 0."""
-    if opcode(data) != CANCEL_BUFF or len(data) < 129 or data[2:4] != b'':
+    if opcode(data) != CANCEL_BUFF or len(data) < 129 or data[2:4] != bytes([1, 1]):
         return 0
     return int.from_bytes(data[5:129], 'big')
 

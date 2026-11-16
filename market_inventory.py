@@ -202,6 +202,10 @@ def equipment_bag(data, begin, end, capacity):
     return {r[1]: piece(r) for r in on}, {r[1]: piece(r) for r in bag}
 
 
+# Bags the collector does not track: cash (5) and cash equipment (6).
+UNTRACKED = (5, 6)
+
+
 class Inventory:
     def __init__(self):
         self.revision = 0
@@ -255,10 +259,15 @@ class Inventory:
             try:
                 self.update(data)
                 self.observed_at = int(time.time())
-            except (ValueError, struct.error, KeyError, IndexError):
+            except (ValueError, struct.error, KeyError, IndexError) as error:
                 # An unknown item update does not invalidate independently
                 # observed currency; missing bags remain unknown, never zero.
                 self.slots = self.equipment = self.worn = None
+                # Into the client log (sent with diagnostics): a new kind of change can be
+                # read from it without waiting for a player to report it. Item updates
+                # carry item IDs and counts, nothing that names the player.
+                print(json.dumps(dict(time=time.time(), event='inventory_unread', reason=str(error)[:80],
+                                      length=len(data), head=bytes(data[:96]).hex())), flush=True)
         elif opcode == 0x7e:
             envelope = stat_header(data)
             values = parse_stat(data, {MESO_BIT: 8})
@@ -278,8 +287,8 @@ class Inventory:
         # places (2026-11-15 live: a worn cape and the bag cape, count 3).
         # Bound each record by the next operation, never scan its body for
         # apparent item operations. Ordinary bags are unaffected.
-        if (len(data) >= 70 and data[2:4] == b'' and data[8] == 0
-                and data[9:11] == b'' and data[-7:-5] == b''):
+        if (len(data) >= 70 and data[2:4] == bytes([1, 1]) and data[8] == 0
+                and data[9:11] == bytes([5, 1]) and data[-7:-5] == bytes([2, 1])):
             count = struct.unpack_from('<I', data, 4)[0]
             source, destination = struct.unpack_from('<hh', data, len(data)-5)
             if (count not in (2, 3) or not source or not destination or abs(destination) > 1000
@@ -291,7 +300,7 @@ class Inventory:
                 first = equip_header(data, 11)
                 other = destination if first and first[0] == source else source
                 second = next((p for p in range(41, len(data)-7-30)
-                               if data[p:p+2] == b'' and (equip_header(data, p+2) or (None,))[0] == other), None)
+                               if data[p:p+2] == bytes([5, 1]) and (equip_header(data, p+2) or (None,))[0] == other), None)
                 if second is None:
                     raise ValueError('Invalid equipment refresh/move')
                 starts.append(second+2)
@@ -325,11 +334,23 @@ class Inventory:
                 and data[17] == 3 and int.from_bytes(data[18:22], 'little')//1000000 == 5
                 and data[22] == 1):
             return
-        slots, pos = dict(self.slots), 9
-        # Equipment: positive slots are the bag, negative ones worn pieces.
         bag = None if self.equipment is None else dict(self.equipment)
         worn = None if self.worn is None else dict(self.worn)
-        for index in range(count):
+        self.slots, self.equipment, self.worn = self._records(data, 9, 0, count, dict(self.slots), bag, worn)
+
+    def _records(self, data, pos, first, count, slots, bag, worn):
+        """Records first..count-1 from `pos`, which must end exactly at the message's end:
+        (slots, bag, worn) after them, or ValueError when they cannot be read safely.
+
+        Only the use/setup/etc bags (2-4) and equipment (1) are tracked. A change we cannot
+        read in them makes the bags unknown until the next snapshot. Changes in the bags we
+        do not track (5 cash, 6 cash equipment) are stepped over, so a cash item, pet or
+        cape never blinds the run (2026-11-16: a teammate was told to change channel every
+        ~20 minutes): an unknown operation or an add is skipped when it ends the message;
+        a pet add is a fixed 75 bytes (the single pet refresh above: 92 = 9 + 4 + 4 + 75);
+        any other add ends where the rest of the message parses to its end, which must be
+        exactly one place."""
+        for index in range(first, count):
             mode, category, slot = struct.unpack_from('<BBh', data, pos)
             pos += 4
             if category == 1:
@@ -371,25 +392,33 @@ class Inventory:
                 else:
                     raise ValueError('Unsupported equipment operation')
                 continue
-            if category in (5, 6):
-                # The cash bag (5) and the cash equipment bag (6, 300 slots) are not
-                # tracked; step over what they changed. Before, any change there made the
-                # whole bag unknown (2026-11-16 recordings: a cash stack's count going
-                # down '01 05 02 00 0a 00'; a cash cape removed '03 06 40 00'; two pets
-                # refreshed on entering a channel): a teammate was told to change channel
-                # every ~20 minutes. An add runs to the end of the message, or is a pet
-                # (kind 3, item 5xxxxxx): a fixed 75 bytes after the slot, as the single
-                # pet refresh above (92 = 9 + 4 + 4 + 75).
+            if category in UNTRACKED:
                 if not 1 <= slot <= self.capacities[category-1]:
                     raise ValueError('Unsupported cash slot')
                 if mode in (1, 2):
                     pos += 2
-                elif mode == 0 and index == count-1:
-                    pos = len(data)
+                elif mode == 3:
+                    pass
+                elif index == count-1:
+                    pos = len(data)   # an add or an unknown operation, last: nothing tracked after it
                 elif (mode == 0 and pos + 75 <= len(data) and data[pos] == 3
                       and int.from_bytes(data[pos+1:pos+5], 'little')//1000000 == 5 and data[pos+5] == 1):
                     pos += 75
-                elif mode != 3:
+                elif mode == 0:
+                    found = []
+                    for start in range(pos + 6, len(data) - 3):
+                        try:
+                            found.append(self._records(data, start, index+1, count, dict(slots),
+                                                       None if bag is None else dict(bag),
+                                                       None if worn is None else dict(worn)))
+                        except (ValueError, struct.error, KeyError, IndexError):
+                            continue
+                        if len(found) > 1:
+                            break
+                    if len(found) != 1:
+                        raise ValueError('Cash record boundary missing or ambiguous')
+                    return found[0]
+                else:
                     raise ValueError('Unsupported cash operation')
                 continue
             if category not in (2, 3, 4) or not 1 <= slot <= self.capacities[category-1]:
@@ -422,8 +451,7 @@ class Inventory:
                 raise ValueError('Unsupported inventory operation')
         if pos != len(data):
             raise ValueError('Unconsumed inventory update')
-        self.slots = slots
-        self.equipment, self.worn = bag, worn
+        return slots, bag, worn
 
     def view(self):
         if self.slots is None and self.mesos is None:

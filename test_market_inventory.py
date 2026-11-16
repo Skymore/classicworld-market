@@ -87,6 +87,19 @@ class InventoryTests(unittest.TestCase):
         self.inventory.observe(update(struct.pack('<BBhH', 1, 5, 200, 1)), 'one')   # beyond the 150-slot cash bag
         self.assertIsNone(self.inventory.slots)
 
+    def test_untracked_bags_never_blind_the_tracked_ones(self):
+        # An operation we have never seen, in the cash bag, at the end: skipped.
+        self.inventory.observe(update(struct.pack('<BBh', 1, 2, 2) + struct.pack('<H', 50), struct.pack('<BBh', 9, 5, 4) + bytes(7)), 'one')
+        self.assertEqual(self.quantities()[2000001], 139)   # 50 + 89
+        # A cash item add of unknown length in the middle: the next record starts where the
+        # rest of the message reads to its end, at exactly one place.
+        cash = struct.pack('<BBh', 0, 5, 7) + struct.pack('<BIB', 2, 5040000, 1) + bytes(range(40, 77))
+        self.inventory.observe(update(cash, struct.pack('<BBh', 1, 2, 5) + struct.pack('<H', 80)), 'one')
+        self.assertEqual(self.quantities()[2000001], 130)
+        # A change we cannot read in a tracked bag still makes them unknown.
+        self.inventory.observe(update(struct.pack('<BBh', 9, 2, 2) + bytes(2)), 'one')
+        self.assertIsNone(self.inventory.slots)
+
     def test_verified_move_and_quantity_update(self):
         self.inventory.observe(update(struct.pack('<BBhh', 2, 2, 2, 7)), 'one')
         self.assertEqual(self.quantities()[2000001], 189)
