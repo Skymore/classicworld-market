@@ -56,11 +56,29 @@ def bags(data, pos, capacities):
     return slots
 
 
+def inventory_shift(data):
+    """character_shift plus an optional name after the skill-point books.
+
+    Some characters' snapshots carry a flag at 272 (+books) set to 1 and followed by a
+    length-prefixed name (2026-11-15: a teammate's own character name, 11 extra bytes);
+    others have 0 there and nothing after. Everything from the mesos on moves with it,
+    so without this their bags never parsed and loot/consumables stayed empty. Fields
+    before 272 (location, level, exp) are unaffected and keep character_shift.
+    """
+    shift = character_shift(data)
+    at = 272 + shift
+    if len(data) > at + 3 and data[at] == 1:
+        size = struct.unpack_from('<H', data, at + 1)[0]
+        if 1 <= size <= 32 and len(data) > at + 3 + size:
+            return shift + 2 + size
+    return shift
+
+
 def header(data):
     if (len(data) < 512 or data[14:24] != bytes.fromhex('00000000000100000000')
             or int.from_bytes(data[:2], 'little') not in (0x1a6, 0x1a9)):
         raise ValueError('Not a supported character snapshot')
-    shift = character_shift(data)
+    shift = inventory_shift(data)
     mesos = struct.unpack_from('<Q', data, 341+shift)[0]
     capacities = struct.unpack_from('<6H', data, 353+shift)
     if mesos > 10**12 or not all(1 <= n <= 1000 for n in capacities) or data[365+shift:368+shift] != bytes(3):
@@ -225,7 +243,7 @@ class Inventory:
             try:
                 start, _ = _ordinary(data, self.capacities)
                 self.worn, self.equipment = equipment_bag(
-                    data, 368+character_shift(data), start-2, self.capacities[0])
+                    data, 368+inventory_shift(data), start-2, self.capacities[0])
             except (ValueError, struct.error, IndexError):
                 self.worn = self.equipment = None
             return

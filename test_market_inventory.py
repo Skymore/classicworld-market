@@ -63,6 +63,15 @@ class InventoryTests(unittest.TestCase):
         self.inventory.observe(data,'bad-books')
         self.assertIsNone(self.inventory.view())
 
+    def test_name_after_the_books_shifts_inventory_fields(self):
+        # Some characters' snapshots set a flag at 272 and add a length-prefixed name
+        # (2026-11-15: a teammate's bags never parsed, loot/consumables stayed empty).
+        data = character()
+        data[272:273] = b'' + struct.pack('<H', 6) + b'Sample'
+        self.inventory.observe(data, 'named')
+        self.assertEqual(self.quantities()[2000001], 189)
+        self.assertEqual(self.inventory.view()['mesos'], 54321)
+
     def test_verified_move_and_quantity_update(self):
         self.inventory.observe(update(struct.pack('<BBhh', 2, 2, 2, 7)), 'one')
         self.assertEqual(self.quantities()[2000001], 189)
