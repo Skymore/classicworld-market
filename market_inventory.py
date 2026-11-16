@@ -371,6 +371,27 @@ class Inventory:
                 else:
                     raise ValueError('Unsupported equipment operation')
                 continue
+            if category in (5, 6):
+                # The cash bag (5) and the cash equipment bag (6, 300 slots) are not
+                # tracked; step over what they changed. Before, any change there made the
+                # whole bag unknown (2026-11-16 recordings: a cash stack's count going
+                # down '01 05 02 00 0a 00'; a cash cape removed '03 06 40 00'; two pets
+                # refreshed on entering a channel): a teammate was told to change channel
+                # every ~20 minutes. An add runs to the end of the message, or is a pet
+                # (kind 3, item 5xxxxxx): a fixed 75 bytes after the slot, as the single
+                # pet refresh above (92 = 9 + 4 + 4 + 75).
+                if not 1 <= slot <= self.capacities[category-1]:
+                    raise ValueError('Unsupported cash slot')
+                if mode in (1, 2):
+                    pos += 2
+                elif mode == 0 and index == count-1:
+                    pos = len(data)
+                elif (mode == 0 and pos + 75 <= len(data) and data[pos] == 3
+                      and int.from_bytes(data[pos+1:pos+5], 'little')//1000000 == 5 and data[pos+5] == 1):
+                    pos += 75
+                elif mode != 3:
+                    raise ValueError('Unsupported cash operation')
+                continue
             if category not in (2, 3, 4) or not 1 <= slot <= self.capacities[category-1]:
                 raise ValueError('Unsupported inventory change')
             key = category, slot

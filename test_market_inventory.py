@@ -72,6 +72,21 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(self.quantities()[2000001], 189)
         self.assertEqual(self.inventory.view()['mesos'], 54321)
 
+    def test_cash_bag_changes_leave_the_tracked_bags_known(self):
+        # A cash stack's count going down (recorded 2026-11-16): mode 1, category 5, slot 2, now 10.
+        self.inventory.observe(bytes.fromhex('720001000100000000010502000a00'), 'one')
+        self.assertEqual(self.quantities()[2000001], 189)
+        self.inventory.observe(update(struct.pack('<BBhh', 2, 5, 2, 3), struct.pack('<BBh', 3, 5, 3)), 'one')
+        self.assertEqual(self.quantities()[2000001], 189)
+        # A cash cape removed from the cash equipment bag (6), and two pets refreshed at once.
+        self.inventory.observe(bytes.fromhex('72000100010000000003064000'), 'one')
+        pet = struct.pack('<BBh', 0, 5, 2) + struct.pack('<BIB', 3, 5000033, 1) + bytes(69)
+        self.inventory.observe(update(struct.pack('<BBh', 3, 5, 2), pet, struct.pack('<BBh', 3, 5, 3),
+                                      pet[:2] + struct.pack('<h', 3) + pet[4:]), 'one')
+        self.assertEqual(self.quantities()[2000001], 189)
+        self.inventory.observe(update(struct.pack('<BBhH', 1, 5, 200, 1)), 'one')   # beyond the 150-slot cash bag
+        self.assertIsNone(self.inventory.slots)
+
     def test_verified_move_and_quantity_update(self):
         self.inventory.observe(update(struct.pack('<BBhh', 2, 2, 2, 7)), 'one')
         self.assertEqual(self.quantities()[2000001], 189)
