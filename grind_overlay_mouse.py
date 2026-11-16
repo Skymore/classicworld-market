@@ -1,4 +1,4 @@
-"""The overlay's buttons, drag-to-move and size grip, read from the system mouse.
+"""The overlay's buttons and drag-to-move, read from the system mouse.
 
 While the game is in front it confines the mouse to its window and can hold the
 mouse capture, so clicks on the overlay (a no-activate WebView2 window on top)
@@ -8,7 +8,6 @@ press inside the overlay is kept from the game and handled here:
 
 - on a button the page reported (`regions`, CSS pixels): the page clicks it when
   the button is released over it;
-- on the size grip: dragging sets the size;
 - anywhere else on the card: dragging moves the window (SetWindowPos, physical
   pixels, so display scaling cannot make it drift).
 
@@ -18,12 +17,10 @@ import ctypes
 import json
 import queue
 import threading
-import time
 
 WM_MOUSEMOVE, WM_LBUTTONDOWN, WM_LBUTTONUP = 0x0200, 0x0201, 0x0202
 WH_MOUSE_LL = 14
 MOVE_SLOP = 3            # physical pixels before a press on the card starts a drag
-SCALE_EVERY = 0.12       # seconds between size updates while the grip is dragged
 
 
 class OverlayPointer:
@@ -52,16 +49,14 @@ class OverlayPointer:
                 return r['id']
         return 'card'
 
-    def handle(self, message, x, y, rect, scale, overlay_scale=1.0):
-        """(keep from the game, [actions]). Actions: ('click', id), ('move', left, top),
-        ('moved',), ('scale', value, final)."""
+    def handle(self, message, x, y, rect, scale):
+        """(keep from the game, [actions]). Actions: ('click', id), ('move', left, top), ('moved',)."""
         if message == WM_LBUTTONDOWN:
             target = None if rect is None else self.hit(rect, scale, x, y)
             if target is None:
                 self.press = None
                 return False, []
-            self.press = dict(target=target, x=x, y=y, left=rect[0], top=rect[1], width=rect[2] - rect[0],
-                              scale=overlay_scale, dragging=False, sent=0.0)
+            self.press = dict(target=target, x=x, y=y, left=rect[0], top=rect[1], dragging=False)
             return True, []
         press = self.press
         if press is None:
@@ -72,21 +67,11 @@ class OverlayPointer:
                 if press['dragging'] or abs(dx) > MOVE_SLOP or abs(dy) > MOVE_SLOP:
                     press['dragging'] = True
                     return False, [('move', press['left'] + dx, press['top'] + dy)]
-            elif press['target'] == 'grip':
-                value = round(min(2.0, max(0.6, press['scale'] * (press['width'] + dx) / max(1, press['width']))), 2)
-                now = time.monotonic()
-                if value != press.get('value') and now - press['sent'] >= SCALE_EVERY:
-                    press['value'], press['sent'] = value, now
-                    return False, [('scale', value, False)]
-                press['pending'] = value
             return False, []
         if message == WM_LBUTTONUP:
             self.press = None
             if press['target'] == 'card':
                 return True, [('moved',)] if press['dragging'] else []
-            if press['target'] == 'grip':
-                final = press.get('pending', press.get('value'))
-                return True, [] if final is None else [('scale', final, True)]
             released = None if rect is None else self.hit(rect, scale, x, y)
             return True, [('click', press['target'])] if released == press['target'] else []
         return False, []
@@ -136,8 +121,7 @@ class OverlayMouse:
         if message == WM_LBUTTONDOWN and found is None:
             return False
         hwnd, rect, scale = found if found else (None, None, 1.0)
-        overlay_scale = (self.service.settings().get('overlay') or {}).get('scale') or 1.0 if message == WM_LBUTTONDOWN else 1.0
-        keep, actions = self.pointer.handle(message, x, y, rect, scale, overlay_scale)
+        keep, actions = self.pointer.handle(message, x, y, rect, scale)
         for action in actions:
             if action[0] == 'move' and hwnd:
                 # In the hook thread: immediate, smooth.
@@ -157,8 +141,6 @@ class OverlayMouse:
                     self.service.overlay.evaluate_js(f'window.__overlayPress && window.__overlayPress({json.dumps(action[1])})')
                 elif action[0] == 'moved':
                     self.service.overlay_moved()
-                elif action[0] == 'scale':
-                    self.service.scale_overlay(action[1])
             except Exception as error:
                 print(f'Overlay action failed ({type(error).__name__}).', flush=True)
 

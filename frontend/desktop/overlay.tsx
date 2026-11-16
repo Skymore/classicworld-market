@@ -1,12 +1,12 @@
 // The always-on-top grind overlay window (grind_desktop.GrindService). It polls
-// window.pywebview.api.state(), never takes focus, is dragged to move and sized
+// window.pywebview.api.state(), never takes focus, is dragged to move; its size is set in settings
 // from its corner.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 import { createRoot } from 'react-dom/client';
 import korean from '../../server/crates/market-web/src/i18n/ko.json';
 import { installKorean, applyLanguage, tr } from './i18n';
-import { overlayCommand, overlayFit, overlayRegions, overlayScale, overlayState, overlayToggle, overlayUpdate, type ClientUpdate, type GroundDrop, type GrindSettings, type Live, type LootRow } from './grind';
+import { overlayCommand, overlayFit, overlayRegions, overlayState, overlayToggle, overlayUpdate, type ClientUpdate, type GroundDrop, type GrindSettings, type Live, type LootRow } from './grind';
 import { OverlayCard, announceDrop } from './overlay-card';
 
 document.documentElement.classList.add('overlay-page');
@@ -29,7 +29,7 @@ applyLanguage('system');
 
 function Overlay() {
   const [live, setLive] = useState<Live | null>(null), [settings, setSettings] = useState<GrindSettings | null>(null);
-  const [toast, setToast] = useState<LootRow | null>(null), [dragged, setDragged] = useState<number | null>(null);
+  const [toast, setToast] = useState<LootRow | null>(null);
   const seen = useRef(0);
   const [drop, setDrop] = useState<GroundDrop | null>(null);
   const dropSeen = useRef<number | null>(null);
@@ -79,14 +79,14 @@ function Overlay() {
     watcher.current.observe(element);
   }, []);
   if (!settings) return null;
-  const scale = dragged ?? (settings.overlay.scale || 1);
+  const scale = settings.overlay.scale || 1;
   const toggle = (name: Switch) => {
     setSettings({ ...settings, [name]: !settings[name] });
     overlayToggle(name).then(value => setSettings(s => s && { ...s, [name]: value })).catch(() => null);
   };
   return <OverlayCard live={live} settings={settings} toast={toast} drop={drop} scale={scale} cardRef={card} command={action => { overlayCommand(action).catch(() => null); }}
     update={update} onUpdate={() => { setUpdate(u => u && { ...u, state: 'requested' }); overlayUpdate().catch(() => null); }}
-    grip={<><Switches settings={settings} toggle={toggle} /><Grip scale={scale} preview={setDragged} /></>} />;
+    grip={<Switches settings={settings} toggle={toggle} />} />;
 }
 
 type Switch = 'buff_sound';
@@ -98,30 +98,6 @@ function Switches({ settings, toggle }: { settings: GrindSettings; toggle(name: 
   return <div className="ov-switches">
     {button('buff_sound', <Volume2 size={12} />, <VolumeX size={12} />, tr('语音提醒（Buff、低血量）', 'Spoken warnings (buffs, low HP)'))}
   </div>;
-}
-
-/** Bottom-right corner: drag to size the overlay; the window follows through the bridge. */
-function Grip({ scale, preview }: { scale: number; preview(scale: number | null): void }) {
-  const drag = useRef<{ x: number; scale: number; width: number; next: number; busy: boolean } | null>(null);
-  const send = () => {
-    const d = drag.current;
-    if (!d || d.busy) return;
-    const sent = d.next; d.busy = true;
-    overlayScale(sent).catch(() => null).finally(() => { d.busy = false; if (drag.current === d && d.next !== sent) send(); });
-  };
-  return <i className="ov-grip" aria-hidden="true" data-press="grip"
-    onMouseDown={e => e.stopPropagation() /* the window's drag-to-move must not start from this corner */}
-    onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); drag.current = { x: e.screenX, scale, width: window.innerWidth, next: scale, busy: false }; }}
-    onPointerMove={e => {
-      const d = drag.current;
-      if (!d) return;
-      d.next = Math.round(Math.min(2, Math.max(.6, d.scale * (d.width + e.screenX - d.x) / d.width)) * 100) / 100;
-      preview(d.next); send();
-    }}
-    onPointerUp={() => {
-      const d = drag.current; drag.current = null;
-      if (d) overlayScale(d.next).catch(() => null).finally(() => setTimeout(() => preview(null), 1200));
-    }} />;
 }
 
 createRoot(document.getElementById('root')!).render(<Overlay />);

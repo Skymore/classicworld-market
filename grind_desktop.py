@@ -275,6 +275,13 @@ class GrindService:
     def start(self):
         threading.Thread(target=self.calibrate_loop, daemon=True, name='grind-calibrate').start()
         threading.Thread(target=self.sync.loop, args=(self.stop,), daemon=True, name='grind-sync').start()
+        # Recordings go to the site too (internal testing: always, no option): a parser
+        # fix can then be checked against everyone's sessions.
+        from grind_frames import upload_loop
+        threading.Thread(target=upload_loop, args=(self.data / 'frames', self.sync.config, self.stop),
+                         daemon=True, name='grind-frame-upload').start()
+        if not self.settings()['record_frames']:
+            self.save_settings(dict(record_frames=True))   # the option was removed: always record
         from grind_replay import replay_once
         from collector_update import VERSION
         def replay_and_reconcile():

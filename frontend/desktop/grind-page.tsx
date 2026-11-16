@@ -81,6 +81,9 @@ function NumberField({ label, unit, value, min, max, step = 1, onChange }: { lab
 }
 
 /** One choice out of a few, as joined buttons. */
+/** Overlay sizes to pick from (the corner grip was removed: dragging it was unreliable). */
+const SIZES = [0.8, 0.9, 1, 1.1, 1.25, 1.5];
+
 function Choice<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: readonly (readonly [T, string, string])[]; onChange(v: T): void }) {
   return <div className="grind-field"><span>{label}</span>
     <div className="grind-seg" role="radiogroup" aria-label={label}>{options.map(([key, zh, en]) =>
@@ -188,6 +191,8 @@ function SettingsView({ state, settings, save, refresh }: {
       <Choice label={tr('主题', 'Theme')} value={o.theme || 'dark'} onChange={v => save({ overlay: { theme: v } })}
         options={[['dark', '暗色', 'Dark'], ['market', '市集', 'Market'], ['cute', '可爱', 'Cute'], ['maple', '冒险', 'Adventure']] as const} />
       <Slider label={tr('不透明度', 'Opacity')} min={0.3} max={1} step={0.05} value={o.opacity} text={`${Math.round(o.opacity * 100)}%`} onChange={v => save({ overlay: { opacity: v } })} />
+      <Choice label={tr('大小', 'Size')} value={String(SIZES.reduce((best, v) => Math.abs(v - (o.scale || 1)) < Math.abs(best - (o.scale || 1)) ? v : best, 1)) as `${number}`}
+        onChange={v => save({ overlay: { scale: Number(v) } })} options={SIZES.map(v => [String(v) as `${number}`, `${Math.round(v * 100)}%`, `${Math.round(v * 100)}%`] as const)} />
       <Check label={tr('直播模式（直播伴侣、OBS 可选中悬浮窗，任务栏会显示它）', 'Streaming (stream apps can pick the overlay; it shows on the taskbar)')} checked={!!o.stream}
         onChange={v => save({ overlay: v ? { stream: true, hide_in_capture: false } : { stream: false } })} />
       {!o.stream && <Check label={tr('录屏和直播时隐藏', 'Hide from recordings')} checked={o.hide_in_capture} onChange={v => save({ overlay: { hide_in_capture: v } })} />}
@@ -214,7 +219,6 @@ function SettingsView({ state, settings, save, refresh }: {
     <section className="well"><div className="well-h"><h3>{tr('协议标定', 'Calibration')}</h3>
       <button className="text-link" disabled={state.calibrating} onClick={() => grind('calibrate').then(refresh)}><RefreshCw size={14} />{state.calibrating ? tr('标定中…', 'Calibrating…') : tr('立即标定', 'Calibrate now')}</button></div>
       {calibration.map(row => <div className="grind-cal" key={row.label}><span>{row.label}</span><b className={row.state === '已确认' ? 'ok' : ''}>{row.state}</b></div>)}
-      <Check label={tr('保留7天报文并自动重放', 'Keep 7 days of frames and replay updates')} checked={settings.record_frames} onChange={v => save({ record_frames: v })} />
       {state.live && <p className="note">{state.live.recording ? tr('正在录制', 'Recording frames') : tr('未录制', 'Not recording')}</p>}
     </section>
   </div>;

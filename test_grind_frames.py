@@ -85,3 +85,30 @@ class FrameFileTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FrameUploadTest(unittest.TestCase):
+    def test_compressed_recordings_are_uploaded_once(self):
+        import contextlib, io, urllib.error
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'frames_20261115_120000_aaaa.jsonl').write_text(lines(2), encoding='ascii')   # still being written
+            done = root / 'frames_20261115_110000_bbbb.jsonl'
+            done.write_text(lines(2), encoding='ascii')
+            compress(done)
+            sent = []
+
+            def open_url(request, timeout):
+                sent.append((request.full_url, request.get_header('Authorization'), request.data[:2]))
+                return contextlib.nullcontext(io.BytesIO(b'{}'))
+            config = dict(endpoint='https://mxd.ruit.me', token='t')
+            self.assertEqual(grind_frames.upload_pending(root, config, open_url), 1)
+            self.assertEqual(sent, [('https://mxd.ruit.me/api/v1/collector/grind-frames?name=frames_20261115_110000_bbbb.jsonl.gz', 'Bearer t', b'\x1f\x8b')])
+            self.assertEqual(grind_frames.upload_pending(root, config, open_url), 0)            # not sent twice
+
+            def failing(request, timeout):
+                raise urllib.error.HTTPError(request.full_url, 503, 'busy', {}, None)
+            (root / 'frames_20261115_130000_cccc.jsonl.gz').write_bytes(b'\x1f\x8b')
+            self.assertEqual(grind_frames.upload_pending(root, config, failing), 0)
+            self.assertEqual(grind_frames.upload_pending(root, config, open_url), 1)             # retried later
+            self.assertEqual(grind_frames.upload_pending(root, None, open_url), 0)               # not registered

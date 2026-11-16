@@ -50,6 +50,7 @@ async fn main() -> Result<()> {
         }
     });
     tokio::spawn(market_web::diagnostics::prune());
+    tokio::spawn(market_web::grind_frames::prune());
     tokio::spawn(market_web::remote_debug::prune());
 
     let mut state = AppState::new(db, config.settings.clone());

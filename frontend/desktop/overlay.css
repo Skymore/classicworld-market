@@ -174,5 +174,5 @@
 .ov-update{font:inherit;font-size:.85em;font-weight:700;padding:.2em .7em;border-radius:1em;cursor:pointer;color:#1b3a5c;background:#7fb2e6;border:0}
 .ov-update:hover{filter:brightness(1.1)}.ov-updating{font-size:.85em;opacity:.7}
 .ov-buffs .ending{opacity:.75}.ov-buffs .ending b{font-size:.85em}
-/* Clicks come through the system mouse, so hover may never show: keep the switches and grip findable. */
-.ov .ov-switches{opacity:.55}.ov:hover .ov-switches{opacity:1}.ov .ov-grip{opacity:.35}
+/* Clicks come through the system mouse, so hover may never show: keep the switches findable. */
+.ov .ov-switches{opacity:.55}.ov:hover .ov-switches{opacity:1}

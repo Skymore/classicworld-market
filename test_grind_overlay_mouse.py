@@ -4,8 +4,7 @@ import unittest
 from grind_overlay_mouse import OverlayPointer, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE
 
 RECT = (1000, 300, 1296, 760)     # physical pixels
-REGIONS = [dict(id='pause', x=10, y=400, w=130, h=30), dict(id='end', x=150, y=400, w=130, h=30),
-           dict(id='grip', x=280, y=444, w=16, h=16)]
+REGIONS = [dict(id='pause', x=10, y=400, w=130, h=30), dict(id='end', x=150, y=400, w=130, h=30)]
 
 
 class OverlayPointerTest(unittest.TestCase):
@@ -13,8 +12,8 @@ class OverlayPointerTest(unittest.TestCase):
         self.pointer = OverlayPointer()
         self.pointer.set_regions(REGIONS)
 
-    def send(self, message, x, y, scale=1.0, overlay_scale=1.0):
-        return self.pointer.handle(message, x, y, RECT, scale, overlay_scale)
+    def send(self, message, x, y, scale=1.0):
+        return self.pointer.handle(message, x, y, RECT, scale)
 
     def test_a_press_outside_the_overlay_goes_to_the_game(self):
         self.assertEqual(self.send(WM_LBUTTONDOWN, 500, 500), (False, []))
@@ -40,12 +39,6 @@ class OverlayPointerTest(unittest.TestCase):
         tall = (1000, 300, 1444, 990)     # the same window at 150 %
         self.assertEqual(self.pointer.hit(tall, 1.5, 1000 + 100, 300 + 620), 'pause')
         self.assertEqual(self.pointer.hit(tall, 1.5, 1000 + 100, 300 + 420), 'card')
-
-    def test_the_grip_sizes_the_overlay(self):
-        self.send(WM_LBUTTONDOWN, 1288, 752, overlay_scale=1.0)
-        keep, actions = self.send(WM_MOUSEMOVE, 1288 + 148, 752)                                # width 296 -> 444
-        self.assertEqual((keep, actions), (False, [('scale', 1.5, False)]))
-        self.assertEqual(self.send(WM_LBUTTONUP, 1288 + 148, 752), (True, [('scale', 1.5, True)]))
 
     def test_bad_regions_from_the_page_are_dropped(self):
         self.pointer.set_regions([dict(id='x'), 'junk', dict(id='ok', x=0, y=0, w=1, h=1)])

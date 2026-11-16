@@ -155,7 +155,7 @@ try {
     assert(height < 480, `slim/${theme}: the card stays small (${height})`);
     if (out) await page.screenshot({ path: path.join(out, `grind-slim-${theme}.png`) });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `slim/${theme}: no horizontal clipping`);
-    assert.equal(await page.locator('.ov-grip').count(), 1);
+    assert.equal(await page.locator('.ov-grip').count(), 0, 'no corner grip: the size is picked in settings');
     assert.deepEqual(errors, []);
     await page.close();
   }

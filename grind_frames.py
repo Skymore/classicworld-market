@@ -4,7 +4,9 @@ Frames stay on this PC (captures/grind/frames). Each line is
 {"t": unix time, "s": connection session, "h": frame hex}; the player's own
 messages add "c": 1 and "i", the opcode's index in the connection's mapping
 table (the raw client opcode changes per connection). Files rotate at
-FILE_LIMIT or hourly; files older than 30 days are pruned. Nothing is uploaded.
+FILE_LIMIT or hourly; files older than 30 days are pruned. Compressed files are
+uploaded to the site (upload_pending; internal testing: always on, no option),
+where they are kept 30 days privately (server grind_frames.rs).
 
 A closed file (untouched for COMPRESS_AFTER) is gzipped in the background to
 frames_*.jsonl.gz (about 8x smaller, so 30 days fit in roughly a gigabyte).
@@ -207,3 +209,69 @@ def read_frames(paths):
                     yield record['t'], record['s'], bytes.fromhex(record['h'])
             except (ValueError, KeyError, TypeError):
                 continue
+
+
+UPLOADED = 'uploaded.json'   # names already on the site (frames folder)
+UPLOAD_ROUTE = '/api/v1/collector/grind-frames'
+
+
+def upload_pending(folder, config, open_url, limit=6):
+    """Upload compressed recordings not sent yet (internal testing: always on, no prompt).
+
+    Only closed, gzipped files go; the file being written waits for its compression.
+    Returns how many were sent. `open_url(request, timeout)` performs the request."""
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+    folder = Path(folder)
+    if not config or not folder.is_dir():
+        return 0
+    record = folder / UPLOADED
+    try:
+        done = set(json.loads(record.read_text(encoding='utf-8')))
+    except (OSError, ValueError, TypeError):
+        done = set()
+    present = {p.name for p in folder.glob('frames_*.jsonl.gz')}
+    sent = 0
+    for path in sorted(folder.glob('frames_*.jsonl.gz')):
+        if path.name in done or sent >= limit:
+            continue
+        try:
+            body = path.read_bytes()
+        except OSError:
+            continue
+        url = config['endpoint'] + UPLOAD_ROUTE + '?' + urllib.parse.urlencode(dict(name=path.name))
+        request = urllib.request.Request(url, data=body, method='POST', headers={
+            'Authorization': 'Bearer ' + config['token'], 'Content-Type': 'application/gzip'})
+        try:
+            with open_url(request, timeout=120) as response:
+                response.read(4096)
+        except urllib.error.HTTPError as error:
+            if error.code in (400, 413):
+                done.add(path.name)   # never acceptable: do not retry forever
+            break                     # 401 / 429 / 5xx: later
+        except (OSError, ValueError):
+            break
+        done.add(path.name)
+        sent += 1
+    # Forget names whose files were pruned, so the record stays small.
+    keep = sorted(done & present)
+    try:
+        temporary = record.with_name(record.name + '.tmp')
+        temporary.write_text(json.dumps(keep), encoding='utf-8')
+        temporary.replace(record)
+    except OSError:
+        pass
+    return sent
+
+
+def upload_loop(folder, config, stop, every=120):
+    """Background: upload new compressed recordings every couple of minutes."""
+    def open_url(request, timeout):
+        from shared_client import upload_opener
+        return upload_opener().open(request, timeout=timeout)
+    while not stop.wait(every):
+        try:
+            upload_pending(folder, config(), open_url)
+        except Exception:
+            pass

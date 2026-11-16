@@ -37,6 +37,7 @@ pub mod diagnostics;
 mod encoding;
 pub mod external;
 pub mod grind;
+pub mod grind_frames;
 pub mod grind_runs;
 pub mod i18n;
 pub mod ingest;
@@ -221,6 +222,7 @@ pub fn app_with_web(state: AppState, web_dir: Option<&std::path::Path>) -> Route
         .merge(api_headers(sweep::router()))
         .merge(api_headers(push::router()))
         .merge(api_headers(grind::router()))
+        .merge(api_headers(grind_frames::router()))
         .merge(api_headers(grind_runs::router()))
         .merge(grind_runs::pages())
         .merge(bestiary::routes())
