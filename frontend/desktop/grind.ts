@@ -168,11 +168,13 @@ export function currentBuffs(live: Live | null): Buff[] {
 /** Live buffs, plus pinned ones that ran out (shown greyed until recast). An item buff
  * counted down to 0 here stays as ending until the client's state drops it: it ends on
  * the server's cancel, often seconds later, and leaving the list between two state
- * writes announced it early, then again at the real end (2026-11-15: 速度药水 twice). */
+ * writes announced it early, then again at the real end (2026-11-15: 速度药水 twice).
+ * Only a row the state still counts down (seconds > 0): a pinned one that ran out comes
+ * with 0 and is over; taking it for ending kept it on 将结束, never announced (v0.7.80). */
 export const shownBuffs = (live: Live | null) =>
   currentBuffs(live).map(b => {
     const left = buffLeft(b, live);
-    return { ...b, left, ending: b.ending || (!!b.item_id && left <= 0) };
+    return { ...b, left, ending: b.ending || (!!b.item_id && b.seconds > 0 && left <= 0) };
   }).filter(b => b.left > 0 || b.pinned || b.ending);
 /** Seconds left now: the state is written each second, so count down locally in between. */
 export const buffLeft = (buff: Buff, live: Live | null) =>
