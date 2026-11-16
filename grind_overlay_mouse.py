@@ -117,6 +117,8 @@ class OverlayMouse:
         hwnd = self.service.overlay_hwnd
         if not hwnd or self.service.overlay is None:
             return None
+        if (self.service.settings().get('overlay') or {}).get('mouse_through'):
+            return None   # clicks go through to the game
         user = ctypes.windll.user32
         if not user.IsWindowVisible(ctypes.c_void_p(hwnd)):
             return None
@@ -185,10 +187,15 @@ class OverlayMouse:
                     pass
             return user.CallNextHookEx(self.hook, code, wparam, lparam)
 
+        # 64-bit handles: without these types the module handle is cut to 32 bits and the
+        # hook is refused (v0.7.71-72: "Overlay mouse hook unavailable", buttons dead).
+        kernel.GetModuleHandleW.argtypes = [ctypes.c_wchar_p]
+        kernel.GetModuleHandleW.restype = ctypes.c_void_p
+        user.UnhookWindowsHookEx.argtypes = [ctypes.c_void_p]
         self.callback = HOOKPROC(proc)
         self.hook = user.SetWindowsHookExW(WH_MOUSE_LL, self.callback, kernel.GetModuleHandleW(None), 0)
         if not self.hook:
-            print('Overlay mouse hook unavailable.', flush=True)
+            print(f'Overlay mouse hook unavailable ({kernel.GetLastError()}).', flush=True)
             return
         message = wintypes.MSG()
         while user.GetMessageW(ctypes.byref(message), None, 0, 0) > 0:

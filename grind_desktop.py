@@ -22,6 +22,7 @@ CALIBRATE_BYTES = 96 * 1024 * 1024
 OVERLAY_SIZES = dict(slim=(296, 230), compact=(730, 185), standard=(330, 640), detailed=(360, 785), rail=(140, 550), big=(290, 380))
 GWL_EXSTYLE = -20
 WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_APPWINDOW, WS_EX_NOACTIVATE = 0x80000, 0x80, 0x40000, 0x8000000
+WS_EX_TRANSPARENT = 0x20
 SW_HIDE, SW_SHOWNOACTIVATE = 0, 4
 OVERLAY_SCALE = (0.6, 2.0)
 WDA_NONE, WDA_EXCLUDEFROMCAPTURE = 0, 0x11
@@ -388,7 +389,7 @@ class GrindService:
         user.SetWindowLongPtrW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_ssize_t]
         before = user.GetWindowLongPtrW(ctypes.c_void_p(hwnd), GWL_EXSTYLE)
         stream = bool(settings['overlay'].get('stream'))
-        styles = overlay_styles(before, stream)
+        styles = overlay_styles(before, stream, bool(settings['overlay'].get('mouse_through')))
         if styles != before:
             # The taskbar only drops the button when the style changes while the window is hidden.
             user.ShowWindow(ctypes.c_void_p(hwnd), SW_HIDE)
@@ -492,7 +493,7 @@ class OverlayAPI:
         return self._service.save_settings({name: not self._service.settings()[name]})[name]
 
 
-def overlay_styles(styles, stream=False):
+def overlay_styles(styles, stream=False, click_through=False):
     """Extended window styles of the overlay: never focused and off the taskbar.
 
     A no-activate window has no taskbar button unless WS_EX_APPWINDOW asks for one. It must
@@ -501,8 +502,12 @@ def overlay_styles(styles, stream=False):
 
     Stream mode puts it back on the taskbar: tools such as 直播伴侣 list only the windows
     Alt+Tab would show, and a no-activate window is there only with WS_EX_APPWINDOW.
+
+    Click-through (an option): WS_EX_TRANSPARENT sends every click to the window below
+    (the game); the overlay's buttons then go unused (the hotkeys still pause and end).
     """
     styles = (styles | WS_EX_LAYERED | WS_EX_NOACTIVATE) & ~WS_EX_TOOLWINDOW
+    styles = styles | WS_EX_TRANSPARENT if click_through else styles & ~WS_EX_TRANSPARENT
     return styles | WS_EX_APPWINDOW if stream else styles & ~WS_EX_APPWINDOW
 
 

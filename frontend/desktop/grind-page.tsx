@@ -191,6 +191,7 @@ function SettingsView({ state, settings, save, refresh }: {
       <Check label={tr('直播模式（直播伴侣、OBS 可选中悬浮窗，任务栏会显示它）', 'Streaming (stream apps can pick the overlay; it shows on the taskbar)')} checked={!!o.stream}
         onChange={v => save({ overlay: v ? { stream: true, hide_in_capture: false } : { stream: false } })} />
       {!o.stream && <Check label={tr('录屏和直播时隐藏', 'Hide from recordings')} checked={o.hide_in_capture} onChange={v => save({ overlay: { hide_in_capture: v } })} />}
+      <Check label={tr('鼠标穿透（点击直接到游戏，悬浮窗按钮不可用，暂停和结束用快捷键）', 'Click-through (clicks go to the game; use the hotkeys to pause or end)')} checked={!!o.mouse_through} onChange={v => save({ overlay: { mouse_through: v } })} />
     </section>
     <section className="well"><div className="well-h"><h3>{tr('Buff 与热键', 'Buffs and hotkeys')}</h3></div>
       <NumberField label={tr('Buff 快结束时提醒', 'Warn before a buff ends')} unit={tr('秒', 's')} value={settings.buff_warn_seconds} min={0} max={120} onChange={v => save({ buff_warn_seconds: v })} />

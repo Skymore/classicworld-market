@@ -99,6 +99,7 @@ class ServiceTest(unittest.TestCase):
             service = GrindService(folder)
             settings = service.settings()
             self.assertNotIn('click_through', settings['overlay'])
+            self.assertFalse(settings['overlay']['mouse_through'])   # the option (new name: old saved click_through stays ignored)
             self.assertNotIn('edit', settings['hotkeys'])
             self.assertEqual(service.scale_overlay(1.234), 1.23)
             self.assertEqual(service.scale_overlay(9), 2.0)
@@ -130,6 +131,9 @@ class ServiceTest(unittest.TestCase):
         self.assertFalse(styles & WS_EX_TOOLWINDOW, 'stream software leaves tool windows out of its window list')
         self.assertTrue(styles & WS_EX_NOACTIVATE and styles & 0x8)
         self.assertFalse(styles & 0x20, 'the overlay takes the mouse so it can be dragged')
+        from grind_desktop import WS_EX_TRANSPARENT
+        self.assertTrue(overlay_styles(0, click_through=True) & WS_EX_TRANSPARENT)       # clicks go to the game
+        self.assertFalse(overlay_styles(WS_EX_TRANSPARENT) & WS_EX_TRANSPARENT)          # switched back off
         streaming = overlay_styles(WS_EX_TOOLWINDOW, stream=True)
         self.assertTrue(streaming & WS_EX_APPWINDOW, 'Alt+Tab lists, and the stream tools that copy them, need it')
         self.assertTrue(streaming & WS_EX_NOACTIVATE)

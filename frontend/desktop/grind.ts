@@ -50,7 +50,7 @@ export interface Live {
 }
 export interface OverlaySettings {
   enabled: boolean; layout: 'slim' | 'compact' | 'standard' | 'detailed' | 'rail' | 'big'; theme: 'dark' | 'market' | 'cute' | 'maple'; opacity: number; scale: number;
-  hide_in_capture: boolean; stream?: boolean; x: number | null; y: number | null; fields: string[];
+  hide_in_capture: boolean; stream?: boolean; mouse_through?: boolean; x: number | null; y: number | null; fields: string[];
 }
 export interface GrindSettings {
   enabled: boolean; record_frames: boolean; upload: boolean; idle_seconds: number; end_after_seconds: number;

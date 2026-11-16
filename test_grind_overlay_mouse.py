@@ -54,3 +54,20 @@ class OverlayPointerTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class OverlayMouseTest(unittest.TestCase):
+    def test_a_press_and_release_on_a_button_queues_its_click(self):
+        from unittest.mock import patch
+        from grind_overlay_mouse import OverlayMouse
+
+        class Service:
+            overlay_hwnd, overlay = 1, object()
+            def settings(self): return dict(overlay=dict(scale=1.0))
+        mouse = OverlayMouse(Service())
+        mouse.pointer.set_regions(REGIONS)
+        with patch.object(mouse, 'window', return_value=(1, RECT, 1.0)):
+            self.assertTrue(mouse.on_mouse(WM_LBUTTONDOWN, 1050, 715))     # kept from the game
+            self.assertTrue(mouse.on_mouse(WM_LBUTTONUP, 1050, 715))
+            self.assertFalse(mouse.on_mouse(WM_LBUTTONDOWN, 10, 10))       # outside: the game's
+        self.assertEqual(mouse.jobs.get_nowait(), ('click', 'pause'))
