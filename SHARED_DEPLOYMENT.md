@@ -190,6 +190,10 @@ v0.5.10 及以后的采集器从 `https://mxd.ruit.me/web/releases/stable.json` 
 
 诊断日志与报 Bug 截图压缩保存在非公开目录 `shared_data/diagnostics`，每分钟清理超过接收时间 7 天的文件（服务停止期间在下次启动时清理），总容量上限 512 MiB；清理同时覆盖遗留临时文件。
 
+刷图报文录像（客户端压缩后的 `frames_*.jsonl.gz`，`POST /api/v1/collector/grind-frames`，采集器令牌鉴权）保存在非公开目录 `shared_data/grind-frames/<采集器编号>/`，没有读取接口；每 10 分钟清理接收超过 30 天的文件，总量上限 40 GiB（满了拒收，客户端稍后重试）。内测阶段客户端一律上传。这个目录和诊断目录一样不进仓库、不进网站包。
+
+部署前确认 `cargo build` 本身返回成功：编译器崩溃时 `target/release` 里留下的是上一次的程序，打包不会报错（2026-11-15 曾因此把旧程序发上线）。
+
 ## 网站流量统计
 
 网站通过 `/api/v1/traffic/event` 记录匿名页面访问，PostgreSQL 的 `site_pageviews` 属于网站数据库；仅在用户明确要求备份时与网站数据一同备份。所有访客均可在主站 `https://mxd.ruit.me/traffic` 查看浏览量、今日访客、地区地图、来源域名与设备分布；首页页脚提供「网站流量」入口。流量页使用主站 React 导航、窗口样式与昼夜主题，不展示统计说明长文、每日明细或分页面排行。`/api/v1/traffic/summary` 公开汇总数字，不返回逐次访问、访客标识或账号数据。
