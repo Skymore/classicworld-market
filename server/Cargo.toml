@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/market-core", "crates/market-reader-wasm", "crates/market-web"]
+members = ["crates/grind-native", "crates/market-core", "crates/market-reader-wasm", "crates/market-web"]
 
 [workspace.package]
 version = "0.1.0"

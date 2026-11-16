@@ -1,0 +1,21 @@
+[package]
+name = "grind-native"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Native replay core for the collector's grind tracker (Python extension module)"
+
+[lib]
+name = "grind_native"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+flate2 = "1"
+pyo3 = { version = "0.22", optional = true, features = ["extension-module", "abi3-py312", "generate-import-lib"] }
+serde_json = { workspace = true }
+
+[features]
+# The Python extension module (the collector bundle). Off for workspace builds and tests:
+# the replay logic is plain Rust and is tested without Python.
+python = ["dep:pyo3"]
