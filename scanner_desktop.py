@@ -1087,6 +1087,12 @@ class DesktopController:
                 self._closed.set()
                 if self._window:
                     self._window.destroy()
+                # Everything is saved by now. A process still alive 20 s after its window
+                # closed blocks the update helper, which gives up after 150 s: the app
+                # looked frozen with no window and no capture (2026-11-15, v0.7.80→81).
+                time.sleep(20)
+                print('Exit did not finish; ending the process.', flush=True)
+                os._exit(0)
             threading.Thread(target=finish, daemon=True).start()
         return self._closed.is_set()
 

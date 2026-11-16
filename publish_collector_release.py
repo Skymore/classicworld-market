@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.82：修复更新时老版本关不掉、软件像卡死（后台重算收到退出就停，关窗 20 秒后仍未退出则强制退出）。\n'
         'v0.7.81：修复常用药水用完后一直显示“将结束”、不提醒。\n'
         'v0.7.80：速度曲线跳过暂停时间，暂停那段不再画成掉到 0。\n'
         'v0.7.79：修复药水类 buff 在名义时间到、服务器还没结束时提早报一次，真正结束时又报一次。\n'

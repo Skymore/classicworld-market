@@ -81,7 +81,7 @@ def setup(folder, target, clock, prices, settings=None):
     return Rebuild(folder.parent, prices, target, clock)
 
 
-def prepare(folder):
+def prepare(folder, stop=None):
     data = Path(folder)/'grind'
     current = json.loads((data/'current.json').read_text(encoding='utf-8'))
     with contextlib.closing(sqlite3.connect(data/'history.sqlite')) as db:
@@ -102,6 +102,8 @@ def prepare(folder):
             tracker = setup(Path(tmp)/'grind', target, clock, Prices(data/'prices.json'), load_settings(data/'settings.json'))
             tracker.profile = __import__('grind_protocol').load_profile(data/'protocol.json')
             for name, offset, record in frames(data):
+                if stop is not None and stop.is_set():
+                    return None   # closing or updating: replaying 30 days must not hold the app open
                 replay_record(tracker, inventories, record, clock)
                 offsets[name] = offset
                 c = tracker.characters.get(record.get('s'))

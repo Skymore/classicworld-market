@@ -295,7 +295,7 @@ class GrindService:
             if not self.stop.is_set():
                 try:
                     from grind_reconcile import prepare
-                    prepare(self.folder)
+                    prepare(self.folder, self.stop)
                 except (OSError, ValueError, KeyError, sqlite3.Error):
                     pass
         threading.Thread(target=replay_and_reconcile,
