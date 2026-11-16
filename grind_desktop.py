@@ -282,22 +282,30 @@ class GrindService:
                          daemon=True, name='grind-frame-upload').start()
         if not self.settings()['record_frames']:
             self.save_settings(dict(record_frames=True))   # the option was removed: always record
-        from grind_replay import replay_once
-        from collector_update import VERSION
+        from grind_replay import REPLAY_VERSION, replay_once
         def replay_and_reconcile():
+            # Only when this release carries a parser/accounting fix (REPLAY_VERSION):
+            # the open run first (its own connections, seconds), then history newest first.
+            try:
+                status = json.loads((self.data / 'replay.json').read_text(encoding='utf-8'))
+            except (OSError, ValueError):
+                status = {}
+            if status.get('version') == REPLAY_VERSION and status.get('state') == 'done':
+                return
+            try:
+                from grind_reconcile import prepare
+                prepare(self.folder, self.stop)
+            except (OSError, ValueError, KeyError, sqlite3.Error):
+                pass
+            if self.stop.is_set():
+                return
             fetch = None
             config = self.sync.config()
             if config:
                 from grind_pricing import site_fetch
                 from shared_client import upload_opener
                 fetch = site_fetch(config, upload_opener)
-            replay_once(self.folder, VERSION, self.stop, fetch=fetch)
-            if not self.stop.is_set():
-                try:
-                    from grind_reconcile import prepare
-                    prepare(self.folder, self.stop)
-                except (OSError, ValueError, KeyError, sqlite3.Error):
-                    pass
+            replay_once(self.folder, REPLAY_VERSION, self.stop, fetch=fetch)
         threading.Thread(target=replay_and_reconcile,
                          daemon=True, name='grind-replay').start()
         self.apply_overlay(self.settings())

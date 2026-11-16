@@ -78,6 +78,53 @@ class ReplayTest(unittest.TestCase):
             self.assertEqual(replay_once(root, 'test-v2'), result)
 
 
+class GroupTest(unittest.TestCase):
+    def test_stretches_start_at_a_new_connection_that_no_run_spans(self):
+        from grind_replay import file_start, frame_groups
+        names = ['frames_20261115_100000_aaaa.jsonl.gz', 'frames_20261115_110000_aaaa.jsonl.gz',   # one connection
+                 'frames_20261115_111500_bbbb.jsonl.gz',     # channel change during a run: same stretch
+                 'frames_20261115_150000_cccc.jsonl',        # new connection, no run going on: new stretch
+                 'frames_20261115_160000_cccc.jsonl']
+        at = lambda name: file_start(Path(name))
+        spans = [(at(names[1]) + 60, at(names[2]) + 600)]
+        import grind_replay
+        grind_replay.opens_with_snapshot, kept = (lambda path: True), grind_replay.opens_with_snapshot
+        self.addCleanup(setattr, grind_replay, 'opens_with_snapshot', kept)
+        groups = frame_groups([(Path(n), 0) for n in names], spans)
+        self.assertEqual([key for key, _ in groups], ['frames_20261115_150000_cccc.jsonl', 'frames_20261115_100000_aaaa.jsonl'])
+        self.assertEqual([p.name for p, _ in groups[1][1]], names[:3])   # forward inside a stretch
+        self.assertEqual(len(frame_groups([(Path(n), 0) for n in names])), 3)   # without that run: bbbb starts its own
+        grind_replay.opens_with_snapshot = lambda path: 'bbbb' not in path.name   # a restart's takeover: no snapshot
+        self.assertEqual(len(frame_groups([(Path(n), 0) for n in names])), 2)
+
+    def test_a_stopped_rebuild_resumes_without_redoing_finished_stretches(self):
+        import threading
+        import grind_replay
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            write_json(root/'grind/settings.json', dict(record_frames=True, upload=False))
+            for name in ('frames_20261101_100000_aaaa.jsonl', 'frames_20261101_180000_bbbb.jsonl'):
+                path = root/'grind/frames'/name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(dict(t=time.time(), s='x', h='a901' + '00' * 600)) + '\n')   # opens with a snapshot
+            seen, stop, original = [], threading.Event(), grind_replay.replay_group
+            def once(settings, prices, group, *rest):
+                seen.append(group[0][0].name)
+                if len(seen) == 2:
+                    stop.set()
+                    return None
+                return [], {}, {}, 1, type('R', (), {'results': []})()
+            grind_replay.replay_group = once
+            try:
+                self.assertIsNone(replay_once(root, 'v', stop))
+                self.assertEqual(seen, ['frames_20261101_180000_bbbb.jsonl', 'frames_20261101_100000_aaaa.jsonl'])
+                stop.clear()
+                self.assertEqual(replay_once(root, 'v', stop)['state'], 'done')
+                self.assertEqual(seen[2:], ['frames_20261101_100000_aaaa.jsonl'])   # the newer one was kept
+            finally:
+                grind_replay.replay_group = original
+
+
 class RepriceTest(unittest.TestCase):
     def test_runs_the_frames_did_not_rebuild_take_todays_prices_except_equipment(self):
         import contextlib, json, sqlite3, tempfile

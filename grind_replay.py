@@ -6,7 +6,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from grind_frames import RETENTION_SECONDS, frame_files, frame_size, open_frames
+from grind_frames import RETENTION_SECONDS, current_path, frame_files, frame_name, frame_size, open_frames
 from grind_pricing import Prices
 from grind_tracker import Tracker, load_settings, write_json
 from market_inventory import Inventory
@@ -27,17 +27,85 @@ class ReplayTracker(Tracker):
         self.last_publish = now
 
 
+# Bump when a parser or accounting fix should rebuild history from the recordings.
+# Releases that only change the interface keep it, and nothing is replayed (2026-11-15:
+# every release replayed 30 days, 5.6 M frames, ~13 min of a CPU core, for nothing).
+REPLAY_VERSION = 'r1-2026-11-15'
+
+
+def file_start(path):
+    """When a recording starts: its first record's time (the name is local time, which a
+    clock or time zone change can move), else the time in frames_YYYYMMDD_HHMMSS_<s>."""
+    try:
+        with open_frames(current_path(path)) as stream:
+            return float(json.loads(stream.readline())['t'])
+    except (OSError, ValueError, KeyError, TypeError, EOFError):
+        pass
+    try:
+        stamp = '_'.join(frame_name(path).split('_')[1:3])
+        return time.mktime(time.strptime(stamp, '%Y%m%d_%H%M%S'))
+    except (ValueError, IndexError):
+        return None
+
+
+def opens_with_snapshot(path, lines=4000):
+    """Whether a recording begins a connection with its full character snapshot (0x1a6 /
+    0x1a9: bags, mesos), as a login or channel change does. A collector restart takes over
+    the same connection under a new session name without one (2026-11-15: replay cut
+    there, its runs lost their bags and counted no loot or consumables)."""
+    try:
+        with open_frames(current_path(path)) as stream:
+            for _ in range(lines):
+                line = stream.readline()
+                if not line:
+                    break
+                record = json.loads(line)
+                hexed = record.get('h') or ''
+                if not record.get('c') and len(hexed) >= 1024 and hexed[:4] in ('a601', 'a901'):
+                    return True
+    except (OSError, ValueError, EOFError):
+        pass
+    return False
+
+
+def frame_groups(files, spans=()):
+    """Recordings in independent stretches, newest first, each replayed forward.
+
+    A stretch starts where a new game connection does (its first file opens with the login
+    or channel-change snapshot that bags and buffs build up from) and no run in `spans`
+    ((start, end) of saved and open runs) is going on, so no run is split between two.
+    The client records around the clock, an hour per file without gaps, so time gaps
+    alone never split 30 days (2026-11-15: rebuilding the open run still read them all)."""
+    groups, seen = [], set()
+    for path, size in files:
+        start = file_start(path)
+        if start is None:
+            continue
+        session = frame_name(path).rsplit('_', 1)[-1].split('.', 1)[0]
+        cut = (session not in seen and groups
+               and not any(a < start < b for a, b in spans) and opens_with_snapshot(path))
+        seen.add(session)
+        if cut or not groups:
+            groups.append([(path, size)])
+        else:
+            groups[-1].append((path, size))
+    return [(frame_name(g[0][0]), g) for g in reversed(groups)]
+
+
 def replay_once(folder, version, stop=None, force=False, fetch=None):
+    """Rebuild saved history from the recordings, newest stretch first; each stretch
+    replaces its runs as soon as it is done, and progress survives a restart."""
     folder = Path(folder)
     data = folder / 'grind'
     status = data / 'replay.json'
+    previous = {}
     try:
         previous = json.loads(status.read_text(encoding='utf-8'))
         if (not force and previous.get('version') == version and previous.get('state') == 'done'
                 and (data / 'replay-results.json').exists()):
             return previous
     except (OSError, ValueError):
-        pass
+        previous = {}
     if not load_settings(data / 'settings.json')['record_frames']:
         return None
     now = time.time()
@@ -49,108 +117,136 @@ def replay_once(folder, version, stop=None, force=False, fetch=None):
                 files.append((p, frame_size(p)))
         except OSError:
             continue   # compressed or pruned meanwhile; listed again next version
+    resume = not force and previous.get('version') == version and previous.get('state') in ('running', 'failed')
+    done = set(previous.get('groups') or []) if resume else set()
+    totals = {k: (previous.get(k) or 0) if resume else 0 for k in ('frames', 'rebuilt', 'updated', 'identities')}
+    started = previous.get('started_at', now) if resume else now
+    results = []
+    if resume:
+        try:
+            results = json.loads((data / 'replay-results.json').read_text(encoding='utf-8')).get('runs') or []
+        except (OSError, ValueError):
+            results = []
 
-    write_json(status, dict(version=version, state='running', started_at=now))
+    def progress(state, **extra):
+        write_json(status, dict(version=version, state=state, started_at=started, groups=sorted(done), **totals, **extra))
+
+    progress('running')
     try:
-        with tempfile.TemporaryDirectory(prefix='grind-replay-') as temporary:
-            settings = load_settings(data / 'settings.json')
-            settings.update(enabled=True, record_frames=False, upload=False)
-            write_json(Path(temporary) / 'grind/settings.json', settings)
-            clock = [0.0]
-            prices = Prices(data / 'prices.json', fetch)
-            # Rebuilt history uses today's prices: fetch them first rather than
-            # pricing with a cache an older client filled.
-            prices.refresh_now(list(prices.rows))
-            tracker = ReplayTracker(temporary, prices, now=lambda: clock[0])
-            from grind_history_repair import HistoryRepair, apply_identities
-            repair = HistoryRepair(data)
-            inventories, first, last = {}, {}, {}
-            boundaries = []
-            if (data / 'history.sqlite').exists():
-                with contextlib.closing(sqlite3.connect(data / 'history.sqlite')) as db:
-                    for raw, in db.execute('SELECT summary FROM runs'):
-                        old = json.loads(raw)
-                        if old.get('ended_at') and old.get('started_at'):
-                            boundaries.append((old['ended_at'], old['started_at'], old.get('character', {}).get('key')))
-            boundaries.sort(key=lambda row: row[0], reverse=True)
-            ticks = count = 0
-            for path, size in files:
-                with open_frames(path) as stream:
-                    while stream.tell() < size:
-                        line = stream.readline()
-                        if stream.tell() > size or not line.endswith(b'\n'):
-                            break
-                        if stop is not None and stop.is_set():
-                            return None
-                        try:
-                            record = json.loads(line)
-                            if record.get('a') in ('pause', 'resume', 'toggle', 'end'):
-                                clock[0] = max(clock[0], float(record['t']))
-                                write_json(Path(temporary) / 'grind/command.json',
-                                           dict(id=f'replay-{path.name}-{stream.tell()}', action=record['a'], at=clock[0]))
-                                tracker.command(clock[0])
-                                for character in tracker.characters.values():
-                                    if character.key:
-                                        last[character.key] = clock[0]
-                                continue
-                            stamp, session = float(record['t']), str(record['s'])
-                            payload = bytes.fromhex(record['h'])
-                        except (ValueError, KeyError, TypeError):
-                            continue
-                        if stamp < now - RETENTION_SECONDS:
-                            continue
-                        # Older logs omitted UI commands. Preserve explicit saved
-                        # end boundaries rather than inventing new combined runs.
-                        while boundaries and boundaries[-1][0] <= stamp:
-                            end, start, key = boundaries.pop()
-                            for character in tracker.characters.values():
-                                if (character.key == key and character.run
-                                        and abs(character.run.started_at - start) <= 5):
-                                    clock[0] = end
-                                    tracker.end(character, end)
-                        clock[0] = max(clock[0], stamp)
-                        count += 1
-                        if clock[0] - ticks >= 5:
-                            tracker.tick()
-                            ticks = clock[0]
-                        if record.get('c'):
-                            character = tracker.characters.get(session)
-                            if character is None:
-                                continue
-                            if character is not None and record.get('i') is not None and character.table is None:
-                                character.table = []  # Mapping index was saved with the frame.
-                            tracker.observe_client(session, payload, recorded_index=record.get('i'))
-                        else:
-                            inv = inventories.setdefault(session, Inventory())
-                            inv.observe(payload, session)
-                            tracker.observe(session, payload, inv)
-                            character = tracker.characters.get(session)
-                            if character and character.character_id:
-                                key = character.key
-                                first.setdefault(key, stamp)
-                                last[key] = stamp
-                        repair.frame(tracker, stamp, session)
-                # Yield to the real-time capture worker between files.
-                time.sleep(.01)
-            for character in list(tracker.characters.values()):
-                if character.run:
-                    tracker.end(character, clock[0])
-            for run in list(tracker.restored):
-                tracker.finish(run, clock[0])
-            # Keep rebuilt results even where old versions omitted session
-            # boundaries and an in-place history replacement is ambiguous.
-            if not write_json(data / 'replay-results.json', dict(version=version, runs=tracker.results)):
+        settings = load_settings(data / 'settings.json')
+        settings.update(enabled=True, record_frames=False, upload=False)
+        prices = Prices(data / 'prices.json', fetch)
+        # Rebuilt history uses today's prices: fetch them first rather than
+        # pricing with a cache an older client filled.
+        prices.refresh_now(list(prices.rows))
+        boundaries = []
+        if (data / 'history.sqlite').exists():
+            with contextlib.closing(sqlite3.connect(data / 'history.sqlite')) as db:
+                for raw, in db.execute('SELECT summary FROM runs'):
+                    old = json.loads(raw)
+                    if old.get('ended_at') and old.get('started_at'):
+                        boundaries.append((old['ended_at'], old['started_at'], old.get('character', {}).get('key')))
+        boundaries.sort(key=lambda row: row[0], reverse=True)
+        from grind_history_repair import HistoryRepair, apply_identities
+        spans = [(start, end) for end, start, _ in boundaries]
+        for key, group in frame_groups(files, spans):
+            if key in done:
+                continue
+            outcome = replay_group(settings, prices, group, list(boundaries), now, stop, HistoryRepair(data))
+            if outcome is None:
+                return None   # stopped: finished stretches stay applied, the rest resumes
+            runs, first, last, count, repair = outcome
+            totals['frames'] += count
+            totals['rebuilt'] += len(runs)
+            totals['updated'] += apply_results(data, runs, first, last, version)
+            totals['identities'] += apply_identities(data, repair.results, prices, version)
+            results += runs
+            if not write_json(data / 'replay-results.json', dict(version=version, runs=results)):
                 raise OSError('Could not save replay results')
-            updated = apply_results(data, tracker.results, first, last, version)
-            identities = apply_identities(data, repair.results, tracker.prices, version)
-            repriced = reprice_history(data, tracker.prices, version)
-        result = dict(version=version, state='done', frames=count, rebuilt=len(tracker.results),
-                      updated=updated, identities=identities, repriced=repriced, finished_at=time.time())
+            done.add(key)
+            progress('running')
+        repriced = reprice_history(data, prices, version)
+        result = dict(version=version, state='done', **totals, repriced=repriced, finished_at=time.time())
         write_json(status, result)
         return result
     except Exception as error:
-        write_json(status, dict(version=version, state='failed', error=type(error).__name__))
+        progress('failed', error=type(error).__name__)
         return None
+
+
+def replay_group(settings, prices, group, boundaries, now, stop, repair):
+    """One stretch, forward, in a fresh tracker: (runs, first, last, frames, repair),
+    or None when stopped."""
+    with tempfile.TemporaryDirectory(prefix='grind-replay-') as temporary:
+        write_json(Path(temporary) / 'grind/settings.json', settings)
+        clock = [0.0]
+        tracker = ReplayTracker(temporary, prices, now=lambda: clock[0])
+        inventories, first, last = {}, {}, {}
+        ticks = count = 0
+        for path, size in group:
+            with open_frames(current_path(path)) as stream:
+                while stream.tell() < size:
+                    line = stream.readline()
+                    if stream.tell() > size or not line.endswith(b'\n'):
+                        break
+                    if stop is not None and stop.is_set():
+                        return None
+                    try:
+                        record = json.loads(line)
+                        if record.get('a') in ('pause', 'resume', 'toggle', 'end'):
+                            clock[0] = max(clock[0], float(record['t']))
+                            write_json(Path(temporary) / 'grind/command.json',
+                                       dict(id=f'replay-{frame_name(path)}-{stream.tell()}', action=record['a'], at=clock[0]))
+                            tracker.command(clock[0])
+                            for character in tracker.characters.values():
+                                if character.key:
+                                    last[character.key] = clock[0]
+                            continue
+                        stamp, session = float(record['t']), str(record['s'])
+                        payload = bytes.fromhex(record['h'])
+                    except (ValueError, KeyError, TypeError):
+                        continue
+                    if stamp < now - RETENTION_SECONDS:
+                        continue
+                    # Older logs omitted UI commands. Preserve explicit saved
+                    # end boundaries rather than inventing new combined runs.
+                    while boundaries and boundaries[-1][0] <= stamp:
+                        end, start, key = boundaries.pop()
+                        for character in tracker.characters.values():
+                            if (character.key == key and character.run
+                                    and abs(character.run.started_at - start) <= 5):
+                                clock[0] = end
+                                tracker.end(character, end)
+                    clock[0] = max(clock[0], stamp)
+                    count += 1
+                    if clock[0] - ticks >= 5:
+                        tracker.tick()
+                        ticks = clock[0]
+                    if record.get('c'):
+                        character = tracker.characters.get(session)
+                        if character is None:
+                            continue
+                        if record.get('i') is not None and character.table is None:
+                            character.table = []  # Mapping index was saved with the frame.
+                        tracker.observe_client(session, payload, recorded_index=record.get('i'))
+                    else:
+                        inv = inventories.setdefault(session, Inventory())
+                        inv.observe(payload, session)
+                        tracker.observe(session, payload, inv)
+                        character = tracker.characters.get(session)
+                        if character and character.character_id:
+                            key = character.key
+                            first.setdefault(key, stamp)
+                            last[key] = stamp
+                    repair.frame(tracker, stamp, session)
+            # Yield to the real-time capture worker between files.
+            time.sleep(.01)
+        for character in list(tracker.characters.values()):
+            if character.run:
+                tracker.end(character, clock[0])
+        for run in list(tracker.restored):
+            tracker.finish(run, clock[0])
+        return tracker.results, first, last, count, repair
 
 
 def reprice_history(data, prices, version):

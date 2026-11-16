@@ -11,7 +11,8 @@ import tempfile
 import time
 from pathlib import Path
 
-from grind_frames import frame_files, frame_name, frame_size, open_frames
+from grind_frames import current_path, frame_files, frame_name, frame_size, open_frames
+from grind_replay import file_start, frame_groups
 from grind_handoff import encode, decode, snapshot, restore
 from grind_pricing import Prices
 from grind_tracker import Tracker, load_settings, write_json
@@ -56,11 +57,16 @@ def replay_record(tracker, inventories, record, clock):
         tracker.tick()
 
 
-def frames(data, offsets=None):
+def frames(data, offsets=None, paths=None):
     # Offsets are by name without ".gz" and in uncompressed bytes, so a file
-    # compressed between the two passes continues where it left off.
-    for path in frame_files(data/'frames'):
+    # compressed between the two passes continues where it left off. Files older
+    # than the first one with an offset were not part of the first pass.
+    oldest = min(offsets) if offsets else None
+    for path in (frame_files(data/'frames') if paths is None else paths):
         name = frame_name(path)
+        if oldest is not None and name < oldest:
+            continue
+        path = current_path(path)
         start = (offsets or {}).get(name, 0)
         size = frame_size(path)
         if size < start:
@@ -98,10 +104,19 @@ def prepare(folder, stop=None):
         # to an unread equipment swap), when the recording covers its start.
         covered = False
         clock, offsets, inventories, evidence = [0.0], {}, {}, set()
+        # Only the stretch of connections the run is in, from its login snapshot on:
+        # seconds, not a replay of 30 days (2026-11-15: ~10 min, and the app would not close).
+        spans = [(r['started_at'], r['ended_at']) for r in history if r.get('started_at') and r.get('ended_at')]
+        spans.append((target['started_at'], float('inf')))
+        chosen = []
+        for _, group in frame_groups([(p, 0) for p in frame_files(data/'frames')], spans):
+            chosen[:0] = [p for p, _ in group]
+            if file_start(group[0][0]) <= target['started_at']:
+                break
         with tempfile.TemporaryDirectory(prefix='grind-reconcile-') as tmp:
             tracker = setup(Path(tmp)/'grind', target, clock, Prices(data/'prices.json'), load_settings(data/'settings.json'))
             tracker.profile = __import__('grind_protocol').load_profile(data/'protocol.json')
-            for name, offset, record in frames(data):
+            for name, offset, record in frames(data, paths=chosen):
                 if stop is not None and stop.is_set():
                     return None   # closing or updating: replaying 30 days must not hold the app open
                 replay_record(tracker, inventories, record, clock)
