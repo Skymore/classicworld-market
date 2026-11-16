@@ -20,6 +20,8 @@ from market_inventory import Inventory
 
 
 class Rebuild(Tracker):
+    read_presets = False   # only the live auto-buff prompt uses the keyboard preset
+
     def __init__(self, folder, prices, target, clock):
         self.target = target
         self.results = []

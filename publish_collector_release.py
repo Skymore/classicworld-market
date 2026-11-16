@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.84：重算快约 5 倍（背包只在变化时汇总、重算时不读键位预设），结果不变。\n'
         'v0.7.83：只有修了解析的版本才重算；先重算本场（十几秒），再从新到旧逐段重建历史，中途关掉下次接着算。\n'
         'v0.7.82：修复更新时老版本关不掉、软件像卡死（后台重算收到退出就停，关窗 20 秒后仍未退出则强制退出）。\n'
         'v0.7.81：修复常用药水用完后一直显示“将结束”、不提醒。\n'

@@ -13,6 +13,8 @@ from market_inventory import Inventory
 
 
 class ReplayTracker(Tracker):
+    read_presets = False
+
     def __init__(self, *args, **kwargs):
         self.results = []
         super().__init__(*args, **kwargs)

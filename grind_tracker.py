@@ -18,6 +18,7 @@ import json
 import math
 import sqlite3
 import time
+import weakref
 import uuid
 from pathlib import Path
 
@@ -91,6 +92,27 @@ def equipment_pieces(inventory):
         pieces[key] += 1
         examples[key] = piece
     return pieces, examples
+
+
+_VIEWS = weakref.WeakKeyDictionary()
+
+
+def bag_view(inventory):
+    """(bag_totals, equipment_pieces), computed again only when the bags changed. Every
+    message used to recount the whole bag and key every piece of equipment (a JSON dump
+    each): 57 % of a replay's time (2026-11-15 profile). Inventory replaces its dicts on
+    each change, never edits them, so the same objects mean the same contents; the cache
+    keeps them referenced, so their identities cannot be reused."""
+    from market_inventory import Inventory
+    if type(inventory) is not Inventory:   # stand-ins (tests) may edit their dicts in place
+        return bag_totals(inventory), equipment_pieces(inventory)
+    cached = _VIEWS.get(inventory)
+    if (cached and cached[0] is inventory.slots and cached[1] is inventory.equipment
+            and cached[2] is inventory.worn):
+        return cached[3], cached[4]
+    bags, pieces = bag_totals(inventory), equipment_pieces(inventory)
+    _VIEWS[inventory] = (inventory.slots, inventory.equipment, inventory.worn, bags, pieces)
+    return bags, pieces
 
 
 class Cumulative:
@@ -349,6 +371,11 @@ class Character:
 
 
 class Tracker:
+    # The keyboard preset only feeds the live auto-buff prompt. Reading it scans each
+    # full character snapshot for its key table, a third of a replay's time after the
+    # bag cache (2026-11-15 profile); replays and rebuilds turn it off.
+    read_presets = True
+
     def __init__(self, folder, prices, now=time.time):
         self.folder = Path(folder)
         self.data = self.folder / 'grind'
@@ -407,7 +434,7 @@ class Tracker:
             character = self.characters[session] = Character(session)
             self.adopt(character)
         op = int.from_bytes(data[:2], 'little')
-        if op in AUTO_BUFF_OPS:
+        if op in AUTO_BUFF_OPS and (self.read_presets or op not in autobuff.PRESET_OPCODES):
             autobuff.observe_server(character, op, data)
         if op == 0x32:
             from classicworld_codec import opcode_table
@@ -884,11 +911,10 @@ class Tracker:
             run.combat.damage(actor, name, own, event['targets'], event['t'], run.active_seconds(event['t']))
 
     def inventory(self, character, inventory, now, rebase=False):
-        bags = bag_totals(inventory)
+        bags, pieces = bag_view(inventory)
         self.bridge_blind(character, bags, inventory.mesos, now, rebase or character.bags is None)
         previous_slots = character.bag_slots
         character.bag_slots = None if inventory.slots is None else dict(inventory.slots)
-        pieces = equipment_pieces(inventory)
         if character.mesos is None and inventory.mesos is not None:
             character.mesos = inventory.mesos
         if rebase:
