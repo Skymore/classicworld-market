@@ -22,7 +22,9 @@ EVERY = 60
 LIVE_EVERY = 10      # seconds between live pushes while a run is open
 LIVE_KEEPALIVE = 45  # push an unchanged run this often so the site keeps it
 BATCH = 20
-DROP = ('recent',)
+# Not for the site: rows kept elsewhere, and the player's own pets (names they chose; the
+# overlay's feeding reminder only).
+DROP = ('recent', 'pets')
 
 
 def clean(run):
@@ -163,7 +165,7 @@ class RunSync:
             state = json.loads((self.folder / 'grind_state.json').read_text(encoding='utf-8'))
         except (OSError, ValueError):
             return []
-        return [r for r in state.get('runs') or [] if r.get('id') and r.get('status') in ('active', 'paused')][:4]
+        return [clean(r) for r in state.get('runs') or [] if r.get('id') and r.get('status') in ('active', 'paused')][:4]
 
     def live_once(self, now=None):
         """Pushes the open runs when they changed (or to keep them alive); True when sent."""

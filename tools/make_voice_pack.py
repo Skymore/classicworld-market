@@ -64,7 +64,9 @@ KOREAN = {
 
 
 WARNINGS = {'hp_low': {'zh': '血量低', 'en': 'Low HP', 'ko': '체력 부족'},
-            'drop_alert': {'zh': '有好东西掉了', 'en': 'Valuable drop', 'ko': '좋은 아이템이 떨어졌어요'}}
+            'drop_alert': {'zh': '有好东西掉了', 'en': 'Valuable drop', 'ko': '좋은 아이템이 떨어졌어요'},
+            'pet_hungry': {'zh': '宠物饿了，请喂食', 'en': 'Pet is hungry, feed it', 'ko': '펫이 배고파요, 먹이를 주세요'},
+            'pet_away': {'zh': '宠物没出来，请召唤', 'en': 'No pet out, summon one', 'ko': '펫이 없어요, 소환해 주세요'}}
 
 
 def lines():

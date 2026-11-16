@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.89：宠物喂食提醒：悬浮窗 Buff 区显示宠物饱食度，低于 20 说“宠物饿了，请喂食”，宠物都没出来说“宠物没出来，请召唤”，各两次。\n'
         'v0.7.88：背包解析更稳：商城栏、商城装备栏里没见过的变化一律跳过，不再让背包变未知；读不懂的背包消息记进诊断日志。\n'
         'v0.7.87：修复商城栏、商城装备栏和宠物刷新让背包读不出、每 20 分钟左右提示换频道；更新后用本机报文补算本场和历史。\n'
         'v0.7.86：低血量预警单独一个开关（默认开）；血量低于 1.5 倍最大伤害且低于 40% 满血，或低于 1 倍最大伤害时提醒。\n'

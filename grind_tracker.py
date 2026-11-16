@@ -27,6 +27,7 @@ import grind_combat as combat
 from grind_data import exp_to_next, job_name
 from grind_skills import FOLLOW_UPS, PROCS, skill_name
 import grind_autobuff as autobuff
+import grind_pets
 
 DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, end_after_seconds=600,
                 start_events=3, start_window=60, price_basis='typical', notable_value=500000,
@@ -340,6 +341,7 @@ class Character:
         self.mp = None
         self.max_mp = None
         self.pet_potions = {}       # 'hp' / 'mp' -> the item the pet was set to use
+        self.pets = {}              # pet serial -> grind_pets state (fullness, out or in the bag)
         self.rise_at = {}           # 'hp' / 'mp' -> when it last went up (a potion took)
         self.table = None
         self.exp_messages = 0       # experience announced since the last experience update
@@ -449,6 +451,8 @@ class Tracker:
             self.stat(character, data, now)
         else:
             self.other(character, data, now)
+        if op in (0x72, 0x1a6, 0x1a9):
+            grind_pets.observe(character.pets, data, proto.is_snapshot(data), now)
         if inventory.session == session:
             self.inventory(character, inventory, now, rebase=proto.is_snapshot(data))
 
@@ -529,7 +533,7 @@ class Tracker:
         character.staged_combat.clear()
         self.dirty = True
 
-    CARRIED = ('buffs', 'buff_masks', 'buff_on', 'buff_ended', 'pet_potions')
+    CARRIED = ('buffs', 'buff_masks', 'buff_on', 'buff_ended', 'pet_potions', 'pets')
 
     def carry_buffs(self, character, source):
         """A channel change opens a new connection, and the server does not send the
@@ -1525,6 +1529,7 @@ class Tracker:
             attacks=[dict(skill=k, name=skill_name(k) if k else '普通攻击', count=v, follow_up=k in FOLLOW_UPS) for k, v in run.attacks.most_common() if v],
             casts=[dict(skill=k, name=skill_name(k), count=v) for k, v in run.casts.most_common() if v],
             buffs=self.buffs(character, now),
+            pets=grind_pets.view(character.pets, now) if character and run.status != 'ended' else [],
             in_combat=self.in_combat(character, now),
             channel_change=self.channel_change(run, character, now),
             vitals=self.vitals(character, now),
@@ -1782,7 +1787,7 @@ class Tracker:
         state = dict(alive_at=now, runs=runs, finished=self.finished[:5],
                      calibration=[dict(label=a, state=b) for a, b in calibration_summary(self.profile)],
                      recording=self.frames is not None and not self.frames.failed,
-                     characters=[dict(c.facts(), map_id=c.map_id, buffs=self.buffs(c, now),
+                     characters=[dict(c.facts(), map_id=c.map_id, buffs=self.buffs(c, now), pets=grind_pets.view(c.pets, now),
                                       drops=[self.drop_view(d) for d in c.drops if self.drop_shown(c, d, now)]) for c in self.characters.values()],
                      protocol_warning=bool(self.suspect()),
                      auto_buff=self.auto_buff.status() if self.auto_buff else None)

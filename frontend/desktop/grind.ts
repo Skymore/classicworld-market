@@ -11,6 +11,8 @@ export interface Consumable { item_id: number; name: string | null; used: number
 /** A valuable item that just fell for this character or its party (grind_tracker.ground_drop). */
 export interface GroundDrop { t: number; object: number; item_id: number; name: string | null; value: number | null; by?: 'me' | 'party' | null; by_name?: string | null;
   gone?: number; how?: 'expired' | 'gone' | 'picked' | 'pet'; taker?: 'me' | 'party' | 'other' | null; taker_name?: string | null }
+/** The player's own pet (grind_pets.view): fullness 0-100, out or back in the bag. */
+export interface Pet { serial: string; item_id: number; name: string | null; level: number | null; fullness: number | null; out: boolean; hungry: boolean }
 export interface Buff { source: number; name: string | null; seconds: number; total: number; item_id: number | null; pinned?: boolean; proc?: boolean; on?: number | null; ending?: boolean }
 export interface CombatRow {
   dps_5m?: number | null; kills_5m?: number; exp_received_5m?: number | null; kill_exp_5m?: number | null; exp_contribution_5m?: number | null; exp_yield_5m?: number | null;
@@ -35,7 +37,7 @@ export interface RunSummary {
   net_per_hour: number | null; net_per_hour_1m?: number | null; rate_history?: { t: number; clock?: number; exp: number; net: number }[]; cash_per_hour: number | null; pending_prices: number;
   loot?: LootRow[]; recent?: LootRow[]; consumables: Consumable[]; drops: { item_id: number; name: string | null; quantity: number }[];
   mobs: { mob_id: number; kills: number; name: string; attack_samples?: number; attack_distribution?: { attacks: number; kills: number }[] }[]; segments: Segment[];
-  buffs: Buff[]; hp_lost: number; hp_drops: number;
+  buffs: Buff[]; pets?: Pet[]; hp_lost: number; hp_drops: number;
   timeline?: { start: number; bucket: number; last?: number; first?: number; step?: number; window?: number; exp: number[]; net: number[]; times?: number[] };
   share_url?: string | null;
   attack_count: number; attacks: { skill: number; name: string; count: number; follow_up?: boolean }[]; casts: { skill: number; name: string; count: number }[];
@@ -45,7 +47,7 @@ export interface RunSummary {
 export interface Live {
   alive_at: number; stale: boolean; runs: RunSummary[]; finished: RunSummary[]; recording: boolean;
   calibration: { label: string; state: string }[];
-  characters: { name: string | null; level: number | null; job: number | null; map_id: number | null; buffs: Buff[]; drops?: GroundDrop[] }[];
+  characters: { name: string | null; level: number | null; job: number | null; map_id: number | null; buffs: Buff[]; pets?: Pet[]; drops?: GroundDrop[] }[];
   protocol_warning?: boolean;
 }
 export interface OverlaySettings {

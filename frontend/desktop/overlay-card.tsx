@@ -8,7 +8,7 @@ import { Clock3, Crosshair, Hourglass, Pause, Play, Square, Swords, TrendingUp }
 import { itemIcon } from './format';
 import './overlay.css';
 import { language, tr } from './i18n';
-import { type ClientUpdate, big, channelPrompt, clock, duration, mapLabel, percent, shownBuffs, statLine, statusLabel, type GrindSettings, type GroundDrop, type Live, type LootRow } from './grind';
+import { type ClientUpdate, big, channelPrompt, clock, duration, mapLabel, percent, shownBuffs, statLine, statusLabel, type GrindSettings, type GroundDrop, type Live, type LootRow, type Pet } from './grind';
 
 const I = 13;
 const ico = { width: '1.1em', height: '1.1em' }; // icons scale with the overlay's font size
@@ -184,18 +184,41 @@ function Buffs({ live, settings, icons = false, tiles = false, voice = false, se
     if (said.times >= 2 || now - said.at > AGAIN + 30) continue;
     if (fighting && now - said.at >= AGAIN) { said.times = 2; say(source, said.name); }
   }
-  if (!buffs.length) return null;
+  // Pets: "宠物饿了，请喂食" when one that is out falls under 20 fullness, and "宠物没出来，
+  // 请召唤" when none of the player's pets is out; each said twice, the second time AGAIN
+  // seconds later if nothing changed. Spoken with the buff warnings (same switch, fighting).
+  const pets: Pet[] = live?.runs?.[0]?.pets ?? live?.characters?.[0]?.pets ?? [];
+  const petSaid = useRef(new Map<string, { at: number; times: number }>());
+  const remind = (key: string, active: boolean, text: string, clip: string) => {
+    const said = petSaid.current.get(key);
+    if (!active) { petSaid.current.delete(key); return; }
+    if (!fighting) return;
+    if (!said) { petSaid.current.set(key, { at: now, times: 1 }); say(0, text, clip); }
+    else if (said.times < 2 && now - said.at >= AGAIN) { said.times = 2; say(0, text, clip); }
+  };
+  const fed = new Set(pets.filter(p => p.hungry).map(p => p.serial));
+  for (const key of [...petSaid.current.keys()]) if (key !== 'away' && !fed.has(key)) petSaid.current.delete(key);
+  for (const p of pets) if (p.hungry) remind(p.serial, true, tr('宠物饿了，请喂食', 'Pet is hungry, feed it'), 'pet_hungry');
+  remind('away', pets.length > 0 && !pets.some(p => p.out), tr('宠物没出来，请召唤', 'No pet out, summon one'), 'pet_away');
+  const petState = (p: Pet) => !p.out ? 'off' : p.hungry ? 'warn' : '';
+  const petLeft = (p: Pet) => p.out ? String(p.fullness ?? '—') : tr('背包', 'Bag');
+  if (!buffs.length && !pets.length) return null;
   if (tiles) {
     // Two rows of five in a fixed order, so a buff keeps its place while others come and go.
     const ordered = [...buffs].sort((a, b) => a.source - b.source), more = ordered.length - 10;
     const grid = <div className="ov-buffs tiles">{ordered.slice(0, more > 0 ? 9 : 10).map(b => <span key={b.source} className={state(b)} title={b.name || ''}>
       <img src={b.item_id ? itemIcon(b.item_id) : skillIcon(b.source)} alt="" /><b>{left(b)}</b><i style={{ width: `${Math.min(100, b.left / b.total * 100)}%` }} /></span>)}
-      {more > 0 && <span className="more"><b>+{more + 1}</b></span>}</div>;
+      {more > 0 && <span className="more"><b>+{more + 1}</b></span>}
+      {pets.map(p => <span key={p.serial} className={'pet ' + petState(p)} title={`${p.name || ''} ${tr('饱食度', 'Fullness')} ${p.fullness ?? '—'}`}>
+        <img src={itemIcon(p.item_id)} alt="" /><b>{petLeft(p)}</b><i style={{ width: `${Math.min(100, p.fullness ?? 0)}%` }} /></span>)}</div>;
     return section ? <section className="ov-sec ov-sec-buffs">{grid}</section> : grid;
   }
   return <div className={'ov-buffs' + (icons ? ' icons' : '')}>{buffs.slice(0, 6).map(b => <span key={b.source} className={state(b)} title={b.name || ''}>
     <i style={{ width: `${Math.min(100, b.left / b.total * 100)}%` }} />
-    <em>{b.item_id ? <img src={itemIcon(b.item_id)} alt="" /> : <img src={skillIcon(b.source)} alt="" />}{!icons && b.name}</em><b>{left(b)}</b></span>)}</div>;
+    <em>{b.item_id ? <img src={itemIcon(b.item_id)} alt="" /> : <img src={skillIcon(b.source)} alt="" />}{!icons && b.name}</em><b>{left(b)}</b></span>)}
+    {pets.map(p => <span key={p.serial} className={'pet ' + petState(p)} title={p.name || ''}>
+      <i style={{ width: `${Math.min(100, p.fullness ?? 0)}%` }} />
+      <em><img src={itemIcon(p.item_id)} alt="" />{!icons && (p.name || tr('宠物', 'Pet'))}</em><b>{petLeft(p)}</b></span>)}</div>;
 }
 
 /** The overlay's card: the overlay window shows one, the settings page shows one per preset. */

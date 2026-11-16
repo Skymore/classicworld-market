@@ -220,7 +220,10 @@ try {
           // Then it is over: kept as a pinned row at 0 (greyed), which must not read as ending.
           .map(b => b.source === -2012000 && b.seconds <= 0 && !b.ending ? { ...b, seconds: 0, pinned: true } : b)
           .filter(b => b.seconds > 0 || b.ending || b.pinned);
-        return { alive_at: now, stale: false, runs: [{ ...structuredClone(run), in_combat: true, buffs }], finished: [], calibration: [], characters: [] };
+        // A pet that is out and hungry: "宠物饿了，请喂食" twice, 10 s apart; one is out, so no "宠物没出来".
+        const pets = [{ serial: 'a1', item_id: 5000007, name: 'Black Pig', level: 9, fullness: 15, out: true, hungry: true },
+          { serial: 'b2', item_id: 5000033, name: 'Snail', level: 1, fullness: 5, out: false, hungry: false }];
+        return { alive_at: now, stale: false, runs: [{ ...structuredClone(run), in_combat: true, buffs, pets }], finished: [], calibration: [], characters: [] };
       };
       const shown = { ...settings, buff_sound: true, buff_warn_seconds: 3, overlay: { ...settings.overlay, layout: 'slim', fields: ['buffs'] } };
       // A late state write across 龙血's nominal end: the page counts it down to 0 itself and
@@ -248,6 +251,12 @@ try {
     assert(item.length === 2 && item[0] >= 5 && item[1] - item[0] >= 10, `an item buff: 1 s after the server ends it, again 10 s later (${JSON.stringify(said)})`);
     assert.deepEqual(at('/3101004.mp3'), [2], `cast again after the first warning: not said again (${JSON.stringify(said)})`);
     assert.deepEqual(at('/3100001.mp3'), [], `a Final Attack is never warned (${JSON.stringify(said)})`);
+    const hungry = at('/pet_hungry.mp3');
+    assert(hungry.length === 2 && hungry[1] - hungry[0] >= 10, `a hungry pet: said twice, 10 s apart (${JSON.stringify(said)})`);
+    assert.deepEqual(at('/pet_away.mp3'), [], `a pet is out: no summon reminder (${JSON.stringify(said)})`);
+    assert.equal(await page.locator('.ov-buffs .pet').count(), 2, 'both pets in the buff row');
+    assert.equal(await page.locator('.ov-buffs .pet.off b').innerText(), '背包', 'the pet in the bag says so');
+    if (out) await page.locator('.ov-buffs').screenshot({ path: path.join(out, 'grind-pets.png') });
     await page.close();
   }
   console.log('Grind combat table, live updates, all 20 overlay combinations, the slim preset and its drop list, and the buff warning timing passed.');
