@@ -32,11 +32,11 @@ export interface RunSummary {
   percent_per_hour: number | null; eta_seconds: number | null;
   kills: number; kills_per_hour: number | null; kills_estimated: boolean; deaths: number; exp_lost: number; gaps: number;
   mesos: number; item_value: number; consume_cost: number; mesos_spent: number; net: number;
-  net_per_hour: number | null; net_per_hour_1m?: number | null; rate_history?: { t: number; exp: number; net: number }[]; cash_per_hour: number | null; pending_prices: number;
+  net_per_hour: number | null; net_per_hour_1m?: number | null; rate_history?: { t: number; clock?: number; exp: number; net: number }[]; cash_per_hour: number | null; pending_prices: number;
   loot?: LootRow[]; recent?: LootRow[]; consumables: Consumable[]; drops: { item_id: number; name: string | null; quantity: number }[];
   mobs: { mob_id: number; kills: number; name: string; attack_samples?: number; attack_distribution?: { attacks: number; kills: number }[] }[]; segments: Segment[];
   buffs: Buff[]; hp_lost: number; hp_drops: number;
-  timeline?: { start: number; bucket: number; last?: number; first?: number; step?: number; window?: number; exp: number[]; net: number[] };
+  timeline?: { start: number; bucket: number; last?: number; first?: number; step?: number; window?: number; exp: number[]; net: number[]; times?: number[] };
   share_url?: string | null;
   attack_count: number; attacks: { skill: number; name: string; count: number; follow_up?: boolean }[]; casts: { skill: number; name: string; count: number }[];
   damage?: number | null; dps?: number | null; average_dps?: number | null;
@@ -180,10 +180,12 @@ export const buffLeft = (buff: Buff, live: Live | null) =>
 
 /** Points of a run's timeline as hourly rates. Rolling (step and window): each point is
  * the minute before it, every 10 s or so. Older runs: whole-minute buckets. */
-export function timelineRates(line: { start: number; bucket: number; last?: number; first?: number; step?: number; window?: number; exp: number[]; net: number[] }) {
+export function timelineRates(line: { start: number; bucket: number; last?: number; first?: number; step?: number; window?: number; exp: number[]; net: number[]; times?: number[] }): { t: number; clock?: number; exp: number; net: number }[] {
   if (line.window && line.step) {
+    // t: the run's time with pauses left out (the chart's x); times: the wall clock, sent
+    // when there were pauses, for the time labels.
     const first = line.first ?? line.start + line.window, window = line.window;
-    return line.exp.map((exp, i) => ({ t: Math.min(first + i * line.step!, first + (line.exp.length - 1) * line.step!), exp: exp * 3600 / window, net: (line.net[i] || 0) * 3600 / window }));
+    return line.exp.map((exp, i) => ({ t: Math.min(first + i * line.step!, first + (line.exp.length - 1) * line.step!), clock: line.times?.[i], exp: exp * 3600 / window, net: (line.net[i] || 0) * 3600 / window }));
   }
   return line.exp.map((exp, i) => {
     const span = i === line.exp.length - 1 && line.last ? line.last : line.bucket;

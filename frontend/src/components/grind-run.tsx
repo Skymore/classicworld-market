@@ -46,7 +46,7 @@ export interface GrindRun {
   attacks?: { skill: number; name: string; count: number; follow_up?: boolean }[];
   casts?: { skill: number; name: string; count: number }[];
   segments?: { map_id: number; map_name?: string | null; active_seconds: number; started_at: number }[];
-  timeline?: { start: number; bucket: number; last?: number; first?: number; step?: number; window?: number; exp: number[]; net: number[] };
+  timeline?: { start: number; bucket: number; last?: number; first?: number; step?: number; window?: number; exp: number[]; net: number[]; times?: number[] };
 }
 export interface Comparison { level_from: number; level_to: number; job: number | null; runs: number; exp_better_than: number; exp_per_hour_median: number | null }
 
@@ -85,7 +85,7 @@ export function when(at: number) {
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-export interface ChartPoint { t: number; exp: number; net: number }
+export interface ChartPoint { t: number; clock?: number; exp: number; net: number }
 
 /** Hourly EXP and net per point for the whole run (timeline buckets). */
 export function timelinePoints(run: Pick<GrindRun, "timeline">): ChartPoint[] {
@@ -137,6 +137,14 @@ export function RateChart({ points: raw, t, english, title, showNet = true, aver
   const anchor = (px: number) => (px < L + 40 ? "start" : px > W - R - 40 ? "end" : "middle");
   const active = hover == null ? null : points[hover];
   const timeTicks = ticks(start, end, 4);
+  // x leaves pauses out; labels read the wall clock the points carry (after a pause it is later).
+  const clockAt = (time: number) => {
+    const i = points.findIndex((p) => p.t >= time);
+    if (i < 0) return points[points.length - 1].clock ?? time;
+    const b = points[i], a = points[Math.max(0, i - 1)];
+    const ca = a.clock ?? a.t, cb = b.clock ?? b.t;
+    return b.t === a.t ? cb : ca + ((time - a.t) / (b.t - a.t)) * (cb - ca);
+  };
   const b = (v: number) => big(v, english);
   const move = (event: React.PointerEvent<SVGSVGElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
@@ -158,7 +166,7 @@ export function RateChart({ points: raw, t, english, title, showNet = true, aver
       <div className="gr-plot" ref={box}>
         {active && (
           <output className="gr-tip" style={{ left: Math.max(64, Math.min(W - 64, x(active.t))) }}>
-            <b>{hhmm(active.t)}</b>
+            <b>{hhmm(clockAt(active.t))}</b>
             <span className="exp">{t("经验", "EXP")} {b(active.exp)}/{t("时", "h")}</span>
             {showNet && <span className="net">{t("收益", "Net")} {b(active.net)}/{t("时", "h")}</span>}
           </output>
@@ -177,7 +185,7 @@ export function RateChart({ points: raw, t, english, title, showNet = true, aver
           ))}
           {showNet && netLow < 0 && <line x1={L} x2={W - R} y1={yNet(0)} y2={yNet(0)} className="zero" />}
           {timeTicks.map((time, i) => (
-            <text key={"t" + i} x={x(time)} y={H - 6} textAnchor={i === 0 ? "start" : i === timeTicks.length - 1 ? "end" : "middle"} className="axis">{hhmm(time)}</text>
+            <text key={"t" + i} x={x(time)} y={H - 6} textAnchor={i === 0 ? "start" : i === timeTicks.length - 1 ? "end" : "middle"} className="axis">{hhmm(clockAt(time))}</text>
           ))}
           <line x1={L} x2={W - R} y1={H - B} y2={H - B} className="base" />
           {average?.exp != null && <line x1={L} x2={W - R} y1={yExp(average.exp)} y2={yExp(average.exp)} className="avg exp" />}

@@ -352,6 +352,21 @@ class ChartAndVitalsTest(unittest.TestCase):
         self.assertEqual(min(steady), max(steady))    # 6 kills a minute at every point
         self.assertEqual(steady[0], 6 * 400)
 
+    def test_a_pause_is_left_out_of_the_chart(self):
+        for _ in range(4):
+            self.kill(after=1)
+        run = self.current()
+        t0 = self.clock()
+        for i in range(20 * 6):                       # 20 min of a kill every 10 s, then a 10-min pause, then 20 min
+            run.add_exp((t0 + i * 10, 400))
+            run.add_exp((t0 + 30 * 60 + i * 10, 400))
+        run.pauses = [[t0 + 20 * 60, t0 + 30 * 60]]
+        line = self.tracker.timeline(run, [], t0 + 50 * 60)
+        steady = line['exp'][8:-3]
+        self.assertEqual(min(steady), max(steady))    # no dip to 0 where the pause was
+        self.assertLessEqual(line['first'] + (len(line['exp']) - 1) * line['step'], run.started_at + 41 * 60)
+        self.assertGreater(line['times'][-1] - line['times'][0], 45 * 60)   # labels keep the wall clock
+
     def test_low_hp_line_is_two_of_the_maps_biggest_hits(self):
         character = self.tracker.characters['s1']
         character.hp, character.max_hp = 1500, 2000

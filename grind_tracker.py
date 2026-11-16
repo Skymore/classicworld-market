@@ -122,6 +122,34 @@ class Cumulative:
         return self(t) - self(t - seconds)
 
 
+class ActiveClock:
+    """Run time with its pauses left out, for the charts: a manual or idle pause is not a
+    stretch of zero rate, so the line goes straight from before the pause to after it
+    (2026-11-15: a 10-minute pause drew the experience line down to 0 and back)."""
+
+    def __init__(self, start, pauses):
+        self.start = start
+        self.pauses = sorted((a, b) for a, b in pauses if b > a)
+
+    def active(self, t):
+        """Wall clock -> seconds of the run outside pauses."""
+        gone = 0.0
+        for a, b in self.pauses:
+            if t <= a:
+                break
+            gone += min(t, b) - a
+        return t - self.start - gone
+
+    def wall(self, seconds):
+        """Seconds outside pauses -> wall clock (the end of a pause when it falls on one)."""
+        t = self.start + seconds
+        for a, b in self.pauses:
+            if t < a:
+                break
+            t += b - a
+        return t
+
+
 class Segment:
     def __init__(self, map_id, level, job, now):
         self.map_id, self.level, self.job = map_id, level, job
@@ -176,6 +204,7 @@ class Run:
         self.status = 'active'
         self.pause_reason = None
         self.paused_at = None
+        self.pauses = []            # [paused_at, resumed_at]: the charts leave these out
         self.idle_seconds = 0.0
         self.last_gain = now
         self.credited_until = now
@@ -229,7 +258,7 @@ class Run:
     def to_json(self):
         return dict(id=self.id, character=self.character, started_at=self.started_at, status=self.status,
                     pause_reason=self.pause_reason, paused_at=self.paused_at, idle_seconds=self.idle_seconds,
-                    last_gain=self.last_gain, credited_until=self.credited_until,
+                    pauses=self.pauses, last_gain=self.last_gain, credited_until=self.credited_until,
                     segments=[s.to_json() for s in self.segments], ledger=self.ledger,
                     exp_events=[e for e in self.exp_events if e[0] >= self.credited_until - 1260],
                     exp_minutes={str(k): v for k, v in self.exp_minutes.items()},
@@ -249,6 +278,7 @@ class Run:
                     'ledger', 'deaths', 'exp_lost', 'gaps', 'level_start', 'hp_lost', 'hp_drops', 'kills_by_exp', 'finds'):
             setattr(run, key, data.get(key, getattr(run, key)))
         run.exp_events = [tuple(e) for e in data.get('exp_events') or []]
+        run.pauses = [[float(a), float(b)] for a, b in data.get('pauses') or []]
         run.exp_minutes = collections.Counter({int(k): v for k, v in (data.get('exp_minutes') or {}).items()})
         run.exp_slots = collections.Counter({int(k): v for k, v in (data.get('exp_slots') or {}).items()})
         run.attacks = collections.Counter({int(k): v for k, v in (data.get('attacks') or {}).items()})
@@ -1152,6 +1182,8 @@ class Tracker:
     def resume(self, run, now):
         if run.status == 'paused' and run.paused_at is not None:
             run.idle_seconds += max(0.0, now - run.paused_at)
+            if now > run.paused_at:
+                run.pauses.append([run.paused_at, now])
         run.pause_reason = None
         run.paused_at = None
 
@@ -1410,15 +1442,20 @@ class Tracker:
                        for e in run.ledger if e['kind'] in ('mesos', 'spent')]
         cash_events += [(e['t'], amount * (1 if e['kind'] == 'loot' else -1)) for e, _, _, amount in rows]
         chart_end = now if run.status == 'active' else (run.paused_at or run.credited_until)
-        exp_index, cash_index = Cumulative(run.exp_events), Cumulative(cash_events)
+        clock = ActiveClock(run.started_at, run.pauses)
+        exp_index = Cumulative([(clock.active(t), v) for t, v in run.exp_events])
+        cash_index = Cumulative([(clock.active(t), v) for t, v in cash_events])
         rate_history = []
-        for stamp in [chart_end - n * 10 for n in range(30, -1, -1)]:
-            span = min(60, stamp - run.started_at)
+        length = clock.active(chart_end)
+        for offset in [length - n * 10 for n in range(30, -1, -1)]:
+            span = min(60, offset)
             if span < 30:
                 continue
             def window(index):
-                return index.window(stamp, 60) * 3600 / span
-            rate_history.append(dict(t=stamp, exp=window(exp_index), net=window(cash_index)))
+                return index.window(offset, 60) * 3600 / span
+            # t is on the pause-free axis (the chart's x); clock is the wall time.
+            rate_history.append(dict(t=run.started_at + offset, clock=clock.wall(offset),
+                                     exp=window(exp_index), net=window(cash_index)))
         net_1m = rate_history[-1]['net'] if rate_history and run.status == 'active' else None
         return dict(
             id=run.id, status=run.status, pause_reason=run.pause_reason, character=facts,
@@ -1464,15 +1501,17 @@ class Tracker:
         end = now if run.status == 'active' else max(run.credited_until, start + 60)
         if not run.exp_slots and run.exp_minutes:
             return self.minute_timeline(run, rows, start, end, points)
-        step = max(SLOT, math.ceil((end - start) / CHART_POINTS / SLOT) * SLOT)
-        first = min(end, start + CHART_WINDOW)
-        times = []
-        t = first
-        while t < end:
-            times.append(t)
-            t += step
-        times.append(end)
-        window = min(CHART_WINDOW, max(SLOT, end - start))
+        clock = ActiveClock(start, run.pauses)
+        length = clock.active(end)
+        step = max(SLOT, math.ceil(length / CHART_POINTS / SLOT) * SLOT)
+        first = min(length, CHART_WINDOW)
+        offsets = []
+        a = first
+        while a < length:
+            offsets.append(a)
+            a += step
+        offsets.append(length)
+        window = min(CHART_WINDOW, max(SLOT, length))
         slots = sorted(run.exp_slots.items())
         money = []
         for entry in run.ledger:
@@ -1483,12 +1522,16 @@ class Tracker:
         money += [(entry['t'], amount if entry['kind'] == 'loot' else -amount) for entry, _, _, amount in rows]
         money.sort()
         # Prefix sums (Cumulative): each point is a few binary searches, not a pass over the run.
+        # Points are spaced in run time without pauses; each is the active minute before it.
         def windowed(events):
-            total = Cumulative(events)
-            return [round(total.window(t, window)) for t in times]
+            total = Cumulative([(clock.active(t), v) for t, v in events])
+            return [round(total.window(a, window)) for a in offsets]
         exp = windowed([(slot * SLOT + SLOT / 2, v) for slot, v in slots])
         net = windowed(money)
-        return dict(start=start, first=first, step=step, window=window, exp=exp, net=net, bucket=step)
+        line = dict(start=start, first=start + first, step=step, window=window, exp=exp, net=net, bucket=step)
+        if clock.pauses:
+            line['times'] = [round(clock.wall(a), 1) for a in offsets]   # wall clock, for labels
+        return line
 
     def minute_timeline(self, run, rows, start, end, points):
         size = math.ceil(max(60.0, (end - start) / points) / 60) * 60
