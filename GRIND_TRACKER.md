@@ -137,7 +137,7 @@ v0.7.15 刷图页“战斗统计”显示角色、近 30 秒 DPS、总伤害和�
 
 队伍名单、逐人伤害、DPS 和逐人击杀只保存在本机状态及历史，不增加网站上传字段。升级已有记录从首次观测伤害时开始计时，不把升级前的刷图时长当作 0 伤害。更新后换一次频道同步双向报文和队伍；悬浮窗设置中勾选“DPS”“队伍战斗”，原有自选字段不被强制覆盖。
 
-录制文件在 `captures/grind/frames/`，单个 48 MiB 或一小时轮换，保留最近 30 天；压缩好的文件每两分钟检查一次，自动上传到网站 `POST /api/v1/collector/grind-frames?name=…`（采集器令牌鉴权，只收本客户端命名的 .jsonl.gz，网站私有目录 `shared_data/grind-frames/<采集器>/` 保存 30 天、总量上限 40 GiB、没有读取接口；已传的记在 `frames/uploaded.json`）。内测阶段一律上传，没有开关和提示，不上传，不进安装包。离线查看：`python grind_calibrate.py captures/grind/frames`。
+录制文件在 `captures/grind/frames/`，单个 48 MiB 或一小时轮换，保留最近 30 天；压缩好的文件每两分钟检查一次，自动上传到网站 `POST /api/v1/collector/grind-frames?name=…`（采集器令牌鉴权，只收本客户端命名的 .jsonl.gz，网站私有目录 `shared_data/grind-frames/<采集器>/` 保存 30 天、总量上限 40 GiB、没有读取接口；已传的记在 `frames/uploaded.json`；新的先传，补传最多回溯 7 天，更早的留在本机不再补传）。内测阶段一律上传，没有开关和提示，不上传，不进安装包。离线查看：`python grind_calibrate.py captures/grind/frames`。
 
 ## 历史
 

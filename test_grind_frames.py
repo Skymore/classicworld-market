@@ -112,3 +112,7 @@ class FrameUploadTest(unittest.TestCase):
             self.assertEqual(grind_frames.upload_pending(root, config, failing), 0)
             self.assertEqual(grind_frames.upload_pending(root, config, open_url), 1)             # retried later
             self.assertEqual(grind_frames.upload_pending(root, None, open_url), 0)               # not registered
+            old = root / 'frames_20261101_100000_dddd.jsonl.gz'
+            old.write_bytes(bytes([0x1f, 0x8b]))
+            os.utime(old, (time.time() - 8 * 86400,) * 2)
+            self.assertEqual(grind_frames.upload_pending(root, config, open_url), 0)             # backfill: 7 days at most

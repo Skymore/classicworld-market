@@ -213,9 +213,10 @@ def read_frames(paths):
 
 UPLOADED = 'uploaded.json'   # names already on the site (frames folder)
 UPLOAD_ROUTE = '/api/v1/collector/grind-frames'
+UPLOAD_BACKFILL = 7 * 24 * 3600   # older recordings (kept locally up to 30 days) are not sent late
 
 
-def upload_pending(folder, config, open_url, limit=6):
+def upload_pending(folder, config, open_url, limit=6, now=None):
     """Upload compressed recordings not sent yet (internal testing: always on, no prompt).
 
     Only closed, gzipped files go; the file being written waits for its compression.
@@ -232,9 +233,15 @@ def upload_pending(folder, config, open_url, limit=6):
     except (OSError, ValueError, TypeError):
         done = set()
     present = {p.name for p in folder.glob('frames_*.jsonl.gz')}
+    cutoff = (time.time() if now is None else now) - UPLOAD_BACKFILL
     sent = 0
-    for path in sorted(folder.glob('frames_*.jsonl.gz')):
+    for path in sorted(folder.glob('frames_*.jsonl.gz'), reverse=True):   # newest first
         if path.name in done or sent >= limit:
+            continue
+        try:
+            if path.stat().st_mtime < cutoff:
+                continue
+        except OSError:
             continue
         try:
             body = path.read_bytes()
