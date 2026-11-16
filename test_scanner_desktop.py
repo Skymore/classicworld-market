@@ -387,6 +387,45 @@ class DesktopTests(unittest.TestCase):
             reopened.sync_sweep()
             start.assert_not_called()
 
+    def test_stopped_sweep_run_stays_stopped_when_lease_returns_after_restart(self):
+        sweep = Mock(lock=threading.RLock(), run={'id':'run-1'})
+        sweep.buying.return_value = True
+        sweep.scan_mode.return_value = 'priority'
+        self.controller.sweep = sweep
+        with patch.object(self.controller, 'start'), patch('scanner_desktop.release_keys'):
+            self.controller.sync_sweep()
+            self.controller.command('stop')
+            # Lease gap in the same process: the run vanishes and comes back.
+            sweep.buying.return_value = False
+            self.controller.sync_sweep()
+            sweep.buying.return_value = True
+            with patch.object(self.controller, 'start') as again:
+                self.controller.sync_sweep()
+                again.assert_not_called()
+        # F9 makes the watchdog restart the process; the new one has no lease yet.
+        sweep.buying.return_value = False
+        fresh = DesktopController(self.runtime, modules=self.modules, sweep=sweep,
+            windows=lambda: [{'id': 12, 'title': 'MapleStory', 'pid': 42}], ready=lambda _:True, emergency=lambda:False)
+        with patch.object(fresh, 'start') as start:
+            fresh.sync_sweep()
+            sweep.buying.return_value = True
+            fresh.sync_sweep()
+            start.assert_not_called()
+
+    def test_lease_gap_without_stop_resumes_the_same_run(self):
+        sweep = Mock(lock=threading.RLock(), run={'id':'run-1'})
+        sweep.buying.return_value = True
+        sweep.scan_mode.return_value = 'priority'
+        self.controller.sweep = sweep
+        self.controller._intent.start(12, 'saved-session')
+        with patch.object(self.controller, 'start') as start, patch('scanner_desktop.release_keys'):
+            self.controller.sync_sweep()
+            sweep.buying.return_value = False
+            self.controller.sync_sweep()
+            sweep.buying.return_value = True
+            self.controller.sync_sweep()
+            self.assertEqual(start.call_count, 2)
+
     def test_capture_warning_is_shown_only_while_capture_status_is_fresh(self):
         self.runtime.folder.mkdir(parents=True)
         status = self.runtime.folder/'passive_status.json'

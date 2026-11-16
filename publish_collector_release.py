@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.90：修复按 F9 或手动停止后，几分钟后又自动开始换频道扫货（网页上的扫货任务还在运行时）。\n'
         'v0.7.89：宠物喂食提醒：悬浮窗 Buff 区显示宠物饱食度，低于 20 说“宠物饿了，请喂食”，宠物都没出来说“宠物没出来，请召唤”，各两次。\n'
         'v0.7.88：背包解析更稳：商城栏、商城装备栏里没见过的变化一律跳过，不再让背包变未知；读不懂的背包消息记进诊断日志。\n'
         'v0.7.87：修复商城栏、商城装备栏和宠物刷新让背包读不出、每 20 分钟左右提示换频道；更新后用本机报文补算本场和历史。\n'

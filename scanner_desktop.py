@@ -281,7 +281,7 @@ class DesktopController:
                            pending_uploads=0, failure=None, update_version=None, update_requested=False,
                            capture_warning=None)
         # A run handled before an update or reopen is not a newly accepted run.
-        self._observed_sweep = read_json(collector.home/SWEEP_HANDLED).get('run')
+        self._observed_sweep = self._handled_sweep = read_json(collector.home/SWEEP_HANDLED).get('run')
         try:
             prefs = json.loads((collector.home/'desktop-settings.json').read_text(encoding='utf-8'))
             if prefs.get('theme') in ('light', 'dark', 'system'):
@@ -988,7 +988,10 @@ class DesktopController:
         previous = self._observed_sweep
         if run != previous:
             self._observed_sweep = run
-            self._pending_sweep = run
+            # Until a restarted process holds its lease again, the run reads as
+            # absent; when it reappears it is the same run, and a Stop/F9 holds.
+            self._pending_sweep = (run if run != self._handled_sweep or self._intent.load().get('enabled')
+                                   else None)
             if run and self._desired and mode == 'market':
                 self._pending_sweep = None
                 self._sweep_handled(run)
@@ -1006,6 +1009,7 @@ class DesktopController:
                 self._sweep_handled(run)
 
     def _sweep_handled(self, run):
+        self._handled_sweep = run
         # A later Stop/F9 must hold across an update or reopen of this run.
         try:
             atomic_json(self.collector.home/SWEEP_HANDLED, dict(run=run, at=time.time()))
