@@ -221,7 +221,17 @@ try {
         return { alive_at: now, stale: false, runs: [{ ...structuredClone(run), in_combat: true, buffs }], finished: [], calibration: [], characters: [] };
       };
       const shown = { ...settings, buff_sound: true, buff_warn_seconds: 3, overlay: { ...settings.overlay, layout: 'slim', fields: ['buffs'] } };
-      window.pywebview = { api: { state: async () => ({ live: live(), settings: shown, editing: false, language: 'zh' }), fit: async () => 0, scale: async v => v } };
+      // A late state write across 龙血's nominal end: the page counts it down to 0 itself and
+      // must keep it as ending, not announce it then and again at the real end (速度药水 twice).
+      let frozen = null;
+      const state = () => {
+        const now = Date.now() / 1000;
+        if (frozen && now >= t0 + 2 && now < t0 + 3.6) return frozen;
+        const s = { live: live(), settings: shown, editing: false, language: 'zh' };
+        if (now < t0 + 2) frozen = s;
+        return s;
+      };
+      window.pywebview = { api: { state: async () => state(), fit: async () => 0, scale: async v => v } };
     }, { run, settings });
     await page.goto(base + '/overlay.html');
     await page.waitForTimeout(3000);
