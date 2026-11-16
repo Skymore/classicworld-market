@@ -221,3 +221,71 @@ async fn live_runs_reach_only_the_linked_account_and_clear_when_empty() {
         .unwrap()
         .is_none());
 }
+
+#[tokio::test]
+async fn a_client_that_stopped_pushing_leaves_its_open_run_as_provisional_history() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let now = unix_now();
+    let quiet = db.collector("quiet").await;
+    let mut open = run(now, 'c', 21196);
+    open.as_object_mut().unwrap().remove("ended_at");
+    grind_runs::store_live(&db.pool, quiet.id, &[open.clone()], now)
+        .await
+        .unwrap();
+    // Still pushing a minute ago: nothing happens.
+    assert_eq!(grind_runs::close_orphans(&db.pool, now).await.unwrap(), 0);
+    sqlx::query(
+        "UPDATE grind_live SET updated_at = now() - interval '20 minutes' WHERE collector_id=$1",
+    )
+    .bind(quiet.id)
+    .execute(&db.pool)
+    .await
+    .unwrap();
+    assert_eq!(grind_runs::close_orphans(&db.pool, now).await.unwrap(), 1);
+    let (summary, exp): (Value, i64) =
+        sqlx::query_as("SELECT summary, exp FROM grind_runs WHERE collector_id=$1")
+            .bind(quiet.id)
+            .fetch_one(&db.pool)
+            .await
+            .unwrap();
+    assert_eq!(exp, 21196);
+    assert_eq!(summary["provisional"], json!(true));
+    assert_eq!(summary["pause_reason"], json!("offline"));
+    let live: i64 = sqlx::query_scalar("SELECT count(*) FROM grind_live WHERE collector_id=$1")
+        .bind(quiet.id)
+        .fetch_one(&db.pool)
+        .await
+        .unwrap();
+    assert_eq!(live, 0);
+    // The client's own upload, next launch, replaces it.
+    grind_runs::store(&db.pool, quiet.id, &run(now, 'c', 23000), now)
+        .await
+        .unwrap();
+    let (summary, exp): (Value, i64) =
+        sqlx::query_as("SELECT summary, exp FROM grind_runs WHERE collector_id=$1")
+            .bind(quiet.id)
+            .fetch_one(&db.pool)
+            .await
+            .unwrap();
+    assert_eq!((exp, summary.get("provisional")), (23000, None));
+    // A stale live row never overwrites what the client sent.
+    grind_runs::store_live(&db.pool, quiet.id, &[open], now)
+        .await
+        .unwrap();
+    sqlx::query(
+        "UPDATE grind_live SET updated_at = now() - interval '20 minutes' WHERE collector_id=$1",
+    )
+    .bind(quiet.id)
+    .execute(&db.pool)
+    .await
+    .unwrap();
+    assert_eq!(grind_runs::close_orphans(&db.pool, now).await.unwrap(), 0);
+    let exp: i64 = sqlx::query_scalar("SELECT exp FROM grind_runs WHERE collector_id=$1")
+        .bind(quiet.id)
+        .fetch_one(&db.pool)
+        .await
+        .unwrap();
+    assert_eq!(exp, 23000);
+}

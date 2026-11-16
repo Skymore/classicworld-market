@@ -123,18 +123,35 @@ pub async fn store(
     run: &Value,
     now: f64,
 ) -> sqlx::Result<Option<i64>> {
+    insert(db, collector, run, now, true).await
+}
+
+/// `replace`: a client's own upload overwrites what is stored; a provisional run closed by
+/// the site (close_orphans) never overwrites a run the client already sent.
+async fn insert(
+    db: &PgPool,
+    collector: i64,
+    run: &Value,
+    now: f64,
+    replace: bool,
+) -> sqlx::Result<Option<i64>> {
     let Some(row) = validate(run, now) else {
         return Ok(None);
     };
-    sqlx::query_scalar(
+    let conflict = if replace {
+        "ON CONFLICT (collector_id, run_id) DO UPDATE SET ended_at=excluded.ended_at, map_id=excluded.map_id,
+           level=excluded.level, job=excluded.job, active_seconds=excluded.active_seconds, exp=excluded.exp,
+           net=excluded.net, kills=excluded.kills, summary=excluded.summary, updated_at=now()"
+    } else {
+        "ON CONFLICT (collector_id, run_id) DO NOTHING"
+    };
+    sqlx::query_scalar(&format!(
         "INSERT INTO grind_runs (collector_id, run_id, started_at, ended_at, map_id, level, job, active_seconds,
            exp, net, kills, summary)
          VALUES ($1,$2,to_timestamp($3),to_timestamp($4),$5,$6,$7,$8,$9,$10,$11,$12)
-         ON CONFLICT (collector_id, run_id) DO UPDATE SET ended_at=excluded.ended_at, map_id=excluded.map_id,
-           level=excluded.level, job=excluded.job, active_seconds=excluded.active_seconds, exp=excluded.exp,
-           net=excluded.net, kills=excluded.kills, summary=excluded.summary, updated_at=now()
-         RETURNING id",
-    )
+         {conflict}
+         RETURNING id"
+    ))
     .bind(collector)
     .bind(&row.run_id)
     .bind(row.started_at)
@@ -147,9 +164,8 @@ pub async fn store(
     .bind(row.net)
     .bind(row.kills)
     .bind(run)
-    .fetch_one(db)
+    .fetch_optional(db)
     .await
-    .map(Some)
 }
 
 async fn client(
@@ -458,6 +474,67 @@ pub async fn store_live(
     .execute(db)
     .await?;
     Ok(kept.len())
+}
+
+/// A client silent this long has closed or lost its connection; its open runs are saved
+/// as they were last pushed. Longer than the client's own 10 minutes before it ends a
+/// paused run, so a working client always ends its runs itself.
+const ORPHAN_SECONDS: i32 = 900;
+/// Shorter open runs are dropped rather than kept as history.
+const ORPHAN_MIN_ACTIVE: f64 = 60.0;
+
+/// Open runs of clients that stopped pushing, saved as ended runs marked provisional
+/// (2026-11-16: two players quit after a run on 野猪的领土 and it was on the site only while
+/// live; the client kept it until its next launch). The client's own upload of the same run
+/// later replaces it. Returns how many runs were saved.
+pub async fn close_orphans(db: &PgPool, now: f64) -> sqlx::Result<usize> {
+    let rows: Vec<(i64, Value, f64)> = sqlx::query_as(
+        "SELECT collector_id, runs, extract(epoch FROM updated_at)::float8 FROM grind_live
+         WHERE updated_at < now() - make_interval(secs => $1)",
+    )
+    .bind(ORPHAN_SECONDS)
+    .fetch_all(db)
+    .await?;
+    let mut saved = 0;
+    for (collector, runs, seen) in rows {
+        for run in runs.as_array().into_iter().flatten() {
+            if number(run, "active_seconds").unwrap_or(0.0) < ORPHAN_MIN_ACTIVE {
+                continue;
+            }
+            let mut run = run.clone();
+            let Some(fields) = run.as_object_mut() else {
+                continue;
+            };
+            fields.insert("ended_at".into(), json!(seen));
+            fields.insert("status".into(), json!("ended"));
+            fields.insert("pause_reason".into(), json!("offline"));
+            fields.insert("provisional".into(), json!(true));
+            if insert(db, collector, &run, now, false).await?.is_some() {
+                saved += 1;
+            }
+        }
+        // Only if no newer push came in meanwhile.
+        sqlx::query(
+            "DELETE FROM grind_live WHERE collector_id=$1 AND updated_at < now() - make_interval(secs => $2)",
+        )
+        .bind(collector)
+        .bind(ORPHAN_SECONDS)
+        .execute(db)
+        .await?;
+    }
+    Ok(saved)
+}
+
+pub async fn close_orphans_loop(db: PgPool) {
+    let mut tick = tokio::time::interval(std::time::Duration::from_secs(60));
+    loop {
+        tick.tick().await;
+        match close_orphans(&db, unix_now()).await {
+            Ok(0) => {}
+            Ok(n) => tracing::info!(runs = n, "saved open grind runs of clients that stopped"),
+            Err(error) => tracing::warn!(%error, "closing open grind runs failed"),
+        }
+    }
 }
 
 /// Open runs of every client linked to this account that pushed recently.
