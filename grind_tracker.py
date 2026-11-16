@@ -1316,6 +1316,18 @@ class Tracker:
         self.kills_estimated(run, character)
         self.finish(run, now)
 
+    def end_all(self, now):
+        """The collector is closing for good (not restarting for an update): end every open
+        run, so it is saved and uploaded now. Kept open, it stayed in current.json until the
+        next launch and never reached the site if the player did not come back (2026-11-16)."""
+        for character in self.characters.values():
+            if character.run:
+                self.end(character, now)
+        for run in list(self.restored):
+            self.finish(run, run.paused_at or now)
+            self.restored.remove(run)
+        self.persist()
+
     def finish(self, run, now):
         if run.status == 'active':
             self.pause(run, 'end', now)

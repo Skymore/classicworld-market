@@ -1,3 +1,4 @@
+import contextlib
 import json
 import sqlite3
 import struct
@@ -224,6 +225,25 @@ class TrackerTest(unittest.TestCase):
         self.assertEqual(segment['level'], 20)
         self.assertEqual(segment['drops'], [dict(item_id=4000019, quantity=7)])
         self.assertNotIn('name', json.dumps(payload))
+
+    def test_closing_for_good_ends_and_saves_the_open_run_but_an_update_keeps_it(self):
+        import time as clock
+        from market_passive import updating
+        for _ in range(30):
+            self.kill(after=12)
+        status = self.folder.parent / 'update-status.json'
+        status.write_text(json.dumps(dict(state='restarting', at=clock.time())), encoding='utf-8')
+        self.addCleanup(status.unlink, missing_ok=True)
+        self.assertTrue(updating(self.folder))                    # an update: the run carries on
+        status.write_text(json.dumps(dict(state='up_to_date', at=clock.time())), encoding='utf-8')
+        self.assertFalse(updating(self.folder))                   # the player closed the collector
+        live = self.tracker.summarize(self.current(), self.clock.t)['kills']
+        self.tracker.end_all(self.clock.t)
+        self.assertIsNone(self.current())
+        with contextlib.closing(sqlite3.connect(self.folder / 'grind' / 'history.sqlite')) as db:
+            (summary,), = db.execute('SELECT summary FROM runs').fetchall()
+        self.assertEqual(json.loads(summary)['kills'], live)     # saved now, uploaded by the next sync
+        self.assertGreater(live, 0)
 
     def test_snapshot_rebases_without_counting_and_disconnect_keeps_the_run(self):
         for _ in range(4):

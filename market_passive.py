@@ -626,6 +626,16 @@ def capture_health(collector,game_connected,elapsed):
     return 'waiting','Waiting for inbound game packets / 正在检查游戏入站收包。'
 
 
+def updating(folder):
+    """Whether this capture stops for an update restart (collector_update writes 'restarting'
+    just before it stops capture); otherwise the collector is closing for good."""
+    try:
+        status=json.loads((Path(folder).parent/'update-status.json').read_text(encoding='utf-8'))
+        return status.get('state')=='restarting' and time.time()-float(status.get('at') or 0)<=120
+    except (OSError,ValueError,TypeError):
+        return False
+
+
 def run(folder,seconds=0,backend="windivert",stop_event=None,on_event=None,config=None):
     grind_stop=threading.Event()
     collector=Collector(folder,on_event=on_event,config=config,stop=grind_stop);sniffer=WindowsSniffer() if backend=="windows" else Sniffer();collector.mode=getattr(sniffer,"mode","windivert-sniff-recv-only");packets=queue.Queue(maxsize=8192);overflow=threading.Event()
@@ -690,7 +700,11 @@ def run(folder,seconds=0,backend="windivert",stop_event=None,on_event=None,confi
             collector.event('handoff_failed',reason=type(error).__name__)
         collector.inventory.invalidate()
         collector.write_status(collector.folder/'inventory_state.json', dict(alive_at=int(time.time()), holdings=None))
-        grind_stop.set();collector.grind_call('persist')
+        if updating(collector.folder):
+            collector.grind_call('persist')   # the updated collector carries the runs on
+        else:
+            collector.grind_call('end_all',time.time())
+        grind_stop.set()
         collector.event('capture_stopped')
 
 

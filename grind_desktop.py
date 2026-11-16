@@ -455,6 +455,11 @@ class GrindService:
     def close(self):
         """The main window is closing: the overlay must not keep the app alive."""
         self.stop.set()
+        # Capture has stopped and ended the open runs (market_passive.updating): send them
+        # now rather than at the next launch, but never hold the exit for long.
+        sender = threading.Thread(target=self.sync.sync_once, daemon=True, name='grind-final-sync')
+        sender.start()
+        sender.join(timeout=8)
         if self.hotkeys:
             self.hotkeys.stop()
         if self.mouse:
