@@ -30,7 +30,7 @@ import grind_autobuff as autobuff
 
 DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, end_after_seconds=600,
                 start_events=3, start_window=60, price_basis='typical', notable_value=500000,
-                count_mesos_spent=True, min_upload_seconds=300, buff_warn_seconds=3, buff_warn_version=2, buff_sound=True, auto_buff=False, auto_potion=False,
+                count_mesos_spent=True, min_upload_seconds=300, buff_warn_seconds=3, buff_warn_version=2, buff_sound=True, hp_warn=True, auto_buff=False, auto_potion=False,
                 hotkeys=dict(overlay='Ctrl+Alt+O', pause='Ctrl+Alt+P', end='Ctrl+Alt+E'),
                 overlay=dict(enabled=True, layout='slim', theme='dark', opacity=0.92, scale=1.0,
                              hide_in_capture=False, stream=False, mouse_through=False, x=None, y=None,
@@ -1630,12 +1630,16 @@ class Tracker:
         return sorted(out, key=lambda b: b['seconds'])
 
     def vitals(self, character, now):
-        """HP and MP for the low-HP warning: danger is two of this map's biggest
-        single hits (30 % of max HP until a hit is known)."""
+        """HP and MP for the low-HP warning. Warned when HP is under 1.5 of this map's
+        biggest single hit and under 40 % of max HP, or under one biggest hit whatever
+        the share (2026-11-16, was two hits: a map hitting ~480 against 2000 HP warned
+        after every potion). As one line: max(hit, min(1.5 hit, 40 %)); 40 % until a hit
+        on this map is known."""
         if character is None or character.hp is None or not character.max_hp:
             return None
         worst, _ = self.combat_limits(character, now)
-        danger = min(character.max_hp, 2 * worst) if worst else 0.3 * character.max_hp
+        share = 0.4 * character.max_hp
+        danger = min(character.max_hp, max(worst, min(1.5 * worst, share))) if worst else share
         return dict(hp=character.hp, max_hp=character.max_hp, mp=character.mp, max_mp=character.max_mp,
                     danger=round(danger))
 

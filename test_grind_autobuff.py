@@ -367,12 +367,16 @@ class ChartAndVitalsTest(unittest.TestCase):
         self.assertLessEqual(line['first'] + (len(line['exp']) - 1) * line['step'], run.started_at + 41 * 60)
         self.assertGreater(line['times'][-1] - line['times'][0], 45 * 60)   # labels keep the wall clock
 
-    def test_low_hp_line_is_two_of_the_maps_biggest_hits(self):
+    def test_low_hp_line_is_one_and_a_half_hits_under_forty_percent_or_one_hit(self):
         character = self.tracker.characters['s1']
         character.hp, character.max_hp = 1500, 2000
-        self.assertEqual(self.tracker.vitals(character, self.clock())['danger'], 600)   # 30 % until a hit is known
-        self.tracker.combat_limits = lambda c, now: (450, 0)
-        self.assertEqual(self.tracker.vitals(character, self.clock())['danger'], 900)
+        line = lambda hit: (setattr(self.tracker, 'combat_limits', lambda c, now: (hit, 0)),
+                            self.tracker.vitals(character, self.clock())['danger'])[1]
+        self.assertEqual(line(0), 800)       # no hit known on this map: 40 %
+        self.assertEqual(line(450), 675)     # 1.5 hits, under 40 %
+        self.assertEqual(line(600), 800)     # 1.5 hits is over 40 %: 40 %
+        self.assertEqual(line(1000), 1000)   # one hit is over 40 %: one hit, whatever the share
+        self.assertEqual(line(3000), 2000)   # never over max HP
 
 
 class GroundDropTest(unittest.TestCase):

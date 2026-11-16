@@ -206,13 +206,13 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
   update?: ClientUpdate | null; onUpdate?(): void;               // a client update, offered beside the site name
 }) {
   const o = settings.overlay, run = live?.runs?.[0] ?? null, show = (key: string) => o.fields.includes(key);
-  // Low HP: said once each time HP falls under the danger line (two of the map's biggest hits).
+  // Low HP: said once each time HP falls under the danger line (Tracker.vitals); its own switch.
   const vitals = run?.vitals, low = !!vitals && vitals.hp > 0 && vitals.hp < vitals.danger;
   const wasLow = useRef(false);
   useEffect(() => {
-    if (low && !wasLow.current && settings.buff_sound && grip) sayLowHp();
+    if (low && !wasLow.current && settings.hp_warn !== false && grip) sayLowHp();
     wasLow.current = low;
-  }, [low, settings.buff_sound, grip]);
+  }, [low, settings.hp_warn, grip]);
   const style = { '--alpha': String(o.opacity), fontSize: `${12 * scale}px` } as React.CSSProperties;
   const dot = <i className={'ov-dot ' + (run?.status === 'active' ? 'on' : run ? 'pause' : 'off')} />;
   const prompt = channelPrompt(run);
