@@ -48,6 +48,20 @@ impl UploadQueue {
         raw: Bytes,
         received_at: f64,
     ) -> Result<IngestOutcome, QueueError> {
+        self.submit_within(collector, upload, raw, received_at, None)
+            .await
+    }
+
+    /// `wait` lets a batch request queue behind other collectors instead of
+    /// failing its later observations the moment the channel is full.
+    pub async fn submit_within(
+        &self,
+        collector: Collector,
+        upload: Upload,
+        raw: Bytes,
+        received_at: f64,
+        wait: Option<Duration>,
+    ) -> Result<IngestOutcome, QueueError> {
         let sender = self
             .sender
             .get_or_init(|| async {
@@ -57,15 +71,20 @@ impl UploadQueue {
             })
             .await;
         let (response, result) = oneshot::channel();
-        sender
-            .try_send(Job {
-                collector,
-                upload,
-                raw,
-                received_at,
-                response,
-            })
-            .map_err(|_| QueueError::Full)?;
+        let job = Job {
+            collector,
+            upload,
+            raw,
+            received_at,
+            response,
+        };
+        match wait {
+            Some(wait) => sender
+                .send_timeout(job, wait)
+                .await
+                .map_err(|_| QueueError::Full)?,
+            None => sender.try_send(job).map_err(|_| QueueError::Full)?,
+        }
         result
             .await
             .map_err(|_| QueueError::Ingest(sqlx::Error::WorkerCrashed.into()))?

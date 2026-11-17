@@ -28,6 +28,12 @@ use crate::{unix_now, AppState};
 
 /// Python's MAX_CONTENT_LENGTH.
 pub const MAX_BODY: usize = 256 * 1024;
+/// One batch carries at most this many observations, each within `MAX_BODY`.
+pub const MAX_BATCH: usize = 25;
+const MAX_BATCH_BODY: usize = 8 * 1024 * 1024;
+/// Observations per collector per minute across batches. Requests still
+/// count against the 120-per-minute request limit.
+const BATCH_ITEMS_PER_MINUTE: usize = 3000;
 const SESSION_COOKIE: &str = "fm_session";
 const SESSION_SECONDS: u32 = 30 * 86400;
 
@@ -47,6 +53,10 @@ pub fn router() -> Router<AppState> {
         // The collector posts to /observations; /upload is the plan's name.
         .route("/api/v1/observations", post(upload))
         .route("/api/v1/upload", post(upload))
+        .route(
+            "/api/v1/observations/batch",
+            post(upload_batch).layer(DefaultBodyLimit::max(MAX_BATCH_BODY)),
+        )
         .route(
             "/api/v1/collector/diagnostics",
             post(crate::diagnostics::upload)
@@ -427,6 +437,108 @@ async fn upload(
         }
         Err(IngestError::Db(err)) => internal(err),
     }
+}
+
+/// Several observations in one request, each with its own result. Every
+/// observation goes through the same validation and micro-batch queue as
+/// `/observations`; a bad or conflicting one never fails the others.
+async fn upload_batch(
+    State(state): State<AppState>,
+    ClientAddr(addr): ClientAddr,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    let started = Instant::now();
+    if !state.limiter.allow(&format!("upload-ip:{addr}"), 240) {
+        return error(StatusCode::TOO_MANY_REQUESTS, "Rate limited");
+    }
+    let collector = match auth::authenticate(&state.db, bearer(&headers)).await {
+        Ok(Some(c)) => c,
+        Ok(None) => return error(StatusCode::UNAUTHORIZED, "Collector token required"),
+        Err(err) => return internal(err),
+    };
+    let Some(items) = serde_json::from_slice::<Value>(&body).ok().and_then(|v| match v {
+        Value::Object(mut map) => match map.remove("observations") {
+            Some(Value::Array(items)) => Some(items),
+            _ => None,
+        },
+        _ => None,
+    }) else {
+        return error(StatusCode::BAD_REQUEST, "Invalid observation batch");
+    };
+    if items.is_empty() || items.len() > MAX_BATCH {
+        return error(StatusCode::BAD_REQUEST, "Invalid observation batch");
+    }
+    if !state
+        .limiter
+        .allow(&format!("upload:{}", collector.public_id), 120)
+        || !state.limiter.allow_n(
+            &format!("upload-items:{}", collector.public_id),
+            BATCH_ITEMS_PER_MINUTE,
+            items.len(),
+        )
+    {
+        return error(StatusCode::TOO_MANY_REQUESTS, "Rate limited");
+    }
+    let now = unix_now();
+    let count = items.len();
+    let jobs = items.into_iter().map(|item| {
+        let uploads = state.uploads.clone();
+        let collector = collector.clone();
+        async move {
+            let Ok(raw) = serde_json::to_vec(&item) else {
+                return (StatusCode::BAD_REQUEST, Some("Invalid observation schema"));
+            };
+            if raw.len() > MAX_BODY {
+                return (StatusCode::PAYLOAD_TOO_LARGE, Some("Observation too large"));
+            }
+            let upload = match validate(&item, now) {
+                Ok(upload) => upload,
+                Err(err) => {
+                    tracing::debug!(error = %err, "batch observation rejected");
+                    return (StatusCode::BAD_REQUEST, Some("Invalid observation schema"));
+                }
+            };
+            let wait = Some(std::time::Duration::from_secs(5));
+            match uploads
+                .submit_within(collector, upload, Bytes::from(raw), now, wait)
+                .await
+            {
+                Ok(IngestOutcome::Created(_)) => (StatusCode::CREATED, None),
+                Ok(IngestOutcome::Duplicate) => (StatusCode::OK, None),
+                Err(crate::upload_queue::QueueError::Full) => (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Some("Upload queue busy; retry later"),
+                ),
+                Err(crate::upload_queue::QueueError::Ingest(IngestError::Conflict)) => {
+                    (StatusCode::CONFLICT, Some("Observation ID content conflict"))
+                }
+                Err(crate::upload_queue::QueueError::Ingest(IngestError::Db(err))) => {
+                    tracing::error!(error = %err, "batch observation failed");
+                    (StatusCode::INTERNAL_SERVER_ERROR, Some("Internal error"))
+                }
+            }
+        }
+    });
+    let outcomes = futures_util::future::join_all(jobs).await;
+    let stored = outcomes
+        .iter()
+        .filter(|(status, _)| *status == StatusCode::CREATED)
+        .count();
+    tracing::info!(
+        elapsed_ms = started.elapsed().as_secs_f64() * 1000.0,
+        observations = count,
+        stored,
+        "upload batch stored"
+    );
+    let results: Vec<Value> = outcomes
+        .into_iter()
+        .map(|(status, message)| match message {
+            Some(message) => json!({"status": status.as_u16(), "error": message}),
+            None => json!({"status": status.as_u16()}),
+        })
+        .collect();
+    Json(json!({"ok": true, "server_time": now, "results": results})).into_response()
 }
 
 async fn missing_locations(

@@ -87,10 +87,20 @@ pub struct RateLimiter {
 
 impl RateLimiter {
     pub fn allow(&self, key: &str, limit: usize) -> bool {
-        self.allow_at(key, limit, Instant::now())
+        self.allow_n_at(key, limit, 1, Instant::now())
     }
 
+    /// Spends `n` hits at once, or none when they would exceed `limit`.
+    pub fn allow_n(&self, key: &str, limit: usize, n: usize) -> bool {
+        self.allow_n_at(key, limit, n, Instant::now())
+    }
+
+    #[cfg(test)]
     fn allow_at(&self, key: &str, limit: usize, now: Instant) -> bool {
+        self.allow_n_at(key, limit, 1, now)
+    }
+
+    fn allow_n_at(&self, key: &str, limit: usize, n: usize, now: Instant) -> bool {
         let mut windows = self.windows.lock().expect("rate limiter lock");
         if windows.len() > MAX_TRACKED_KEYS {
             windows.clear();
@@ -102,10 +112,10 @@ impl RateLimiter {
         {
             hits.pop_front();
         }
-        if hits.len() >= limit {
+        if hits.len() + n > limit {
             return false;
         }
-        hits.push_back(now);
+        hits.extend(std::iter::repeat_n(now, n));
         true
     }
 }
@@ -133,5 +143,16 @@ mod tests {
         assert!(!limiter.allow_at("register:a", 5, start));
         assert!(limiter.allow_at("register:b", 5, start));
         assert!(limiter.allow_at("register:a", 5, start + Duration::from_secs(61)));
+    }
+
+    #[test]
+    fn limiter_spends_batches_atomically() {
+        let limiter = RateLimiter::default();
+        let start = Instant::now();
+        assert!(limiter.allow_n_at("items", 10, 7, start));
+        assert!(!limiter.allow_n_at("items", 10, 4, start));
+        assert!(limiter.allow_n_at("items", 10, 3, start));
+        assert!(!limiter.allow_at("items", 10, start));
+        assert!(limiter.allow_n_at("items", 10, 10, start + Duration::from_secs(61)));
     }
 }

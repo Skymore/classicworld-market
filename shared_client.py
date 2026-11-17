@@ -1,5 +1,7 @@
 """Windows collector: passive packet copies plus structured HTTPS uploads."""
 import argparse
+import io
+from email.utils import formatdate
 import asyncio
 import getpass
 import json
@@ -66,6 +68,14 @@ RETRY_PER_HOUR = 60
 UPLOAD_WINDOW = 30 * 86400
 # Kept locally, never uploaded again and not counted as pending.
 FINAL_STATES = ('rejected_final', 'rejected_clock')
+# Shop observations per /observations/batch request (the service accepts 25).
+# The per-collector limit counts requests, so one request per snapshot capped
+# a collector at ~120 snapshots a minute (2026-11-17: a 45k backlog).
+BATCH_SIZE = 25
+BATCH_BYTES = 2 * 1024 * 1024
+BATCH_TIMEOUT = 30
+# Endpoints that answered 404/405 for the batch route (an older service).
+_batch_unsupported = set()
 
 
 def upload_failure_event(error):
@@ -113,6 +123,104 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
         # New captures first. Older v0.6.49 rejected_400 entries automatically
         # become eligible, without deleting or migrating the user's ledger.
         paths.sort(key=lambda p: p.name in records)
+        headers = {'Authorization': 'Bearer '+config['token'], 'Content-Type': 'application/json'}
+        batch, batch_bytes = [], [0]
+
+        def settle(path, route, payload, tries, error=None):
+            """Records one upload's outcome; raises only what stops the pass."""
+            nonlocal total
+            if error is None:
+                state = 'sent'; total += int(path.name.startswith('shop_'))
+            elif isinstance(error, urllib.error.HTTPError) and error.code in (400, 409, 413):
+                state = 'rejected_'+str(error.code)
+                detail = rejection(error, payload)
+                if error.code == 400:
+                    tries += 1
+                    attempts[path.name] = tries
+                    connection.execute('INSERT INTO retries VALUES (?,?,NULL) ON CONFLICT(path) DO UPDATE SET attempts=excluded.attempts',
+                                       (path.name, tries))
+                    # A clock-ahead capture would later land with a future
+                    # timestamp, so it is never retried.
+                    if detail['reason'] == 'capture_time_ahead':state = 'rejected_clock'
+                    elif tries >= RETRY_ATTEMPTS:state = 'rejected_final'
+                detail.update(file=path.name, route=route, final=state != 'rejected_400')
+                # One bounded latest diagnostic; original captures stay intact.
+                diagnostic = ledger.with_suffix('.last-error.json')
+                temporary = diagnostic.with_suffix('.pending')
+                temporary.write_text(json.dumps(detail), encoding='utf-8')
+                os.replace(temporary, diagnostic)
+                print(f'Upload rejected ({error.code}): {detail["reason"]}; file={path.name}',flush=True)
+                if on_event:on_event(dict(type='upload_rejected', **detail))
+            elif isinstance(error, urllib.error.HTTPError) and (error.code == 408 or 500 <= error.code < 600):
+                error.upload_route = route
+                deferred.setdefault(route, error)
+                return
+            elif (not isinstance(error, urllib.error.HTTPError)
+                  and isinstance(error, (urllib.error.URLError, TimeoutError, ConnectionError))):
+                error.upload_route = route
+                deferred.setdefault(route, error)
+                return
+            else:
+                # Authentication and the collector-wide 429 quota apply to
+                # every route. Stop immediately and retain Retry-After.
+                error.upload_route = route
+                raise error
+            updated = time.time()
+            connection.execute('INSERT INTO sent VALUES (?,?,?) ON CONFLICT(path) DO UPDATE SET status=excluded.status,updated=excluded.updated',
+                               (path.name,state,updated));connection.commit()
+            records[path.name] = (state, updated)
+            if total and total % 10 == 0:report_queue()
+
+        def send_one(path, route, payload, tries):
+            try:
+                result=request_json(destination+route, payload, headers, stop=stop, session=session)
+                if not result.get('ok'):raise ValueError('Upload was not acknowledged')
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+                settle(path, route, payload, tries, error)
+            else:
+                settle(path, route, payload, tries)
+
+        def flush():
+            route = '/api/v1/observations'
+            items = batch[:]; batch.clear(); batch_bytes[0] = 0
+            if not items or route in deferred:return
+            if len(items) == 1 or destination in _batch_unsupported:
+                for item in items:
+                    if route in deferred:break
+                    send_one(item[0], route, *item[1:])
+                return
+            try:
+                result = request_json(destination+route+'/batch', {'observations': [item[1] for item in items]},
+                                      headers, stop=stop, session=session, timeout=BATCH_TIMEOUT)
+                results = result.get('results') if result.get('ok') else None
+                if not isinstance(results, list) or len(results) != len(items):
+                    raise ValueError('Upload was not acknowledged')
+            except urllib.error.HTTPError as error:
+                if error.code in (400, 404, 405, 413):
+                    # An older service has no batch route; a rejected envelope
+                    # falls back to single uploads so each file gets its own result.
+                    if error.code in (404, 405):_batch_unsupported.add(destination)
+                    for item in items:
+                        if route in deferred:break
+                        send_one(item[0], route, *item[1:])
+                    return
+                for item in items:settle(item[0], route, item[1], item[2], error)
+                return
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+                settle(items[0][0], route, items[0][1], items[0][2], error)
+                return
+            date = formatdate(result.get('server_time') or time.time(), usegmt=True)
+            for (path, payload, tries), outcome in zip(items, results):
+                status = outcome.get('status') if isinstance(outcome, dict) else None
+                if status in (200, 201):
+                    settle(path, route, payload, tries)
+                elif isinstance(status, int):
+                    body = json.dumps({'error': outcome.get('error')}).encode()
+                    settle(path, route, payload, tries, urllib.error.HTTPError(
+                        destination+route, status, 'Service request rejected', {'Date': date}, io.BytesIO(body)))
+                else:
+                    raise ValueError('Upload was not acknowledged')
+
         for path in paths:
             if stop is not None and stop.is_set():break
             if path.stem.endswith('_zh'):continue
@@ -164,52 +272,15 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
                 # Count the retry before sending, so a 429 or timeout still spends budget.
                 connection.execute('INSERT INTO retries VALUES (?,?,?) ON CONFLICT(path) DO UPDATE SET retried=excluded.retried',
                                    (path.name, tries, time.time()));connection.commit()
-            request=urllib.request.Request(destination+route,
-                data=json.dumps(payload,ensure_ascii=False).encode(),
-                headers={'Authorization':'Bearer '+config['token'],'Content-Type':'application/json'},method='POST')
-            try:
-                result=request_json(request.full_url, payload, dict(request.header_items()), stop=stop, session=session)
-                if not result.get('ok'):raise ValueError('Upload was not acknowledged')
-                state='sent';total+=int(path.name.startswith('shop_'))
-            except urllib.error.HTTPError as error:
-                if error.code in (400,409,413):
-                    state='rejected_'+str(error.code)
-                    detail = rejection(error, payload)
-                    if error.code == 400:
-                        tries += 1
-                        attempts[path.name] = tries
-                        connection.execute('INSERT INTO retries VALUES (?,?,NULL) ON CONFLICT(path) DO UPDATE SET attempts=excluded.attempts',
-                                           (path.name, tries))
-                        # A clock-ahead capture would later land with a future
-                        # timestamp, so it is never retried.
-                        if detail['reason'] == 'capture_time_ahead':state = 'rejected_clock'
-                        elif tries >= RETRY_ATTEMPTS:state = 'rejected_final'
-                    detail.update(file=path.name, route=route, final=state != 'rejected_400')
-                    # One bounded latest diagnostic; original captures stay intact.
-                    diagnostic = ledger.with_suffix('.last-error.json')
-                    temporary = diagnostic.with_suffix('.pending')
-                    temporary.write_text(json.dumps(detail), encoding='utf-8')
-                    os.replace(temporary, diagnostic)
-                    print(f'Upload rejected ({error.code}): {detail["reason"]}; file={path.name}',flush=True)
-                    if on_event:on_event(dict(type='upload_rejected', **detail))
-                elif error.code == 408 or 500 <= error.code < 600:
-                    error.upload_route = route
-                    deferred[route] = error
-                    continue
-                else:
-                    # Authentication and the collector-wide 429 quota apply to
-                    # every route. Stop immediately and retain Retry-After.
-                    error.upload_route = route
-                    raise
-            except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
-                error.upload_route = route
-                deferred[route] = error
+            if route == '/api/v1/observations' and destination not in _batch_unsupported:
+                batch.append((path, payload, tries))
+                batch_bytes[0] += len(json.dumps(payload, ensure_ascii=False).encode())
+                if len(batch) >= BATCH_SIZE or batch_bytes[0] >= BATCH_BYTES:
+                    flush()
                 continue
-            updated = time.time()
-            connection.execute('INSERT INTO sent VALUES (?,?,?) ON CONFLICT(path) DO UPDATE SET status=excluded.status,updated=excluded.updated',
-                               (path.name,state,updated));connection.commit()
-            records[path.name] = (state, updated)
-            if total and total % 10 == 0:report_queue()
+            send_one(path, route, payload, tries)
+        if not (stop is not None and stop.is_set()):
+            flush()
         report_queue()
         if deferred:raise next(iter(deferred.values()))
         return total

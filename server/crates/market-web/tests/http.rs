@@ -494,6 +494,74 @@ async fn uploads_need_an_active_token() {
 }
 
 #[tokio::test]
+async fn batch_uploads_report_each_observation_separately() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let client = Client::new(&db, true);
+    let registered = json_body(client.post("/api/v1/register", &json!({}), &[]).await).await;
+    let bearer = format!("Bearer {}", registered["token"].as_str().unwrap());
+    let auth = [("authorization", bearer.as_str())];
+    let now = unix_now();
+    assert_eq!(
+        client
+            .post("/api/v1/observations", &observation("seen", now - 90.0, 8), &auth)
+            .await
+            .status(),
+        StatusCode::CREATED
+    );
+    let batch = json!({"observations": [
+        observation("a", now - 60.0, 5),
+        observation("seen", now - 90.0, 8),
+        observation("seen", now - 90.0, 7),
+        observation("ahead", now + 600.0, 8),
+        {"version": 1},
+        observation("b", now - 30.0, 4),
+    ]});
+    assert_eq!(
+        client
+            .post("/api/v1/observations/batch", &batch, &[])
+            .await
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+    let response = client
+        .post("/api/v1/observations/batch", &batch, &auth)
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json_body(response).await;
+    let statuses: Vec<u64> = body["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["status"].as_u64().unwrap())
+        .collect();
+    assert_eq!(statuses, [201, 200, 409, 400, 400, 201]);
+    assert_eq!(body["results"][2]["error"], "Observation ID content conflict");
+    assert_eq!(body["results"][3]["error"], "Invalid observation schema");
+    assert!(body["server_time"].as_f64().unwrap() >= now);
+    // Stored like single uploads: replaying one alone is a duplicate.
+    let again = client
+        .post("/api/v1/observations", &observation("b", now - 30.0, 4), &auth)
+        .await;
+    assert_eq!(again.status(), StatusCode::OK);
+    for bad in [
+        json!({"observations": []}),
+        json!([]),
+        json!({"observations": vec![observation("x", now - 10.0, 1); 26]}),
+    ] {
+        assert_eq!(
+            client
+                .post("/api/v1/observations/batch", &bad, &auth)
+                .await
+                .status(),
+            StatusCode::BAD_REQUEST
+        );
+    }
+    db.close().await;
+}
+
+#[tokio::test]
 async fn private_site_needs_sign_in() {
     let Some(db) = TestDb::new().await else {
         return;

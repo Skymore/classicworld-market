@@ -22,6 +22,22 @@ def error_worker(pipe):
     pipe.close()
 
 
+def accept_all(url, payload, headers, stop=None, session=None, timeout=None):
+    if url.endswith('/batch'):
+        return {'ok': True, 'server_time': time.time(),
+                'results': [{'status': 201} for _ in payload['observations']]}
+    return {'ok': True}
+
+
+def shops(send):
+    """Shop ids sent through a patched request_json, batches flattened."""
+    ids = []
+    for call in send.call_args_list:
+        url, payload = call.args[:2]
+        ids += [o['shop_id'] for o in payload['observations']] if url.endswith('/batch') else [payload['shop_id']]
+    return ids
+
+
 class UploadRetryTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -133,8 +149,9 @@ class UploadRetryTests(unittest.TestCase):
         for n in range(80):
             name = f'shop_a{n:02}.json'; self.capture(name); self.seed(name, 'rejected_400')
         sent = []
-        def accept(url, payload, headers, stop=None, session=None):
-            sent.append(payload['shop_id']); return {'ok': True}
+        def accept(url, payload, headers, stop=None, session=None, timeout=None):
+            sent.extend(o['shop_id'] for o in payload.get('observations', [payload]))
+            return accept_all(url, payload, headers)
         clock = [time.time()]
         with patch('shared_client.request_json', side_effect=accept), \
              patch.object(shared_client.time, 'time', side_effect=lambda: clock[0]):
@@ -155,10 +172,75 @@ class UploadRetryTests(unittest.TestCase):
         for n in range(15):
             name = f'shop_a{n}.json'; self.capture(name); self.seed(name, 'rejected_400')
         self.capture('shop_znew.json')
-        with patch('shared_client.request_json', return_value={'ok': True}) as send:
+        with patch('shared_client.request_json', side_effect=accept_all) as send:
             self.assertEqual(self.run_upload(), 11)
-            self.assertEqual(send.call_count, 11)
+            # The fresh capture and ten retries share one batch request.
+            self.assertEqual(send.call_count, 1)
+            self.assertEqual(len(shops(send)), 11)
         self.assertEqual(self.events[-1]['pending'], 5)
+
+    def test_shop_snapshots_upload_in_bounded_batches(self):
+        import shared_client
+        for n in range(shared_client.BATCH_SIZE*2+3):self.capture(f'shop_{n:03}.json')
+        with patch('shared_client.request_json', side_effect=accept_all) as send:
+            self.assertEqual(self.run_upload(), shared_client.BATCH_SIZE*2+3)
+        sizes = [len(c.args[1]['observations']) for c in send.call_args_list]
+        self.assertEqual(sizes, [shared_client.BATCH_SIZE, shared_client.BATCH_SIZE, 3])
+        self.assertTrue(all(c.args[0].endswith('/api/v1/observations/batch') for c in send.call_args_list))
+        self.assertEqual(send.call_args_list[0].kwargs['timeout'], shared_client.BATCH_TIMEOUT)
+        self.assertEqual(self.events[-1]['pending'], 0)
+
+    def test_batch_results_are_settled_per_file(self):
+        for name in ('shop_a.json', 'shop_b.json', 'shop_c.json', 'shop_d.json'):self.capture(name)
+        def mixed(url, payload, headers, stop=None, session=None, timeout=None):
+            return {'ok': True, 'server_time': time.time(), 'results': [
+                {'status': 201}, {'status': 400, 'error': 'Invalid observation schema'},
+                {'status': 409, 'error': 'Observation ID content conflict'},
+                {'status': 503, 'error': 'Upload queue busy; retry later'}]}
+        with patch('shared_client.request_json', side_effect=mixed):
+            with self.assertRaises(HTTPError) as caught:self.run_upload()
+        self.assertEqual(caught.exception.code, 503)
+        self.assertEqual(caught.exception.uploaded_count, 1)
+        self.assertEqual(self.status('shop_a.json'), 'sent')
+        self.assertEqual(self.status('shop_b.json'), 'rejected_400')
+        self.assertEqual(self.status('shop_c.json'), 'rejected_409')
+        with closing(sqlite3.connect(self.ledger)) as db:
+            self.assertIsNone(db.execute("SELECT 1 FROM sent WHERE path='shop_d.json'").fetchone())
+        detail = json.loads(self.ledger.with_suffix('.last-error.json').read_text())
+        self.assertEqual(detail['reason'], 'Observation ID content conflict')
+
+    def test_batch_clock_ahead_uses_server_time(self):
+        for name in ('shop_a.json', 'shop_b.json'):self.capture(name)
+        def ahead(url, payload, headers, stop=None, session=None, timeout=None):
+            return {'ok': True, 'server_time': time.time()-3600, 'results': [
+                {'status': 201}, {'status': 400, 'error': 'Invalid observation schema'}]}
+        with patch('shared_client.request_json', side_effect=ahead):
+            self.assertEqual(self.run_upload(), 1)
+        self.assertEqual(self.status('shop_b.json'), 'rejected_clock')
+
+    def test_batch_quota_and_timeout_keep_every_file_pending(self):
+        for name in ('shop_a.json', 'shop_b.json'):self.capture(name)
+        for failure in (HTTPError('', 429, '', {'Retry-After': '30'}, None), URLError(TimeoutError())):
+            with patch('shared_client.request_json', side_effect=failure) as send:
+                with self.assertRaises(type(failure)) as caught:self.run_upload()
+            self.assertIs(caught.exception, failure)
+            self.assertEqual(send.call_count, 1)
+            self.assertEqual(self.events[-1]['pending'], 2)
+
+    def test_service_without_batch_route_falls_back_to_single_uploads(self):
+        import shared_client
+        self.addCleanup(shared_client._batch_unsupported.clear)
+        for name in ('shop_a.json', 'shop_b.json', 'shop_c.json'):self.capture(name)
+        def old_service(url, payload, headers, stop=None, session=None, timeout=None):
+            if url.endswith('/batch'):raise HTTPError(url, 404, '', {}, None)
+            return {'ok': True}
+        with patch('shared_client.request_json', side_effect=old_service) as send:
+            self.assertEqual(self.run_upload(), 3)
+            self.assertEqual(send.call_count, 4)
+            self.capture('shop_d.json'); self.capture('shop_e.json')
+            self.assertEqual(self.run_upload(), 2)
+            self.assertEqual(send.call_count, 6)
+        self.assertEqual(self.events[-1]['pending'], 0)
 
     def test_nonretryable_conflict_stays_visible_without_loop(self):
         self.capture('shop_conflict.json'); self.seed('shop_conflict.json', 'rejected_409')

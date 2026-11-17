@@ -155,6 +155,7 @@ python tools/gen_core_vectors.py
 | 接口 | 说明 |
 |---|---|
 | `POST /api/v1/observations`（别名 `/api/v1/upload`） | 上传 v1 观察；新建 201，重复 200 `duplicate: true`，同 ID 内容不同 409，格式错 400，无令牌 401。可带 `source: packet\|screen`（默认 packet）和 `reader_version` |
+| `POST /api/v1/observations/batch` | `{"observations":[…]}` 一次最多 25 条，每条按单条接口校验、入库，返回 200 `{"results":[{"status":201/200/400/409/413/503,…}],"server_time":…}`，结果顺序与请求一致。整个请求计一次请求限流（每台每分钟 120），另按条数限每台每分钟 3000 条。采集器 v0.7.92 起店铺快照走这里，服务没有该接口时退回单条 |
 | `POST /api/v1/register`、`/login`、`/logout` | 自动注册采集身份；登录写 `fm_session` cookie |
 | `GET /api/v1/market?view=list` | 价格表；`hours=72\|all` |
 | `GET /api/v1/market?summary=1`、`?item_id=N` | 摘要（不带挂单）、单个物品的挂单、成交、历史 |
