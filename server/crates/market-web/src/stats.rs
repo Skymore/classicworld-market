@@ -8,10 +8,12 @@
 //! untouched items lag by at most one refresh interval.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use market_core::pricing::UpgradeState;
-use market_core::report::{item_figures, ItemFigures, Listing, SaleEvent, Window, WindowFigures};
+use market_core::report::{
+    item_figures, ItemFigures, Listing, SaleEvent, Window, WindowFigures, RECENT_HOURS,
+};
 use market_core::sales::SaleKind;
 use market_core::stats::SalesStats;
 use market_core::stats::{anchor, bucket_start};
@@ -536,6 +538,64 @@ pub async fn refresh_all(conn: &mut PgConnection, now: f64) -> sqlx::Result<usiz
 
 /// Batched refresh when the anchor minute moved or data left the 72-hour
 /// window since the last one. Returns whether it ran.
+/// Every figure that moves with the clock compares a sale or a shop sighting
+/// with `now - k days`: the 24 h, previous 24 h, 72 h window and its previous
+/// 72 h, 10 days and the seven trend days. Between two refreshes only items
+/// with evidence that crossed one of those lines change.
+const CLOCK_OFFSETS_DAYS: [f64; 9] = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 10.0];
+/// Rounding margin only: the next pass starts where this one started, so
+/// lines crossed while a pass runs are covered by the next one. Imports add
+/// hundreds of items' sales at one instant, so a wide margin is not free.
+const CROSSING_MARGIN: f64 = 5.0;
+/// How often clock-relative figures are brought up to date.
+const CLOCK_REFRESH_EVERY: f64 = 600.0;
+/// Longer gaps (a stopped server) recompute everything.
+const INCREMENTAL_SPAN: f64 = 6.0 * 3600.0;
+/// A full pass still runs hourly, so trend bucket start labels never lag far.
+const FULL_REFRESH_EVERY: f64 = 3600.0;
+static LAST_FULL_REFRESH: AtomicU64 = AtomicU64::new(0);
+
+/// Items whose clock-relative figures changed between `previous` and `now`.
+/// Rereading every item's whole sale history each minute kept the disk at
+/// 100 % (2026-11-17: ~2000 items, ~4 M sales, a pass of several minutes
+/// restarting as soon as it ended).
+async fn time_crossed_items(
+    conn: &mut PgConnection,
+    previous: f64,
+    now: f64,
+) -> sqlx::Result<Vec<i32>> {
+    let (lows, highs): (Vec<f64>, Vec<f64>) = CLOCK_OFFSETS_DAYS
+        .iter()
+        .map(|days| {
+            let offset = days * 86400.0;
+            (previous - offset - CROSSING_MARGIN, now - offset + CROSSING_MARGIN)
+        })
+        .unzip();
+    let window = f64::from(RECENT_HOURS) * 3600.0;
+    let (seen_low, seen_high) = (
+        previous - window - CROSSING_MARGIN,
+        now - window + CROSSING_MARGIN,
+    );
+    sqlx::query_scalar(
+        "SELECT item_id FROM (
+           SELECT s.item_id FROM unnest($1::float8[], $2::float8[]) r(lo, hi)
+             CROSS JOIN LATERAL (SELECT DISTINCT item_id FROM sales
+               WHERE detected_at BETWEEN to_timestamp(r.lo) AND to_timestamp(r.hi)) s
+           UNION SELECT item_id FROM listings
+             WHERE stock > 0 AND last_seen_at BETWEEN to_timestamp($3) AND to_timestamp($4)
+           UNION SELECT item_id FROM external_market_listings
+             WHERE up AND seen_at BETWEEN to_timestamp($3) AND to_timestamp($4)) crossed
+         WHERE item_id IN (SELECT item_id FROM item_stats)
+         ORDER BY item_id",
+    )
+    .bind(&lows)
+    .bind(&highs)
+    .bind(seen_low)
+    .bind(seen_high)
+    .fetch_all(conn)
+    .await
+}
+
 pub async fn refresh_if_due(db: &PgPool, now: f64) -> sqlx::Result<bool> {
     // Serialize refresh workers across candidate/active processes without
     // holding the upload lock for the duration of the entire refresh.
@@ -549,7 +609,7 @@ pub async fn refresh_if_due(db: &PgPool, now: f64) -> sqlx::Result<bool> {
     }
     let mut tx = db.begin().await?;
     lock_writes(&mut tx).await?;
-    let (as_of, refreshed_at, old_cutoff, refreshed_as_of): (Option<f64>, Option<f64>, Option<f64>, Option<f64>) =
+    let (as_of, refreshed_at, old_cutoff, _refreshed_as_of): (Option<f64>, Option<f64>, Option<f64>, Option<f64>) =
         sqlx::query_as(
             "SELECT extract(epoch FROM as_of)::float8, extract(epoch FROM refreshed_at)::float8,
                     extract(epoch FROM refreshed_cutoff)::float8, extract(epoch FROM refreshed_as_of)::float8
@@ -561,30 +621,34 @@ pub async fn refresh_if_due(db: &PgPool, now: f64) -> sqlx::Result<bool> {
         return Ok(false);
     }
     let cutoff = Window::recent(now).cutoff;
+    // Only clock-relative figures move without new evidence (writers mark
+    // their items for `recompute_dirty`), so a few minutes' lag is fine. The
+    // old triggers (as_of reaching a new minute, anything leaving the 72 h
+    // window) held nearly every minute and kept a pass running continuously.
     let due = match (refreshed_at, old_cutoff) {
-        (Some(last_refresh), Some(old_cutoff)) => {
-            now - last_refresh >= 60.0
-                || anchor(as_of, now) != anchor(refreshed_as_of, now)
-                || {
-                    let crossed: bool = sqlx::query_scalar(
-                    "SELECT EXISTS (SELECT 1 FROM shops WHERE last_seen_at >= to_timestamp($1) AND last_seen_at < to_timestamp($2))
-                         OR EXISTS (SELECT 1 FROM sales WHERE detected_at >= to_timestamp($1) AND detected_at < to_timestamp($2))",
-                )
-                .bind(old_cutoff)
-                .bind(cutoff)
-                .fetch_one(&mut *tx)
-                .await?;
-                    crossed
-                }
-        }
+        (Some(last_refresh), Some(_)) => now - last_refresh >= CLOCK_REFRESH_EVERY,
         _ => true,
     };
     if due {
         // Discover IDs without rescanning observation history. Uploads already
         // maintain last_seen_at and market_state's exact counters atomically.
-        let items: Vec<i32> = sqlx::query_scalar("SELECT item_id FROM item_stats ORDER BY item_id")
-            .fetch_all(&mut *tx)
-            .await?;
+        let last_full = LAST_FULL_REFRESH.load(Ordering::Relaxed) as f64;
+        let items: Vec<i32> = match refreshed_at {
+            Some(previous)
+                if last_full > 0.0
+                    && (last_full..last_full + FULL_REFRESH_EVERY).contains(&now)
+                    && previous <= now
+                    && now - previous <= INCREMENTAL_SPAN =>
+            {
+                time_crossed_items(&mut tx, previous, now).await?
+            }
+            _ => {
+                LAST_FULL_REFRESH.store(now as u64, Ordering::Relaxed);
+                sqlx::query_scalar("SELECT item_id FROM item_stats ORDER BY item_id")
+                    .fetch_all(&mut *tx)
+                    .await?
+            }
+        };
         tx.commit().await?;
         let started = std::time::Instant::now();
         for batch in items.chunks(16) {

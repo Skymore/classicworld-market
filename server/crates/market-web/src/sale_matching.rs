@@ -175,15 +175,36 @@ pub async fn reconcile(conn: &mut PgConnection, items: &[i32]) -> sqlx::Result<(
     replace(conn, items, chosen).await
 }
 
+/// Writes only the difference: rebuilding hundreds of busy items rewrote
+/// ~250k unchanged rows per background pass (2026-11-17).
 async fn replace(
     conn: &mut PgConnection,
     items: &[i32],
     chosen: Vec<(i64, i64, i32, f64)>,
 ) -> sqlx::Result<()> {
-    sqlx::query("DELETE FROM cross_source_sale_matches WHERE item_id=ANY($1)")
-        .bind(items)
-        .execute(&mut *conn)
-        .await?;
+    let existing: Vec<(i64, i64, i32, f64)> = sqlx::query_as(
+        "SELECT external_sale_id,collector_sale_id,item_id,delta_seconds
+         FROM cross_source_sale_matches WHERE item_id=ANY($1)",
+    )
+    .bind(items)
+    .fetch_all(&mut *conn)
+    .await?;
+    let key = |r: &(i64, i64, i32, f64)| (r.0, r.1, r.2, r.3.to_bits());
+    let wanted: HashSet<_> = chosen.iter().map(key).collect();
+    let kept: HashSet<_> = existing.iter().map(key).collect();
+    let stale: Vec<i64> = existing
+        .iter()
+        .filter(|r| !wanted.contains(&key(r)))
+        .map(|r| r.0)
+        .collect();
+    let chosen: Vec<_> = chosen.into_iter().filter(|r| !kept.contains(&key(r))).collect();
+    if !stale.is_empty() {
+        sqlx::query("DELETE FROM cross_source_sale_matches WHERE item_id=ANY($1) AND external_sale_id=ANY($2)")
+            .bind(items)
+            .bind(&stale)
+            .execute(&mut *conn)
+            .await?;
+    }
     if !chosen.is_empty() {
         sqlx::query("INSERT INTO cross_source_sale_matches(external_sale_id,collector_sale_id,item_id,delta_seconds)
             SELECT * FROM UNNEST($1::bigint[],$2::bigint[],$3::int[],$4::float8[])")
