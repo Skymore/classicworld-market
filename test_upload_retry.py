@@ -133,7 +133,7 @@ class UploadRetryTests(unittest.TestCase):
         for n in range(80):
             name = f'shop_a{n:02}.json'; self.capture(name); self.seed(name, 'rejected_400')
         sent = []
-        def accept(url, payload, headers, stop=None):
+        def accept(url, payload, headers, stop=None, session=None):
             sent.append(payload['shop_id']); return {'ok': True}
         clock = [time.time()]
         with patch('shared_client.request_json', side_effect=accept), \

@@ -46,3 +46,32 @@ class RequestTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def _echo_loop(pipe):
+    import os
+    pipe.send(('ready',))
+    while True:
+        message = pipe.recv()
+        if message is None:
+            return
+        url, payload, headers = message
+        if payload.get('hang'):
+            import time
+            time.sleep(30)
+        pipe.send(('ok', {'pid': os.getpid(), 'n': payload.get('n')}))
+
+
+class SessionTests(unittest.TestCase):
+    def test_requests_in_one_pass_reuse_the_worker_and_a_timeout_replaces_it(self):
+        from collector_http import RequestSession
+        with RequestSession(worker=_echo_loop) as session:
+            first = request_json('unused', {'n': 1}, {}, session=session)
+            second = request_json('unused', {'n': 2}, {}, session=session)
+            self.assertEqual(first['pid'], second['pid'])
+            self.assertEqual(second['n'], 2)
+            with self.assertRaises(TimeoutError):
+                request_json('unused', {'hang': True}, {}, session=session, timeout=.5)
+            third = request_json('unused', {'n': 3}, {}, session=session)
+            self.assertNotEqual(third['pid'], first['pid'])
+        self.assertIsNone(session.process)

@@ -17,7 +17,7 @@ from shared_protocol import from_snapshot
 from market_location import LocationTimeline
 from collector_update import VERSION
 import truststore
-from collector_http import request_json, network_diagnostic
+from collector_http import RequestSession, request_json, network_diagnostic
 from collector_recovery import retry_delay
 from collector_network import HTTPHandler, HTTPSHandler
 from collector_upload_diagnostics import rejection
@@ -87,6 +87,8 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
     ledger.parent.mkdir(parents=True,exist_ok=True)
     connection=sqlite3.connect(ledger)
     total=0
+    # One request worker per pass; a failed request replaces it.
+    session=RequestSession()
     try:
         connection.execute('CREATE TABLE IF NOT EXISTS sent (path TEXT PRIMARY KEY, status TEXT, updated REAL)')
         # Separate table so older collectors can still write the sent ledger.
@@ -166,7 +168,7 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
                 data=json.dumps(payload,ensure_ascii=False).encode(),
                 headers={'Authorization':'Bearer '+config['token'],'Content-Type':'application/json'},method='POST')
             try:
-                result=request_json(request.full_url, payload, dict(request.header_items()), stop=stop)
+                result=request_json(request.full_url, payload, dict(request.header_items()), stop=stop, session=session)
                 if not result.get('ok'):raise ValueError('Upload was not acknowledged')
                 state='sent';total+=int(path.name.startswith('shop_'))
             except urllib.error.HTTPError as error:
@@ -214,7 +216,9 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
     except Exception as error:
         error.uploaded_count = total
         raise
-    finally:connection.close()
+    finally:
+        session.close()
+        connection.close()
 
 
 def profile(path):
