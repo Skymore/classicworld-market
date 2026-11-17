@@ -589,7 +589,13 @@ pub async fn refresh_if_due(db: &PgPool, now: f64) -> sqlx::Result<bool> {
         let started = std::time::Instant::now();
         for batch in items.chunks(16) {
             let mut batch_tx = db.begin().await?;
-            lock_writes(&mut batch_tx).await?;
+            // Deferred writers no longer touch the figures under the lock, and
+            // `recompute_dirty` writes them without it. Holding it here kept
+            // every upload waiting (2026-11-16: ~2000 items, a pass > 60 s, so
+            // the lock was taken almost continuously).
+            if !DEFERRED.load(Ordering::Relaxed) {
+                lock_writes(&mut batch_tx).await?;
+            }
             let as_of: f64 =
                 sqlx::query_scalar("SELECT extract(epoch FROM as_of)::float8 FROM market_state")
                     .fetch_one(&mut *batch_tx)
