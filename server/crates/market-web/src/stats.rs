@@ -397,13 +397,15 @@ pub async fn recompute_items(
     if items.is_empty() {
         return Ok(());
     }
-    crate::sale_matching::reconcile(conn, items).await?;
     if DEFERRED.load(Ordering::Relaxed) {
         // Loading whole sale histories took most of every write's time under the
         // shared lock (2026-11-12: 78 % of upload, 85 % of roster time), and
         // busy items were recomputed on nearly every upload. Mark them instead.
+        // Cross-source matching reads the same histories (2026-11-16: ~1.5 s of
+        // every upload), so the background pass reconciles them too.
         return mark_dirty(conn, items, seen_at).await;
     }
+    crate::sale_matching::reconcile(conn, items).await?;
     recompute_prices(conn, items, as_of, now, seen_at).await
 }
 
@@ -459,6 +461,7 @@ pub async fn recompute_dirty(db: &PgPool, now: f64) -> sqlx::Result<usize> {
             sqlx::query_scalar("SELECT extract(epoch FROM as_of)::float8 FROM market_state")
                 .fetch_one(&mut *tx)
                 .await?;
+        crate::sale_matching::reconcile(&mut tx, &items).await?;
         recompute_prices(&mut tx, &items, as_of.unwrap_or(now), now, &seen_at).await?;
         crate::realtime::notify_market(&mut tx, Some(&items[..])).await?;
         tx.commit().await
