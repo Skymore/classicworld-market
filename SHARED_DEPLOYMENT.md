@@ -226,6 +226,10 @@ v0.5.10 及以后的采集器从 `https://mxd.ruit.me/web/releases/stable.json` 
 
 此迁移新增派生表并回填历史数据；按 2026-11-04 的用户规则不自动备份数据库。原始采集与逐设备贡献记录保持完整。旧二进制的 SQLx 会拒绝未知迁移，回滚时先执行 `server/tools/rollback_account_contribution_rollups.sql`，再切回保留版本；该脚本只撤销新派生表、触发器和对应迁移记录，不删除原始贡献。如已有后续迁移，脚本会停止，须先复核依赖。
 
+### 0059 成交表自动清理阈值
+
+统计重算靠 `sales_statistics_cover_idx` 只读索引；可见性映射过期时要回表读盘。`0059_sales_autovacuum.sql` 只改 `sales` 与 `cross_source_sale_matches` 的 autovacuum 参数（每新增 1 万条成交清理一次），不改数据。
+
 其他迁移的说明见 [server/README.md](server/README.md)。
 
 ## 历史部署（已停用）
