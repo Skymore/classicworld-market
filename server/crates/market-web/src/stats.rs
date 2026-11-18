@@ -36,7 +36,21 @@ type ItemData = HashMap<i32, (Vec<Listing>, Vec<SaleEvent>)>;
 /// Live listings and all sales (detection order) of `items`, or of every item.
 /// Single-table index scans, so an upload costs what its items hold, not
 /// what `shops`, `observations` or `equipment_variants` hold.
+/// Sales a clock pass needs: every figure that moves with time looks at most
+/// ten days back, and the typical price falls back to the latest
+/// `TYPICAL_FALLBACK` priced sales. Older history only feeds the all-records
+/// window and the daily chart, which only change with new evidence.
+const CLOCK_HISTORY: f64 = 10.0 * 86400.0 + 120.0;
+
 async fn load(conn: &mut PgConnection, items: Option<&[i32]>) -> sqlx::Result<ItemData> {
+    load_since(conn, items, None).await
+}
+
+async fn load_since(
+    conn: &mut PgConnection,
+    items: Option<&[i32]>,
+    since: Option<f64>,
+) -> sqlx::Result<ItemData> {
     let item_filter = match items {
         Some(_) => "AND item_id = ANY($1)",
         None => "",
@@ -55,14 +69,37 @@ async fn load(conn: &mut PgConnection, items: Option<&[i32]>) -> sqlx::Result<It
     .await?;
     // Equal times keep arrival order; Python uses visit id order. They differ
     // only for one item's sales found in the same microsecond by two uploads.
-    let sales = sqlx::query(&format!(
-        "SELECT item_id, extract(epoch FROM detected_at)::float8 AS detected, kind, grouping_shop_id,
+    let sales = match since {
+        None => {
+            sqlx::query(&format!(
+                "SELECT item_id, extract(epoch FROM detected_at)::float8 AS detected, kind, grouping_shop_id,
                 COALESCE(slot,0), variant_id, unit_price
          FROM market_sales WHERE true {item_filter} ORDER BY item_id, detected_at, observation_id NULLS LAST, position NULLS LAST,id"
-    ))
-    .bind(&ids)
-    .fetch_all(&mut *conn)
-    .await?;
+            ))
+            .bind(&ids)
+            .fetch_all(&mut *conn)
+            .await?
+        }
+        // Per item, from the earlier of `since` and its latest
+        // TYPICAL_FALLBACK-th priced sale (ties at that instant included).
+        Some(since) => {
+            sqlx::query(
+                "SELECT s.item_id, extract(epoch FROM s.detected_at)::float8 AS detected, s.kind, s.grouping_shop_id,
+                COALESCE(s.slot,0), s.variant_id, s.unit_price
+         FROM unnest($1::int4[]) c(item)
+         CROSS JOIN LATERAL (SELECT LEAST(to_timestamp($2), COALESCE((
+             SELECT detected_at FROM market_sales WHERE item_id = c.item AND unit_price > 0
+             ORDER BY detected_at DESC OFFSET $3 LIMIT 1), '-infinity')) AS lo) b
+         CROSS JOIN LATERAL (SELECT * FROM market_sales m WHERE m.item_id = c.item AND m.detected_at >= b.lo) s
+         ORDER BY s.item_id, s.detected_at, s.observation_id NULLS LAST, s.position NULLS LAST, s.id",
+            )
+            .bind(&ids)
+            .bind(since)
+            .bind(market_core::stats::TYPICAL_FALLBACK as i64 - 1)
+            .fetch_all(&mut *conn)
+            .await?
+        }
+    };
 
     let mut variants: Vec<i64> = listings
         .iter()
@@ -177,18 +214,28 @@ fn stats_json(
 /// quote window, as JSON object members without the braces. Catalogue
 /// fields and `last_seen` are added when the list is read.
 fn list_fields(item_id: i32, s: &SalesStats, w: &WindowFigures) -> String {
-    let trend: Vec<Option<f64>> = s.trend_7d.iter().map(|b| b.median).collect();
-    let members = json!({
+    let mut members = json!({
         "unit_basis": crate::external::unit(item_id),
         "low": w.low, "median": w.median, "listings": w.listings, "shops": w.shops,
+        "variant_count": w.variants, "fast_price": w.recommendation.fast_price,
+    });
+    if let (Value::Object(all), Value::Object(clock)) = (&mut members, clock_members(s)) {
+        all.extend(clock);
+    }
+    let members = members.to_string();
+    members[1..members.len() - 1].to_string()
+}
+
+/// The list members that move with the clock. A clock pass patches these
+/// into the all-records row without recomputing its window.
+fn clock_members(s: &SalesStats) -> Value {
+    let trend: Vec<Option<f64>> = s.trend_7d.iter().map(|b| b.median).collect();
+    json!({
         "typical": s.typical, "typical_low": s.typical_low, "typical_high": s.typical_high,
         "typical_basis": s.typical_basis.as_str(), "low_data": s.low_data, "sales_24h": s.sales_24h,
         "change_24h": s.change_24h, "sales_10d": s.sales_10d, "last_sale_at": s.last_sale_at,
-        "last_sale_price": s.last_sale_price, "variant_count": w.variants, "trend": trend,
-        "fast_price": w.recommendation.fast_price,
+        "last_sale_price": s.last_sale_price, "trend": trend,
     })
-    .to_string();
-    members[1..members.len() - 1].to_string()
 }
 
 // Raw selected-period sales, matching the former list SQL. Pricing filters
@@ -243,6 +290,20 @@ async fn write(
     last_seen: &HashMap<i32, f64>,
     exact_last_seen: bool,
     data: &ItemData,
+) -> sqlx::Result<()> {
+    write_rows(conn, figures, as_of, now, last_seen, exact_last_seen, data, false).await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn write_rows(
+    conn: &mut PgConnection,
+    figures: &[(i32, ItemFigures)],
+    as_of: f64,
+    now: f64,
+    last_seen: &HashMap<i32, f64>,
+    exact_last_seen: bool,
+    data: &ItemData,
+    clock_only: bool,
 ) -> sqlx::Result<()> {
     let anchor = now;
     let stats: Vec<Value> = figures
@@ -318,6 +379,25 @@ async fn write(
     .bind(exact_last_seen)
     .execute(&mut *conn)
     .await?;
+    if clock_only {
+        // `data` holds only recent sales: keep the all-records window and the
+        // daily chart, and refresh just the clock members of its list row.
+        let patches: Vec<Value> = figures
+            .iter()
+            .map(|(id, f)| json!({"item_id": id, "patch": clock_members(&f.stats)}))
+            .collect();
+        sqlx::query(
+            "UPDATE item_stats_all a SET list_fields = substr(m.fields, 2, length(m.fields) - 2)
+             FROM (SELECT x.item_id, ((('{' || w.list_fields || '}')::jsonb) || x.patch)::text AS fields
+                   FROM jsonb_to_recordset($1) AS x(item_id int, patch jsonb)
+                   JOIN item_stats_all w ON w.item_id = x.item_id) m
+             WHERE a.item_id = m.item_id",
+        )
+        .bind(Value::Array(patches))
+        .execute(&mut *conn)
+        .await?;
+        return Ok(());
+    }
 
     sqlx::query(&format!(
         "INSERT INTO item_stats_all (item_id, lowest_ask, median_ask, highest_ask, listings_count, shops_count,
@@ -493,6 +573,36 @@ async fn recompute_prices(
     write(conn, &figures, as_of, now, seen_at, false, &data).await
 }
 
+/// Clock-relative figures only, from recent sales; see `CLOCK_HISTORY`.
+async fn recompute_clock(
+    conn: &mut PgConnection,
+    items: &[i32],
+    as_of: f64,
+    now: f64,
+) -> sqlx::Result<()> {
+    let data = load_since(conn, Some(items), Some(now - CLOCK_HISTORY)).await?;
+    let figures = compute(items, &data, as_of, now);
+    write_rows(conn, &figures, as_of, now, &HashMap::new(), false, &data, true).await
+}
+
+/// Test hook: recompute `items` at `now` from recent sales (`clock`) or from
+/// their whole history, as the periodic refresh does.
+#[doc(hidden)]
+pub async fn recompute_at(db: &PgPool, items: &[i32], now: f64, clock: bool) -> sqlx::Result<()> {
+    let mut tx = db.begin().await?;
+    let as_of: Option<f64> =
+        sqlx::query_scalar("SELECT extract(epoch FROM as_of)::float8 FROM market_state")
+            .fetch_one(&mut *tx)
+            .await?;
+    let as_of = as_of.unwrap_or(now);
+    if clock {
+        recompute_clock(&mut tx, items, as_of, now).await?;
+    } else {
+        recompute_prices(&mut tx, items, as_of, now, &HashMap::new()).await?;
+    }
+    tx.commit().await
+}
+
 /// Recompute every observed item. Returns the number of items written.
 pub async fn refresh_all(conn: &mut PgConnection, now: f64) -> sqlx::Result<usize> {
     let as_of: Option<f64> =
@@ -634,6 +744,7 @@ pub async fn refresh_if_due(db: &PgPool, now: f64) -> sqlx::Result<bool> {
         // Discover IDs without rescanning observation history. Uploads already
         // maintain last_seen_at and market_state's exact counters atomically.
         let last_full = LAST_FULL_REFRESH.load(Ordering::Relaxed) as f64;
+        let mut full = false;
         let items: Vec<i32> = match refreshed_at {
             Some(previous)
                 if last_full > 0.0
@@ -644,6 +755,7 @@ pub async fn refresh_if_due(db: &PgPool, now: f64) -> sqlx::Result<bool> {
                 time_crossed_items(&mut tx, previous, now).await?
             }
             _ => {
+                full = true;
                 LAST_FULL_REFRESH.store(now as u64, Ordering::Relaxed);
                 sqlx::query_scalar("SELECT item_id FROM item_stats ORDER BY item_id")
                     .fetch_all(&mut *tx)
@@ -665,14 +777,12 @@ pub async fn refresh_if_due(db: &PgPool, now: f64) -> sqlx::Result<bool> {
                 sqlx::query_scalar("SELECT extract(epoch FROM as_of)::float8 FROM market_state")
                     .fetch_one(&mut *batch_tx)
                     .await?;
-            recompute_prices(
-                &mut batch_tx,
-                batch,
-                as_of,
-                now + started.elapsed().as_secs_f64(),
-                &HashMap::new(),
-            )
-            .await?;
+            let batch_now = now + started.elapsed().as_secs_f64();
+            if full {
+                recompute_prices(&mut batch_tx, batch, as_of, batch_now, &HashMap::new()).await?;
+            } else {
+                recompute_clock(&mut batch_tx, batch, as_of, batch_now).await?;
+            }
             sqlx::query("UPDATE market_state SET version=version+1")
                 .execute(&mut *batch_tx)
                 .await?;
@@ -682,7 +792,7 @@ pub async fn refresh_if_due(db: &PgPool, now: f64) -> sqlx::Result<bool> {
         }
         tracing::info!(
             items = items.len(),
-            full = LAST_FULL_REFRESH.load(Ordering::Relaxed) as f64 == now.trunc(),
+            full,
             elapsed_ms = started.elapsed().as_secs_f64() * 1000.0,
             "clock stats pass"
         );
