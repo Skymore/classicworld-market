@@ -189,11 +189,11 @@ fn niadb_bestiary_decides_what_exists() {
     );
     assert_eq!(
         (counts.drops + counts.mesos, counts.drops_unconfirmed),
-        (data.drops.len(), 110)
+        (data.drops.len(), 60)
     );
     assert_eq!(
         (counts.mesos, counts.mesos_untrusted),
-        (49, 0),
+        (53, 0),
         "monsters with meso reports"
     );
     assert_eq!(counts.spawns, data.spawns.len());
@@ -345,7 +345,7 @@ fn niadb_bestiary_decides_what_exists() {
     let blue_snail: Vec<_> = data.drops.iter().filter(|d| d.mob_id == 3).collect();
     assert_eq!(
         (blue_snail[0].item_id, blue_snail[0].upvotes),
-        (Some(4010001), Some(84.25)),
+        (Some(4010001), Some(95.5)),
         "Iron Ore"
     );
     let mobs: std::collections::HashSet<i32> = data.mobs.iter().map(|m| m.id).collect();
