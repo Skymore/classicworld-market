@@ -52,6 +52,9 @@ class LocationTimeline:
             lines = path.read_text(encoding='utf-8').splitlines()
         except OSError:
             lines = []
+        self._add(lines)
+
+    def _add(self, lines):
         for line in lines:
             try:
                 record = json.loads(line)
@@ -76,3 +79,42 @@ class LocationTimeline:
         entries = self.contexts.get(session, [])
         index = bisect_right([x[0] for x in entries], timestamp)-1
         return entries[index][1] if index >= 0 else None
+
+
+class FollowingTimeline(LocationTimeline):
+    """A timeline kept across upload passes, reading only appended lines.
+
+    map_observations.jsonl is append-only; reparsing all of it (9 MB) on every
+    pass was most of an idle collector's work. A shorter or replaced file is
+    read again from the start.
+    """
+    def __init__(self, path):
+        self.path = path
+        self.offset = 0
+        self.identity = None
+        self.sessions = {}
+        self.contexts = {}
+        self.refresh()
+
+    def refresh(self):
+        try:
+            stat = self.path.stat()
+        except OSError:
+            return self
+        identity = (stat.st_ino, stat.st_dev)
+        if stat.st_size < self.offset or (self.identity is not None and identity != self.identity):
+            self.offset, self.sessions, self.contexts = 0, {}, {}
+        self.identity = identity
+        if stat.st_size == self.offset:
+            return self
+        try:
+            with self.path.open('rb') as handle:
+                handle.seek(self.offset)
+                data = handle.read(stat.st_size - self.offset)
+        except OSError:
+            return self
+        complete = data.rfind(b'\n') + 1
+        if complete:
+            self.offset += complete
+            self._add(data[:complete].decode('utf-8', 'replace').splitlines())
+        return self

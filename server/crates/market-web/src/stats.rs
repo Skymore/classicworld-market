@@ -551,8 +551,9 @@ const CROSSING_MARGIN: f64 = 5.0;
 const CLOCK_REFRESH_EVERY: f64 = 600.0;
 /// Longer gaps (a stopped server) recompute everything.
 const INCREMENTAL_SPAN: f64 = 6.0 * 3600.0;
-/// A full pass still runs hourly, so trend bucket start labels never lag far.
-const FULL_REFRESH_EVERY: f64 = 3600.0;
+/// The full pass only refreshes trend bucket start times, which pages show in
+/// a hover range; every count is kept current by the incremental passes.
+const FULL_REFRESH_EVERY: f64 = 6.0 * 3600.0;
 static LAST_FULL_REFRESH: AtomicU64 = AtomicU64::new(0);
 
 /// Items whose clock-relative figures changed between `previous` and `now`.
@@ -679,6 +680,12 @@ pub async fn refresh_if_due(db: &PgPool, now: f64) -> sqlx::Result<bool> {
             // Let an upload waiting for the writer lock proceed between batches.
             tokio::task::yield_now().await;
         }
+        tracing::info!(
+            items = items.len(),
+            full = LAST_FULL_REFRESH.load(Ordering::Relaxed) as f64 == now.trunc(),
+            elapsed_ms = started.elapsed().as_secs_f64() * 1000.0,
+            "clock stats pass"
+        );
         tx = db.begin().await?;
         lock_writes(&mut tx).await?;
         sqlx::query(

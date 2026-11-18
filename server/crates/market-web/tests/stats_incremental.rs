@@ -66,8 +66,8 @@ async fn periodic_refresh_recomputes_only_items_that_crossed_a_clock_line() {
     assert!(refresh_if_due(&db.pool, now + 660.0).await.unwrap());
     assert_eq!(sales_24h(4000008).await, 0, "the sale left the 24 h window");
     assert_eq!(sales_24h(4000009).await, 99, "nothing crossed a line");
-    // The hourly full pass still recomputes everything.
-    assert!(refresh_if_due(&db.pool, now + 3700.0).await.unwrap());
+    // The six-hourly full pass still recomputes everything.
+    assert!(refresh_if_due(&db.pool, now + 6.0 * 3600.0 + 100.0).await.unwrap());
     assert_eq!((sales_24h(4000008).await, sales_24h(4000009).await), (0, 1));
     db.close().await;
 }

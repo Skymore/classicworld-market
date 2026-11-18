@@ -27,14 +27,14 @@ pub async fn period_default(State(state): State<AppState>, headers: HeaderMap) -
     let body = tokio::spawn(async move {
         lists
             .period_hint(async {
-                let now = crate::unix_now();
+                // The per-item statistics already hold these counts (at most
+                // one clock refresh behind). Counting market_sales directly
+                // scanned every sale: ~35 s of disk reads (2026-11-18).
                 let row: sqlx::Result<(i64, i64, i64)> = sqlx::query_as(
-                    "SELECT count(DISTINCT item_id) FILTER (WHERE detected_at>=to_timestamp($1)),
-         count(*) FILTER (WHERE detected_at>=to_timestamp($1)), count(DISTINCT item_id)
-         FROM market_sales WHERE detected_at<=to_timestamp($2)",
+                    "SELECT (SELECT count(*) FROM item_stats WHERE sales_count > 0),
+                            (SELECT COALESCE(sum(sales_count), 0)::int8 FROM item_stats),
+                            (SELECT count(*) FROM item_stats_all WHERE sales_count > 0)",
                 )
-                .bind(now - 72.0 * 3600.0)
-                .bind(now)
                 .fetch_one(&db)
                 .await;
                 row.map(|(recent, sales, total)| {

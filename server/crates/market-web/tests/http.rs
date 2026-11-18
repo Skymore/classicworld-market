@@ -562,6 +562,21 @@ async fn batch_uploads_report_each_observation_separately() {
 }
 
 #[tokio::test]
+async fn period_default_counts_come_from_item_statistics() {
+    let Some(db) = TestDb::new().await else {
+        return;
+    };
+    let (client, _) = market(&db).await;
+    let body = json_body(client.get("/api/v1/market/period-default", &[]).await).await;
+    // One item sold twice (stock 5 -> 3 -> 0) inside the last 72 hours.
+    assert_eq!(body["recent_priced_items"], 1);
+    assert_eq!(body["recent_sales"], 2);
+    assert_eq!(body["historical_priced_items"], 1);
+    assert_eq!(body["default_hours"], "72");
+    db.close().await;
+}
+
+#[tokio::test]
 async fn private_site_needs_sign_in() {
     let Some(db) = TestDb::new().await else {
         return;

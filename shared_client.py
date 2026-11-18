@@ -16,7 +16,8 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 from shared_protocol import from_snapshot
-from market_location import LocationTimeline
+from market_location import LocationTimeline, FollowingTimeline
+from collector_capture_index import CaptureIndex, scan as scan_candidates, upload_candidate
 from collector_update import VERSION
 import truststore
 from collector_http import RequestSession, request_json, network_diagnostic
@@ -74,6 +75,8 @@ FINAL_STATES = ('rejected_final', 'rejected_clock')
 BATCH_SIZE = 25
 BATCH_BYTES = 2 * 1024 * 1024
 BATCH_TIMEOUT = 30
+# Without new captures the uploader wakes this often (it used to be 5 s).
+IDLE_PASS_SECONDS = 30
 # Endpoints that answered 404/405 for the batch route (an older service).
 _batch_unsupported = set()
 
@@ -90,25 +93,34 @@ def upload_failure_event(error):
                 route=getattr(error, 'upload_route', None))
 
 
-def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None):
+def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None, index=None, timeline=None):
     destination=(endpoint or config['endpoint']).rstrip('/')
     if destination!='https://mxd.ruit.me' and not destination.startswith('http://127.0.0.1:'):
         raise ValueError('Unsupported endpoint; collector only sends to mxd.ruit.me')
     ledger.parent.mkdir(parents=True,exist_ok=True)
     connection=sqlite3.connect(ledger)
     total=0
+    records={}
     # One request worker per pass; a failed request replaces it.
     session=RequestSession()
     try:
         connection.execute('CREATE TABLE IF NOT EXISTS sent (path TEXT PRIMARY KEY, status TEXT, updated REAL)')
         # Separate table so older collectors can still write the sent ledger.
         connection.execute('CREATE TABLE IF NOT EXISTS retries (path TEXT PRIMARY KEY, attempts INTEGER NOT NULL, retried REAL)')
-        timeline=LocationTimeline(folder/'map_observations.jsonl')
+        timeline=timeline.refresh() if timeline is not None else LocationTimeline(folder/'map_observations.jsonl')
         deferred={}
-        paths = sorted([*folder.glob('shop_*.json'), *folder.glob('presence_*.json'), *folder.glob('roster_*.json'),
-                        *folder.glob('grind_*.json')])
-        paths = [p for p in paths if p.name != 'grind_state.json']
-        records = {row[0]: (row[1], row[2]) for row in connection.execute('SELECT path,status,updated FROM sent')}
+        if index is not None:
+            paths = index.paths()
+            # Look up only this pass's candidates, not the whole ledger.
+            records = {}
+            names = [p.name for p in paths]
+            for start in range(0, len(names), 500):
+                chunk = names[start:start+500]
+                records.update((row[0], (row[1], row[2])) for row in connection.execute(
+                    'SELECT path,status,updated FROM sent WHERE path IN (%s)' % ','.join('?'*len(chunk)), chunk))
+        else:
+            paths = [folder/n for n in sorted(scan_candidates(folder))]
+            records = {row[0]: (row[1], row[2]) for row in connection.execute('SELECT path,status,updated FROM sent')}
         attempts = dict(connection.execute('SELECT path,attempts FROM retries'))
         now = time.time()
         minute, hour = connection.execute('SELECT COALESCE(SUM(retried>=?),0),COALESCE(SUM(retried>=?),0) FROM retries',
@@ -288,6 +300,9 @@ def upload_once(folder, config, ledger, endpoint=None, stop=None, on_event=None)
         error.uploaded_count = total
         raise
     finally:
+        if index is not None:
+            # Uploaded and final files never need another look.
+            index.forget([name for name, (status, _) in records.items() if status in ('sent', *FINAL_STATES)])
         session.close()
         connection.close()
 
@@ -445,6 +460,14 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None, prepare_up
             except Exception as error:
                 print(f'Historical location recovery deferred ({type(error).__name__}).',flush=True)
                 if stopping.wait(60*(attempt+1)):return
+    # Kept across passes and upload-thread restarts; see collector_capture_index.
+    indexes={os.path.normcase(str(Path(p).resolve())):CaptureIndex(Path(p).resolve())
+             for p in [folder,*config.get('extra_folders',[])]}
+    timelines={}
+    def tracked(source):
+        key=os.path.normcase(str(Path(source).resolve()))
+        if key not in timelines:timelines[key]=FollowingTimeline(Path(key)/'map_observations.jsonl')
+        return dict(index=indexes[key],timeline=timelines[key])
     def worker():
         attempts = 0
         while not stopping.is_set():
@@ -452,12 +475,12 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None, prepare_up
             retry=False
             count=0
             try:
-                count=upload_once(folder,config,ledger,stop=stopping,on_event=on_event)
+                count=upload_once(folder,config,ledger,stop=stopping,on_event=on_event,**tracked(folder))
                 for extra in config.get('extra_folders',[]):
                     import hashlib
                     source=Path(extra)
                     extra_ledger=args.home/('upload_'+hashlib.sha256(str(source.resolve()).encode()).hexdigest()[:12]+'.sqlite')
-                    count+=upload_once(source,config,extra_ledger,stop=stopping)
+                    count+=upload_once(source,config,extra_ledger,stop=stopping,**tracked(source))
                 attempts=0
             except Exception as error:
                 count+=getattr(error,'uploaded_count',0)
@@ -478,7 +501,9 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None, prepare_up
                 if retry and on_event:on_event(detail)
             if args.once or stopping.is_set():break
             if retry:stopping.wait(delay)
-            else:capture_changed.wait(5)
+            # New files wake the uploader at once; idle passes only serve
+            # hourly retries of earlier rejections.
+            else:capture_changed.wait(IDLE_PASS_SECONDS)
     def owner_history_worker():
         from collector_owner_migration import migrate_owners
         import hashlib
@@ -502,9 +527,14 @@ def main(argv=None, stop_event=None, update_argv=None, on_event=None, prepare_up
     from watchdog.events import FileSystemEventHandler
     class CaptureHandler(FileSystemEventHandler):
         def on_any_event(self,event):
-            path=Path(getattr(event,'dest_path','') or event.src_path)
-            if not event.is_directory and (path.match('shop_*.json') or path.match('presence_*.json') or path.match('roster_*.json')
-                                           or (path.match('grind_*.json') and path.name!='grind_state.json') or path.name=='map_observations.jsonl'):
+            path=getattr(event,'dest_path','') or event.src_path
+            if event.is_directory:return
+            directory,name=os.path.split(path)
+            if upload_candidate(name):
+                index=indexes.get(os.path.normcase(directory))
+                if index is not None:index.note(name)
+                capture_changed.set()
+            elif name=='map_observations.jsonl':
                 capture_changed.set()
     observer=Observer()
     sources={folder.resolve(),*(Path(p).resolve() for p in config.get('extra_folders',[]))}
