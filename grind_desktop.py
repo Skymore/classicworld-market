@@ -124,6 +124,7 @@ class GrindService:
         self.lock = threading.Lock()
         self.hotkeys = None
         self.mouse = None   # grind_overlay_mouse.OverlayMouse: the overlay's clicks and drags
+        self.rebuild = None  # grind_rebuild process, while a parser fix is being rebuilt
         from grind_sync import RunSync
         self.sync = RunSync(self.folder)
 
@@ -282,32 +283,13 @@ class GrindService:
                          daemon=True, name='grind-frame-upload').start()
         if not self.settings()['record_frames']:
             self.save_settings(dict(record_frames=True))   # the option was removed: always record
-        from grind_replay import REPLAY_VERSION, replay_once
-        def replay_and_reconcile():
-            # Only when this release carries a parser/accounting fix (REPLAY_VERSION):
-            # the open run first (its own connections, seconds), then history newest first.
-            try:
-                status = json.loads((self.data / 'replay.json').read_text(encoding='utf-8'))
-            except (OSError, ValueError):
-                status = {}
-            if status.get('version') == REPLAY_VERSION and status.get('state') == 'done':
-                return
-            try:
-                from grind_reconcile import prepare
-                prepare(self.folder, self.stop)
-            except (OSError, ValueError, KeyError, sqlite3.Error):
-                pass
-            if self.stop.is_set():
-                return
-            fetch = None
-            config = self.sync.config()
-            if config:
-                from grind_pricing import site_fetch
-                from shared_client import upload_opener
-                fetch = site_fetch(config, upload_opener)
-            replay_once(self.folder, REPLAY_VERSION, self.stop, fetch=fetch)
-        threading.Thread(target=replay_and_reconcile,
-                         daemon=True, name='grind-replay').start()
+        # Rebuild after a parser fix in its own low-priority process (grind_rebuild): as a
+        # thread here it starved capture and the window (2026-11-17).
+        try:
+            from grind_rebuild import start as start_rebuild
+            self.rebuild = start_rebuild(self.folder)
+        except Exception as error:
+            print(f'Grind rebuild unavailable ({type(error).__name__}).', flush=True)
         self.apply_overlay(self.settings())
         self.hotkeys = Hotkeys(self)
         self.hotkeys.start()
@@ -455,6 +437,9 @@ class GrindService:
     def close(self):
         """The main window is closing: the overlay must not keep the app alive."""
         self.stop.set()
+        rebuild, self.rebuild = self.rebuild, None
+        if rebuild is not None and rebuild.is_alive():
+            rebuild.terminate()   # its progress is in files; the next launch carries on
         # Capture has stopped and ended the open runs (market_passive.updating): send them
         # now rather than at the next launch, but never hold the exit for long.
         sender = threading.Thread(target=self.sync.sync_once, daemon=True, name='grind-final-sync')
