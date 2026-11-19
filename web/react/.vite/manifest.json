@@ -27,8 +27,8 @@
       "_createLucideIcon-tgWCcnX0.js"
     ]
   },
-  "_catalogue-B3Q5YRXL.js": {
-    "file": "chunks/catalogue-B3Q5YRXL.js",
+  "_catalogue-Ch49z10X.js": {
+    "file": "chunks/catalogue-Ch49z10X.js",
     "name": "catalogue",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -147,8 +147,8 @@
       "_shared-Cwf5YL9D.js"
     ]
   },
-  "_main-Bjb9q3Yy.js": {
-    "file": "chunks/main-Bjb9q3Yy.js",
+  "_main-dfNDJdlo.js": {
+    "file": "chunks/main-dfNDJdlo.js",
     "name": "main",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -404,7 +404,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Bjb9q3Yy.js"
+      "_main-dfNDJdlo.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -462,7 +462,7 @@
     ]
   },
   "src/pages/catalogue-search.tsx": {
-    "file": "chunks/catalogue-search-E7stdu-i.js",
+    "file": "chunks/catalogue-search-CYayus6l.js",
     "name": "catalogue-search",
     "src": "src/pages/catalogue-search.tsx",
     "isDynamicEntry": true,
@@ -471,16 +471,16 @@
       "_shell-DONtAYlu.js",
       "_dialog-BG3HsSV-.js",
       "_price-state-CM6xKDyT.js",
-      "_catalogue-B3Q5YRXL.js"
+      "_catalogue-Ch49z10X.js"
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-CbLnFyBy.js",
+    "file": "chunks/catalogue-C3pwMpMN.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_catalogue-B3Q5YRXL.js"
+      "_catalogue-Ch49z10X.js"
     ]
   },
   "src/pages/client.tsx": {
@@ -571,7 +571,7 @@
     ]
   },
   "src/pages/hollow.tsx": {
-    "file": "chunks/hollow-0MtRiQ3d.js",
+    "file": "chunks/hollow-D5bAqu50.js",
     "name": "hollow",
     "src": "src/pages/hollow.tsx",
     "isDynamicEntry": true,
@@ -580,7 +580,7 @@
       "_shell-DONtAYlu.js"
     ],
     "css": [
-      "chunks/hollow-Wgx3SkoE.css"
+      "chunks/hollow-BtA205OI.css"
     ]
   },
   "src/pages/market.tsx": {
@@ -710,7 +710,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-Bjb9q3Yy.js"
+      "_main-dfNDJdlo.js"
     ]
   }
 }

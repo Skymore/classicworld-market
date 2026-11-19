@@ -133,3 +133,49 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.hollow-tabs {
+  display: flex;
+  padding: 12px 12px 0;
+  border-top: 1px solid var(--rule);
+}
+.hollow-tabs button {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  border: 2px solid var(--edge);
+  background: var(--sheet-hi);
+  color: var(--ink-2);
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  box-shadow: inset 1px 1px 0 var(--bevel-hi), inset -1px -1px 0 var(--bevel-lo);
+}
+.hollow-tabs button + button {
+  margin-left: -2px;
+}
+.hollow-tabs button[aria-selected="true"] {
+  position: relative;
+  z-index: 1;
+  background: var(--maple);
+  color: #fff;
+  box-shadow: none;
+}
+.hollow-tabs small {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+#hollow-panel {
+  padding-top: 12px;
+}
+@media (max-width: 640px) {
+  .hollow-tabs button {
+    min-height: 44px;
+  }
+}

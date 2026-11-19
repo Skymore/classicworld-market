@@ -96,7 +96,7 @@ pub struct MapPictureCounts {
     pub scene_boxes: usize,
 }
 
-fn read_optional(dir: &Path, name: &str) -> Result<Option<String>> {
+pub(super) fn read_optional(dir: &Path, name: &str) -> Result<Option<String>> {
     let path = dir.join(name);
     if !path.exists() {
         return Ok(None);

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useWords } from "../providers";
 import { Icon, usePageReady } from "../components/shared";
 import { SiteLink } from "../components/shell";
@@ -211,9 +212,26 @@ function Steps({ steps }: { steps: Step[] }) {
   );
 }
 
+const TABS = ["maps", "mobs", "quests"] as const;
+type Tab = (typeof TABS)[number];
+
 export default function Hollow() {
   usePageReady();
   const words = useWords();
+  const [params, setParams] = useSearchParams();
+  const raw = params.get("tab");
+  const tab: Tab = TABS.includes(raw as Tab) ? (raw as Tab) : "maps";
+  const pick = (next: Tab) => {
+    const copy = new URLSearchParams(params);
+    if (next === "maps") copy.delete("tab");
+    else copy.set("tab", next);
+    setParams(copy, { replace: true, preventScrollReset: true });
+  };
+  const labels: Record<Tab, [string, string, number]> = {
+    maps: ["地图", "Maps", MAPS.length],
+    mobs: ["怪物", "Monsters", MOBS.length],
+    quests: ["任务", "Quests", LINES.reduce((sum, line) => sum + line.steps.length, 0)],
+  };
   return (
     <div className="lwrap hollow-page">
       <section className="stall">
@@ -253,28 +271,24 @@ export default function Hollow() {
           {words("不用做任务，直接能进。", "Open to everyone; no quest needed.")}
         </p>
 
-        <h2 className="hollow-h">{words("任务线", "Quest lines")}</h2>
-        <div className="hollow-lines">
-          {LINES.map((line, index) => (
-            <div className="hollow-line well" key={index}>
-              <h3>{line.who}</h3>
-              <Steps steps={line.steps} />
-            </div>
+        <div className="hollow-tabs" role="tablist" aria-label={words("专题分类", "Sections")}>
+          {TABS.map((key) => (
+            <button
+              type="button"
+              role="tab"
+              key={key}
+              aria-selected={tab === key}
+              aria-controls="hollow-panel"
+              data-hollow-tab={key}
+              onClick={() => pick(key)}
+            >
+              {words(labels[key][0], labels[key][1])} <small>{labels[key][2]}</small>
+            </button>
           ))}
         </div>
-
-        <h2 className="hollow-h">{words("怪物", "Monsters")}</h2>
-        <div className="hollow-mobs">
-          {MOBS.map(([id, name, level]) => (
-            <SiteLink className="hollow-mob well" href={`/mob/${id}`} key={id}>
-              <img src={`/web/images/mobs/head/${id}.png`} alt="" width={48} height={48} loading="lazy" />
-              <b>{name}</b>
-              <small>Lv{level}</small>
-            </SiteLink>
-          ))}
-        </div>
-
-        <h2 className="hollow-h">{words("地图", "Maps")}</h2>
+        <div id="hollow-panel" role="tabpanel">
+          {tab === "maps" && (
+            <>
         <div className="hollow-maps">
           {MAPS.map(([id, name, thumb]) => (
             <SiteLink className="hollow-map well" href={`/map/${id}`} key={id}>
@@ -286,6 +300,36 @@ export default function Hollow() {
               <b>{name}</b>
             </SiteLink>
           ))}
+        </div>
+            </>
+          )}
+          {tab === "mobs" && (
+            <>
+        <div className="hollow-mobs">
+          {MOBS.map(([id, name, level]) => (
+            <SiteLink className="hollow-mob well" href={`/mob/${id}`} key={id}>
+              <img src={`/web/images/mobs/head/${id}.png`} alt="" width={48} height={48} loading="lazy" />
+              <b>{name}</b>
+              <small>Lv{level}</small>
+            </SiteLink>
+          ))}
+        </div>
+
+            </>
+          )}
+          {tab === "quests" && (
+            <>
+        <div className="hollow-lines">
+          {LINES.map((line, index) => (
+            <div className="hollow-line well" key={index}>
+              <h3>{line.who}</h3>
+              <Steps steps={line.steps} />
+            </div>
+          ))}
+        </div>
+
+            </>
+          )}
         </div>
       </section>
     </div>

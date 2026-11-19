@@ -71,6 +71,25 @@ function ScenePicture({ view, full = false }: { view: any; full?: boolean }) {
 
 // True once the element comes within 200 px of the viewport; at once when
 // not deferred.
+// Map units that make a 14px radius on screen, so markers stay easy to hit
+// on a small picture (the inline map, or the zoom dialog zoomed out).
+function useHitRadius(ref: RefObject<Element | null>, width: number) {
+  const [r, setR] = useState(0);
+  useEffect(() => {
+    const el = ref.current?.querySelector("svg");
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const px = el.getBoundingClientRect().width;
+      if (px > 0) setR((14 * width) / px);
+    };
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, [ref, width]);
+  return r;
+}
+
 function useNear(ref: RefObject<Element | null>, defer: boolean) {
   const [near, setNear] = useState(() => !defer || typeof IntersectionObserver === "undefined");
   useEffect(() => {
@@ -122,6 +141,7 @@ export function MapSvg({
     name = useNames();
   const box = useRef<HTMLDivElement>(null);
   const near = useNear(box, deferScene && !zoomed);
+  const hit = useHitRadius(box, view.width);
   // A map with a scene always shows it; the minimap is the picture of maps without one.
   const showScene = view.scene && near;
   const showMinimap = !view.scene && view.image_url;
@@ -173,6 +193,7 @@ export function MapSvg({
                     "/mob/" + s.mob_id,
                     <>
                       <title>{mobLabel(s.mob_id) + (note ? " · " + note : "")}</title>
+                      <circle className="mv-hit" cx={s.x} cy={fmt(s.y - s.h / 2)} r={fmt(Math.max(hit, s.w / 2))} />
                       <ellipse
                         className="mv-shadow"
                         cx={s.x}
@@ -209,6 +230,7 @@ export function MapSvg({
               const body = (
                 <>
                   <title>{"NPC · " + (name(n.npc.names) || "NPC #" + n.npc.id)}</title>
+                  {links && !big && <circle className="mv-hit" cx={n.x} cy={fmt(cy)} r={fmt(Math.max(hit, r))} />}
                   <circle className={"mv-npc" + (big ? " here" : "")} cx={n.x} cy={fmt(cy)} r={fmt(r)} />
                   <text className="mv-npc-t" x={n.x} y={fmt(cy + r * 0.38)} fontSize={fmt(r * 1.1)}>
                     N
@@ -233,6 +255,7 @@ export function MapSvg({
                   "/map/" + p.to.id,
                   <>
                     <title>{portalTip(p, name(p.to.names), words)}</title>
+                    {links && <circle className="mv-hit" cx={p.x} cy={lift(p.y)} r={fmt(Math.max(hit, u * 0.36))} />}
                     <circle
                       className={"mv-portal" + (p.portal_type === 1 ? " hidden" : "")}
                       cx={p.x}

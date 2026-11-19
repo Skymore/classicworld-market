@@ -39,6 +39,8 @@ export function Zoomable({
         className="zoomable-pic"
         onClickCapture={(event) => {
           if (!phone()) return;
+          // A marker (monster, portal, NPC) follows its link; elsewhere opens the zoom.
+          if ((event.target as Element).closest?.("a[href]")) return;
           event.preventDefault();
           event.stopPropagation();
           setOpen(true);

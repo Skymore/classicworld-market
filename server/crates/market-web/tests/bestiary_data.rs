@@ -197,6 +197,13 @@ fn niadb_bestiary_decides_what_exists() {
         "monsters with meso reports"
     );
     assert_eq!(counts.spawns, data.spawns.len());
+    assert_eq!(counts.spawn_feet, 8566, "every point in spawn-feet.json matches a NiaDB spawn");
+    let first = data
+        .spawn_points
+        .iter()
+        .find(|p| p.map_id == 10006020 && p.ord == 0)
+        .expect("Primeval Forest II spawns");
+    assert_eq!((first.mob_id, first.x, first.y), (56, 2526, -1761), "on the foothold (client cy), not NiaDB's y -1964");
 
     let mob = |id: i32| data.mobs.iter().find(|m| m.id == id);
     let map = |id: i32| data.maps.iter().find(|m| m.id == id);
@@ -285,8 +292,8 @@ fn niadb_bestiary_decides_what_exists() {
     assert_eq!(points.len(), 66, "NiaDB: 66 monster spawn points");
     assert_eq!(
         (points[0].mob_id, points[0].x, points[0].y),
-        (4, 2242, -55),
-        "Shroom, first in NiaDB's order"
+        (4, 2242, -25),
+        "Shroom, first in NiaDB's order, on its foothold (NiaDB y -55)"
     );
     let per_map: i64 = data
         .spawns

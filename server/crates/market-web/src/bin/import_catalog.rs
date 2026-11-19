@@ -151,8 +151,8 @@ async fn main() -> Result<()> {
         zh.maps.mapledex_tw
     );
     println!(
-        "spawns   {:>5}  NiaDB ({} spawn points with positions, for the map view)",
-        s.spawns, s.spawn_points
+        "spawns   {:>5}  NiaDB ({} spawn points with positions, for the map view; {} set on          their foothold from the client)",
+        s.spawns, s.spawn_points, bestiary.spawn_feet
     );
     println!("world    {:>5}  world map spots (NiaDB)", s.world_spots);
     println!(

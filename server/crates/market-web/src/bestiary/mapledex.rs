@@ -950,6 +950,8 @@ pub struct NiaBestiaryCounts {
     pub maps_unreleased: usize,
     pub npcs_unreleased: usize,
     pub spawns: usize,
+    /// Spawn points moved down onto their foothold (`spawn-feet.json`).
+    pub spawn_feet: usize,
     /// Drops with more up than down votes.
     pub drops: usize,
     /// Reported drops left out: no more up than down votes.
@@ -983,8 +985,35 @@ impl Dataset {
             &read(dir, "mesos.json")?,
             today,
         )?;
+        if let Some(feet) = super::worldmap::read_optional(dir, "spawn-feet.json")? {
+            counts.spawn_feet = self.add_spawn_feet(&feet)?;
+        }
         counts.pictures = self.add_map_pictures_dir(dir)?;
         Ok((added, counts))
+    }
+
+    /// NiaDB's spawn `y` is the client life entry's `y`, which can sit well
+    /// above the platform; the monster stands on the foothold at `cy`.
+    /// `spawn-feet.json` (tools/client_spawn_feet.ps1, from the client's
+    /// Map.wz) lists `[mob, x, y, cy]` per map; each matching point moves to `cy`.
+    pub fn add_spawn_feet(&mut self, json: &str) -> Result<usize> {
+        let feet: HashMap<String, Vec<[i32; 4]>> =
+            serde_json::from_str(json).context("parsing spawn-feet.json")?;
+        let mut at: HashMap<(i32, i32, i32, i32), i32> = HashMap::new();
+        for (map, rows) in &feet {
+            let map: i32 = map.parse().context("spawn-feet.json map id")?;
+            for &[mob, x, y, cy] in rows {
+                at.insert((map, mob, x, y), cy);
+            }
+        }
+        let mut moved = 0;
+        for point in &mut self.spawn_points {
+            if let Some(&cy) = at.get(&(point.map_id, point.mob_id, point.x, point.y)) {
+                point.y = cy;
+                moved += 1;
+            }
+        }
+        Ok(moved)
     }
 
     /// Makes NiaDB the source of what exists: its mobs with their launch stats
