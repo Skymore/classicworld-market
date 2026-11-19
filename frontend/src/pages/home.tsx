@@ -59,6 +59,27 @@ export default function Home() {
             </span>
           </SiteLink>
         </nav>
+        <SiteLink className="topic-banner" href="/hollow" data-topic="hollow">
+          <img
+            src="/web/images/map-thumbs/10006000.webp"
+            alt=""
+            width={96}
+            height={60}
+          />
+          <span>
+            <b>
+              <span className="topic-new">{words("新地图", "New area")}</span>{" "}
+              {words("遗忘空洞", "Forgotten Hollow")}
+            </b>
+            <small>
+              {words(
+                "11-18 开放 · 怎么进去、任务线、怪物和地图",
+                "Opened Nov 18 · entrance, quests, monsters, maps",
+              )}
+            </small>
+          </span>
+          <Icon name="chev" />
+        </SiteLink>
         <img
           className="deco-snail"
           src={mobImg(

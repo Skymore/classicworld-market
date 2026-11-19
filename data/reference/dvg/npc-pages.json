@@ -1,6 +1,6 @@
 {
  "source": "https://mxdgcw.dvg.cn/npc_info.php?id=<id> (h1 name, English name, subtitle)",
- "fetched": "2026-10-21",
+ "fetched": "2026-11-19",
  "items": [
   {
    "id": 1,
@@ -29,6 +29,26 @@
    "name": "-",
    "name_en": null,
    "subtitle": "国服怀旧服 NPC · 彩虹街"
+  },
+  {
+   "id": 437,
+   "found": false
+  },
+  {
+   "id": 438,
+   "found": false
+  },
+  {
+   "id": 617,
+   "found": false
+  },
+  {
+   "id": 716,
+   "found": false
+  },
+  {
+   "id": 717,
+   "found": false
   },
   {
    "id": 1000,
@@ -430,6 +450,10 @@
    "subtitle": "国服怀旧服 NPC"
   },
   {
+   "id": 800101,
+   "found": false
+  },
+  {
    "id": 900000,
    "found": true,
    "name": "枫叶运营员",
@@ -442,6 +466,10 @@
    "name": "枫叶运营员",
    "name_en": "Maple Administrator",
    "subtitle": "国服怀旧服 NPC"
+  },
+  {
+   "id": 900027,
+   "found": false
   }
  ]
 }

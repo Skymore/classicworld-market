@@ -1,0 +1,135 @@
+.hollow-page {
+  max-width: 900px;
+  margin-inline: auto;
+}
+.hollow-scene {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1760 / 1040;
+  max-height: 360px;
+  object-fit: cover;
+  background: var(--bar-soft);
+  border-bottom: 1px solid var(--rule);
+}
+.hollow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+}
+.hollow-actions .btn {
+  color: var(--ink);
+  text-decoration: none;
+}
+.hollow-actions .btn.primary {
+  color: #fff;
+}
+.hollow-h {
+  margin: 0;
+  padding: 18px 12px 8px;
+  font-size: 17px;
+  font-weight: 800;
+  border-top: 1px solid var(--rule);
+}
+.hollow-steps {
+  margin: 0;
+  padding: 0 12px 12px 34px;
+  display: grid;
+  gap: 8px;
+}
+.hollow-steps li {
+  line-height: 1.6;
+}
+.hollow-lv {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  font-size: 12px;
+  color: var(--ink-3);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+}
+.hollow-what {
+  display: block;
+  color: var(--ink-2);
+}
+.hollow-note {
+  margin: 0;
+  padding: 0 12px 14px;
+  color: var(--ink-2);
+}
+.hollow-reward {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.hollow-reward::before {
+  content: "奖励 ";
+  color: var(--maple);
+  font-weight: 700;
+}
+.hollow-lines {
+  display: grid;
+  gap: 10px;
+  padding: 0 12px 14px;
+}
+.hollow-line h3 {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-weight: 800;
+  border-bottom: 1px solid var(--rule);
+}
+.hollow-line .hollow-steps {
+  padding-top: 10px;
+}
+.hollow-mobs,
+.hollow-maps {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px 14px;
+}
+.hollow-mobs {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+}
+.hollow-maps {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.hollow-mob,
+.hollow-map {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 8px;
+  color: var(--ink);
+  text-decoration: none;
+  text-align: center;
+}
+.hollow-mob:hover,
+.hollow-map:hover {
+  background: var(--lamp);
+}
+.hollow-mob img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+.hollow-mob small {
+  color: var(--ink-3);
+}
+.hollow-map img,
+.hollow-map-blank {
+  display: block;
+  width: 100%;
+  aspect-ratio: 8 / 5;
+  object-fit: cover;
+  background: var(--bar-soft);
+}
+.hollow-map b {
+  font-size: 13px;
+}
+@media (min-width: 641px) {
+  .hollow-lines {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

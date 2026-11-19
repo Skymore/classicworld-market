@@ -1,7 +1,7 @@
 {
  "note": "Client minimaps (world size / 16). Game art belongs to NEXON and its affiliates.",
  "source": "https://meowdb.com/msclassic/maps/minimaps/<9-digit map id>.png",
- "fetched": "2026-11-03",
+ "fetched": "2026-11-19",
  "maps": [
   1,
   10,
@@ -236,6 +236,7 @@
   10005104,
   10005105,
   10006000,
+  10006003,
   10006010,
   10006020,
   10006022,

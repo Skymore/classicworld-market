@@ -311,7 +311,7 @@ python3 ../tools/niadb_portals.py ../data/reference/niadb/maps.json --output ../
 python3 ../tools/dvg_lists.py --output ../data/reference/dvg   # mob-list.json、quest-list.json
 ```
 
-`niadb_bestiary.py` 一次只发一个请求（默认间隔 3 秒），全部成功才写文件，中途被拒（403/429）就停下、旧文件不变。新地图的传送口要重新生成 `portals.json` 并跑 `import_portals`。
+`niadb_bestiary.py` 一次只发一个请求（默认间隔 3 秒），全部成功才写文件，中途被拒（403/429）就停下、旧文件不变。新地图的传送口要重新生成 `portals.json` 并跑 `import_portals`。客户端的脚本传送口（WZ `pt` 8、`tm` 999999999）NiaDB 不给目标，`niadb_portals.py` 的 `CLIENT_SCRIPTED` 按对面地图指回来的传送口手工补上（遗忘空洞的两个入口：北部森林通道、森林迷宫Ⅴ 底部，2026-11-19 核对客户端 Map.wz），否则路线进不了遗忘空洞。
 
 Mapledex、NiaDB 或 DVG 有更新时重新生成 `zh-names.json`（`fetch` 只用标准库；`build` 需要 OpenCC，装在临时 venv 里），然后重跑 `import_catalog`：
 

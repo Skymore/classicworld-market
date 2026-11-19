@@ -1,7 +1,7 @@
 {
  "note": "Monster stand sprites. Game art belongs to NEXON and its affiliates.",
  "source": "https://meowdb.com/msclassic/monsters/sprites/mob_<id>.png",
- "fetched": "2026-11-03",
+ "fetched": "2026-11-19",
  "mobs": [
   1,
   2,
@@ -201,6 +201,16 @@
   800023,
   800024,
   800025,
+  800026,
+  800027,
+  800028,
+  800029,
+  800030,
+  800031,
+  800032,
+  800033,
+  800034,
+  800035,
   810000,
   810001,
   810002,
@@ -208,6 +218,7 @@
   810004,
   810005,
   900000,
+  900001,
   910000
  ],
  "missing": []

@@ -12,6 +12,17 @@ them until our own Map.wz export replaces them, then diff the two.
 import argparse
 import json
 
+# Scripted portals (WZ pt 8, tm 999999999: the script picks the target), so
+# NiaDB lists no target for them. Targets are the pair the other side names
+# (its portal's tm/tn point back here). Checked in the client's Map.wz on
+# 2026-11-19. Players stand on them and press up, like a hidden portal.
+CLIENT_SCRIPTED = [
+    # The Tree Tunnel At the Forest Up North -> Forgotten Entrance III (east00)
+    {"map_id": 10002071, "pn": "down00", "tm": 10006060, "tn": "east00", "x": 27, "y": 1244},
+    # Sleepy Dungeon V -> Forgotten Dungeon Tunnel (top00)
+    {"map_id": 10005054, "pn": "down00", "tm": 10006071, "tn": "top00", "x": 1047, "y": 2892},
+]
+
 
 def convert(maps):
     out = []
@@ -32,6 +43,9 @@ def convert(maps):
                     "pt": p.get("type"),
                 }
             )
+        for extra in CLIENT_SCRIPTED:
+            if extra["map_id"] == int(m["id"]) and not any(p["pn"] == extra["pn"] for p in portals):
+                portals.append({k: v for k, v in extra.items() if k != "map_id"} | {"pt": 1})
         out.append({"map_id": int(m["id"]), "wz_version": None, "source": "niadb", "portals": portals})
     return out
 

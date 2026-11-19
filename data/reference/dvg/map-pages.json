@@ -1,6 +1,6 @@
 {
  "source": "https://mxdgcw.dvg.cn/map_info.php?id=<id> (h1 name, English name, subtitle)",
- "fetched": "2026-10-21",
+ "fetched": "2026-11-19",
  "items": [
   {
    "id": 10006000,
@@ -22,6 +22,10 @@
    "name": "洞穴精灵百货商店",
    "name_en": "Cave Fairy Department Store",
    "subtitle": "浅层通道"
+  },
+  {
+   "id": 10006003,
+   "found": false
   },
   {
    "id": 10006010,
@@ -134,6 +138,10 @@
    "name": "腐朽隧道 I",
    "name_en": "Decayed Tunnel I",
    "subtitle": "深层通道"
+  },
+  {
+   "id": 10006122,
+   "found": false
   },
   {
    "id": 10006130,
@@ -829,50 +837,11 @@
    "subtitle": "冰峰雪域"
   },
   {
-   "id": 80003000,
-   "found": true,
-   "name": "地图 80003000",
-   "name_en": null,
-   "subtitle": "未知区域"
-  },
-  {
-   "id": 80003100,
-   "found": true,
-   "name": "地图 80003100",
-   "name_en": null,
-   "subtitle": "未知区域"
-  },
-  {
-   "id": 80003200,
-   "found": true,
-   "name": "地图 80003200",
-   "name_en": null,
-   "subtitle": "未知区域"
-  },
-  {
-   "id": 80003300,
-   "found": true,
-   "name": "地图 80003300",
-   "name_en": null,
-   "subtitle": "未知区域"
-  },
-  {
    "id": 80003500,
    "found": true,
    "name": "地图 80003500",
    "name_en": null,
    "subtitle": "未知区域"
-  },
-  {
-   "id": 88000000,
-   "found": true,
-   "name": "Victoria Road",
-   "name_en": null,
-   "subtitle": "黄蘑菇屋"
-  },
-  {
-   "id": 88001000,
-   "found": false
   },
   {
    "id": 90040111,
@@ -920,6 +889,10 @@
   },
   {
    "id": 90040143,
+   "found": false
+  },
+  {
+   "id": 99999999,
    "found": false
   },
   {

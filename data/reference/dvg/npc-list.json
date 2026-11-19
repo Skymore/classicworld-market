@@ -1,6 +1,6 @@
 {
  "source": "https://mxdgcw.dvg.cn/api/npc-list.php?lng=CN",
- "fetched": "2026-10-21",
+ "fetched": "2026-11-19",
  "items": [
   {
    "npcid": 2,
@@ -673,7 +673,7 @@
      "mapName": "射手村"
     }
    ],
-   "questCount": 12,
+   "questCount": 13,
    "shopCount": 0
   },
   {
@@ -711,7 +711,7 @@
      "mapName": "射手村"
     }
    ],
-   "questCount": 9,
+   "questCount": 10,
    "shopCount": 0
   },
   {
@@ -962,7 +962,7 @@
      "mapName": "射手村公园"
     }
    ],
-   "questCount": 10,
+   "questCount": 13,
    "shopCount": 0
   },
   {
@@ -1171,7 +1171,7 @@
      "mapName": "射手村市政厅"
     }
    ],
-   "questCount": 19,
+   "questCount": 20,
    "shopCount": 0
   },
   {
@@ -1181,7 +1181,7 @@
    "npcname_us": "Tommy",
    "icon": "/dbsource/npcsource/0000230.stand.png",
    "roles": [
-    "Environmental"
+    "Quest Giver"
    ],
    "locationCount": 1,
    "locations": [
@@ -1190,7 +1190,7 @@
      "mapName": "射手村市政厅"
     }
    ],
-   "questCount": 0,
+   "questCount": 2,
    "shopCount": 0
   },
   {
@@ -1200,7 +1200,7 @@
    "npcname_us": "Bianca",
    "icon": "/dbsource/npcsource/0000231.stand.png",
    "roles": [
-    "Environmental"
+    "Quest Giver"
    ],
    "locationCount": 1,
    "locations": [
@@ -1209,7 +1209,7 @@
      "mapName": "射手村"
     }
    ],
-   "questCount": 0,
+   "questCount": 1,
    "shopCount": 0
   },
   {
@@ -1316,8 +1316,13 @@
    "roles": [
     "Environmental"
    ],
-   "locationCount": 0,
-   "locations": [],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 88000000,
+     "mapName": "黄蘑菇屋"
+    }
+   ],
    "questCount": 0,
    "shopCount": 0
   },
@@ -1517,7 +1522,7 @@
      "mapName": "魔法密林"
     }
    ],
-   "questCount": 6,
+   "questCount": 8,
    "shopCount": 0
   },
   {
@@ -1536,7 +1541,7 @@
      "mapName": "魔法密林"
     }
    ],
-   "questCount": 4,
+   "questCount": 7,
    "shopCount": 0
   },
   {
@@ -1612,7 +1617,7 @@
      "mapName": "魔法图书馆"
     }
    ],
-   "questCount": 5,
+   "questCount": 6,
    "shopCount": 0
   },
   {
@@ -2397,7 +2402,7 @@
      "mapName": "废弃都市市政中心"
     }
    ],
-   "questCount": 25,
+   "questCount": 26,
    "shopCount": 0
   },
   {
@@ -2407,7 +2412,7 @@
    "npcname_us": "Jack",
    "icon": "/dbsource/npcsource/0000426.stand.png",
    "roles": [
-    "Environmental"
+    "Quest Giver"
    ],
    "locationCount": 1,
    "locations": [
@@ -2416,7 +2421,7 @@
      "mapName": "废弃都市市政中心"
     }
    ],
-   "questCount": 0,
+   "questCount": 2,
    "shopCount": 0
   },
   {
@@ -2426,7 +2431,7 @@
    "npcname_us": "Scarlett",
    "icon": "/dbsource/npcsource/0000427.stand.png",
    "roles": [
-    "Environmental"
+    "Quest Giver"
    ],
    "locationCount": 1,
    "locations": [
@@ -2435,7 +2440,7 @@
      "mapName": "废弃都市"
     }
    ],
-   "questCount": 0,
+   "questCount": 1,
    "shopCount": 0
   },
   {
@@ -2542,8 +2547,13 @@
    "roles": [
     "Environmental"
    ],
-   "locationCount": 0,
-   "locations": [],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 88001000,
+     "mapName": "后巷半地下室"
+    }
+   ],
    "questCount": 0,
    "shopCount": 0
   },
@@ -2629,7 +2639,7 @@
      "mapName": "勇士部落"
     }
    ],
-   "questCount": 2,
+   "questCount": 4,
    "shopCount": 0
   },
   {
@@ -2648,7 +2658,7 @@
      "mapName": "勇士部落"
     }
    ],
-   "questCount": 10,
+   "questCount": 12,
    "shopCount": 0
   },
   {
@@ -2724,7 +2734,7 @@
      "mapName": "勇士部落"
     }
    ],
-   "questCount": 7,
+   "questCount": 9,
    "shopCount": 0
   },
   {
@@ -2819,7 +2829,7 @@
      "mapName": "战士圣殿"
     }
    ],
-   "questCount": 5,
+   "questCount": 7,
    "shopCount": 0
   },
   {
@@ -2838,7 +2848,7 @@
      "mapName": "东部岩山Ⅱ"
     }
    ],
-   "questCount": 3,
+   "questCount": 7,
    "shopCount": 0
   },
   {
@@ -2877,6 +2887,63 @@
     }
    ],
    "questCount": 3,
+   "shopCount": 0
+  },
+  {
+   "npcid": 515,
+   "npcname": "修安",
+   "name_en": "Shuang",
+   "npcname_us": "Shuang",
+   "icon": "/dbsource/npcsource/0000515.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004133,
+     "mapName": "遗迹发掘队营地"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 516,
+   "npcname": "杉峰",
+   "name_en": "Shawn",
+   "npcname_us": "Shawn",
+   "icon": "/dbsource/npcsource/0000516.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004133,
+     "mapName": "遗迹发掘队营地"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 517,
+   "npcname": "留言板",
+   "name_en": "Bulletin Board",
+   "npcname_us": "Bulletin Board",
+   "icon": "/dbsource/npcsource/0000517.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 10004133,
+     "mapName": "遗迹发掘队营地"
+    }
+   ],
+   "questCount": 0,
    "shopCount": 0
   },
   {
@@ -3305,11 +3372,11 @@
    "npcname_us": "Nyroth",
    "icon": "/dbsource/npcsource/0000707.stand.png",
    "roles": [
-    "Environmental"
+    "Quest Giver"
    ],
    "locationCount": 0,
    "locations": [],
-   "questCount": 0,
+   "questCount": 1,
    "shopCount": 0
   },
   {
@@ -3361,11 +3428,11 @@
    "npcname_us": "Jaime the Wandering Explorer",
    "icon": "/dbsource/npcsource/0000711.stand.png",
    "roles": [
-    "Environmental"
+    "Quest Giver"
    ],
    "locationCount": 0,
    "locations": [],
-   "questCount": 0,
+   "questCount": 5,
    "shopCount": 0
   },
   {
@@ -3375,11 +3442,11 @@
    "npcname_us": "Daniel the Scholar",
    "icon": "/dbsource/npcsource/0000712.stand.png",
    "roles": [
-    "Environmental"
+    "Quest Giver"
    ],
    "locationCount": 0,
    "locations": [],
-   "questCount": 0,
+   "questCount": 6,
    "shopCount": 0
   },
   {
@@ -3408,6 +3475,20 @@
    "locationCount": 0,
    "locations": [],
    "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 715,
+   "npcname": "塔米娅",
+   "name_en": "Tamya",
+   "npcname_us": "Tamya",
+   "icon": "/dbsource/npcsource/0000708.stand.png",
+   "roles": [
+    "Quest Giver"
+   ],
+   "locationCount": 0,
+   "locations": [],
+   "questCount": 3,
    "shopCount": 0
   },
   {
@@ -3894,6 +3975,75 @@
    "shopCount": 0
   },
   {
+   "npcid": 800019,
+   "npcname": "达尔利",
+   "name_en": "Tory",
+   "npcname_us": "Tory",
+   "icon": "/dbsource/npcsource/0800019.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 2,
+   "locations": [
+    {
+     "mapid": 80003100,
+     "mapName": "捷径 I"
+    },
+    {
+     "mapid": 80003400,
+     "mapName": "捷径 II"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800020,
+   "npcname": "蒂米",
+   "name_en": "Timmy",
+   "npcname_us": "Timmy",
+   "icon": "/dbsource/npcsource/0800020.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 3,
+   "locations": [
+    {
+     "mapid": 80003100,
+     "mapName": "捷径 I"
+    },
+    {
+     "mapid": 80003200,
+     "mapName": "猪猪小镇"
+    },
+    {
+     "mapid": 80003300,
+     "mapName": "返回城镇"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
+   "npcid": 800021,
+   "npcname": "格劳利",
+   "name_en": "Growlie",
+   "npcname_us": "Growlie",
+   "icon": "/dbsource/npcsource/0800021.stand.png",
+   "roles": [
+    "Environmental"
+   ],
+   "locationCount": 1,
+   "locations": [
+    {
+     "mapid": 80003000,
+     "mapName": "樱草山"
+    }
+   ],
+   "questCount": 0,
+   "shopCount": 0
+  },
+  {
    "npcid": 900001,
    "npcname": "枫叶运营员",
    "name_en": "Maple Administrator",
@@ -3917,7 +4067,7 @@
    "npcname": "琳",
    "name_en": "Lyn",
    "npcname_us": "Lyn",
-   "icon": "",
+   "icon": "/dbsource/npcsource/0001002.stand.png",
    "roles": [
     "Environmental"
    ],
@@ -3931,7 +4081,7 @@
    "npcname": "惠特妮",
    "name_en": "Whitney",
    "npcname_us": "Whitney",
-   "icon": "",
+   "icon": "/dbsource/npcsource/0001003.stand.png",
    "roles": [
     "Environmental"
    ],
@@ -4090,8 +4240,12 @@
    "roles": [
     "Quest Giver"
    ],
-   "locationCount": 1,
+   "locationCount": 2,
    "locations": [
+    {
+     "mapid": 10001000,
+     "mapName": "射手村"
+    },
     {
      "mapid": 10003000,
      "mapName": "废弃都市"
@@ -4109,11 +4263,15 @@
    "roles": [
     "Quest Giver"
    ],
-   "locationCount": 1,
+   "locationCount": 2,
    "locations": [
     {
      "mapid": 10001000,
      "mapName": "射手村"
+    },
+    {
+     "mapid": 10003000,
+     "mapName": "废弃都市"
     }
    ],
    "questCount": 6,

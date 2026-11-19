@@ -1,6 +1,40 @@
 {
- "version": "2026-11-03",
+ "version": "2026-11-19",
  "note": "Hand-kept simplified names for what DVG, Mapledex and the Classic World client data give no Chinese name. Entries with cms_quest use the Chinese MapleStory (CMS v148-v202) client name of that GMS quest id, read from https://maplestory.io/api/CMS/202/quest; the rest are written from CMS terms. tools/zh_names.py build uses an entry only while its en matches.",
+ "maps": {
+  "10006002": {
+   "en": "Cave Fairy Store",
+   "zh": "洞穴精灵商店",
+   "note": "renamed from Cave Fairy Department Store (DVG 洞穴精灵百货商店) on 2026-11-18"
+  },
+  "10006003": {
+   "en": "The Faded Threshold",
+   "zh": "褪色的门槛"
+  },
+  "10006022": {
+   "en": "Hanging Gardens of Rot",
+   "zh": "腐烂的空中花园",
+   "note": "renamed from Collision of Ice and Fire (DVG 冰与火的碰撞) on 2026-11-18"
+  },
+  "10006122": {
+   "en": "Rotten House",
+   "zh": "腐烂之屋"
+  }
+ },
+ "npcs": {
+  "437": {
+   "en": "Alston",
+   "zh": "阿尔斯顿"
+  },
+  "438": {
+   "en": "Whitney (Kerning City)",
+   "zh": "惠特妮"
+  },
+  "717": {
+   "en": "Glimmer",
+   "zh": "微光"
+  }
+ },
  "items": {
   "2430009": {
    "en": "Hired Merchants Box",
@@ -39,6 +73,54 @@
   }
  },
  "quests": {
+  "10422": {
+   "en": "Planting Trees",
+   "zh": "植树"
+  },
+  "10423": {
+   "en": "Shawn the Excavator's Request",
+   "zh": "挖掘工肖恩的请求"
+  },
+  "10424": {
+   "en": "Eliminate Monsters from the Site",
+   "zh": "清除工地的怪物"
+  },
+  "10425": {
+   "en": "Notice from the Excavation Team",
+   "zh": "挖掘队的告示"
+  },
+  "10426": {
+   "en": "The Smell Below",
+   "zh": "地底的气味"
+  },
+  "10427": {
+   "en": "The Settlers' Road",
+   "zh": "开拓者之路"
+  },
+  "10428": {
+   "en": "Where the Hero Fell",
+   "zh": "英雄倒下之处"
+  },
+  "10511": {
+   "en": "The Mushmom Who Woke",
+   "zh": "苏醒的蘑菇妈妈"
+  },
+  "10512": {
+   "en": "Tapping at the Window",
+   "zh": "敲窗声"
+  },
+  "10513": {
+   "en": "The Chime That Rings Alone",
+   "zh": "独自作响的风铃"
+  },
+  "10514": {
+   "en": "Faces in the Dark",
+   "zh": "黑暗中的面孔"
+  },
+  "10515": {
+   "en": "A Patient Hunger",
+   "zh": "耐心的饥饿"
+  },
   "10600": {
    "en": "Zelya's Map",
    "zh": "泽莉娅的地图"
@@ -48,8 +130,8 @@
    "zh": "天然黏合剂"
   },
   "10602": {
-   "en": "The Road Back Home",
-   "zh": "回家的路"
+   "en": "A Step Toward Home",
+   "zh": "回家的一步"
   },
   "10603": {
    "en": "Old Friends",
@@ -80,24 +162,96 @@
    "zh": "欢迎来到遗忘空洞"
   },
   "10612": {
-   "en": "Nyroth's Fragile Hope",
-   "zh": "尼洛斯脆弱的希望"
+   "en": "Stores Before the Frost",
+   "zh": "入冬前的储备"
   },
   "10613": {
-   "en": "Matters of the Heart",
-   "zh": "心事"
+   "en": "Something to Trade",
+   "zh": "用来交换的东西"
   },
   "10614": {
-   "en": "A Memory of Iron",
-   "zh": "钢铁的记忆"
+   "en": "Supplies for the Hollow",
+   "zh": "送往空洞的物资"
   },
   "10615": {
-   "en": "A Heart of Stillness and Wood",
-   "zh": "静谧的木之心"
+   "en": "A Night of Lights",
+   "zh": "灯火之夜"
   },
   "10616": {
    "en": "The Sage's Burden",
    "zh": "贤者的重担"
+  },
+  "10627": {
+   "en": "Missing Pieces",
+   "zh": "失窃的东西"
+  },
+  "10628": {
+   "en": "No Questions Asked",
+   "zh": "不问来路"
+  },
+  "10629": {
+   "en": "The Girl on the Rooftop",
+   "zh": "屋顶上的女孩"
+  },
+  "10630": {
+   "en": "Medicine Money",
+   "zh": "药钱"
+  },
+  "10631": {
+   "en": "Buying Time",
+   "zh": "争取时间"
+  },
+  "10632": {
+   "en": "Word from the Hideout",
+   "zh": "来自藏身处的消息"
+  },
+  "10633": {
+   "en": "A Rival's Gambit",
+   "zh": "对手的算盘"
+  },
+  "10634": {
+   "en": "Two Thieves, One Plan",
+   "zh": "两个盗贼，一个计划"
+  },
+  "10635": {
+   "en": "An Uneasy Truce",
+   "zh": "不安的休战"
+  },
+  "10636": {
+   "en": "Rot at the Door",
+   "zh": "门口的腐烂"
+  },
+  "10637": {
+   "en": "A Light Against the Rot",
+   "zh": "对抗腐烂的光"
+  },
+  "10638": {
+   "en": "A Ward for the Door",
+   "zh": "门上的结界"
+  },
+  "10639": {
+   "en": "Glowspore Ward",
+   "zh": "荧光孢子结界"
+  },
+  "10640": {
+   "en": "What Rots Below",
+   "zh": "地底的腐烂之源"
+  },
+  "10800": {
+   "en": "Bad for Business",
+   "zh": "生意难做"
+  },
+  "10801": {
+   "en": "Notes on the Board",
+   "zh": "告示板上的纸条"
+  },
+  "10802": {
+   "en": "The Glowing Charms",
+   "zh": "发光的护符"
+  },
+  "10803": {
+   "en": "The Last Note",
+   "zh": "最后的纸条"
   },
   "12000": {
    "en": "Collecting Huckle's Magic Ingredients",
@@ -316,6 +470,26 @@
    "en": "Nick's Ring",
    "zh": "尼克的戒指",
    "cms_quest": 3037
+  },
+  "500012": {
+   "en": "[Event] Thanksgiving Pumpkin Pie",
+   "zh": "【活动】感恩节南瓜派"
+  },
+  "500013": {
+   "en": "[Event] Thanksgiving Pumpkin Pie",
+   "zh": "【活动】感恩节南瓜派"
+  },
+  "500014": {
+   "en": "[Event] Escaped Thanksgiving Turkey",
+   "zh": "【活动】逃跑的感恩节火鸡"
+  },
+  "500015": {
+   "en": "[Event] Moon Bunny's Rice Cake",
+   "zh": "【活动】月妙的年糕"
+  },
+  "500016": {
+   "en": "[Event] The New Journey Begins",
+   "zh": "【活动】新的旅程开始"
   }
  }
 }

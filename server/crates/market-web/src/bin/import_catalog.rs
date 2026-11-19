@@ -11,7 +11,7 @@
 //! DATABASE_URL=postgres://... cargo run -p market-web --bin import_catalog -- \
 //!     [--items ../data/fixture/items.sqlite] [--mapledex ../data/reference/mapledex] \
 //!     [--mapledex-version "CW GMS_COT2_2026-08-11"] [--niadb ../data/reference/niadb] \
-//!     [--niadb-version "fetched 2026-11-18"] [--zh-names ../data/reference/zh-names.json] \
+//!     [--niadb-version "fetched 2026-11-19"] [--zh-names ../data/reference/zh-names.json] \
 //!     [--dvg ../data/reference/dvg]
 //! ```
 
@@ -28,7 +28,7 @@ use market_web::bestiary::{
 
 /// Date the files in data/reference/niadb were fetched; update on refetch.
 /// `monsters.json`, `maps.json` and `drops.json` come from `tools/niadb_bestiary.py`.
-const NIADB_VERSION: &str = "fetched 2026-11-18";
+const NIADB_VERSION: &str = "fetched 2026-11-19";
 
 #[tokio::main]
 async fn main() -> Result<()> {

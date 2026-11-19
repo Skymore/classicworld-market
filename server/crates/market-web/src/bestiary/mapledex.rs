@@ -782,6 +782,9 @@ pub(crate) fn opens_later(map_id: i32, today: NaiveDate) -> bool {
 /// the copy with the mailbox (Henesys 88000000, Kerning City 88001000).
 const DEAD_COPIES: &[i32] = &[10_001_008, 10_003_008];
 
+/// Client test maps NiaDB lists with a name (White Room, added 2026-11-18).
+const TEST_MAPS: &[i32] = &[99_999_999];
+
 /// "Mano (alt) (GM Event)", "Flyeye (alt2)".
 fn copy_name(name: &str) -> bool {
     let name = name.to_ascii_lowercase();
@@ -1113,6 +1116,7 @@ impl Dataset {
             map.unreleased = source.region.as_deref() == Some(UNRELEASED_REGION)
                 || opens_later(map.id, today)
                 || DEAD_COPIES.contains(&map.id)
+                || TEST_MAPS.contains(&map.id)
                 || placeholder_name(&map.name_en);
             if map.unreleased {
                 unreleased.insert(map.id);

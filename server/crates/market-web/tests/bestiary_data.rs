@@ -130,11 +130,11 @@ fn niadb_fills_mapledex_gaps() {
     assert_eq!(
         counts,
         NiaDbCounts {
-            maps: 36,
+            maps: 39,
             spawns: 13,
-            return_links: 33,
-            npc_placements: 21,
-            npc_names: 15,
+            return_links: 36,
+            npc_placements: 34,
+            npc_names: 23,
             shop_rows: 877,
         }
     );
@@ -168,7 +168,7 @@ fn niadb_bestiary_decides_what_exists() {
     assert!(data.warnings.is_empty(), "{:?}", data.warnings);
     assert_eq!(
         (added.maps, added.spawns),
-        (36, 35),
+        (39, 35),
         "NiaDB's mobs are known before its maps are added"
     );
     assert_eq!(
@@ -179,17 +179,17 @@ fn niadb_bestiary_decides_what_exists() {
             counts.mobs_unreleased,
             counts.mob_copies,
         ),
-        (206, 19, 8, 41 + 11 + 11, 11),
-        "Orbis / El Nath, Forgotten Hollow's 11, and 11 GM-event / alt copies"
+        (217, 30, 8, 41 + 11 + 20, 20),
+        "Orbis / El Nath, Forgotten Hollow's 11, and 20 GM-event / alt copies"
     );
     assert_eq!(
         (counts.maps, counts.maps_removed, counts.maps_unreleased),
-        (453, 15, 92 + 27 + 1 + 2),
-        "080003500, which the client leaves unnamed, and two dead copies of town houses"
+        (456, 15, 92 + 29 + 1 + 2 + 1),
+        "080003500, which the client leaves unnamed, two dead copies of town houses and the White Room test map"
     );
     assert_eq!(
         (counts.drops + counts.mesos, counts.drops_unconfirmed),
-        (data.drops.len(), 60)
+        (data.drops.len(), 61)
     );
     assert_eq!(
         (counts.mesos, counts.mesos_untrusted),
@@ -373,7 +373,7 @@ fn niadb_bestiary_decides_what_exists() {
         .unwrap();
     assert_eq!(
         (counts.maps_unreleased, counts.mobs_unreleased),
-        (92 + 1 + 2, 41 + 11)
+        (92 + 1 + 2 + 1, 41 + 20)
     );
 }
 
@@ -439,7 +439,7 @@ fn quests_give_and_ask_for_items() {
         .add_quests_from(&repo_data("reference/niadb"), &dvg_quests(), fetch_day())
         .unwrap();
     assert!(data.warnings.is_empty(), "{:?}", data.warnings);
-    assert_eq!(counts.quests, 401);
+    assert_eq!(counts.quests, 436);
     assert!(counts.named_zh > 300 && counts.with_npc > 390, "{counts:?}");
     let quest = |id: i32| data.quests.iter().find(|q| q.id == id).unwrap();
     let quiz = quest(1019);
@@ -497,7 +497,7 @@ fn zh_names_fill_map_and_npc_gaps() {
         data.maps.iter().filter(|m| m.name_zh.is_none()).count(),
         data.npcs.iter().filter(|n| n.name_zh.is_none()).count(),
     );
-    assert_eq!(before, (210, 60));
+    assert_eq!(before, (213, 68));
     let mapledex_names: Vec<(i32, Option<String>)> = data
         .maps
         .iter()
@@ -506,7 +506,7 @@ fn zh_names_fill_map_and_npc_gaps() {
     data.add_quests_from(&repo_data("reference/niadb"), &dvg_quests(), fetch_day())
         .unwrap();
     let quests_english = data.quests.iter().filter(|q| q.name_zh.is_none()).count();
-    assert_eq!(quests_english, 59);
+    assert_eq!(quests_english, 94);
     data.warnings.clear();
 
     let counts = data.add_zh_names(&zh_names());
@@ -514,22 +514,22 @@ fn zh_names_fill_map_and_npc_gaps() {
         counts,
         ZhNameCounts {
             maps: ZhSourceCounts {
-                dvg: 272,
+                dvg: 270,
                 mapledex_tw: 1,
                 cms: 0,
-                translated: 0
+                translated: 4
             },
             npcs: ZhSourceCounts {
-                dvg: 59,
+                dvg: 60,
                 mapledex_tw: 0,
                 cms: 0,
-                translated: 0
+                translated: 3
             },
             quests: ZhSourceCounts {
                 dvg: 0,
                 mapledex_tw: 0,
                 cms: 40,
-                translated: 19
+                translated: 54
             },
             items: ZhSourceCounts::default(),
         }
@@ -542,8 +542,8 @@ fn zh_names_fill_map_and_npc_gaps() {
     );
     assert_eq!(
         still_english,
-        (16, 1, 0),
-        "Mapledex-only test maps, DVG placeholders, NiaDB maps DVG lacks and NPC 1024 ????"
+        (17, 5, 0),
+        "Mapledex-only test maps, DVG placeholders, NiaDB maps DVG lacks and NPCs DVG lacks"
     );
     // Mapledex names stay unless tools/zh_names.py replaces them: another
     // map's name (MAPLEDEX_WRONG there), or DVG's name for the same map.
@@ -623,12 +623,12 @@ fn zh_names_fill_map_and_npc_gaps() {
 #[test]
 fn reference_items_cover_every_drop() {
     let refs = references();
-    assert_eq!((refs.mapledex_items, refs.niadb_items), (2555, 2400));
-    assert_eq!(refs.len(), 2969);
+    assert_eq!((refs.mapledex_items, refs.niadb_items), (2555, 2497));
+    assert_eq!(refs.len(), 3066);
     assert!(refs.warnings.is_empty(), "{:?}", refs.warnings);
 
     let mut catalog = catalog_of(market_items());
-    assert_eq!(refs.extend(&mut catalog), 2967);
+    assert_eq!(refs.extend(&mut catalog), 3064);
     assert!(catalog.warnings.is_empty(), "{:?}", catalog.warnings);
     let mut data = mapledex();
     let resolution = refs.resolve_drops(&catalog, &mut data.drops);

@@ -1206,3 +1206,48 @@ html[data-embed]:has(.embed-nav) { --embed-nav-height: 58px; }
 }
 
 /* Links to game things: .entity-link, .entity-tag and the .drow row are in web/css/base.css. */
+
+/* 首页新地图专题入口 */
+.topic-banner {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  color: var(--ink);
+  text-decoration: none;
+  background: var(--sheet-hi);
+  border: 2px solid var(--edge);
+  border-radius: 2px;
+  box-shadow: inset 1px 1px 0 var(--bevel-hi), inset -1px -1px 0 var(--bevel-lo), var(--hard);
+}
+.topic-banner:hover {
+  background: var(--lamp);
+}
+.topic-banner img {
+  width: 96px;
+  height: 60px;
+  object-fit: cover;
+}
+.topic-banner > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.topic-banner small {
+  color: var(--ink-3);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topic-banner .topic-new {
+  color: var(--maple);
+}
+@media (min-width: 1101px) {
+  .topic-banner {
+    grid-column: 1;
+    margin-top: 0;
+  }
+}

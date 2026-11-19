@@ -1,5 +1,5 @@
 {
- "version": "DVG gms-cw fetched 2026-10-21, 2026-11-03; Mapledex tw via OpenCC t2s 0.1.7; translations 2026-11-03",
+ "version": "DVG gms-cw fetched 2026-11-03, 2026-11-19; Mapledex tw via OpenCC t2s 0.1.7; translations 2026-11-19",
  "sources": {
   "dvg": "https://mxdgcw.dvg.cn (data/reference/dvg/)",
   "mapledex-tw": "Mapledex n.zh (GMS-TW traditional), converted with OpenCC t2s",
@@ -585,9 +585,14 @@
    "en": "Cave Fairy Sanctuary"
   },
   "10006002": {
-   "zh": "洞穴精灵百货商店",
-   "source": "dvg",
-   "en": "Cave Fairy Department Store"
+   "zh": "洞穴精灵商店",
+   "source": "translated",
+   "en": "Cave Fairy Store"
+  },
+  "10006003": {
+   "zh": "褪色的门槛",
+   "source": "translated",
+   "en": "The Faded Threshold"
   },
   "10006010": {
    "zh": "原始森林Ⅰ",
@@ -600,9 +605,9 @@
    "en": "Primeval Forest II"
   },
   "10006022": {
-   "zh": "冰与火的碰撞",
-   "source": "dvg",
-   "en": "Collision of Ice and Fire"
+   "zh": "腐烂的空中花园",
+   "source": "translated",
+   "en": "Hanging Gardens of Rot"
   },
   "10006030": {
    "zh": "原始森林Ⅲ",
@@ -673,6 +678,11 @@
    "zh": "别人的坟墓",
    "source": "dvg",
    "en": "Someone Else's Grave"
+  },
+  "10006122": {
+   "zh": "腐烂之屋",
+   "source": "translated",
+   "en": "Rotten House"
   },
   "10006130": {
    "zh": "腐烂隧道Ⅱ",
@@ -1641,6 +1651,16 @@
    "source": "dvg",
    "en": "Slade"
   },
+  "437": {
+   "zh": "阿尔斯顿",
+   "source": "translated",
+   "en": "Alston"
+  },
+  "438": {
+   "zh": "惠特妮",
+   "source": "translated",
+   "en": "Whitney (Kerning City)"
+  },
   "504": {
    "zh": "西拉斯·艾恩斯",
    "source": "dvg",
@@ -1711,6 +1731,11 @@
    "source": "dvg",
    "en": "Nyroth"
   },
+  "709": {
+   "zh": "托林",
+   "source": "dvg",
+   "en": "Torin"
+  },
   "710": {
    "zh": "尼洛斯",
    "source": "dvg",
@@ -1730,6 +1755,16 @@
    "zh": "盛开的蓝铃花",
    "source": "dvg",
    "en": "Fully Bloomed Bluebell"
+  },
+  "715": {
+   "zh": "塔米娅",
+   "source": "dvg",
+   "en": "Tamya"
+  },
+  "717": {
+   "zh": "微光",
+   "source": "translated",
+   "en": "Glimmer"
   },
   "1001": {
    "zh": "月台引导员",
@@ -1815,14 +1850,69 @@
    "zh": "保罗",
    "source": "dvg",
    "en": "Paul"
-  },
-  "900026": {
-   "zh": "巫婆",
-   "source": "dvg",
-   "en": "Malady"
   }
  },
  "quests": {
+  "10422": {
+   "zh": "植树",
+   "source": "translated",
+   "en": "Planting Trees"
+  },
+  "10423": {
+   "zh": "挖掘工肖恩的请求",
+   "source": "translated",
+   "en": "Shawn the Excavator's Request"
+  },
+  "10424": {
+   "zh": "清除工地的怪物",
+   "source": "translated",
+   "en": "Eliminate Monsters from the Site"
+  },
+  "10425": {
+   "zh": "挖掘队的告示",
+   "source": "translated",
+   "en": "Notice from the Excavation Team"
+  },
+  "10426": {
+   "zh": "地底的气味",
+   "source": "translated",
+   "en": "The Smell Below"
+  },
+  "10427": {
+   "zh": "开拓者之路",
+   "source": "translated",
+   "en": "The Settlers' Road"
+  },
+  "10428": {
+   "zh": "英雄倒下之处",
+   "source": "translated",
+   "en": "Where the Hero Fell"
+  },
+  "10511": {
+   "zh": "苏醒的蘑菇妈妈",
+   "source": "translated",
+   "en": "The Mushmom Who Woke"
+  },
+  "10512": {
+   "zh": "敲窗声",
+   "source": "translated",
+   "en": "Tapping at the Window"
+  },
+  "10513": {
+   "zh": "独自作响的风铃",
+   "source": "translated",
+   "en": "The Chime That Rings Alone"
+  },
+  "10514": {
+   "zh": "黑暗中的面孔",
+   "source": "translated",
+   "en": "Faces in the Dark"
+  },
+  "10515": {
+   "zh": "耐心的饥饿",
+   "source": "translated",
+   "en": "A Patient Hunger"
+  },
   "10600": {
    "zh": "泽莉娅的地图",
    "source": "translated",
@@ -1834,9 +1924,9 @@
    "en": "Natural Adhesive"
   },
   "10602": {
-   "zh": "回家的路",
+   "zh": "回家的一步",
    "source": "translated",
-   "en": "The Road Back Home"
+   "en": "A Step Toward Home"
   },
   "10603": {
    "zh": "老朋友",
@@ -1874,29 +1964,119 @@
    "en": "Welcome to the Hollow"
   },
   "10612": {
-   "zh": "尼洛斯脆弱的希望",
+   "zh": "入冬前的储备",
    "source": "translated",
-   "en": "Nyroth's Fragile Hope"
+   "en": "Stores Before the Frost"
   },
   "10613": {
-   "zh": "心事",
+   "zh": "用来交换的东西",
    "source": "translated",
-   "en": "Matters of the Heart"
+   "en": "Something to Trade"
   },
   "10614": {
-   "zh": "钢铁的记忆",
+   "zh": "送往空洞的物资",
    "source": "translated",
-   "en": "A Memory of Iron"
+   "en": "Supplies for the Hollow"
   },
   "10615": {
-   "zh": "静谧的木之心",
+   "zh": "灯火之夜",
    "source": "translated",
-   "en": "A Heart of Stillness and Wood"
+   "en": "A Night of Lights"
   },
   "10616": {
    "zh": "贤者的重担",
    "source": "translated",
    "en": "The Sage's Burden"
+  },
+  "10627": {
+   "zh": "失窃的东西",
+   "source": "translated",
+   "en": "Missing Pieces"
+  },
+  "10628": {
+   "zh": "不问来路",
+   "source": "translated",
+   "en": "No Questions Asked"
+  },
+  "10629": {
+   "zh": "屋顶上的女孩",
+   "source": "translated",
+   "en": "The Girl on the Rooftop"
+  },
+  "10630": {
+   "zh": "药钱",
+   "source": "translated",
+   "en": "Medicine Money"
+  },
+  "10631": {
+   "zh": "争取时间",
+   "source": "translated",
+   "en": "Buying Time"
+  },
+  "10632": {
+   "zh": "来自藏身处的消息",
+   "source": "translated",
+   "en": "Word from the Hideout"
+  },
+  "10633": {
+   "zh": "对手的算盘",
+   "source": "translated",
+   "en": "A Rival's Gambit"
+  },
+  "10634": {
+   "zh": "两个盗贼，一个计划",
+   "source": "translated",
+   "en": "Two Thieves, One Plan"
+  },
+  "10635": {
+   "zh": "不安的休战",
+   "source": "translated",
+   "en": "An Uneasy Truce"
+  },
+  "10636": {
+   "zh": "门口的腐烂",
+   "source": "translated",
+   "en": "Rot at the Door"
+  },
+  "10637": {
+   "zh": "对抗腐烂的光",
+   "source": "translated",
+   "en": "A Light Against the Rot"
+  },
+  "10638": {
+   "zh": "门上的结界",
+   "source": "translated",
+   "en": "A Ward for the Door"
+  },
+  "10639": {
+   "zh": "荧光孢子结界",
+   "source": "translated",
+   "en": "Glowspore Ward"
+  },
+  "10640": {
+   "zh": "地底的腐烂之源",
+   "source": "translated",
+   "en": "What Rots Below"
+  },
+  "10800": {
+   "zh": "生意难做",
+   "source": "translated",
+   "en": "Bad for Business"
+  },
+  "10801": {
+   "zh": "告示板上的纸条",
+   "source": "translated",
+   "en": "Notes on the Board"
+  },
+  "10802": {
+   "zh": "发光的护符",
+   "source": "translated",
+   "en": "The Glowing Charms"
+  },
+  "10803": {
+   "zh": "最后的纸条",
+   "source": "translated",
+   "en": "The Last Note"
   },
   "12000": {
    "zh": "何克的魔法材料收集",
@@ -2157,6 +2337,31 @@
    "source": "cms",
    "en": "Nick's Ring",
    "cms_quest": 3037
+  },
+  "500012": {
+   "zh": "【活动】感恩节南瓜派",
+   "source": "translated",
+   "en": "[Event] Thanksgiving Pumpkin Pie"
+  },
+  "500013": {
+   "zh": "【活动】感恩节南瓜派",
+   "source": "translated",
+   "en": "[Event] Thanksgiving Pumpkin Pie"
+  },
+  "500014": {
+   "zh": "【活动】逃跑的感恩节火鸡",
+   "source": "translated",
+   "en": "[Event] Escaped Thanksgiving Turkey"
+  },
+  "500015": {
+   "zh": "【活动】月妙的年糕",
+   "source": "translated",
+   "en": "[Event] Moon Bunny's Rice Cake"
+  },
+  "500016": {
+   "zh": "【活动】新的旅程开始",
+   "source": "translated",
+   "en": "[Event] The New Journey Begins"
   }
  },
  "items": {
@@ -2350,6 +2555,12 @@
    "source": "dvg",
    "en": "Blue Sailor Shirt"
   },
+  "1047072": {
+   "zh": "红女学生服",
+   "source": "mapledex-tw",
+   "en": "Red Sailor Shirt",
+   "tw": "紅女學生服"
+  },
   "1047075": {
    "zh": "复古校服上衣",
    "source": "dvg",
@@ -2359,6 +2570,24 @@
    "zh": "白色领衬衫",
    "source": "dvg",
    "en": "White Collared Shirt"
+  },
+  "1050003": {
+   "zh": "蓝剑道服",
+   "source": "mapledex-tw",
+   "en": "Blue Kendo Robe",
+   "tw": "藍劍道服"
+  },
+  "1050004": {
+   "zh": "红剑道服",
+   "source": "mapledex-tw",
+   "en": "Red Kendo Robe",
+   "tw": "紅劍道服"
+  },
+  "1050005": {
+   "zh": "白剑道服",
+   "source": "mapledex-tw",
+   "en": "White Kendo Robe",
+   "tw": "白劍道服"
   },
   "1050014": {
    "zh": "黑巫师长袍",
@@ -2535,6 +2764,18 @@
    "source": "dvg",
    "en": "Sky Blue Mimi Skirt"
   },
+  "1072011": {
+   "zh": "白橡胶鞋",
+   "source": "mapledex-tw",
+   "en": "White Gomushin",
+   "tw": "白橡膠鞋"
+  },
+  "1072021": {
+   "zh": "红忍者凉鞋",
+   "source": "mapledex-tw",
+   "en": "Red Ninja Sandals",
+   "tw": "紅忍者涼鞋"
+  },
   "1072022": {
    "zh": "黄忍者凉鞋",
    "source": "dvg",
@@ -2544,6 +2785,12 @@
    "zh": "蓝忍者凉鞋",
    "source": "dvg",
    "en": "Blue Ninja Sandals"
+  },
+  "1072024": {
+   "zh": "白忍者凉鞋",
+   "source": "mapledex-tw",
+   "en": "White Ninja Sandals",
+   "tw": "白忍者涼鞋"
   },
   "1072150": {
    "zh": "米色精灵鞋",
@@ -2709,6 +2956,12 @@
    "zh": "南瓜篮",
    "source": "dvg",
    "en": "Pumpkin Basket"
+  },
+  "1332013": {
+   "zh": "太极扇",
+   "source": "mapledex-tw",
+   "en": "Korean Fan",
+   "tw": "太極扇"
   },
   "1332017": {
    "zh": "初级三角刃",
@@ -4034,6 +4287,12 @@
    "zh": "红蓝休闲椅",
    "source": "dvg",
    "en": "The Red Relaxer"
+  },
+  "3010005": {
+   "zh": "红色设计师椅",
+   "source": "mapledex-tw",
+   "en": "Red Chair",
+   "tw": "紅色設計師椅"
   },
   "3010006": {
    "zh": "黄色时尚转椅",
@@ -5595,11 +5854,6 @@
    "source": "dvg",
    "en": "Mystery Palette"
   },
-  "5782003": {
-   "zh": "专业染色棱镜",
-   "source": "dvg",
-   "en": "Coloring Prism Pro"
-  },
   "5782004": {
    "zh": "武器特效棱镜",
    "source": "dvg",
@@ -5607,6 +5861,22 @@
   }
  },
  "dvg_not_used": [
+  {
+   "kind": "map",
+   "id": 10006002,
+   "reason": "English differs",
+   "en": "Cave Fairy Store",
+   "dvg": "洞穴精灵百货商店",
+   "dvg_en": "Cave Fairy Department Store"
+  },
+  {
+   "kind": "map",
+   "id": 10006022,
+   "reason": "English differs",
+   "en": "Hanging Gardens of Rot",
+   "dvg": "冰与火的碰撞",
+   "dvg_en": "Collision of Ice and Fire"
+  },
   {
    "kind": "map",
    "id": 20000055,
@@ -5686,6 +5956,14 @@
    "en": "Etc Tab 5-Slot Coupon",
    "dvg": "芙莉莲时装套装（睡衣）兑换券",
    "dvg_en": "Frieren Outfit Set (Sleep) Coupon"
+  },
+  {
+   "kind": "item",
+   "id": 5782003,
+   "reason": "English differs",
+   "en": "Premium Palette",
+   "dvg": "专业染色棱镜",
+   "dvg_en": "Coloring Prism Pro"
   }
  ],
  "translations_not_used": []

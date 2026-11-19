@@ -70,6 +70,7 @@ fn page_path(value: &str) -> Option<String> {
         "/alerts",
         "/account",
         "/privacy",
+        "/hollow",
         "/contributors",
         "/traffic",
         "/selling",

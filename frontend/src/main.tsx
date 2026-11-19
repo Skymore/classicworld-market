@@ -89,6 +89,7 @@ const loadAccount = () => import("./pages/account");
 const Watch = page(loadWatch);
 const Alerts = page(() => import("./pages/alerts"));
 const Tools = page(() => import("./pages/tools"));
+const Hollow = page(() => import("./pages/hollow"));
 const Market = page(() => import("./pages/market"));
 const Enhancement = page(() => import("./pages/enhancement"));
 const Agent = page(() => import("./pages/agent"));
@@ -151,6 +152,7 @@ const pageRoutes = [
   "/watch",
   "/alerts",
   "/tools",
+  "/hollow",
   "/account",
   "/device",
   "/privacy",
@@ -228,6 +230,7 @@ function Application() {
     privacy: words("账号隐私说明", "Account privacy"),
     contributors: words("采集贡献榜", "Contributors"),
     traffic: words("网站流量", "Website traffic"),
+    hollow: words("新地图 · 遗忘空洞", "Forgotten Hollow"),
     grind: words("刷图", "Grind"),
     g: words("刷图分享", "Grind run"),
     agent: words("AI 助手", "AI assistant"),
@@ -352,6 +355,7 @@ function Application() {
               <Route path="/alerts/*" element={<Alerts />} />
               <Route path="/market" element={<Market />} />
               <Route path="/tools" element={<Tools />} />
+              <Route path="/hollow" element={<Hollow />} />
               <Route path="/tools/enhancement" element={<Enhancement />} />
               <Route path="/agent/*" element={<Agent />} />
               <Route path="/selling/*" element={<Selling />} />
