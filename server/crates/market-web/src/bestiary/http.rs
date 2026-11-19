@@ -56,6 +56,7 @@ pub fn routes() -> Router<AppState> {
         .route("/static/bestiary.css", get(css))
         .route("/api/v1/dex/dropped-items", get(dex_api::dropped_items))
         .route("/api/v1/dex/counts", get(dex_api::counts))
+        .route("/api/v1/dex/maps", get(dex_api::maps))
         .route(
             "/api/v1/market/period-default",
             get(dex_api::period_default),

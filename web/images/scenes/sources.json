@@ -1,5 +1,5 @@
 {
- "note": "Rendered map scenes (NiaDB, from the client's Map.wz), scaled to fit 1760x1040; small/ has the phone copies, scaled to fit 1100x650. Game art belongs to NEXON and its affiliates.",
+ "note": "Rendered map scenes from NiaDB and checked client Map.wz renders, scaled to fit 1760x1040; small/ has copies fitted into 1100x650. Game art belongs to NEXON and its affiliates.",
  "source": "https://meowdb.com/msclassic/api/assets/maps/<key>?v=12",
  "fetched": "2026-11-19",
  "maps": [
@@ -267,6 +267,8 @@
   10005104,
   10005105,
   10006000,
+  10006001,
+  10006002,
   10006010,
   10006020,
   10006022,
@@ -284,6 +286,7 @@
   10006110,
   10006120,
   10006121,
+  10006122,
   10006130,
   10006140,
   10006150,
@@ -435,5 +438,6 @@
   90040203,
   90050000,
   90050001
- ]
+ ],
+ "client_rendered": "2026-11-19"
 }

@@ -1,12 +1,16 @@
 //! `GET /api/v1/dex/dropped-items`: every item id some mob drops, for the
 //! prices page's "monster drops only" filter. `GET /api/v1/dex/counts`: how
 //! many mobs, maps and items the bestiary holds, for the home page portals.
+//! `GET /api/v1/dex/maps?ids=1,2`: the monsters on each map and what they
+//! drop, for area pages (`/hollow`).
 //! Public game data like the bestiary pages; it only changes when
 //! `import_catalog` runs.
 
+use std::collections::{HashMap, HashSet};
+
 use axum::{
     body::Body,
-    extract::State,
+    extract::{Query, State},
     http::{header, HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
 };
@@ -112,6 +116,144 @@ pub async fn dropped_items(State(state): State<AppState>, headers: HeaderMap) ->
     json_response(body, &headers, "dropped-items")
 }
 
+/// At most this many maps per `/api/v1/dex/maps` request.
+const MAX_MAPS: usize = 60;
+
+#[derive(Debug, serde::Deserialize)]
+pub struct MapsRequest {
+    ids: String,
+}
+
+#[derive(Debug, Serialize, PartialEq)]
+pub struct MapOverview {
+    pub id: i32,
+    pub mobs: Vec<MapOverviewMob>,
+    /// Items the map's monsters drop (confirmed drops only): ones with a
+    /// market price first, dearest first; quest items last.
+    pub drops: Vec<MapOverviewDrop>,
+}
+
+#[derive(Debug, Serialize, PartialEq, sqlx::FromRow)]
+pub struct MapOverviewMob {
+    #[serde(skip)]
+    pub map_id: i32,
+    pub id: i32,
+    #[sqlx(flatten)]
+    pub names: super::model::Names,
+    pub level: Option<i16>,
+    pub spawn_count: i16,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, sqlx::FromRow)]
+pub struct MapOverviewDrop {
+    #[serde(skip)]
+    pub mob_id: i32,
+    pub id: i32,
+    #[sqlx(flatten)]
+    pub names: super::model::Names,
+    pub icon_url: Option<String>,
+    pub typical: Option<i64>,
+    pub quest: bool,
+}
+
+/// The ids in `1,2,3`: positive, unique, at most `MAX_MAPS`.
+fn parse_ids(raw: &str) -> Option<Vec<i32>> {
+    let mut ids = Vec::new();
+    for part in raw.split(',').filter(|p| !p.is_empty()) {
+        let id: i32 = part.trim().parse().ok().filter(|id| *id > 0)?;
+        if !ids.contains(&id) {
+            ids.push(id);
+        }
+    }
+    (!ids.is_empty() && ids.len() <= MAX_MAPS).then_some(ids)
+}
+
+pub async fn load_maps(db: &PgPool, ids: &[i32]) -> sqlx::Result<Vec<MapOverview>> {
+    let filter = super::queries::PUBLIC_MOB_FILTER;
+    let mobs: Vec<MapOverviewMob> = sqlx::query_as(&format!(
+        "SELECT s.map_id, m.id,
+                COALESCE(NULLIF(m.name_zh, ''), NULLIF(m.name_tw, ''), m.name_en) AS name,
+                COALESCE(NULLIF(m.name_en, ''), NULLIF(m.name_zh, ''), m.name_tw) AS name_en,
+                m.level, s.spawn_count
+         FROM mob_spawns s JOIN maps mp ON mp.id = s.map_id AND NOT mp.unreleased
+         JOIN mobs m ON m.id = s.mob_id
+         WHERE s.map_id = ANY($1) AND {filter}
+         ORDER BY s.map_id, m.level NULLS LAST, m.id"
+    ))
+    .bind(ids)
+    .fetch_all(db)
+    .await?;
+    let mob_ids: Vec<i32> = mobs.iter().map(|m| m.id).collect();
+    let drops: Vec<MapOverviewDrop> = sqlx::query_as(
+        "SELECT DISTINCT ON (d.mob_id, i.id) d.mob_id, i.id,
+                COALESCE(NULLIF(i.name_zh, ''), i.name_en) AS name,
+                COALESCE(NULLIF(i.name_en, ''), i.name_zh) AS name_en,
+                i.icon_url, round(st.typical)::bigint AS typical, d.quest_id IS NOT NULL AS quest
+         FROM drops d JOIN items i ON i.id = d.item_id
+         LEFT JOIN item_stats st ON st.item_id = i.id
+         WHERE d.mob_id = ANY($1)
+         ORDER BY d.mob_id, i.id, d.quest_id NULLS FIRST",
+    )
+    .bind(&mob_ids)
+    .fetch_all(db)
+    .await?;
+    let mut by_mob: HashMap<i32, Vec<&MapOverviewDrop>> = HashMap::new();
+    for drop in &drops {
+        by_mob.entry(drop.mob_id).or_default().push(drop);
+    }
+    let mut out: Vec<MapOverview> = ids
+        .iter()
+        .map(|&id| MapOverview {
+            id,
+            mobs: Vec::new(),
+            drops: Vec::new(),
+        })
+        .collect();
+    for mob in mobs {
+        let map = out
+            .iter_mut()
+            .find(|m| m.id == mob.map_id)
+            .expect("requested map");
+        let mut seen: HashSet<i32> = map.drops.iter().map(|d| d.id).collect();
+        for drop in by_mob.get(&mob.id).into_iter().flatten() {
+            if seen.insert(drop.id) {
+                map.drops.push((*drop).clone());
+            }
+        }
+        map.mobs.push(mob);
+    }
+    for map in &mut out {
+        map.drops.sort_by_key(|d| {
+            (
+                d.quest,
+                d.typical.is_none(),
+                std::cmp::Reverse(d.typical),
+                d.id,
+            )
+        });
+    }
+    Ok(out)
+}
+
+pub async fn maps(
+    State(state): State<AppState>,
+    Query(request): Query<MapsRequest>,
+    headers: HeaderMap,
+) -> Response {
+    let Some(ids) = parse_ids(&request.ids) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            [(header::CACHE_CONTROL, "no-store")],
+            axum::Json(serde_json::json!({ "error": "invalid_ids" })),
+        )
+            .into_response();
+    };
+    let body = load_maps(&state.db, &ids).await.map(|maps| {
+        serde_json::to_vec(&serde_json::json!({ "maps": maps })).expect("maps serialize")
+    });
+    json_response(body, &headers, "dex maps")
+}
+
 /// JSON body with an ETag, 304 on a matching `If-None-Match`, 500 on a
 /// query error.
 fn json_response(body: sqlx::Result<Vec<u8>>, headers: &HeaderMap, what: &str) -> Response {
@@ -164,6 +306,22 @@ fn matches(headers: &HeaderMap, tag: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn map_ids() {
+        assert_eq!(
+            parse_ids("10006020,10006030,10006020"),
+            Some(vec![10006020, 10006030])
+        );
+        assert_eq!(parse_ids(""), None);
+        assert_eq!(parse_ids("1,x"), None);
+        assert_eq!(parse_ids("-5"), None);
+        let many = (1..=61)
+            .map(|i| i.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        assert_eq!(parse_ids(&many), None);
+    }
 
     #[test]
     fn tags_and_revalidation() {

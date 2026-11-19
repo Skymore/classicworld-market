@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useWords } from "../providers";
-import { Icon, usePageReady } from "../components/shared";
+import { Icon, Slot, usePageReady } from "../components/shared";
 import { SiteLink } from "../components/shell";
 import "./hollow.css";
 
@@ -164,35 +165,35 @@ const MOBS: [id: number, name: string, level: number][] = [
   [700003, "腐烂蘑菇王", 60],
 ];
 
-const MAPS: [id: number, name: string, thumb: boolean][] = [
-  [10006000, "遗忘空洞", true],
-  [10006001, "洞穴精灵圣域", false],
-  [10006002, "洞穴精灵商店", false],
-  [10006003, "褪色的门槛", true],
-  [10006010, "原始森林Ⅰ", true],
-  [10006020, "原始森林Ⅱ", true],
-  [10006030, "原始森林Ⅲ", true],
-  [10006022, "腐烂的空中花园", true],
-  [10006031, "死亡峡谷", true],
-  [10006040, "遗忘入口Ⅰ", true],
-  [10006050, "遗忘入口Ⅱ", true],
-  [10006060, "遗忘入口Ⅲ", true],
-  [10006070, "流光尽头", true],
-  [10006071, "遗忘地牢隧道", true],
-  [10006072, "褪色的树冠", true],
-  [10006080, "禁忌入口", true],
-  [10006090, "险峻下坡Ⅰ", true],
-  [10006100, "险峻下坡Ⅱ", true],
-  [10006110, "险峻下坡Ⅲ", true],
-  [10006120, "腐朽隧道Ⅰ", true],
-  [10006121, "别人的坟墓", true],
-  [10006122, "腐烂之屋", false],
-  [10006130, "腐烂隧道Ⅱ", true],
-  [10006140, "腐烂隧道Ⅲ", true],
-  [10006150, "挥之不去的遗憾", true],
-  [10006160, "黑暗峭壁", true],
-  [10006161, "破败的坟墓", true],
-  [10006162, "另一处避难所", true],
+const MAPS: [id: number, name: string][] = [
+  [10006000, "遗忘空洞"],
+  [10006001, "洞穴精灵圣域"],
+  [10006002, "洞穴精灵商店"],
+  [10006003, "褪色的门槛"],
+  [10006010, "原始森林Ⅰ"],
+  [10006020, "原始森林Ⅱ"],
+  [10006030, "原始森林Ⅲ"],
+  [10006022, "腐烂的空中花园"],
+  [10006031, "死亡峡谷"],
+  [10006040, "遗忘入口Ⅰ"],
+  [10006050, "遗忘入口Ⅱ"],
+  [10006060, "遗忘入口Ⅲ"],
+  [10006070, "流光尽头"],
+  [10006071, "遗忘地牢隧道"],
+  [10006072, "褪色的树冠"],
+  [10006080, "禁忌入口"],
+  [10006090, "险峻下坡Ⅰ"],
+  [10006100, "险峻下坡Ⅱ"],
+  [10006110, "险峻下坡Ⅲ"],
+  [10006120, "腐朽隧道Ⅰ"],
+  [10006121, "别人的坟墓"],
+  [10006122, "腐烂之屋"],
+  [10006130, "腐烂隧道Ⅱ"],
+  [10006140, "腐烂隧道Ⅲ"],
+  [10006150, "挥之不去的遗憾"],
+  [10006160, "黑暗峭壁"],
+  [10006161, "破败的坟墓"],
+  [10006162, "另一处避难所"],
 ];
 
 function Steps({ steps }: { steps: Step[] }) {
@@ -212,6 +213,81 @@ function Steps({ steps }: { steps: Step[] }) {
   );
 }
 
+type Names = { zh: string; en: string };
+type AreaMob = { id: number; names: Names; level: number | null; spawn_count: number };
+type AreaDrop = { id: number; names: Names; icon_url: string | null; typical: number | null; quest: boolean };
+type AreaMap = { id: number; mobs: AreaMob[]; drops: AreaDrop[] };
+
+// 每张图刷什么怪、掉什么（/api/v1/dex/maps，跟着图鉴导入更新）。
+function useAreaMaps(ids: number[]) {
+  return useQuery({
+    queryKey: ["dex-maps", ids],
+    queryFn: async () => {
+      const response = await fetch("/api/v1/dex/maps?ids=" + ids.join(","));
+      if (!response.ok) throw new Error("dex maps " + response.status);
+      const body: { maps: AreaMap[] } = await response.json();
+      return new Map(body.maps.map((m) => [m.id, m]));
+    },
+    staleTime: 3_600_000,
+  });
+}
+
+const DROP_PREVIEW = 12;
+
+function MapCard({ id, name, info }: { id: number; name: string; info?: AreaMap }) {
+  const words = useWords();
+  const [all, setAll] = useState(false);
+  const drops = info?.drops ?? [];
+  const shown = all ? drops : drops.slice(0, DROP_PREVIEW);
+  return (
+    <div className="hollow-map well">
+      <SiteLink className="hollow-map-pic" href={`/map/${id}`}>
+        <img src={`/web/images/map-thumbs/${id}.webp`} alt="" loading="lazy" />
+        <b>{name}</b>
+      </SiteLink>
+      {info && (
+        <div className="hollow-map-info">
+          {info.mobs.length ? (
+            <ul className="hollow-map-mobs">
+              {info.mobs.map((mob) => (
+                <li key={mob.id}>
+                  <SiteLink href={`/mob/${mob.id}`}>
+                    <img src={`/web/images/mobs/head/${mob.id}.png`} alt="" width={24} height={24} loading="lazy" />
+                    {words(mob.names.zh, mob.names.en)}
+                  </SiteLink>
+                  {mob.level != null && <small>Lv{mob.level}</small>}
+                  <small>×{mob.spawn_count}</small>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="hollow-map-none">{words("没有怪物", "No monsters")}</p>
+          )}
+          {drops.length > 0 && (
+            <div className="hollow-map-drops">
+              {shown.map((drop) => (
+                <SiteLink
+                  key={drop.id}
+                  href={`/item/${drop.id}`}
+                  className={drop.quest ? "quest" : undefined}
+                  title={words(drop.names.zh, drop.names.en) + (drop.quest ? words("（任务）", " (quest)") : "")}
+                >
+                  <Slot empty url={drop.icon_url ?? undefined} />
+                </SiteLink>
+              ))}
+              {drops.length > DROP_PREVIEW && (
+                <button type="button" className="hollow-more" onClick={() => setAll(!all)}>
+                  {all ? words("收起", "Less") : words(`全部 ${drops.length}`, `All ${drops.length}`)}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const TABS = ["maps", "mobs", "quests"] as const;
 type Tab = (typeof TABS)[number];
 
@@ -227,6 +303,7 @@ export default function Hollow() {
     else copy.set("tab", next);
     setParams(copy, { replace: true, preventScrollReset: true });
   };
+  const overview = useAreaMaps(MAPS.map(([id]) => id));
   const labels: Record<Tab, [string, string, number]> = {
     maps: ["地图", "Maps", MAPS.length],
     mobs: ["怪物", "Monsters", MOBS.length],
@@ -290,15 +367,8 @@ export default function Hollow() {
           {tab === "maps" && (
             <>
         <div className="hollow-maps">
-          {MAPS.map(([id, name, thumb]) => (
-            <SiteLink className="hollow-map well" href={`/map/${id}`} key={id}>
-              {thumb ? (
-                <img src={`/web/images/map-thumbs/${id}.webp`} alt="" loading="lazy" />
-              ) : (
-                <span className="hollow-map-blank" />
-              )}
-              <b>{name}</b>
-            </SiteLink>
+          {MAPS.map(([id, name]) => (
+            <MapCard key={id} id={id} name={name} info={overview.data?.get(id)} />
           ))}
         </div>
             </>

@@ -147,8 +147,8 @@
       "_shared-Cwf5YL9D.js"
     ]
   },
-  "_main-dfNDJdlo.js": {
-    "file": "chunks/main-dfNDJdlo.js",
+  "_main-CsJilPzO.js": {
+    "file": "chunks/main-CsJilPzO.js",
     "name": "main",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -404,7 +404,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-dfNDJdlo.js"
+      "_main-CsJilPzO.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -571,7 +571,7 @@
     ]
   },
   "src/pages/hollow.tsx": {
-    "file": "chunks/hollow-D5bAqu50.js",
+    "file": "chunks/hollow-DGOIXhUG.js",
     "name": "hollow",
     "src": "src/pages/hollow.tsx",
     "isDynamicEntry": true,
@@ -580,7 +580,7 @@
       "_shell-DONtAYlu.js"
     ],
     "css": [
-      "chunks/hollow-BtA205OI.css"
+      "chunks/hollow-DfSnI1Ld.css"
     ]
   },
   "src/pages/market.tsx": {
@@ -710,7 +710,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-dfNDJdlo.js"
+      "_main-CsJilPzO.js"
     ]
   }
 }

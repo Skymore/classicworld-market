@@ -1,5 +1,5 @@
 {
- "note": "Written by tools/niadb_map_assets.py scenes: each map's scene picture (web/images/scenes/<id>.webp) and the world rectangle it covers (x, y, w, h).",
+ "note": "Written by tools/niadb_map_assets.py scenes and client-scenes: each map's scene picture (web/images/scenes/<id>.webp) and its world rectangle (x, y, w, h). Entries marked client come from checked client Map.wz renders.",
  "source": "https://meowdb.com/msclassic/api/assets/maps/<key>?v=12",
  "fetched": "2026-11-19",
  "maps": {
@@ -4024,6 +4024,38 @@
     995
    ]
   },
+  "10006001": {
+   "key": "client",
+   "x": -400,
+   "y": -300,
+   "w": 800,
+   "h": 600,
+   "source_size": [
+    800,
+    600
+   ],
+   "size": [
+    800,
+    600
+   ],
+   "source": "client Map.wz"
+  },
+  "10006002": {
+   "key": "client",
+   "x": -400,
+   "y": -300,
+   "w": 800,
+   "h": 600,
+   "source_size": [
+    800,
+    600
+   ],
+   "size": [
+    800,
+    600
+   ],
+   "source": "client Map.wz"
+  },
   "10006010": {
    "key": "010006010-scene-batch-2",
    "x": 1051,
@@ -4278,6 +4310,22 @@
     1408,
     959
    ]
+  },
+  "10006122": {
+   "key": "client",
+   "x": -400,
+   "y": -300,
+   "w": 800,
+   "h": 600,
+   "source_size": [
+    800,
+    600
+   ],
+   "size": [
+    800,
+    600
+   ],
+   "source": "client Map.wz"
   },
   "10006130": {
    "key": "010006130-scene-band-1027",
@@ -6549,5 +6597,6 @@
     679
    ]
   }
- }
+ },
+ "client_rendered": "2026-11-19"
 }
