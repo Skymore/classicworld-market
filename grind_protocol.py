@@ -344,10 +344,12 @@ def drop(data):
     the mob that dropped it at 42. `thrown`: a player dropped it (no mob at 42, a
     character owner, and 1 at 62; mob drops have 0 there). Equipment attributes
     are not in this message: they are known only once it is picked up."""
-    if opcode(data) != DROP or len(data) not in (115, 123) or data[2] != 0 or data[8] not in (0, 1):
+    # Since the 2026-11-18 game update the message is 11 bytes longer for items (126 or 134)
+    # and 3 for mesos (118); every field read here kept its place (game_opcodes).
+    if opcode(data) != DROP or len(data) not in (115, 123, 118, 126, 134) or data[2] != 0 or data[8] not in (0, 1):
         return None
     mesos = data[8] == 1
-    if mesos != (len(data) == 115):
+    if mesos != (len(data) in (115, 118)):
         return None
     value = u32(data, 21)
     if not mesos and not 1_000_000 <= value < 10_000_000:

@@ -3,7 +3,7 @@ import collections
 import json
 import tempfile
 from pathlib import Path
-from grind_frames import frame_files, frame_lines
+from grind_frames import frame_files, frame_lines, server_payload
 
 # Frames recorded before 0.7.40 carry times rounded to the nearest millisecond,
 # up to half a millisecond after they were seen.
@@ -82,7 +82,7 @@ def legacy(tracker, sessions, cutoff):
                 row = json.loads(line)
                 if row.get('s') not in remaining or row['t'] > cutoff + ROUNDING:
                     continue
-                data = bytes.fromhex(row['h'])
+                data = server_payload(row)
             except (KeyError, ValueError, TypeError):
                 continue
             records.append(row)
@@ -101,7 +101,7 @@ def legacy(tracker, sessions, cutoff):
         inventories = {}
         for row in reversed(records):
             clock[0] = row['t']
-            session, data = row['s'], bytes.fromhex(row['h'])
+            session, data = row['s'], server_payload(row)
             if row.get('c'):
                 replay.observe_client(session, data, recorded_index=row.get('i'))
             else:
@@ -138,7 +138,7 @@ def recover_inventory(data, session, cutoff):
                 row = json.loads(line)
                 if row.get('s') != session or row.get('c') or row['t'] > cutoff + ROUNDING:
                     continue
-                payload = bytes.fromhex(row['h'])
+                payload = server_payload(row)
             except (KeyError, ValueError, TypeError):
                 continue
             op = int.from_bytes(payload[:2], 'little')

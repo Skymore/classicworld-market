@@ -4,6 +4,10 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
+
+# These fixtures speak the game's numbering before the 2026-11-18 update: no live renumbering.
+game_opcodes_off = mock.patch('market_passive.new_game', return_value=False)
 from pathlib import Path
 from unittest.mock import patch
 
@@ -260,6 +264,14 @@ class HandoffTests(unittest.TestCase):
     def test_recording_that_cannot_start_does_not_block_the_update(self):
         with patch('market_passive.WindowsSniffer', side_effect=PermissionError):
             self.assertIsNone(handoff.record(self.folder))
+
+
+def setUpModule():
+    game_opcodes_off.start()
+
+
+def tearDownModule():
+    game_opcodes_off.stop()
 
 
 if __name__ == '__main__':

@@ -171,6 +171,9 @@ def grind_tracker(folder,config=None,stop=None):
         return None
 
 
+from game_opcodes import new_game, normalize
+
+
 class Collector:
     market_only=True
     def __init__(self,folder,owner=game_owner,on_event=None,config=None,stop=None):
@@ -184,6 +187,9 @@ class Collector:
         # follows whichever connection entered a map last (a market scan on a
         # second client would otherwise steal it from the grinding character).
         self.grind_inventories={}
+        # Live messages come from the updated game: renumber them (game_opcodes). Tests that
+        # feed the old numbering turn this off.
+        self.renumber=new_game(time.time())
         self.grind=grind_tracker(self.folder,config,stop)
     def grind_call(self,name,*args):
         if self.grind is None:return
@@ -264,6 +270,8 @@ class Collector:
 
     def observer(self,session):
         def observe(plain):
+            # The updated game's numbering -> the one every parser reads (game_opcodes).
+            if self.renumber:plain=normalize(plain)
             revision = self.inventory.revision
             self.inventory.observe(plain, session.id)
             if self.inventory.revision != revision:

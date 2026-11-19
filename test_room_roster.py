@@ -2,6 +2,10 @@ import json
 import struct
 import tempfile
 import unittest
+from unittest import mock
+
+# These fixtures speak the game's numbering before the 2026-11-18 update: no live renumbering.
+game_opcodes_off = mock.patch('market_passive.new_game', return_value=False)
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from market_presence import RoomRoster, roster_payload
@@ -104,3 +108,11 @@ class RoomRosterTest(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+def setUpModule():
+    game_opcodes_off.start()
+
+
+def tearDownModule():
+    game_opcodes_off.stop()

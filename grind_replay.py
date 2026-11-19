@@ -6,7 +6,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from grind_frames import RETENTION_SECONDS, current_path, frame_files, frame_name, frame_size, open_frames
+from grind_frames import RETENTION_SECONDS, current_path, frame_files, frame_name, frame_size, open_frames, server_payload
 from grind_pricing import Prices
 from grind_tracker import Tracker, load_settings, write_json
 from market_inventory import Inventory
@@ -32,7 +32,7 @@ class ReplayTracker(Tracker):
 # Bump when a parser or accounting fix should rebuild history from the recordings.
 # Releases that only change the interface keep it, and nothing is replayed (2026-11-15:
 # every release replayed 30 days, 5.6 M frames, ~13 min of a CPU core, for nothing).
-REPLAY_VERSION = 'r4-2026-11-17'
+REPLAY_VERSION = 'r5-2026-11-18'
 
 
 def file_start(path):
@@ -205,7 +205,7 @@ def replay_group(settings, prices, group, boundaries, now, stop, repair):
                                     last[character.key] = clock[0]
                             continue
                         stamp, session = float(record['t']), str(record['s'])
-                        payload = bytes.fromhex(record['h'])
+                        payload = server_payload(record)
                     except (ValueError, KeyError, TypeError):
                         continue
                     if stamp < now - RETENTION_SECONDS:

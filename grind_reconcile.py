@@ -11,7 +11,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from grind_frames import current_path, frame_files, frame_name, frame_size, open_frames
+from grind_frames import current_path, frame_files, frame_name, frame_size, open_frames, server_payload
 from grind_replay import file_start, frame_groups
 from grind_handoff import encode, decode, snapshot, restore
 from grind_pricing import Prices
@@ -48,7 +48,7 @@ def replay_record(tracker, inventories, record, clock):
             write_json(tracker.data/'command.json', dict(id=str(clock[0]), action=record['a'], at=clock[0]))
             tracker.command(clock[0])
         return
-    session, payload = record['s'], bytes.fromhex(record['h'])
+    session, payload = record['s'], server_payload(record)
     if record.get('c'):
         tracker.observe_client(session, payload, recorded_index=record.get('i'))
     else:

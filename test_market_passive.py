@@ -1,6 +1,10 @@
 import struct
 import tempfile
 import unittest
+from unittest import mock
+
+# These fixtures speak the game's numbering before the 2026-11-18 update: no live renumbering.
+game_opcodes_off = mock.patch('market_passive.new_game', return_value=False)
 import json
 from unittest.mock import patch
 from pathlib import Path
@@ -406,3 +410,11 @@ class LocalCaptureDegradeTests(unittest.TestCase):
             events = [json.loads(line) for line in (Path(folder)/'passive_events.jsonl').read_text().splitlines()]
             self.assertIn(dict(event='capture_degraded', reason=market_passive.LOCAL_UNAVAILABLE),
                           [dict(event=e['event'], reason=e.get('reason')) for e in events if e['event'] == 'capture_degraded'])
+
+
+def setUpModule():
+    game_opcodes_off.start()
+
+
+def tearDownModule():
+    game_opcodes_off.stop()
