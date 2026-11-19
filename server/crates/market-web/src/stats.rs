@@ -291,7 +291,17 @@ async fn write(
     exact_last_seen: bool,
     data: &ItemData,
 ) -> sqlx::Result<()> {
-    write_rows(conn, figures, as_of, now, last_seen, exact_last_seen, data, false).await
+    write_rows(
+        conn,
+        figures,
+        as_of,
+        now,
+        last_seen,
+        exact_last_seen,
+        data,
+        false,
+    )
+    .await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -582,7 +592,17 @@ async fn recompute_clock(
 ) -> sqlx::Result<()> {
     let data = load_since(conn, Some(items), Some(now - CLOCK_HISTORY)).await?;
     let figures = compute(items, &data, as_of, now);
-    write_rows(conn, &figures, as_of, now, &HashMap::new(), false, &data, true).await
+    write_rows(
+        conn,
+        &figures,
+        as_of,
+        now,
+        &HashMap::new(),
+        false,
+        &data,
+        true,
+    )
+    .await
 }
 
 /// Test hook: recompute `items` at `now` from recent sales (`clock`) or from
@@ -679,7 +699,10 @@ async fn time_crossed_items(
         .iter()
         .map(|days| {
             let offset = days * 86400.0;
-            (previous - offset - CROSSING_MARGIN, now - offset + CROSSING_MARGIN)
+            (
+                previous - offset - CROSSING_MARGIN,
+                now - offset + CROSSING_MARGIN,
+            )
         })
         .unzip();
     let window = f64::from(RECENT_HOURS) * 3600.0;

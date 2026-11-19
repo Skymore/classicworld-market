@@ -55,7 +55,6 @@ async fn counts(db: &TestDb) -> (i64, i64, i64) {
         .fetch_one(&db.pool).await.unwrap()
 }
 
-
 // Its own test binary: the deferred switch is process-wide.
 #[tokio::test]
 async fn deferred_writes_leave_cross_source_matching_to_the_background_pass() {
@@ -63,7 +62,13 @@ async fn deferred_writes_leave_cross_source_matching_to_the_background_pass() {
     stats::defer_recompute(true);
     let now = unix_now();
     let c = db.collector("native").await;
-    send(&db, &c, &native(now - 100., true, 1, 4010001, 300, 1), false).await;
+    send(
+        &db,
+        &c,
+        &native(now - 100., true, 1, 4010001, 300, 1),
+        false,
+    )
+    .await;
     external(&db, &[now - 200.], 300., "RoleName", 4010001, "first").await;
     // The upload and the import only mark the item; no matching under the write lock.
     assert_eq!(counts(&db).await, (2, 2, 0));

@@ -505,7 +505,11 @@ async fn batch_uploads_report_each_observation_separately() {
     let now = unix_now();
     assert_eq!(
         client
-            .post("/api/v1/observations", &observation("seen", now - 90.0, 8), &auth)
+            .post(
+                "/api/v1/observations",
+                &observation("seen", now - 90.0, 8),
+                &auth
+            )
             .await
             .status(),
         StatusCode::CREATED
@@ -537,12 +541,19 @@ async fn batch_uploads_report_each_observation_separately() {
         .map(|r| r["status"].as_u64().unwrap())
         .collect();
     assert_eq!(statuses, [201, 200, 409, 400, 400, 201]);
-    assert_eq!(body["results"][2]["error"], "Observation ID content conflict");
+    assert_eq!(
+        body["results"][2]["error"],
+        "Observation ID content conflict"
+    );
     assert_eq!(body["results"][3]["error"], "Invalid observation schema");
     assert!(body["server_time"].as_f64().unwrap() >= now);
     // Stored like single uploads: replaying one alone is a duplicate.
     let again = client
-        .post("/api/v1/observations", &observation("b", now - 30.0, 4), &auth)
+        .post(
+            "/api/v1/observations",
+            &observation("b", now - 30.0, 4),
+            &auth,
+        )
         .await;
     assert_eq!(again.status(), StatusCode::OK);
     for bad in [

@@ -457,13 +457,16 @@ async fn upload_batch(
         Ok(None) => return error(StatusCode::UNAUTHORIZED, "Collector token required"),
         Err(err) => return internal(err),
     };
-    let Some(items) = serde_json::from_slice::<Value>(&body).ok().and_then(|v| match v {
-        Value::Object(mut map) => match map.remove("observations") {
-            Some(Value::Array(items)) => Some(items),
+    let Some(items) = serde_json::from_slice::<Value>(&body)
+        .ok()
+        .and_then(|v| match v {
+            Value::Object(mut map) => match map.remove("observations") {
+                Some(Value::Array(items)) => Some(items),
+                _ => None,
+            },
             _ => None,
-        },
-        _ => None,
-    }) else {
+        })
+    else {
         return error(StatusCode::BAD_REQUEST, "Invalid observation batch");
     };
     if items.is_empty() || items.len() > MAX_BATCH {
@@ -510,9 +513,10 @@ async fn upload_batch(
                     StatusCode::SERVICE_UNAVAILABLE,
                     Some("Upload queue busy; retry later"),
                 ),
-                Err(crate::upload_queue::QueueError::Ingest(IngestError::Conflict)) => {
-                    (StatusCode::CONFLICT, Some("Observation ID content conflict"))
-                }
+                Err(crate::upload_queue::QueueError::Ingest(IngestError::Conflict)) => (
+                    StatusCode::CONFLICT,
+                    Some("Observation ID content conflict"),
+                ),
                 Err(crate::upload_queue::QueueError::Ingest(IngestError::Db(err))) => {
                     tracing::error!(error = %err, "batch observation failed");
                     (StatusCode::INTERNAL_SERVER_ERROR, Some("Internal error"))

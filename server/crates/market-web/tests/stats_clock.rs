@@ -25,7 +25,9 @@ async fn import(db: &TestDb, item: i32, sales: &[(f64, f64)]) {
         "listings": []
     }))
     .unwrap();
-    external::import(&db.pool, &points, &format!("r{item}"), now).await.unwrap();
+    external::import(&db.pool, &points, &format!("r{item}"), now)
+        .await
+        .unwrap();
 }
 
 /// item_stats rows, and item_stats_all rows with list_fields as JSON, without
@@ -51,7 +53,12 @@ fn assert_same(clock: &Value, full: &Value) {
         match (a, b) {
             (Value::Object(x), Value::Object(y)) => {
                 for k in x.keys().chain(y.keys().filter(|k| !x.contains_key(*k))) {
-                    walk(format!("{path}.{k}"), x.get(k).unwrap_or(&Value::Null), y.get(k).unwrap_or(&Value::Null), out);
+                    walk(
+                        format!("{path}.{k}"),
+                        x.get(k).unwrap_or(&Value::Null),
+                        y.get(k).unwrap_or(&Value::Null),
+                        out,
+                    );
                 }
             }
             _ if a != b => out.push(format!("{path}: clock={a} full={b}")),
@@ -60,8 +67,14 @@ fn assert_same(clock: &Value, full: &Value) {
     }
     let mut out = Vec::new();
     walk(String::new(), clock, full, &mut out);
-    assert!(out.is_empty(), "{}", out.join("
-"));
+    assert!(
+        out.is_empty(),
+        "{}",
+        out.join(
+            "
+"
+        )
+    );
 }
 
 #[tokio::test]
@@ -76,23 +89,45 @@ async fn clock_pass_from_recent_sales_matches_a_full_recompute() {
     let now = unix_now();
     // Busy: a sale every 18 hours for 30 days, prices drifting.
     let busy: Vec<(f64, f64)> = (0..40)
-        .map(|n| (now - 600.0 - f64::from(n) * 0.75 * DAY, 100.0 + f64::from(n * 7 % 23)))
+        .map(|n| {
+            (
+                now - 600.0 - f64::from(n) * 0.75 * DAY,
+                100.0 + f64::from(n * 7 % 23),
+            )
+        })
         .collect();
     import(&db, 4010001, &busy).await;
     // Only older sales: the typical price uses the latest ten of twelve.
     let old: Vec<(f64, f64)> = (0..12)
-        .map(|n| (now - 12.0 * DAY - f64::from(n) * DAY, 50.0 + f64::from(n * 5)))
+        .map(|n| {
+            (
+                now - 12.0 * DAY - f64::from(n) * DAY,
+                50.0 + f64::from(n * 5),
+            )
+        })
         .collect();
     import(&db, 4010002, &old).await;
     // Fewer sales than the fallback, all old.
-    import(&db, 4010003, &[(now - 20.0 * DAY, 9.0), (now - 25.0 * DAY, 11.0), (now - 40.0 * DAY, 13.0)]).await;
+    import(
+        &db,
+        4010003,
+        &[
+            (now - 20.0 * DAY, 9.0),
+            (now - 25.0 * DAY, 11.0),
+            (now - 40.0 * DAY, 13.0),
+        ],
+    )
+    .await;
 
-    let sales: Vec<(i32, i64)> = sqlx::query_as("SELECT item_id, count(*) FROM market_sales GROUP BY 1 ORDER BY 1")
-        .fetch_all(&db.pool)
+    let sales: Vec<(i32, i64)> =
+        sqlx::query_as("SELECT item_id, count(*) FROM market_sales GROUP BY 1 ORDER BY 1")
+            .fetch_all(&db.pool)
+            .await
+            .unwrap();
+    assert_eq!(sales, [(4010001, 40), (4010002, 12), (4010003, 3)]);
+    stats::recompute_at(&db.pool, &ITEMS, now, false)
         .await
         .unwrap();
-    assert_eq!(sales, [(4010001, 40), (4010002, 12), (4010003, 3)]);
-    stats::recompute_at(&db.pool, &ITEMS, now, false).await.unwrap();
     let full_now = snapshot(&db).await;
     // Spoil the clock fields, then let a clock pass restore them.
     sqlx::query(
@@ -114,14 +149,20 @@ async fn clock_pass_from_recent_sales_matches_a_full_recompute() {
     .execute(&db.pool)
     .await
     .unwrap();
-    stats::recompute_at(&db.pool, &ITEMS, now, true).await.unwrap();
+    stats::recompute_at(&db.pool, &ITEMS, now, true)
+        .await
+        .unwrap();
     assert_same(&snapshot(&db).await, &full_now);
 
     // Days later, sales have moved across the 24 h, 72 h, 7 and 10 day lines.
     let later = now + 3.3 * DAY;
-    stats::recompute_at(&db.pool, &ITEMS, later, true).await.unwrap();
+    stats::recompute_at(&db.pool, &ITEMS, later, true)
+        .await
+        .unwrap();
     let clock_later = snapshot(&db).await;
-    stats::recompute_at(&db.pool, &ITEMS, later, false).await.unwrap();
+    stats::recompute_at(&db.pool, &ITEMS, later, false)
+        .await
+        .unwrap();
     assert_same(&clock_later, &snapshot(&db).await);
     assert_ne!(clock_later, full_now, "the clock moved some figures");
     db.close().await;

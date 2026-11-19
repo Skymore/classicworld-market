@@ -197,7 +197,10 @@ async fn replace(
         .filter(|r| !wanted.contains(&key(r)))
         .map(|r| r.0)
         .collect();
-    let chosen: Vec<_> = chosen.into_iter().filter(|r| !kept.contains(&key(r))).collect();
+    let chosen: Vec<_> = chosen
+        .into_iter()
+        .filter(|r| !kept.contains(&key(r)))
+        .collect();
     if !stale.is_empty() {
         sqlx::query("DELETE FROM cross_source_sale_matches WHERE item_id=ANY($1) AND external_sale_id=ANY($2)")
             .bind(items)
