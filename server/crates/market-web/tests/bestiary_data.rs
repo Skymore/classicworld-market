@@ -993,7 +993,7 @@ async fn full_import_is_idempotent_and_upgrades_an_r3_database() {
             first.npc_shops,
             first.portals
         ),
-        (2969, 453, 1669, 1669, 1669, 281, 281, 315, 877, 426 + 21),
+        (2969, 453, 1714, 1714, 1714, 281, 281, 315, 877, 426 + 21),
     );
     assert_eq!(
         (first.maps_zh, first.npcs_zh),
