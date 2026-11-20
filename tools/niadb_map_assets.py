@@ -6,7 +6,7 @@
     python3 tools/niadb_map_assets.py worldmap   # needs Pillow, ~1 min
     python3 tools/niadb_map_assets.py scenes     # needs Pillow, ~20 min
     python3 tools/niadb_map_assets.py scene-copies  # needs Pillow, offline
-    python3 tools/niadb_map_assets.py client-scenes <directory>  # checked client PNGs + world rectangles
+    python3 tools/niadb_map_assets.py client-scenes <directory> [--replace-stretched]  # checked client PNGs + world rectangles
 
 `fetch` saves, for every map in data/reference/niadb/maps.json with
 `hasMinimapImage`, https://meowdb.com/msclassic/maps/minimaps/<id>.png as
@@ -361,8 +361,16 @@ def scene_copies():
     print(f"{made} phone copies in {SCENES_SMALL}")
 
 
-def client_scenes(directory):
-    """Import verified client renders; never replace an existing scene."""
+def stretched(entry):
+    """True when a scenes.json entry's picture and world rectangle differ in
+    shape by more than 2%: the picture is stretched onto the map view."""
+    sw, sh = entry["source_size"]
+    return abs((sw / sh) / (entry["w"] / entry["h"]) - 1) > 0.02
+
+
+def client_scenes(directory, replace_stretched=False):
+    """Import verified client renders. An existing scene is kept, unless
+    `replace_stretched` and its picture does not fit its rectangle."""
     from PIL import Image
 
     directory = Path(directory)
@@ -382,7 +390,8 @@ def client_scenes(directory):
         map_id = int(png.stem)
         key = str(map_id)
         target, small = SCENES / f"{key}.webp", SCENES_SMALL / f"{key}.webp"
-        if key in done or target.exists() or small.exists():
+        replace = replace_stretched and key in done and stretched(done[key])
+        if not replace and (key in done or target.exists() or small.exists()):
             existing.append(map_id)
             continue
         try:
@@ -580,6 +589,8 @@ def main():
     sub.add_parser("scene-copies", help="make the missing phone copies of the scenes on disk")
     client = sub.add_parser("client-scenes", help="import checked client PNG renders and world rectangles")
     client.add_argument("directory", type=Path)
+    client.add_argument("--replace-stretched", action="store_true",
+                        help="also replace existing scenes whose picture does not fit their world rectangle")
     t = sub.add_parser("thumbs", help="make the map list's card pictures from the scenes and minimaps on disk")
     t.add_argument("--all", action="store_true", help="remake every thumbnail")
     args = ap.parse_args()
@@ -588,7 +599,7 @@ def main():
     elif args.command == "scene-copies":
         scene_copies()
     elif args.command == "client-scenes":
-        result = client_scenes(args.directory)
+        result = client_scenes(args.directory, args.replace_stretched)
         if result["rejected"]:
             raise SystemExit(1)
     elif args.command == "thumbs":

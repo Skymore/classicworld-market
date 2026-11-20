@@ -153,6 +153,13 @@ pub async fn import(pool: &PgPool, input: &Input<'_>) -> Result<ImportSummary> {
         &data.spawn_points,
     )
     .await?;
+    insert_json(
+        &mut tx,
+        "mob_stat_changes",
+        "mob_id, stat, old_value, new_value, since, seen",
+        &data.mob_changes,
+    )
+    .await?;
     let npc_placements =
         insert_json(&mut tx, "map_npcs", "map_id, npc_id, x, y", &data.map_npcs).await?;
     let npc_shops = insert_json(

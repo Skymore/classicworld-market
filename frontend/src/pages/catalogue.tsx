@@ -220,15 +220,42 @@ function Mob({ page }: { page: any }) {
           </div>
         )}
         <dl className="stats">
-          {stats.map(([key, zh, en]) => (
-            <div key={key}>
-              <dt>{words(zh, en)}</dt>
-              <dd>
-                {mob[key] != null ? Number(mob[key]).toLocaleString() : "—"}
-              </dd>
-            </div>
-          ))}
+          {stats.map(([key, zh, en]) => {
+            const change = (page.changes || []).find((c: any) => c.stat === key);
+            const delta = change ? change.new_value - change.old_value : 0;
+            return (
+              <div key={key}>
+                <dt>{words(zh, en)}</dt>
+                <dd>
+                  {mob[key] != null ? Number(mob[key]).toLocaleString() : "—"}
+                  {change && (
+                    <span
+                      className={"stat-change " + (delta > 0 ? "up" : "down")}
+                      title={words(
+                        `${change.since} 到 ${change.seen} 之间由 ${change.old_value.toLocaleString()} 改为 ${change.new_value.toLocaleString()}`,
+                        `${change.old_value.toLocaleString()} → ${change.new_value.toLocaleString()} between ${change.since} and ${change.seen}`,
+                      )}
+                    >
+                      {delta > 0 ? "▲" : "▼"}
+                      {Math.abs(delta).toLocaleString()}
+                      <small>
+                        {words(`原 ${change.old_value.toLocaleString()}`, `was ${change.old_value.toLocaleString()}`)}
+                      </small>
+                    </span>
+                  )}
+                </dd>
+              </div>
+            );
+          })}
         </dl>
+        {page.changes?.length > 0 && (
+          <p className="stat-change-note">
+            {words(
+              `${page.changes[0].seen.slice(5)} 同步时发现数值改动（上次同步 ${page.changes[0].since.slice(5)}）`,
+              `Stats changed as of the ${page.changes[0].seen} sync (previous ${page.changes[0].since})`,
+            )}
+          </p>
+        )}
         <Description
           text={mob.description
             ?.split("\n")

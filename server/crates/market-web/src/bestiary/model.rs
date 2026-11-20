@@ -299,6 +299,18 @@ pub struct MobPage {
     pub drops: Vec<MobDrop>,
     /// Quests that ask to defeat it.
     pub quests: Vec<QuestNeed>,
+    /// Its latest stat changes, one per stat (`mob_stat_changes`).
+    pub changes: Vec<MobChange>,
+}
+
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow, serde::Serialize)]
+pub struct MobChange {
+    pub stat: String,
+    pub old_value: i64,
+    pub new_value: i64,
+    /// YYYY-MM-DD: the fetch that showed the change, and the one before it.
+    pub since: String,
+    pub seen: String,
 }
 
 #[derive(Debug, Clone, PartialEq, sqlx::FromRow, serde::Serialize)]

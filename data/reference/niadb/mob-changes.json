@@ -1,0 +1,365 @@
+{
+ "note": "Monster stat changes between NiaDB fetches, written by tools/niadb_mob_changes.py: the stat went from `from` to `to` some time between `since` and `seen`.",
+ "changes": [
+  {
+   "mob_id": 5,
+   "stat": "mdd",
+   "from": 30,
+   "to": 15,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 7,
+   "stat": "mdd",
+   "from": 20,
+   "to": 5,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 12,
+   "stat": "mdd",
+   "from": 30,
+   "to": 15,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 13,
+   "stat": "mdd",
+   "from": 30,
+   "to": 20,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 16,
+   "stat": "mdd",
+   "from": 20,
+   "to": 10,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 17,
+   "stat": "pdd",
+   "from": 0,
+   "to": 5,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 17,
+   "stat": "mdd",
+   "from": 30,
+   "to": 15,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 18,
+   "stat": "pdd",
+   "from": 0,
+   "to": 15,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 18,
+   "stat": "mdd",
+   "from": 30,
+   "to": 5,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 21,
+   "stat": "pdd",
+   "from": 15,
+   "to": 10,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 21,
+   "stat": "mdd",
+   "from": 15,
+   "to": 20,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 22,
+   "stat": "pdd",
+   "from": 15,
+   "to": 20,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 22,
+   "stat": "mdd",
+   "from": 15,
+   "to": 10,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 31,
+   "stat": "pdd",
+   "from": 30,
+   "to": 20,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 31,
+   "stat": "mdd",
+   "from": 0,
+   "to": 10,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 35,
+   "stat": "pdd",
+   "from": 0,
+   "to": 5,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 35,
+   "stat": "mdd",
+   "from": 30,
+   "to": 20,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 36,
+   "stat": "pdd",
+   "from": 0,
+   "to": 20,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 36,
+   "stat": "mdd",
+   "from": 30,
+   "to": 10,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 37,
+   "stat": "pdd",
+   "from": 0,
+   "to": 10,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 37,
+   "stat": "mdd",
+   "from": 30,
+   "to": 20,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 38,
+   "stat": "pdd",
+   "from": 0,
+   "to": 5,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 38,
+   "stat": "mdd",
+   "from": 30,
+   "to": 20,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 44,
+   "stat": "pdd",
+   "from": 15,
+   "to": 20,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 44,
+   "stat": "mdd",
+   "from": 15,
+   "to": 10,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 47,
+   "stat": "pdd",
+   "from": 0,
+   "to": 5,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 47,
+   "stat": "mdd",
+   "from": 50,
+   "to": 20,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 48,
+   "stat": "pdd",
+   "from": 30,
+   "to": 25,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 48,
+   "stat": "mdd",
+   "from": 0,
+   "to": 5,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 49,
+   "stat": "pdd",
+   "from": 0,
+   "to": 5,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 49,
+   "stat": "mdd",
+   "from": 30,
+   "to": 25,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 54,
+   "stat": "pdd",
+   "from": 10,
+   "to": 15,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 54,
+   "stat": "mdd",
+   "from": 10,
+   "to": 5,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 55,
+   "stat": "pdd",
+   "from": 10,
+   "to": 20,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 55,
+   "stat": "mdd",
+   "from": 0,
+   "to": 10,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 56,
+   "stat": "pdd",
+   "from": 0,
+   "to": 15,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 56,
+   "stat": "mdd",
+   "from": 0,
+   "to": 15,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 57,
+   "stat": "pdd",
+   "from": 0,
+   "to": 20,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 57,
+   "stat": "mdd",
+   "from": 20,
+   "to": 10,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 60,
+   "stat": "pdd",
+   "from": 0,
+   "to": 10,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 61,
+   "stat": "pdd",
+   "from": 10,
+   "to": 20,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 61,
+   "stat": "mdd",
+   "from": 0,
+   "to": 10,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 62,
+   "stat": "mdd",
+   "from": 10,
+   "to": 5,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 63,
+   "stat": "pdd",
+   "from": 0,
+   "to": 20,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  },
+  {
+   "mob_id": 63,
+   "stat": "mdd",
+   "from": 0,
+   "to": 10,
+   "since": "2026-11-03",
+   "seen": "2026-11-19"
+  }
+ ]
+}

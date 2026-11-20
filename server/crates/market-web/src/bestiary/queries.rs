@@ -1272,6 +1272,13 @@ pub async fn mob_page(db: &PgPool, id: i32) -> sqlx::Result<Option<MobPage>> {
         spawns,
         drops: mob_drops(db, id).await?,
         quests: quest_needs(db, id, false).await?,
+        changes: sqlx::query_as(
+            "SELECT DISTINCT ON (stat) stat, old_value, new_value, since::text AS since, seen::text AS seen
+             FROM mob_stat_changes WHERE mob_id = $1 ORDER BY stat, seen DESC",
+        )
+        .bind(id)
+        .fetch_all(db)
+        .await?,
     }))
 }
 

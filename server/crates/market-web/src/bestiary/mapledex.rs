@@ -17,8 +17,9 @@ use serde::{Deserialize, Serialize};
 
 use super::catalog::Catalog;
 use super::rows::{
-    DropRow, MapNpcRow, MapRow, MobRow, NpcRow, PortalRow, QuestNeedRow, QuestRewardRow, QuestRow,
-    SpawnPointRow, SpawnRow, WorldRegionRow, WorldSpotMapRow, WorldSpotRow,
+    DropRow, MapNpcRow, MapRow, MobChangeRow, MobRow, NpcRow, PortalRow, QuestNeedRow,
+    QuestRewardRow, QuestRow, SpawnPointRow, SpawnRow, WorldRegionRow, WorldSpotMapRow,
+    WorldSpotRow,
 };
 
 pub const DEFAULT_VERSION: &str = "CW GMS_COT2_2026-08-11";
@@ -122,6 +123,8 @@ pub struct Dataset {
     pub spawns: Vec<SpawnRow>,
     /// Every spawn point with its position, from NiaDB.
     pub spawn_points: Vec<SpawnPointRow>,
+    /// Stat changes between NiaDB fetches (`mob-changes.json`).
+    pub mob_changes: Vec<MobChangeRow>,
     pub drops: Vec<DropRow>,
     pub npcs: Vec<NpcRow>,
     pub map_npcs: Vec<MapNpcRow>,
@@ -950,6 +953,8 @@ pub struct NiaBestiaryCounts {
     pub maps_unreleased: usize,
     pub npcs_unreleased: usize,
     pub spawns: usize,
+    /// Monster stat changes between fetches (`mob-changes.json`).
+    pub mob_changes: usize,
     /// Spawn points moved down onto their foothold (`spawn-feet.json`).
     pub spawn_feet: usize,
     /// Drops with more up than down votes.
@@ -985,6 +990,9 @@ impl Dataset {
             &read(dir, "mesos.json")?,
             today,
         )?;
+        if let Some(changes) = super::worldmap::read_optional(dir, "mob-changes.json")? {
+            counts.mob_changes = self.add_mob_changes(&changes)?;
+        }
         if let Some(feet) = super::worldmap::read_optional(dir, "spawn-feet.json")? {
             counts.spawn_feet = self.add_spawn_feet(&feet)?;
         }
@@ -996,6 +1004,23 @@ impl Dataset {
     /// above the platform; the monster stands on the foothold at `cy`.
     /// `spawn-feet.json` (tools/client_spawn_feet.ps1, from the client's
     /// Map.wz) lists `[mob, x, y, cy]` per map; each matching point moves to `cy`.
+    /// `mob-changes.json` (tools/niadb_mob_changes.py): monster stat changes
+    /// between NiaDB fetches, kept for mobs still listed.
+    pub fn add_mob_changes(&mut self, json: &str) -> Result<usize> {
+        #[derive(Deserialize)]
+        struct File {
+            changes: Vec<MobChangeRow>,
+        }
+        let file: File = serde_json::from_str(json).context("parsing mob-changes.json")?;
+        let listed: HashSet<i32> = self.mobs.iter().map(|m| m.id).collect();
+        self.mob_changes = file
+            .changes
+            .into_iter()
+            .filter(|c| listed.contains(&c.mob_id))
+            .collect();
+        Ok(self.mob_changes.len())
+    }
+
     pub fn add_spawn_feet(&mut self, json: &str) -> Result<usize> {
         let feet: HashMap<String, Vec<[i32; 4]>> =
             serde_json::from_str(json).context("parsing spawn-feet.json")?;

@@ -37,6 +37,11 @@ html[data-device=desktop] .stats{grid-template-columns:repeat(5,minmax(0,1fr))}
 .stats div:nth-child(odd){background:var(--sheet-hi)}
 .stats dt{font-size:13px;color:var(--ink-3)}
 .stats dd{margin:0;font-weight:700}
+.stat-change{margin-left:6px;font-size:12px;font-weight:700;white-space:nowrap}
+.stat-change.up{color:var(--maple)}
+.stat-change.down{color:var(--fall-ink)}
+.stat-change small{margin-left:4px;font-weight:600;color:var(--ink-3)}
+.stat-change-note{margin:0;padding:6px 12px;font-size:12px;color:var(--ink-3);border-bottom:1px solid var(--rule)}
 .desc{display:grid;gap:4px;padding:10px 12px;font-size:14px;color:var(--ink-2)}
 .dgrid{display:grid;gap:12px;padding:12px;border-top:2px solid var(--edge)}
 html[data-device=desktop] .dgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:16px;align-items:start}
