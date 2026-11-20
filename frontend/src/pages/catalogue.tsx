@@ -494,6 +494,18 @@ function FitLabel({ long, short }: { long: string; short: string }) {
     </>
   );
 }
+// ▲/▼ and the old value next to a number that changed between NiaDB fetches.
+function ChangeMark({ from, to, digits = 0, title }: { from: number; to: number; digits?: number; title: string }) {
+  const words = useWords();
+  const fmt = (v: number) => (digits ? v.toFixed(digits) : v.toLocaleString());
+  return (
+    <span className={"stat-change " + (to > from ? "up" : "down")} title={title}>
+      {to > from ? "▲" : "▼"}
+      <small>{words(`原 ${fmt(from)}`, `was ${fmt(from)}`)}</small>
+    </span>
+  );
+}
+
 function MapPage({ page }: { page: any }) {
   const words = useWords(),
     name = useNames(),
@@ -505,6 +517,14 @@ function MapPage({ page }: { page: any }) {
   // Snapshots cached before the map view carry no quest lists.
   const given: any[] = page.quests_given || [],
     hunted: any[] = page.quests_hunted || [];
+  const changes: any[] = page.changes || [];
+  const rateChange = changes.find((c) => c.stat === "mob_rate");
+  const spawnChanges = changes.filter((c) => c.stat === "spawns");
+  const changeTitle = (c: any) =>
+    words(
+      `${c.since} 到 ${c.seen} 之间由 ${c.old_value} 改为 ${c.new_value}`,
+      `${c.old_value} → ${c.new_value} between ${c.since} and ${c.seen}`,
+    );
   return (
     <>
       <Crumb text={title} />
@@ -530,6 +550,14 @@ function MapPage({ page }: { page: any }) {
                 <span className="tagx">
                   {words("刷怪倍率 ", "spawn rate ")}
                   {Number(map.mob_rate).toFixed(1)}
+                  {rateChange && (
+                    <ChangeMark
+                      from={rateChange.old_value}
+                      to={rateChange.new_value}
+                      digits={1}
+                      title={changeTitle(rateChange)}
+                    />
+                  )}
                 </span>
               )}
             </div>
@@ -619,16 +647,37 @@ function MapPage({ page }: { page: any }) {
                 `${page.mobs.length} kinds`,
               )}
             >
-              {page.mobs.map((row: any, i: number) => (
-                <MobRow
-                  key={i}
-                  mob={row.mob}
-                  right={words(
-                    `${row.spawn_count} 个刷怪点`,
-                    `${row.spawn_count} spawns`,
-                  )}
-                />
-              ))}
+              {page.mobs.map((row: any, i: number) => {
+                const change = spawnChanges.find((c: any) => c.mob_id === row.mob.id);
+                return (
+                  <MobRow
+                    key={i}
+                    mob={row.mob}
+                    right={
+                      <>
+                        {words(`${row.spawn_count} 个刷怪点`, `${row.spawn_count} spawns`)}
+                        {change && (
+                          <ChangeMark
+                            from={change.old_value}
+                            to={change.new_value}
+                            title={changeTitle(change)}
+                          />
+                        )}
+                      </>
+                    }
+                  />
+                );
+              })}
+              {spawnChanges
+                .filter((c: any) => c.new_value === 0)
+                .map((c: any) => (
+                  <p className="note" key={"gone" + c.mob_id}>
+                    {words(
+                      `已不再刷：${c.mob_name || "#" + c.mob_id}（原 ${c.old_value} 个刷怪点）`,
+                      `No longer spawns: ${c.mob_name_en || c.mob_name || "#" + c.mob_id} (was ${c.old_value})`,
+                    )}
+                  </p>
+                ))}
               {!page.mobs.length && (
                 <p className="note">
                   {words("这张地图没有刷怪记录。", "No monsters spawn here.")}

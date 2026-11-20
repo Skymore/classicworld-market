@@ -90,6 +90,21 @@ pub struct MobChangeRow {
     pub seen: String,
 }
 
+/// One map change between NiaDB fetches (`map_stat_changes`).
+#[derive(Debug, Clone, PartialEq, Serialize, serde::Deserialize)]
+pub struct MapChangeRow {
+    pub map_id: i32,
+    pub stat: String,
+    #[serde(default)]
+    pub mob_id: i32,
+    #[serde(rename(serialize = "old_value"), alias = "from")]
+    pub old_value: f64,
+    #[serde(rename(serialize = "new_value"), alias = "to")]
+    pub new_value: f64,
+    pub since: String,
+    pub seen: String,
+}
+
 /// One monster spawn point (`map_spawn_points`).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SpawnPointRow {

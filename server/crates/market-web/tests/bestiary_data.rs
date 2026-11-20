@@ -211,6 +211,16 @@ fn niadb_bestiary_decides_what_exists() {
         .find(|c| c.mob_id == 5 && c.stat == "mdd")
         .expect("Red Snail magic defence change");
     assert_eq!((snail.old_value, snail.new_value), (30, 15));
+    assert_eq!(
+        counts.map_changes, 84,
+        "spawn rates and spawn points on 49 maps"
+    );
+    let snails = data
+        .map_changes
+        .iter()
+        .find(|c| c.map_id == 40 && c.stat == "mob_rate")
+        .expect("Snail Hunting Ground I spawn rate change");
+    assert_eq!((snails.old_value, snails.new_value), (1.0, 0.7));
     let first = data
         .spawn_points
         .iter()

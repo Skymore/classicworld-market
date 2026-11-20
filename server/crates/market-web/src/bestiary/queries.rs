@@ -1448,7 +1448,23 @@ pub async fn map_page(db: &PgPool, id: i32) -> sqlx::Result<Option<MapPage>> {
         Some(zh) => MapRef::new(id, zh, row.return_name_en.unwrap_or_default()),
         None => MapRef::unlisted(id),
     });
+    let changes = sqlx::query_as::<_, MapChange>(concat!(
+        "SELECT DISTINCT ON (c.stat, c.mob_id) c.stat, c.mob_id, ",
+        "CASE WHEN m.id IS NULL THEN NULL ELSE ",
+        name!("m"),
+        " END AS mob_name, CASE WHEN m.id IS NULL THEN NULL ELSE ",
+        name_en!("m"),
+        " END AS mob_name_en,
+                c.old_value, c.new_value, c.since::text AS since, c.seen::text AS seen
+         FROM map_stat_changes c LEFT JOIN mobs m ON m.id = c.mob_id AND ",
+        public_mob!(),
+        " WHERE c.map_id = $1 ORDER BY c.stat, c.mob_id, c.seen DESC"
+    ))
+    .bind(id)
+    .fetch_all(db)
+    .await?;
     Ok(Some(MapPage {
+        changes,
         map: MapDetail {
             id: row.id,
             names: row.names,

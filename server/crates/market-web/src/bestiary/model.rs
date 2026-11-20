@@ -304,6 +304,19 @@ pub struct MobPage {
 }
 
 #[derive(Debug, Clone, PartialEq, sqlx::FromRow, serde::Serialize)]
+pub struct MapChange {
+    /// "mob_rate" or "spawns".
+    pub stat: String,
+    pub mob_id: i32,
+    pub mob_name: Option<String>,
+    pub mob_name_en: Option<String>,
+    pub old_value: f64,
+    pub new_value: f64,
+    pub since: String,
+    pub seen: String,
+}
+
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow, serde::Serialize)]
 pub struct MobChange {
     pub stat: String,
     pub old_value: i64,
@@ -376,6 +389,9 @@ pub enum DropTarget {
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct MapPage {
     pub map: MapDetail,
+    /// Latest spawn rate and spawn point changes (`map_stat_changes`), with
+    /// the monster's name for spawn changes.
+    pub changes: Vec<MapChange>,
     pub return_map: Option<MapRef>,
     pub mobs: Vec<MapMob>,
     pub npcs: Vec<NpcRef>,
