@@ -202,8 +202,8 @@ fn niadb_bestiary_decides_what_exists() {
         "every point in spawn-feet.json matches a NiaDB spawn"
     );
     assert_eq!(
-        counts.mob_changes, 45,
-        "NiaDB 11-03 -> 11-19: defence changes on 26 monsters"
+        counts.mob_changes, 31,
+        "NiaDB 11-03 -> 11-19 defence changes, without Forgotten Hollow's monsters (new on 11-18)"
     );
     let snail = data
         .mob_changes
@@ -212,8 +212,8 @@ fn niadb_bestiary_decides_what_exists() {
         .expect("Red Snail magic defence change");
     assert_eq!((snail.old_value, snail.new_value), (30, 15));
     assert_eq!(
-        counts.map_changes, 84,
-        "spawn rates and spawn points on 49 maps"
+        counts.map_changes, 27,
+        "spawn rate changes outside Forgotten Hollow (new on 11-18)"
     );
     let snails = data
         .map_changes

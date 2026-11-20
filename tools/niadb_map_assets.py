@@ -456,17 +456,83 @@ THUMB_QUALITY = 80
 THUMB_BACK = (27, 36, 51)
 
 
+MOB_STANDS = ROOT / "web" / "images" / "mobs" / "stand"
+MOB_STAND_SIZES = ROOT / "server" / "crates" / "market-web" / "src" / "bestiary" / "mob-stands.json"
+_spawn_cache = {}
+
+
+def spawn_sprites():
+    """{map id: [(mob id, x, feet y)]} from NiaDB's spawns, with the feet
+    moved onto their foothold where spawn-feet.json says (as import_catalog
+    does), and {mob id: (w, h)} of the standing sprites."""
+    if not _spawn_cache:
+        feet = {}
+        feet_path = NIADB / "spawn-feet.json"
+        if feet_path.exists():
+            for map_id, rows in read_json(feet_path).items():
+                for mob, x, y, cy in rows:
+                    feet[(int(map_id), mob, x, y)] = cy
+        spawns = {}
+        for nia_map in read_json(NIADB / "maps.json"):
+            map_id = int(nia_map["id"])
+            for spawn in nia_map.get("spawns") or []:
+                mob = int(spawn["mobId"])
+                y = feet.get((map_id, mob, spawn["x"], spawn["y"]), spawn["y"])
+                spawns.setdefault(map_id, []).append((mob, spawn["x"], y))
+        sizes = {int(k): tuple(v) for k, v in read_json(MOB_STAND_SIZES)["sizes"].items()}             if MOB_STAND_SIZES.exists() else {}
+        _spawn_cache["spawns"], _spawn_cache["sizes"] = spawns, sizes
+    return _spawn_cache["spawns"], _spawn_cache["sizes"]
+
+
+def draw_mobs(image, map_id, box):
+    """Paste the map's monsters onto `image` (RGBA), which shows the world
+    rectangle `box` = (x, y, w, h): each standing sprite at its game size
+    scaled like the picture, feet on its spawn point."""
+    from PIL import Image
+
+    spawns, sizes = spawn_sprites()
+    scale = image.width / box[2]
+    sprites = {}
+    for mob, x, y in spawns.get(map_id, []):
+        path = MOB_STANDS / f"{mob}.png"
+        if not path.exists():
+            continue
+        if mob not in sprites:
+            with Image.open(path) as sprite:
+                w, h = sizes.get(mob, sprite.size)
+                size = (max(1, round(w * scale)), max(1, round(h * scale)))
+                sprites[mob] = sprite.convert("RGBA").resize(size, Image.LANCZOS)
+        sprite = sprites[mob]
+        px, py = (x - box[0]) * scale, (y - box[1]) * scale
+        image.alpha_composite(sprite, (round(px - sprite.width / 2), round(py - sprite.height)))
+    return image
+
+
+def minimap_box(map_id):
+    """The world rectangle NiaDB's minimap of the map covers, or None."""
+    if "boxes" not in _spawn_cache:
+        _spawn_cache["boxes"] = {
+            int(m["id"]): (-m["miniMapCenterX"], -m["miniMapCenterY"], m["minimapWidth"], m["minimapHeight"])
+            for m in read_json(NIADB / "maps.json")
+            if m.get("minimapWidth") and m.get("minimapHeight")}
+    return _spawn_cache["boxes"].get(map_id)
+
+
 def save_thumb(map_id):
     """web/images/map-thumbs/<id>.webp for the map list: the middle of the
     scene cut to 16:10, or without a scene the whole minimap on the cards'
-    background, clear of the name along the bottom. False when the map has
-    neither picture."""
+    background, clear of the name along the bottom, with the map's monsters
+    drawn on (`draw_mobs`). False when the map has neither picture."""
     from PIL import Image
 
     scene, minimap = SCENES / f"{map_id}.webp", MINIMAPS / f"{map_id}.png"
     tw, th = THUMB_SIZE
+    rect = read_json(NIADB / "scenes.json")["maps"].get(str(map_id)) if scene.exists() else None
     if scene.exists():
         with Image.open(scene) as image:
+            image = image.convert("RGBA")
+            if rect:
+                draw_mobs(image, map_id, (rect["x"], rect["y"], rect["w"], rect["h"]))
             w, h = image.size
             if w * th > h * tw:
                 cw, ch = round(h * tw / th), h
@@ -477,6 +543,9 @@ def save_thumb(map_id):
     elif minimap.exists():
         with Image.open(minimap) as image:
             image = image.convert("RGBA")
+            box = minimap_box(map_id)
+            if box:
+                draw_mobs(image, map_id, box)
             # 12 px around, 62 px at the bottom for the name.
             fw, fh = tw - 24, th - 12 - 62
             scale = min(fw / image.width, fh / image.height)
@@ -509,7 +578,8 @@ def thumbs(every):
         made += save_thumb(map_id)
     write_json(THUMBS / "sources.json", {
         "note": "The map list's card pictures, made by tools/niadb_map_assets.py thumbs from "
-                "web/images/scenes/ (the middle, cut to 16:10) or, without a scene, web/images/minimaps/. "
+                "web/images/scenes/ (the middle, cut to 16:10) or, without a scene, web/images/minimaps/, "
+                "with each monster's standing sprite on its spawn point. "
                 "Game art belongs to NEXON and its affiliates.",
         "size": list(THUMB_SIZE),
         "maps": sorted(int(p.stem) for p in THUMBS.glob("*.webp")),

@@ -773,6 +773,18 @@ const OPENS_LATER: &[OpensLater] = &[
     },
 ];
 
+/// The map is in an `OPENS_LATER` area that opened after `since`
+/// (YYYY-MM-DD): a change recorded since then is the area's launch.
+fn opened_after(map_id: i32, since: &str) -> bool {
+    let Ok(since) = NaiveDate::parse_from_str(since, "%Y-%m-%d") else {
+        return false;
+    };
+    OPENS_LATER.iter().any(|a| {
+        a.maps.contains(&map_id)
+            && NaiveDate::from_ymd_opt(a.day.0, a.day.1, a.day.2).is_some_and(|day| day > since)
+    })
+}
+
 fn before(day: (i32, u32, u32), today: NaiveDate) -> bool {
     NaiveDate::from_ymd_opt(day.0, day.1, day.2).is_some_and(|day| today < day)
 }
@@ -1020,10 +1032,24 @@ impl Dataset {
         }
         let file: File = serde_json::from_str(json).context("parsing mob-changes.json")?;
         let listed: HashSet<i32> = self.mobs.iter().map(|m| m.id).collect();
+        let mut spawn_maps: HashMap<i32, Vec<i32>> = HashMap::new();
+        for spawn in &self.spawns {
+            spawn_maps
+                .entry(spawn.mob_id)
+                .or_default()
+                .push(spawn.map_id);
+        }
+        // A monster that only lives in an area opened after the earlier
+        // fetch was new then, not changed.
+        let was_new = |c: &MobChangeRow| {
+            spawn_maps
+                .get(&c.mob_id)
+                .is_some_and(|maps| maps.iter().all(|&m| opened_after(m, &c.since)))
+        };
         self.mob_changes = file
             .changes
             .into_iter()
-            .filter(|c| listed.contains(&c.mob_id))
+            .filter(|c| listed.contains(&c.mob_id) && !was_new(c))
             .collect();
         Ok(self.mob_changes.len())
     }
@@ -1040,7 +1066,7 @@ impl Dataset {
         self.map_changes = file
             .changes
             .into_iter()
-            .filter(|c| listed.contains(&c.map_id))
+            .filter(|c| listed.contains(&c.map_id) && !opened_after(c.map_id, &c.since))
             .collect();
         Ok(self.map_changes.len())
     }

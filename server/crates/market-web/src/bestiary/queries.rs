@@ -2883,12 +2883,14 @@ struct Place<'a> {
 /// minimap. It carries the scene's version, so a new scene's card is fetched
 /// afresh.
 pub fn map_thumb(map_id: i32, scene_url: Option<&str>) -> String {
-    let version = scene_url
+    let scene = scene_url
         .and_then(|url| url.split_once("?v="))
-        .map(|(_, v)| format!("?v={v}"))
-        .unwrap_or_default();
-    format!("/web/images/map-thumbs/{map_id}.webp{version}")
+        .map_or("", |(_, v)| v);
+    format!("/web/images/map-thumbs/{map_id}.webp?v={scene}{THUMB_REVISION}")
 }
+
+/// Bump when every card picture is remade (r2: monsters drawn on, 2026-11-20).
+const THUMB_REVISION: &str = "r2";
 
 async fn search_maps_in_region(
     db: &PgPool,

@@ -147,8 +147,8 @@
       "_shared-Cwf5YL9D.js"
     ]
   },
-  "_main-BONXVolh.js": {
-    "file": "chunks/main-BONXVolh.js",
+  "_main-D2N55huI.js": {
+    "file": "chunks/main-D2N55huI.js",
     "name": "main",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -404,7 +404,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BONXVolh.js"
+      "_main-D2N55huI.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -571,7 +571,7 @@
     ]
   },
   "src/pages/hollow.tsx": {
-    "file": "chunks/hollow-CGaIXeS8.js",
+    "file": "chunks/hollow-PxEhXVAG.js",
     "name": "hollow",
     "src": "src/pages/hollow.tsx",
     "isDynamicEntry": true,
@@ -710,7 +710,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BONXVolh.js"
+      "_main-D2N55huI.js"
     ]
   }
 }

@@ -18,7 +18,7 @@ const mob = (id: number, name: string) => (
 );
 
 // 场景图和缩略图换过后改这个值，绕开浏览器和 CDN 的旧缓存。
-const IMAGES = "20261120";
+const IMAGES = "20261120m";
 
 type Step = [quest: number, name: string, level: number | null, what: ReactNode];
 

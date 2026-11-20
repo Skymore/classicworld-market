@@ -1,5 +1,5 @@
 {
- "note": "The map list's card pictures, made by tools/niadb_map_assets.py thumbs from web/images/scenes/ (the middle, cut to 16:10) or, without a scene, web/images/minimaps/. Game art belongs to NEXON and its affiliates.",
+ "note": "The map list's card pictures, made by tools/niadb_map_assets.py thumbs from web/images/scenes/ (the middle, cut to 16:10) or, without a scene, web/images/minimaps/, with each monster's standing sprite on its spawn point. Game art belongs to NEXON and its affiliates.",
  "size": [
   480,
   300
