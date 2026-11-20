@@ -61,7 +61,7 @@ export default function Home() {
         </nav>
         <SiteLink className="topic-banner" href="/hollow" data-topic="hollow">
           <img
-            src="/web/images/map-thumbs/10006000.webp"
+            src="/web/images/map-thumbs/10006000.webp?v=20261120"
             alt=""
             width={96}
             height={60}

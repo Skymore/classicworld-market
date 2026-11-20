@@ -2863,9 +2863,15 @@ struct Place<'a> {
     spot: &'a str,
 }
 
-/// The map list's card picture, made for every map with a scene or a minimap.
-pub fn map_thumb(map_id: i32) -> String {
-    format!("/web/images/map-thumbs/{map_id}.webp")
+/// The map list's card picture, made for every map with a scene or a
+/// minimap. It carries the scene's version, so a new scene's card is fetched
+/// afresh.
+pub fn map_thumb(map_id: i32, scene_url: Option<&str>) -> String {
+    let version = scene_url
+        .and_then(|url| url.split_once("?v="))
+        .map(|(_, v)| format!("?v={v}"))
+        .unwrap_or_default();
+    format!("/web/images/map-thumbs/{map_id}.webp{version}")
 }
 
 async fn search_maps_in_region(
@@ -2885,6 +2891,7 @@ async fn search_maps_in_region(
         street_en: Option<String>,
         is_town: bool,
         pictured: bool,
+        scene_url: Option<String>,
         level_min: Option<i16>,
         level_max: Option<i16>,
     }
@@ -2903,7 +2910,7 @@ async fn search_maps_in_region(
     let rows_sql = format!(
         "SELECT r.*, l.level_min, l.level_max FROM (
              SELECT m.id, {name} AS name, {name_en} AS name_en, {streets}, m.is_town,
-                    (m.scene_url IS NOT NULL OR m.minimap_url IS NOT NULL) AS pictured,
+                    (m.scene_url IS NOT NULL OR m.minimap_url IS NOT NULL) AS pictured, m.scene_url,
                     row_number() OVER (ORDER BY {order}) AS ord
              FROM maps m WHERE {condition}
              ORDER BY {order} LIMIT $9 OFFSET $10) r
@@ -2956,7 +2963,7 @@ async fn search_maps_in_region(
                     street: optional_names(r.street, r.street_en),
                     hint: None,
                     town: r.is_town,
-                    thumb: r.pictured.then(|| map_thumb(r.id)),
+                    thumb: r.pictured.then(|| map_thumb(r.id, r.scene_url.as_deref())),
                     level_min: r.level_min,
                     level_max: r.level_max,
                     copies: card.map(|c| Names::new(c.copies.0, c.copies.1)),

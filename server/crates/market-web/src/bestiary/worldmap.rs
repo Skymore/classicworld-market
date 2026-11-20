@@ -81,6 +81,21 @@ struct Scene {
     y: i32,
     w: i32,
     h: i32,
+    /// Which render the picture is (NiaDB's scene key, or "client").
+    #[serde(default)]
+    key: String,
+    #[serde(default)]
+    source_size: Option<[u32; 2]>,
+}
+
+impl Scene {
+    /// Changes when the picture is replaced, so edge and browser caches of
+    /// the old file (kept up to a week) are not used.
+    fn version(&self) -> String {
+        use sha2::{Digest, Sha256};
+        let digest = Sha256::digest(format!("{}:{:?}", self.key, self.source_size));
+        hex::encode(&digest[..4])
+    }
 }
 
 /// What `add_map_pictures_dir` added.
@@ -219,7 +234,11 @@ impl Dataset {
                 map.minimap_cy = Some(-scene.y);
                 counts.scene_boxes += 1;
             }
-            map.scene_url = Some(format!("/web/images/scenes/{}.webp", map.id));
+            map.scene_url = Some(format!(
+                "/web/images/scenes/{}.webp?v={}",
+                map.id,
+                scene.version()
+            ));
             map.scene_x = Some(scene.x);
             map.scene_y = Some(scene.y);
             map.scene_w = Some(scene.w);
@@ -304,9 +323,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(counts.scenes, 1);
-        assert_eq!(
-            data.maps[0].scene_url.as_deref(),
-            Some("/web/images/scenes/10001000.webp")
+        let url = data.maps[0].scene_url.as_deref().unwrap();
+        assert!(
+            url.starts_with("/web/images/scenes/10001000.webp?v="),
+            "{url}"
         );
         assert_eq!(
             (data.maps[0].scene_x, data.maps[0].scene_w),

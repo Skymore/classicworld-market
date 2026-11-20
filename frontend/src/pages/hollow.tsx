@@ -17,6 +17,9 @@ const mob = (id: number, name: string) => (
   <SiteLink href={`/mob/${id}`}>{name}</SiteLink>
 );
 
+// 场景图和缩略图换过后改这个值，绕开浏览器和 CDN 的旧缓存。
+const IMAGES = "20261120";
+
 type Step = [quest: number, name: string, level: number | null, what: ReactNode];
 
 // 两个入口都不需要任务，站上去按上就进（客户端 Map.wz 的脚本传送口）。
@@ -242,7 +245,7 @@ function MapCard({ id, name, info }: { id: number; name: string; info?: AreaMap 
   return (
     <div className="hollow-map well">
       <SiteLink className="hollow-map-pic" href={`/map/${id}`}>
-        <img src={`/web/images/map-thumbs/${id}.webp`} alt="" loading="lazy" />
+        <img src={`/web/images/map-thumbs/${id}.webp?v=${IMAGES}`} alt="" loading="lazy" />
         <b>{name}</b>
       </SiteLink>
       {info && (
@@ -318,8 +321,8 @@ export default function Hollow() {
         </div>
         <img
           className="hollow-scene"
-          src="/web/images/scenes/10006000.webp"
-          srcSet="/web/images/scenes/small/10006000.webp 1100w, /web/images/scenes/10006000.webp 1760w"
+          src={`/web/images/scenes/10006000.webp?v=${IMAGES}`}
+          srcSet={`/web/images/scenes/small/10006000.webp?v=${IMAGES} 1100w, /web/images/scenes/10006000.webp?v=${IMAGES} 1760w`}
           sizes="(max-width: 900px) 100vw, 900px"
           alt=""
         />

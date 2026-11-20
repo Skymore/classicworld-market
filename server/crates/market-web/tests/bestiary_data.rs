@@ -201,7 +201,10 @@ fn niadb_bestiary_decides_what_exists() {
         counts.spawn_feet, 8566,
         "every point in spawn-feet.json matches a NiaDB spawn"
     );
-    assert_eq!(counts.mob_changes, 45, "NiaDB 11-03 -> 11-19: defence changes on 26 monsters");
+    assert_eq!(
+        counts.mob_changes, 45,
+        "NiaDB 11-03 -> 11-19: defence changes on 26 monsters"
+    );
     let snail = data
         .mob_changes
         .iter()

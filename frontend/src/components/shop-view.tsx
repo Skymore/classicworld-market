@@ -186,7 +186,7 @@ export function StallMap({
       >
         <img
           className="sv-scene"
-          src={big ? scene.url : String(scene.url).replace(/\/scenes\/(\d+\.webp)$/, "/scenes/small/$1")}
+          src={big ? scene.url : String(scene.url).replace(/\/scenes\/(\d+\.webp(?:\?.*)?)$/, "/scenes/small/$1")}
           alt={words(`${data.room}洞地图`, `Map of FM${data.room}`)}
           onClick={() => setBig(!big)}
         />
