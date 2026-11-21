@@ -147,9 +147,9 @@
 
 关注页左栏分“物品 | 扫货”两个页签（选中的记在用户设置 `watch.panelTab`）。物品页签是关注卡片，卡片上只有每组的“扫货”勾选；每件物品的“本轮最多买”在扫货页签的条件表里改（数字框加“不限”勾选，写 `buyLimit`，0 = 不限）。扫货页签空闲时显示“未开始 · N 件物品 · 在线设备”和“开始扫货”，以及 24 小时内最近一轮的结果；运行中显示已运行时长、结束时间、进度条、已花/剩余、每台设备的消息和已查店次，条件表改为“已买 / 上限”，买满的行标“已满”，下面是最近 5 条购买。扫货条件行与详情设置中均可编辑对应关注条件的价格与本轮总上限；保存后更新本轮版本，过渡期显示“条件同步中”。停止在页签里就地确认；详情弹窗保留（进度、背包、设置、记录四个分页，SSE 更新保留当前分页），里面也能停止，结束后仍可查看记录。
 
-“先买命中的”是扫货页签里的独立入口，不是开始弹窗里的方式：网页用右栏的命中列表算“N 条命中 · 合计约 X”（范围内、仍在售、价格达标，按每件物品的数量上限截断），确认框只有设备、预算（默认填合计）和密码，提交 `scan:{"mode":"recent","recent_minutes"}`，不传 `minutes`（用默认的 7 天）。运行中标题“正在买命中的”，第二行“剩 N 处待回访”取各设备 `pending` 之和；在线且已加入的设备都报 `pending=0` 时视为队列空，标题改为“命中的都看过了”，并提供“转为全市场扫货”：先停止本轮，再用剩余预算开一轮全市场（需要密码）。
+“先买命中的”是扫货页签里的独立入口，不是开始弹窗里的方式：网页用右栏的命中列表算“N 条命中 · 合计约 X”（范围内、仍在售、价格达标，按每件物品的数量上限截断），确认框只有设备、预算（默认填合计），提交 `scan:{"mode":"recent","recent_minutes"}`，不传 `minutes`（用默认的 7 天）。运行中标题“正在买命中的”，第二行“剩 N 处待回访”取各设备 `pending` 之和；在线且已加入的设备都报 `pending=0` 时视为队列空，标题改为“命中的都看过了”，并提供“转为全市场扫货”：先停止本轮，再用剩余预算开一轮全市场。
 
-开始弹窗只有设备（不可选的写原因）、预算（带 100K/1M/3M/10M 快捷值）、时长（1 小时/6 小时/24 小时/3 天/7 天，默认沿用上次）、当前密码，加一行摘要。设备可用性先按 `client_version` 判断，低于 0.6.19 显示“版本 X 过旧，请更新采集端”；网页不解析 `executor.reason` 的字样。购买记录地点中文写“12频道 3洞 · 店主”，英文“CH 12 FM3 · owner”，和站内报价行一致。
+开始弹窗只有设备（不可选的写原因）、预算（带 100K/1M/3M/10M 快捷值）、时长（1 小时/6 小时/24 小时/3 天/7 天，默认沿用上次），加一行摘要。设备可用性先按 `client_version` 判断，低于 0.6.19 显示“版本 X 过旧，请更新采集端”；网页不解析 `executor.reason` 的字样。购买记录地点中文写“12频道 3洞 · 店主”，英文“CH 12 FM3 · owner”，和站内报价行一致。
 
 URL 带 `embed=1` 时（采集端内嵌）不显示站点头部、底栏、AI 助手和通知行；`mode: "collector"` 时扫货页签只有可编辑的条件表，不请求 `/api/v1/account/sweep`。
 
@@ -161,15 +161,15 @@ URL 带 `embed=1` 时（采集端内嵌）不显示站点头部、底栏、AI �
 {"id","device","item_id","status":"held|bought|not_bought|unknown|expired","quantity","units","price","spent","reason","room","channel","owner","created_at","settled_at"}
 ```
 
-`POST /api/v1/account/sweep/start`（`sensitive`：需当前密码，Google 账号需 15 分钟内登录过）
-- `{"devices":[id],"budget":1000000,"minutes":120,"current_password":""}`
+`POST /api/v1/account/sweep/start`（`writable`：已登录即可，不需要密码，也不要求最近重新登录）
+- `{"devices":[id],"budget":1000000,"minutes":120}`
 - 设备 1-8 台：属于本账号、未撤销、在线、`state.sweep.allow_web_start` 为真、`state.sweep.executor.ready` 为真，否则 `device_unavailable`。
 - `budget` 1 到 10^12 整数，`minutes` 5 到 10080（7 天），可省略，省略时 10080；“先买命中的”不传。已有运行中任务 `sweep_running`。
 - 返回同 `GET /api/v1/account/sweep`。
 
 `POST /api/v1/account/sweep/stop`（`writable`，不需要密码）`{"run"}`，`stop_reason='stopped_on_web'`。
 
-`POST /api/v1/account/sweep/apply`（`sensitive`）`{"run","current_password"}`：保留旧客户端兼容入口，但返回 409 `restart_required`。运行中的规则不允许原地替换。
+`POST /api/v1/account/sweep/apply`（`writable`）`{"run"}`：保留旧客户端兼容入口，但返回 409 `restart_required`。运行中的规则不允许原地替换。
 
 ### 设备接口（设备令牌）
 
@@ -300,7 +300,7 @@ class Purchaser(Protocol):
 - 服务端数据库测试 `tests/sweep.rs`（15 个），覆盖登录、迁移、撤销、两台设备共用预算、重复挂单、部分批准、过期与补报、规则版本、停止和到时、设备端的全轮数字与网页一致、规则快照接口、设备列表与改名。
 - 采集端单元测试（引擎、登录、网关、桌面接口、扫描器钩子）。
 - 网页 `web/tests/sweep.e2e.mjs`（桌面、390px 手机、嵌入采集端）、`desktop-workspace.e2e.mjs`、`scanner-desktop.e2e.mjs`（880x740）。
-- `test_sweep_live_server.py`：在本机 127.0.0.1 启动服务端，用假执行器跑完整条链路：浏览器登录、改名、设备列表、空闲时的规则快照、同步关注、网页输入密码开始、采集端加入、预留、购买、回报，核对服务器账目和设备端拿到的全轮数字。
+- `test_sweep_live_server.py`：在本机 127.0.0.1 启动服务端，用假执行器跑完整条链路：浏览器登录、改名、设备列表、空闲时的规则快照、同步关注、网页开始、采集端加入、预留、购买、回报，核对服务器账目和设备端拿到的全轮数字。
 
 未验证（需要 Windows 真机和游戏）：
 - 真实 pywebview 桌面窗口里的登录跳转和“扫货”页。

@@ -136,7 +136,7 @@ class LiveSweepTests(unittest.TestCase):
         reader = events.makefile('rb')
         self.addCleanup(events.close)
 
-        self.web('POST', '/api/v1/account/sweep/start', {'devices': [device], 'budget': 10000, 'minutes': 30, 'current_password': self.password})
+        self.web('POST', '/api/v1/account/sweep/start', {'devices': [device], 'budget': 10000, 'minutes': 30})
         lines = []
         while b'event: sweep\n' not in lines:
             lines.append(reader.readline())

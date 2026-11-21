@@ -2,7 +2,6 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { meso } from "/web/js/lib/format.js";
 import { flush, getSyncState } from "/web/js/lib/user-data.js";
 import { accountMessage } from "../pages/account-access";
-import { rememberReturn } from "../lib/return-to";
 import { useUserValue } from "../lib/live";
 import { useWords } from "../providers";
 import {
@@ -33,7 +32,6 @@ export function sweepMessage(words: Words, code: string) {
     no_sweep_groups: ["没有可扫货的条件组", "No sweep groups"],
     sweep_price_unavailable: ["部分商品暂无有效报价，请调整扫货条件", "Some items have no valid quotes; adjust the sweep rules"],
     sweep_stopped: ["本轮已结束", "This sweep has ended"],
-    reauth_required: ["请重新登录后再继续", "Sign in again to continue"],
     invalid_request: ["预算或时长不正确", "Check the budget and duration"],
     restart_required: ["请停止后重新开始扫货", "Stop and restart the sweep"],
     sync_pending: ["关注还在同步，请稍后再试", "Watches are still syncing"],
@@ -165,7 +163,7 @@ function BudgetField({
 const validBudget = (value: number) =>
   Number.isSafeInteger(value) && value >= 1 && value <= MAX_BUDGET;
 
-/** Full-market sweep: devices, budget, duration, password and a one-line summary. */
+/** Full-market sweep: devices, budget, duration and a one-line summary. */
 export function StartDialog({
   profile,
   devices,
@@ -226,14 +224,13 @@ export function StartDialog({
             .join(" · ")}
         </div>
       }
-      onSubmit={async (current_password) => {
+      onSubmit={async () => {
         await beforeStart?.();
         const result = await start(post, {
           devices: chosen,
           budget: budgetValue,
           minutes,
           scan: { mode: "priority" },
-          current_password,
         });
         save(JSON.stringify({ budget: budgetValue, minutes, durationVersion: 1 }));
         await onDone(result);
@@ -320,13 +317,12 @@ export function RecentDialog({
           )}
         </div>
       }
-      onSubmit={async (current_password) => {
+      onSubmit={async () => {
         const result = await start(post, {
           devices: chosen,
           budget: budgetValue,
           // No duration to pick: the server defaults to 7 days.
           scan: { mode: "recent", recent_minutes: hits.minutes },
-          current_password,
         });
         await onDone(result);
       }}
@@ -341,7 +337,7 @@ export function RecentDialog({
   );
 }
 
-/** The site's dialog window: blue title bar, sections, password, footer buttons. */
+/** The site's dialog window: blue title bar, sections, footer buttons. */
 function SweepDialog({
   title,
   submit,
@@ -359,12 +355,11 @@ function SweepDialog({
   disabled?: boolean;
   lead?: ReactNode;
   summary?: ReactNode;
-  onSubmit(currentPassword: string): Promise<void>;
+  onSubmit(): Promise<void>;
   onClose(): void;
   children?: ReactNode;
 }) {
   const words = useWords();
-  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function send(event: FormEvent) {
@@ -372,7 +367,7 @@ function SweepDialog({
     setBusy(true);
     setError("");
     try {
-      await onSubmit(password);
+      await onSubmit();
     } catch (failure) {
       setError((failure as Error).message);
       setBusy(false);
@@ -391,31 +386,10 @@ function SweepDialog({
         <form onSubmit={send} data-sweep-dialog>
           {lead}
           {children}
-          {profile.has_password && (
-            <div className="fsec">
-              <label className="offer-field">
-                <span>{words("当前密码", "Current password")}</span>
-                <input
-                  name="current_password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  maxLength={128}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-              </label>
-            </div>
-          )}
           {summary}
           {error && (
             <div className="fsec sweep-dialog-error" role="alert" data-sweep-error>
               <span>{sweepMessage(words, error)}</span>
-              {error === "reauth_required" && profile.google_enabled && (
-                <a className="btn" href="/auth/google/start" onClick={() => rememberReturn("/watch")}>
-                  {words("重新登录", "Sign in again")}
-                </a>
-              )}
             </div>
           )}
           <div className="ffoot">

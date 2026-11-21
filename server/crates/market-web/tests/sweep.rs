@@ -1256,14 +1256,6 @@ async fn web_start_checks_password_devices_and_the_single_running_run() {
     let (_, never_reported) = device(&s, &w, "未上报").await;
 
     let start = |devices: Vec<&str>| json!({"devices":devices,"budget":1000000,"minutes":10080});
-    let mut wrong = start(vec![&ready]);
-    wrong["current_password"] = json!("not the password at all");
-    assert_eq!(
-        sensitive(&s, "/api/v1/account/sweep/start", &w, wrong)
-            .await
-            .1["error"],
-        "invalid_current_password"
-    );
     for unavailable in [&offline, &closed, &no_executor, &never_reported] {
         let (status, body) = sensitive(
             &s,

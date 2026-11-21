@@ -61,7 +61,8 @@ const server=createServer(async(req,res)=>{
   if(p==='/api/v1/account/data'){for(const op of input.operations||[]){const old=records.find(r=>r.kind===op.kind&&r.key===op.key);if(old){old.value=op.value;old.version++;}else records.push({...op,version:1});}if(state.run?.status==='running'&&(input.operations||[]).some(op=>op.kind==='watch')){const watches=records.filter(r=>r.kind==='watch'&&r.value).map(r=>({item_id:Number(r.key),limit:r.value.buyLimit,groups:r.value.groups.filter(g=>g.buy)})).filter(w=>w.groups.length);state.run={...state.run,plan_stale:false,plan_version:state.run.plan_version+1,plan:{...state.run.plan,watches}};emit('sweep');}return json(res,{records});}
   if(p==='/api/v1/device/authorize'){if(state.authorize==='rate_limited')return json(res,{error:'rate_limited'},429);return json(res,{code:'C'.repeat(43)});}
   if(p==='/api/v1/account/devices/revoke'){state.devices=state.devices.filter(d=>d.id!==input.device);return json(res,{ok:true});}
-  const sensitive=()=>{if(profile.has_password)return input.current_password===PASSWORD?null:'invalid_current_password';if(state.reauth){state.reauth=false;return 'reauth_required';}return null;};
+  // Signed in is enough: starting a sweep needs no password or recent sign-in.
+  const sensitive=()=>'current_password' in input?'unexpected_password':null;
   if(p==='/api/v1/account/sweep/start'){const e=sensitive();if(e)return json(res,{error:e},401);if(state.run?.status==='running')return json(res,{error:'sweep_running'},409);state.run=newRun(input);return json(res,sweepBody());}
   if(p==='/api/v1/account/sweep/apply'){const e=sensitive();if(e)return json(res,{error:e},401);state.run={...state.run,plan_stale:false,plan_version:state.run.plan_version+1};return json(res,sweepBody());}
   if(p==='/api/v1/account/sweep/stop'){if(input.run!==state.run?.id||state.run.status!=='running')return json(res,{error:'sweep_stopped'},409);state.run={...state.run,status:'stopped',stop_reason:'stopped_on_web',stopped_at:iso(0)};return json(res,sweepBody());}
@@ -216,20 +217,10 @@ try{
   const fonts=await dialog.locator('input:not([type=checkbox])').evaluateAll(els=>els.map(e=>parseFloat(getComputedStyle(e).fontSize)));
   assert(fonts.every(size=>size>=16),'editable dialog controls are at least 16px');
   if(!mobile)assert(await dialog.evaluate(d=>d.scrollHeight<=d.clientHeight),'the start dialog fits a 1280x900 window');
-  if(mobile){
-   assert.equal(await dialog.locator('[name=current_password]').count(),0,'Google-only accounts have no password field');
-   await page.screenshot({path:path.join(shots,`sweep-start-${tag}.png`)});
-   await dialog.locator('[data-sweep-submit]').click();
-   await dialog.locator('[data-sweep-error]').filter({hasText:'请重新登录后再继续'}).waitFor();
-   assert.equal(await dialog.getByRole('link',{name:'重新登录'}).getAttribute('href'),'/auth/google/start');
-  }else{
-   await dialog.locator('[name=current_password]').fill('wrong password');await dialog.locator('[data-sweep-submit]').click();
-   await dialog.locator('[data-sweep-error]').filter({hasText:'当前密码不正确'}).waitFor();
-   await dialog.locator('[name=current_password]').fill(PASSWORD);
-   await page.screenshot({path:path.join(shots,`sweep-start-${tag}.png`)});
-  }
+  assert.equal(await dialog.locator('[name=current_password]').count(),0,'no password field: signed in is enough');
+  await page.screenshot({path:path.join(shots,`sweep-start-${tag}.png`)});
   await dialog.locator('[data-sweep-submit]').click();await dialog.waitFor({state:'detached'});
-  assert.deepEqual(lastCall('/sweep/start').body,{devices:['dev-a'],budget:5000000,minutes:10080,scan:{mode:'priority'},current_password:mobile?'':PASSWORD});
+  assert.deepEqual(lastCall('/sweep/start').body,{devices:['dev-a'],budget:5000000,minutes:10080,scan:{mode:'priority'}});
   assert.equal(lastCall('/sweep/start').csrf,CSRF);
   // Running: status, budget bar, devices, this run's rules and the latest five purchases.
   assert.equal(await panel.getAttribute('data-sweep-state'),'running');
@@ -369,11 +360,9 @@ try{
   assert.deepEqual(lastCall('/sweep/stop').body,{run:'run-1'});
   assert.equal(await tabText('sweep'),'扫货 2 件');
   assert.match(await panel.locator('[data-sweep-last]').innerText(),/^上一轮 今天 \d\d:\d\d 结束 · 花 2,000,000 · 买到 1,234 件 · 记录$/);
-  // Buy recent matches first: devices, budget (the total) and password.
+  // Buy recent matches first: devices and budget (the total).
   await panel.locator('[data-sweep-start]').click();
   const again=page.locator('.sweep-start-dialog');await again.waitFor();
-  if(!mobile)await again.locator('[name=current_password]').fill(PASSWORD);
-  else state.reauth=false;
   await again.locator('[data-sweep-submit]').click();await again.waitFor({state:'detached'});
   assert.deepEqual(lastCall('/sweep/start').body.scan,{mode:'priority'});
   state.run={...state.run,status:'finished',stop_reason:'time_up',stopped_at:iso(0)};emit('sweep');

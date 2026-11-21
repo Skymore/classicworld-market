@@ -1,4 +1,13 @@
 {
+  "_account-access-BAM2WnsQ.js": {
+    "file": "chunks/account-access-BAM2WnsQ.js",
+    "name": "account-access",
+    "imports": [
+      "_shared-Cwf5YL9D.js",
+      "_createLucideIcon-tgWCcnX0.js",
+      "_push-B4Y7dGVV.js"
+    ]
+  },
   "_account-api-BBft_6am.js": {
     "file": "chunks/account-api-BBft_6am.js",
     "name": "account-api",
@@ -147,8 +156,8 @@
       "_shared-Cwf5YL9D.js"
     ]
   },
-  "_main-BF2nEZ1L.js": {
-    "file": "chunks/main-BF2nEZ1L.js",
+  "_main-B9DoTGd4.js": {
+    "file": "chunks/main-B9DoTGd4.js",
     "name": "main",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -250,14 +259,9 @@
       "_account-api-BBft_6am.js"
     ]
   },
-  "_return-to-OB-cEeEq.js": {
-    "file": "chunks/return-to-OB-cEeEq.js",
-    "name": "return-to",
-    "imports": [
-      "_shared-Cwf5YL9D.js",
-      "_createLucideIcon-tgWCcnX0.js",
-      "_push-B4Y7dGVV.js"
-    ]
+  "_return-to-Fk6IweGB.js": {
+    "file": "chunks/return-to-Fk6IweGB.js",
+    "name": "return-to"
   },
   "_shared-Cwf5YL9D.js": {
     "file": "chunks/shared-Cwf5YL9D.js",
@@ -404,11 +408,11 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BF2nEZ1L.js"
+      "_main-B9DoTGd4.js"
     ]
   },
   "src/pages/account.tsx": {
-    "file": "chunks/account-QhsSQebM.js",
+    "file": "chunks/account-CDSGmdhW.js",
     "name": "account",
     "src": "src/pages/account.tsx",
     "isDynamicEntry": true,
@@ -419,13 +423,14 @@
       "_createLucideIcon-tgWCcnX0.js",
       "_arrow-up-right-7Qw2nypm.js",
       "_bell-DSYHRe_F.js",
-      "_return-to-OB-cEeEq.js",
+      "_account-access-BAM2WnsQ.js",
       "_monitor-Cs2jjyws.js",
       "_pencil-CiWUzqTu.js",
       "_notification-settings-Cq-8gBl3.js",
       "_account-api-BBft_6am.js",
       "_push-B4Y7dGVV.js",
-      "_sweep-labels-CbOZ9kot.js"
+      "_sweep-labels-CbOZ9kot.js",
+      "_return-to-Fk6IweGB.js"
     ]
   },
   "src/pages/agent.tsx": {
@@ -520,13 +525,14 @@
     ]
   },
   "src/pages/device.tsx": {
-    "file": "chunks/device-syAU4Yrv.js",
+    "file": "chunks/device-D8sfiNLf.js",
     "name": "device",
     "src": "src/pages/device.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_shared-Cwf5YL9D.js",
-      "_return-to-OB-cEeEq.js"
+      "_account-access-BAM2WnsQ.js",
+      "_return-to-Fk6IweGB.js"
     ]
   },
   "src/pages/download.tsx": {
@@ -672,7 +678,7 @@
     ]
   },
   "src/pages/watch.tsx": {
-    "file": "chunks/watch-W-iRpylm.js",
+    "file": "chunks/watch-ChR2xgMS.js",
     "name": "watch",
     "src": "src/pages/watch.tsx",
     "isDynamicEntry": true,
@@ -687,7 +693,7 @@
       "_watch-reminders-pyT7no6d.js",
       "_live-BeLEbRYy.js",
       "_createLucideIcon-tgWCcnX0.js",
-      "_return-to-OB-cEeEq.js",
+      "_account-access-BAM2WnsQ.js",
       "_notification-settings-Cq-8gBl3.js",
       "_list-rows-YXCukBMq.js",
       "_account-api-BBft_6am.js",
@@ -710,7 +716,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-BF2nEZ1L.js"
+      "_main-B9DoTGd4.js"
     ]
   }
 }

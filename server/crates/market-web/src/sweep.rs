@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    accounts, auth,
+    auth,
     contributors::{error, internal, session, writable},
     devices::{self, Device},
     realtime::notify,
@@ -590,8 +590,6 @@ struct WebStart {
     minutes: i64,
     #[serde(default)]
     scan: ScanMode,
-    #[serde(default)]
-    current_password: String,
 }
 
 #[derive(Default, Deserialize, Serialize)]
@@ -623,7 +621,7 @@ async fn web_start(
     headers: HeaderMap,
     Json(input): Json<WebStart>,
 ) -> Reply {
-    let s = accounts::sensitive(&state, &headers, &input.current_password).await?;
+    let s = writable(&state, &headers).await?;
     write_limit(&state, s.id)?;
     let mut ids = input.devices.clone();
     ids.sort();
@@ -691,15 +689,13 @@ async fn web_stop(
 #[derive(Deserialize)]
 struct Apply {
     run: String,
-    #[serde(default)]
-    current_password: String,
 }
 async fn web_apply(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(input): Json<Apply>,
 ) -> Reply {
-    let s = accounts::sensitive(&state, &headers, &input.current_password).await?;
+    let s = writable(&state, &headers).await?;
     write_limit(&state, s.id)?;
     let mut tx = state.db.begin().await.map_err(internal)?;
     lock_account(&mut tx, s.id).await?;
