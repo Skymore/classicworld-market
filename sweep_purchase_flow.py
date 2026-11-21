@@ -84,12 +84,18 @@ class PurchaseFlow:
         self.halted = False
         self.cleanup_deadline = order.deadline
         self.cancelled_after_notice = False
+        # Accepting the cash-item warning may itself complete the purchase.
+        self.cash_accepted = False
 
     def halt(self, reason='error'):
         self.halted = True
         self.outcome = self.outcome or PurchaseResult(
-            'unknown' if self.submitted else 'not_bought', reason=reason)
+            'unknown' if self.submitted or self.cash_pending() else 'not_bought', reason=reason)
         raise PurchaseHalt(self.outcome)
+
+    def cash_pending(self):
+        """Cash warning accepted and no later prompt seen: payment is possible."""
+        return self.cash_accepted and self.phase == 'quantity' and not self.typed
 
     def single_equipment(self):
         return self.order.quantity == 1 and (self.order.category == 1 or self.order.item_id//1000000 == 1)
@@ -103,7 +109,7 @@ class PurchaseFlow:
         if view.kind == 'shop' and view.shop_verified:
             self.phase = 'done'
             return self.outcome
-        if view.kind in ('quantity', 'confirm', 'item_confirm'):
+        if view.kind in ('quantity', 'confirm', 'item_confirm', 'cash_confirm'):
             self.phase = 'cleanup'
             self.cleanup_deadline = self.clock()+2
             return Action('cancel')
@@ -122,14 +128,14 @@ class PurchaseFlow:
                 return self.outcome
             if self.clock() >= self.cleanup_deadline:
                 self.halt('timeout')
-            if self.phase == 'notice_cleanup' and view.kind in ('quantity', 'confirm', 'item_confirm') and not self.cancelled_after_notice:
+            if self.phase == 'notice_cleanup' and view.kind in ('quantity', 'confirm', 'item_confirm', 'cash_confirm') and not self.cancelled_after_notice:
                 self.cancelled_after_notice = True
                 return Action('cancel')
             return None
         # An expired reservation forbids buying, not cancelling a recognized
         # pre-payment dialog. Observe cleanup for a separate bounded interval.
         if self.clock() >= self.order.deadline:
-            if not self.submitted:
+            if not self.submitted and not self.cash_pending():
                 return self._abort(view, 'timeout')
             self.halt('timeout')
         if self.submitted:
@@ -151,6 +157,16 @@ class PurchaseFlow:
                 # Already confirmed, but unknown dialog: stop input, preserve settlement.
                 self.halt('error')
             return None  # Never resubmit after the final confirmation.
+        if self.cash_pending() and view.kind == 'shop':
+            receipt = view.receipt
+            if receipt is None:
+                return None  # Next prompt not painted yet, or debit not yet seen.
+            if (receipt.reservation != self.order.reservation or receipt.listing != self.listing
+                    or receipt.quantity != self.order.quantity or receipt.spent != self.order.quantity*self.order.price):
+                self.halt('error')
+            self.outcome = PurchaseResult('bought', receipt.quantity, receipt.spent)
+            self.phase = 'done'
+            return self.outcome
         if not self.order.can_buy():
             return self._abort(view, 'stopped')
         if view.kind == 'notice' and self.phase in ('quantity', 'confirm'):
@@ -176,6 +192,13 @@ class PurchaseFlow:
         if self.phase == 'quantity':
             if view.kind == 'shop':
                 return None  # Buy click has not painted its dialog yet.
+            if view.kind == 'cash_confirm':
+                if self.typed:
+                    return self._abort(view, 'error')
+                if self.cash_accepted:
+                    return None  # Stale frame from before our OK click painted.
+                self.cash_accepted = True
+                return Action('accept_cash')
             if (view.kind in ('confirm', 'item_confirm') and not self.typed and self.single_equipment()):
                 # A single equipment piece may go straight to the total
                 # prompt. The exact total below still gates confirmation.

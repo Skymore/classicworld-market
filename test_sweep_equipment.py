@@ -197,5 +197,60 @@ class EquipmentVerifyTests(unittest.TestCase):
             self.assertEqual(checker.called, bag)
 
 
+def cash_order(**changes):
+    order = PurchaseOrder('r2', 5680001, 'Selective 5-slot Coupon', 5, 1, 120000, 1, 1, None,
+                          1600, 'ShroomFarmer', 3, 8, 20, lambda: True)
+    return replace(order, **changes)
+
+
+class CashWarningTests(unittest.TestCase):
+    def test_reader_recognizes_the_live_cash_warning(self):
+        # Template and button positions measured on the 2026-11-21 live frame.
+        import numpy as np
+        reader = Reader()
+        image = np.zeros((768, 1366, 3), np.uint8)
+        for name, x, y in (('cash-confirm', 600, 348), ('ok', 714, 424), ('cancel', 763, 424)):
+            template = reader.templates[name]
+            image[y:y+template.shape[0], x:x+template.shape[1]] = template
+        self.assertEqual(reader.dialog(image), ('cash_confirm', None))
+        image[424:439, 714:756] = 0
+        self.assertEqual(reader.dialog(image), (None, None))
+
+    def test_warning_is_accepted_once_then_quantity_proceeds(self):
+        flow = PurchaseFlow(cash_order(quantity=2), lambda: 0)
+        flow.phase = 'quantity'
+        self.assertEqual(flow.step(View('cash_confirm')).kind, 'accept_cash')
+        self.assertIsNone(flow.step(View('cash_confirm')))  # stale frame: no second click
+        self.assertEqual(flow.step(View('quantity')).kind, 'quantity')
+        self.assertFalse(flow.cash_pending())
+
+    def test_second_warning_after_acceptance_is_cancelled(self):
+        flow = PurchaseFlow(cash_order(), lambda: 0)
+        flow.phase = 'quantity'
+        flow.step(View('cash_confirm'))
+        flow.step(View('quantity'))  # typed
+        self.assertEqual(flow.step(View('cash_confirm')).kind, 'cancel')
+        self.assertEqual(flow.outcome.status, 'not_bought')
+
+    def test_warning_ok_that_buys_directly_settles_on_receipt_or_unknown(self):
+        from sweep_purchase_flow import Receipt
+        flow = PurchaseFlow(cash_order(), lambda: 0)
+        flow.phase = 'quantity'
+        flow.step(View('cash_confirm'))
+        self.assertIsNone(flow.step(View('shop', shop_verified=True)))
+        receipt = Receipt('r2', flow.listing, 1, 120000)
+        result = flow.step(View('shop', receipt=receipt, shop_verified=True))
+        self.assertEqual((result.status, result.spent), ('bought', 120000))
+
+        now = [0]
+        flow = PurchaseFlow(cash_order(), lambda: now[0])
+        flow.phase = 'quantity'
+        flow.step(View('cash_confirm'))
+        now[0] = 30
+        with self.assertRaises(PurchaseHalt) as halted:
+            flow.step(View('shop', shop_verified=True))
+        self.assertEqual(halted.exception.result.status, 'unknown')
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -324,7 +324,7 @@ class WindowsPurchaser:
                         title_stamp = title_pixels.copy()
                     if flow.phase in ('cleanup', 'notice_cleanup'):
                         view = View('shop', shop_verified=True)
-                    elif flow.submitted and before_packet is not None:
+                    elif (flow.submitted or flow.cash_pending()) and before_packet is not None:
                         after = inventory_position(order)
                         receipt = None
                         if (after is not None and after[0] == before_packet[0] and after[1] > before_packet[1]
@@ -408,6 +408,14 @@ class WindowsPurchaser:
                 if isinstance(action, PurchaseResult):
                     return action
                 if isinstance(action, Action):
+                    if action.kind == 'accept_cash' and (
+                            order.visit_current is not None and not order.visit_current()
+                            or self.clock() >= order.deadline or not order.can_buy()):
+                        flow.cash_accepted = False  # The warning's OK was never clicked.
+                        action = flow._abort(view, 'stopped' if not order.can_buy() else 'shop_closed'
+                                             if self.clock() < order.deadline else 'timeout')
+                        if isinstance(action, PurchaseResult):
+                            return action
                     if order.visit_current is not None and not order.visit_current():
                         if action.kind == 'confirm':
                             flow.submitted = False  # No input has been sent yet.
@@ -438,8 +446,11 @@ class WindowsPurchaser:
                         control.quantity(action.quantity*order.bundle, lambda: self.clock() < order.deadline and order.can_buy())
                     elif action.kind in ('accept_quantity', 'confirm'):
                         control.click(735, 423 if action.kind == 'accept_quantity' else 411 if view.kind == 'item_confirm' else 421)
+                    elif action.kind == 'accept_cash':
+                        control.click(735, 431)
                     elif action.kind == 'cancel':
-                        control.click(783, 423 if view.kind == 'quantity' else 411 if view.kind == 'item_confirm' else 421)
+                        control.click(783, 423 if view.kind == 'quantity' else 411 if view.kind == 'item_confirm'
+                                      else 431 if view.kind == 'cash_confirm' else 421)
                     elif action.kind == 'dismiss' and view.reason == 'shop_closed':
                         control.click(784, 411)
                     elif action.kind == 'dismiss' and view.kind == 'notice' and not flow.submitted:

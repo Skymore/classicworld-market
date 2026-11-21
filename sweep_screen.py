@@ -156,7 +156,7 @@ class Reader:
         self.dialog_font = Font(ASSETS/'dialog-font.json')
         self.input_font = Font(ASSETS/'input-font.json')
         self.templates = {name: np.asarray(Image.open(ASSETS/(name+'.png')).convert('RGB'))
-                          for name in ('buy', 'leave', 'quantity-prompt', 'confirm-prompt', 'cancel', 'quantity-cancel', 'ok', 'room-missing', 'item-confirm')}
+                          for name in ('buy', 'leave', 'quantity-prompt', 'confirm-prompt', 'cancel', 'quantity-cancel', 'ok', 'room-missing', 'item-confirm', 'cash-confirm')}
         catalog = ASSETS/'catalog.json'
         if not catalog.exists():
             catalog = ROOT/'server/crates/market-core/assets/catalog.json'
@@ -400,6 +400,10 @@ class Reader:
         if (self.matches(image, 'item-confirm', 600, 362) and self.matches(image, 'ok', 714, 404)
                 and self.matches(image, 'cancel', 763, 404)):
             return 'item_confirm', None
+        # Cash items first warn they become untradable (2026-11-21 live frame).
+        if (self.matches(image, 'cash-confirm', 600, 348) and self.matches(image, 'ok', 714, 424)
+                and self.matches(image, 'cancel', 763, 424)):
+            return 'cash_confirm', None
         # A one-button notice is only a UI observation, not evidence of a
         # rejected transaction. The flow may dismiss it BEFORE payment only.
         panel = image[345:390, 565:800, :3].astype(int)

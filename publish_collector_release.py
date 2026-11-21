@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.7.96：扫货买点装（现金道具）时认出“交易后不可再交易”的确认框并点确定，不再卡在这个框上。\n'
         'v0.7.95：适配 11-18 游戏更新（消息编号整体挪位）：换频道后重新认出角色、背包、击杀和地上掉落；更新前的报文仍按旧规则重算。\n'
         'v0.7.94：修复更新后刷图采集被挤掉（“请换线”、换线也没用、画面卡）：用本机报文重算改到单独的低优先级进程里做。\n'
         'v0.7.93：后台更省电脑：上传线程不再每 5 秒把整个采集目录和位置记录重新读一遍，只处理新文件，空闲时几乎不占磁盘和 CPU。\n'
