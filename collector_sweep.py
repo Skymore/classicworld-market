@@ -730,7 +730,7 @@ class SweepEngine:
                 expected = dict(item_id=row['item_id'], quantity=count+result.quantity*per,
                                 mesos=self.purchaser.mesos)
             try:
-                shop_closed = (verify(window, self.folder, expected, bag=False) if row['category'] == 1
+                shop_closed = (verify(window, self.folder, expected, bag=False) if row['category'] in (1, 5)
                                else verify(window, self.folder, expected)) is True
             except Exception as error:
                 self._leave(run, lease, 'window_lost', '购买已完成，背包确认失败，已停止扫描')

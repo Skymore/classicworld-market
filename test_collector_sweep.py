@@ -363,6 +363,17 @@ class EngineTests(unittest.TestCase):
         self.engine.on_shop_open(self.capture(), 'window')
         self.purchaser.verify_inventory.assert_not_called()
 
+    def test_cash_purchase_closes_shop_without_checking_undecoded_bag(self):
+        self.joined()
+        self.engine.plan = configuration(plan(item=5680001, limit=4))
+        self.purchaser.verify_inventory = Mock(return_value=True)
+        row = dict(item_id=5680001, category=5, slot=1, price_mesos_candidate=100,
+                   bundle_quantity_candidate=1, available_quantity_candidate=1)
+        self.engine.on_shop_open(self.capture(items=[row]), 'window')
+        self.purchaser.verify_inventory.assert_called_once_with('window', self.folder, None, bag=False)
+        self.assertEqual(self.server.named('settle')[0]['status'], 'bought')
+        self.assertTrue(self.engine.buying())
+
     def test_partial_and_zero_grants(self):
         self.joined()
         self.server.grant = 1
@@ -630,7 +641,9 @@ class EngineTests(unittest.TestCase):
 
     def test_delayed_previous_capture_is_not_this_visit(self):
         self.joined()
-        self.capture()
+        # Windows can assign the same clock tick to the capture and visit.
+        with patch('time.time', return_value=time.time()-1):
+            self.capture()
         receipt=self.engine.receipt()
         self.engine.collector_event({'type':'captured','file':'shop_a.json','items':1})
         self.assertIsNone(receipt.poll())

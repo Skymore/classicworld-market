@@ -167,6 +167,8 @@ class PurchaseFlow:
             self.outcome = PurchaseResult('bought', receipt.quantity, receipt.spent)
             self.phase = 'done'
             return self.outcome
+        if self.cash_pending() and view.kind == 'pending':
+            return None  # The adapter may be confirming a sold-out store closed.
         if not self.order.can_buy():
             return self._abort(view, 'stopped')
         if view.kind == 'notice' and self.phase in ('quantity', 'confirm'):

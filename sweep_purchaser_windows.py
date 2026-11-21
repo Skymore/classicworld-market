@@ -142,11 +142,19 @@ def is_equipment(order):
     return order.category == 1 or order.item_id//1000000 == 1
 
 
+def balance_only_receipt(order):
+    # Cash bags are not decoded. Restrict their debit-only receipt to one
+    # indivisible cash item, whose warning can complete the purchase directly.
+    return is_equipment(order) or (order.category == 5 and order.item_id//1000000 == 5
+                                   and order.quantity == 1 and order.bundle == 1)
+
+
 def inventory_position(order):
     """A complete, fresh position in the current capture stream, or unknown.
 
-    The equipment bag is not decoded: its position is the verified packet
-    balance alone (quantity None), and a receipt then requires the exact debit.
+    Equipment and single cash items can use the verified packet balance alone
+    (quantity None). A receipt still requires a newer revision in the same
+    session and the exact debit after the verified purchase input.
     """
     if order.inventory is None:
         return None
@@ -156,7 +164,7 @@ def inventory_position(order):
                 or type(state.get('revision')) is not int or state['revision'] < 1
                 or type(state.get('mesos')) is not int or state['mesos'] < 0):
             return None
-        if is_equipment(order):
+        if balance_only_receipt(order):
             return state['session'], state['revision'], state['mesos'], None
         if order.category not in state.get('categories', []):
             return None
@@ -238,8 +246,8 @@ class WindowsPurchaser:
         if closed < 2:
             raise InventoryCheckError('购买已完成，但无法确认商店已关闭')
         if bag:
-            # Equipment is settled by the exact packet debit; its bag is not
-            # decoded, so an inventory comparison could only fail.
+            # Equipment and cash items can be settled by packet debit; their
+            # undecoded bag must not be compared with the ordinary inventories.
             InventoryChecker(folder).run(window, 'purchase', expected)
         return True
 
@@ -248,7 +256,7 @@ class WindowsPurchaser:
         after = inventory_position(order)
         if (before is None or after is None or after[0] != before[0] or after[1] <= before[1]
                 or before[2]-after[2] != order.quantity*order.price
-                or not (after[3] is None and before[3] is None and is_equipment(order)
+                or not (after[3] is None and before[3] is None and balance_only_receipt(order)
                         or after[3] is not None and before[3] is not None
                         and after[3]-before[3] == order.quantity*order.bundle)):
             return 0
@@ -329,7 +337,7 @@ class WindowsPurchaser:
                         receipt = None
                         if (after is not None and after[0] == before_packet[0] and after[1] > before_packet[1]
                                 and before_packet[2]-after[2] == order.quantity*order.price
-                                and (after[3] is None and before_packet[3] is None and is_equipment(order)
+                                and (after[3] is None and before_packet[3] is None and balance_only_receipt(order)
                                      or after[3] is not None and before_packet[3] is not None
                                      and after[3]-before_packet[3] == order.quantity*order.bundle)):
                             self.mesos = after[2]
@@ -396,7 +404,7 @@ class WindowsPurchaser:
                         view = View('shop', flow.listing, stock=stock, mesos=self.mesos,
                                     selected=visible.selected, receipt=receipt, shop_verified=True)
                 else:
-                    if flow.submitted and flow.phase == 'result':
+                    if (flow.submitted and flow.phase == 'result') or flow.cash_pending():
                         # Buying a store's last stock makes the game close it
                         # with no dialog. Settle only on this character's exact
                         # packet debit plus two fresh frames without any store.
