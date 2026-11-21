@@ -24,7 +24,121 @@ use market_web::bestiary::{
     import::{import, DvgSource, Input, NiaDbSource, Sources, ZhNamesSource},
     mapledex::{Dataset, DvgMobs, ZhNames, DEFAULT_VERSION},
     quests::DvgQuests,
+    rows::ItemRow,
 };
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+struct ClientEquipment {
+    items: Vec<ClientEntry>,
+}
+
+#[derive(Deserialize)]
+struct ClientEntry {
+    #[serde(flatten)]
+    row: ItemRow,
+    record: serde_json::Map<String, serde_json::Value>,
+}
+
+fn add_client_equipment(catalog: &mut catalog::Catalog) -> Result<()> {
+    let patch: ClientEquipment = serde_json::from_str(include_str!(
+        "../../../../../data/reference/cw-client/equipment.json"
+    ))?;
+    // Existing English aliases distinguish variants that share a client name.
+    catalog.items.sort_by_key(|row| row.id);
+    for ClientEntry {
+        row: mut item,
+        mut record,
+    } in patch.items
+    {
+        let index = match catalog.items.binary_search_by_key(&item.id, |row| row.id) {
+            Ok(index) => {
+                let old = &catalog.items[index];
+                if !old.name_en.is_empty() && old.name_en != item.id.to_string() {
+                    item.name_en.clone_from(&old.name_en);
+                }
+                if old
+                    .name_zh
+                    .as_deref()
+                    .is_some_and(|name| !name.is_empty() && name != item.id.to_string())
+                {
+                    item.name_zh.clone_from(&old.name_zh);
+                }
+                catalog.items[index] = item;
+                index
+            }
+            Err(index) => {
+                catalog.items.insert(index, item);
+                index
+            }
+        };
+        let row = &catalog.items[index];
+        let identity = serde_json::json!({
+            "item_id": row.id, "name_en": row.name_en, "name_zh": row.name_zh,
+            "category": row.subcategory, "icon_url": row.icon_url, "cash": row.is_cash,
+            "level": row.req_level,
+        });
+        record.extend(identity.as_object().unwrap().clone());
+        if let Some((_, existing)) = catalog.records.iter_mut().find(|(id, _)| *id == row.id) {
+            existing
+                .as_object_mut()
+                .ok_or_else(|| anyhow::anyhow!("invalid item record {}", row.id))?
+                .extend(record);
+        } else {
+            catalog
+                .records
+                .push((row.id, serde_json::Value::Object(record)));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod client_equipment_tests {
+    use super::*;
+
+    #[test]
+    fn real_equipment_fills_missing_rows_and_preserves_existing_names_on_reimport() {
+        let mut catalog = catalog::Catalog {
+            items: Vec::new(),
+            records: Vec::new(),
+            warnings: Vec::new(),
+            version: String::new(),
+        };
+        add_client_equipment(&mut catalog).unwrap();
+        for id in [1452013, 1442010, 1442011, 1442012] {
+            let row = catalog.items.iter().find(|row| row.id == id).unwrap();
+            assert!(row.name_zh.as_deref().is_some_and(|name| !name.is_empty()));
+            assert_eq!(row.req_level, Some(45));
+            let icon = row.icon_url.as_deref().unwrap().trim_start_matches('/');
+            let file = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../..")
+                .join(icon);
+            assert!(std::fs::read(file)
+                .unwrap()
+                .starts_with(b"\x89PNG\r\n\x1a\n"));
+        }
+        let hat = catalog
+            .items
+            .iter_mut()
+            .find(|row| row.id == 1003001)
+            .unwrap();
+        hat.name_en = "Moon Bunny Hat (Alt)".into();
+        hat.name_zh = Some("已有名称".into());
+        let original = catalog.items.clone();
+        add_client_equipment(&mut catalog).unwrap();
+        assert_eq!(catalog.items, original);
+        assert_eq!(catalog.records.len(), catalog.items.len());
+        let bow = &catalog
+            .records
+            .iter()
+            .find(|(id, _)| *id == 1452013)
+            .unwrap()
+            .1;
+        assert_eq!(bow["requirements"]["dex"], 95);
+        assert_eq!(bow["client_reference"]["info"]["incWAT"], 65);
+    }
+}
 
 /// Date the files in data/reference/niadb were fetched; update on refetch.
 /// `monsters.json`, `maps.json` and `drops.json` come from `tools/niadb_bestiary.py`.
@@ -56,9 +170,10 @@ async fn main() -> Result<()> {
     let market_items = catalog.items.len();
     let references = ItemReferences::from_dirs(Path::new(mapledex_path), Path::new(niadb_path))?;
     let added = references.extend(&mut catalog);
-    let niadb_stats = references.annotate_records(&mut catalog);
     let zh_names = ZhNames::from_file(Path::new(zh_names_path))?;
     let item_zh = zh_names.add_item_names(&mut catalog);
+    add_client_equipment(&mut catalog)?;
+    let niadb_stats = references.annotate_records(&mut catalog);
     let mut data = Dataset::from_dir(Path::new(mapledex_path))?;
     let (niadb, bestiary) =
         data.add_niadb_bestiary_dir(Path::new(niadb_path), chrono::Utc::now().date_naive())?;

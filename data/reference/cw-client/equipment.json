@@ -1,0 +1,1501 @@
+{
+  "source": "Classic World client Character and String resources, 2026-11-21. Chinese names use the corresponding CMS/202 localization when matched by GMS/83 English name and equipment type, otherwise an editorial translation.",
+  "items": [
+    {
+      "id": 1002213,
+      "name_en": "Blossom Antennae",
+      "name_zh": "花朵触角",
+      "category": "装备",
+      "subcategory": "帽子",
+      "req_level": 45,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1002213.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "translated",
+        "client_reference": {
+          "info": {
+            "reqJob": 0,
+            "reqLevel": 45,
+            "reqSTR": 0,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incPDD": 14,
+            "incMDD": 34,
+            "incSTR": 4,
+            "incMMP": 8,
+            "incACC": 1,
+            "tuc": 7,
+            "price": 6120,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPDD",
+            "value": 14
+          },
+          {
+            "key": "incMDD",
+            "value": 34
+          },
+          {
+            "key": "incSTR",
+            "value": 4
+          },
+          {
+            "key": "incMMP",
+            "value": 8
+          },
+          {
+            "key": "incACC",
+            "value": 1
+          }
+        ],
+        "requirements": {
+          "str": 0,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 6120
+      }
+    },
+    {
+      "id": 1002214,
+      "name_en": "Moonlight Antennae",
+      "name_zh": "月光触角",
+      "category": "装备",
+      "subcategory": "帽子",
+      "req_level": 45,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1002214.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "translated",
+        "client_reference": {
+          "info": {
+            "reqJob": 0,
+            "reqLevel": 45,
+            "reqSTR": 0,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incPDD": 14,
+            "incMDD": 34,
+            "incINT": 4,
+            "incMMP": 8,
+            "incACC": 1,
+            "tuc": 7,
+            "price": 6120,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPDD",
+            "value": 14
+          },
+          {
+            "key": "incMDD",
+            "value": 34
+          },
+          {
+            "key": "incINT",
+            "value": 4
+          },
+          {
+            "key": "incMMP",
+            "value": 8
+          },
+          {
+            "key": "incACC",
+            "value": 1
+          }
+        ],
+        "requirements": {
+          "str": 0,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 6120
+      }
+    },
+    {
+      "id": 1002215,
+      "name_en": "Sprout Antennae",
+      "name_zh": "嫩芽触角",
+      "category": "装备",
+      "subcategory": "帽子",
+      "req_level": 45,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1002215.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "translated",
+        "client_reference": {
+          "info": {
+            "reqJob": 0,
+            "reqLevel": 45,
+            "reqSTR": 0,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incPDD": 14,
+            "incMDD": 34,
+            "incDEX": 4,
+            "incMMP": 8,
+            "incACC": 1,
+            "tuc": 7,
+            "price": 6120,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPDD",
+            "value": 14
+          },
+          {
+            "key": "incMDD",
+            "value": 34
+          },
+          {
+            "key": "incDEX",
+            "value": 4
+          },
+          {
+            "key": "incMMP",
+            "value": 8
+          },
+          {
+            "key": "incACC",
+            "value": 1
+          }
+        ],
+        "requirements": {
+          "str": 0,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 6120
+      }
+    },
+    {
+      "id": 1002216,
+      "name_en": "Moss Antennae",
+      "name_zh": "青苔触角",
+      "category": "装备",
+      "subcategory": "帽子",
+      "req_level": 45,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1002216.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "translated",
+        "client_reference": {
+          "info": {
+            "reqJob": 0,
+            "reqLevel": 45,
+            "reqSTR": 0,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incPDD": 14,
+            "incMDD": 34,
+            "incLUK": 4,
+            "incMMP": 8,
+            "incACC": 1,
+            "tuc": 7,
+            "price": 6120,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPDD",
+            "value": 14
+          },
+          {
+            "key": "incMDD",
+            "value": 34
+          },
+          {
+            "key": "incLUK",
+            "value": 4
+          },
+          {
+            "key": "incMMP",
+            "value": 8
+          },
+          {
+            "key": "incACC",
+            "value": 1
+          }
+        ],
+        "requirements": {
+          "str": 0,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 6120
+      }
+    },
+    {
+      "id": 1002993,
+      "name_en": "MapleStory Patrol Hat",
+      "name_zh": "冒险岛巡逻帽",
+      "category": "装备",
+      "subcategory": "帽子",
+      "req_level": 0,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1002993.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "translated",
+        "client_reference": {
+          "info": {
+            "reqJob": 0,
+            "reqLevel": 0,
+            "reqSTR": 0,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "tuc": 0,
+            "price": 1,
+            "cash": 0,
+            "tradeBlock": 1
+          }
+        },
+        "base_stats": [],
+        "requirements": {
+          "str": 0,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 1
+      }
+    },
+    {
+      "id": 1003001,
+      "name_en": "Moon Bunny Hat",
+      "name_zh": "月妙头绳",
+      "category": "装备",
+      "subcategory": "帽子",
+      "req_level": 15,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1003001.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1002970",
+        "client_reference": {
+          "info": {
+            "reqJob": 0,
+            "reqLevel": 15,
+            "cash": 0,
+            "reqSTR": 0,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incMDD": 22,
+            "incMMP": 15,
+            "tuc": 7,
+            "accountSharable": 1,
+            "price": 1
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incMDD",
+            "value": 22
+          },
+          {
+            "key": "incMMP",
+            "value": 15
+          }
+        ],
+        "requirements": {
+          "str": 0,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 1
+      }
+    },
+    {
+      "id": 1032024,
+      "name_en": "Firefly Earrings",
+      "name_zh": "萤火虫耳环",
+      "category": "装备",
+      "subcategory": "耳环",
+      "req_level": 45,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1032024.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "translated",
+        "client_reference": {
+          "info": {
+            "reqJob": 0,
+            "reqLevel": 45,
+            "reqSTR": 0,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incMDD": 35,
+            "incMMP": 5,
+            "incCRD": 2,
+            "incEVA": 1,
+            "tuc": 5,
+            "price": 13500,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incMDD",
+            "value": 35
+          },
+          {
+            "key": "incMMP",
+            "value": 5
+          },
+          {
+            "key": "incCRD",
+            "value": 2
+          },
+          {
+            "key": "incEVA",
+            "value": 1
+          }
+        ],
+        "requirements": {
+          "str": 0,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 13500
+      }
+    },
+    {
+      "id": 1067083,
+      "name_en": "Prep School Uniform Pants",
+      "name_zh": "校服裤",
+      "category": "装备",
+      "subcategory": "裤裙",
+      "req_level": 0,
+      "req_job_mask": 0,
+      "is_cash": true,
+      "icon_url": "/web/images/equipment/1067083.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1060112",
+        "client_reference": {
+          "info": {
+            "reqJob": 0,
+            "reqLevel": 0,
+            "cash": 1,
+            "collabo": 1,
+            "colorvar": 1
+          }
+        },
+        "base_stats": [],
+        "requirements": {}
+      }
+    },
+    {
+      "id": 1067085,
+      "name_en": "Tania Tartan Pants",
+      "name_zh": "熔岩皮裤",
+      "category": "装备",
+      "subcategory": "裤裙",
+      "req_level": 0,
+      "req_job_mask": 0,
+      "is_cash": true,
+      "icon_url": "/web/images/equipment/1067085.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1060120",
+        "client_reference": {
+          "info": {
+            "reqJob": 0,
+            "reqLevel": 0,
+            "cash": 1,
+            "colorvar": 1
+          }
+        },
+        "base_stats": [],
+        "requirements": {}
+      }
+    },
+    {
+      "id": 1067096,
+      "name_en": "Pink Layered Skirt",
+      "name_zh": "粉红裙裤",
+      "category": "装备",
+      "subcategory": "裤裙",
+      "req_level": 0,
+      "req_job_mask": 0,
+      "is_cash": true,
+      "icon_url": "/web/images/equipment/1067096.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1061135",
+        "client_reference": {
+          "info": {
+            "reqJob": 0,
+            "reqLevel": 0,
+            "cash": 1,
+            "colorvar": 1
+          }
+        },
+        "base_stats": [],
+        "requirements": {}
+      }
+    },
+    {
+      "id": 1067101,
+      "name_en": "Tania Tartan Skirt",
+      "name_zh": "熔岩皮裙",
+      "category": "装备",
+      "subcategory": "裤裙",
+      "req_level": 0,
+      "req_job_mask": 0,
+      "is_cash": true,
+      "icon_url": "/web/images/equipment/1067101.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1061141",
+        "client_reference": {
+          "info": {
+            "reqJob": 0,
+            "reqLevel": 0,
+            "cash": 1,
+            "colorvar": 1
+          }
+        },
+        "base_stats": [],
+        "requirements": {}
+      }
+    },
+    {
+      "id": 1067142,
+      "name_en": "Light Blue Ripped Jeans",
+      "name_zh": "水洗个性牛仔裤",
+      "category": "装备",
+      "subcategory": "裤裙",
+      "req_level": 0,
+      "req_job_mask": 0,
+      "is_cash": true,
+      "icon_url": "/web/images/equipment/1067142.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1062076",
+        "client_reference": {
+          "info": {
+            "reqJob": 0,
+            "reqLevel": 0,
+            "cash": 1,
+            "colorvar": 1
+          }
+        },
+        "base_stats": [],
+        "requirements": {}
+      }
+    },
+    {
+      "id": 1067146,
+      "name_en": "Jewel Chain Jeans",
+      "name_zh": "细身牛仔裤",
+      "category": "装备",
+      "subcategory": "裤裙",
+      "req_level": 0,
+      "req_job_mask": 0,
+      "is_cash": true,
+      "icon_url": "/web/images/equipment/1067146.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1062084",
+        "client_reference": {
+          "info": {
+            "reqJob": 0,
+            "reqLevel": 0,
+            "cash": 1,
+            "colorvar": 1
+          }
+        },
+        "base_stats": [],
+        "requirements": {}
+      }
+    },
+    {
+      "id": 1107026,
+      "name_en": "Moon and Sun Cape",
+      "name_zh": "日月披风",
+      "category": "装备",
+      "subcategory": "披风",
+      "req_level": 0,
+      "req_job_mask": 0,
+      "is_cash": true,
+      "icon_url": "/web/images/equipment/1107026.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "translated",
+        "client_reference": {
+          "info": {
+            "reqJob": 0,
+            "reqLevel": 0,
+            "cash": 1,
+            "colorvar": 1
+          }
+        },
+        "base_stats": [],
+        "requirements": {}
+      }
+    },
+    {
+      "id": 1302020,
+      "name_en": "Bamboo Sword",
+      "name_zh": "竹刀",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 45,
+      "req_job_mask": 9,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1302020.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1302022",
+        "client_reference": {
+          "info": {
+            "walk": 1,
+            "stand": 1,
+            "attack": 1,
+            "reqJob": 9,
+            "reqLevel": 45,
+            "reqSTR": 90,
+            "reqDEX": 40,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 60,
+            "incACC": 1,
+            "tuc": 7,
+            "price": 11500,
+            "attackSpeed": 4,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 60
+          },
+          {
+            "key": "incACC",
+            "value": 1
+          }
+        ],
+        "requirements": {
+          "str": 90,
+          "dex": 40,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 11500
+      }
+    },
+    {
+      "id": 1302021,
+      "name_en": "Newspaper Sword",
+      "name_zh": "废报纸卷",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 30,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1302021.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1302024",
+        "client_reference": {
+          "info": {
+            "walk": 1,
+            "stand": 1,
+            "attack": 1,
+            "reqJob": 0,
+            "reqLevel": 30,
+            "reqSTR": 0,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 47,
+            "tuc": 7,
+            "price": 5500,
+            "attackSpeed": 4,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 47
+          }
+        ],
+        "requirements": {
+          "str": 0,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 5500
+      }
+    },
+    {
+      "id": 1302022,
+      "name_en": "Beige Umbrella",
+      "name_zh": "褐雨伞",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 45,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1302022.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1302029",
+        "client_reference": {
+          "info": {
+            "walk": 1,
+            "stand": 1,
+            "attack": 1,
+            "reqJob": 0,
+            "reqLevel": 45,
+            "reqSTR": 0,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 59,
+            "incMAD": 61,
+            "tuc": 7,
+            "price": 11500,
+            "attackSpeed": 4,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 59
+          },
+          {
+            "key": "incMAD",
+            "value": 61
+          }
+        ],
+        "requirements": {
+          "str": 0,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 11500
+      }
+    },
+    {
+      "id": 1302023,
+      "name_en": "Green Umbrella",
+      "name_zh": "绿雨伞",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 55,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1302023.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1302027",
+        "client_reference": {
+          "info": {
+            "walk": 1,
+            "stand": 1,
+            "attack": 1,
+            "reqJob": 0,
+            "reqLevel": 55,
+            "reqSTR": 0,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 69,
+            "incMAD": 75,
+            "tuc": 7,
+            "price": 15500,
+            "attackSpeed": 4,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 69
+          },
+          {
+            "key": "incMAD",
+            "value": 75
+          }
+        ],
+        "requirements": {
+          "str": 0,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 15500
+      }
+    },
+    {
+      "id": 1302024,
+      "name_en": "Light Purple Umbrella",
+      "name_zh": "紫雨伞",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 65,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1302024.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1302028",
+        "client_reference": {
+          "info": {
+            "walk": 1,
+            "stand": 1,
+            "attack": 1,
+            "reqJob": 0,
+            "reqLevel": 65,
+            "reqSTR": 0,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 79,
+            "incMAD": 89,
+            "tuc": 7,
+            "price": 19500,
+            "attackSpeed": 4,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 79
+          },
+          {
+            "key": "incMAD",
+            "value": 89
+          }
+        ],
+        "requirements": {
+          "str": 0,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 19500
+      }
+    },
+    {
+      "id": 1302025,
+      "name_en": "Red Umbrella",
+      "name_zh": "红雨伞",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 75,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1302025.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1302025",
+        "client_reference": {
+          "info": {
+            "walk": 1,
+            "stand": 1,
+            "attack": 1,
+            "reqJob": 0,
+            "reqLevel": 75,
+            "reqSTR": 0,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 89,
+            "incMAD": 103,
+            "tuc": 7,
+            "price": 23500,
+            "attackSpeed": 4,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 89
+          },
+          {
+            "key": "incMAD",
+            "value": 103
+          }
+        ],
+        "requirements": {
+          "str": 0,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 23500
+      }
+    },
+    {
+      "id": 1302026,
+      "name_en": "Black Umbrella",
+      "name_zh": "黑雨伞",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 85,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1302026.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1302026",
+        "client_reference": {
+          "info": {
+            "walk": 1,
+            "stand": 1,
+            "attack": 1,
+            "reqJob": 0,
+            "reqLevel": 85,
+            "reqSTR": 0,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 99,
+            "incMAD": 117,
+            "tuc": 7,
+            "price": 27500,
+            "attackSpeed": 4,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 99
+          },
+          {
+            "key": "incMAD",
+            "value": 117
+          }
+        ],
+        "requirements": {
+          "str": 0,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 27500
+      }
+    },
+    {
+      "id": 1312011,
+      "name_en": "Green Paint Brush",
+      "name_zh": "判官笔",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 45,
+      "req_job_mask": 9,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1312011.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1312013",
+        "client_reference": {
+          "info": {
+            "walk": 1,
+            "stand": 1,
+            "attack": 1,
+            "reqJob": 9,
+            "reqLevel": 45,
+            "reqSTR": 90,
+            "reqDEX": 40,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 62,
+            "tuc": 7,
+            "price": 11500,
+            "attackSpeed": 4,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 62
+          }
+        ],
+        "requirements": {
+          "str": 90,
+          "dex": 40,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 11500
+      }
+    },
+    {
+      "id": 1312012,
+      "name_en": "Black Paint Brush",
+      "name_zh": "阎王笔",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 55,
+      "req_job_mask": 9,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1312012.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1312014",
+        "client_reference": {
+          "info": {
+            "walk": 1,
+            "stand": 1,
+            "attack": 1,
+            "reqJob": 9,
+            "reqLevel": 55,
+            "reqSTR": 110,
+            "reqDEX": 50,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 72,
+            "tuc": 7,
+            "price": 15500,
+            "attackSpeed": 4,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 72
+          }
+        ],
+        "requirements": {
+          "str": 110,
+          "dex": 50,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 15500
+      }
+    },
+    {
+      "id": 1322026,
+      "name_en": "Frying Pan",
+      "name_zh": "米伽勒的平底锅",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 55,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1322026.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1322027",
+        "client_reference": {
+          "info": {
+            "walk": 1,
+            "stand": 1,
+            "attack": 1,
+            "reqJob": 0,
+            "reqLevel": 55,
+            "reqSTR": 0,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 71,
+            "tuc": 7,
+            "price": 15500,
+            "attackSpeed": 4,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 71
+          }
+        ],
+        "requirements": {
+          "str": 0,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 15500
+      }
+    },
+    {
+      "id": 1332022,
+      "name_en": "Plastic Bottle",
+      "name_zh": "乌龙茶",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 50,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1332022.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1332021",
+        "client_reference": {
+          "info": {
+            "walk": 1,
+            "stand": 1,
+            "attack": 1,
+            "reqJob": 0,
+            "reqLevel": 50,
+            "reqSTR": 0,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 90,
+            "incWAT": 65,
+            "incACC": 1,
+            "tuc": 7,
+            "price": 13500,
+            "attackSpeed": 3,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 65
+          },
+          {
+            "key": "incACC",
+            "value": 1
+          }
+        ],
+        "requirements": {
+          "str": 0,
+          "dex": 0,
+          "int": 0,
+          "luk": 90
+        },
+        "npc_price": 13500
+      }
+    },
+    {
+      "id": 1332023,
+      "name_en": "Honorbound",
+      "name_zh": "荣誓短刀",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 55,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1332023.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "translated",
+        "client_reference": {
+          "info": {
+            "walk": 1,
+            "stand": 1,
+            "attack": 1,
+            "reqJob": 0,
+            "reqLevel": 55,
+            "reqSTR": 50,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 110,
+            "incWAT": 70,
+            "tuc": 7,
+            "price": 15500,
+            "attackSpeed": 4,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 70
+          }
+        ],
+        "requirements": {
+          "str": 50,
+          "dex": 0,
+          "int": 0,
+          "luk": 110
+        },
+        "npc_price": 15500
+      }
+    },
+    {
+      "id": 1332024,
+      "name_en": "Sworn Brother Dagger",
+      "name_zh": "结义短刀",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 55,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1332024.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "translated",
+        "client_reference": {
+          "info": {
+            "walk": 1,
+            "stand": 1,
+            "attack": 1,
+            "reqJob": 0,
+            "reqLevel": 55,
+            "reqSTR": 0,
+            "reqDEX": 50,
+            "reqINT": 0,
+            "reqLUK": 110,
+            "incWAT": 73,
+            "tuc": 7,
+            "price": 15500,
+            "attackSpeed": 4,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 73
+          }
+        ],
+        "requirements": {
+          "str": 0,
+          "dex": 50,
+          "int": 0,
+          "luk": 110
+        },
+        "npc_price": 15500
+      }
+    },
+    {
+      "id": 1402011,
+      "name_en": "Blade of Harmony",
+      "name_zh": "和谐之刃",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 45,
+      "req_job_mask": 1,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1402011.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "translated",
+        "client_reference": {
+          "info": {
+            "walk": 1,
+            "stand": 2,
+            "attack": 5,
+            "reqJob": 1,
+            "reqLevel": 45,
+            "reqSTR": 95,
+            "reqDEX": 45,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 68,
+            "tuc": 7,
+            "price": 14000,
+            "attackSpeed": 6,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 68
+          }
+        ],
+        "requirements": {
+          "str": 95,
+          "dex": 45,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 14000
+      }
+    },
+    {
+      "id": 1432009,
+      "name_en": "Bamboo Spear",
+      "name_zh": "木精灵枪",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 45,
+      "req_job_mask": 0,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1432009.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1432009",
+        "client_reference": {
+          "info": {
+            "walk": 2,
+            "stand": 2,
+            "attack": 2,
+            "reqJob": 0,
+            "reqLevel": 45,
+            "reqSTR": 85,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 64,
+            "incACC": 1,
+            "tuc": 7,
+            "price": 14000,
+            "attackSpeed": 6,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 64
+          },
+          {
+            "key": "incACC",
+            "value": 1
+          }
+        ],
+        "requirements": {
+          "str": 85,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 14000
+      }
+    },
+    {
+      "id": 1442010,
+      "name_en": "Yellow Mop",
+      "name_zh": "黄拖把",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 45,
+      "req_job_mask": 13,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1442010.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1442021",
+        "client_reference": {
+          "info": {
+            "walk": 2,
+            "stand": 2,
+            "attack": 2,
+            "reqJob": 13,
+            "reqLevel": 45,
+            "reqSTR": 85,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 67,
+            "incEVA": 1,
+            "tuc": 7,
+            "price": 14000,
+            "attackSpeed": 7,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 67
+          },
+          {
+            "key": "incEVA",
+            "value": 1
+          }
+        ],
+        "requirements": {
+          "str": 85,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 14000
+      }
+    },
+    {
+      "id": 1442011,
+      "name_en": "White Mop",
+      "name_zh": "白拖把",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 45,
+      "req_job_mask": 13,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1442011.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "CMS/202:1442022",
+        "client_reference": {
+          "info": {
+            "walk": 2,
+            "stand": 2,
+            "attack": 2,
+            "reqJob": 13,
+            "reqLevel": 45,
+            "reqSTR": 85,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 67,
+            "incACC": 1,
+            "tuc": 7,
+            "price": 14000,
+            "attackSpeed": 7,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 67
+          },
+          {
+            "key": "incACC",
+            "value": 1
+          }
+        ],
+        "requirements": {
+          "str": 85,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 14000
+      }
+    },
+    {
+      "id": 1442012,
+      "name_en": "Indigo Mop",
+      "name_zh": "靛蓝拖把",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 45,
+      "req_job_mask": 13,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1442012.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "translated",
+        "client_reference": {
+          "info": {
+            "walk": 2,
+            "stand": 2,
+            "attack": 2,
+            "reqJob": 13,
+            "reqLevel": 45,
+            "reqSTR": 85,
+            "reqDEX": 0,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 67,
+            "incMMP": 20,
+            "tuc": 7,
+            "price": 14000,
+            "attackSpeed": 7,
+            "cash": 0
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 67
+          },
+          {
+            "key": "incMMP",
+            "value": 20
+          }
+        ],
+        "requirements": {
+          "str": 85,
+          "dex": 0,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 14000
+      }
+    },
+    {
+      "id": 1452013,
+      "name_en": "Magical Destruction Bow",
+      "name_zh": "魔法破坏弓",
+      "category": "装备",
+      "subcategory": "武器",
+      "req_level": 45,
+      "req_job_mask": 4,
+      "is_cash": false,
+      "icon_url": "/web/images/equipment/1452013.png",
+      "record": {
+        "source_version": "Classic World client 2026-11-21",
+        "name_source": "translated",
+        "client_reference": {
+          "info": {
+            "walk": 1,
+            "stand": 1,
+            "attack": 3,
+            "reqJob": 4,
+            "reqLevel": 45,
+            "reqSTR": 45,
+            "reqDEX": 95,
+            "reqINT": 0,
+            "reqLUK": 0,
+            "incWAT": 65,
+            "tuc": 7,
+            "price": 14000,
+            "attackSpeed": 6,
+            "cash": 0,
+            "knockback": 20
+          }
+        },
+        "base_stats": [
+          {
+            "key": "incPAD",
+            "value": 65
+          }
+        ],
+        "requirements": {
+          "str": 45,
+          "dex": 95,
+          "int": 0,
+          "luk": 0
+        },
+        "npc_price": 14000
+      }
+    }
+  ]
+}
