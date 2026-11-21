@@ -348,7 +348,16 @@ class WindowsPurchaser:
                         offset = self.reader.offset(page, ordered)
                         equivalent = (self.reader.equivalent_row(page, ordered, target, order.quantity)
                                       if offset is None and hasattr(self.reader,'equivalent_row') else None)
-                        if offset is None and equivalent is None:
+                        navigation = ()
+                        direction = None
+                        if offset is None and equivalent is None and flow.phase == 'select' and not flow.submitted:
+                            if hasattr(self.reader, 'navigation_offsets'):
+                                navigation = tuple(self.reader.navigation_offsets(page, ordered))
+                                if navigation and all(target >= start+6 for start in navigation):
+                                    direction = 'scroll_down'
+                                elif navigation and all(target < start for start in navigation):
+                                    direction = 'scroll_up'
+                        if offset is None and equivalent is None and direction is None:
                             unreadable += 1
                             if unreadable < 3 and self.clock() < order.deadline and order.can_buy():
                                 window.pause(.12)
@@ -362,19 +371,21 @@ class WindowsPurchaser:
                                 return PurchaseResult('not_bought', reason='listing_unverified')
                             flow.halt('listing_unverified')
                         unreadable = 0
-                        if equivalent is None and not offset <= target < offset+6:
+                        if direction is not None or equivalent is None and not offset <= target < offset+6:
                             if flow.phase != 'select' or flow.submitted:
                                 flow.halt('error')
                             if self.clock() >= order.deadline:
                                 flow.halt('timeout')
                             if not order.can_buy():
                                 return PurchaseResult('not_bought', reason='stopped')
-                            unchanged = unchanged+1 if offset == last_offset else 0
+                            position = offset if offset is not None else navigation
+                            unchanged = unchanged+1 if position == last_offset else 0
                             if unchanged >= 2 or scrolls >= len(ordered):
                                 return PurchaseResult('not_bought', reason='error')
-                            last_offset, scrolls = offset, scrolls+1
-                            trace.action('scroll_down' if target >= offset+6 else 'scroll_up')
-                            control.click(638, 537 if target >= offset+6 else 315)
+                            last_offset, scrolls = position, scrolls+1
+                            direction = direction or ('scroll_down' if target >= offset+6 else 'scroll_up')
+                            trace.action(direction)
+                            control.click(638, 537 if direction == 'scroll_down' else 315)
                             window.pause(.12)
                             continue
                         screen_row = equivalent[0] if equivalent is not None else target-offset

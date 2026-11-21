@@ -172,7 +172,7 @@ class ScreenTests(unittest.TestCase):
         self.assertFalse(self.reader.row_matches(replace(visible,price=12222),packet))
 
     def test_scrolled_page_with_uncatalogued_cash_item(self):
-        ids = [1082063,1302010,1402005]+[2000001]*5+[2040707,2040706,2040302,1107052]
+        ids = [1082063,1302010,1402005]+[2000001]*5+[2040707,2040706,2040302,1999999]
         prices = [40000,9000,12000]+[140]*5+[20000,5000,12000,70000]
         ordered = [dict(item_id=i,bundle=1,price=p) for i,p in zip(ids,prices)]
         page = [Row(self.reader.names.get(r['item_id'],'Coffin of Gloom'),1,r['price'],True,False)
@@ -181,7 +181,7 @@ class ScreenTests(unittest.TestCase):
         self.assertFalse(self.reader.row_matches(page[-1],ordered[-1],complete=True))
         page[-1] = replace(page[-1],price=7000)
         self.assertIsNone(self.reader.offset(page,ordered))
-        unknown = [dict(item_id=1107052,bundle=1,price=70000)]*6
+        unknown = [dict(item_id=1999999,bundle=1,price=70000)]*6
         self.assertIsNone(self.reader.offset([Row('Coffin of Gloom',1,70000,True,False)]*6,unknown))
 
     def test_quantity_readback_includes_zeroes_and_multiple_digits(self):

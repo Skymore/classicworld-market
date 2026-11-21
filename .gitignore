@@ -42,6 +42,8 @@
 !/tools/niadb_map_assets.py
 !/tools/render_client_scenes.cs
 !/tools/render_client_scenes.ps1
+!/tools/export_item_names.cs
+!/tools/update_sweep_names.ps1
 !/tools/client_spawn_feet.ps1
 !/tools/niadb_mob_changes.py
 !/web/

@@ -161,6 +161,9 @@ class Reader:
         if not catalog.exists():
             catalog = ROOT/'server/crates/market-core/assets/catalog.json'
         self.names = {int(key.split(':')[-1]): name for key, name, *_ in json.loads(catalog.read_text())['items']}
+        client_names = ASSETS/'item-names.json'
+        if client_names.is_file():
+            self.names.update({int(key): name for key, name in json.loads(client_names.read_text(encoding='utf-8')).items()})
 
     def matches(self, image, name, x, y):
         template = self.templates[name]
@@ -304,6 +307,13 @@ class Reader:
         return same_name and same_bundle and visible.price == packet['price']
 
     def offsets(self, visible, ordered):
+        return self._offsets(visible, ordered, require_names=True)
+
+    def navigation_offsets(self, visible, ordered):
+        """Price/bundle matches may guide scrolling, never identify an unknown buy target."""
+        return self._offsets(visible, ordered, require_names=False)
+
+    def _offsets(self, visible, ordered, require_names):
         # Require ordered anchors, and a unique alignment. Identical pages or
         # obscured rows must never assign a visual row to an arbitrary slot.
         candidates = []
@@ -320,7 +330,8 @@ class Reader:
             agrees = all(self.row_matches(visible[i], ordered[start+i]) if i in anchors
                          else (visible[i].price, visible[i].bundle) ==
                               (ordered[start+i]['price'], ordered[start+i]['bundle']) for i in readable)
-            if len(anchors) >= min(2,count) and agrees:
+            enough = len(anchors) >= min(2,count) if require_names else len(readable) == count
+            if enough and agrees:
                 if all(row is None for row in visible[count:]):
                     candidates.append(start)
         return candidates
@@ -360,7 +371,7 @@ class Reader:
         price, bundle, category, attributes and enough packet stock under each
         alignment. The selected row, quantity and total still require readback.
         """
-        candidates = self.offsets(visible, ordered)
+        candidates = self.offsets(visible, ordered) or self.navigation_offsets(visible, ordered)
         if not candidates:
             return None
         wanted = ordered[target]
