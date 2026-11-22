@@ -253,6 +253,10 @@ class Run:
         # stretch where they could not be followed (a restart that could not take over the
         # connection, an update we could not read), the next known bags are compared to this.
         self.bags_seen = None
+        # [time, level, experience, connection]: the experience as last read in this run (paused
+        # or not), and how much was added across stretches nothing could be read (bridge_exp).
+        self.exp_seen = None
+        self.exp_bridged = 0
 
     def add_exp(self, event):
         self.exp_events.append(event)
@@ -293,7 +297,9 @@ class Run:
                     level_start=self.level_start, kills_by_exp=self.kills_by_exp, finds=self.finds,
                     bags_seen=None if self.bags_seen is None else [self.bags_seen[0], self.bags_seen[1],
                                                                    {str(k): v for k, v in self.bags_seen[2].items()},
-                                                                   self.bags_seen[3], None])
+                                                                   self.bags_seen[3], None],
+                    exp_seen=None if self.exp_seen is None else self.exp_seen[:3] + [None],
+                    exp_bridged=self.exp_bridged)
 
     @classmethod
     def from_json(cls, data):
@@ -314,6 +320,10 @@ class Run:
         if seen and len(seen) >= 4 and isinstance(seen[2], dict):
             # Saved without its connection: the next process never shares it.
             run.bags_seen = [seen[0], seen[1], {int(k): v for k, v in seen[2].items()}, seen[3], None]
+        exp_seen = data.get('exp_seen')
+        if exp_seen and len(exp_seen) >= 3:
+            run.exp_seen = [exp_seen[0], exp_seen[1], exp_seen[2], None]   # another process: never the same connection
+        run.exp_bridged = data.get('exp_bridged') or 0
         return run
 
 
@@ -520,6 +530,8 @@ class Tracker:
             for field in ('name', 'level', 'job', 'exp', 'character_id'):
                 if info.get(field) is not None:
                     setattr(character, field, info[field])
+            if info.get('exp') is not None:
+                self.bridge_exp(character, now)   # a new connection's snapshot holds the experience
         new_map = proto.map_id(data)
         if new_map is None:
             return
@@ -641,6 +653,37 @@ class Tracker:
             self.experience(character, values[exp_bit], old_level, now)
 
     def experience(self, character, value, old_level, now):
+        previous = character.exp
+        self.counted_experience(character, value, old_level, now)
+        if previous is None:
+            self.bridge_exp(character, now)       # the first reading of this connection
+        elif character.run:
+            character.run.exp_seen = [now, character.level, character.exp, character.session]
+
+    def bridge_exp(self, character, now):
+        """Experience gained while nothing could be read, added when a new connection first
+        reads it (2026-11-21: two collector restarts in a run left 25,000 uncounted; bags and
+        mesos were already bridged, experience was not). The run remembers the experience as
+        last read, paused or not, so what a manual pause or another map did not count stays
+        uncounted; on a channel change nothing was missed and the difference is 0. Marked
+        estimated in `exp_bridged`, at most BLIND_LIMIT after the last reading."""
+        run = character.run
+        if run is None or character.exp is None or character.level is None:
+            return
+        seen, run.exp_seen = run.exp_seen, [now, character.level, character.exp, character.session]
+        if not seen or seen[3] == character.session or now - seen[0] > BLIND_LIMIT:
+            return
+        gap = exp_between(seen[1], seen[2], character.level, character.exp)
+        if not gap or gap <= 0:
+            return
+        segment = run.segment or (run.segments[-1] if run.segments else None)
+        if segment:
+            segment.exp += gap
+        run.add_exp((now, gap))
+        run.exp_bridged += gap
+        self.dirty = True
+
+    def counted_experience(self, character, value, old_level, now):
         previous = character.exp
         character.exp = value
         announced, character.exp_messages = character.exp_messages, 0
@@ -1517,7 +1560,7 @@ class Tracker:
             percent_per_hour=(avg / need * 100) if avg and need else None,
             eta_seconds=((need - current) / (recent or avg) * 3600) if need and current is not None and (recent or avg) else None,
             kills=kills, kills_per_hour=kills / hours if hours else None, kills_estimated=self.kills_estimated(run, character),
-            deaths=run.deaths, exp_lost=run.exp_lost, gaps=run.gaps,
+            deaths=run.deaths, exp_lost=run.exp_lost, exp_bridged=run.exp_bridged, gaps=run.gaps,
             mesos=money['cash'], item_value=money['loot'], consume_cost=money['cost'], mesos_spent=money['spent'],
             net=money['net'], net_per_hour=money['net'] / hours if hours else None,
             net_per_hour_1m=net_1m, rate_history=rate_history, timeline=self.timeline(run, rows, now),
@@ -1857,6 +1900,24 @@ class Tracker:
             return
         payload = dict(event_id=run.id, started_at=run.started_at, ended_at=summary['ended_at'], segments=segments)
         write_json(self.folder / f'grind_{run.id}.json', payload)
+
+
+def exp_between(level, exp, now_level, now_exp):
+    """Experience from (level, exp) to (now_level, now_exp), over level-ups; None when unknown."""
+    if None in (level, exp, now_level, now_exp) or now_level < level:
+        return None
+    if now_level == level:
+        return now_exp - exp
+    need = exp_to_next(level)
+    if need is None:
+        return None
+    total = need - exp
+    for between in range(level + 1, now_level):
+        step = exp_to_next(between)
+        if step is None:
+            return None
+        total += step
+    return total + now_exp
 
 
 def write_json(path, data):

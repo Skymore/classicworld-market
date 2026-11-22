@@ -80,3 +80,42 @@ class BlindBridgeTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ExperienceBridgeTest(unittest.TestCase):
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        write_json(Path(self.folder.name) / 'grind/settings.json', dict(enabled=True, record_frames=False, upload=False))
+        self.tracker = Tracker(self.folder.name, Prices(), now=time.time)
+        self.run = Run(dict(key='Skyyyy', name='Skyyyy'), 1000.0)
+        self.run.segments.append(SimpleNamespace(exp=100))
+
+    def tearDown(self):
+        self.folder.cleanup()
+
+    def character(self, session, level, exp):
+        return SimpleNamespace(run=self.run, level=level, exp=exp, session=session)
+
+    def test_experience_gained_across_a_reconnect_is_added_as_estimated(self):
+        # 2026-11-21: a restart in the middle of a run; the new connection reads 25,000 more.
+        self.run.exp_seen = [1000.0, 72, 1_082_071, 'old']
+        self.tracker.bridge_exp(self.character('new', 72, 1_107_071), 1300.0)
+        self.assertEqual((self.run.exp_bridged, self.run.segments[-1].exp), (25_000, 25_100))
+        # Read again on the same connection: nothing more.
+        self.tracker.bridge_exp(self.character('new', 72, 1_107_071), 1301.0)
+        self.assertEqual(self.run.exp_bridged, 25_000)
+
+    def test_over_a_level_up_and_never_after_an_hour(self):
+        from grind_data import exp_to_next
+        self.run.exp_seen = [1000.0, 71, exp_to_next(71) - 500, 'old']
+        self.tracker.bridge_exp(self.character('new', 72, 1500), 1200.0)
+        self.assertEqual(self.run.exp_bridged, 2000)
+        self.run.exp_seen = [1000.0, 72, 1500, 'old']
+        self.tracker.bridge_exp(self.character('new2', 72, 9500), 1000.0 + 3601)
+        self.assertEqual(self.run.exp_bridged, 2000)      # too long ago: not guessed
+
+    def test_saved_with_the_run_and_never_the_same_connection_after_a_restart(self):
+        self.run.exp_seen = [1000.0, 72, 1500, 'old']
+        self.run.segments = []
+        loaded = Run.from_json(self.run.to_json())
+        self.assertEqual(loaded.exp_seen, [1000.0, 72, 1500, None])
