@@ -27,6 +27,7 @@ import grind_combat as combat
 from grind_data import exp_to_next, job_name
 from grind_skills import FOLLOW_UPS, PROCS, skill_name
 import grind_autobuff as autobuff
+import game_opcodes
 import grind_pets
 
 DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, end_after_seconds=600,
@@ -377,6 +378,9 @@ class Tracker:
     # full character snapshot for its key table, a third of a replay's time after the
     # bag cache (2026-11-15 profile); replays and rebuilds turn it off.
     read_presets = True
+    # Live: the player's messages come from the updated game, whose mapping table moved
+    # (market_passive sets it; replays get indexes already in the old numbering).
+    renumber_client = False
 
     def __init__(self, folder, prices, now=time.time):
         self.folder = Path(folder)
@@ -467,6 +471,8 @@ class Tracker:
         table = getattr(character, 'table', None) if character else None
         op = int.from_bytes(data[:2], 'little')
         index = recorded_index if recorded_index is not None else (table.index(op) if table and op in table else None)
+        if recorded_index is None and index is not None and self.renumber_client:
+            index = game_opcodes.client_index(index)   # the updated game's table (game_opcodes)
         self.health['client_frames'] += 1
         if character is not None:
             character.client_seen = True

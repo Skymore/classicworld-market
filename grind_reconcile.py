@@ -11,7 +11,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from grind_frames import current_path, frame_files, frame_name, frame_size, open_frames, server_payload
+from grind_frames import current_path, frame_files, frame_name, frame_size, open_frames, recorded_index, server_payload
 from grind_replay import file_start, frame_groups
 from grind_handoff import encode, decode, snapshot, restore
 from grind_pricing import Prices
@@ -50,7 +50,7 @@ def replay_record(tracker, inventories, record, clock):
         return
     session, payload = record['s'], server_payload(record)
     if record.get('c'):
-        tracker.observe_client(session, payload, recorded_index=record.get('i'))
+        tracker.observe_client(session, payload, recorded_index=recorded_index(record))
     else:
         inv = inventories.setdefault(session, Inventory())
         inv.observe(payload, session)

@@ -36,6 +36,17 @@ class RenumberTest(unittest.TestCase):
         self.assertEqual(server_payload(marked)[:2], b'\xa5\x01')    # renumbered live already
         self.assertEqual(server_payload(client)[:2], b'\xa5\x01')    # the player's own: not server numbering
 
+    def test_the_players_own_messages_move_by_their_mapping_index_too(self):
+        from grind_frames import recorded_index
+        # Read off recordings from both sides of the update: unchanged up to 191, then -2, then -1.
+        for new, old in ((20, 20), (26, 26), (73, 73), (119, 119), (186, 186), (319, 321), (210, 212), (565, 567), (866, 867)):
+            self.assertEqual(game_opcodes.client_index(new), old, new)
+        self.assertEqual(game_opcodes.client_index(200), game_opcodes.UNKNOWN | 200)   # between blocks
+        pet = dict(t=game_opcodes.UPDATE_AT + 60, s='a', c=1, i=319, h='00')
+        self.assertEqual(recorded_index(pet), 321)                                     # an older collector, new game
+        self.assertEqual(recorded_index(dict(pet, n=1)), 319)                          # already renumbered
+        self.assertEqual(recorded_index(dict(pet, t=game_opcodes.UPDATE_AT - 60)), 319)   # the old game
+
     def test_new_recordings_are_marked_as_read(self):
         import tempfile
         from grind_frames import FrameLog
@@ -45,7 +56,7 @@ class RenumberTest(unittest.TestCase):
             log.write('s', message(0x10), now=game_opcodes.UPDATE_AT + 11, index=26, client=True)
             log.flush()
             lines = [json.loads(l) for p in log.folder.glob('frames_*') for l in p.read_text().splitlines()]
-        self.assertEqual([l.get('n') for l in lines], [1, None])
+        self.assertEqual([l.get('n') for l in lines], [1, 1])   # indexes too are in the parsers' numbering
 
 
 if __name__ == '__main__':

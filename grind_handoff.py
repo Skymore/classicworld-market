@@ -3,7 +3,7 @@ import collections
 import json
 import tempfile
 from pathlib import Path
-from grind_frames import frame_files, frame_lines, server_payload
+from grind_frames import frame_files, frame_lines, recorded_index, server_payload
 
 # Frames recorded before 0.7.40 carry times rounded to the nearest millisecond,
 # up to half a millisecond after they were seen.
@@ -103,7 +103,7 @@ def legacy(tracker, sessions, cutoff):
             clock[0] = row['t']
             session, data = row['s'], server_payload(row)
             if row.get('c'):
-                replay.observe_client(session, data, recorded_index=row.get('i'))
+                replay.observe_client(session, data, recorded_index=recorded_index(row))
             else:
                 inventory = inventories.setdefault(session, Inventory())
                 inventory.observe(data, session)

@@ -146,11 +146,10 @@ class FrameLog:
         record = dict(t=math.floor(now * 1000) / 1000, s=str(session), h=plain.hex())
         if client:
             record.update(c=1, i=index)
-        else:
-            # The tracker only gets messages in the parsers' numbering (market_passive
-            # renumbers the updated game's): replays read them as they are. Unmarked
-            # lines are older collectors' (grind_frames.server_payload).
-            record['n'] = 1
+        # The tracker only gets messages, and works out mapping indexes, in the parsers'
+        # numbering (market_passive renumbers the updated game's): replays read them as they
+        # are. Unmarked lines are older collectors' (server_payload, client_index).
+        record['n'] = 1
         line = json.dumps(record) + '\n'
         self.buffer.append(line)
         self.buffered += len(line)
@@ -196,6 +195,16 @@ def server_payload(record):
     return normalize(payload) if new_game(float(record['t'])) else payload
 
 
+def recorded_index(record):
+    """A recorded client message's mapping index in the numbering the parsers read: as
+    recorded when marked "n" or older than the game update, else renumbered."""
+    index = record.get('i')
+    if index is None or record.get('n'):
+        return index
+    from game_opcodes import client_index, new_game
+    return client_index(index) if new_game(float(record['t'])) else index
+
+
 def read_client_frames(paths):
     """(time, session, mapping index, bytes) of the player's own recorded messages."""
     for path in paths:
@@ -207,7 +216,7 @@ def read_client_frames(paths):
             try:
                 record = json.loads(line)
                 if record.get('c'):
-                    yield record['t'], record['s'], record.get('i'), bytes.fromhex(record['h'])
+                    yield record['t'], record['s'], recorded_index(record), bytes.fromhex(record['h'])
             except (ValueError, KeyError, TypeError):
                 continue
 

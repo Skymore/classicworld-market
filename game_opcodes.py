@@ -35,6 +35,23 @@ BLOCKS = (
 NEW_TO_OLD = {old + shift: old for first, last, shift in BLOCKS for old in range(first, last + 1)}
 
 
+# The player's own messages are found by their index in the mapping table the server sends
+# (0x32), and the update moved those too (2026-11-21, a pet's potion: 321 -> 319, so no pet
+# potion was counted): (first old index, last old index, shift), read off the same way.
+CLIENT_BLOCKS = (
+    (0, 191, 0),          # moving 20, attacks 26-28, potions by hand 73, skills 119, stalls 186
+    (207, 567, -2),       # key settings 212 -> 210, a pet's potion 321 -> 319
+    (607, 867, -1),
+)
+CLIENT_NEW_TO_OLD = {old + shift: old for first, last, shift in CLIENT_BLOCKS for old in range(first, last + 1)}
+
+
+def client_index(index):
+    """The old mapping-table index for one of the player's messages to the new game
+    (UNKNOWN | index when not mapped)."""
+    return CLIENT_NEW_TO_OLD.get(index, UNKNOWN | index)
+
+
 def renumber(opcode):
     """The old number for a message of the new game (UNKNOWN | number when not mapped)."""
     return NEW_TO_OLD.get(opcode, UNKNOWN | opcode)

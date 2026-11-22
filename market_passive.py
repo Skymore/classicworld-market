@@ -191,6 +191,7 @@ class Collector:
         # feed the old numbering turn this off.
         self.renumber=new_game(time.time())
         self.grind=grind_tracker(self.folder,config,stop)
+        if self.grind is not None:self.grind.renumber_client=self.renumber
     def grind_call(self,name,*args):
         if self.grind is None:return
         try:getattr(self.grind,name)(*args)
