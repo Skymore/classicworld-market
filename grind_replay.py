@@ -32,7 +32,7 @@ class ReplayTracker(Tracker):
 # Bump when a parser or accounting fix should rebuild history from the recordings.
 # Releases that only change the interface keep it, and nothing is replayed (2026-11-15:
 # every release replayed 30 days, 5.6 M frames, ~13 min of a CPU core, for nothing).
-REPLAY_VERSION = 'r7-2026-11-22'
+REPLAY_VERSION = 'r8-2026-11-24'
 
 
 def file_start(path):

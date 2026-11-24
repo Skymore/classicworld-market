@@ -16,15 +16,17 @@ class RenumberTest(unittest.TestCase):
         for new, old in ((0x1A5, 0x1A9), (0x3CF, 0x3D4), (0x448, 0x44D), (0x3C4, 0x3C9), (0x3D0, 0x3D5),
                          (0x46D, 0x471), (0x470, 0x472), (0x5F3, 0x5F5), (0x229, 0x22D), (0x2A5, 0x2A8),
                          (0x7E, 0x7E), (0x72, 0x72), (0x8B, 0x8B), (0xAD, 0xAE)):
-            self.assertEqual(game_opcodes.renumber(new), old, hex(new))
-        self.assertEqual(game_opcodes.normalize(message(0x1A5, b'abc')), message(0x1A9, b'abc'))
+            self.assertEqual(game_opcodes.renumber(new, 1), old, hex(new))
+        self.assertEqual(game_opcodes.normalize(message(0x1A5, b'abc'), 1), message(0x1A9, b'abc'))
 
     def test_a_number_between_blocks_is_unknown_never_an_old_message(self):
         # 0x46E is new in the updated game: it must not pass for any old message.
-        unknown = game_opcodes.renumber(0x46E)
+        unknown = game_opcodes.renumber(0x46E, 1)
         self.assertEqual(unknown, game_opcodes.UNKNOWN | 0x46E)
-        self.assertNotIn(unknown, game_opcodes.NEW_TO_OLD.values())
-        self.assertEqual(len(set(game_opcodes.NEW_TO_OLD.values())), len(game_opcodes.NEW_TO_OLD))   # one-to-one
+        for _, (new_to_old, old_to_new), (client, client_back) in game_opcodes.VERSIONS:
+            self.assertNotIn(unknown, new_to_old.values())
+            self.assertEqual(len(old_to_new), len(new_to_old))   # one-to-one
+            self.assertEqual(len(client_back), len(client))
 
     def test_recordings_from_before_the_update_are_never_renumbered(self):
         before = dict(t=game_opcodes.UPDATE_AT - 60, s='a', h=message(0x1A5).hex())
@@ -40,8 +42,8 @@ class RenumberTest(unittest.TestCase):
         from grind_frames import recorded_index
         # Read off recordings from both sides of the update: unchanged up to 191, then -2, then -1.
         for new, old in ((20, 20), (26, 26), (73, 73), (119, 119), (186, 186), (319, 321), (210, 212), (565, 567), (866, 867)):
-            self.assertEqual(game_opcodes.client_index(new), old, new)
-        self.assertEqual(game_opcodes.client_index(200), game_opcodes.UNKNOWN | 200)   # between blocks
+            self.assertEqual(game_opcodes.client_index(new, 1), old, new)
+        self.assertEqual(game_opcodes.client_index(200, 1), game_opcodes.UNKNOWN | 200)   # between blocks
         pet = dict(t=game_opcodes.UPDATE_AT + 60, s='a', c=1, i=319, h='00')
         self.assertEqual(recorded_index(pet), 321)                                     # an older collector, new game
         self.assertEqual(recorded_index(dict(pet, n=1)), 319)                          # already renumbered
@@ -57,7 +59,50 @@ class RenumberTest(unittest.TestCase):
             log.flush()
             lines = [json.loads(l) for p in log.folder.glob('frames_*') for l in p.read_text().splitlines()]
         self.assertEqual([l.get('n') for l in lines], [1, 1])   # indexes too are in the parsers' numbering
+        with tempfile.TemporaryDirectory() as folder:
+            log = FrameLog(folder)
+            log.write('s', message(0x1A9), now=game_opcodes.UPDATE_AT_1124 + 10)
+            log.flush()
+            lines = [json.loads(l) for p in log.folder.glob('frames_*') for l in p.read_text().splitlines()]
+        self.assertEqual([l.get('n') for l in lines], [2])   # renumbered with the 11-24 map
 
+
+
+class Update1124Test(unittest.TestCase):
+    def test_the_11_24_games_numbers_read_as_before(self):
+        # Read off recordings from both sides of the 2026-11-24 update (the 11-18 game's
+        # number - 1 from the 0x44E region on): the key table 0x5F3 -> 0x5F2 above all.
+        for new, old in ((0x5F2, 0x5F5), (0x576, 0x579), (0x577, 0x57A), (0x578, 0x57B), (0x46C, 0x471),
+                         (0x46F, 0x472), (0x62B, 0x62E), (0x1A5, 0x1A9), (0x229, 0x22D), (0x2A5, 0x2A8),
+                         (0x7E, 0x7E), (0xAD, 0xAE)):
+            self.assertEqual(game_opcodes.renumber(new, 2), old, hex(new))
+        self.assertEqual(game_opcodes.renumber(0x5F3, 2), 0x5F6)   # was the key table: no longer
+        self.assertEqual(game_opcodes.renumber(0x3C3, 2), 0x3C9)   # mobs: assumed to move with it
+        for new, old in ((20, 20), (186, 186), (210, 212), (319, 321), (529, 531), (830, 832), (865, 867)):
+            self.assertEqual(game_opcodes.client_index(new, 2), old, new)
+        at = game_opcodes.UPDATE_AT_1124
+        self.assertEqual([game_opcodes.version(t) for t in (game_opcodes.UPDATE_AT - 1, at - 1, at + 1)], [0, 1, 2])
+        self.assertEqual(game_opcodes.normalize(message(0x5F2, b'k')), message(0x5F5, b'k'))   # live: the latest
+
+    def test_recordings_renumbered_with_the_11_18_map_after_11_24_are_redone(self):
+        from grind_frames import recorded_index
+        at = game_opcodes.UPDATE_AT_1124
+        # A collector from before this release saw the new key table 0x5F2 and wrote the
+        # 11-18 map's 0x5F4; the old key table position 0x5F3 became 0x5F5.
+        stale = dict(t=at + 60, s='a', n=1, h=message(0x5F4).hex())
+        self.assertEqual(server_payload(stale)[:2], struct.pack('<H', 0x5F5))
+        moved = dict(stale, h=message(0x5F5).hex())     # the game's 0x5F3: not the key table now
+        self.assertEqual(server_payload(moved)[:2], struct.pack('<H', 0x5F6))
+        unknown = dict(stale, h=message(game_opcodes.UNKNOWN | 0x46C).hex())   # 11-18: between blocks
+        self.assertEqual(server_payload(unknown)[:2], struct.pack('<H', 0x471))
+        self.assertEqual(server_payload(dict(stale, n=2))[:2], struct.pack('<H', 0x5F4))   # this release's
+        self.assertEqual(server_payload(dict(stale, t=at - 60))[:2], struct.pack('<H', 0x5F4))   # the 11-18 game
+        plain = dict(t=at + 60, s='a', h=message(0x5F2).hex())   # unmarked: what the game sent
+        self.assertEqual(server_payload(plain)[:2], struct.pack('<H', 0x5F5))
+        client = dict(t=at + 60, s='a', c=1, n=1, i=game_opcodes.client_index(831, 1), h='00')
+        self.assertEqual(recorded_index(client), 833)   # the game sent 831
+        self.assertEqual(recorded_index(dict(client, i=321)), 321)
+        self.assertEqual(recorded_index(dict(client, n=2, i=321)), 321)
 
 if __name__ == '__main__':
     unittest.main()

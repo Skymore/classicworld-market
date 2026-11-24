@@ -22,6 +22,8 @@ import threading
 import time
 from pathlib import Path
 
+import game_opcodes
+
 FILE_LIMIT = 48 * 1024 * 1024
 RETENTION_SECONDS = 30 * 24 * 3600
 COMPRESS_AFTER = 3600
@@ -147,9 +149,10 @@ class FrameLog:
         if client:
             record.update(c=1, i=index)
         # The tracker only gets messages, and works out mapping indexes, in the parsers'
-        # numbering (market_passive renumbers the updated game's): replays read them as they
-        # are. Unmarked lines are older collectors' (server_payload, client_index).
-        record['n'] = 1
+        # numbering (market_passive renumbers the updated game's), "n" = the game version
+        # whose map did it: replays read them as they are unless the game was newer than the
+        # map. Unmarked lines are older collectors' (server_payload, recorded_index).
+        record['n'] = max(1, game_opcodes.version(now))
         line = json.dumps(record) + '\n'
         self.buffer.append(line)
         self.buffered += len(line)
@@ -185,24 +188,31 @@ class FrameLog:
 
 def server_payload(record):
     """A recorded server message in the numbering the parsers read (game_opcodes). Lines
-    marked "n" are already (this collector renumbers live); an unmarked line is from an
-    older collector, which recorded what the game sent: the old numbering before the game
-    update, the new one after it (renumbered here)."""
+    marked "n" were renumbered live with that game version's map: as recorded, unless the
+    game that sent them was newer (a collector from before its update), then back to what
+    the game sent and renumbered for it. An unmarked line is from an older collector, which
+    recorded what the game sent, renumbered here for the game of its time."""
     payload = bytes.fromhex(record['h'])
-    if record.get('n') or record.get('c'):
+    if record.get('c'):
         return payload
-    from game_opcodes import new_game, normalize
-    return normalize(payload) if new_game(float(record['t'])) else payload
+    game = game_opcodes.version(float(record['t']))
+    marked = record.get('n')
+    if marked:
+        return payload if marked >= game else game_opcodes.normalize(game_opcodes.original(payload, marked), game)
+    return game_opcodes.normalize(payload, game) if game else payload
 
 
 def recorded_index(record):
-    """A recorded client message's mapping index in the numbering the parsers read: as
-    recorded when marked "n" or older than the game update, else renumbered."""
+    """A recorded client message's mapping index in the numbering the parsers read, by the
+    same rules as server_payload."""
     index = record.get('i')
-    if index is None or record.get('n'):
+    if index is None:
         return index
-    from game_opcodes import client_index, new_game
-    return client_index(index) if new_game(float(record['t'])) else index
+    game = game_opcodes.version(float(record['t']))
+    marked = record.get('n')
+    if marked:
+        return index if marked >= game else game_opcodes.client_index(game_opcodes.original_index(index, marked), game)
+    return game_opcodes.client_index(index, game) if game else index
 
 
 def read_client_frames(paths):
