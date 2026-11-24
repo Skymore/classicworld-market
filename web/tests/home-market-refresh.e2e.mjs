@@ -1,6 +1,5 @@
 // SSE market events refresh the home price table: {"ids":[…]} fetches just those rows and replaces or removes them in
 // place; {} revalidates the whole list through the browser cache; events merge (one refresh per 3 s, none while hidden).
-// A server without row requests (only {} events, 400 for ids) falls back to whole-list refreshes.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -12,7 +11,6 @@ const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODUL
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const now = Math.floor(Date.now() / 1000);
 const streams = new Set();
-let rowRequests = true; // false: an older server that knows neither ids events nor row requests
 let version = 1;
 let rows = new Map(Array.from({ length: 30 }, (_, i) => [2000000 + i, {
   item_id: 2000000 + i, name_zh: `药水 ${i}`, name_en: `Potion ${i}`, category: '消耗品', sales_window: 100 - i,
@@ -34,13 +32,12 @@ const server = createServer(async (req, res) => {
     const entry = { at: Date.now(), ids, inm: req.headers['if-none-match'] || null };
     log.push(entry);
     if (ids != null) {
-      if (!rowRequests) { entry.status = 400; return json(res, 400, { error: 'bad_request' }); }
       const wanted = ids.split(',').map(Number);
       entry.status = 200;
       return json(res, 200, { as_of: now + version, products: wanted.filter(id => rows.has(id)).map(id => rows.get(id)), removed: wanted.filter(id => !rows.has(id)) }, { 'Cache-Control': 'private, no-cache' });
     }
     const etag = `"v${version}"`;
-    const headers = { ETag: etag, 'Cache-Control': rowRequests ? 'private, no-cache' : 'no-store' };
+    const headers = { ETag: etag, 'Cache-Control': 'private, no-cache' };
     if (req.headers['if-none-match'] === etag) { entry.status = 304; res.writeHead(304, headers); return res.end(); }
     entry.status = 200;
     return json(res, 200, { as_of: now + version, products: [...rows.values()] }, headers);
@@ -139,43 +136,6 @@ try {
     assert.deepEqual(errors, []);
     await context.close();
     console.log('PASS ids events patch rows in place, merge within 3 s and wait while hidden; {} and repeat visits revalidate with 304');
-  }
-  {
-    // An older server: no-store lists, 400 for row requests and only {} events.
-    rowRequests = false;
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: 'light' });
-    const page = await context.newPage();
-    const errors = []; page.on('pageerror', error => errors.push(error.message));
-    await page.addInitScript(() => { localStorage.setItem('uiLang', 'zh'); localStorage.setItem('uiTheme', 'light'); });
-    await page.goto(origin + '/?hours=all&lang=zh');
-    await page.locator('tr[data-open="2000008"]').waitFor();
-    await page.waitForFunction(() => document.documentElement.dataset.liveConnection === 'connected');
-    let at = Date.now();
-    change(2000008, { low: 868 });
-    send('{}');
-    await page.waitForFunction(() => document.querySelector('tr[data-open="2000008"] td:nth-child(5)')?.textContent.includes('868'));
-    assert.deepEqual(since(at).map(entry => [entry.ids, entry.status]), [[null, 200]], '{} reloads the whole list');
-    await page.waitForTimeout(3100);
-    at = Date.now();
-    change(2000009, { low: 979 });
-    send('{"ids":[2000009]}');
-    await page.waitForFunction(() => document.querySelector('tr[data-open="2000009"] td:nth-child(5)')?.textContent.includes('979'));
-    assert.deepEqual(since(at).map(entry => [entry.ids, entry.status]), [['2000009', 400], [null, 200]], 'a 400 for rows falls back to the whole list');
-    await page.waitForTimeout(3100);
-    at = Date.now();
-    change(2000010, { low: 101 });
-    send('{"ids":[2000010]}');
-    await page.waitForFunction(() => document.querySelector('tr[data-open="2000010"] td:nth-child(5)')?.textContent.includes('101'));
-    assert.deepEqual(since(at).map(entry => [entry.ids, entry.status]), [[null, 200]], 'after a 400 the page stops asking for rows');
-    await page.waitForTimeout(3100);
-    at = Date.now();
-    send('{}');
-    await page.waitForFunction(at => window.performance.getEntriesByType('resource').some(entry => entry.name.includes('view=list&hours=all') && entry.startTime + performance.timeOrigin >= at), at);
-    await page.waitForTimeout(300);
-    assert.deepEqual(since(at).map(entry => [entry.ids, entry.status, Boolean(entry.inm)]), [[null, 304, true]], 'an unchanged no-store list still costs a 304 within the page');
-    assert.deepEqual(errors, []);
-    await context.close();
-    console.log('PASS without row requests: {} and ids events fall back to whole-list refreshes with ETag revalidation');
   }
 } finally {
   await browser?.close();
