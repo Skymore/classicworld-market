@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.8.1：适配 11-24 游戏更新（消息编号又挪了位），修复扫货停在“键位同步失败：键表格式未支持”；更新后用本机报文补算今天的记录。\n'
         'v0.8.0：客户端重启或断线期间打怪的经验，重新连上后按前后差值补记（标记为估算），和背包、金币一样。\n'
         'v0.7.99：修复游戏更新后宠物自动喂的药不计消耗（客户端消息编号也挪了位）；更新后用本机报文补算这几天的记录。\n'
         'v0.7.98：从当前客户端更新物品名称；新商城装备尚未收录时，仍可按整页价格和数量安全翻页寻找已知商品，不再因首屏缺少旧名称而跳过整家店。购买前继续严格核对目标，无法定位时有限重试后跳过。\n'
