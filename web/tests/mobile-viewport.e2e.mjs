@@ -124,8 +124,9 @@ try {
     await page.locator('#tap-action-check').tap();
     assert.equal(await page.evaluate(() => window.actionTaps), 2, 'rapid normal control taps both reach their action');
     await page.locator('#tap-action-check').evaluate(node => node.remove());
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 160, y: 360, id: 1 }, { x: 230, y: 360, id: 2 }] });
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 110, y: 360, id: 1 }, { x: 280, y: 360, id: 2 }] });
+    // Pinch over the list rows, clear of the toolbar controls (the sort button widens with its label).
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 160, y: 600, id: 1 }, { x: 230, y: 600, id: 2 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 110, y: 600, id: 1 }, { x: 280, y: 600, id: 2 }] });
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     assert.equal(await page.evaluate(() => visualViewport.scale), 1, 'native pinch does not change the page scale');
     await frames(page);

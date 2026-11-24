@@ -36,8 +36,8 @@
       "_createLucideIcon-tgWCcnX0.js"
     ]
   },
-  "_catalogue-BIJ83bqy.js": {
-    "file": "chunks/catalogue-BIJ83bqy.js",
+  "_catalogue-CZWshKJ_.js": {
+    "file": "chunks/catalogue-CZWshKJ_.js",
     "name": "catalogue",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -156,8 +156,8 @@
       "_shared-Cwf5YL9D.js"
     ]
   },
-  "_main-B9DoTGd4.js": {
-    "file": "chunks/main-B9DoTGd4.js",
+  "_main-BOiI04-C.js": {
+    "file": "chunks/main-BOiI04-C.js",
     "name": "main",
     "imports": [
       "_shared-Cwf5YL9D.js",
@@ -243,8 +243,8 @@
       "_createLucideIcon-tgWCcnX0.js"
     ]
   },
-  "_price-state-CM6xKDyT.js": {
-    "file": "chunks/price-state-CM6xKDyT.js",
+  "_price-state-Dm4rJB6M.js": {
+    "file": "chunks/price-state-Dm4rJB6M.js",
     "name": "price-state",
     "imports": [
       "_shared-Cwf5YL9D.js"
@@ -408,7 +408,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-B9DoTGd4.js"
+      "_main-BOiI04-C.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -467,7 +467,7 @@
     ]
   },
   "src/pages/catalogue-search.tsx": {
-    "file": "chunks/catalogue-search-BZ9enPaQ.js",
+    "file": "chunks/catalogue-search-Cj1L7YoL.js",
     "name": "catalogue-search",
     "src": "src/pages/catalogue-search.tsx",
     "isDynamicEntry": true,
@@ -475,17 +475,17 @@
       "_shared-Cwf5YL9D.js",
       "_shell-DONtAYlu.js",
       "_dialog-BG3HsSV-.js",
-      "_price-state-CM6xKDyT.js",
-      "_catalogue-BIJ83bqy.js"
+      "_price-state-Dm4rJB6M.js",
+      "_catalogue-CZWshKJ_.js"
     ]
   },
   "src/pages/catalogue.tsx": {
-    "file": "chunks/catalogue-B-XCcsRU.js",
+    "file": "chunks/catalogue-qA7S48UT.js",
     "name": "catalogue",
     "src": "src/pages/catalogue.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_catalogue-BIJ83bqy.js"
+      "_catalogue-CZWshKJ_.js"
     ]
   },
   "src/pages/client.tsx": {
@@ -604,7 +604,7 @@
     ]
   },
   "src/pages/prices.tsx": {
-    "file": "chunks/prices-B551gh2N.js",
+    "file": "chunks/prices-DqlDGWoe.js",
     "name": "prices",
     "src": "src/pages/prices.tsx",
     "isDynamicEntry": true,
@@ -618,7 +618,7 @@
       "_list-rows-YXCukBMq.js",
       "_list-copy-C2h7saeH.js",
       "_dialog-BG3HsSV-.js",
-      "_price-state-CM6xKDyT.js",
+      "_price-state-Dm4rJB6M.js",
       "_crafting-CXB4nJ1A.js",
       "_tabs-BfSYh60e.js"
     ]
@@ -716,7 +716,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-B9DoTGd4.js"
+      "_main-BOiI04-C.js"
     ]
   }
 }

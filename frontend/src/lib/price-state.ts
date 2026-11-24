@@ -42,6 +42,8 @@ export const sortFields = [
   "recent",
   "lastsale",
 ] as const;
+// The home page opens on the cheapest asks first.
+export const defaultSort: Sort = "low";
 export const canReverseSort = (sort: string) =>
   sort === "price" || sort === "low";
 export const defaultDirection = (sort: string) =>
@@ -50,7 +52,7 @@ export function readPriceState(search: string) {
   const params = new URLSearchParams(search);
   const sort = sortFields.some((key) => key === params.get("sort"))
     ? (params.get("sort") as Sort)
-    : "sales";
+    : defaultSort;
   const requestedDirection = params.get("dir") || defaultDirection(sort);
   const dir =
     canReverseSort(sort) && ["asc", "desc"].includes(requestedDirection)
@@ -112,7 +114,7 @@ export function priceUrl(state: PriceState, current: string) {
   for (const key of ["tab", "cat", "job", "type"] as const)
     if (state[key] !== "all") params.set(key, state[key]);
   if (state.q) params.set("q", state.q);
-  if (state.sort !== "sales") params.set("sort", state.sort);
+  if (state.sort !== defaultSort) params.set("sort", state.sort);
   if (state.dir !== defaultDirection(state.sort)) params.set("dir", state.dir);
   if (state.lmin != null) params.set("lmin", String(state.lmin));
   if (state.lmax != null) params.set("lmax", String(state.lmax));

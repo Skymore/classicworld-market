@@ -84,7 +84,7 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
     assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--sheet').trim()), '#232b38');
     assert.equal(await page.locator('[data-nav-key=tools]:visible').textContent(), '工具');
-    assert.deepEqual(await page.locator('[data-nav-key]:visible').evaluateAll(links => links.map(link => link.dataset.navKey + ':' + link.textContent.trim())), ['home:首页', 'agent:AI 助手', 'dex:图鉴', 'watch:关注', 'tools:工具']);
+    assert.deepEqual(await page.locator('[data-nav-key]:visible').evaluateAll(links => links.map(link => link.dataset.navKey + ':' + link.textContent.trim())), ['home:首页', 'agent:AI 助手', 'dex:图鉴', 'watch:关注', 'grind:刷图', 'tools:工具']);
     assert.equal(await page.locator('[data-nav-key=home]:visible').getAttribute('aria-current'), 'page', '首页 is current on the price table');
     if (mobile) assert(await page.locator('.dock a').evaluateAll(links => { const boxes=links.map(link=>link.getBoundingClientRect()); return boxes.length===5&&boxes.every(box=>Math.abs(box.top-boxes[0].top)<1&&box.right<=innerWidth&&box.bottom<=innerHeight); }), 'five navigation entries remain on one row');
     const identity = await page.evaluate(() => { window.savedHeader = document.querySelector('.ptop'); return window.documentIdentity; });
@@ -103,7 +103,9 @@ try {
       await page.locator('[data-sort-btn]').click(); await page.locator(`[data-sort=${key}]`).click();
       await page.waitForFunction(expected => document.querySelector('[data-sort-label]')?.textContent === expected, label);
     };
-    await sortBy('low', '最低报价 ↑');
+    // The default order: the cheapest asks first, with no sort in the URL.
+    await page.waitForFunction(() => document.querySelector('[data-sort-label]')?.textContent === '最低报价 ↑');
+    assert.equal(new URL(page.url()).searchParams.get('sort'), null);
     assert.match(await rows.first().textContent(), /蓝色头巾/);
     assert.match(await rows.last().textContent(), /蜗牛壳/, 'items without an ask stay last');
     await page.locator('[data-sort-btn]').click();
