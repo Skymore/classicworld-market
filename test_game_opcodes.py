@@ -77,7 +77,9 @@ class Update1124Test(unittest.TestCase):
                          (0x7E, 0x7E), (0xAD, 0xAE)):
             self.assertEqual(game_opcodes.renumber(new, 2), old, hex(new))
         self.assertEqual(game_opcodes.renumber(0x5F3, 2), 0x5F6)   # was the key table: no longer
-        self.assertEqual(game_opcodes.renumber(0x3C3, 2), 0x3C9)   # mobs: assumed to move with it
+        # Mobs did not move (2026-11-25 recording: appear 0x3C4, leave 0x3CF, hit 0x448).
+        for new, old in ((0x3C4, 0x3C9), (0x3CF, 0x3D4), (0x3D0, 0x3D5), (0x448, 0x44D)):
+            self.assertEqual(game_opcodes.renumber(new, 2), old, hex(new))
         for new, old in ((20, 20), (186, 186), (210, 212), (319, 321), (529, 531), (830, 832), (865, 867)):
             self.assertEqual(game_opcodes.client_index(new, 2), old, new)
         at = game_opcodes.UPDATE_AT_1124

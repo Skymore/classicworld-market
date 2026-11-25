@@ -9,7 +9,8 @@ appearing 0x3C9 -> 0x3C4, leaving 0x3D4 -> 0x3CF, hit 0x44D -> 0x448, an item dr
 0x471 -> 0x46D and leaving the ground 0x472 -> 0x470, the key table 0x5F5 -> 0x5F3...
 The 2026-11-24 update moved everything from the 0x44D-0x44E region on by one more (the
 key table 0x5F3 -> 0x5F2, so scans stopped at "key table format not supported"), and the
-player's mapping indexes from the 830s on by one more.
+player's mapping indexes from the 830s on by one more. The mob block (0x3C4-0x448) did not
+move: v0.8.1 assumed it moved too, so no kill was counted until it was corrected (11-25).
 Between two blocks that moved by different amounts the game inserted or removed messages;
 numbers there are not mapped. An unmapped number becomes UNKNOWN | number, which no parser
 reads, so a new message can never pass for the old one that happened to have its number.
@@ -38,7 +39,7 @@ BLOCKS_1124 = (
     (0x0AD, 0x0CB, -1),
     (0x18C, 0x22F, -4),
     (0x279, 0x2BC, -3),
-    (0x3C9, 0x44D, -6),   # mobs: assumed with the block above them, not yet seen after 11-24
+    (0x3C9, 0x44D, -5),   # mobs: unchanged since 11-18 (2026-11-25 recording: 0x3C4/0x3CF/0x448)
     (0x471, 0x471, -5),   # an item dropping
     (0x472, 0x62E, -3),   # leaving the ground, stalls 0x577-0x57B, the key table 0x5F5
 )

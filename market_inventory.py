@@ -320,11 +320,19 @@ class Inventory:
                 second[b] = dict(moved, slot=b)
                 self.equipment, self.worn = bag, worn
             return
-        if len(data) < 9 or data[2] not in (0, 1) or data[3] != 0:
+        if len(data) < 9 or data[2] not in (0, 1) or data[3] not in (0, 1):
             raise ValueError('Unsupported inventory update')
         count = struct.unpack_from('<I', data, 4)[0]
         if count > 1000 or data[8] != 0:
             raise ValueError('Unsupported update envelope')
+        # Byte 3 set: the records are followed by one opaque sequence byte, as in the
+        # equipment refresh/move above (2026-11-25 live: a cash-equipment piece moved onto
+        # a worn cash slot, "01 01", one mode 2 record in bag 6, then the byte; reading it
+        # as a record blinded the run and stopped potion counting until a channel change).
+        if data[3] == 1:
+            if len(data) < 10:
+                raise ValueError('Unsupported update envelope')
+            data = data[:-1]
         # The pet refresh sent immediately after entering a channel removes
         # and re-adds one cash slot. Both operations are wholly outside the
         # tracked bags. Validate its complete envelope before ignoring it.

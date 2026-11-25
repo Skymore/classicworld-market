@@ -87,6 +87,18 @@ class InventoryTests(unittest.TestCase):
         self.inventory.observe(update(struct.pack('<BBhH', 1, 5, 200, 1)), 'one')   # beyond the 150-slot cash bag
         self.assertIsNone(self.inventory.slots)
 
+    def test_trailing_sequence_byte_keeps_the_bags_known(self):
+        # 2026-11-25 live: a cash-equipment piece (bag 6, slot 16) moved onto worn slot -111,
+        # with byte 3 set and one sequence byte after the record.
+        self.inventory.observe(bytes.fromhex('7200010101000000000206100091ff2b'), 'one')
+        self.assertEqual(self.quantities()[2000001], 189)
+        # The same envelope around a tracked change: the potion count still updates.
+        self.inventory.observe(struct.pack('<HBBIB', 0x72, 1, 1, 1, 0) + struct.pack('<BBhHB', 1, 2, 2, 60, 7), 'one')
+        self.assertEqual(self.quantities()[2000001], 149)
+        # Without the flag the extra byte is still an unread change.
+        self.inventory.observe(update(struct.pack('<BBhH', 1, 2, 2, 60)) + b'\x07', 'one')
+        self.assertIsNone(self.inventory.slots)
+
     def test_untracked_bags_never_blind_the_tracked_ones(self):
         # An operation we have never seen, in the cash bag, at the end: skipped.
         self.inventory.observe(update(struct.pack('<BBh', 1, 2, 2) + struct.pack('<H', 50), struct.pack('<BBh', 9, 5, 4) + bytes(7)), 'one')
