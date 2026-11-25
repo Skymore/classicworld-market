@@ -150,5 +150,60 @@ class RepriceTest(unittest.TestCase):
             self.assertEqual(reprice_history(data, prices, 'v'), 0)                # once per version
 
 
+class ThrottleTest(unittest.TestCase):
+    def test_cpu_stays_near_the_share_of_one_core(self):
+        import time
+        from grind_replay import Throttle
+        throttle = Throttle(.25)
+        wall, cpu = time.monotonic(), time.process_time()
+        while time.process_time() - cpu < .6:
+            throttle()
+        share = (time.process_time() - cpu) / (time.monotonic() - wall)
+        self.assertLess(share, .4)
+        unlimited = Throttle()
+        start = time.monotonic()
+        for _ in range(100000):
+            unlimited()
+        self.assertLess(time.monotonic() - start, .5)
+
+    def test_rebuild_process_sets_the_limit(self):
+        import grind_rebuild, grind_replay
+        from unittest import mock
+        original = grind_replay.throttle
+        try:
+            with mock.patch('grind_reconcile.prepare', side_effect=OSError), \
+                 mock.patch('grind_replay.replay_once') as replay:
+                grind_rebuild.run('missing-folder')
+            self.assertEqual(grind_replay.throttle.share, grind_rebuild.CPU_SHARE)
+            replay.assert_called_once()
+        finally:
+            grind_replay.throttle = original
+
+
+class RepriceEquipmentTest(unittest.TestCase):
+    def test_equipment_rows_with_their_upgrades_are_repriced(self):
+        import contextlib, json, sqlite3, tempfile
+        from pathlib import Path
+        from grind_pricing import Prices
+        from grind_replay import reprice_history
+        with tempfile.TemporaryDirectory() as folder:
+            data = Path(folder)
+            stats = [dict(key='weapon_attack', value=82)]
+            run = dict(id='r', started_at=0, active_seconds=3600, mesos=0, mesos_spent=0, consumables=[],
+                       loot=[dict(item_id=1452007, quantity=1, value=767188, stats=stats, remaining_upgrades=0),
+                             dict(item_id=1452007, quantity=1, value=500000, stats=stats)])   # before v0.8.3
+            with contextlib.closing(sqlite3.connect(data / 'history.sqlite')) as db, db:
+                db.execute('CREATE TABLE runs (id TEXT PRIMARY KEY, summary TEXT)')
+                db.execute('INSERT INTO runs VALUES (?, ?)', ('r', json.dumps(run)))
+            prices = Prices()
+            key = json.dumps([[['weapon_attack', 82]], 0, 0])
+            prices.rows = {1452007: dict(typical=250000, key_stats=['weapon_attack'],
+                                         groups=[dict(key=key, recent=[4400000], older=[], asks=[3999999, 4800000])])}
+            reprice_history(data, prices, 'v')
+            with contextlib.closing(sqlite3.connect(data / 'history.sqlite')) as db:
+                out = json.loads(db.execute('SELECT summary FROM runs').fetchone()[0])
+            self.assertEqual([r['value'] for r in out['loot']], [4400000, 500000])
+
+
 if __name__ == '__main__':
     unittest.main()

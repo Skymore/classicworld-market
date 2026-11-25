@@ -12,6 +12,10 @@ import json
 import sqlite3
 from pathlib import Path
 
+# The rebuild's CPU: a quarter of one core, so a 30-day rebuild (tens of minutes of a core)
+# runs in the background over a few hours instead of holding a core the whole time.
+CPU_SHARE = 0.25
+
 
 def needed(folder):
     """Whether this release's rebuild (REPLAY_VERSION) is still to do or to finish."""
@@ -34,6 +38,8 @@ def lower_priority():
 def run(folder):
     """The open run first (its own connections, seconds), then history newest first."""
     lower_priority()
+    import grind_replay
+    grind_replay.throttle = grind_replay.Throttle(CPU_SHARE)
     folder = Path(folder)
     from grind_reconcile import prepare
     from grind_replay import REPLAY_VERSION, replay_once

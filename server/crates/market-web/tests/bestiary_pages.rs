@@ -611,6 +611,7 @@ fn mob_page_lists_maps_and_every_drop_kind() {
             quest: quest(1036, "小石球的威胁", "Jr. Sentinel threat"),
             quantity: 10,
         }],
+        changes: vec![],
     };
     let html = pages::mob_page(&page, &zh()).into_string();
     assert!(html.contains("相关任务") && html.contains("击败 10"));
@@ -665,6 +666,7 @@ fn map_page_shows_links_and_route_entry() {
         quests_hunted: vec![],
         from_henesys: None,
         world_spot: None,
+        changes: vec![],
     };
     let html = pages::map_page(&page, &zh()).into_string();
     assert!(html.contains(r#"href="/route?from=10001000&amp;to=10001010""#));
@@ -753,6 +755,7 @@ fn map_page_draws_the_view_route_strip_and_quests() {
         }],
         from_henesys: Some(vec![map(10001000, "射手村"), map(10001010, "射手训练场Ⅰ")]),
         world_spot: Some("WorldMap001.img:10".into()),
+        changes: vec![],
     };
     let html = pages::map_page(&page, &zh()).into_string();
     assert!(html.contains(r#"<figure class="mapvis">"#));
@@ -872,6 +875,7 @@ fn town_lists_return_scroll_entrances_on_one_line() {
         quests_hunted: vec![],
         from_henesys: None,
         world_spot: None,
+        changes: vec![],
     };
     let html = pages::map_page(&page, &zh()).into_string();
     assert!(html.contains("用回城卷轴回到这里<small>2 张地图</small>"));

@@ -1511,7 +1511,9 @@ class Tracker:
         loot_events = [dict(t=e['t'], kind=e['kind'], item_id=e.get('item_id'), name=self.name(e.get('item_id')),
                             quantity=e.get('quantity'), unit=unit, basis=label, value=amount,
                             priced=label not in (None, '无价格'),
-                            stats=(e.get('piece') or {}).get('stats'), notable=e['kind'] == 'loot' and amount >= notable,
+                            stats=(e.get('piece') or {}).get('stats'),
+                            # With the stats, prices the row again when history is repriced.
+                            remaining_upgrades=(e.get('piece') or {}).get('remaining_upgrades'), notable=e['kind'] == 'loot' and amount >= notable,
                             # Picked up and worth showing with its price on the overlay.
                             alert=e['kind'] == 'loot' and (amount >= notable or (e.get('item_id') or 0) // 1_000_000 == 1
                                                            or (e.get('item_id') or 0) // 10000 in (204, 207, 233)))
