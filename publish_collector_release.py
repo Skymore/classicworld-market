@@ -60,6 +60,8 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.8.6：修复 v0.8.5 重算后 11-24 至今的刷图击杀仍是 0（旧版录像按改正后的规则还原错了）；更新后再重算一次。
+'
         'v0.8.5：修复刷图中途提示换频道、喝药不再记录（现金装备换位置的背包消息没认出来）；修复 11-24 更新后击杀一直记 0；更新后用本机报文重算这两天的记录。\n'
         'v0.8.4：重算刷图历史改用最低优先级，不再暂停限速：电脑空闲时全速算，游戏和采集器要用 CPU 时自动让开；旧记录里没存升级次数的掉落装备按满升级次数定价。\n'
         'v0.8.3：重算刷图历史时 CPU 限制在一个核心的 1/4，后台慢慢算，不再占满一个核心；之后记录里的装备带上升级次数，重新定价时也能按属性算。\n'

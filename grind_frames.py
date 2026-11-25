@@ -196,7 +196,7 @@ def server_payload(record):
     if record.get('c'):
         return payload
     game = game_opcodes.version(float(record['t']))
-    marked = record.get('n')
+    marked = game_opcodes.recorded_map(record.get('n'), float(record['t']))
     if marked:
         return payload if marked >= game else game_opcodes.normalize(game_opcodes.original(payload, marked), game)
     return game_opcodes.normalize(payload, game) if game else payload
@@ -209,7 +209,7 @@ def recorded_index(record):
     if index is None:
         return index
     game = game_opcodes.version(float(record['t']))
-    marked = record.get('n')
+    marked = game_opcodes.recorded_map(record.get('n'), float(record['t']))
     if marked:
         return index if marked >= game else game_opcodes.client_index(game_opcodes.original_index(index, marked), game)
     return game_opcodes.client_index(index, game) if game else index

@@ -11,6 +11,9 @@ The 2026-11-24 update moved everything from the 0x44D-0x44E region on by one mor
 key table 0x5F3 -> 0x5F2, so scans stopped at "key table format not supported"), and the
 player's mapping indexes from the 830s on by one more. The mob block (0x3C4-0x448) did not
 move: v0.8.1 assumed it moved too, so no kill was counted until it was corrected (11-25).
+Collectors v0.8.1-v0.8.4 recorded with that wrong map (n=2), v0.8.5 with the corrected one
+but also as n=2: the corrected map is version 3, and an n=2 line from after v0.8.5 went out
+is read as 3 (recorded_map), so each recording goes back to what the game sent.
 Between two blocks that moved by different amounts the game inserted or removed messages;
 numbers there are not mapped. An unmapped number becomes UNKNOWN | number, which no parser
 reads, so a new message can never pass for the old one that happened to have its number.
@@ -43,6 +46,9 @@ BLOCKS_1124 = (
     (0x471, 0x471, -5),   # an item dropping
     (0x472, 0x62E, -3),   # leaving the ground, stalls 0x577-0x57B, the key table 0x5F5
 )
+# What v0.8.1-v0.8.4 renumbered the 11-24 game with: mobs one too far. Only to read their
+# recordings back to what the game sent.
+BLOCKS_1124_V081 = BLOCKS_1124[:4] + ((0x3C9, 0x44D, -6),) + BLOCKS_1124[5:]
 
 # The player's own messages are found by their index in the mapping table the server sends
 # (0x32), and the updates moved those too (2026-11-21, a pet's potion: 321 -> 319, so no pet
@@ -63,6 +69,9 @@ CLIENT_BLOCKS_1124 = (
 # 2026-11-24: the last old recording at 07:00:35, the first new one at 12:28:51.
 UPDATE_AT = 1795007100.0
 UPDATE_AT_1124 = 1795536000.0   # 2026-11-24 08:00 local (PST), in the maintenance
+# v0.8.5 (the corrected 11-24 map, still written as n=2) went out just before this
+# (2026-11-25 02:58 local; this machine installed it at 02:59:45).
+FIXED_AT_1124 = 1795601880.0
 
 
 def _maps(blocks):
@@ -73,6 +82,7 @@ def _maps(blocks):
 # Version n (1-based): what the game of that version sends -> the old numbering, and back.
 VERSIONS = (
     (UPDATE_AT, _maps(BLOCKS_1118), _maps(CLIENT_BLOCKS_1118)),
+    (UPDATE_AT_1124, _maps(BLOCKS_1124_V081), _maps(CLIENT_BLOCKS_1124)),   # as v0.8.1-v0.8.4 wrote
     (UPDATE_AT_1124, _maps(BLOCKS_1124), _maps(CLIENT_BLOCKS_1124)),
 )
 LATEST = len(VERSIONS)
@@ -87,6 +97,13 @@ def version(stamp=None):
         import time
         stamp = time.time()
     return sum(1 for at, _, _ in VERSIONS if stamp >= at)
+
+
+def recorded_map(marked, stamp):
+    """The map version a recording line marked `marked` at `stamp` was renumbered with."""
+    if marked == 2 and stamp >= FIXED_AT_1124:
+        return 3   # v0.8.5: the corrected map, marked 2
+    return marked
 
 
 def _forward(table, number):

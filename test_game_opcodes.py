@@ -64,7 +64,7 @@ class RenumberTest(unittest.TestCase):
             log.write('s', message(0x1A9), now=game_opcodes.UPDATE_AT_1124 + 10)
             log.flush()
             lines = [json.loads(l) for p in log.folder.glob('frames_*') for l in p.read_text().splitlines()]
-        self.assertEqual([l.get('n') for l in lines], [2])   # renumbered with the 11-24 map
+        self.assertEqual([l.get('n') for l in lines], [3])   # renumbered with the corrected 11-24 map
 
 
 
@@ -75,15 +75,15 @@ class Update1124Test(unittest.TestCase):
         for new, old in ((0x5F2, 0x5F5), (0x576, 0x579), (0x577, 0x57A), (0x578, 0x57B), (0x46C, 0x471),
                          (0x46F, 0x472), (0x62B, 0x62E), (0x1A5, 0x1A9), (0x229, 0x22D), (0x2A5, 0x2A8),
                          (0x7E, 0x7E), (0xAD, 0xAE)):
-            self.assertEqual(game_opcodes.renumber(new, 2), old, hex(new))
-        self.assertEqual(game_opcodes.renumber(0x5F3, 2), 0x5F6)   # was the key table: no longer
+            self.assertEqual(game_opcodes.renumber(new, 3), old, hex(new))
+        self.assertEqual(game_opcodes.renumber(0x5F3, 3), 0x5F6)   # was the key table: no longer
         # Mobs did not move (2026-11-25 recording: appear 0x3C4, leave 0x3CF, hit 0x448).
         for new, old in ((0x3C4, 0x3C9), (0x3CF, 0x3D4), (0x3D0, 0x3D5), (0x448, 0x44D)):
-            self.assertEqual(game_opcodes.renumber(new, 2), old, hex(new))
+            self.assertEqual(game_opcodes.renumber(new, 3), old, hex(new))
         for new, old in ((20, 20), (186, 186), (210, 212), (319, 321), (529, 531), (830, 832), (865, 867)):
-            self.assertEqual(game_opcodes.client_index(new, 2), old, new)
+            self.assertEqual(game_opcodes.client_index(new, 3), old, new)
         at = game_opcodes.UPDATE_AT_1124
-        self.assertEqual([game_opcodes.version(t) for t in (game_opcodes.UPDATE_AT - 1, at - 1, at + 1)], [0, 1, 2])
+        self.assertEqual([game_opcodes.version(t) for t in (game_opcodes.UPDATE_AT - 1, at - 1, at + 1)], [0, 1, 3])
         self.assertEqual(game_opcodes.normalize(message(0x5F2, b'k')), message(0x5F5, b'k'))   # live: the latest
 
     def test_recordings_renumbered_with_the_11_18_map_after_11_24_are_redone(self):
@@ -97,14 +97,27 @@ class Update1124Test(unittest.TestCase):
         self.assertEqual(server_payload(moved)[:2], struct.pack('<H', 0x5F6))
         unknown = dict(stale, h=message(game_opcodes.UNKNOWN | 0x46C).hex())   # 11-18: between blocks
         self.assertEqual(server_payload(unknown)[:2], struct.pack('<H', 0x471))
-        self.assertEqual(server_payload(dict(stale, n=2))[:2], struct.pack('<H', 0x5F4))   # this release's
+        self.assertEqual(server_payload(dict(stale, n=3))[:2], struct.pack('<H', 0x5F4))   # this release's
         self.assertEqual(server_payload(dict(stale, t=at - 60))[:2], struct.pack('<H', 0x5F4))   # the 11-18 game
         plain = dict(t=at + 60, s='a', h=message(0x5F2).hex())   # unmarked: what the game sent
         self.assertEqual(server_payload(plain)[:2], struct.pack('<H', 0x5F5))
         client = dict(t=at + 60, s='a', c=1, n=1, i=game_opcodes.client_index(831, 1), h='00')
         self.assertEqual(recorded_index(client), 833)   # the game sent 831
         self.assertEqual(recorded_index(dict(client, i=321)), 321)
-        self.assertEqual(recorded_index(dict(client, n=2, i=321)), 321)
+        self.assertEqual(recorded_index(dict(client, n=3, i=321)), 321)
+
+    def test_mobs_recorded_by_v0_8_1_to_v0_8_5_read_as_the_game_sent_them(self):
+        at = game_opcodes.UPDATE_AT_1124
+        # v0.8.1-v0.8.4 wrote the game's 0x3C4 (a mob appearing) as 0x3CA, its 0x3CF (leaving)
+        # as 0x3D5 and its 0x448 (hit) as unmapped; all marked 2. Read: the old 0x3C9/0x3D4/0x44D.
+        early = dict(t=at + 60, s='a', n=2)
+        for written, old in ((0x3CA, 0x3C9), (0x3D5, 0x3D4), (game_opcodes.UNKNOWN | 0x448, 0x44D)):
+            self.assertEqual(server_payload(dict(early, h=message(written).hex()))[:2], struct.pack('<H', old), hex(written))
+        # v0.8.5 wrote the corrected map's numbers, also marked 2: as written.
+        late = dict(early, t=game_opcodes.FIXED_AT_1124 + 60)
+        for old in (0x3C9, 0x3D4, 0x44D, 0x5F5):
+            self.assertEqual(server_payload(dict(late, h=message(old).hex()))[:2], struct.pack('<H', old), hex(old))
+        self.assertEqual(server_payload(dict(early, h=message(0x5F5).hex()))[:2], struct.pack('<H', 0x5F5))   # same elsewhere
 
 if __name__ == '__main__':
     unittest.main()
