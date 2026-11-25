@@ -73,7 +73,7 @@ PostgreSQL 的非默认参数用 `ALTER SYSTEM` 写入 `shared_data/postgres/pos
 
 `deploy_market.py` 有两个子命令：
 
-- `package --binary <market-web> --output <包> --commit <提交> [--base-release <线上提交>]`：生成不可变发布包。
+- `package --binary <market-web> --output <包> --commit <提交> [--base-release <线上提交>]`：生成不可变发布包。它不检查程序是否由该提交编译：release 链接偶发 `STATUS_ACCESS_VIOLATION` 时 cargo 留下旧的 `market-web.exe`，打包前看 cargo 输出没有报错、exe 修改时间是刚才（2026-11-24 一次部署带上了旧程序，同一提交不能再部署，只好另提交重发）。
 - `deploy --artifact <包> --commit <提交> [--backup-database]`：核验 commit、文件清单和 SHA256，将新版本放入 `shared_data/deploy/releases/<sha>`，在 18766 端口启动候选服务并验证网页与 WASM。成功后原子更新 `current.json`，由 supervisor 只重启 web 子进程；数据库、上传和 Tunnel 继续运行。8766 健康检查失败时恢复上一版程序与网页。数据库迁移不自动逆向执行。
 
 发布包必须声明 `source_branch: main` 和 `base_release`，发布提交必须与本地及已推送的主分支一致。切换前会校验当前版本仍是该基线，并在本地 Git 仓库可用时确认目标提交存在、包含当前线上提交。旧基线、仅有产物而无源码提交、遗漏当前历史的包都会在切换前被拒绝。切换前还会逐一对照 Git 提交中的 `web/` 文件，包括源码、测试、数据、WASM 和构建产物；允许 Windows 文本换行差异，其余内容必须一致。仅给旧文件包标上新的提交号也会被拒绝。
