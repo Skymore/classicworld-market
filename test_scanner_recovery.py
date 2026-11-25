@@ -325,6 +325,8 @@ class RecoveryTests(unittest.TestCase):
         sweep=Mock()
         sweep.buying.return_value=True
         sweep.scan_mode.return_value='market'
+        sweep.next_live_target.return_value=None   # no live priority target (sweep_routes)
+        sweep.recent_pass_due.return_value=False
         self.controller.sweep=sweep
         return sweep
 

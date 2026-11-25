@@ -9,6 +9,7 @@ import time
 import secrets
 import os
 import socket
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlencode, urlsplit
 import web_assets
@@ -505,6 +506,12 @@ def create_server(config, folder, port=8780, home=None):
             if os.name == 'nt':
                 self.socket.setsockopt(socket.SOL_SOCKET,socket.SO_EXCLUSIVEADDRUSE,1)
             super().server_bind()
+        def handle_error(self, request, client_address):
+            # The page closed or navigated before the reply was written: not a fault, and
+            # its traceback filled dashboard.log (552 of them, 2026-11-25).
+            if isinstance(sys.exc_info()[1], (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)):
+                return
+            super().handle_error(request, client_address)
     try:
         server = LoopbackServer(('127.0.0.1', port), Handler)
     except OSError as error:

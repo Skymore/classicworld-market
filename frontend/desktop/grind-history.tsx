@@ -14,9 +14,10 @@ const english = () => language() === 'en';
 export function HistoryView({ runs, reload }: { runs: Run[] | null; reload(): void }) {
   const [open, setOpen] = useState<string | null>(null);
   const [who, setWho] = useState(''), [map, setMap] = useState('');
+  const [least, setLeast] = useState(0);   // minutes: hide shorter runs
   const names = useMemo(() => [...new Set((runs || []).map(r => r.character?.name).filter(Boolean) as string[])], [runs]);
   const maps = useMemo(() => [...new Set((runs || []).map(r => r.map_name).filter(Boolean) as string[])], [runs]);
-  const filtered = useMemo(() => (runs || []).filter(r => (!who || r.character?.name === who) && (!map || r.map_name === map)), [runs, who, map]);
+  const filtered = useMemo(() => (runs || []).filter(r => (!who || r.character?.name === who) && (!map || r.map_name === map) && (r.active_seconds || 0) >= least * 60), [runs, who, map, least]);
   if (runs == null) return <p className="note">{tr('读取中…', 'Loading…')}</p>;
   const current = open ? runs.find(r => r.id === open) : null;
   if (!runs.length) return <p className="grind-empty">{tr('还没有记录。进图打几只怪就会自动开始。', 'No runs yet. Kill a few monsters in a map to start.')}</p>;
@@ -29,6 +30,9 @@ export function HistoryView({ runs, reload }: { runs: Run[] | null; reload(): vo
           <option value="">{tr('全部角色', 'All characters')}</option>{names.map(n => <option key={n}>{n}</option>)}</select>}
         {maps.length > 1 && <select value={map} onChange={e => setMap(e.target.value)} aria-label={tr('地图', 'Map')}>
           <option value="">{tr('全部地图', 'All maps')}</option>{maps.map(n => <option key={n}>{n}</option>)}</select>}
+        <select value={least} onChange={e => setLeast(Number(e.target.value))} aria-label={tr('时长', 'Length')}>
+          <option value={0}>{tr('全部时长', 'Any length')}</option>
+          {[5, 10, 20].map(m => <option key={m} value={m}>{tr(`${m} 分钟以上`, `${m} min or more`)}</option>)}</select>
       </>}>{(shown, picks) => <div className="grind-history-list" role="list">
         <div className="gp-line" aria-hidden="true">{picks && <span className="gp-pick" />}<div className="grind-history-row head">
           <span>{tr('时间', 'Time')}</span><span>{tr('地图 · 角色', 'Map · character')}</span><span>{tr('时长', 'Time')}</span>
