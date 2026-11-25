@@ -1,6 +1,6 @@
 {
  "shell": [
-  "chunks/main-Dza88U63.js",
+  "chunks/main-CQjZw102.js",
   "chunks/shared-Cwf5YL9D.js",
   "chunks/assistant-icon-hY0GfDkf.js",
   "chunks/shell-DONtAYlu.js",
@@ -25,8 +25,8 @@
  ],
  "catalogue": {
   "modules": [
-   "chunks/catalogue-qA7S48UT.js",
-   "chunks/catalogue-CZWshKJ_.js",
+   "chunks/catalogue-COOBe1QX.js",
+   "chunks/catalogue-D8adTM5u.js",
    "chunks/shop-view-CepWqviu.js",
    "chunks/chevron-right-CY1gq-Mw.js",
    "chunks/maximize-2-AmDEO5kK.js",
@@ -43,9 +43,9 @@
  },
  "search": {
   "modules": [
-   "chunks/catalogue-search-Cj1L7YoL.js",
+   "chunks/catalogue-search-KuR1zg6L.js",
    "chunks/dialog-BG3HsSV-.js",
-   "chunks/price-state-Dm4rJB6M.js"
+   "chunks/price-state-CKyuQlo_.js"
   ],
   "styles": []
  },

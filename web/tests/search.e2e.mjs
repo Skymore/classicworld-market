@@ -52,7 +52,7 @@ try {
   for (const mobile of [true, false]) {
     const page = await browser.newPage({ viewport: { width: mobile ? 375 : 1280, height: 900 }, isMobile: mobile, hasTouch: mobile });
     const errors = []; page.on('pageerror', error => errors.push(error.message));
-    await page.goto(origin + `/prices?hours=all&lang=${mobile ? 'zh' : 'en'}`);
+    await page.goto(origin + `/prices?sort=low&hours=all&lang=${mobile ? 'zh' : 'en'}`);
     const waitRows = count => page.waitForFunction(expected => [...document.querySelectorAll('[data-pane=all] [data-item-row]')].filter(el => el.getClientRects().length).length === expected, count);
     await waitRows(products.length);
     const input = page.locator('[data-q]:visible');
@@ -77,7 +77,7 @@ try {
     }
     await page.locator('[data-add="2048000"]').click();
     await page.locator('[data-card="2048000"]').waitFor();
-    await page.goto(origin + '/?hours=all');
+    await page.goto(origin + '/?sort=low&hours=all');
     const finder = page.locator('form.finder input[name=q]:visible').last();
     await finder.waitFor();
     for (const query of speedQueries) {

@@ -59,6 +59,8 @@ const server=createServer(async(req,res)=>{
   }
   return json(res,{records});
  }
+ // The home page opens on the latest offers: one quote record per item.
+ if(u.pathname==='/api/v1/market/records')return json(res,{records:listings.map(l=>({...l,time:l.observed}))});
  if(u.pathname==='/api/v1/market')return json(res,{products,as_of:Date.now()/1000,offers:listings,opportunities:[],shared:true});
  if(u.pathname==='/api/v1/market/period-default')return json(res,{default_hours:'all'});
  if(u.pathname==='/api/v1/watchlist/catalog')return json(res,{items:products,presets:[]});
@@ -112,17 +114,17 @@ try{
  await page.screenshot({path:path.join(out,'website-watch-dark.png')});
  await watch.locator('html').evaluate(e=>e.dataset.theme='light');await page.locator('html').evaluate(e=>e.dataset.theme='light');
  await tabs.getByRole('button',{name:'首页',exact:true}).click();
- const prices=page.frameLocator('iframe[title="首页"]');
- await prices.locator('[data-item-row]:visible').first().waitFor();
- assert(await prices.locator('[data-item-row]').count()>=3,'entire price page renders its data rows');
+ const prices=page.frameLocator('iframe[title="首页"]'),homeRow='.price-record-entry:visible';
+ await prices.locator(homeRow).first().waitFor();
+ assert(await prices.locator('.price-record-entry').count()>=3,'entire price page renders its data rows');
  await page.screenshot({path:path.join(out,'website-prices.png')});
  const nav=prices.getByRole('navigation',{name:'页面导航'});
  await nav.waitFor();assert.equal(await prices.locator('.dhead,.ptop,.dock').count(),0);assert.equal(await prices.locator('.hero').count(),1,'the collector tab shows the website home page');
  assert.equal(await prices.locator('.hero .finder').count(),0,'one search box: the page bar has it');
- await prices.locator('[data-item-row]:visible').first().locator('a[href^="/item/"]').first().click();
+ await prices.locator(homeRow).first().locator('a[href^="/item/"]').first().click();
  await prices.locator('html[data-page="item"]').waitFor();
  await nav.getByRole('button',{name:'返回',exact:true}).click();
- await prices.locator('[data-item-row]:visible').first().waitFor();
+ await prices.locator(homeRow).first().waitFor();
  await nav.getByRole('searchbox').fill('药水');
  await nav.locator('.quick-row').first().waitFor();
  for(const stream of streams)stream.write('event: market\ndata: {}\n\n');
@@ -132,16 +134,16 @@ try{
  await prices.locator('html[data-embed="1"][data-page="item"]').waitFor();await nav.waitFor();
  await page.screenshot({path:path.join(out,'embedded-item-navigation.png')});
  await nav.getByRole('link',{name:'首页',exact:true}).click();
- await prices.locator('[data-item-row]:visible').first().waitFor();
+ await prices.locator(homeRow).first().waitFor();
  await nav.getByRole('searchbox').fill('药水');await nav.locator('.quick-more').click();
  await prices.locator('html[data-page="search"]').waitFor();await nav.waitFor();
  await nav.getByRole('link',{name:'首页',exact:true}).click();
- await prices.locator('[data-item-row]:visible').first().waitFor();
+ await prices.locator(homeRow).first().waitFor();
  const priceFrame=page.frames().find(f=>{const url=new URL(f.url());return url.pathname==='/'&&url.searchParams.get('embed')==='1';});
  await priceFrame.goto(origin+'/item/2000000?embed=1&lang=zh');
  await nav.waitFor();
  await nav.getByRole('button',{name:'返回',exact:true}).click();
- await prices.locator('[data-item-row]:visible').first().waitFor();
+ await prices.locator(homeRow).first().waitFor();
  console.log('PASS embedded prices: item back, search, SSE, reload and all results');
 
 

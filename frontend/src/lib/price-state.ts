@@ -42,8 +42,8 @@ export const sortFields = [
   "recent",
   "lastsale",
 ] as const;
-// The home page opens on the cheapest asks first.
-export const defaultSort: Sort = "low";
+// The home page opens on the latest offers first.
+export const defaultSort: Sort = "recent";
 export const canReverseSort = (sort: string) =>
   sort === "price" || sort === "low";
 export const defaultDirection = (sort: string) =>

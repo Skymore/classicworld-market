@@ -25,6 +25,8 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/v1/account') data = { signed_in: false };
     if (url.pathname === '/api/v1/crafting/prices') data = { prices: [] };
     if (url.pathname === '/api/v1/market') data = { as_of: now, products };
+    // The home page opens on the latest offers: one quote record per item.
+    if (url.pathname === '/api/v1/market/records') data = { records: products.map((row, i) => ({ ...row, id: `quote-${i}`, time: row.last_seen, observed: row.last_seen, unit_price: 7000 + i, stock: 2, bundle: 1, shop: 'Shop', location: { channel: 1 + i % 20, room: 1 } })) };
     if (url.pathname === '/api/v1/market/period-default') data = { default_hours: 'all' };
     if (url.pathname === '/api/v1/dex/dropped-items') data = { item_ids: [] };
     if (url.pathname === '/api/v1/sales/recent') data = { generated_at: now, sales: [] };
@@ -47,6 +49,7 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 const nav = (page, phone, key) => page.locator(`${phone ? '.dock' : '.dnav'} [data-nav-key=${key}]`).click();
 const rows = (page, phone) => page.locator(phone ? '.react-price-mobile [data-item-row]' : '.react-price-desktop tr[data-item-row]');
+const records = page => page.locator('.price-record-list .price-record-entry');
 try {
   browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   for (const phone of [true, false]) {
@@ -71,18 +74,18 @@ try {
 
     // Scroll position and loaded rows come back with the page.
     await page.goto(origin + '/');
-    await rows(page, phone).first().waitFor();
+    await records(page).first().waitFor();
     for (let i = 0; i < 8; i++) { await page.mouse.wheel(0, 1000); await page.waitForTimeout(200); }
     await page.waitForTimeout(500);
     const before = await page.evaluate(() => scrollY);
-    const loaded = await rows(page, phone).count();
+    const loaded = await records(page).count();
     assert.ok(before > 1500, `${label}: scrolled down (${before})`);
     await nav(page, phone, 'dex');
     await page.waitForURL(/\/search\?kind=item/);
     assert.ok(await page.evaluate(() => scrollY) < 50, `${label}: a new section starts at the top`);
     await nav(page, phone, 'home');
     await page.waitForFunction(y => Math.abs(scrollY - y) < 30, before, { timeout: 4000 });
-    assert.ok(await rows(page, phone).count() >= loaded, `${label}: loaded rows kept`);
+    assert.ok(await records(page).count() >= loaded, `${label}: loaded rows kept`);
     // Back/forward also restore.
     await nav(page, phone, 'dex');
     await page.waitForURL(/\/search/);

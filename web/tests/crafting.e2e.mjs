@@ -213,7 +213,7 @@ try {
     assert.equal(await five.locator('.craft-material').count(),5);
     const tops=await five.locator('.craft-material').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().top));
     assert(tops.every(top=>top===tops[0]),'five ingredients fit on one row when space permits');
-    await page.goto(origin + '/prices?craft=1&few=0&lang=en');
+    await page.goto(origin + '/prices?sort=low&craft=1&few=0&lang=en');
     await page.locator('.react-prices').waitFor();
     await page.waitForFunction(() => document.querySelector('[data-craft-only]')?.getAttribute('aria-pressed') === 'true');
     const list = page.locator(mobile ? '.react-price-mobile[data-list="all"]' : '.react-price-desktop tbody[data-list="all"]');

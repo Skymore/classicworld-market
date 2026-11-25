@@ -54,7 +54,7 @@ try {
   browser = await chromium.launch({ args: ['--lang=zh-CN'],  channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   for (const mobile of [true, false]) {
     const page = await open({ mobile });
-    await page.goto(origin + '/?hours=all&lang=zh');
+    await page.goto(origin + '/?sort=low&hours=all&lang=zh');
     const rows = page.locator(rowSelector(mobile));
     await rows.first().waitFor();
     assert.equal(await rows.count(), 20, 'the table starts with 20 rows');
@@ -91,7 +91,7 @@ try {
   }
   {
     const page = await open({ mobile: false, noObserver: true });
-    await page.goto(origin + '/?hours=all&lang=zh');
+    await page.goto(origin + '/?sort=low&hours=all&lang=zh');
     const rows = page.locator(rowSelector(false));
     await rows.first().waitFor();
     await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));

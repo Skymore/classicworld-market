@@ -67,7 +67,7 @@ try {
       // Without scroll anchoring (as in Safari) a spacer of the wrong height would move the page.
       document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.overflowAnchor = 'none'; });
     });
-    await page.goto(origin + '/?hours=all&lang=zh');
+    await page.goto(origin + '/?sort=low&hours=all&lang=zh');
     const selector = mobile ? '.react-price-mobile' : '.react-price-desktop tbody';
     await page.locator(`${selector} [data-item-row]`).first().waitFor();
     assert.equal(await page.locator('.react-price-mobile').count(), mobile ? 1 : 0, 'only the layout for this screen is rendered');
@@ -120,7 +120,7 @@ try {
     const page = await context.newPage();
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => { localStorage.setItem('uiLang', 'zh'); localStorage.setItem('uiTheme', 'light'); });
-    await page.goto(origin + `/?hours=all&lang=zh${embed ? '&embed=1' : ''}`);
+    await page.goto(origin + `/?sort=low&hours=all&lang=zh${embed ? '&embed=1' : ''}`);
     const row = id => page.locator(`tr[data-open="${id}"] td:nth-child(6)`);
     await row(2000004).waitFor();
     await page.evaluate(() => { window.sameDocument = true; });

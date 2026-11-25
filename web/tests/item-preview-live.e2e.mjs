@@ -79,7 +79,7 @@ try {
     const page = await browser.newPage({ viewport: { width, height: mobile ? 640 : 900 }, isMobile: mobile, hasTouch: mobile });
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.clock.install();
-    await page.goto(`${origin}/?hours=all&lang=${mobile ? 'en' : 'zh'}`);
+    await page.goto(`${origin}/?sort=low&hours=all&lang=${mobile ? 'en' : 'zh'}`);
     await page.locator('.react-prices [data-item-row]:visible').first().waitFor();
     const row = page.locator('.react-prices a[href*="/item/1462004"]:visible');
     if (mobile) await row.tap(); else { await row.focus(); await page.keyboard.press('Alt+ArrowDown'); }

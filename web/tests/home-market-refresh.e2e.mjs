@@ -68,7 +68,7 @@ try {
     const page = await context.newPage();
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => { localStorage.setItem('uiLang', 'zh'); localStorage.setItem('uiTheme', 'light'); });
-    await page.goto(origin + '/?hours=all&lang=zh');
+    await page.goto(origin + '/?sort=low&hours=all&lang=zh');
     await page.locator('tr[data-open="2000003"]').waitFor();
     await page.waitForFunction(() => document.documentElement.dataset.liveConnection === 'connected');
     await page.evaluate(() => { for (const id of [2000003, 2000004]) document.querySelector(`tr[data-open="${id}"]`).dataset.mark = 'kept'; });
@@ -113,7 +113,7 @@ try {
     // The next visit revalidates the list the browser kept instead of downloading it again.
     at = Date.now();
     const next = await context.newPage();
-    await next.goto(origin + '/?hours=all&lang=zh');
+    await next.goto(origin + '/?sort=low&hours=all&lang=zh');
     await next.locator('tr[data-open="2000003"]').waitFor();
     const visit = since(at).filter(entry => entry.ids == null);
     assert.equal(visit.length, 1);

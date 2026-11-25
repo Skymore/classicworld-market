@@ -67,7 +67,7 @@ try {
     }
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { bottom: 0 } });
-    await page.goto(origin + '/?lang=zh&hours=all');
+    await page.goto(origin + '/?sort=low&lang=zh&hours=all');
     await page.locator('.react-price-mobile [data-item-row]').first().waitFor();
     const input = page.locator('.hero input[name=q]');
     assert.equal(await input.evaluate(node => getComputedStyle(node).fontSize), '16px', 'search cannot trigger the iOS small-input focus zoom');

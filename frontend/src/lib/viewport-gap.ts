@@ -39,8 +39,11 @@ export function watchViewportGap() {
     if (!frame) frame = requestAnimationFrame(update);
   };
   // After the keyboard closes, nudge WebKit to recompute and measure again.
+  // Only when an input loses focus: the nudge would stop a smooth scroll
+  // (a tap on the active tab scrolls to the top while focus leaves a link).
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const settled = () => {
+  const settled = (event: FocusEvent) => {
+    if (!editable(event.target as Element | null)) return;
     clearTimeout(timer);
     timer = setTimeout(() => {
       if (!editable(document.activeElement)) scrollTo(scrollX, scrollY);

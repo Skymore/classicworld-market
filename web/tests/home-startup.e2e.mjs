@@ -41,6 +41,10 @@ const server = createServer(async (req, res) => {
     if (holdMarket) { markets.add(reply); return; }
     return reply();
   }
+  // The home page opens on the latest offers.
+  if (url.pathname === '/api/v1/market/records') return json(res, { records: [
+    { item_id: 2000000, id: 'quote', time: now, observed: now, unit_price: 45, stock: 3, bundle: 1, shop: 'Shop', location: { channel: 1, room: 1 } },
+  ] });
   if (url.pathname === '/api/v1/dex/counts') return json(res, { mobs: 1, maps: 1 });
   if (url.pathname === '/api/v1/catalog/page') return json(res, { kind: 'search', page: {
     query: '药水', kind: null, offset: 0, areas: [], filters: {}, region: '', area: '',
