@@ -1136,6 +1136,12 @@ class Tracker:
         if piece is not None:
             entry['piece'] = dict(stats=piece.get('stats') or [], remaining_upgrades=piece.get('remaining_upgrades'),
                                   unknown_fields=piece.get('unknown_fields') or 0, enhancements=piece.get('enhancements'))
+            # The ground drop it came from (party drops list) is priced by these stats too.
+            run = character.run
+            for find in reversed(run.finds if run else []):
+                if find['item_id'] == item and 'piece' not in find and 0 <= now - find['t'] <= 180:
+                    find['piece'] = entry['piece']
+                    break
         self.prices.want([item])
         self.record(character, entry, now)
 
@@ -1801,7 +1807,8 @@ class Tracker:
 
     def finds(self, run):
         """The run's valuable drops (its party's included), dearest first, at today's prices."""
-        rows = [dict(f, name=self.name(f['item_id']), value=self.prices.loot(f['item_id'])[0]) for f in run.finds]
+        rows = [dict({k: v for k, v in f.items() if k != 'piece'}, name=self.name(f['item_id']),
+                     value=self.prices.loot(f['item_id'], f.get('piece'))[0]) for f in run.finds]
         return sorted(rows, key=lambda r: -(r['value'] or 0))
 
     @staticmethod

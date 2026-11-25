@@ -369,12 +369,14 @@ pub async fn price_rows(
         .fetch_all(db)
         .await?
     };
-    let mut lowest: HashMap<(i32, String), f64> = HashMap::new();
+    // Every ask per group: a drop with too few recent sales of its own stats is priced
+    // from those sales plus the asks, like the selling page.
+    let mut asked: HashMap<(i32, String), Vec<f64>> = HashMap::new();
     for (item, stats, price) in asks {
-        let slot = lowest
+        asked
             .entry((item, group_of(item, &stats)))
-            .or_insert(price);
-        *slot = slot.min(price);
+            .or_default()
+            .push(price);
     }
     let mut groups: HashMap<i32, BTreeMap<String, Vec<(f64, f64)>>> = HashMap::new();
     for (item, stats, price, at) in sales {
@@ -403,7 +405,7 @@ pub async fn price_rows(
         let mut sold = groups.remove(&id).unwrap_or_default();
         let mut keys: Vec<String> = sold.keys().cloned().collect();
         keys.extend(
-            lowest
+            asked
                 .keys()
                 .filter(|(item, _)| *item == id)
                 .map(|(_, key)| key.clone()),
@@ -413,12 +415,23 @@ pub async fn price_rows(
         let item_groups: Vec<Value> = keys
             .into_iter()
             .filter_map(|key| {
-                let mut values = recent_prices(&sold.remove(&key).unwrap_or_default(), now);
+                let all = sold.remove(&key).unwrap_or_default();
+                let mut values = recent_prices(&all, now);
                 values.sort_by(f64::total_cmp);
-                let ask = lowest.get(&(id, key.clone())).copied();
-                (!values.is_empty() || ask.is_some()).then(|| {
+                let mut older: Vec<f64> = all
+                    .iter()
+                    .filter(|(at, _)| now - at > RECENT_SECONDS)
+                    .map(|(_, price)| *price)
+                    .collect();
+                older.sort_by(f64::total_cmp);
+                let mut asks = asked.remove(&(id, key.clone())).unwrap_or_default();
+                asks.sort_by(f64::total_cmp);
+                let ask = asks.first().copied();
+                (!values.is_empty() || !older.is_empty() || ask.is_some()).then(|| {
+                    // median/sales/lowest_ask: collectors before v0.8.2.
                     json!({"key": key,
-                    "median": median(&values), "sales": values.len(), "lowest_ask": ask})
+                    "median": median(&values), "sales": values.len(), "lowest_ask": ask,
+                    "recent": values, "older": older, "asks": asks})
                 })
             })
             .collect();

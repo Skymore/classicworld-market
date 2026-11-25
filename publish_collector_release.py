@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.8.2：刷图装备掉落按同属性定价（同属性成交加在售，没有时按相近属性），和摆摊页一致；怪物材料市价不超过 NPC 回收价 1.3 倍的按 NPC 价算；更新后重算历史记录。\n'
         'v0.8.1：适配 11-24 游戏更新（消息编号又挪了位），修复扫货停在“键位同步失败：键表格式未支持”；更新后用本机报文补算今天的记录。\n'
         'v0.8.0：客户端重启或断线期间打怪的经验，重新连上后按前后差值补记（标记为估算），和背包、金币一样。\n'
         'v0.7.99：修复游戏更新后宠物自动喂的药不计消耗（客户端消息编号也挪了位）；更新后用本机报文补算这几天的记录。\n'

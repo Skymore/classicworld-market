@@ -36,6 +36,38 @@ class LootPriceTests(unittest.TestCase):
                                     groups=[dict(key=group_key(sold, keys), median=5555, sales=1)])
         self.assertEqual(prices.loot(1052075, piece), (5555, '同属性成交中位'))
 
+    def test_materials_close_to_the_npc_price_count_at_the_npc_price(self):
+        prices = Prices()
+        prices.rows[4000021] = dict(typical=65, npc_sell=50)      # 1.3x: the NPC
+        self.assertEqual(prices.loot(4000021), (50, 'NPC 回收价'))
+        prices.rows[4000021]['typical'] = 66
+        self.assertEqual(prices.loot(4000021), (66, '成交中位'))
+        prices.rows[2040804] = dict(typical=60, npc_sell=50)      # not a material
+        self.assertEqual(prices.loot(2040804), (60, '成交中位'))
+
+    def test_equipment_priced_like_the_selling_page(self):
+        import json
+        keys = ['weapon_attack', 'magic_attack', 'critical_rate', 'critical_damage', 'str', 'dex']
+        group = lambda attack, slots, recent=(), older=(), asks=(): dict(
+            key=json.dumps([[['weapon_attack', attack]], slots, 0]), recent=list(recent), older=list(older), asks=list(asks))
+        bow = lambda attack, slots: dict(stats=[dict(key='weapon_attack', value=attack), dict(key='weapon_defense', value=3)],
+                                         remaining_upgrades=slots)
+        prices = Prices()
+        prices.rows[1452007] = dict(typical=250000, key_stats=keys, groups=[
+            group(70, 7, recent=[248888, 250000, 260000, 270000]),
+            group(82, 0, recent=[4400000], asks=[3999999, 4800000]),
+            group(84, 0, asks=[8399999, 8500000, 8888888]),
+            group(79, 0, recent=[1150000, 1299999]),
+        ])
+        # Three recent sales of the same stats: their median.
+        self.assertEqual(prices.loot(1452007, bow(70, 7)), (255000, '同属性成交中位'))
+        # One sale: with that group's asks.
+        self.assertEqual(prices.loot(1452007, bow(82, 0)), (4400000, '同属性成交加在售'))
+        # None: the closest stats with the same upgrades, three at least (82 and 84 tie).
+        self.assertEqual(prices.loot(1452007, bow(83, 0)), (6599999.5, '相近属性'))
+        # Nothing with those upgrades: the item's median.
+        self.assertEqual(prices.loot(1452007, bow(75, 3)), (250000, '成交中位'))
+
     def test_a_cache_from_another_client_version_is_asked_again(self):
         import json, tempfile, time
         from pathlib import Path

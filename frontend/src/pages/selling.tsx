@@ -35,12 +35,12 @@ interface Prices {
   count: number;
   /** 普通物品：72 小时无成交、按最近成交。 */
   recent?: boolean;
-  /** 装备：same 同关键属性 / all 同名全部 / none。 */
-  basis?: "same" | "all" | "none";
+  /** 装备：参与定价的在售件数。 */
+  asks?: number;
+  /** 装备：same 同关键属性 / near 相近属性 / all 同名全部 / none。 */
+  basis?: "same" | "near" | "all" | "none";
   /** 装备：72 小时内，或能拿到的全部成交。 */
   window?: "72h" | "all";
-  /** 装备没有够数的同属性成交时，关键属性在同名已知属性里的排位（0 最差、1 最好）和参与比较的件数。 */
-  rank?: { q: number; n: number };
 }
 const PLAN_KEY = "selling.plan.v1";
 /** 上次读到的背包：游戏断开后页面仍可用。 */
@@ -110,17 +110,19 @@ export function jobMaskOf(jobs: unknown): number | null {
   return jobs.reduce((mask: number, job: string) => mask | JOB_BITS[job], 0);
 }
 
-/** 关键属性的综合分：物攻、魔攻按 3 倍计，主副属性和暴击按 1 倍计。 */
-const RANK_WEIGHT: Record<string, number> = { weapon_attack: 3, magic_attack: 3 };
-/** 至少这么多件带属性的同名装备（成交加在售）才按属性排位定价。 */
-export const RANK_MIN = 5;
+/** 关键属性的综合分（找相近属性用）：物攻、魔攻按 3 倍计，主副属性和暴击按 1 倍计。 */
+const SCORE_WEIGHT: Record<string, number> = { weapon_attack: 3, magic_attack: 3 };
+/** 相近属性定价至少凑这么多件（成交加在售）。 */
+export const NEAR_MIN = 3;
 
 /**
- * 一件装备的参考价：72 小时内关键属性（可用职业的主副属性、物攻魔攻、暴击）和剩余升级次数
- * 都相同的成交够 3 笔就用它们；防御、HP 等不影响。不够时用 72 小时内同名全部成交（含没解析
- * 属性的），仍不够 3 笔就用能拿到的同名全部成交。用同名成交时，按这件装备的关键属性在同名
- * 带属性的成交和在售里排第几，取成交价的对应分位：排位 q 的中位取 q 分位、25% 取 q/2 分位，
- * 属性居中时就是普通的中位和 25%。q 限制在 5%–95%，避免取到最高最低的个别价。
+ * 一件装备的参考价，按关键属性（可用职业的主副属性、物攻魔攻、暴击）和剩余升级次数都相同的
+ * 同属性装备算，防御、HP 等不影响：
+ * 1. 72 小时内同属性成交够 3 笔，只用它们；
+ * 2. 否则用能拿到的同属性成交加同属性在售价；
+ * 3. 没有同属性的，用升级次数相同、关键属性综合分最接近的成交和在售，凑够 3 件；
+ * 4. 属性没解析时按同名成交（72 小时内够 3 笔用 72 小时，否则用全部）。
+ * 25% 和中位都是这批价格的线性插值分位。
  */
 export function gearPrices(
   piece: EquipmentPiece | undefined,
@@ -128,42 +130,56 @@ export function gearPrices(
   jobMask: number | null = null,
   now = Date.now() / 1000,
 ): Prices {
-  const rows = (market?.sales || []).filter((s) => positive(s.sale_unit_price));
+  const sales = (market?.sales || []).filter((s) => positive(s.sale_unit_price));
+  const asks = (market?.listings || []).filter((s) => positive(s.unit_price));
   const value = (stats: { key: string; value: number }[], key: string) => stats.find((s) => s.key === key)?.value ?? 0;
   const wanted = keyStats(jobMask);
   const signature = (equipment: { stats: { key: string; value: number }[]; remaining_upgrades?: number | null }) =>
     JSON.stringify([wanted.map((key) => value(equipment.stats, key)), equipment.remaining_upgrades ?? null]);
+  const score = (stats: { key: string; value: number }[]) =>
+    wanted.reduce((sum, key) => sum + value(stats, key) * (SCORE_WEIGHT[key] ?? 1), 0);
   const decoded = (e: any) => e?.status === "candidate" && Array.isArray(e.stats);
-  const recent = rows.filter((s) => Number(s.time) >= now - 72 * 3600);
-  const same = !piece?.decoded
-    ? []
-    : recent.filter((s) => decoded(s.equipment) && signature(s.equipment) === signature(piece));
-  const [pool, basis, window]: [any[], Prices["basis"], Prices["window"]] =
-    same.length >= 3 ? [same, "same", "72h"] : recent.length >= 3 ? [recent, "all", "72h"] : [rows, "all", "all"];
-  const prices = pool.map((s) => Number(s.sale_unit_price)).sort((a, b) => a - b);
-  let rank: Prices["rank"];
-  if (basis === "all" && piece?.decoded && prices.length) {
-    const score = (stats: { key: string; value: number }[]) =>
-      wanted.reduce((sum, key) => sum + value(stats, key) * (RANK_WEIGHT[key] ?? 1), 0);
-    const known = [...(market?.sales || []), ...(market?.listings || [])].map((r) => r.equipment).filter(decoded);
-    const sameSlots = known.filter((e) => (e.remaining_upgrades ?? null) === (piece.remaining_upgrades ?? null));
-    const peers = sameSlots.length >= RANK_MIN ? sameSlots : known;
-    if (peers.length >= RANK_MIN) {
-      const mine = score(piece.stats);
-      const below = peers.filter((e) => score(e.stats) < mine).length;
-      const equal = peers.filter((e) => score(e.stats) === mine).length;
-      rank = { q: (below + equal / 2) / peers.length, n: peers.length };
+  const result = (soldRows: any[], askRows: any[], basis: Prices["basis"], window: Prices["window"]): Prices => {
+    const prices = [
+      ...soldRows.map((s) => Number(s.sale_unit_price)),
+      ...askRows.map((s) => Number(s.unit_price)),
+    ].sort((a, b) => a - b);
+    return {
+      s25: prices.length ? Math.ceil(percentile(prices, 0.25)) : null,
+      s50: prices.length ? Math.ceil(percentile(prices, 0.5)) : null,
+      count: soldRows.length,
+      asks: askRows.length,
+      basis: prices.length ? basis : "none",
+      window,
+    };
+  };
+  const recent = sales.filter((s) => Number(s.time) >= now - 72 * 3600);
+  if (piece?.decoded) {
+    const mine = signature(piece);
+    const sameSold = sales.filter((s) => decoded(s.equipment) && signature(s.equipment) === mine);
+    const sameRecent = sameSold.filter((s) => Number(s.time) >= now - 72 * 3600);
+    if (sameRecent.length >= 3) return result(sameRecent, [], "same", "72h");
+    const sameAsks = asks.filter((s) => decoded(s.equipment) && signature(s.equipment) === mine);
+    if (sameSold.length + sameAsks.length) return result(sameSold, sameAsks, "same", "all");
+    // 没有同属性的：同升级次数里按综合分差距从小到大取，同差距的一起算，凑够 NEAR_MIN 件。
+    const slots = piece.remaining_upgrades ?? null;
+    const target = score(piece.stats);
+    const near = [...sales.map((row) => ({ row, sold: true })), ...asks.map((row) => ({ row, sold: false }))]
+      .filter(({ row }) => decoded(row.equipment) && (row.equipment.remaining_upgrades ?? null) === slots)
+      .map((x) => ({ ...x, gap: Math.abs(score(x.row.equipment.stats) - target) }))
+      .sort((a, b) => a.gap - b.gap);
+    if (near.length) {
+      const cut = near[Math.min(NEAR_MIN, near.length) - 1].gap;
+      const picked = near.filter((x) => x.gap <= cut);
+      return result(
+        picked.filter((x) => x.sold).map((x) => x.row),
+        picked.filter((x) => !x.sold).map((x) => x.row),
+        "near",
+        "all",
+      );
     }
   }
-  const q = rank ? Math.min(0.95, Math.max(0.05, rank.q)) : 0.5;
-  return {
-    s25: prices.length ? Math.ceil(percentile(prices, q / 2)) : null,
-    s50: prices.length ? Math.ceil(percentile(prices, q)) : null,
-    count: prices.length,
-    basis: prices.length ? basis : "none",
-    window,
-    rank,
-  };
+  return recent.length >= 3 ? result(recent, [], "all", "72h") : result(sales, [], "all", "all");
 }
 /**
  * 摆摊还是卖 NPC，按成交中位比 NPC 回收价的倍数和这批（数量 × 差价）多赚的金币：
@@ -486,15 +502,10 @@ export default function Selling() {
           ? words("72h 无成交，按最近成交", "None in 72h; recent sales")
           : words("无成交", "No sales");
     const span = p.window === "72h" ? "72h " : "";
-    if (p.basis === "same") return words(`同属性 · ${span}${p.count} 笔`, `Same stats · ${span}${p.count} sales`);
-    if (p.basis === "all") {
-      const base = words(`同名 · ${span}${p.count} 笔`, `Same item · ${span}${p.count} sales`);
-      if (!p.rank) return base;
-      const pct = Math.round(p.rank.q * 100);
-      return pct < 50
-        ? words(`${base} · 属性低于 ${100 - pct}% 同名`, `${base} · stats below ${100 - pct}%`)
-        : words(`${base} · 属性高于 ${pct}% 同名`, `${base} · stats above ${pct}%`);
-    }
+    const asks = p.asks ? words(` · 在售 ${p.asks} 件`, ` · ${p.asks} listed`) : "";
+    if (p.basis === "same") return words(`同属性 · ${span}${p.count} 笔`, `Same stats · ${span}${p.count} sales`) + asks;
+    if (p.basis === "near") return words(`相近属性 · ${p.count} 笔`, `Similar stats · ${p.count} sales`) + asks;
+    if (p.basis === "all") return words(`同名 · ${span}${p.count} 笔`, `Same item · ${span}${p.count} sales`);
     return words("无成交", "No sales");
   };
 

@@ -144,9 +144,9 @@ class RepriceTest(unittest.TestCase):
             self.assertEqual(reprice_history(data, prices, 'v'), 1)
             with contextlib.closing(sqlite3.connect(data / 'history.sqlite')) as db:
                 out = json.loads(db.execute('SELECT summary FROM runs').fetchone()[0])
-            self.assertEqual([r['value'] for r in out['loot']], [120, 750000])   # equipment kept
+            self.assertEqual([r['value'] for r in out['loot']], [220, 750000])   # equipment kept; snail shells at the NPC 22 (market 12)
             self.assertEqual(out['consume_cost'], 3000)                            # median sale, not the shop's 350
-            self.assertEqual(out['net'], 1000 + 750120 - 3000)
+            self.assertEqual(out['net'], 1000 + 750220 - 3000)
             self.assertEqual(reprice_history(data, prices, 'v'), 0)                # once per version
 
 

@@ -21,7 +21,7 @@ const gearSale = (price, attack, days = 1, extra = [{ key: 'dex', value: 3 }]) =
 const gearSales = { 1452016: [gearSale(100000, 59), gearSale(120000, 59, 1, [{ key: 'dex', value: 3 }, { key: 'weapon_defense', value: 9 }]),
     gearSale(140000, 59), gearSale(500000, 60), gearSale(900000, 59, 1, [{ key: 'dex', value: 5 }])],
   1040002: [gearSale(3000, 0), gearSale(5000, 0)],
-  // 法师上衣：72 小时内同属性只有 1 笔，改用 72 小时内同名全部（含没解析属性的），更早的不算。
+  // 法师上衣：72 小时内同属性只有 1 笔，不够 3 笔，改用同属性成交加同属性在售；同名其他属性的不算。
   1041059: [{ sale_unit_price: 6555, time: now - 3600, equipment: { status: 'candidate', stats: [{ key: 'int', value: 2 }, { key: 'luk', value: 2 }], remaining_upgrades: 7 } },
     { sale_unit_price: 7000, time: now - 7200, equipment: { status: 'candidate', stats: [{ key: 'int', value: 1 }, { key: 'luk', value: 2 }], remaining_upgrades: 7 } },
     { sale_unit_price: 8000, time: now - 7200, equipment: { status: 'unsupported', stats: [] } },
@@ -35,9 +35,10 @@ const products = [
   { item_id: 1041059, name_zh: '黑神圣法衣', name_en: 'Black Amoria Top', category: '装备', sales_10d: 5, icon_url: '' },
   { item_id: 1040002, name_zh: '白色背心', name_en: 'White Undershirt', category: '装备', sales_10d: 2, icon_url: '' },
 ];
-// 法师上衣在售 5 件智 3 运 3，都比背包里的智 2 运 2 好：按属性排位取较低的分位。
-const better = { equipment: { status: 'candidate', stats: [{ key: 'int', value: 3 }, { key: 'luk', value: 3 }], remaining_upgrades: 7 } };
-const gearListings = { 1041059: Array.from({ length: 5 }, () => better) };
+// 法师上衣在售 5 件智 3 运 3（不算），2 件智 2 运 2（防御不同也算）。
+const better = { unit_price: 50000, equipment: { status: 'candidate', stats: [{ key: 'int', value: 3 }, { key: 'luk', value: 3 }], remaining_upgrades: 7 } };
+const sameTop = (price) => ({ unit_price: price, equipment: { status: 'candidate', stats: [{ key: 'int', value: 2 }, { key: 'luk', value: 2 }, { key: 'weapon_defense', value: price / 1000 }], remaining_upgrades: 7 } });
+const gearListings = { 1041059: [...Array.from({ length: 5 }, () => better), sameTop(7000), sameTop(7500)] };
 const npc = { 2000002: 300, 4004000: 5000, 1452016: 20000, 1041059: 4000 };
 let gameConnected = true;
 const server = createServer(async (req, res) => {
@@ -95,21 +96,21 @@ try {
   assert.match(await bow.locator('[data-selling-npc]').textContent(), /摆摊NPC 20,000 · 中位 \+100,000 · 25% \+90,000/);
   assert.equal(await page.locator('[data-selling-item="eq:1:1452016"] [data-selling-verdict]').getAttribute('data-selling-verdict'), 'stall');
   assert.equal(await bow.locator('[data-selling-gain]').textContent(), '比 NPC +100,000');
-  // 法师上衣中位 6,842 是 NPC 4,000 的 1.7 倍，但只多赚 2,842，不到 10,000：差不多。
+  // 法师上衣中位 7,000 是 NPC 4,000 的 1.75 倍，但只多赚 3,000，不到 10,000：差不多。
   const topItem = page.locator('[data-selling-item="eq:2:1041059"]');
   await page.waitForFunction(() => document.querySelector('[data-selling-item="eq:2:1041059"] [data-selling-verdict]')?.getAttribute('data-selling-verdict') === 'close');
-  assert.match(await topItem.locator('.selling-ref').textContent(), /差不多\+2,842/);
+  assert.match(await topItem.locator('.selling-ref').textContent(), /差不多\+3,000/);
   // 属性没解析的装备：72 小时内同名不够 3 笔，用能拿到的全部同名成交。
   await page.locator('[data-selling-item="eq:4:1040002"]').click();
   await page.waitForFunction(() => /同名 · 2 笔/.test(document.querySelector('[data-selling-row="eq:4:1040002"]')?.textContent || ''));
   assert.equal(await total(page), '124,000');
-  // 法师上衣只列关键属性（智、运、可升），72 小时内同名 4 笔；属性在 7 件带属性的同名里排位 1.5/7，取 21% 分位：25% 6,699、中位 6,842。
+  // 法师上衣只列关键属性（智、运、可升）；同属性成交 6,555 加在售 7,000、7,500：25% 6,778、中位 7,000。
   await page.locator('[data-selling-item="eq:2:1041059"]').click();
   const top = page.locator('[data-selling-row="eq:2:1041059"]');
-  await page.waitForFunction(() => /同名 · 72h 4 笔 · 属性低于 79% 同名/.test(document.querySelector('[data-selling-row="eq:2:1041059"]')?.textContent || ''));
+  await page.waitForFunction(() => /同属性 · 1 笔 · 在售 2 件/.test(document.querySelector('[data-selling-row="eq:2:1041059"]')?.textContent || ''));
   assert.equal(await top.locator('[data-selling-stats]').textContent(), '智 +2 · 运 +2 · 可升 7');
-  assert.match(await top.getByRole('radio', { name: /成交 25%/ }).textContent(), /6,699/);
-  assert.equal(await total(page), '130,842');
+  assert.match(await top.getByRole('radio', { name: /成交 25%/ }).textContent(), /6,778/);
+  assert.equal(await total(page), '131,000');
   await top.getByRole('button', { name: '移出清单' }).click();
   if (process.env.SELLING_SHOTS) await page.screenshot({ path: path.join(process.env.SELLING_SHOTS, 'selling-gear.png'), fullPage: true });
   await bow.getByRole('button', { name: '移出清单' }).click();

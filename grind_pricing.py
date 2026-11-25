@@ -2,11 +2,14 @@
 
 Every median is over the last 72 hours of sales only (the site sends it so).
 Loot (use/etc/setup items): the item's median sale price (成交中位), else the
-NPC buy-back price, else nothing. Equipment: the median sale of the same
-attribute group as the item page groups offers (the key stats the site
-sends per item, remaining upgrades, unknown fields), else that group's lowest ask
-right now (what it would sell against), else the item's median, else NPC
-buy-back. Consumables used while grinding: the median sale too, like loot,
+NPC buy-back price, else nothing. Monster materials (400xxxx) whose median is at
+most 30% above the NPC buy-back go to the NPC, so they count at its price.
+Equipment, the same way as the selling page, by key stats (the ones the site
+sends per item) and remaining upgrades: three or more sales in 72 hours of the
+same stats, their median; else those stats' sales (30 days) and asks together;
+else the sales and asks of the same remaining upgrades whose weighted key stats
+(attack counts 3) are closest, at least three of them; else the item's median,
+else NPC buy-back. Consumables used while grinding: the median sale too, like loot,
 so a potion costs what it would fetch; the cheapest NPC shop price only when
 it never sold. Every value carries the basis it came from.
 """
@@ -23,6 +26,60 @@ RETRY = 60
 BATCH = 100
 DEFENCE = {'weapon_defense', 'magic_defense', 'pdd', 'mdd'}
 RECHARGEABLE = (207, 233)
+# A material that sells for at most this much over the NPC buy-back goes to the NPC.
+NPC_CLOSE = 1.3
+NEAR_MIN = 3
+SCORE_WEIGHT = {'weapon_attack': 3, 'magic_attack': 3}
+
+
+def median(values):
+    values = sorted(values)
+    n = len(values)
+    if not n:
+        return None
+    return values[n // 2] if n % 2 else (values[n // 2 - 1] + values[n // 2]) / 2
+
+
+def gear_price(row, piece):
+    """(unit, label) of a piece of equipment from the site's attribute groups, like
+    the selling page; None without groups carrying their prices (an older site)."""
+    groups = row.get('groups') or []
+    if not groups or any('asks' not in g for g in groups):
+        return None
+    keys = row.get('key_stats')
+    weights = lambda stats: sum(v * SCORE_WEIGHT.get(k, 1) for k, v in stats)
+    mine_stats = sorted([s['key'], s['value']] for s in piece.get('stats') or []
+                        if (s['key'] in keys if keys is not None else s['key'] not in DEFENCE))
+    slots = piece.get('remaining_upgrades')
+    parsed = []
+    for g in groups:
+        try:
+            stats, upgrades = json.loads(g['key'])[:2]
+        except (ValueError, TypeError, KeyError):
+            continue
+        parsed.append((sorted(map(list, stats)), upgrades, g))
+    same = [g for stats, upgrades, g in parsed if stats == mine_stats and upgrades == slots]
+    recent = [p for g in same for p in g.get('recent') or []]
+    if len(recent) >= 3:
+        return median(recent), '同属性成交中位'
+    pool = recent + [p for g in same for p in (g.get('older') or []) + (g.get('asks') or [])]
+    if pool:
+        return median(pool), '同属性成交加在售'
+    target = weights(mine_stats)
+    near = sorted(((abs(weights(stats) - target), g) for stats, upgrades, g in parsed if upgrades == slots),
+                  key=lambda x: x[0])
+    picked, count, cut = [], 0, None
+    for gap, g in near:
+        if cut is not None and gap > cut:
+            break
+        prices = (g.get('recent') or []) + (g.get('older') or []) + (g.get('asks') or [])
+        picked += prices
+        count += len(prices)
+        if count >= NEAR_MIN and cut is None:
+            cut = gap
+    if picked:
+        return median(picked), '相近属性'
+    return None
 
 
 def group_key(piece, keys=None):
@@ -174,6 +231,9 @@ class Prices:
             return 0, '不计'
         if basis == 'typical':
             if piece is not None:
+                priced = gear_price(row, piece)
+                if priced is not None:
+                    return priced
                 key = group_key(piece, row.get('key_stats'))
                 for group in row.get('groups') or []:
                     if group.get('key') == key and group.get('median'):
@@ -181,7 +241,8 @@ class Prices:
                 for group in row.get('groups') or []:
                     if group.get('key') == key and group.get('lowest_ask'):
                         return group['lowest_ask'], '同属性最低挂单'
-            if row.get('typical'):
+            sell = row.get('npc_sell') or NPC_SELL.get(item_id)
+            if row.get('typical') and not (item_id // 10000 == 400 and sell and row['typical'] <= sell * NPC_CLOSE):
                 return row['typical'], '成交中位'
         sell = row.get('npc_sell') or NPC_SELL.get(item_id)
         if sell is not None:
