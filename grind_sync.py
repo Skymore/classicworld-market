@@ -146,6 +146,13 @@ class RunSync:
                 self.synced_at = time.time()
                 return sent
 
+    def compare(self, run_id):
+        """How the run compares with others on its map and level band (the site's run page line)."""
+        run = self.run(run_id)
+        if run is None:
+            raise ValueError('not_found')
+        return self.post('/api/v1/collector/grind-compare', dict(run=clean(run))).get('comparison')
+
     def share(self, run_id, show_name=True, show_profit=True):
         run = self.run(run_id)
         if run is None:

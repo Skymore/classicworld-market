@@ -1,10 +1,10 @@
 // The client's grind history: filters, totals, rows with a spark line, one run
 // in full, and sharing (link plus a card image).
-import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Copy, Download, Link2, Share2 } from 'lucide-react';
-import { RunDetail, type GrindRun } from '../src/components/grind-run';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, Share2 } from 'lucide-react';
+import { RunDetail, type Comparison, type GrindRun } from '../src/components/grind-run';
+import { GrindShare } from '../src/components/grind-share';
 import { GrindHistory } from '../src/components/grind-history';
-import { copyCard, drawCard, saveCard } from '../src/lib/grind-card';
 import { language, tr } from './i18n';
 import { grind, type RunSummary } from './grind';
 
@@ -27,50 +27,20 @@ export function HistoryView({ runs, reload }: { runs: Run[] | null; reload(): vo
 }
 
 function RunPage({ run, back }: { run: Run; back(): void }) {
-  const [sharing, setSharing] = useState(false);
-  return <div className="grind-run-page">
-    <button className="text-link grind-back" onClick={back}><ArrowLeft size={15} />{tr('历史', 'History')}</button>
-    <RunDetail run={run} t={tr} english={english()} actions={
-      <button className="ui-btn primary" onClick={() => setSharing(true)}><Share2 size={15} />{tr('分享', 'Share')}</button>} />
-    {sharing && <ShareDialog run={run} close={() => setSharing(false)} />}
-  </div>;
-}
-
-function ShareDialog({ run, close }: { run: Run; close(): void }) {
-  const [showName, setShowName] = useState(true), [showProfit, setShowProfit] = useState(true);
-  const [url, setUrl] = useState<string | null>(null), [error, setError] = useState(''), [note, setNote] = useState('');
-  const canvas = useRef<HTMLCanvasElement>(null);
+  const [sharing, setSharing] = useState(false), [comparison, setComparison] = useState<Comparison | null>(null);
+  // The line comparing this run with others on its map comes from the site (only it has their runs).
   useEffect(() => {
     let alive = true;
-    setUrl(null); setError('');
-    grind('share', { id: run.id, show_name: showName, show_profit: showProfit })
-      .then(result => { if (alive) setUrl(result.url); })
-      .catch(e => { if (alive) setError(String((e as Error)?.message || e)); });
+    setComparison(null);
+    grind('compare', run.id).then(found => { if (alive) setComparison(found || null); }).catch(() => {});
     return () => { alive = false; };
-  }, [run.id, showName, showProfit]);
-  useEffect(() => {
-    if (canvas.current) drawCard(canvas.current, run, { url: url || 'mxd.ruit.me', t: tr, showName, showProfit, english: english() });
-  }, [run, url, showName, showProfit]);
-  const flash = (text: string) => { setNote(text); setTimeout(() => setNote(''), 2000); };
-  return <div className="grind-share-backdrop" role="dialog" aria-modal="true" aria-label={tr('分享这次刷图', 'Share this run')} onClick={close}>
-    <div className="grind-share" onClick={e => e.stopPropagation()}>
-      <canvas ref={canvas} className="grind-share-card" />
-      <div className="grind-share-side">
-        <h3>{tr('分享这次刷图', 'Share this run')}</h3>
-        <label className="grind-check"><input type="checkbox" checked={showName} onChange={e => setShowName(e.target.checked)} />{tr('显示角色名', 'Show character name')}</label>
-        <label className="grind-check"><input type="checkbox" checked={showProfit} onChange={e => setShowProfit(e.target.checked)} />{tr('显示收益', 'Show profit')}</label>
-        <input className="grind-share-url" readOnly value={url || (error ? tr('暂时连不上网站', 'The site is unreachable') : tr('正在生成链接…', 'Creating link…'))} onFocus={e => e.target.select()} />
-        <button className="ui-btn primary" disabled={!canvas.current} onClick={async () => {
-          if (canvas.current && await copyCard(canvas.current)) flash(tr('图片已复制', 'Image copied'));
-          else flash(tr('无法复制，请保存图片', "Can't copy; save instead"));
-        }}><Copy size={15} />{tr('复制图片', 'Copy image')}</button>
-        <button className="ui-btn" disabled={!url} onClick={async () => { await navigator.clipboard.writeText(url!); flash(tr('链接已复制', 'Link copied')); }}>
-          <Link2 size={15} />{tr('复制链接', 'Copy link')}</button>
-        <button className="ui-btn" onClick={() => canvas.current && saveCard(canvas.current, `grind-${run.id?.slice(0, 8)}.png`)}>
-          <Download size={15} />{tr('保存图片', 'Save image')}</button>
-        <small className="grind-share-note" role="status">{note}</small>
-        <button className="text-link grind-share-close" onClick={close}>{tr('关闭', 'Close')}</button>
-      </div>
-    </div>
+  }, [run.id]);
+  return <div className="grind-run-page">
+    <button className="text-link grind-back" onClick={back}><ArrowLeft size={15} />{tr('历史', 'History')}</button>
+    <RunDetail run={run} t={tr} english={english()} comparison={comparison} actions={
+      <button className="ui-btn primary" aria-expanded={sharing} onClick={() => setSharing(!sharing)}><Share2 size={15} />{tr('分享', 'Share')}</button>} />
+    {sharing && <GrindShare run={run} t={tr} english={english()} button="ui-btn" file={`grind-${run.id?.slice(0, 8)}.png`}
+      create={options => grind('share', { id: run.id, ...options })}
+      openPage={link => void grind('open_share', link.code).catch(() => {})} />}
   </div>;
 }

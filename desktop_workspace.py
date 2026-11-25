@@ -7,7 +7,9 @@ from collector_dashboard import Gateway
 
 # Website sections the collector window shows as tabs (page key -> path).
 SITE_PAGES = {'home': '/', 'prices': '/prices', 'dex': '/search?kind=item', 'watch': '/watch', 'selling': '/selling', 'tools': '/tools',
-              'sweep': '/client/sweep', 'account': '/client/account'}
+              'sweep': '/client/sweep', 'account': '/client/account',
+              # 刷图's map leaderboard and everyone's runs: the site's pages under the grind tabs.
+              'grind_board': '/grind?tab=board', 'grind_all': '/grind?tab=all'}
 # Tabs served by this PC's loopback gateway: they act through the collector itself.
 LOCAL_PAGES = ('watch', 'sweep', 'account')
 
@@ -83,7 +85,7 @@ class DesktopWorkspace:
                 if value['page'] != 'watch':
                     query += '&own=1'
                 return {'url': f'http://127.0.0.1:{self.dashboard()}'+path+query}
-            if value['page'] == 'selling':
+            if value['page'] in ('selling', 'grind_board', 'grind_all'):
                 # own=1: this page is a collector tab of its own and receives this PC's bag
                 # from the window (the `inventory` action) instead of an account sign-in.
                 query += '&own=1'

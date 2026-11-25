@@ -4,16 +4,18 @@ import { AlertCircle, Crosshair, Pause, Play, RefreshCw, SlidersHorizontal, Squa
 import { OverlayCard } from './overlay-card';
 import { BuffStrip, LiveView } from './grind-live';
 import { sampleLive } from './overlay-sample';
-import { tr } from './i18n';
+import { tr, type Lang } from './i18n';
+import SitePage from './site-page';
 import {
   channelPrompt, grind, statusLabel,
   type GrindSettings, type GrindState, type HotkeyAction, type Live, type RunSummary,
 } from './grind';
 
-type View = 'live' | 'history' | 'settings';
+/** board and all are the site's pages (地图效率榜, 全部用户), as on the site's 刷图. */
+type View = 'live' | 'history' | 'board' | 'all' | 'settings';
 const POLL_MS = 1000;
 
-export default function GrindPage({ hidden }: { hidden: boolean }) {
+export default function GrindPage({ hidden, theme, lang }: { hidden: boolean; theme: 'light' | 'dark'; lang: Lang }) {
   const [view, setView] = useState<View>('live');
   const [state, setState] = useState<GrindState | null>(null), [error, setError] = useState('');
   const [history, setHistory] = useState<RunSummary[] | null>(null);
@@ -47,7 +49,8 @@ export default function GrindPage({ hidden }: { hidden: boolean }) {
     {error && <div role="alert" className="error-banner"><AlertCircle size={18} /><span>{error === 'unavailable' ? tr('刷图记录暂不可用', 'Grind tracker unavailable') : error}</span></div>}
     <section className="stall grind-head"><div className="stall-bar"><Crosshair size={18} /><h2>{tr('刷图', 'Grind')}</h2>
       <nav className="grind-tabs" aria-label={tr('刷图', 'Grind')}>
-        {([['live', '实时', 'Live'], ['history', '历史', 'History'], ['settings', '设置', 'Settings']] as [View, string, string][]).map(([key, zh, en]) =>
+        {([['live', '实时', 'Live'], ['history', '历史', 'History'], ['board', '地图效率榜', 'Map leaderboard'], ['all', '全部用户', 'Everyone'],
+          ['settings', '设置', 'Settings']] as [View, string, string][]).map(([key, zh, en]) =>
           <button key={key} aria-pressed={view === key} onClick={() => setView(key)}>{tr(zh, en)}</button>)}
       </nav>
       <span className={`connection ${live && !live.stale ? 'live' : ''}`}><i />{!live || live.stale ? tr('等待客户端', 'Waiting for the collector') : run ? statusLabel(run) : tr('等待打怪', 'Waiting for kills')}</span>
@@ -67,6 +70,7 @@ export default function GrindPage({ hidden }: { hidden: boolean }) {
       {view === 'live' && !run && <BuffStrip live={live ?? null} warn={settings?.buff_warn_seconds ?? 3} />}
       {view === 'live' && <LiveView run={run} live={live ?? null} warn={settings?.buff_warn_seconds ?? 3} />}
       {view === 'history' && <HistoryView runs={history as any} reload={loadHistory} />}
+      {(view === 'board' || view === 'all') && <SitePage key={view} page={view === 'board' ? 'grind_board' : 'grind_all'} theme={theme} lang={lang} />}
       {view === 'settings' && settings && state && <SettingsView state={state} settings={settings} save={save} refresh={load} />}
     </div>
   </div>;

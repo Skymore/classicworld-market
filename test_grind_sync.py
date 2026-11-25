@@ -72,6 +72,14 @@ class SyncTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.sync.share('z' * 32)
 
+    def test_compare_asks_the_site_for_the_runs_comparison_line(self):
+        history(self.folder, [self.run_('a', 10)])
+        sync = RunSync(self.folder, post=lambda route, payload: self.sent.append((route, payload['run']['id'])) or dict(comparison=dict(runs=3)))
+        self.assertEqual(sync.compare('a' * 32), dict(runs=3))
+        self.assertEqual(self.sent[-1], ('/api/v1/collector/grind-compare', 'a' * 32))
+        with self.assertRaises(ValueError):
+            sync.compare('z' * 32)
+
     def test_open_run_is_pushed_live_when_it_changes_and_cleared_when_it_ends(self):
         pushes = []
         sync = RunSync(self.folder, post=lambda route, payload: pushes.append((route, payload['runs'])) or dict(ok=True))

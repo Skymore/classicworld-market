@@ -412,9 +412,11 @@ function toolCrumb(path: string): [string, string] | null {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const words = useWords();
   const route = useLocation();
-  // 摆摊 is its own tab in the collector: no in-page navigation or breadcrumb there.
+  // 摆摊, and 刷图's leaderboard and everyone's runs, are tabs of their own in the collector:
+  // no in-page navigation or breadcrumb there (a run opened from them keeps it, for going back).
   const ownTab =
     ((embeddedHost || embeddedLocal) && route.pathname === "/selling") ||
+    (embeddedHost && route.pathname.replace(/\/$/, "") === "/grind") ||
     (embedded && route.pathname.startsWith("/client/"));
   const navigate = useNavigate();
   useEffect(() => {

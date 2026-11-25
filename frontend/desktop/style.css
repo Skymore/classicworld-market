@@ -229,12 +229,6 @@ button:hover:not(:disabled){filter:brightness(.96)}button:disabled{opacity:.48;c
 .grind-history-tools b{color:var(--ink);font-variant-numeric:tabular-nums}
 .grind-filters{margin-left:auto;display:flex;gap:8px}.grind-filters select{padding:4px 6px;border:1px solid var(--rule);background:var(--sheet);font:inherit}
 .grind-run-page{display:flex;flex-direction:column;gap:10px}.grind-back{align-self:flex-start;color:var(--ink-2)}
-.grind-share-backdrop{position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:rgba(20,18,14,.55)}
-.grind-share{display:flex;gap:16px;max-width:min(980px,94vw);padding:16px;background:var(--sheet);border:2px solid var(--edge);box-shadow:var(--hard)}
-.grind-share-card{width:min(640px,60vw);height:auto;border:1px solid #000}
-.grind-share-side{display:flex;flex-direction:column;gap:8px;width:220px}.grind-share-side h3{margin:0 0 4px;font-size:15px}
-.grind-share-url{width:100%;padding:6px;border:1px solid var(--rule);background:var(--sheet-hi);font:inherit;font-size:12px}
-.grind-share-note{min-height:16px;color:var(--maple-ink)}.grind-share-close{margin-top:auto;align-self:flex-end;color:var(--ink-2)}
 
 /* Grind settings: one look for every control. */
 .grind-settings input[type=checkbox],.grind-settings input[type=range]{accent-color:var(--mark)}

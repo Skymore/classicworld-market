@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.8.9：刷图和网站一致：历史的角色、地图选项按当前时间段给出；单场详情显示同图对比；分享面板相同；新增「地图效率榜」「全部用户」。\n'
         'v0.8.8：刷图历史和网站「我的记录」改用同一个列表：筛选、击杀列、换图次数一致，时长筛选会记住。\n'
         'v0.8.7：刷图历史可按时长筛选（5、10、20 分钟以上）；本地面板日志不再记页面中途断开的报错。\n'
         'v0.8.6：修复 v0.8.5 重算后 11-24 至今的刷图击杀仍是 0（旧版录像按改正后的规则还原错了）；更新后再重算一次。\n'

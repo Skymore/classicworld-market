@@ -265,6 +265,19 @@ class GrindService:
             if not isinstance(value, dict) or not isinstance(value.get('id'), str):
                 raise ValueError('invalid_request')
             return self.sync.share(value['id'], value.get('show_name', True), value.get('show_profit', True))
+        if name == 'open_share':
+            # Only this site's share pages (/g/<code>), in the default browser.
+            import re
+            import webbrowser
+            from grind_sync import ALLOWED
+            if not isinstance(value, str) or not re.fullmatch(r'[A-Za-z0-9_-]{4,32}', value):
+                raise ValueError('invalid_request')
+            webbrowser.open(f'{ALLOWED[0]}/g/{value}')
+            return True
+        if name == 'compare':
+            if not isinstance(value, str):
+                raise ValueError('invalid_request')
+            return self.sync.compare(value)
         if name == 'settings':
             return self.save_settings(value)
         if name == 'calibrate':

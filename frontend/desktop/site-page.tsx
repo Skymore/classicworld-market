@@ -3,10 +3,11 @@ import { tr, type Lang } from './i18n';
 
 export interface WatchSummary { hits: number; watches: number; synced: boolean }
 /** Website sections shown as tabs (desktop_workspace.SITE_PAGES). */
-export type SitePageKey = 'home' | 'dex' | 'watch' | 'selling' | 'tools' | 'sweep' | 'account';
+export type SitePageKey = 'home' | 'dex' | 'watch' | 'selling' | 'tools' | 'sweep' | 'account' | 'grind_board' | 'grind_all';
 export const SITE_LABELS: Record<SitePageKey, [string, string]> = {
   home: ['首页', 'Home'], dex: ['图鉴', 'Catalogue'], watch: ['关注', 'Watch'], selling: ['摆摊', 'Shop'], tools: ['工具', 'Tools'],
   sweep: ['扫货', 'Sweep'], account: ['账号', 'Account'],
+  grind_board: ['地图效率榜', 'Map leaderboard'], grind_all: ['全部用户', 'Everyone'],
 };
 /** What this window tells the sweep and account pages about itself (frontend/src/client/host.ts). */
 export interface HostShell {

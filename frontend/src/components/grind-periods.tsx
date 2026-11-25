@@ -50,8 +50,12 @@ function remembered(key?: string): { mode: Mode; at: number } | null {
   } catch { return null; }
 }
 
-export function PeriodBoard<T extends Run>({ runs, t, english, filters, remember, idOf, children }: {
-  runs: T[]; t: Words; english: boolean; filters?: ReactNode; remember?: string;
+export function PeriodBoard<T extends Run>({ runs, t, english, filters, keep, remember, idOf, children }: {
+  runs: T[]; t: Words; english: boolean; remember?: string;
+  /** The filter controls; given this period's runs (before `keep`), so their choices are this period's. */
+  filters?: ReactNode | ((period: T[]) => ReactNode);
+  /** The caller's own filter (character, map, length...), applied to everything shown. */
+  keep?: (run: T) => boolean;
   /** Turns on ticking two runs to compare; the key of a run. */
   idOf?: (run: T) => string;
   children(shown: T[], picks: Picks | null): ReactNode;
@@ -76,8 +80,10 @@ export function PeriodBoard<T extends Run>({ runs, t, english, filters, remember
   const pair = idOf && picked.length === 2 ? (picked.map(id => runs.find(run => idOf(run) === id)).filter(Boolean) as T[]).sort((x, y) => x.started_at - y.started_at) : [];
   const start = startOf(mode, anchor), end = shift(mode, start, 1);
   const within = (run: Run, from: Date, to: Date) => run.started_at * 1000 >= from.getTime() && run.started_at * 1000 < to.getTime();
-  const kept = useMemo(() => runs.filter(run => (run.active_seconds || 0) >= SHORT), [runs]);
-  const period = useMemo(() => kept.filter(run => within(run, start, end)), [kept, start.getTime(), end.getTime()]);
+  const listed = useMemo(() => runs.filter(run => (run.active_seconds || 0) >= SHORT), [runs]);
+  const inPeriod = useMemo(() => listed.filter(run => within(run, start, end)), [listed, start.getTime(), end.getTime()]);
+  const kept = useMemo(() => keep ? listed.filter(keep) : listed, [listed, keep]);
+  const period = useMemo(() => keep ? inPeriod.filter(keep) : inPeriod, [inPeriod, keep]);
   const shown = useMemo(() => onlyMap ? period.filter(run => (run.map_name || "—") === onlyMap) : period, [period, onlyMap]);
   const seconds = total(shown, "active_seconds");
   // The period before, cut at the same point while this one is still running ("same time last week").
@@ -158,7 +164,7 @@ export function PeriodBoard<T extends Run>({ runs, t, english, filters, remember
         <b>{label(mode, start, end, english)}</b>
         <button type="button" aria-label={t("下一个", "Next")} disabled={end.getTime() > Date.now()} onClick={() => setAnchor(shift(mode, start, 1))}>›</button>
       </div>
-      <div className="gp-extra">{filters}
+      <div className="gp-extra">{typeof filters === "function" ? filters(inPeriod) : filters}
         <button type="button" className="gp-copy" aria-pressed={calendar} onClick={() => setCalendar(v => !v)}>{t("活跃日历", "Calendar")}</button>
         {shown.length > 0 && <button type="button" className="gp-copy" onClick={report}>{copied ? t("已复制", "Copied") : t("复制战报", "Copy report")}</button>}
       </div>

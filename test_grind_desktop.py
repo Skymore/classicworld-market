@@ -58,6 +58,18 @@ class ServiceTest(unittest.TestCase):
             self.assertIsNone(service.live())
             self.assertEqual(service.history(), [])
 
+    def test_share_pages_open_only_on_this_site(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as folder, patch('webbrowser.open') as opened:
+            service = GrindService(folder)
+            self.assertTrue(service.run('open_share', 'Abc2345'))
+            opened.assert_called_once_with('https://mxd.ruit.me/g/Abc2345')
+            for bad in ('../evil', 'https://x.com', 12, ''):
+                with self.assertRaises(ValueError):
+                    service.run('open_share', bad)
+            with self.assertRaises(ValueError):
+                service.run('compare', None)
+
     def test_buff_warnings_move_to_three_seconds_once(self):
         from grind_tracker import load_settings
         with tempfile.TemporaryDirectory() as folder:

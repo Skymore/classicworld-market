@@ -9,6 +9,8 @@ import { ErrorState, Loading, usePageReady } from "../components/shared";
 import { SiteLink } from "../components/shell";
 import { RunDetail, Spark, big, clock, signed, span, when, type Comparison, type GrindRun } from "../components/grind-run";
 import { GrindHistory } from "../components/grind-history";
+import { GrindShare } from "../components/grind-share";
+import { embeddedHost } from "../lib/embed";
 import { copyCard, drawCard, saveCard } from "../lib/grind-card";
 import { LiveView as ClientLive } from "../../desktop/grind-live";
 import { setTextLanguage, type Lang } from "../../desktop/i18n";
@@ -65,6 +67,8 @@ function Hub() {
   const tab = new URLSearchParams(route.search).get("tab");
   const board = tab === "board";
   const everyone = tab === "all";
+  // In the collector (its own 刷图 tabs are the navigation) only the page itself.
+  if (embeddedHost) return <section className="stall">{board ? <Leaderboard /> : everyone ? <EveryoneRuns /> : <MyRuns />}</section>;
   return (
     <>
       {board && <DownloadBanner compact />}
@@ -340,51 +344,19 @@ function MyRun({ row }: { row: string }) {
 
 /** Make (or reuse) a share link for one of the signed-in account's runs, plus the card image. */
 function SharePanel({ row, run }: { row: string; run: GrindRun }) {
-  const words = useWords(), { language } = usePreferences(), en = language === "en";
-  const account = useAccount(), client = useQueryClient();
-  const [showName, setShowName] = useState(true), [showProfit, setShowProfit] = useState(true);
-  const [link, setLink] = useState<{ url: string; code: string; key: string } | null>(null);
-  const [note, setNote] = useState(""), [busy, setBusy] = useState(false);
-  const canvas = useRef<HTMLCanvasElement>(null), panel = useRef<HTMLElement>(null);
-  const key = `${showName}/${showProfit}`;
-  useEffect(() => { panel.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, []);
-  const url = link?.key === key ? link.url : null;
-  useEffect(() => {
-    if (canvas.current) drawCard(canvas.current, run, { url: url || `${location.host}/g/…`, t: words, showName, showProfit, english: en });
-  }, [run, url, showName, showProfit, words, en]);
-  const make = async () => {
-    setBusy(true); setNote("");
-    try {
-      const response = await fetch(`/api/v1/grind/runs/${row}/share`, { method: "POST", credentials: "same-origin",
-        headers: { "Content-Type": "application/json", ...(account.data?.csrf ? { "X-CSRF-Token": account.data.csrf } : {}) },
-        body: JSON.stringify({ show_name: showName, show_profit: showProfit }) });
-      if (!response.ok) throw Error(String(response.status));
-      const data = await response.json() as { url: string; code: string };
-      const made = { url: `${location.origin}/g/${data.code}`, code: data.code, key };
-      setLink(made);
-      void client.invalidateQueries({ queryKey: ["grind-runs"] });
-      try { await navigator.clipboard.writeText(made.url); setNote(words("链接已复制", "Link copied")); } catch { /* shown below */ }
-    } catch {
-      setNote(words("生成失败，请刷新后重试", "Couldn't create the link. Reload and try again."));
-    } finally { setBusy(false); }
+  const words = useWords(), { language } = usePreferences();
+  const account = useAccount(), client = useQueryClient(), navigate = useNavigate();
+  const create = async (options: { show_name: boolean; show_profit: boolean }) => {
+    const response = await fetch(`/api/v1/grind/runs/${row}/share`, { method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json", ...(account.data?.csrf ? { "X-CSRF-Token": account.data.csrf } : {}) },
+      body: JSON.stringify(options) });
+    if (!response.ok) throw Error(String(response.status));
+    const data = await response.json() as { code: string };
+    void client.invalidateQueries({ queryKey: ["grind-runs"] });
+    return { code: data.code, url: `${location.origin}/g/${data.code}` };
   };
-  return (
-    <section ref={panel} className="grind-share-panel" aria-label={words("分享", "Share")}>
-      <canvas ref={canvas} className="grind-share-canvas" aria-label={words("分享卡片预览", "Share card preview")} />
-      <div className="grind-share-side">
-        <label><input type="checkbox" checked={showName} onChange={(e) => setShowName(e.target.checked)} /> {words("显示角色名", "Show character name")}</label>
-        <label><input type="checkbox" checked={showProfit} onChange={(e) => setShowProfit(e.target.checked)} /> {words("显示收益", "Show profit")}</label>
-        {url ? <>
-          <input className="grind-share-url" readOnly value={url} onFocus={(e) => e.currentTarget.select()} />
-          <button className="btn primary" onClick={async () => { await navigator.clipboard.writeText(url); setNote(words("链接已复制", "Link copied")); }}>{words("复制链接", "Copy link")}</button>
-          <SiteLink className="btn" href={`/g/${link!.code}`}>{words("打开分享页", "Open share page")}</SiteLink>
-        </> : <button className="btn primary" disabled={busy} onClick={make}>{busy ? words("生成中…", "Creating…") : words("生成分享链接", "Create share link")}</button>}
-        <button className="btn" onClick={async () => setNote(canvas.current && (await copyCard(canvas.current)) ? words("图片已复制", "Image copied") : words("请保存图片", "Save the image instead"))}>{words("复制图片", "Copy image")}</button>
-        <button className="btn" onClick={() => canvas.current && saveCard(canvas.current, `grind-${row}.png`)}>{words("保存图片", "Save image")}</button>
-        {note && <p className="grind-note" role="status">{note}</p>}
-      </div>
-    </section>
-  );
+  return <GrindShare run={run} t={words} english={language === "en"} create={create} button="btn"
+    openPage={(link) => navigate(`/g/${link.code}`)} file={`grind-${row}.png`} />;
 }
 
 function SharePage({ code }: { code: string }) {

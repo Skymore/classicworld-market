@@ -31,8 +31,6 @@
 .grind-share-hero h1{margin:0;font-size:22px}.grind-share-hero p{margin:0;color:var(--ink-2)}
 .grind-share-canvas{width:min(640px,100%);height:auto;align-self:center;border:1px solid #000}
 .grind-note{margin:0;color:var(--maple-ink)}
-.grind-share-panel{display:flex;gap:14px;align-items:flex-start;padding:14px;background:var(--sheet-hi);border:2px solid var(--edge);box-shadow:var(--hard)}
-.grind-share-panel .grind-share-canvas{flex:1 1 auto;width:auto;max-width:min(560px,100%);min-width:0;align-self:flex-start}
 .grind-share-side{display:flex;flex-direction:column;gap:8px;width:220px;flex:none}
 .grind-share-side label{display:flex;align-items:center;gap:6px;font-size:14px}
 .grind-share-url{font-size:16px;padding:6px 8px;border:1px solid var(--rule);background:var(--sheet);min-width:0}
@@ -41,7 +39,6 @@
   .grind-list-row{grid-template-columns:minmax(0,1fr) 72px 80px;row-gap:2px}.grind-list-row.head{display:none}
   .grind-list-row .when{grid-column:1/-1;font-size:11px;color:var(--ink-3)}.grind-list-row .when .len{display:inline;color:var(--ink);font-weight:650}.grind-list-row i{display:none}.grind-list-row>span:nth-child(3),.grind-list-row .gr-spark{display:none}
   .grind-board-row{grid-template-columns:48px minmax(0,1fr) 72px 72px}.grind-board-row>span:nth-child(3),.grind-board-row>span:nth-child(6){display:none}
-  .grind-share-panel{flex-direction:column}.grind-share-side{width:100%}
   .grind-share-hero h1{font-size:18px}.grind-download-btn.big{align-self:stretch;text-align:center}
 }
 /* Signed out: what the page is for, next to what the client looks like. */

@@ -1,6 +1,6 @@
 // The grind history list, one component for the client's 刷图 · 历史 (this computer's runs)
 // and the site's 我的记录 (the account's synced runs): the same filters, columns and period board.
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { PeriodBoard } from "./grind-periods";
 import { Spark, big, signed, span, when, type GrindRun } from "./grind-run";
 import "./grind-history.css";
@@ -28,19 +28,24 @@ export function GrindHistory<R extends HistoryRun>({ runs, t, english, idOf, sha
     setLeastState(value);
     try { localStorage.setItem(LENGTH_KEY, String(value)); } catch { /* storage unavailable */ }
   };
-  const names = useMemo(() => [...new Set(runs.map(r => r.character?.name).filter(Boolean) as string[])], [runs]);
-  const maps = useMemo(() => [...new Set(runs.map(r => r.map_name).filter(Boolean) as string[])], [runs]);
-  const filtered = useMemo(() => runs.filter(r => (!who || r.character?.name === who) && (!map || r.map_name === map)
-    && (r.active_seconds || 0) >= least * 60), [runs, who, map, least]);
-  return <PeriodBoard runs={filtered} t={t} english={english} remember="grind.period" idOf={idOf} filters={<>
-    {names.length > 1 && <select value={who} onChange={e => setWho(e.target.value)} aria-label={t("角色", "Character")}>
-      <option value="">{t("全部角色", "All characters")}</option>{names.map(n => <option key={n}>{n}</option>)}</select>}
-    {maps.length > 1 && <select value={map} onChange={e => setMap(e.target.value)} aria-label={t("地图", "Map")}>
-      <option value="">{t("全部地图", "All maps")}</option>{maps.map(n => <option key={n}>{n}</option>)}</select>}
-    <select value={least} onChange={e => setLeast(Number(e.target.value))} aria-label={t("时长", "Length")}>
-      <option value={0}>{t("全部时长", "Any length")}</option>
-      {LENGTHS.map(m => <option key={m} value={m}>{t(`${m} 分钟以上`, `${m} min or more`)}</option>)}</select>
-  </>}>{(shown, picks) => <div className="gh-list" role="list">
+  const fits = (run: R, skip?: "who" | "map") => (skip === "who" || !who || run.character?.name === who)
+    && (skip === "map" || !map || run.map_name === map) && (run.active_seconds || 0) >= least * 60;
+  const keep = useCallback((run: R) => fits(run), [who, map, least]);
+  // Each list offers what this period has under the other filters; a pick the period lacks stays listed so it can be cleared.
+  const choices = (period: R[], skip: "who" | "map", key: (run: R) => string | null | undefined, picked: string) =>
+    [...new Set([...period.filter(run => fits(run, skip)).map(key).filter(Boolean) as string[], ...(picked ? [picked] : [])])];
+  return <PeriodBoard runs={runs} keep={keep} t={t} english={english} remember="grind.period" idOf={idOf} filters={period => {
+    const names = choices(period, "who", run => run.character?.name, who), maps = choices(period, "map", run => run.map_name, map);
+    return <>
+      {(names.length > 1 || who) && <select value={who} onChange={e => setWho(e.target.value)} aria-label={t("角色", "Character")}>
+        <option value="">{t("全部角色", "All characters")}</option>{names.map(n => <option key={n}>{n}</option>)}</select>}
+      {(maps.length > 1 || map) && <select value={map} onChange={e => setMap(e.target.value)} aria-label={t("地图", "Map")}>
+        <option value="">{t("全部地图", "All maps")}</option>{maps.map(n => <option key={n}>{n}</option>)}</select>}
+      <select value={least} onChange={e => setLeast(Number(e.target.value))} aria-label={t("时长", "Length")}>
+        <option value={0}>{t("全部时长", "Any length")}</option>
+        {LENGTHS.map(m => <option key={m} value={m}>{t(`${m} 分钟以上`, `${m} min or more`)}</option>)}</select>
+    </>;
+  }}>{(shown, picks) => <div className="gh-list" role="list">
     <div className="gp-line" aria-hidden="true">{picks && <span className="gp-pick" />}<div className="gh-row head">
       <span>{t("时间", "Time")}</span><span>{t("地图 · 角色", "Map · character")}</span><span>{t("时长", "Length")}</span>
       <span>{t("经验/时", "EXP/h")}</span><span>{t("收益/时", "Profit/h")}</span><span>{t("击杀", "Kills")}</span><span />

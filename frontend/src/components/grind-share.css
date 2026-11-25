@@ -1,0 +1,8 @@
+/* Sharing one run (components/grind-share.tsx): the client's history and the site's 我的记录. */
+.gs-panel{display:flex;gap:14px;align-items:flex-start;padding:14px;background:var(--sheet-hi);border:2px solid var(--edge);box-shadow:var(--hard)}
+.gs-canvas{flex:1 1 auto;width:auto;max-width:min(560px,100%);min-width:0;height:auto;border:1px solid #000}
+.gs-side{display:flex;flex-direction:column;gap:8px;width:220px;flex:none}
+.gs-side label{display:flex;align-items:center;gap:6px;font-size:14px}
+.gs-url{font-size:16px;padding:6px 8px;border:1px solid var(--rule);background:var(--sheet);min-width:0;color:inherit}
+.gs-note{min-height:18px;margin:0;color:var(--maple-ink)}
+@media (max-width:760px){.gs-panel{flex-direction:column}.gs-side{width:100%}.gs-canvas{max-width:100%}}

@@ -41,6 +41,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/v1/collector/grind-run", post(sync))
         .route("/api/v1/collector/grind-share", post(share))
+        .route("/api/v1/collector/grind-compare", post(compare_collector))
         .route("/api/v1/collector/grind-live", post(live_push))
         .route("/api/v1/grind/share/{code}", get(shared))
         .route("/api/v1/grind/live", get(my_live))
@@ -272,6 +273,21 @@ async fn share(State(state): State<AppState>, headers: HeaderMap, body: Bytes) -
         Ok(code) => Json(json!({"ok": true, "code": code,
             "url": format!("https://{}/g/{code}", state.settings.hostname)}))
         .into_response(),
+        Err(e) => internal(e),
+    }
+}
+
+/// How a run compares with others on its map and level band (the site's run page shows the
+/// same line): the client's own run detail asks here, its history is only on that PC.
+async fn compare_collector(State(state): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
+    if let Err(response) = client(&state, &headers, "grind-compare", 60).await {
+        return response;
+    }
+    let Some(run) = body_run(&body) else {
+        return error(StatusCode::BAD_REQUEST, "Invalid grind run");
+    };
+    match comparison(&state.db, &run, unix_now()).await {
+        Ok(found) => Json(json!({"comparison": found})).into_response(),
         Err(e) => internal(e),
     }
 }

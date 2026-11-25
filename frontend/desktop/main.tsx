@@ -158,7 +158,7 @@ function App() {
       {tab === 'scan' ? <ScanPage state={state} connected={connected} busy={busy} error={error} now={now} selected={selected} select={setSelected}
           action={action} sweep={sweep} openSweep={() => setTab('sweep')} />
         : null}
-      {connected && <GrindPage hidden={tab !== 'grind'} />}
+      {connected && <GrindPage hidden={tab !== 'grind'} theme={resolved} lang={lang} />}
       {/* Site pages stay mounted once opened: the watch page reports hits even while another tab is shown. */}
       {connected && PAGE_TABS.filter(page => page === 'watch' || opened.includes(page)).map(sitePage)}
     </main>
