@@ -1,0 +1,16 @@
+/* The grind history list (components/grind-history.tsx): the client's 历史 and the site's 我的记录. */
+.gh-list{display:flex;flex-direction:column}
+.gh-row{display:grid;grid-template-columns:96px minmax(0,1fr) 72px 84px 92px 64px 64px;gap:8px;align-items:center;width:100%;padding:9px 14px;
+  border:0;border-bottom:1px solid var(--rule);background:none;color:inherit;font:inherit;font-size:13px;text-align:left;text-decoration:none;font-variant-numeric:tabular-nums}
+.gh-row:not(.head):hover{background:var(--maple-tint);cursor:pointer}
+.gh-row.head{font-size:11px;color:var(--ink-3);cursor:default}
+.gh-row .who{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gh-row small{color:var(--ink-3)}
+.gh-row .len{display:none;font-style:normal}
+.gh-row .shared{margin-left:6px;padding:0 5px;font-style:normal;font-size:11px;border:1px solid var(--rule);color:var(--ink-2)}
+.gh-row .money{color:var(--maple-ink);font-weight:800}
+@media (max-width:760px){
+  .gh-row{grid-template-columns:minmax(0,1fr) 72px 80px;row-gap:2px}.gh-row.head{display:none}
+  .gh-row .when{grid-column:1/-1;font-size:11px;color:var(--ink-3)}.gh-row .when .len{display:inline;color:var(--ink);font-weight:650}
+  .gh-row .shared,.gh-row>span:nth-child(3),.gh-row>span:nth-child(6),.gh-row .gr-spark{display:none}
+}

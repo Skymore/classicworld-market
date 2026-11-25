@@ -1,9 +1,9 @@
 // The client's grind history: filters, totals, rows with a spark line, one run
 // in full, and sharing (link plus a card image).
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Copy, Download, Link2, Share2 } from 'lucide-react';
-import { RunDetail, Spark, big, clock, signed, span, when, type GrindRun } from '../src/components/grind-run';
-import { PeriodBoard } from '../src/components/grind-periods';
+import { RunDetail, type GrindRun } from '../src/components/grind-run';
+import { GrindHistory } from '../src/components/grind-history';
 import { copyCard, drawCard, saveCard } from '../src/lib/grind-card';
 import { language, tr } from './i18n';
 import { grind, type RunSummary } from './grind';
@@ -13,11 +13,6 @@ const english = () => language() === 'en';
 
 export function HistoryView({ runs, reload }: { runs: Run[] | null; reload(): void }) {
   const [open, setOpen] = useState<string | null>(null);
-  const [who, setWho] = useState(''), [map, setMap] = useState('');
-  const [least, setLeast] = useState(0);   // minutes: hide shorter runs
-  const names = useMemo(() => [...new Set((runs || []).map(r => r.character?.name).filter(Boolean) as string[])], [runs]);
-  const maps = useMemo(() => [...new Set((runs || []).map(r => r.map_name).filter(Boolean) as string[])], [runs]);
-  const filtered = useMemo(() => (runs || []).filter(r => (!who || r.character?.name === who) && (!map || r.map_name === map) && (r.active_seconds || 0) >= least * 60), [runs, who, map, least]);
   if (runs == null) return <p className="note">{tr('读取中…', 'Loading…')}</p>;
   const current = open ? runs.find(r => r.id === open) : null;
   if (!runs.length) return <p className="grind-empty">{tr('还没有记录。进图打几只怪就会自动开始。', 'No runs yet. Kill a few monsters in a map to start.')}</p>;
@@ -25,31 +20,8 @@ export function HistoryView({ runs, reload }: { runs: Run[] | null; reload(): vo
   return <>
     {current && <RunPage run={current} back={() => { setOpen(null); reload(); }} />}
     <section className="stall grind-history-panel" style={current ? { display: 'none' } : undefined}>
-      <PeriodBoard runs={filtered} t={tr} english={english()} idOf={run => run.id} filters={<>
-        {names.length > 1 && <select value={who} onChange={e => setWho(e.target.value)} aria-label={tr('角色', 'Character')}>
-          <option value="">{tr('全部角色', 'All characters')}</option>{names.map(n => <option key={n}>{n}</option>)}</select>}
-        {maps.length > 1 && <select value={map} onChange={e => setMap(e.target.value)} aria-label={tr('地图', 'Map')}>
-          <option value="">{tr('全部地图', 'All maps')}</option>{maps.map(n => <option key={n}>{n}</option>)}</select>}
-        <select value={least} onChange={e => setLeast(Number(e.target.value))} aria-label={tr('时长', 'Length')}>
-          <option value={0}>{tr('全部时长', 'Any length')}</option>
-          {[5, 10, 20].map(m => <option key={m} value={m}>{tr(`${m} 分钟以上`, `${m} min or more`)}</option>)}</select>
-      </>}>{(shown, picks) => <div className="grind-history-list" role="list">
-        <div className="gp-line" aria-hidden="true">{picks && <span className="gp-pick" />}<div className="grind-history-row head">
-          <span>{tr('时间', 'Time')}</span><span>{tr('地图 · 角色', 'Map · character')}</span><span>{tr('时长', 'Time')}</span>
-          <span>{tr('经验/时', 'EXP/h')}</span><span>{tr('收益/时', 'Profit/h')}</span><span>{tr('击杀', 'Kills')}</span><span />
-        </div></div>
-        {shown.map(run => <div className="gp-line" key={run.id} role="listitem">
-          {picks && <label className="gp-pick" title={tr('勾两场对比', 'Tick two to compare')}><input type="checkbox" checked={picks.has(run.id)}
-            disabled={picks.full && !picks.has(run.id)} onChange={() => picks.toggle(run.id)} aria-label={tr('选这一场对比', 'Compare this run')} /></label>}
-          <button className="grind-history-row" onClick={() => setOpen(run.id)}>
-          <span>{when(run.started_at)}</span>
-          <span className="who"><b>{run.map_name || '—'}</b>{run.segments?.length > 1 && <small> +{run.segments.length - 1}</small>}
-            <small> {run.character?.name} · {run.job_name} {run.level ?? ''}</small>{run.share_url && <i className="shared">{tr('已分享', 'Shared')}</i>}</span>
-          <span>{span(run.active_seconds, english())}</span><span>{big(run.exp_per_hour, english())}</span>
-          <span className={run.net_per_hour ? "money" : undefined}>{signed(run.net_per_hour, english())}</span><span>{big(run.kills, english())}</span>
-          <Spark run={run} />
-        </button></div>)}
-      </div>}</PeriodBoard>
+      <GrindHistory runs={runs} t={tr} english={english()} idOf={run => run.id} shared={run => !!run.share_url}
+        row={(run, className, children) => <button className={className} onClick={() => setOpen(run.id)}>{children}</button>} />
     </section>
   </>;
 }

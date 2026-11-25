@@ -75,6 +75,8 @@ async fn runs_sync_once_share_by_code_and_list_only_for_the_linked_account() {
         rows[0].get("loot").is_none(),
         "list rows leave out the bulky detail"
     );
+    assert!(rows[0].get("segments").is_none());
+    assert!(rows[0]["segment_count"].is_number(), "how many maps stays for the +N");
 
     // One code per run and option set; hidden fields stay hidden.
     let code = grind_runs::share_code(&db.pool, first, false, false)

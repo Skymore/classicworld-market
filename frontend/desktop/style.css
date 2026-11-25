@@ -228,12 +228,6 @@ button:hover:not(:disabled){filter:brightness(.96)}button:disabled{opacity:.48;c
 .grind-history-tools{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;padding:10px 14px;border-bottom:1px solid var(--rule);font-size:13px;color:var(--ink-2)}
 .grind-history-tools b{color:var(--ink);font-variant-numeric:tabular-nums}
 .grind-filters{margin-left:auto;display:flex;gap:8px}.grind-filters select{padding:4px 6px;border:1px solid var(--rule);background:var(--sheet);font:inherit}
-.grind-history-list{display:flex;flex-direction:column}
-.grind-history-row{display:grid;grid-template-columns:96px minmax(0,1fr) 72px 76px 80px 60px 64px;gap:8px;align-items:center;width:100%;padding:8px 14px;border-bottom:1px solid var(--rule);text-align:left;font-size:13px;background:none;font-variant-numeric:tabular-nums}
-.grind-history-row:not(.head):hover{background:var(--maple-tint);cursor:pointer}
-.grind-history-row.head{font-size:11px;color:var(--ink-3);cursor:default}
-.grind-history-row .who{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.grind-history-row .who small{color:var(--ink-3)}
-.grind-history-row .shared{margin-left:6px;padding:0 5px;font-style:normal;font-size:11px;border:1px solid var(--rule);color:var(--ink-2)}
 .grind-run-page{display:flex;flex-direction:column;gap:10px}.grind-back{align-self:flex-start;color:var(--ink-2)}
 .grind-share-backdrop{position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:rgba(20,18,14,.55)}
 .grind-share{display:flex;gap:16px;max-width:min(980px,94vw);padding:16px;background:var(--sheet);border:2px solid var(--edge);box-shadow:var(--hard)}

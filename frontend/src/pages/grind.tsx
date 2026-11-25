@@ -8,7 +8,7 @@ import { useAccount } from "../lib/query";
 import { ErrorState, Loading, usePageReady } from "../components/shared";
 import { SiteLink } from "../components/shell";
 import { RunDetail, Spark, big, clock, signed, span, when, type Comparison, type GrindRun } from "../components/grind-run";
-import { PeriodBoard } from "../components/grind-periods";
+import { GrindHistory } from "../components/grind-history";
 import { copyCard, drawCard, saveCard } from "../lib/grind-card";
 import { LiveView as ClientLive } from "../../desktop/grind-live";
 import { setTextLanguage, type Lang } from "../../desktop/i18n";
@@ -235,25 +235,8 @@ function MyRuns() {
   return (
     <>
     <LiveStrip runs={open} />
-    <PeriodBoard runs={runs} t={words} english={en} remember="grind.period" idOf={(run) => String(run.row)}>{(shown, picks) => (
-      <div className="grind-list">
-        <div className="gp-line">{picks && <span className="gp-pick" />}<div className="grind-list-row head"><span>{words("时间", "Time")}</span><span>{words("地图 · 角色", "Map · character")}</span><span>{words("时长", "Length")}</span>
-          <span>{words("经验/时", "EXP/h")}</span><span>{words("收益/时", "Profit/h")}</span><span /></div></div>
-        {shown.map((run) => (<div className="gp-line" key={run.row}>
-          {picks && <label className="gp-pick" title={words("勾两场对比", "Tick two to compare")}><input type="checkbox" checked={picks.has(String(run.row))}
-            disabled={picks.full && !picks.has(String(run.row))} onChange={() => picks.toggle(String(run.row))} aria-label={words("选这一场对比", "Compare this run")} /></label>}
-          <SiteLink className="grind-list-row" href={`/grind/run/${run.row}`}>
-            <span className="when">{when(run.started_at)}<em className="len"> · {span(run.active_seconds, en)}</em></span>
-            <span className="who"><b>{run.map_name || "—"}</b> <small>{run.character?.name} · {run.job_name} {run.level ?? ""}</small>
-              {run.share_code && <i>{words("已分享", "Shared")}</i>}</span>
-            <span>{span(run.active_seconds, en)}</span>
-            <span>{big(run.exp_per_hour, en)}{run.exp_per_hour != null && <small>/{words("时", "h")}</small>}</span>
-            <span className={run.net_per_hour ? "money" : undefined}>{signed(run.net_per_hour, en)}{run.net_per_hour != null && <small>/{words("时", "h")}</small>}</span>
-            <Spark run={run} />
-          </SiteLink></div>
-        ))}
-      </div>
-    )}</PeriodBoard>
+    <GrindHistory runs={runs} t={words} english={en} idOf={(run) => String(run.row)} shared={(run) => !!run.share_code}
+      row={(run, className, children) => <SiteLink className={className} href={`/grind/run/${run.row}`}>{children}</SiteLink>} />
     </>
   );
 }

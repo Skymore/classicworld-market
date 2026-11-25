@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.8.8：刷图历史和网站「我的记录」改用同一个列表：筛选、击杀列、换图次数一致，时长筛选会记住。\n'
         'v0.8.7：刷图历史可按时长筛选（5、10、20 分钟以上）；本地面板日志不再记页面中途断开的报错。\n'
         'v0.8.6：修复 v0.8.5 重算后 11-24 至今的刷图击杀仍是 0（旧版录像按改正后的规则还原错了）；更新后再重算一次。\n'
         'v0.8.5：修复刷图中途提示换频道、喝药不再记录（现金装备换位置的背包消息没认出来）；修复 11-24 更新后击杀一直记 0；更新后用本机报文重算这两天的记录。\n'

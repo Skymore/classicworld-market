@@ -908,10 +908,12 @@ async fn account(state: &AppState, headers: &HeaderMap) -> Result<i64, Response>
 
 /// Runs of every client linked to this account, newest first, without the bulky rows.
 pub async fn runs_of(db: &PgPool, account: i64, limit: i64) -> sqlx::Result<Value> {
-    let rows: Vec<(i64, Value, Option<String>)> = sqlx::query_as(
+    // The list leaves out the heavy parts; how many maps a run went through stays (the "+N").
+    let rows: Vec<(i64, Value, Option<String>, i32)> = sqlx::query_as(
         "SELECT r.id, r.summary - 'rate_history' - 'loot' - 'consumables' - 'segments' - 'attacks' - 'casts' - 'mobs' - 'drops' - 'finds'
                 - 'recent' - 'buffs' - 'combat' - 'damage',
-           (SELECT code FROM grind_shares s WHERE s.run=r.id ORDER BY created_at LIMIT 1)
+           (SELECT code FROM grind_shares s WHERE s.run=r.id ORDER BY created_at LIMIT 1),
+           CASE WHEN jsonb_typeof(r.summary->'segments') = 'array' THEN jsonb_array_length(r.summary->'segments') ELSE 0 END
          FROM grind_runs r JOIN collectors c ON c.id = r.collector_id
          WHERE c.account_id = $1 ORDER BY r.started_at DESC LIMIT $2",
     )
@@ -921,10 +923,11 @@ pub async fn runs_of(db: &PgPool, account: i64, limit: i64) -> sqlx::Result<Valu
     .await?;
     let mut runs: Vec<Value> = rows
         .into_iter()
-        .map(|(id, mut run, code)| {
+        .map(|(id, mut run, code, segments)| {
             if let Some(object) = run.as_object_mut() {
                 object.insert("row".into(), json!(id));
                 object.insert("share_code".into(), json!(code));
+                object.insert("segment_count".into(), json!(segments));
             }
             run
         })
