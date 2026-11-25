@@ -60,6 +60,7 @@ def publish(archive, root, download_base=update.DOWNLOAD_BASES[0], activate=True
     (target/'SHA256SUMS.txt').write_text(digest+'  '+archive.name+'\n', encoding='utf-8')
     (target/'release-notes.txt').write_text(
         '枫叶市集 '+tag+' — 扫描与采集\n\n'
+        'v0.8.4：重算刷图历史改用最低优先级，不再暂停限速：电脑空闲时全速算，游戏和采集器要用 CPU 时自动让开；旧记录里没存升级次数的掉落装备按满升级次数定价。\n'
         'v0.8.3：重算刷图历史时 CPU 限制在一个核心的 1/4，后台慢慢算，不再占满一个核心；之后记录里的装备带上升级次数，重新定价时也能按属性算。\n'
         'v0.8.2：刷图装备掉落按同属性定价（同属性成交加在售，没有时按相近属性），和摆摊页一致；怪物材料市价不超过 NPC 回收价 1.3 倍的按 NPC 价算；更新后重算历史记录。\n'
         'v0.8.1：适配 11-24 游戏更新（消息编号又挪了位），修复扫货停在“键位同步失败：键表格式未支持”；更新后用本机报文补算今天的记录。\n'

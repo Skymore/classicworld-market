@@ -35,39 +35,6 @@ class ReplayTracker(Tracker):
 REPLAY_VERSION = 'r9-2026-11-24'
 
 
-class Throttle:
-    """Keeps this process at or under `share` of one CPU core: after each ~0.2 s of CPU
-    it sleeps long enough that CPU / wall time stays at `share`. None: no limit (the
-    collector's own process, where a pass over the open run's frames must not lag)."""
-    CHECK_EVERY = 256
-
-    def __init__(self, share=None):
-        self.share = share
-        self.calls = 0
-        self.reset()
-
-    def reset(self):
-        self.wall, self.cpu = time.monotonic(), time.process_time()
-
-    def __call__(self):
-        if not self.share:
-            return
-        self.calls += 1
-        if self.calls % self.CHECK_EVERY:
-            return
-        cpu = time.process_time() - self.cpu
-        if cpu < .2:
-            return
-        rest = cpu / self.share - (time.monotonic() - self.wall)
-        if rest > 0:
-            time.sleep(min(rest, 5))
-        self.reset()
-
-
-# The rebuild process (grind_rebuild) sets a limit; replay and reconcile loops call it.
-throttle = Throttle()
-
-
 def file_start(path):
     """When a recording starts: its first record's time (the name is local time, which a
     clock or time zone change can move), else the time in frames_YYYYMMDD_HHMMSS_<s>."""
@@ -226,7 +193,6 @@ def replay_group(settings, prices, group, boundaries, now, stop, repair):
                         break
                     if stop is not None and stop.is_set():
                         return None
-                    throttle()
                     try:
                         record = json.loads(line)
                         if record.get('a') in ('pause', 'resume', 'toggle', 'end'):
@@ -287,9 +253,8 @@ def replay_group(settings, prices, group, boundaries, now, stop, repair):
 
 def reprice_history(data, prices, version):
     """Today's prices for runs the frames could not rebuild (older recordings, or
-    boundaries that no longer match): loot and every consumable,
-    with the totals and hourly net. Equipment rows before v0.8.3 keep their value:
-    they lack the remaining upgrades its attribute group needs. Sync re-uploads what changed."""
+    boundaries that no longer match): loot and every consumable, with the totals and
+    hourly net. Sync re-uploads what changed."""
     path = data / 'history.sqlite'
     if not path.exists():
         return 0
@@ -305,11 +270,15 @@ def reprice_history(data, prices, version):
         item_value = 0.0
         for row in summary.get('loot') or []:
             item = row.get('item_id')
-            # Equipment only with its remaining upgrades (rows from v0.8.3 on): older rows
-            # cannot find their attribute group and keep their value.
             gear = bool(item) and item // 1_000_000 == 1
-            if item and (not gear or (row.get('stats') is not None and 'remaining_upgrades' in row)):
-                piece = dict(stats=row['stats'], remaining_upgrades=row['remaining_upgrades']) if gear else None
+            piece = None
+            if gear and row.get('stats') is not None:
+                # Rows before v0.8.3 have no remaining upgrades: a drop is unscrolled, so
+                # it has all of the item's (the site sends them); without, its value stays.
+                slots = row['remaining_upgrades'] if 'remaining_upgrades' in row else (prices.row(item) or {}).get('upgrades')
+                if slots is not None:
+                    piece = dict(stats=row['stats'], remaining_upgrades=slots)
+            if item and (not gear or piece is not None):
                 unit, label = prices.loot(item, piece)
                 if unit is not None:
                     row.update(unit=unit, basis=label, value=unit * (row.get('quantity') or 0), priced=True)

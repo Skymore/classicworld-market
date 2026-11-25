@@ -112,6 +112,18 @@ pub fn niadb_jobs(stats: &Map<String, Value>) -> Option<i64> {
     }
 }
 
+/// Upgrade slots of an unscrolled piece: NiaDB's `slots`, else Mapledex's `tuc`.
+pub fn base_upgrades(record: &Value) -> Option<i64> {
+    record
+        .pointer("/niadb_reference/stats/slots")
+        .and_then(Value::as_i64)
+        .or_else(|| {
+            record
+                .pointer("/mapledex_reference/data/tuc")
+                .and_then(Value::as_i64)
+        })
+}
+
 /// `None` for anything but equipment.
 pub fn equipment_reference(
     item: &ItemSummary,
@@ -173,9 +185,7 @@ pub fn equipment_reference(
                 .or_else(|| mapledex.and_then(|m| int(m, "attackSpeed")))
         })
         .flatten();
-    let upgrades = niadb
-        .and_then(|n| int(n, "slots"))
-        .or_else(|| mapledex.and_then(|m| int(m, "tuc")));
+    let upgrades = record.and_then(base_upgrades);
     Some(EquipmentReference {
         req,
         jobs,

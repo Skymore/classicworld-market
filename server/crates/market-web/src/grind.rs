@@ -334,6 +334,23 @@ pub async fn price_rows(
         .into_iter()
         .collect()
     };
+    // Upgrade slots of an unscrolled piece: a drop has them all, so the collector can
+    // price equipment rows saved without their remaining upgrades (before v0.8.3).
+    let upgrades: HashMap<i32, i64> = if equipment.is_empty() {
+        HashMap::new()
+    } else {
+        sqlx::query_as::<_, (i32, Value)>(
+            "SELECT item_id, record FROM item_records WHERE item_id = ANY($1)",
+        )
+        .bind(&equipment)
+        .fetch_all(db)
+        .await?
+        .into_iter()
+        .filter_map(|(id, record)| {
+            crate::bestiary::equipment::base_upgrades(&record).map(|n| (id, n))
+        })
+        .collect()
+    };
     let keys_of = |item: i32| {
         market_core::item::key_stats(masks.get(&item).copied().flatten().map(i64::from))
     };
@@ -439,7 +456,8 @@ pub async fn price_rows(
             id.to_string(),
             json!({"name": zh, "name_en": en, "typical": typical, "npc_shop": shop,
                    "npc_sell": sell.get(&id), "groups": item_groups,
-                   "key_stats": (id / 1_000_000 == 1).then(|| keys_of(id))}),
+                   "key_stats": (id / 1_000_000 == 1).then(|| keys_of(id)),
+                   "upgrades": upgrades.get(&id)}),
         );
     }
     let map_rows: Vec<(i32, String, String, bool)> = sqlx::query_as(

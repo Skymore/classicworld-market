@@ -12,7 +12,6 @@ import time
 from pathlib import Path
 
 from grind_frames import current_path, frame_files, frame_name, frame_size, open_frames, recorded_index, server_payload
-import grind_replay
 from grind_replay import file_start, frame_groups
 from grind_handoff import encode, decode, snapshot, restore
 from grind_pricing import Prices
@@ -80,7 +79,6 @@ def frames(data, offsets=None, paths=None):
                 line = stream.readline()
                 if not line.endswith(b'\n') or stream.tell() > size:
                     break
-                grind_replay.throttle()
                 yield name, stream.tell(), json.loads(line)
 
 

@@ -4,17 +4,13 @@ Capture, the overlay and the window are threads of one Python process, and Pytho
 thread at a time. Rebuilt in a thread there, the open run and 30 days of history (minutes of
 a full CPU core) starved the capture thread: its packet queue (8192) overflowed, every game
 connection was dropped with "Local capture queue overflow", a channel change did not help
-and the screen stuttered (2026-11-17, a teammate on 巫婆森林). Here it runs at below-normal
-priority and holds no lock the collector needs; progress is in files (replay.json groups,
-reconcile-pending.json), so ending the process when the app closes loses nothing.
+and the screen stuttered (2026-11-17, a teammate on 巫婆森林). Here it runs at idle
+priority (it takes only CPU the game and the collector leave) and holds no lock the
+collector needs; progress is in files (replay.json groups, reconcile-pending.json), so ending the process when the app closes loses nothing.
 """
 import json
 import sqlite3
 from pathlib import Path
-
-# The rebuild's CPU: a quarter of one core, so a 30-day rebuild (tens of minutes of a core)
-# runs in the background over a few hours instead of holding a core the whole time.
-CPU_SHARE = 0.25
 
 
 def needed(folder):
@@ -30,7 +26,7 @@ def needed(folder):
 def lower_priority():
     try:
         import psutil
-        psutil.Process().nice(getattr(psutil, 'BELOW_NORMAL_PRIORITY_CLASS', 10))
+        psutil.Process().nice(getattr(psutil, 'IDLE_PRIORITY_CLASS', 19))
     except Exception:
         pass
 
@@ -38,8 +34,6 @@ def lower_priority():
 def run(folder):
     """The open run first (its own connections, seconds), then history newest first."""
     lower_priority()
-    import grind_replay
-    grind_replay.throttle = grind_replay.Throttle(CPU_SHARE)
     folder = Path(folder)
     from grind_reconcile import prepare
     from grind_replay import REPLAY_VERSION, replay_once
