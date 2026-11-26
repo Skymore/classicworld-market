@@ -260,8 +260,8 @@ try {
     await page.close();
   }
   {
-    // 绩效模式: 积分 under the net (经验×0.8 + 金币×0.7 + 基础掉落×1 = 8000 + 10500 + 0); each block folds to one line.
-    settings.performance = { enabled: true, exp: 0.8, mesos: 0.7, drops: 1 };
+    // 绩效模式: 积分 under the net (1万经验 × 0.8 + 1.5万收益 × 0.7 = 0.8 + 1.05 = 1.85); each block folds to one line.
+    settings.performance = { enabled: true, exp_per_10k: 0.8, income_per_10k: 0.7 };
     const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await bridge(page);
@@ -269,7 +269,7 @@ try {
     await page.getByRole('button', { name: '刷图', exact: true }).click();
     const points = page.locator('.grind-rate-panels section[aria-label="积分"]');
     await points.waitFor();
-    assert.match(await points.innerText(), /1\.9万/);
+    assert.match(await points.innerText(), /累计\s*1\.9/);
     await points.getByRole('button', { name: /积分/ }).click();
     assert.match(await points.innerText(), /平均.*实时.*累计/s);
     assert.equal(await points.locator('svg.rate-chart').count(), 0, 'a folded block is one line');
@@ -279,7 +279,7 @@ try {
     await page.locator('.grind-rate-panels section.folded[aria-label="积分"]').waitFor();
     await page.getByRole('button', { name: '设置', exact: true }).click();
     await page.getByRole('heading', { name: '绩效模式' }).waitFor();
-    assert.equal(await page.getByLabel('经验单价').inputValue(), '0.8');
+    assert.equal(await page.getByLabel('每万经验积分').inputValue(), '0.8');
     assert.deepEqual(errors, []);
     await page.close();
     // 常用 (slim) overlay shows 积分 under the net too.
@@ -288,7 +288,9 @@ try {
     await overlay.goto(base + '/overlay.html');
     const stat = overlay.locator('.ov-stat[aria-label="积分"]');
     await stat.waitFor();
-    assert.match(await stat.innerText(), /1\.9万/);
+    assert.match(await stat.innerText(), /积分 1\.9/);
+    assert.equal(await overlay.locator('.ov-sec > .ov-stat[aria-label="积分"]').count(), 1, '积分 is its own card');
+    assert.doesNotMatch(await stat.innerText(), /基础掉落/);
     if (out) await overlay.screenshot({ path: path.join(out, 'grind-points-slim.png') });
     await overlay.close();
     delete settings.performance;

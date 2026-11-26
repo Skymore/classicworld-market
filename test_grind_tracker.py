@@ -179,9 +179,9 @@ class TrackerTest(unittest.TestCase):
     def test_performance_settings_merge_with_the_defaults(self):
         from grind_tracker import load_settings
         path = self.folder / 'grind' / 'settings.json'
-        path.write_text(json.dumps(dict(performance=dict(enabled=True, exp=1.5, bogus=1))), encoding='utf-8')
+        path.write_text(json.dumps(dict(performance=dict(enabled=True, exp_per_10k=1.5, exp=9))), encoding='utf-8')
         rule = load_settings(path)['performance']
-        self.assertEqual(rule, dict(enabled=True, exp=1.5, mesos=0.7, drops=1.0))
+        self.assertEqual(rule, dict(enabled=True, exp_per_10k=1.5, income_per_10k=0.7))
 
     def test_idle_pause_credits_ten_seconds_and_map_change_starts_a_segment(self):
         for _ in range(4):

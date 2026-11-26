@@ -164,17 +164,16 @@ function Pick({ label, checked, onPick, wide = false, children }: { label: strin
     onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(); } }}>{wide ? <b>{label}{children}</b> : <>{children}<b>{label}</b></>}</div>;
 }
 
-const RULE = { enabled: false, exp: 0.8, mesos: 0.7, drops: 1 };
+const RULE = { enabled: false, exp_per_10k: 0.8, income_per_10k: 0.7 };
 
-/** 绩效模式: 积分 = 经验 × 单价 + 金币 × 单价 + 基础掉落（药水等消耗品、怪物普通掉落）的价值 × 单价. */
+/** 绩效模式: 积分 = 每万经验的积分 + 每万收益（拾取金币 + 基础掉落价值）的积分. */
 function PerformanceSettings({ settings, save }: { settings: GrindSettings; save(changes: { performance: Partial<NonNullable<GrindSettings['performance']>> }): void }) {
   const rule = { ...RULE, ...settings.performance };
   return <section className="well"><div className="well-h"><h3>{tr('绩效模式', 'Performance mode')}</h3></div>
     <Check label={tr('开启绩效模式（净收益下方显示积分）', 'Turn on (points shown under the net)')} checked={rule.enabled} onChange={v => save({ performance: { enabled: v } })} />
     {rule.enabled && <>
-      <NumberField label={tr('经验单价', 'Per EXP')} value={rule.exp} min={0} max={1000} step={0.05} onChange={v => save({ performance: { exp: v } })} />
-      <NumberField label={tr('金币单价', 'Per meso')} value={rule.mesos} min={0} max={1000} step={0.05} onChange={v => save({ performance: { mesos: v } })} />
-      <NumberField label={tr('基础掉落单价', 'Per basic drop value')} value={rule.drops} min={0} max={1000} step={0.05} onChange={v => save({ performance: { drops: v } })} />
+      <NumberField label={tr('每万经验积分', 'Points per 10K EXP')} unit={tr('分', 'pts')} value={rule.exp_per_10k} min={0} max={100000} step={0.1} onChange={v => save({ performance: { exp_per_10k: v } })} />
+      <NumberField label={tr('每万收益积分', 'Points per 10K income')} unit={tr('分', 'pts')} value={rule.income_per_10k} min={0} max={100000} step={0.1} onChange={v => save({ performance: { income_per_10k: v } })} />
     </>}
   </section>;
 }

@@ -37,9 +37,9 @@ DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, 
                 overlay=dict(enabled=True, layout='slim', theme='dark', opacity=0.92, scale=1.0,
                              hide_in_capture=False, stream=False, mouse_through=False, x=None, y=None,
                              fields=['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent']),
-                # 绩效模式: a run's 积分 is exp × exp + mesos picked up × mesos + basic drops (their
-                # value) × drops; the net stays over everything. frontend grind-points.ts does the sum.
-                performance=dict(enabled=False, exp=0.8, mesos=0.7, drops=1.0))
+                # 绩效模式: 积分 per 10,000 experience plus per 10,000 收益 (mesos picked up and basic
+                # drops' value); the net stays over everything. frontend grind-points.ts does the sum.
+                performance=dict(enabled=False, exp_per_10k=0.8, income_per_10k=0.7))
 NESTED = ('overlay', 'hotkeys', 'performance')
 IDLE_CREDIT = 10
 ITEM_WAIT = autobuff.ITEM_WAIT
