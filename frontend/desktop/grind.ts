@@ -38,7 +38,7 @@ export interface RunSummary {
   loot?: LootRow[]; recent?: LootRow[]; consumables: Consumable[]; drops: { item_id: number; name: string | null; quantity: number }[];
   mobs: { mob_id: number; kills: number; name: string; attack_samples?: number; attack_distribution?: { attacks: number; kills: number }[] }[]; segments: Segment[];
   buffs: Buff[]; pets?: Pet[]; hp_lost: number; hp_drops: number;
-  timeline?: { start: number; bucket: number; last?: number; first?: number; step?: number; window?: number; exp: number[]; net: number[]; times?: number[]; mesos?: number[]; basic?: number[] };
+  timeline?: { start: number; bucket: number; last?: number; first?: number; step?: number; window?: number; exp: number[]; net: number[]; times?: number[]; mesos?: number[]; basic?: number[]; cost?: number[] };
   share_url?: string | null;
   attack_count: number; attacks: { skill: number; name: string; count: number; follow_up?: boolean }[]; casts: { skill: number; name: string; count: number }[];
   damage?: number | null; dps?: number | null; average_dps?: number | null;
@@ -60,7 +60,7 @@ export interface GrindSettings {
   count_mesos_spent: boolean; min_upload_seconds: number; overlay: OverlaySettings;
   buff_warn_seconds: number; buff_warn_version?: number; buff_sound: boolean; hp_warn?: boolean; auto_buff: boolean; auto_potion: boolean; hotkeys: Record<HotkeyAction, string>;
   /** 绩效模式: 积分 = 经验/1万 × exp_per_10k + 收益（金币 + 基础掉落价值）/1万 × income_per_10k. */
-  performance?: { enabled: boolean; exp_per_10k: number; income_per_10k: number };
+  performance?: { enabled: boolean; exp_per_10k: number; income_per_10k: number; cost_per_10k?: number };
 }
 export type HotkeyAction = 'overlay' | 'pause' | 'end';
 export interface GrindState {

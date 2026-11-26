@@ -168,6 +168,7 @@ class TrackerTest(unittest.TestCase):
         line = self.tracker.summarize(self.current(), self.clock() + 5)['timeline']
         self.assertEqual(line['basic'][-1], 5 * 12)
         self.assertIn('mesos', summary['timeline'])
+        self.assertIn('cost', summary['timeline'])
 
     def test_basic_drops_are_consumables_monster_drops_and_ores(self):
         from grind_tracker import basic_drop
@@ -181,7 +182,7 @@ class TrackerTest(unittest.TestCase):
         path = self.folder / 'grind' / 'settings.json'
         path.write_text(json.dumps(dict(performance=dict(enabled=True, exp_per_10k=1.5, exp=9))), encoding='utf-8')
         rule = load_settings(path)['performance']
-        self.assertEqual(rule, dict(enabled=True, exp_per_10k=1.5, income_per_10k=0.7))
+        self.assertEqual(rule, dict(enabled=True, exp_per_10k=1.5, income_per_10k=0.7, cost_per_10k=0.7))
 
     def test_idle_pause_credits_ten_seconds_and_map_change_starts_a_segment(self):
         for _ in range(4):

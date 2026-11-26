@@ -3,7 +3,8 @@ import { MesosIcon } from './mesos-icon';
 import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Coins, Sparkles, Trophy } from 'lucide-react';
-import { points as pointsTotal, pointsHistory, pointsPerHour, pointsText, type PointsRule } from '../src/components/grind-points';
+import { points as pointsTotal, pointsHistory, pointsPerHour, pointsSum, pointsText, type PointsRule } from '../src/components/grind-points';
+import { Info } from 'lucide-react';
 import { big, type RunSummary } from './grind';
 import { tr } from './i18n';
 import './grind-metrics.css';
@@ -67,7 +68,8 @@ export function RateStat({ run, kind, side, rule }: { run: RunSummary; kind: Kin
   // line on the right.
   const trend = minute != null && average ? (minute >= average ? 'up' : 'down') : null;
   return <div className="ov-stat" aria-label={name}>
-    <div className="ov-stat-top"><FoldTitle kind={kind} folded={false} fold={fold} label={`${short}/${tr('时', 'h')}`} className="ov-stat-label" /></div>
+    <div className="ov-stat-top"><FoldTitle kind={kind} folded={false} fold={fold} label={`${short}/${tr('时', 'h')}`} className="ov-stat-label" />
+      {rule && kind === 'points' && <span className="ov-info" role="img" aria-label={tr('积分怎么算', 'How points are counted')} title={pointsSum(run, rule, big, tr)}><Info size={13} /></span>}</div>
     <div className="ov-stat-mid"><span className="ov-avg"><b className="gold">{fmt(average ?? minute)}</b>
       {trend && <i className={'rate-trend ' + trend}>{trend === 'up' ? '▲' : '▼'}</i>}</span>
       <span className="ov-total">{short} <b>{kind === 'points' ? fmt(total) : signed(total)}</b></span></div>
@@ -122,7 +124,7 @@ export function RateMetrics({ run, kind, rule }: { run: RunSummary; kind: Kind; 
   const title = <FoldTitle kind={kind} folded={folded} fold={fold} label={short} icon className="rate-title" />;
   if (folded) return <FoldedLine name={name} title={title} average={average} minute={minute} total={total} fmt={fmt} />;
   return <section className="rate-metrics" aria-label={name}>
-    {title}
+    {rule && kind === 'points' ? <div className="rate-title-row">{title}<span className="ov-info" role="img" aria-label={tr('积分怎么算', 'How points are counted')} title={pointsSum(run, rule, big, tr)}><Info size={13} /></span></div> : title}
     <div className="rate-values">
       <div><small>{tr('平均/时', 'Average/h')}</small><b>{fmt(average)}</b></div>
       <div><small>{tr('实时/时', 'Live/h')}</small><b>{fmt(minute ?? null)}</b></div>

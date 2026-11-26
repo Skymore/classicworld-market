@@ -1,6 +1,7 @@
 import { HistoryView } from './grind-history';
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, Crosshair, Pause, Play, RefreshCw, SlidersHorizontal, Square } from 'lucide-react';
+import { AlertCircle, Crosshair, Info, Pause, Play, RefreshCw, SlidersHorizontal, Square } from 'lucide-react';
+import { POINTS_HELP } from '../src/components/grind-points';
 import { OverlayCard } from './overlay-card';
 import { BuffStrip, LiveView } from './grind-live';
 import { sampleLive } from './overlay-sample';
@@ -164,16 +165,20 @@ function Pick({ label, checked, onPick, wide = false, children }: { label: strin
     onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(); } }}>{wide ? <b>{label}{children}</b> : <>{children}<b>{label}</b></>}</div>;
 }
 
-const RULE = { enabled: false, exp_per_10k: 0.8, income_per_10k: 0.7 };
+const RULE = { enabled: false, exp_per_10k: 0.8, income_per_10k: 0.7, cost_per_10k: 0.7 };
 
-/** 绩效模式: 积分 = 每万经验的积分 + 每万收益（拾取金币 + 基础掉落价值）的积分. */
+/** 绩效模式: 积分 = 每万经验的积分 + 每万收益（拾取金币 + 基础掉落价值）的积分 − 每万消耗扣的分; ⓘ says how. */
 function PerformanceSettings({ settings, save }: { settings: GrindSettings; save(changes: { performance: Partial<NonNullable<GrindSettings['performance']>> }): void }) {
   const rule = { ...RULE, ...settings.performance };
-  return <section className="well"><div className="well-h"><h3>{tr('绩效模式', 'Performance mode')}</h3></div>
+  const [help, setHelp] = useState(false);
+  return <section className="well"><div className="well-h"><h3 className="grind-info-h">{tr('绩效模式', 'Performance mode')}
+    <button type="button" className="info-dot" aria-expanded={help} aria-label={tr('积分怎么算', 'How points are counted')} onClick={() => setHelp(!help)}><Info size={15} /></button></h3></div>
+    {help && <p className="note grind-help">{tr(...POINTS_HELP)}</p>}
     <Check label={tr('开启绩效模式（净收益下方显示积分）', 'Turn on (points shown under the net)')} checked={rule.enabled} onChange={v => save({ performance: { enabled: v } })} />
     {rule.enabled && <>
       <NumberField label={tr('每万经验积分', 'Points per 10K EXP')} unit={tr('分', 'pts')} value={rule.exp_per_10k} min={0} max={100000} step={0.1} onChange={v => save({ performance: { exp_per_10k: v } })} />
       <NumberField label={tr('每万收益积分', 'Points per 10K income')} unit={tr('分', 'pts')} value={rule.income_per_10k} min={0} max={100000} step={0.1} onChange={v => save({ performance: { income_per_10k: v } })} />
+      <NumberField label={tr('每万消耗扣分', 'Points off per 10K used')} unit={tr('分', 'pts')} value={rule.cost_per_10k} min={0} max={100000} step={0.1} onChange={v => save({ performance: { cost_per_10k: v } })} />
     </>}
   </section>;
 }

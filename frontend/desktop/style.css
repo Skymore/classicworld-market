@@ -259,3 +259,5 @@ button:hover:not(:disabled){filter:brightness(.96)}button:disabled{opacity:.48;c
 .grind-buffs .grind-buff-list{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px 18px}.grind-buff .t{display:flex;align-items:center;gap:5px}
 .grind-combat .party-heading{padding:8px 10px 2px}
 .grind-buff.off{color:var(--ink-3)}.grind-buff.off img{filter:grayscale(1);opacity:.6}
+.grind-info-h{display:flex;align-items:center;gap:6px}.info-dot{appearance:none;border:0;background:none;padding:0;color:var(--ink-2);cursor:pointer;display:inline-flex}.info-dot[aria-expanded=true]{color:var(--ink)}
+.grind-help{white-space:pre-line;margin:6px 0 8px;line-height:1.6}
