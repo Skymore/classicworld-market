@@ -3,7 +3,7 @@
 import { smoothPath, smoothRates } from "./smooth-path";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EntityLink, EntityRow } from "./entity-ref";
-import { timelineRates } from "../../desktop/grind";
+import { STAT_LABELS, timelineRates } from "../../desktop/grind";
 import { mobIcon, skillIcon } from "../../desktop/skill-icons";
 import { points, pointsPerHour, pointsSum, pointsText, type PointsRule } from "./grind-points";
 import { PointsDetail } from "./grind-points-detail";
@@ -40,11 +40,12 @@ export interface GrindRun {
   hp_lost?: number;
   hp_drops?: number;
   deaths?: number;
-  loot?: { item_id: number; name: string | null; quantity: number; value: number }[];
-  drops?: { item_id: number; name: string | null; quantity: number; value?: number }[];
+  /** Equipment rows keep the piece's own stats (grind_tracker.record_loot). */
+  loot?: { item_id: number; name: string | null; quantity: number; value: number; stats?: Stat[] | null; remaining_upgrades?: number | null }[];
+  drops?: { item_id: number; name: string | null; quantity: number; value?: number; stats?: Stat[] | null; remaining_upgrades?: number | null }[];
   consumables?: { item_id: number; name: string | null; used: number; cost?: number }[];
   /** Valuable drops for the player or the party, whoever picked them up. */
-  finds?: { t: number; item_id: number; name: string | null; value?: number | null; by?: "me" | "party" | null; by_name?: string | null }[];
+  finds?: { t: number; item_id: number; name: string | null; value?: number | null; by?: "me" | "party" | null; by_name?: string | null; piece?: { stats?: Stat[] | null; remaining_upgrades?: number | null } }[];
   mobs?: { mob_id: number; name: string; kills: number; attack_distribution?: { attacks: number; kills: number }[] }[];
   attacks?: { skill: number; name: string; count: number; follow_up?: boolean }[];
   casts?: { skill: number; name: string; count: number }[];
@@ -97,6 +98,13 @@ export function timelinePoints(run: Pick<GrindRun, "timeline">): ChartPoint[] {
   return timelineRates(line);
 }
 
+type Stat = { key: string; value: number };
+// A dropped piece's own stats for the quick preview (same shape as equipment.pieceData), so it
+// shows this piece (a 76-attack 九龙刀), not the catalogue's base stats.
+const pieceOf = (row: { stats?: Stat[] | null; remaining_upgrades?: number | null } | null | undefined) =>
+  row?.stats?.length ? JSON.stringify({ stats: row.stats, remaining_upgrades: row.remaining_upgrades ?? null, enhancements: null }) : undefined;
+const statText = (stats: Stat[], t: (zh: string, en: string) => string) =>
+  stats.filter(s => STAT_LABELS[s.key] && s.value).map(s => `${t(...STAT_LABELS[s.key])}+${s.value}`).join(" ");
 const hhmm = (t: number) => { const d = new Date(t * 1000); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 function ticks(low: number, high: number, count = 3) {
   return Array.from({ length: count + 1 }, (_, i) => low + ((high - low) * i) / count);
@@ -296,7 +304,8 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
           <h3>{t("战利品", "Loot")}{profit && <b className="money">{s(lootTotal)}</b>}</h3>
           {profit && (run.mesos || 0) > 0 && <div className="drow"><span className="eicon"><span className="coin" aria-hidden="true" /></span><span className="t"><b>{t("金币", "Mesos")}</b></span><span className="r money">{s(run.mesos)}</span></div>}
           <Rows rows={loot} limit={12} render={(row, i) => (
-            <EntityRow key={i} kind="item" id={row.item_id} name={row.name} note={`×${b(row.quantity)}`}
+            <EntityRow key={i} kind="item" id={row.item_id} name={row.name} piece={pieceOf(row)}
+              note={row.stats?.length ? statText(row.stats, t) : `×${b(row.quantity)}`}
               value={profit && "value" in row && row.value ? s(row.value) : null} />
           )} />
           {loot.length > 12 && <p className="gr-more">{t(`还有 ${loot.length - 12} 种`, `${loot.length - 12} more`)}</p>}
@@ -306,7 +315,7 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
           <section className="gr-well">
             <h3>{t("全队好掉落", "Party finds")}</h3>
             <Rows rows={run.finds} limit={12} render={(row, i) => (
-              <EntityRow key={i} kind="item" id={row.item_id} name={row.name}
+              <EntityRow key={i} kind="item" id={row.item_id} name={row.name} piece={pieceOf(row.piece)}
                 note={row.by === "me" ? t("自己", "You") : row.by === "party" ? row.by_name || t("队友", "Party") : null}
                 value={profit && row.value ? s(row.value) : null} />
             )} />

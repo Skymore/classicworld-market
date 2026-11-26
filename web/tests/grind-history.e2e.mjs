@@ -20,6 +20,9 @@ const hour = 3600;
 const runs = [base(1 * hour, 3, '破败的坟墓', 'Skyyyy', 36, 1), base(2 * hour, 12, '破败的坟墓', 'Skyyyy', 300, 2),
   base(3 * hour, 25, '第3军营', 'Other', 900, 1), base(4 * hour, 165, '破败的坟墓', 'Skyyyy', 2777, 3),
   base(40 * 24 * hour, 30, '旧地图', 'Old', 50, 1)];   // another period: never offered in this one's filters
+// The piece picked up keeps its own stats: its quick preview shows those, not the catalogue's.
+runs[4 - 1].loot = [{ item_id: 1432006, name: '九龙刀', quantity: 1, value: 800000, remaining_upgrades: 7,
+  stats: [{ key: 'weapon_attack', value: 76 }] }];
 const comparison = { level_from: 71, level_to: 75, job: 310, runs: 12, exp_better_than: 0.75, exp_per_hour_median: 50000 };
 const site = runs.map((r, i) => { const { segments, ...rest } = r; return { ...rest, row: i + 1, share_code: i === 3 ? 'abc' : null, segment_count: segments }; });
 const client = runs.map((r, i) => ({ ...r, id: `run${i}`, segments: Array.from({ length: r.segments }, () => ({})), share_url: null }));
@@ -34,6 +37,8 @@ const server = createServer(async (req, res) => {
   const one = url.pathname.match(/^\/api\/v1\/grind\/runs\/(\d+)(\/share)?$/);
   if (one && one[2]) { shares.push(one[1]); return json(res, { code: 'site1234', url: 'unused' }); }
   if (one) return json(res, { row: Number(one[1]), run: site[Number(one[1]) - 1], share_code: null, comparison });
+  if (url.pathname === '/api/v1/catalog/page') return json(res, { kind: 'item', page: { item: { id: 1432006, name_zh: '九龙刀', name_en: 'The Nine Dragons', category: '装备', req_level: 50 },
+    stats: null, droppers: [], npc_offers: [], equipment: { upgrades: 7 }, market: { listings: [], sales: [], days: [], sale_points: [], base_stats: [['weapon_attack', 75]] } } });
   if (url.pathname === '/api/v1/grind/live') return json(res, { runs: [] });
   if (url.pathname === '/api/v1/grind/leaderboard') return json(res, { rows: [] });
   if (url.pathname.endsWith('/events')) { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.write(': ok\n\n'); return; }
@@ -75,6 +80,15 @@ async function list(page, label) {
 async function runPage(page, label) {
   await page.locator('.gh-row:not(.head)').last().click();
   await page.getByText('这场经验效率高于 75%').waitFor();
+  const blade = page.locator('[data-piece-item="1432006"]');
+  assert.match(await blade.innerText(), /攻击\+76/, label + ': the dropped piece shows its own stats');
+  if (label === 'site') {   // the client opens the site's item page instead of a preview
+    await blade.hover();
+    await page.locator('.item-peek.is-piece [data-preview-piece]').waitFor();
+    assert.match(await page.locator('.item-peek').innerText(), /76/, label + ': its preview shows this piece');
+    assert.doesNotMatch(await page.locator('.item-peek').innerText(), /\+75/, label + ': not the catalogue base');
+    await page.mouse.move(0, 0);
+  }
   await page.getByRole('button', { name: '分享' }).click();
   const link = page.locator('.gs-url');
   await page.waitForFunction(() => /\/g\//.test(document.querySelector('.gs-url')?.value || ''));

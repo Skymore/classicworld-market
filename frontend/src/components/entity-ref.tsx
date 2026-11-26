@@ -70,6 +70,7 @@ export function EntityLink({
   className,
   title,
   style,
+  piece,
   children,
 }: {
   kind: EntityKind;
@@ -78,6 +79,8 @@ export function EntityLink({
   className?: string;
   title?: string;
   style?: React.CSSProperties;
+  /** One piece of equipment's own stats (equipment.pieceData): the quick preview shows them. */
+  piece?: string;
   children: ReactNode;
 }) {
   const path = id ? entityPath(kind, id, variant) : null;
@@ -88,6 +91,7 @@ export function EntityLink({
     "data-entity": kind,
     "data-entity-id": id,
     ...(kind === "item" ? { "data-item-link": id } : {}),
+    ...(piece ? { "data-piece-item": id, "data-piece": piece } : {}),
   };
   if (!path) return <span {...props}>{children}</span>;
   const stop = (event: React.MouseEvent) => event.stopPropagation();
@@ -146,6 +150,7 @@ export function EntityRow({
   variant,
   className,
   title,
+  piece,
 }: {
   kind: EntityKind;
   id: number;
@@ -157,9 +162,10 @@ export function EntityRow({
   variant?: number | null;
   className?: string;
   title?: string;
+  piece?: string;
 }) {
   return (
-    <EntityLink kind={kind} id={id} variant={variant} title={title} className={"drow" + (className ? " " + className : "")}>
+    <EntityLink kind={kind} id={id} variant={variant} title={title} piece={piece} className={"drow" + (className ? " " + className : "")}>
       <EntityIcon kind={kind} id={id} icon={icon} />
       <span className="t">
         <b>{name || `#${id}`}</b>
