@@ -87,6 +87,7 @@ async function runPage(page, label) {
     await page.locator('.item-peek.is-piece [data-preview-piece]').waitFor();
     assert.match(await page.locator('.item-peek').innerText(), /76/, label + ': its preview shows this piece');
     assert.doesNotMatch(await page.locator('.item-peek').innerText(), /\+75/, label + ': not the catalogue base');
+    assert.match(await page.locator('.item-peek .peek-footer a').getAttribute('href'), /like=weapon_attack%3A76/, label + ': its details link filters by its stats');
     await page.mouse.move(0, 0);
   }
   await page.getByRole('button', { name: '分享' }).click();

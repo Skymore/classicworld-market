@@ -547,6 +547,22 @@ export default function Item({ page }: { page: any }) {
       navigate(route.pathname + "?" + params, { replace: true });
     }
   }, [period.ready, period.hours, route.pathname]);
+  // From one piece's preview (`like=weapon_attack:76,...`): filter offers to its stats or better,
+  // then drop the parameter so a reload keeps the filter the user can change.
+  useEffect(() => {
+    const params = new URLSearchParams(route.search),
+      like = params.get("like");
+    if (like == null) return;
+    if (equipment) {
+      const stats = like.split(",").map((part) => {
+        const [stat, min] = part.split(":");
+        return { stat, min: Number(min) };
+      });
+      saveFilters(JSON.stringify(normalizeOfferFilters({ ...filters, stats })));
+    }
+    params.delete("like");
+    navigate(route.pathname + (params.size ? "?" + params : ""), { replace: true });
+  }, [route.search]);
   const show = (key: string) => setMore((old) => new Set([...old, key]));
   const range = (
     <>

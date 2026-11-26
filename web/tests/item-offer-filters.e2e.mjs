@@ -297,6 +297,13 @@ try {
     assert.equal((await bulkRows()).length,3,'collapsing returns to the preview');
     assert.equal(await page.locator('.offer-group').count(),2,'other sets keep their own preview');
     await page.screenshot({path:path.join(output,`offer-group-paging-${mobile?'mobile':'desktop'}.png`)});
+    // From one piece's preview (like=...): the page opens filtered to that piece's stats or better.
+    await page.evaluate(()=>localStorage.removeItem('item.offerFilters.1002000'));
+    await page.goto(url + '&like=' + encodeURIComponent('weapon_attack:17,str:1')); await waitRevision();
+    await page.waitForFunction(() => !new URL(location.href).searchParams.has('like'));
+    assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('item.offerFilters.1002000')).stats),
+      [{stat:'weapon_attack',min:17},{stat:'str',min:1}],"a piece's stats become the offer filter");
+    await page.evaluate(()=>localStorage.removeItem('item.offerFilters.1002000'));
     assert.deepEqual(errors, []); await page.close();
     console.log(`PASS ${mobile?'mobile Chinese':'desktop English'}: adjacent button, draft/apply/reset, combined filters, sort independence, reload, realtime dialog, room map, pagination and layout`);
   }

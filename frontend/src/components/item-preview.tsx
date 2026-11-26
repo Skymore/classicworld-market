@@ -22,6 +22,14 @@ type Hit = {
   // One listed equipment piece (`data-piece`): show its game tooltip.
   piece?: any;
 };
+// `like=weapon_attack:76,str:3`: this piece's stats, for the item page's offer filters.
+function likeUrl(url: string, piece: any) {
+  const like = (piece?.stats || [])
+    .filter((stat: any) => Number(stat.value) > 0)
+    .map((stat: any) => `${stat.key}:${Math.floor(Number(stat.value))}`)
+    .join(",");
+  return like ? `${url}&like=${encodeURIComponent(like)}` : url;
+}
 export function previewItem(target: Element, origin: string): Hit | null {
   // A listing row of captured equipment, with or without its own item link.
   const row = target.closest<HTMLElement>("[data-piece-item]");
@@ -397,7 +405,8 @@ export default function ItemPreview() {
             />
             {!here && (
               <footer className="peek-footer">
-                <a href={url} onClick={() => close(false, true)}>
+                {/* The item page opens filtered to offers at least as good as this piece (item.tsx `like`). */}
+                <a href={likeUrl(url, piece)} onClick={() => close(false, true)}>
                   {words("查看物品详情 →", "Open item details →")}
                 </a>
               </footer>
