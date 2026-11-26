@@ -282,6 +282,15 @@ try {
     assert.equal(await page.getByLabel('经验单价').inputValue(), '0.8');
     assert.deepEqual(errors, []);
     await page.close();
+    // 常用 (slim) overlay shows 积分 under the net too.
+    const overlay = await browser.newPage({ viewport: { width: 320, height: 900 } });
+    await bridge(overlay, { layout: 'slim', fields: ['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent'] });
+    await overlay.goto(base + '/overlay.html');
+    const stat = overlay.locator('.ov-stat[aria-label="积分"]');
+    await stat.waitFor();
+    assert.match(await stat.innerText(), /1\.9万/);
+    if (out) await overlay.screenshot({ path: path.join(out, 'grind-points-slim.png') });
+    await overlay.close();
     delete settings.performance;
   }
   console.log('Grind combat table, live updates, all 20 overlay combinations, the slim preset and its drop list, and the buff warning timing passed.');

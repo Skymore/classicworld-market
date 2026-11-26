@@ -58,10 +58,11 @@ ITEM_MATCH_SECONDS = 2
 
 def basic_drop(item):
     """Counted in 积分 (绩效模式): potions, foods and other recovery or buff consumables
-    (200–202xxxx) and monsters' own etc drops (4000xxx); never scrolls, stars, books,
-    ores, quest items or equipment. Same rule as frontend grind-points.ts."""
+    (200–202xxxx), monsters' own etc drops (4000xxx) and ores (crystal 4004xxx, mineral
+    and jewel 401–402xxxx); never scrolls, stars, books, quest items or equipment. Same
+    rule as frontend grind-points.ts."""
     item = item or 0
-    return 200 <= item // 10000 <= 202 or item // 1000 == 4000
+    return 200 <= item // 10000 <= 202 or item // 1000 in (4000, 4004) or 401 <= item // 10000 <= 402
 
 
 def load_settings(path):

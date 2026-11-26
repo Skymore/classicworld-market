@@ -169,11 +169,11 @@ class TrackerTest(unittest.TestCase):
         self.assertEqual(line['basic'][-1], 5 * 12)
         self.assertIn('mesos', summary['timeline'])
 
-    def test_basic_drops_are_consumables_and_monster_drops_only(self):
+    def test_basic_drops_are_consumables_monster_drops_and_ores(self):
         from grind_tracker import basic_drop
-        for item in (2000002, 2002000, 2010005, 2022000, 4000019, 4000000):
+        for item in (2000002, 2002000, 2010005, 2022000, 4000019, 4000000, 4010000, 4020008, 4004000, 4011001):
             self.assertTrue(basic_drop(item), item)
-        for item in (2040001, 2070000, 2290000, 2030000, 4010000, 4031000, 1082002, None):
+        for item in (2040001, 2070000, 2290000, 2030000, 4031000, 4030000, 1082002, None):
             self.assertFalse(basic_drop(item), item)
 
     def test_performance_settings_merge_with_the_defaults(self):

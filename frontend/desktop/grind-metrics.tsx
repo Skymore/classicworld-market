@@ -19,10 +19,44 @@ export function rateHistory(run: RunSummary): { t: number; exp: number; net: num
 /** One rate as a label, a large live number and the session average; the mark says which way the live rate leans. */
 const signed = (value: number | null | undefined) => value == null ? '—' : (value > 0 ? '+' : '') + big(value);
 
-export function RateStat({ run, kind, side }: { run: RunSummary; kind: 'exp' | 'net'; side?: React.ReactNode }) {
-  const average = kind === 'exp' ? run.exp_per_hour : run.net_per_hour;
-  const minute = kind === 'exp' ? run.exp_per_hour_1m : run.net_per_hour_1m;
-  const values = smoothRates(rateHistory(run), ['exp', 'net']).map(p => p[kind]);
+type Kind = 'exp' | 'net' | 'points';
+
+/** A block's numbers: name, run total, average and last-minute rate per hour, and the trend. */
+function series(run: RunSummary, kind: Kind, rule?: PointsRule) {
+  const scored = kind === 'points' && rule ? rule : null;
+  const history = scored ? smoothRates(pointsHistory(run, scored).map(p => ({ t: p.t, v: p.value })), ['v'])
+    : smoothRates(rateHistory(run), ['exp', 'net']).map(p => ({ t: p.t, v: kind === 'exp' ? p.exp : p.net }));
+  return {
+    scored, history,
+    name: kind === 'exp' ? tr('经验', 'EXP') : scored ? tr('积分', 'Points') : tr('金币净收益', 'Net mesos'),
+    short: kind === 'exp' ? tr('经验', 'EXP') : scored ? tr('积分', 'Points') : tr('净收益', 'Net'),
+    total: kind === 'exp' ? run.exp : scored ? pointsTotal(run, scored) : run.net,
+    average: kind === 'exp' ? run.exp_per_hour : scored ? pointsPerHour(run, scored) : run.net_per_hour,
+    // 积分's last minute is the chart's last point while the run goes on.
+    minute: kind === 'exp' ? run.exp_per_hour_1m : scored ? (run.status === 'active' ? history.at(-1)?.v ?? null : null) : run.net_per_hour_1m,
+  };
+}
+
+/** A folded block: one line with the average (highlighted), the last minute and the total. */
+function FoldedLine({ name, title, average, minute, total }: { name: string; title: React.ReactNode; average: number | null | undefined; minute: number | null | undefined; total: number }) {
+  return <section className="rate-metrics folded" aria-label={name}>{title}
+    <span><small>{tr('平均', 'Avg')}</small><b>{big(average ?? null)}</b></span>
+    <span><small>{tr('实时', 'Live')}</small><b>{big(minute ?? null)}</b></span>
+    <span><small>{tr('累计', 'Total')}</small><b>{big(total)}</b></span></section>;
+}
+
+function FoldTitle({ kind, folded, fold, label, icon, className }: { kind: Kind; folded: boolean; fold(): void; label: string; icon?: boolean; className: string }) {
+  const mark = kind === 'exp' ? <Sparkles size={13} /> : kind === 'points' ? <Trophy size={13} /> : <MesosIcon size={13} />;
+  return <button type="button" className={className} aria-expanded={!folded} onClick={fold}>
+    {folded ? <ChevronRight size={13} className="rate-fold" /> : <ChevronDown size={13} className="rate-fold" />}{icon && mark}{label}</button>;
+}
+
+export function RateStat({ run, kind, side, rule }: { run: RunSummary; kind: Kind; side?: React.ReactNode; rule?: PointsRule }) {
+  const [folded, fold] = useFolded(kind);
+  const { name, short, total, average, minute, history } = series(run, kind, rule);
+  if (folded) return <FoldedLine name={name} average={average} minute={minute} total={total}
+    title={<FoldTitle kind={kind} folded fold={fold} label={short} icon className="rate-title" />} />;
+  const values = history.map(p => p.v);
   const low = Math.min(...values, average ?? Infinity), span = Math.max(1, Math.max(...values, average ?? -Infinity) - low);
   const y = (value: number) => 22 - (value - low) / span * 20;
   const points = values.map((v, i) => `${i / Math.max(1, values.length - 1) * 100},${y(v)}`).join(' ');
@@ -31,11 +65,11 @@ export function RateStat({ run, kind, side }: { run: RunSummary; kind: 'exp' | '
   // left (time to the next level, or mesos picked up), the last minute ("实时") over the trend
   // line on the right.
   const trend = minute != null && average ? (minute >= average ? 'up' : 'down') : null;
-  return <div className="ov-stat" aria-label={kind === 'exp' ? tr('经验', 'EXP') : tr('金币净收益', 'Net mesos')}>
-    <div className="ov-stat-top"><small>{kind === 'exp' ? tr('经验/时', 'EXP/h') : tr('净收益/时', 'Net/h')}</small></div>
+  return <div className="ov-stat" aria-label={name}>
+    <div className="ov-stat-top"><FoldTitle kind={kind} folded={false} fold={fold} label={`${short}/${tr('时', 'h')}`} className="ov-stat-label" /></div>
     <div className="ov-stat-mid"><span className="ov-avg"><b className="gold">{big(average ?? minute)}</b>
       {trend && <i className={'rate-trend ' + trend}>{trend === 'up' ? '▲' : '▼'}</i>}</span>
-      <span className="ov-total">{kind === 'exp' ? tr('经验', 'EXP') : tr('净收益', 'Net')} <b>{signed(kind === 'exp' ? run.exp : run.net)}</b></span></div>
+      <span className="ov-total">{short} <b>{kind === 'points' ? big(total) : signed(total)}</b></span></div>
     <div className={'ov-trend-row' + (side ? ' split' : '')}>
     {side && <div className="ov-side">{side}</div>}
     <div className="ov-trend-box">
@@ -66,17 +100,10 @@ function useFolded(kind: string): [boolean, () => void] {
 }
 
 /** 经验, 净收益 or 积分 (绩效模式, weighted by `rule`) as a block with the run's trend. */
-export function RateMetrics({ run, kind, rule }: { run: RunSummary; kind: 'exp' | 'net' | 'points'; rule?: PointsRule }) {
+export function RateMetrics({ run, kind, rule }: { run: RunSummary; kind: Kind; rule?: PointsRule }) {
   const [selected, setSelected] = useState<number | null>(null);
   const [folded, fold] = useFolded(kind);
-  const scored = kind === 'points' && rule ? rule : null;
-  const name = kind === 'exp' ? tr('经验', 'EXP') : scored ? tr('积分', 'Points') : tr('金币净收益', 'Net mesos');
-  const total = kind === 'exp' ? run.exp : scored ? pointsTotal(run, scored) : run.net;
-  const history = scored ? smoothRates(pointsHistory(run, scored).map(p => ({ t: p.t, v: p.value })), ['v'])
-    : smoothRates(rateHistory(run), ['exp', 'net']).map(p => ({ t: p.t, v: kind === 'exp' ? p.exp : p.net }));
-  const average = kind === 'exp' ? run.exp_per_hour : scored ? pointsPerHour(run, scored) : run.net_per_hour;
-  // 积分's last minute is the chart's last point while the run goes on.
-  const minute = kind === 'exp' ? run.exp_per_hour_1m : scored ? (run.status === 'active' ? history.at(-1)?.v ?? null : null) : run.net_per_hour_1m;
+  const { name, short, total, average, minute, history } = series(run, kind, rule);
   const values = history.map(p => p.v);
   const minimum = Math.min(...(values.length ? values : [minute ?? 0])), maximum = Math.max(...(values.length ? values : [minute ?? 0]));
   const padding = Math.max(1, (maximum - minimum) * .12, Math.abs(maximum) * .01);
@@ -90,13 +117,8 @@ export function RateMetrics({ run, kind, rule }: { run: RunSummary; kind: 'exp' 
   const hhmm = (t: number) => new Date(t * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   const left = (t: number) => `${x(t) / 3}%`, top = (v: number) => `${y(v) / .76}%`;
   const yTicks = [high - padding, (high + low) / 2, low + padding];
-  const icon = kind === 'exp' ? <Sparkles size={13} /> : scored ? <Trophy size={13} /> : <MesosIcon size={13} />;
-  const title = <button type="button" className="rate-title" aria-expanded={!folded} onClick={fold}>
-    {folded ? <ChevronRight size={13} className="rate-fold" /> : <ChevronDown size={13} className="rate-fold" />}{icon}{kind === 'net' ? tr('净收益', 'Net') : name}</button>;
-  if (folded) return <section className="rate-metrics folded" aria-label={name}>{title}
-    <span><small>{tr('平均', 'Avg')}</small><b>{big(average)}</b></span>
-    <span><small>{tr('实时', 'Live')}</small><b>{big(minute ?? null)}</b></span>
-    <span><small>{tr('累计', 'Total')}</small><b>{big(total)}</b></span></section>;
+  const title = <FoldTitle kind={kind} folded={folded} fold={fold} label={short} icon className="rate-title" />;
+  if (folded) return <FoldedLine name={name} title={title} average={average} minute={minute} total={total} />;
   return <section className="rate-metrics" aria-label={name}>
     {title}
     <div className="rate-values">

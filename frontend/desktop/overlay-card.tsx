@@ -2,6 +2,7 @@ import { MesosIcon } from './mesos-icon';
 import { PartyMetrics } from './party-metrics';
 import { mobIcon, skillIcon } from './skill-icons';
 import { RateMetrics, RateStat } from './grind-metrics';
+import { basicValue } from '../src/components/grind-points';
 // What the grind overlay shows, for a layout, a theme and a set of fields.
 import { useEffect, useRef, useState } from 'react';
 import { Clock3, Crosshair, Hourglass, Pause, Play, Square, Swords, TrendingUp } from 'lucide-react';
@@ -270,6 +271,8 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
       {show('kills') && <div className="ov-stat"><small>{tr('击杀/时', 'Kills/h')}</small><b>{big(run.kills_per_hour)}</b></div>}</div>}</section>}
     {(show('profit') || show('potions') || show('recent') || groundRows(live).length > 0) && <section className="ov-sec">
     {show('profit') && <RateStat run={run} kind="net" side={<b className="ov-mesos" title={tr('拾取的金币', 'Mesos picked up')}><MesosIcon size={14} />+{big(run.mesos)}</b>} />}
+    {show('profit') && rule && <RateStat run={run} kind="points" rule={rule}
+      side={<><small>{tr('基础掉落', 'Basic drops')}</small><b>+{big(basicValue(run))}</b></>} />}
     {show('recent') && <div className="ov-tally loot"><i className="ov-sign plus" title={tr('战利品', 'Loot')}>+</i>
       <span className="ov-icons">{(run.loot || run.recent || []).slice(0, 3).map((row, i) => <span key={i} className={row.notable ? 'gold' : ''} title={row.name || ''}><img src={itemIcon(row.item_id)} alt="" />{row.quantity}</span>)}</span>
       <b className="plus">+{big(run.item_value)}</b></div>}

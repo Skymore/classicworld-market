@@ -58,3 +58,4 @@ button.rate-title{appearance:none;border:0;background:none;padding:0;margin:0;co
 .grind-rate-panels.three{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:900px){.grind-rate-panels.three{grid-template-columns:1fr}}
 .ov-compact-metrics:has(>:nth-child(3)){grid-template-columns:repeat(3,1fr)}
+button.ov-stat-label{appearance:none;border:0;background:none;padding:0;margin:0;color:inherit;font:inherit;font-size:.85em;opacity:.6;cursor:pointer;display:inline-flex;align-items:center;gap:3px}

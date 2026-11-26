@@ -1,7 +1,8 @@
 // 积分 (绩效模式): a run's worth as experience × exp + mesos picked up × mesos + basic drops'
 // value × drops. The net stays over every drop; 积分 counts only basic drops: potions,
-// foods and other recovery or buff consumables (200–202xxxx) and monsters' own etc drops
-// (4000xxx), never scrolls, equipment or anything else. Same rule as grind_tracker.basic_drop.
+// foods and other recovery or buff consumables (200–202xxxx), monsters' own etc drops
+// (4000xxx) and ores (4004xxx, 401–402xxxx), never scrolls, equipment or anything else.
+// Same rule as grind_tracker.basic_drop.
 import { timelineRates } from "../../desktop/grind";
 
 export interface PointsRule { enabled?: boolean; exp: number; mesos: number; drops: number }
@@ -17,7 +18,10 @@ interface PointsRun {
     exp: number[]; net: number[]; times?: number[]; mesos?: number[]; basic?: number[] };
 }
 
-export const basicDrop = (item: number) => { const kind = Math.floor(item / 10000); return (kind >= 200 && kind <= 202) || Math.floor(item / 1000) === 4000; };
+export const basicDrop = (item: number) => {
+  const kind = Math.floor(item / 10000), group = Math.floor(item / 1000);
+  return (kind >= 200 && kind <= 202) || group === 4000 || group === 4004 || (kind >= 401 && kind <= 402);
+};
 
 /** The basic drops' value (summaries before 积分 existed: from the loot rows). */
 export const basicValue = (run: PointsRun) =>
