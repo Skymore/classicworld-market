@@ -284,6 +284,7 @@ try {
     await page.close();
     // 常用 (slim) overlay shows 积分 under the net too.
     const overlay = await browser.newPage({ viewport: { width: 320, height: 900 } });
+    run.timeline = { start: 0, first: 60, step: 10, window: 60, bucket: 10, exp: [100, 300, 200], net: [50, -20, 80], mesos: [60, 10, 90], basic: [0, 5, 0] };
     await bridge(overlay, { layout: 'slim', fields: ['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent'] });
     await overlay.goto(base + '/overlay.html');
     const stat = overlay.locator('.ov-stat[aria-label="积分"]');
@@ -291,9 +292,13 @@ try {
     assert.match(await stat.innerText(), /积分 1\.9/);
     assert.equal(await overlay.locator('.ov-sec > .ov-stat[aria-label="积分"]').count(), 1, '积分 is its own card');
     assert.doesNotMatch(await stat.innerText(), /基础掉落/);
+    const charts = await overlay.locator('.ov-stat .ov-trend').evaluateAll(nodes => nodes.map(n => { const r = n.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.width), Math.round(r.height)]; }));
+    assert.equal(charts.length, 3);
+    assert(charts.every(c => JSON.stringify(c) === JSON.stringify(charts[0])), `cards' charts line up: ${JSON.stringify(charts)}`);
     if (out) await overlay.screenshot({ path: path.join(out, 'grind-points-slim.png') });
     await overlay.close();
     delete settings.performance;
+    delete run.timeline;
   }
   console.log('Grind combat table, live updates, all 20 overlay combinations, the slim preset and its drop list, and the buff warning timing passed.');
 } finally { await browser.close(); server.close(); }

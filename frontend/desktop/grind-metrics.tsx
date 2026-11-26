@@ -71,8 +71,9 @@ export function RateStat({ run, kind, side, rule }: { run: RunSummary; kind: Kin
     <div className="ov-stat-mid"><span className="ov-avg"><b className="gold">{fmt(average ?? minute)}</b>
       {trend && <i className={'rate-trend ' + trend}>{trend === 'up' ? '▲' : '▼'}</i>}</span>
       <span className="ov-total">{short} <b>{kind === 'points' ? fmt(total) : signed(total)}</b></span></div>
-    <div className={'ov-trend-row' + (side ? ' split' : '')}>
-    {side && <div className="ov-side">{side}</div>}
+    {/* Always two columns, so every card's chart has the same size and place (积分 has no side figure). */}
+    <div className="ov-trend-row split">
+    <div className="ov-side">{side}</div>
     <div className="ov-trend-box">
     {minute != null && <span className="ov-live dim">{tr('实时', 'live')} <b>{fmt(minute)}</b>/h</span>}
     {values.length > 1 && <svg className="ov-trend" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
