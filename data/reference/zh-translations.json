@@ -425,6 +425,86 @@
    "en": "Black Friday Mystery Fashion Crate",
    "zh": "黑色星期五神秘时装箱",
    "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000052": {
+   "en": "Mano Statue",
+   "zh": "红蜗牛王雕像",
+   "note": "monster drop without a Chinese name; written from CMS terms"
+  },
+  "3000055": {
+   "en": "King Slime Balloon",
+   "zh": "绿水灵王气球",
+   "note": "monster drop without a Chinese name; written from CMS terms"
+  },
+  "3000056": {
+   "en": "Mushmom Balloon",
+   "zh": "蘑菇王气球",
+   "note": "monster drop without a Chinese name; written from CMS terms"
+  },
+  "3000057": {
+   "en": "Stumpy Figure",
+   "zh": "树妖王手办",
+   "note": "monster drop without a Chinese name; written from CMS terms"
+  },
+  "3000059": {
+   "en": "Painting of Shade",
+   "zh": "谢尔德的画像",
+   "note": "monster drop without a Chinese name; written from CMS terms"
+  },
+  "3000060": {
+   "en": "Painting of Zombie Mushmom",
+   "zh": "僵尸蘑菇王的画像",
+   "note": "monster drop without a Chinese name; written from CMS terms"
+  },
+  "3000062": {
+   "en": "Jr. Balrog Horn",
+   "zh": "蝙蝠怪的角",
+   "note": "monster drop without a Chinese name; written from CMS terms"
+  },
+  "4000151": {
+   "en": "Seedling",
+   "zh": "树苗",
+   "note": "monster drop without a Chinese name; written from CMS terms"
+  },
+  "4000152": {
+   "en": "Wooden Board",
+   "zh": "木板",
+   "note": "monster drop without a Chinese name; written from CMS terms"
+  },
+  "4000153": {
+   "en": "Slate",
+   "zh": "石板",
+   "note": "monster drop without a Chinese name; written from CMS terms"
+  },
+  "4000154": {
+   "en": "Skeledog's Bone",
+   "zh": "骷髅狗的骨头",
+   "note": "monster drop without a Chinese name; written from CMS terms"
+  },
+  "4000155": {
+   "en": "Dirty Bandage",
+   "zh": "脏绷带",
+   "note": "monster drop without a Chinese name; written from CMS terms"
+  },
+  "4000156": {
+   "en": "Rib",
+   "zh": "肋骨",
+   "note": "monster drop without a Chinese name; written from CMS terms"
+  },
+  "4000157": {
+   "en": "Pelvic Bone",
+   "zh": "骨盆",
+   "note": "monster drop without a Chinese name; written from CMS terms"
+  },
+  "4000158": {
+   "en": "Horse Skull",
+   "zh": "马头骨",
+   "note": "monster drop without a Chinese name; written from CMS terms"
+  },
+  "4031137": {
+   "en": "Very Dry Branch",
+   "zh": "非常干的树枝",
+   "note": "monster drop without a Chinese name; written from CMS terms"
   }
  },
  "quests": {

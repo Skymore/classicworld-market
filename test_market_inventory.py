@@ -52,6 +52,20 @@ class InventoryTests(unittest.TestCase):
             with self.assertRaises((ValueError, struct.error)):
                 snapshot(data)
 
+    def test_a_bag_grown_in_play_takes_pickups_in_its_new_slots(self):
+        # 2026-11-25 live: the etc bag grew 40 -> 45 ("7d00 04 2d"), then a Rib went to slot 41.
+        caps = list(self.inventory.capacities); caps[3] = 40
+        self.inventory.capacities = tuple(caps)
+        add = bytes.fromhex('72000000010000000000042900029c093d0000008005bb46e61702ffffffff010100006000000000'
+                            '18b68b6000000000000000000000')
+        self.assertEqual(len(add), 54)
+        self.inventory.observe(bytes.fromhex('7d00042d'), 'one')
+        self.assertEqual(self.inventory.capacities[3], 45)
+        self.inventory.observe(add, 'one')
+        self.assertEqual(self.quantities()[4000156], 1)
+        self.inventory.observe(bytes.fromhex('7d000420'), 'one')   # never shrinks
+        self.assertEqual(self.inventory.capacities[3], 45)
+
     def test_multiple_skill_point_books_shift_inventory_fields(self):
         data=character()
         data[229]=2

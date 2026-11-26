@@ -60,6 +60,7 @@ button.rate-title{appearance:none;border:0;background:none;padding:0;margin:0;co
 .ov-compact-metrics:has(>:nth-child(3)){grid-template-columns:repeat(3,1fr)}
 button.ov-stat-label{appearance:none;border:0;background:none;padding:0;margin:0;color:inherit;font:inherit;font-size:.85em;opacity:.6;cursor:pointer;display:inline-flex;align-items:center;gap:3px}
 /* ⓘ: how 积分 adds up, on hover. */
-.ov-info{opacity:.55;flex:none;cursor:help;display:inline-flex;align-items:center}
+.ov-info{appearance:none;border:0;background:none;padding:0;color:inherit;opacity:.55;flex:none;cursor:pointer;display:inline-flex;align-items:center}.ov-info[aria-expanded=true]{opacity:1}
+.ov-info-text{font-size:.78em;opacity:.8;line-height:1.5;margin:.2em 0 .3em;white-space:normal}
 .ov-stat-top .ov-info{margin-left:auto}
 .rate-title-row{display:flex;align-items:center;justify-content:space-between;gap:6px}

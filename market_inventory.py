@@ -253,6 +253,14 @@ class Inventory:
             return
         if session != self.session:
             return
+        if opcode == 0x7d and len(data) == 4 and 1 <= data[2] <= 5 and self.capacities is not None:
+            # A bag grown in play (2026-11-25: the etc bag 40 → 45, "7d00 04 2d"): the new size,
+            # else the next pickup in a new slot read as out of range and blinded the run.
+            if self.capacities[data[2]-1] < data[3] <= 96:
+                grown = list(self.capacities)
+                grown[data[2]-1] = data[3]
+                self.capacities = tuple(grown)
+            return
         if opcode == 0x72:
             if self.slots is None:
                 return

@@ -49,12 +49,24 @@ function FoldedLine({ name, title, average, minute, total, fmt }: { name: string
 
 function FoldTitle({ kind, folded, fold, label, icon, className }: { kind: Kind; folded: boolean; fold(): void; label: string; icon?: boolean; className: string }) {
   const mark = kind === 'exp' ? <Sparkles size={13} /> : kind === 'points' ? <Trophy size={13} /> : <MesosIcon size={13} />;
-  return <button type="button" className={className} aria-expanded={!folded} onClick={fold}>
+  // data-press: on the overlay the game window in front keeps clicks from the page; the client
+  // reads them from the system mouse and presses the button by this id (overlay.tsx).
+  return <button type="button" className={className} aria-expanded={!folded} onClick={fold} data-press={`fold-${kind}`}
+    onMouseDown={e => e.stopPropagation() /* not the overlay's drag-to-move */}>
     {folded ? <ChevronRight size={13} className="rate-fold" /> : <ChevronDown size={13} className="rate-fold" />}{icon && mark}{label}</button>;
 }
 
+/** ⓘ on the 积分 block: pressed (hover never reaches the overlay), it opens how this run's points add up. */
+function PointsInfo({ open, toggle }: { open: boolean; toggle(): void }) {
+  return <button type="button" className="ov-info" aria-expanded={open} aria-label={tr('积分怎么算', 'How points are counted')}
+    data-press="points-info" onMouseDown={e => e.stopPropagation()} onClick={toggle}><Info size={13} /></button>;
+}
+const PointsSum = ({ run, rule }: { run: RunSummary; rule: PointsRule }) =>
+  <div className="ov-info-text">{pointsSum(run, rule, big, tr).split('\n').map((line, i) => <div key={i}>{line}</div>)}</div>;
+
 export function RateStat({ run, kind, side, rule }: { run: RunSummary; kind: Kind; side?: React.ReactNode; rule?: PointsRule }) {
   const [folded, fold] = useFolded(kind);
+  const [info, setInfo] = useState(false);
   const { name, short, total, average, minute, history, fmt } = series(run, kind, rule);
   if (folded) return <FoldedLine name={name} average={average} minute={minute} total={total} fmt={fmt}
     title={<FoldTitle kind={kind} folded fold={fold} label={short} icon className="rate-title" />} />;
@@ -69,7 +81,8 @@ export function RateStat({ run, kind, side, rule }: { run: RunSummary; kind: Kin
   const trend = minute != null && average ? (minute >= average ? 'up' : 'down') : null;
   return <div className="ov-stat" aria-label={name}>
     <div className="ov-stat-top"><FoldTitle kind={kind} folded={false} fold={fold} label={`${short}/${tr('时', 'h')}`} className="ov-stat-label" />
-      {rule && kind === 'points' && <span className="ov-info" role="img" aria-label={tr('积分怎么算', 'How points are counted')} title={pointsSum(run, rule, big, tr)}><Info size={13} /></span>}</div>
+      {rule && kind === 'points' && <PointsInfo open={info} toggle={() => setInfo(!info)} />}</div>
+    {rule && kind === 'points' && info && <PointsSum run={run} rule={rule} />}
     <div className="ov-stat-mid"><span className="ov-avg"><b className="gold">{fmt(average ?? minute)}</b>
       {trend && <i className={'rate-trend ' + trend}>{trend === 'up' ? '▲' : '▼'}</i>}</span>
       <span className="ov-total">{short} <b>{kind === 'points' ? fmt(total) : signed(total)}</b></span></div>
@@ -107,6 +120,7 @@ function useFolded(kind: string): [boolean, () => void] {
 export function RateMetrics({ run, kind, rule }: { run: RunSummary; kind: Kind; rule?: PointsRule }) {
   const [selected, setSelected] = useState<number | null>(null);
   const [folded, fold] = useFolded(kind);
+  const [info, setInfo] = useState(false);
   const { name, short, total, average, minute, history, fmt } = series(run, kind, rule);
   const values = history.map(p => p.v);
   const minimum = Math.min(...(values.length ? values : [minute ?? 0])), maximum = Math.max(...(values.length ? values : [minute ?? 0]));
@@ -124,7 +138,8 @@ export function RateMetrics({ run, kind, rule }: { run: RunSummary; kind: Kind; 
   const title = <FoldTitle kind={kind} folded={folded} fold={fold} label={short} icon className="rate-title" />;
   if (folded) return <FoldedLine name={name} title={title} average={average} minute={minute} total={total} fmt={fmt} />;
   return <section className="rate-metrics" aria-label={name}>
-    {rule && kind === 'points' ? <div className="rate-title-row">{title}<span className="ov-info" role="img" aria-label={tr('积分怎么算', 'How points are counted')} title={pointsSum(run, rule, big, tr)}><Info size={13} /></span></div> : title}
+    {rule && kind === 'points' ? <><div className="rate-title-row">{title}<PointsInfo open={info} toggle={() => setInfo(!info)} /></div>
+      {info && <PointsSum run={run} rule={rule} />}</> : title}
     <div className="rate-values">
       <div><small>{tr('平均/时', 'Average/h')}</small><b>{fmt(average)}</b></div>
       <div><small>{tr('实时/时', 'Live/h')}</small><b>{fmt(minute ?? null)}</b></div>

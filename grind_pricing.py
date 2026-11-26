@@ -252,6 +252,10 @@ class Prices:
         sell = row.get('npc_sell') or NPC_SELL.get(item_id)
         if sell is not None:
             return sell, 'NPC 回收价'
+        if item_id in self.rows:
+            # The site answered and knows no price (quest items, 2026-11-25: 南瓜块, 派用面粉 and
+            # 牛奶罐 waited for a price forever): worth nothing, not "waiting for prices".
+            return 0, '无价格'
         return None, None
 
     def consumable(self, item_id):

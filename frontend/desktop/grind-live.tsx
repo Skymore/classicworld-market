@@ -47,7 +47,7 @@ export function LiveView({ run, live, warn, rule }: { run: RunSummary | null; li
         {byValue(run.loot || run.recent || []).map((row, i) => <div className={'grind-row grind-account-row' + (row.notable ? ' notable' : '')} key={i}>
           <img src={itemIcon(row.item_id)} alt="" width={24} height={24} loading="lazy" />
           <span className="t"><b>{row.name}</b>{row.stats?.length ? <small className="stats"> {statLine(row.stats)}</small> : null}</span>
-          <span className="quantity">×{row.quantity}</span><span className="amount" title={row.basis || ''}>{row.priced === false || !row.basis || row.basis === '无价格' ? <small>{tr('待估价', 'Unpriced')}</small> : <>+{big(row.value)} <MesosIcon size={12} aria-label={tr('金币', 'mesos')} /></>}</span>
+          <span className="quantity">×{row.quantity}</span><span className="amount" title={row.basis || ''}>{row.basis === '无价格' ? <small>{tr('无价格', 'No price')}</small> : row.priced === false || !row.basis ? <small>{tr('待估价', 'Unpriced')}</small> : <>+{big(row.value)} <MesosIcon size={12} aria-label={tr('金币', 'mesos')} /></>}</span>
         </div>)}
         {!run.mesos && !(run.loot || run.recent)?.length && <p className="note">{tr('还没有拾取。', 'Nothing picked up yet.')}</p>}
       </section>

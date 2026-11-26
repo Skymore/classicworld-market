@@ -14,6 +14,8 @@ class LootPriceTests(unittest.TestCase):
         self.assertEqual(prices.loot(4000156, basis='npc'), (57, 'NPC 回收价'))
         self.assertEqual(prices.loot(4000156, basis='none'), (0, '不计'))
         self.assertEqual(prices.loot(4999999), (None, None))
+        prices.rows[4031147] = dict(typical=None, npc_sell=None)   # answered, no price anywhere
+        self.assertEqual(prices.loot(4031147), (0, '无价格'))
 
     def test_pumpkin_pie_is_always_750(self):
         prices = Prices()

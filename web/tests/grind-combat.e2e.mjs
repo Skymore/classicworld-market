@@ -270,7 +270,7 @@ try {
     const points = page.locator('.grind-rate-panels section[aria-label="积分"]');
     await points.waitFor();
     assert.match(await points.innerText(), /累计\s*1.6/);
-    await points.getByRole('button', { name: /积分/ }).click();
+    await points.getByRole('button', { name: '积分', exact: true }).click();
     assert.match(await points.innerText(), /平均.*实时.*累计/s);
     assert.equal(await points.locator('svg.rate-chart').count(), 0, 'a folded block is one line');
     if (out) await page.locator('.grind-rate-panels').screenshot({ path: path.join(out, 'grind-points.png') });
@@ -295,7 +295,14 @@ try {
     assert.match(await stat.innerText(), /积分 1.6/);
     assert.equal(await overlay.locator('.ov-sec > .ov-stat[aria-label="积分"]').count(), 1, '积分 is its own card');
     assert.doesNotMatch(await stat.innerText(), /基础掉落/);
-    assert.match(await stat.locator('.ov-info').getAttribute('title'), /消耗 5000 × 每万 0.5 = −0.3[\s\S]*积分 1.6/);
+    // Hover never reaches the overlay: the ⓘ and the fold are pressed through their data-press ids.
+    await overlay.evaluate(() => window.__overlayPress('points-info'));
+    assert.match(await stat.locator('.ov-info-text').innerText(), /消耗 5000 × 每万 0.5 = −0.3[\s\S]*积分 1.6/);
+    const regions = await overlay.evaluate(() => [...document.querySelectorAll('[data-press]')].map(el => el.dataset.press));
+    for (const id of ['fold-exp', 'fold-net', 'fold-points', 'points-info']) assert(regions.includes(id), `${id} is a pressable region`);
+    await overlay.evaluate(() => window.__overlayPress('fold-points'));
+    await overlay.locator('section.folded[aria-label="积分"]').waitFor();
+    await overlay.evaluate(() => window.__overlayPress('fold-points'));
     const charts = await overlay.locator('.ov-stat .ov-trend').evaluateAll(nodes => nodes.map(n => { const r = n.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.width), Math.round(r.height)]; }));
     assert.equal(charts.length, 3);
     assert(charts.every(c => JSON.stringify(c) === JSON.stringify(charts[0])), `cards' charts line up: ${JSON.stringify(charts)}`);
