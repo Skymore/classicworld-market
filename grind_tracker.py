@@ -36,7 +36,11 @@ DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, 
                 hotkeys=dict(overlay='Ctrl+Alt+O', pause='Ctrl+Alt+P', end='Ctrl+Alt+E'),
                 overlay=dict(enabled=True, layout='slim', theme='dark', opacity=0.92, scale=1.0,
                              hide_in_capture=False, stream=False, mouse_through=False, x=None, y=None,
-                             fields=['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent']))
+                             fields=['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent']),
+                # 绩效模式: a run's 积分 is exp × exp + mesos picked up × mesos + basic drops (their
+                # value) × drops; the net stays over everything. frontend grind-points.ts does the sum.
+                performance=dict(enabled=False, exp=0.8, mesos=0.7, drops=1.0))
+NESTED = ('overlay', 'hotkeys', 'performance')
 IDLE_CREDIT = 10
 ITEM_WAIT = autobuff.ITEM_WAIT
 BLIND_LIMIT = 3600   # a longer gap between two known bag states is not bridged
@@ -52,12 +56,20 @@ PIN_DAYS, PIN_SHARE, PIN_MIN_SECONDS = 3, 0.5, 600
 ITEM_MATCH_SECONDS = 2
 
 
+def basic_drop(item):
+    """Counted in 积分 (绩效模式): potions, foods and other recovery or buff consumables
+    (200–202xxxx) and monsters' own etc drops (4000xxx); never scrolls, stars, books,
+    ores, quest items or equipment. Same rule as frontend grind-points.ts."""
+    item = item or 0
+    return 200 <= item // 10000 <= 202 or item // 1000 == 4000
+
+
 def load_settings(path):
     settings = json.loads(json.dumps(DEFAULTS))
     try:
         saved = json.loads(Path(path).read_text(encoding='utf-8'))
         for key, value in saved.items():
-            if key in ('overlay', 'hotkeys') and isinstance(value, dict):
+            if key in NESTED and isinstance(value, dict):
                 settings[key].update({k: v for k, v in value.items() if k in DEFAULTS[key]})
             elif key in DEFAULTS and type(value) is type(DEFAULTS[key]) or (key in DEFAULTS and isinstance(value, (int, float))
                                                                           and isinstance(DEFAULTS[key], (int, float))):
@@ -1570,6 +1582,7 @@ class Tracker:
             kills=kills, kills_per_hour=kills / hours if hours else None, kills_estimated=self.kills_estimated(run, character),
             deaths=run.deaths, exp_lost=run.exp_lost, exp_bridged=run.exp_bridged, gaps=run.gaps,
             mesos=money['cash'], item_value=money['loot'], consume_cost=money['cost'], mesos_spent=money['spent'],
+            basic_value=sum(amount for e, _, _, amount in rows if e['kind'] == 'loot' and basic_drop(e.get('item_id'))),
             net=money['net'], net_per_hour=money['net'] / hours if hours else None,
             net_per_hour_1m=net_1m, rate_history=rate_history, timeline=self.timeline(run, rows, now),
             cash_per_hour=money['cash'] / hours if hours else None, pending_prices=money['pending'],
@@ -1628,7 +1641,11 @@ class Tracker:
             return [round(total.window(a, window)) for a in offsets]
         exp = windowed([(slot * SLOT + SLOT / 2, v) for slot, v in slots])
         net = windowed(money)
-        line = dict(start=start, first=start + first, step=step, window=window, exp=exp, net=net, bucket=step)
+        # 积分 (绩效模式) is drawn from mesos picked up and basic drops' value, weighted on the page.
+        mesos = windowed([(e['t'], e['mesos']) for e in run.ledger if e['kind'] == 'mesos'])
+        basic = windowed([(e['t'], amount) for e, _, _, amount in rows if e['kind'] == 'loot' and basic_drop(e.get('item_id'))])
+        line = dict(start=start, first=start + first, step=step, window=window, exp=exp, net=net, bucket=step,
+                    mesos=mesos, basic=basic)
         if clock.pauses:
             line['times'] = [round(clock.wall(a), 1) for a in offsets]   # wall clock, for labels
         return line

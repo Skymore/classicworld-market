@@ -32,7 +32,8 @@ class ReplayTracker(Tracker):
 # Bump when a parser or accounting fix should rebuild history from the recordings.
 # Releases that only change the interface keep it, and nothing is replayed (2026-11-15:
 # every release replayed 30 days, 5.6 M frames, ~13 min of a CPU core, for nothing).
-REPLAY_VERSION = 'r11-2026-11-25'
+# r12: summaries carry 积分's inputs (basic_value, timeline mesos and basic).
+REPLAY_VERSION = 'r12-2026-11-25'
 
 
 def file_start(path):
@@ -294,6 +295,9 @@ def reprice_history(data, prices, version):
         mesos, spent = summary.get('mesos') or 0, summary.get('mesos_spent') or 0
         net = mesos + item_value - cost - spent
         hours = (summary.get('active_seconds') or 0) / 3600
+        from grind_tracker import basic_drop
+        # 积分 (绩效模式) of runs the frames could not rebuild: from the repriced loot rows.
+        summary['basic_value'] = round(sum(row.get('value') or 0 for row in summary.get('loot') or [] if basic_drop(row.get('item_id'))))
         summary.update(item_value=round(item_value), consume_cost=round(cost), net=round(net),
                        net_per_hour=net / hours if hours else summary.get('net_per_hour'), repriced=version)
         changed.append((json.dumps(summary, ensure_ascii=False), ident))

@@ -259,5 +259,30 @@ try {
     if (out) await page.locator('.ov-buffs').screenshot({ path: path.join(out, 'grind-pets.png') });
     await page.close();
   }
+  {
+    // 绩效模式: 积分 under the net (经验×0.8 + 金币×0.7 + 基础掉落×1 = 8000 + 10500 + 0); each block folds to one line.
+    settings.performance = { enabled: true, exp: 0.8, mesos: 0.7, drops: 1 };
+    const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
+    const errors = []; page.on('pageerror', e => errors.push(e.message));
+    await bridge(page);
+    await page.goto(base);
+    await page.getByRole('button', { name: '刷图', exact: true }).click();
+    const points = page.locator('.grind-rate-panels section[aria-label="积分"]');
+    await points.waitFor();
+    assert.match(await points.innerText(), /1\.9万/);
+    await points.getByRole('button', { name: /积分/ }).click();
+    assert.match(await points.innerText(), /平均.*实时.*累计/s);
+    assert.equal(await points.locator('svg.rate-chart').count(), 0, 'a folded block is one line');
+    if (out) await page.locator('.grind-rate-panels').screenshot({ path: path.join(out, 'grind-points.png') });
+    await page.reload();
+    await page.getByRole('button', { name: '刷图', exact: true }).click();
+    await page.locator('.grind-rate-panels section.folded[aria-label="积分"]').waitFor();
+    await page.getByRole('button', { name: '设置', exact: true }).click();
+    await page.getByRole('heading', { name: '绩效模式' }).waitFor();
+    assert.equal(await page.getByLabel('经验单价').inputValue(), '0.8');
+    assert.deepEqual(errors, []);
+    await page.close();
+    delete settings.performance;
+  }
   console.log('Grind combat table, live updates, all 20 overlay combinations, the slim preset and its drop list, and the buff warning timing passed.');
 } finally { await browser.close(); server.close(); }

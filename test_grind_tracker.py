@@ -163,6 +163,25 @@ class TrackerTest(unittest.TestCase):
         self.assertEqual(notable[0]['basis'], '同属性成交中位')
         potion = summary['consumables'][0]
         self.assertEqual((potion['item_id'], potion['used'], potion['remaining']), (2000000, 3, 7))
+        # 积分 (绩效模式) counts the monster's etc drop, not the glove; the net counts both.
+        self.assertEqual(summary['basic_value'], 5 * 12)
+        line = self.tracker.summarize(self.current(), self.clock() + 5)['timeline']
+        self.assertEqual(line['basic'][-1], 5 * 12)
+        self.assertIn('mesos', summary['timeline'])
+
+    def test_basic_drops_are_consumables_and_monster_drops_only(self):
+        from grind_tracker import basic_drop
+        for item in (2000002, 2002000, 2010005, 2022000, 4000019, 4000000):
+            self.assertTrue(basic_drop(item), item)
+        for item in (2040001, 2070000, 2290000, 2030000, 4010000, 4031000, 1082002, None):
+            self.assertFalse(basic_drop(item), item)
+
+    def test_performance_settings_merge_with_the_defaults(self):
+        from grind_tracker import load_settings
+        path = self.folder / 'grind' / 'settings.json'
+        path.write_text(json.dumps(dict(performance=dict(enabled=True, exp=1.5, bogus=1))), encoding='utf-8')
+        rule = load_settings(path)['performance']
+        self.assertEqual(rule, dict(enabled=True, exp=1.5, mesos=0.7, drops=1.0))
 
     def test_idle_pause_credits_ten_seconds_and_map_change_starts_a_segment(self):
         for _ in range(4):

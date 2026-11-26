@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EntityLink, EntityRow } from "./entity-ref";
 import { timelineRates } from "../../desktop/grind";
 import { mobIcon, skillIcon } from "../../desktop/skill-icons";
+import { basicValue, points, pointsPerHour, type PointsRule } from "./grind-points";
 import "./grind-run.css";
 
 export type Words = (zh: string, en: string) => string;
@@ -26,6 +27,7 @@ export interface GrindRun {
   kills_per_hour?: number | null;
   kills_estimated?: boolean;
   mesos?: number;
+  basic_value?: number;
   item_value?: number;
   consume_cost?: number;
   mesos_spent?: number;
@@ -227,8 +229,10 @@ function Rows<T>({ rows, limit, render }: { rows: T[]; limit: number; render(row
   return <>{rows.slice(0, limit).map(render)}</>;
 }
 
-export function RunDetail({ run, t, english = false, comparison, actions, profit = true }: {
+export function RunDetail({ run, t, english = false, comparison, actions, profit = true, rule }: {
   run: GrindRun; t: Words; english?: boolean; comparison?: Comparison | null; actions?: ReactNode; profit?: boolean;
+  /** 绩效模式 (the client's setting): 积分 shown after the net. */
+  rule?: PointsRule;
 }) {
   const b = (v: number | null | undefined) => big(v, english);
   const s = (v: number | null | undefined) => signed(v, english);
@@ -260,6 +264,9 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
         <div><small>{t("有效时长", "Active")}</small><b>{clock(run.active_seconds)}</b>{run.idle_seconds ? <span>{t("空闲", "Idle")} {clock(run.idle_seconds)}</span> : null}</div>
         <div><small>{t("经验", "EXP")}</small><b>{b(run.exp)}</b><span>{b(run.exp_per_hour)}/{t("时", "h")}</span></div>
         {profit && <div className="money"><small>{t("净收益", "Net")}</small><b>{s(run.net)}</b><span>{b(run.net_per_hour)}/{t("时", "h")}</span></div>}
+        {rule && <div className="money" title={t(`经验 ${b(run.exp)}×${rule.exp} + 金币 ${b(run.mesos)}×${rule.mesos} + 基础掉落 ${b(basicValue(run))}×${rule.drops}`,
+          `EXP ${b(run.exp)}×${rule.exp} + mesos ${b(run.mesos)}×${rule.mesos} + basic drops ${b(basicValue(run))}×${rule.drops}`)}>
+          <small>{t("积分", "Points")}</small><b>{b(points(run, rule))}</b><span>{b(pointsPerHour(run, rule))}/{t("时", "h")}</span></div>}
         <div><small>{run.kills_estimated ? t("击杀（按经验）", "Kills (by EXP)") : t("击杀", "Kills")}</small><b>{b(run.kills)}</b><span>{b(run.kills_per_hour)}/{t("时", "h")}</span></div>
         {run.average_dps != null && <div><small>DPS</small><b>{b(run.average_dps)}</b><span>{run.attack_count ? t(`攻击 ${b(run.attack_count)} 次`, `${b(run.attack_count)} attacks`) : ""}</span></div>}
       </div>

@@ -11,6 +11,9 @@ import {
   type GrindSettings, type GrindState, type HotkeyAction, type Live, type RunSummary,
 } from './grind';
 
+/** The 积分 rule while 绩效模式 is on. */
+export const pointsRule = (settings?: GrindSettings | null) => settings?.performance?.enabled ? settings.performance : undefined;
+
 /** board and all are the site's pages (地图效率榜, 全部用户), as on the site's 刷图. */
 type View = 'live' | 'history' | 'board' | 'all' | 'settings';
 const POLL_MS = 1000;
@@ -35,7 +38,7 @@ export default function GrindPage({ hidden, theme, lang }: { hidden: boolean; th
     if (hidden || view !== 'history') return;
     loadHistory();
   }, [hidden, view, loadHistory]);
-  type Changes = Partial<Omit<GrindSettings, 'overlay' | 'hotkeys'>> & { overlay?: Partial<GrindSettings['overlay']>; hotkeys?: Partial<GrindSettings['hotkeys']> };
+  type Changes = Partial<Omit<GrindSettings, 'overlay' | 'hotkeys' | 'performance'>> & { overlay?: Partial<GrindSettings['overlay']>; hotkeys?: Partial<GrindSettings['hotkeys']>; performance?: Partial<NonNullable<GrindSettings['performance']>> };
   const save = async (changes: Changes) => {
     try { const settings = await grind('settings', changes); setState(s => s && { ...s, settings }); }
     catch (e) { setError(String((e as Error)?.message || e)); }
@@ -68,8 +71,8 @@ export default function GrindPage({ hidden, theme, lang }: { hidden: boolean; th
       <span>{tr('游戏报文格式可能已变化，部分数字暂不可信；已自动开始录制，请把客户端更新到最新版。', 'The game messages may have changed; some numbers are unreliable. Recording started; update the collector.')}</span></div>}
     <div className="grind-body">
       {view === 'live' && !run && <BuffStrip live={live ?? null} warn={settings?.buff_warn_seconds ?? 3} />}
-      {view === 'live' && <LiveView run={run} live={live ?? null} warn={settings?.buff_warn_seconds ?? 3} />}
-      {view === 'history' && <HistoryView runs={history as any} reload={loadHistory} />}
+      {view === 'live' && <LiveView run={run} live={live ?? null} warn={settings?.buff_warn_seconds ?? 3} rule={pointsRule(settings)} />}
+      {view === 'history' && <HistoryView runs={history as any} reload={loadHistory} rule={pointsRule(settings)} />}
       {(view === 'board' || view === 'all') && <SitePage key={view} page={view === 'board' ? 'grind_board' : 'grind_all'} theme={theme} lang={lang} />}
       {view === 'settings' && settings && state && <SettingsView state={state} settings={settings} save={save} refresh={load} />}
     </div>
@@ -161,9 +164,24 @@ function Pick({ label, checked, onPick, wide = false, children }: { label: strin
     onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(); } }}>{wide ? <b>{label}{children}</b> : <>{children}<b>{label}</b></>}</div>;
 }
 
+const RULE = { enabled: false, exp: 0.8, mesos: 0.7, drops: 1 };
+
+/** 绩效模式: 积分 = 经验 × 单价 + 金币 × 单价 + 基础掉落（药水等消耗品、怪物普通掉落）的价值 × 单价. */
+function PerformanceSettings({ settings, save }: { settings: GrindSettings; save(changes: { performance: Partial<NonNullable<GrindSettings['performance']>> }): void }) {
+  const rule = { ...RULE, ...settings.performance };
+  return <section className="well"><div className="well-h"><h3>{tr('绩效模式', 'Performance mode')}</h3></div>
+    <Check label={tr('开启绩效模式（净收益下方显示积分）', 'Turn on (points shown under the net)')} checked={rule.enabled} onChange={v => save({ performance: { enabled: v } })} />
+    {rule.enabled && <>
+      <NumberField label={tr('经验单价', 'Per EXP')} value={rule.exp} min={0} max={1000} step={0.05} onChange={v => save({ performance: { exp: v } })} />
+      <NumberField label={tr('金币单价', 'Per meso')} value={rule.mesos} min={0} max={1000} step={0.05} onChange={v => save({ performance: { mesos: v } })} />
+      <NumberField label={tr('基础掉落单价', 'Per basic drop value')} value={rule.drops} min={0} max={1000} step={0.05} onChange={v => save({ performance: { drops: v } })} />
+    </>}
+  </section>;
+}
+
 function SettingsView({ state, settings, save, refresh }: {
   state: GrindState; settings: GrindSettings; refresh(): void;
-  save(changes: Partial<Omit<GrindSettings, 'overlay' | 'hotkeys'>> & { overlay?: Partial<GrindSettings['overlay']>; hotkeys?: Partial<GrindSettings['hotkeys']> }): void;
+  save(changes: Partial<Omit<GrindSettings, 'overlay' | 'hotkeys' | 'performance'>> & { overlay?: Partial<GrindSettings['overlay']>; hotkeys?: Partial<GrindSettings['hotkeys']>; performance?: Partial<NonNullable<GrindSettings['performance']>> }): void;
 }) {
   const o = settings.overlay;
   const calibration = state.calibration?.summary ?? state.live?.calibration ?? [];
@@ -215,6 +233,7 @@ function SettingsView({ state, settings, save, refresh }: {
       <NumberField label={tr('高价掉落提醒', 'Highlight loot worth')} unit={tr('金币', 'mesos')} value={settings.notable_value} min={0} max={10_000_000_000} step={10000} onChange={v => save({ notable_value: v })} />
       <Check label={tr('刷图时花掉的金币计入支出', 'Count mesos spent while grinding')} checked={settings.count_mesos_spent} onChange={v => save({ count_mesos_spent: v })} />
     </section>
+    <PerformanceSettings settings={settings} save={save} />
     <section className="well"><div className="well-h"><h3>{tr('自动记录', 'Automatic recording')}</h3></div>
       <Check label={tr('开启刷图记录', 'Record grinding')} checked={settings.enabled} onChange={v => save({ enabled: v })} />
       <NumberField label={tr('连续获得经验后开始', 'Start after EXP gains')} unit={tr('次', 'times')} value={settings.start_events} min={2} max={20} onChange={v => save({ start_events: v })} />

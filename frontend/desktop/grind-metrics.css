@@ -47,3 +47,14 @@
 .grind-follow{opacity:.6;font-size:.8em;margin-right:6px}
 /* A peak near either end keeps its label inside the chart; the dot stays on the point. */
 .rate-peak.start{transform:translate(-5px,-100%);align-items:flex-start}.rate-peak.end{transform:translate(calc(-100% + 5px),-100%);align-items:flex-end}
+/* The title folds a block to one line: name, average, live and total. */
+button.rate-title{appearance:none;border:0;background:none;padding:0;margin:0;color:inherit;font:inherit;font-weight:700;cursor:pointer;text-align:left}
+.rate-fold{opacity:.55;flex:none}
+.rate-metrics.folded{display:grid;grid-template-columns:auto repeat(3,minmax(0,1fr));align-items:baseline;gap:8px}
+.rate-metrics.folded>span{display:flex;gap:4px;align-items:baseline;min-width:0;white-space:nowrap}
+.rate-metrics.folded small{opacity:.7}.rate-metrics.folded b{font-weight:800}
+.rate-metrics.folded>span:nth-of-type(1) b{color:#b36b15}
+.ov-t-dark .rate-metrics.folded>span:nth-of-type(1) b,.ov-t-maple .rate-metrics.folded>span:nth-of-type(1) b{color:#ffd27a}
+.grind-rate-panels.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:900px){.grind-rate-panels.three{grid-template-columns:1fr}}
+.ov-compact-metrics:has(>:nth-child(3)){grid-template-columns:repeat(3,1fr)}

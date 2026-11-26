@@ -229,6 +229,7 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
   update?: ClientUpdate | null; onUpdate?(): void;               // a client update, offered beside the site name
 }) {
   const o = settings.overlay, run = live?.runs?.[0] ?? null, show = (key: string) => o.fields.includes(key);
+  const rule = settings.performance?.enabled ? settings.performance : undefined;   // 绩效模式: 积分 under the net
   // Low HP: said once each time HP falls under the danger line (Tracker.vitals); its own switch.
   const vitals = run?.vitals, low = !!vitals && vitals.hp > 0 && vitals.hp < vitals.danger;
   const wasLow = useRef(false);
@@ -286,10 +287,10 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
     {show('dps') && <span title="DPS · 1m"><CrosshairIcon /><b>{big(run.dps)}</b><small>DPS</small></span>}
     {show('potions') && potionChip}
     {show('buffs') && <Buffs live={live} settings={settings} icons voice={!!grip} />}
-    {toast && <span className="ov-toast-inline"><img src={itemIcon(toast.item_id)} alt="" />{big(toast.value)}</span>}</div><div className="ov-compact-metrics">{show('exp_rate') && <RateMetrics run={run} kind="exp" />}{show('profit') && <RateMetrics run={run} kind="net" />}</div>{party}</>);
+    {toast && <span className="ov-toast-inline"><img src={itemIcon(toast.item_id)} alt="" />{big(toast.value)}</span>}</div><div className="ov-compact-metrics">{show('exp_rate') && <RateMetrics run={run} kind="exp" />}{show('profit') && <RateMetrics run={run} kind="net" />}{show('profit') && rule && <RateMetrics run={run} kind="points" rule={rule} />}</div>{party}</>);
   if (o.layout === 'big') return box(<>
     {show('exp_rate') && <RateMetrics run={run} kind="exp" />}
-    {show('profit') && <RateMetrics run={run} kind="net" />}
+    {show('profit') && <RateMetrics run={run} kind="net" />}{show('profit') && rule && <RateMetrics run={run} kind="points" rule={rule} />}
     {show('dps') && <div className="ov-row"><CrosshairIcon /><b>{big(run.dps)}</b><span className="dim">DPS · 1m</span></div>}
     {show('level') && <div className="ov-row">{level}</div>}
     <Ground live={live} />
@@ -300,7 +301,7 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
     {show('exp_rate') && <RateMetrics run={run} kind="exp" />}
     {show('level') && <div className="ov-cell"><TrendingUp size={I} style={ico} /><b>{percent(run.exp_percent, 1)}</b></div>}
     {show('level') && <div className="ov-cell dim"><Hourglass size={I} style={ico} />{duration(run.eta_seconds)}</div>}
-    {show('profit') && <RateMetrics run={run} kind="net" />}
+    {show('profit') && <RateMetrics run={run} kind="net" />}{show('profit') && rule && <RateMetrics run={run} kind="points" rule={rule} />}
     {show('kills') && <div className="ov-cell"><Swords size={I} style={ico} />{big(run.kills)}</div>}
     {show('dps') && <div className="ov-cell"><CrosshairIcon /><b>{big(run.dps)}</b><small>DPS</small></div>}
     {show('potions') && potion && <div className="ov-cell"><img src={itemIcon(potion.item_id)} alt="" />{tr('用', 'Used ')}{potion.used}</div>}
@@ -313,7 +314,7 @@ export function OverlayCard({ live, settings, toast = null, drop = null, scale, 
     {show('exp_rate') && <RateMetrics run={run} kind="exp" />}
     {show('level') && <div className="ov-row">{level}</div>}
     {show('dps') && <div className="ov-row"><CrosshairIcon /><b className="big">{big(run.dps)}</b><span className="dim">DPS · 1m</span></div>}
-    {show('profit') && <RateMetrics run={run} kind="net" />}
+    {show('profit') && <RateMetrics run={run} kind="net" />}{show('profit') && rule && <RateMetrics run={run} kind="points" rule={rule} />}
     <div className="ov-accounts">
     {show('potions') && potion && <section className="ov-account"><div className="ov-account-heading"><b className="ov-account-title">{tr('消耗', 'Used')}</b><b className="amount gold">−{big(run.consume_cost)} <MesosIcon size={12} /></b></div>
       {usedPotions.map(c => <div className="ov-loot ov-account-row" key={c.item_id}>

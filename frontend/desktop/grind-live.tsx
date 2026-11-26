@@ -6,6 +6,7 @@ import { MesosIcon } from './mesos-icon';
 import { PartyMetrics } from './party-metrics';
 import { mobIcon, skillIcon } from './skill-icons';
 import { RateMetrics } from './grind-metrics';
+import type { PointsRule } from '../src/components/grind-points';
 import { itemIcon } from './format';
 import { tr } from './i18n';
 import { big, clock, duration, mapLabel, percent, shownBuffs, statLine, type Live, type RunSummary } from './grind';
@@ -14,7 +15,8 @@ function Tile({ label, value, note, strong }: { label: string; value: string; no
   return <div className={'grind-tile' + (strong ? ' strong' : '')}><small>{label}</small><b>{value}</b>{note && <span>{note}</span>}</div>;
 }
 
-export function LiveView({ run, live, warn }: { run: RunSummary | null; live: Live | null; warn: number }) {
+/** `rule`: 积分 (绩效模式) is shown under the net when given. */
+export function LiveView({ run, live, warn, rule }: { run: RunSummary | null; live: Live | null; warn: number; rule?: PointsRule }) {
   if (!run) return <div className="grind-empty">
     <p>{tr('进图打几只怪就会自动开始记录。', 'Kill a few monsters in a map and recording starts by itself.')}</p>
     {live?.finished?.[0] && <p className="note">{tr('上一次：', 'Last run: ')}{mapLabel(live.finished[0])} · {clock(live.finished[0].active_seconds)} · {big(live.finished[0].exp_per_hour)} EXP/h</p>}
@@ -36,7 +38,8 @@ export function LiveView({ run, live, warn }: { run: RunSummary | null; live: Li
         note={tr(`平均 ${big(run.average_dps)}`, `avg ${big(run.average_dps)}`)} />
     </div>
     <BuffStrip live={live} warn={warn} />
-    <div className="grind-rate-panels"><RateMetrics run={run} kind="exp" /><RateMetrics run={run} kind="net" /></div>
+    <div className={'grind-rate-panels' + (rule ? ' three' : '')}><RateMetrics run={run} kind="exp" /><RateMetrics run={run} kind="net" />
+      {rule && <RateMetrics run={run} kind="points" rule={rule} />}</div>
     <div className="grind-grid grind-accounts">
       <section className="well">
         <div className="well-h"><h3>{tr('本次战利品', 'Loot this run')}</h3><b className="amount money">+{big(run.mesos + run.item_value)} <MesosIcon size={12} /></b></div>

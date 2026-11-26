@@ -15,7 +15,7 @@ import time
 import uuid
 from pathlib import Path
 
-from grind_tracker import DEFAULTS, load_settings, write_json
+from grind_tracker import DEFAULTS, NESTED, load_settings, write_json
 
 CALIBRATE_EVERY = 300
 CALIBRATE_BYTES = 96 * 1024 * 1024
@@ -138,9 +138,9 @@ class GrindService:
         with self.lock:
             current = self.settings()
             for key, value in changes.items():
-                if key in ('overlay', 'hotkeys') and isinstance(value, dict):
+                if key in NESTED and isinstance(value, dict):
                     current[key].update({k: v for k, v in value.items() if k in DEFAULTS[key]})
-                elif key in DEFAULTS and key not in ('overlay', 'hotkeys'):
+                elif key in DEFAULTS and key not in NESTED:
                     current[key] = value
             if not write_json(self.data / 'settings.json', current):
                 raise ValueError('unavailable')
