@@ -260,8 +260,8 @@ try {
     await page.close();
   }
   {
-    // 绩效模式: 积分 under the net (1万经验 × 0.8 + 1.5万收益 × 0.7 − 5000 消耗 × 0.5 = 0.8 + 1.05 − 0.25 = 1.6); each block folds to one line.
-    settings.performance = { enabled: true, exp_per_10k: 0.8, income_per_10k: 0.7, cost_per_10k: 0.5 };
+    // 绩效模式: 积分 under the net (1万经验 × 0.8 + 1.5万收益 × 0.7 − 5000 消耗 × 0.5 + 2000 非基础 × 5 + 2分钟 × 每小时 3 = 0.8 + 1.05 − 0.25 + 1 + 0.1 = 2.7); each block folds to one line.
+    settings.performance = { enabled: true, exp_per_10k: 0.8, income_per_10k: 0.7, cost_per_10k: 0.5, per_hour: 3, other_per_10k: 5 };
     const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await bridge(page);
@@ -269,11 +269,12 @@ try {
     await page.getByRole('button', { name: '刷图', exact: true }).click();
     const points = page.locator('.grind-rate-panels section[aria-label="积分"]');
     await points.waitFor();
-    assert.match(await points.innerText(), /累计\s*1.6/);
+    assert.match(await points.innerText(), /累计\s*2.7/);
     // 积分明细: experience, mesos, then each consumable used, each with its points.
     const detail = page.locator('.grind-points-detail');
     if (out) await detail.screenshot({ path: path.join(out, 'grind-points-detail.png') });
-    assert.match(await detail.innerText(), /积分明细\s*1\.6[\s\S]*经验[\s\S]*\+0\.8[\s\S]*金币[\s\S]*\+1\.1[\s\S]*攻击神水/);
+    assert.match(await detail.innerText(), /积分明细\s*2\.7[\s\S]*经验[\s\S]*\+0\.8[\s\S]*金币[\s\S]*\+1\.1[\s\S]*攻击神水/);
+    assert.match(await detail.innerText(), /时长[\s\S]*\+0\.1/);
     await points.getByRole('button', { name: '积分', exact: true }).click();
     assert.match(await points.innerText(), /平均.*实时.*累计/s);
     assert.equal(await points.locator('svg.rate-chart').count(), 0, 'a folded block is one line');
@@ -291,17 +292,19 @@ try {
     await page.close();
     // 常用 (slim) overlay shows 积分 under the net too.
     const overlay = await browser.newPage({ viewport: { width: 320, height: 900 } });
-    run.timeline = { start: 0, first: 60, step: 10, window: 60, bucket: 10, exp: [100, 300, 200], net: [50, -20, 80], mesos: [60, 10, 90], basic: [0, 5, 0], cost: [0, 0, 0] };
+    run.timeline = { start: 0, first: 60, step: 10, window: 60, bucket: 10, exp: [100, 300, 200], net: [50, -20, 80], mesos: [60, 10, 90], basic: [0, 5, 0], cost: [0, 0, 0], other: [0, 0, 0] };
     await bridge(overlay, { layout: 'slim', fields: ['time', 'exp_rate', 'profit', 'level', 'buffs', 'potions', 'recent'] });
     await overlay.goto(base + '/overlay.html');
+    // Items the icon CDN lacks (南瓜派) are bundled with the client: the page's CSP blocks the site's copy.
+    assert(await overlay.evaluate(() => new Promise(done => { const img = new Image(); img.onload = () => done(img.naturalWidth > 0); img.onerror = () => done(false); img.src = './grind-icons/items/2020027.png'; })), 'bundled 南瓜派 icon loads');
     const stat = overlay.locator('.ov-stat[aria-label="积分"]');
     await stat.waitFor();
-    assert.match(await stat.innerText(), /积分 1.6/);
+    assert.match(await stat.innerText(), /积分 2.7/);
     assert.equal(await overlay.locator('.ov-sec > .ov-stat[aria-label="积分"]').count(), 1, '积分 is its own card');
     assert.doesNotMatch(await stat.innerText(), /基础掉落/);
     // Hover never reaches the overlay: the ⓘ and the fold are pressed through their data-press ids.
     await overlay.evaluate(() => window.__overlayPress('points-info'));
-    assert.match(await stat.locator('.ov-info-text').innerText(), /消耗 5000 × 每万 0.5 = −0.3[\s\S]*积分 1.6/);
+    assert.match(await stat.locator('.ov-info-text').innerText(), /消耗 5000 × 每万 0.5 = −0.3[\s\S]*非基础掉落 2000 × 每万 5 = 1[\s\S]*时长 0 小时 × 每小时 3 = 0\.1[\s\S]*积分 2\.7/);
     const regions = await overlay.evaluate(() => [...document.querySelectorAll('[data-press]')].map(el => el.dataset.press));
     for (const id of ['fold-exp', 'fold-net', 'fold-points', 'points-info']) assert(regions.includes(id), `${id} is a pressable region`);
     await overlay.evaluate(() => window.__overlayPress('fold-points'));

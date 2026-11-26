@@ -1,8 +1,13 @@
 // Icons of items the icon CDN lacks (added by the 2026-11-18 game update), exported from the
 // Classic World client (tools/export_item_icons.cs) into web/images/items/ and served by the
-// site. Absolute, so the client's pages (loaded from local files) find them too.
+// site. The client bundles them too (frontend/desktop/public/grind-icons/items): its pages only
+// load images from themselves and the CDN (CSP), so the site's copy showed broken there.
 const CLIENT_ICONS = new Set([2000009,2000010,2000011,2020024,2020025,2020026,2020027,2020028,2020029,2020030,2020031,2040324,2040325,2040412,2040520,2040521,2040522,2040523,2040612,2040816,2040817,2100009,2100010,2100011,2100012,2100013,2100014,2100015,2430066,2430067,2430068,3000064,3000065,3000066,3000067,3000068,3000069,3000070,3000071,3000072,3000073,3000074,3000075,3000076,3000077,3000078,3000079,3000080,3000081,3000082,3000083,3000084,3000085,3000086,3000087,3000088,3000089,3000090,4000159,4001024,4031143,4031144,4031145,4031146,4031147,4031148,4031149,4031151,4031250,5140006,5222003]);
 
+let base = 'https://mxd.ruit.me/web/images/items';
+/** The client's pages point this at their bundled copy. */
+export const setClientIconBase = (path: string) => { base = path; };
+
 export const itemIconUrl = (id: number) => CLIENT_ICONS.has(id)
-  ? `https://mxd.ruit.me/web/images/items/${id}.png`
+  ? `${base}/${id}.png`
   : `https://mxdgcw.dvg.cn/dbsource/icon/item/${id}.png`;

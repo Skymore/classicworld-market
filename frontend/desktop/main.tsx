@@ -16,6 +16,8 @@ installKorean(korean);
 applyLanguage('system');
 import { updateLabel } from './format';
 import { healthLabel, initial, isLive, type State, type Theme } from './state';
+import { setClientIconBase } from '../src/components/client-icons';
+setClientIconBase('./grind-icons/items');
 
 type ClientTab = 'scan' | 'grind' | 'sweep' | 'account';
 type Tab = SitePageKey | ClientTab;

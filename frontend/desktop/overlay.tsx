@@ -8,6 +8,8 @@ import korean from '../../server/crates/market-web/src/i18n/ko.json';
 import { installKorean, applyLanguage, tr } from './i18n';
 import { overlayCommand, overlayFit, overlayRegions, overlayState, overlayToggle, overlayUpdate, type ClientUpdate, type GroundDrop, type GrindSettings, type Live, type LootRow } from './grind';
 import { OverlayCard, announceDrop } from './overlay-card';
+import { setClientIconBase } from '../src/components/client-icons';
+setClientIconBase('./grind-icons/items');
 
 document.documentElement.classList.add('overlay-page');
 // The client reads the overlay's clicks from the system mouse (the game in front can keep

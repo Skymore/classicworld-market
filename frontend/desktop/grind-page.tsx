@@ -165,7 +165,7 @@ function Pick({ label, checked, onPick, wide = false, children }: { label: strin
     onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(); } }}>{wide ? <b>{label}{children}</b> : <>{children}<b>{label}</b></>}</div>;
 }
 
-const RULE = { enabled: false, exp_per_10k: 0.8, income_per_10k: 0.7, cost_per_10k: 0.7 };
+const RULE = { enabled: false, exp_per_10k: 1, income_per_10k: 1, cost_per_10k: 1, per_hour: 0, other_per_10k: 0 };
 
 /** 绩效模式: 积分 = 每万经验的积分 + 每万收益（拾取金币 + 基础掉落价值）的积分 − 每万消耗扣的分; ⓘ says how. */
 function PerformanceSettings({ settings, save }: { settings: GrindSettings; save(changes: { performance: Partial<NonNullable<GrindSettings['performance']>> }): void }) {
@@ -179,6 +179,8 @@ function PerformanceSettings({ settings, save }: { settings: GrindSettings; save
       <NumberField label={tr('每万经验积分', 'Points per 10K EXP')} unit={tr('分', 'pts')} value={rule.exp_per_10k} min={0} max={100000} step={0.1} onChange={v => save({ performance: { exp_per_10k: v } })} />
       <NumberField label={tr('每万收益积分', 'Points per 10K income')} unit={tr('分', 'pts')} value={rule.income_per_10k} min={0} max={100000} step={0.1} onChange={v => save({ performance: { income_per_10k: v } })} />
       <NumberField label={tr('每万消耗扣分', 'Points off per 10K used')} unit={tr('分', 'pts')} value={rule.cost_per_10k} min={0} max={100000} step={0.1} onChange={v => save({ performance: { cost_per_10k: v } })} />
+      <NumberField label={tr('每万非基础掉落积分', 'Points per 10K other drops')} unit={tr('分', 'pts')} value={rule.other_per_10k} min={0} max={100000} step={0.1} onChange={v => save({ performance: { other_per_10k: v } })} />
+      <NumberField label={tr('每小时积分', 'Points per hour')} unit={tr('分', 'pts')} value={rule.per_hour} min={0} max={100000} step={0.1} onChange={v => save({ performance: { per_hour: v } })} />
     </>}
   </section>;
 }

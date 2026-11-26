@@ -40,7 +40,8 @@ DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, 
                 # 绩效模式: 积分 per 10,000 experience plus per 10,000 收益 (mesos picked up and basic
                 # drops' value) less per 10,000 spent on consumables; the net stays over everything.
                 # frontend grind-points.ts does the sum.
-                performance=dict(enabled=False, exp_per_10k=0.8, income_per_10k=0.7, cost_per_10k=0.7))
+                performance=dict(enabled=False, exp_per_10k=1.0, income_per_10k=1.0, cost_per_10k=1.0,
+                                 per_hour=0.0, other_per_10k=0.0))
 NESTED = ('overlay', 'hotkeys', 'performance')
 IDLE_CREDIT = 10
 ITEM_WAIT = autobuff.ITEM_WAIT
@@ -1647,8 +1648,9 @@ class Tracker:
         mesos = windowed([(e['t'], e['mesos']) for e in run.ledger if e['kind'] == 'mesos'])
         basic = windowed([(e['t'], amount) for e, _, _, amount in rows if e['kind'] == 'loot' and basic_drop(e.get('item_id'))])
         cost = windowed([(e['t'], amount) for e, _, _, amount in rows if e['kind'] != 'loot'])   # consumables used
+        other = windowed([(e['t'], amount) for e, _, _, amount in rows if e['kind'] == 'loot' and not basic_drop(e.get('item_id'))])
         line = dict(start=start, first=start + first, step=step, window=window, exp=exp, net=net, bucket=step,
-                    mesos=mesos, basic=basic, cost=cost)
+                    mesos=mesos, basic=basic, cost=cost, other=other)
         if clock.pauses:
             line['times'] = [round(clock.wall(a), 1) for a in offsets]   # wall clock, for labels
         return line
