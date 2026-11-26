@@ -6,6 +6,7 @@ import { EntityLink, EntityRow } from "./entity-ref";
 import { timelineRates } from "../../desktop/grind";
 import { mobIcon, skillIcon } from "../../desktop/skill-icons";
 import { points, pointsPerHour, pointsSum, pointsText, type PointsRule } from "./grind-points";
+import { PointsDetail } from "./grind-points-detail";
 import "./grind-run.css";
 
 export type Words = (zh: string, en: string) => string;
@@ -290,6 +291,7 @@ export function RunDetail({ run, t, english = false, comparison, actions, profit
         </div>
       )}
       <div className="gr-columns">
+        {rule && <PointsDetail run={run} rule={rule} t={t} big={b} />}
         <section className="gr-well">
           <h3>{t("战利品", "Loot")}{profit && <b className="money">{s(lootTotal)}</b>}</h3>
           {profit && (run.mesos || 0) > 0 && <div className="drow"><span className="eicon"><span className="coin" aria-hidden="true" /></span><span className="t"><b>{t("金币", "Mesos")}</b></span><span className="r money">{s(run.mesos)}</span></div>}

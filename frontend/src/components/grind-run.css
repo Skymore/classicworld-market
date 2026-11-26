@@ -40,8 +40,12 @@
 .gr-well h3{display:flex;align-items:center;margin:0;padding:9px 12px;font-size:13px;border-bottom:1px solid var(--rule)}
 .gr-well h3 b{margin-left:auto;font-size:15px;font-variant-numeric:tabular-nums}
 .gr-well h3.sub{border-top:1px solid var(--rule)}
-.gr-run .coin{display:inline-block;width:20px;height:20px;margin:2px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ffe9a6,#e0a92e 60%,#a8741a);border:1px solid #7a520f}
+.gr-run .coin,.gr-points .coin{display:inline-block;width:20px;height:20px;margin:2px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ffe9a6,#e0a92e 60%,#a8741a);border:1px solid #7a520f}
 .gr-more{margin:0;padding:7px 12px;font-size:12px;color:var(--ink-3)}
 .gr-spark{width:60px;height:16px}.gr-spark polyline{fill:none;stroke:#3f78b5;stroke-width:1.5}
 @media (max-width:560px){.gr-kpis{grid-template-columns:1fr 1fr}.gr-kpis>div:last-child:nth-child(odd){grid-column:1/-1}}
 @media (max-width:860px){.gr-columns{grid-template-columns:1fr}.gr-head{flex-wrap:wrap}.gr-actions{margin-left:0}}
+
+/* 积分明细: the experience row's badge, in place of an item icon. */
+.gr-points .exp-dot{font-size:9px;font-weight:800;letter-spacing:.02em;opacity:.75}
+.grind-points-detail{margin:8px 0}

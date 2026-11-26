@@ -7,6 +7,7 @@ import { PartyMetrics } from './party-metrics';
 import { mobIcon, skillIcon } from './skill-icons';
 import { RateMetrics } from './grind-metrics';
 import type { PointsRule } from '../src/components/grind-points';
+import { PointsDetail } from '../src/components/grind-points-detail';
 import { itemIcon } from './format';
 import { tr } from './i18n';
 import { big, clock, duration, mapLabel, percent, shownBuffs, statLine, type Live, type RunSummary } from './grind';
@@ -40,6 +41,7 @@ export function LiveView({ run, live, warn, rule }: { run: RunSummary | null; li
     <BuffStrip live={live} warn={warn} />
     <div className={'grind-rate-panels' + (rule ? ' three' : '')}><RateMetrics run={run} kind="exp" /><RateMetrics run={run} kind="net" />
       {rule && <RateMetrics run={run} kind="points" rule={rule} />}</div>
+    {rule && <div className="grind-points-detail"><PointsDetail run={run} rule={rule} t={tr} big={big} /></div>}
     <div className="grind-grid grind-accounts">
       <section className="well">
         <div className="well-h"><h3>{tr('本次战利品', 'Loot this run')}</h3><b className="amount money">+{big(run.mesos + run.item_value)} <MesosIcon size={12} /></b></div>

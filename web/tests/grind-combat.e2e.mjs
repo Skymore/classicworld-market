@@ -270,6 +270,10 @@ try {
     const points = page.locator('.grind-rate-panels section[aria-label="积分"]');
     await points.waitFor();
     assert.match(await points.innerText(), /累计\s*1.6/);
+    // 积分明细: experience, mesos, then each consumable used, each with its points.
+    const detail = page.locator('.grind-points-detail');
+    if (out) await detail.screenshot({ path: path.join(out, 'grind-points-detail.png') });
+    assert.match(await detail.innerText(), /积分明细\s*1\.6[\s\S]*经验[\s\S]*\+0\.8[\s\S]*金币[\s\S]*\+1\.1[\s\S]*攻击神水/);
     await points.getByRole('button', { name: '积分', exact: true }).click();
     assert.match(await points.innerText(), /平均.*实时.*累计/s);
     assert.equal(await points.locator('svg.rate-chart').count(), 0, 'a folded block is one line');
