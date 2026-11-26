@@ -33,8 +33,8 @@ class ReplayTracker(Tracker):
 # Releases that only change the interface keep it, and nothing is replayed (2026-11-15:
 # every release replayed 30 days, 5.6 M frames, ~13 min of a CPU core, for nothing).
 # r12: summaries carry 积分's inputs (basic_value, timeline mesos and basic); r13: ores count;
-# r14: the timeline's consumable cost (积分 subtracts it).
-REPLAY_VERSION = 'r14-2026-11-26'
+# r14: the timeline's consumable cost (积分 subtracts it); r15: 南瓜派 at a fixed 750.
+REPLAY_VERSION = 'r15-2026-11-26'
 
 
 def file_start(path):

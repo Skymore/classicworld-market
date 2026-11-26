@@ -15,6 +15,13 @@ class LootPriceTests(unittest.TestCase):
         self.assertEqual(prices.loot(4000156, basis='none'), (0, '不计'))
         self.assertEqual(prices.loot(4999999), (None, None))
 
+    def test_pumpkin_pie_is_always_750(self):
+        prices = Prices()
+        prices.rows[2020027] = dict(typical=3000, npc_shop=None)
+        self.assertEqual(prices.loot(2020027), (750, '按回复量'))
+        self.assertEqual(prices.consumable(2020027), (750, '按回复量'))
+        self.assertEqual(prices.consumable(2020028), (None, None), 'other new items are not valued')
+
     def test_equipment_without_recent_sales_in_its_group_uses_the_groups_lowest_ask(self):
         from grind_pricing import group_key
         piece = dict(stats=[dict(key='weapon_attack', value=73)], remaining_upgrades=7)

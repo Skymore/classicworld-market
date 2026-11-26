@@ -26,6 +26,9 @@ RETRY = 60
 BATCH = 100
 DEFENCE = {'weapon_defense', 'magic_defense', 'pdd', 'mdd'}
 RECHARGEABLE = (207, 233)
+# Fixed values, whatever the market says: 南瓜派 (Pumpkin Pie, 2026-11-18 event) restores 700 HP
+# and 400 MP, priced at 0.5 a HP and 1 a MP (the user's rule, for this item only).
+FIXED = {2020027: (750, '按回复量')}
 # A material that sells for at most this much over the NPC buy-back goes to the NPC.
 NPC_CLOSE = 1.3
 NEAR_MIN = 3
@@ -229,6 +232,8 @@ class Prices:
         row = self.rows.get(item_id) or {}
         if basis == 'none':
             return 0, '不计'
+        if item_id in FIXED:
+            return FIXED[item_id]
         if basis == 'typical':
             if piece is not None:
                 priced = gear_price(row, piece)
@@ -253,6 +258,8 @@ class Prices:
         """(unit cost, basis) of a consumable used while grinding."""
         if item_id // 10000 in RECHARGEABLE:
             return 0, '飞镖子弹不计'
+        if item_id in FIXED:
+            return FIXED[item_id]
         row = self.rows.get(item_id)
         if row is None:
             return None, None

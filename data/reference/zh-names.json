@@ -5858,6 +5858,361 @@
    "zh": "武器特效棱镜",
    "source": "dvg",
    "en": "Weapon Effect Prism"
+  },
+  "2000009": {
+   "zh": "遗忘空洞药剂",
+   "source": "translated",
+   "en": "Hollow Extract"
+  },
+  "2000010": {
+   "zh": "希尔卡的药水",
+   "source": "translated",
+   "en": "Sylka's Brew"
+  },
+  "2000011": {
+   "zh": "特殊药水",
+   "source": "translated",
+   "en": "Elixir (Alt)"
+  },
+  "2020024": {
+   "zh": "月兔的年糕",
+   "source": "translated",
+   "en": "Moon Bunny's Rice Cake (Alt)"
+  },
+  "2020025": {
+   "zh": "月兔的花年糕",
+   "source": "translated",
+   "en": "Moon Bunny's Flower Rice Cake"
+  },
+  "2020026": {
+   "zh": "月兔的满月年糕",
+   "source": "translated",
+   "en": "Moon Bunny's Fullmoon Rice Cake"
+  },
+  "2020027": {
+   "zh": "南瓜派",
+   "source": "translated",
+   "en": "Pumpkin Pie"
+  },
+  "2020028": {
+   "zh": "烤火鸡",
+   "source": "translated",
+   "en": "Roasted Turkey"
+  },
+  "2020029": {
+   "zh": "肉汁",
+   "source": "translated",
+   "en": "Gravy"
+  },
+  "2020030": {
+   "zh": "火鸡腿",
+   "source": "translated",
+   "en": "Turkey Leg"
+  },
+  "2020031": {
+   "zh": "蔓越莓酱",
+   "source": "translated",
+   "en": "Cranberry Sauce"
+  },
+  "2040324": {
+   "zh": "耳环暴击伤害卷轴：初级",
+   "source": "translated",
+   "en": "Earring Crit. Damage Scroll: Lesser (Alt)"
+  },
+  "2040325": {
+   "zh": "耳环回避率卷轴：初级",
+   "source": "translated",
+   "en": "Earring Evasion Scroll: Lesser (Alt)"
+  },
+  "2040412": {
+   "zh": "上衣防御力卷轴：初级",
+   "source": "translated",
+   "en": "Topwear DEF Scroll: Lesser (Alt)"
+  },
+  "2040520": {
+   "zh": "套服力量卷轴：初级",
+   "source": "translated",
+   "en": "Overall Armor STR Scroll: Lesser (Alt)"
+  },
+  "2040521": {
+   "zh": "套服敏捷卷轴：初级",
+   "source": "translated",
+   "en": "Overall Armor DEX Scroll: Lesser (Alt)"
+  },
+  "2040522": {
+   "zh": "套服智力卷轴：初级",
+   "source": "translated",
+   "en": "Overall Armor INT Scroll: Lesser (Alt)"
+  },
+  "2040523": {
+   "zh": "套服运气卷轴：初级",
+   "source": "translated",
+   "en": "Overall Armor LUK Scroll: Lesser (Alt)"
+  },
+  "2040612": {
+   "zh": "下装防御力卷轴：初级",
+   "source": "translated",
+   "en": "Bottomwear DEF Scroll: Lesser (Alt)"
+  },
+  "2040816": {
+   "zh": "手套武器攻击卷轴：初级",
+   "source": "translated",
+   "en": "Gloves Attack Scroll: Lesser (Alt)"
+  },
+  "2040817": {
+   "zh": "手套魔法攻击力卷轴：初级",
+   "source": "translated",
+   "en": "Gloves Magic Attack Scroll: Lesser (Alt)"
+  },
+  "2100009": {
+   "zh": "火鸡蛋",
+   "source": "translated",
+   "en": "Turkey Egg"
+  },
+  "2100010": {
+   "zh": "黑包：红蜗牛王",
+   "source": "translated",
+   "en": "Black Sack: Mano"
+  },
+  "2100011": {
+   "zh": "黑包：树妖王",
+   "source": "translated",
+   "en": "Black Sack: Stumpy"
+  },
+  "2100012": {
+   "zh": "黑包：蘑菇王",
+   "source": "translated",
+   "en": "Black Sack: Mushmom"
+  },
+  "2100013": {
+   "zh": "黑包：谢尔德",
+   "source": "translated",
+   "en": "Black Sack: Shade"
+  },
+  "2100014": {
+   "zh": "黑包：僵尸蘑菇王",
+   "source": "translated",
+   "en": "Black Sack: Zombie Mushmom"
+  },
+  "2100015": {
+   "zh": "黑包：腐烂蘑菇王",
+   "source": "translated",
+   "en": "Black Sack: Rotten Mushmum"
+  },
+  "2430066": {
+   "zh": "火鸡兑换券",
+   "source": "translated",
+   "en": "Turkey Exchange Coupon"
+  },
+  "2430067": {
+   "zh": "火鸡宝宝推车兑换券",
+   "source": "translated",
+   "en": "Baby Turkey Carriage Exchange Coupon"
+  },
+  "2430068": {
+   "zh": "烤火鸡躺椅兑换券",
+   "source": "translated",
+   "en": "Roasted Relaxer Exchange Coupon"
+  },
+  "3000064": {
+   "zh": "空洞面包篮",
+   "source": "translated",
+   "en": "Hollow Bakery Basket"
+  },
+  "3000065": {
+   "zh": "发光蘑菇花盆",
+   "source": "translated",
+   "en": "Glowshroom Planter"
+  },
+  "3000066": {
+   "zh": "空洞橡木衣柜",
+   "source": "translated",
+   "en": "Hollow Oak Dresser"
+  },
+  "3000067": {
+   "zh": "空洞鸟巢床",
+   "source": "translated",
+   "en": "Hollow Nest Bed"
+  },
+  "3000068": {
+   "zh": "萤火虫灯笼",
+   "source": "translated",
+   "en": "Firefly Lantern"
+  },
+  "3000069": {
+   "zh": "泽莉娅铜像",
+   "source": "translated",
+   "en": "Zelya's Bronze Statue"
+  },
+  "3000070": {
+   "zh": "泽莉娅金像",
+   "source": "translated",
+   "en": "Zelya's Golden Statue"
+  },
+  "3000071": {
+   "zh": "泽莉娅白金像",
+   "source": "translated",
+   "en": "Zelya's Platinum Statue"
+  },
+  "3000072": {
+   "zh": "发光孢子树",
+   "source": "translated",
+   "en": "Glowspore Tree"
+  },
+  "3000073": {
+   "zh": "野生发光蘑菇",
+   "source": "translated",
+   "en": "Wild Glowshroom"
+  },
+  "3000074": {
+   "zh": "野生盘子蘑菇",
+   "source": "translated",
+   "en": "Wild Plate Mushrooms"
+  },
+  "3000075": {
+   "zh": "短野藤",
+   "source": "translated",
+   "en": "Short Wild Vine"
+  },
+  "3000076": {
+   "zh": "长野藤",
+   "source": "translated",
+   "en": "Long Wild Vine"
+  },
+  "3000077": {
+   "zh": "树叶花环",
+   "source": "translated",
+   "en": "Leaf Garland"
+  },
+  "3000078": {
+   "zh": "精灵厨房挂架",
+   "source": "translated",
+   "en": "Fairy Kitchen Rack"
+  },
+  "3000079": {
+   "zh": "长满苔藓的展示架",
+   "source": "translated",
+   "en": "Mossy Display Shelf"
+  },
+  "3000080": {
+   "zh": "精灵的书堆",
+   "source": "translated",
+   "en": "Fairy Study Books"
+  },
+  "3000081": {
+   "zh": "发光孢子吊灯",
+   "source": "translated",
+   "en": "Glowspore Pendant Lights"
+  },
+  "3000082": {
+   "zh": "精灵水晶球",
+   "source": "translated",
+   "en": "Fairy Crystal Ball"
+  },
+  "3000083": {
+   "zh": "精灵挂毯",
+   "source": "translated",
+   "en": "Fairy Tapestry"
+  },
+  "3000084": {
+   "zh": "发光孢子落地灯",
+   "source": "translated",
+   "en": "Standing Glowspore Lamp"
+  },
+  "3000085": {
+   "zh": "守炉人的灯笼",
+   "source": "translated",
+   "en": "Hearthkeeper's Lantern"
+  },
+  "3000086": {
+   "zh": "烤火鸡拼盘",
+   "source": "translated",
+   "en": "Roast Turkey Platter"
+  },
+  "3000087": {
+   "zh": "秋叶花环",
+   "source": "translated",
+   "en": "Autumn Leaf Wreath"
+  },
+  "3000088": {
+   "zh": "丰收宴会桌",
+   "source": "translated",
+   "en": "Harvest Feast Table"
+  },
+  "3000089": {
+   "zh": "丰收干草捆",
+   "source": "translated",
+   "en": "Harvest Hay Bale"
+  },
+  "3000090": {
+   "zh": "南瓜丰收马车",
+   "source": "translated",
+   "en": "Pumpkin Harvest Wagon"
+  },
+  "4000159": {
+   "zh": "迎月花种子",
+   "source": "translated",
+   "en": "Primrose Seed"
+  },
+  "4001024": {
+   "zh": "发光的粉尘",
+   "source": "translated",
+   "en": "Glowing Dust"
+  },
+  "4031143": {
+   "zh": "阿尔斯顿的账本残页",
+   "source": "translated",
+   "en": "Alston's Ledger Page"
+  },
+  "4031144": {
+   "zh": "未腐烂的蘑菇盖",
+   "source": "translated",
+   "en": "Untainted Mushroom Cap"
+  },
+  "4031145": {
+   "zh": "米恩的护符卷轴",
+   "source": "translated",
+   "en": "Myen's Ward Scrolls"
+  },
+  "4031146": {
+   "zh": "角色改名券",
+   "source": "translated",
+   "en": "Character Name Change Coupon"
+  },
+  "4031147": {
+   "zh": "南瓜块",
+   "source": "translated",
+   "en": "Pumpkin Piece"
+  },
+  "4031148": {
+   "zh": "派用面粉",
+   "source": "translated",
+   "en": "Pie Flour"
+  },
+  "4031149": {
+   "zh": "牛奶罐",
+   "source": "translated",
+   "en": "Milk Jug"
+  },
+  "4031151": {
+   "zh": "枫叶",
+   "source": "translated",
+   "en": "Maple Leaf (Alt)"
+  },
+  "4031250": {
+   "zh": "发光孢子护符",
+   "source": "translated",
+   "en": "Glowspore Ward"
+  },
+  "5140006": {
+   "zh": "营业执照",
+   "source": "translated",
+   "en": "Regular Store Permit"
+  },
+  "5222003": {
+   "zh": "黑色星期五神秘时装箱",
+   "source": "translated",
+   "en": "Black Friday Mystery Fashion Crate"
   }
  },
  "dvg_not_used": [

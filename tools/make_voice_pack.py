@@ -63,6 +63,15 @@ KOREAN = {
 }
 
 
+# Buff items added by the 2026-11-18 game update, missing from the Mapledex reference (rice
+# cakes, 南瓜派, 火鸡腿, 蔓越莓酱); named from data/reference/zh-translations.json.
+UPDATE_BUFFS = (2020025, 2020026, 2020027, 2020030, 2020031)
+
+
+def translations():
+    return json.loads((ROOT / 'data/reference/zh-translations.json').read_text(encoding='utf-8'))['items']
+
+
 WARNINGS = {'hp_low': {'zh': '血量低', 'en': 'Low HP', 'ko': '체력 부족'},
             'drop_alert': {'zh': '有好东西掉了', 'en': 'Valuable drop', 'ko': '좋은 아이템이 떨어졌어요'},
             'pet_hungry': {'zh': '宠物饿了，请喂食', 'en': 'Pet is hungry, feed it', 'ko': '펫이 배고파요, 먹이를 주세요'},
@@ -92,6 +101,10 @@ def lines():
         ko = game['consumables'].get(str(item['id'])) or korean.get(str(item['id']))
         if ko:
             yield 'ko', -item['id'], ko
+    added = translations()
+    for item in UPDATE_BUFFS:
+        yield 'zh', -item, added[str(item)]['zh']
+        yield 'en', -item, added[str(item)]['en']
 
 
 def drop_names():
@@ -109,6 +122,10 @@ def drop_names():
             source = f"item/{item['id']}"
             if names.get('cw') or names.get('zh'):
                 yield 'zh', source, names.get('cw') or names['zh']
+    # Items the reference lacks but a picked-up drop can be (the 2026-11-18 update's).
+    for item, entry in translations().items():
+        if int(item) not in seen:
+            yield 'zh', f'item/{item}', entry['zh']
 
 
 def compact(path):
@@ -138,7 +155,7 @@ async def main():
             target = OUT / lang / f'{source}.mp3'
             await edge_tts.Communicate(text, VOICES[lang], rate='+10%').save(str(target) + '.part')
             Path(str(target) + '.part').replace(target)
-            if source.startswith('item/'):
+            if str(source).startswith('item/'):
                 compact(target)
     await asyncio.gather(*(make(*row) for row in todo))
     print(f'{len(todo)} files written to {OUT}')

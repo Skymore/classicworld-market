@@ -1,5 +1,5 @@
 {
- "version": "2026-11-19",
+ "version": "2026-11-26",
  "note": "Hand-kept simplified names for what DVG, Mapledex and the Classic World client data give no Chinese name. Entries with cms_quest use the Chinese MapleStory (CMS v148-v202) client name of that GMS quest id, read from https://maplestory.io/api/CMS/202/quest; the rest are written from CMS terms. tools/zh_names.py build uses an entry only while its en matches.",
  "maps": {
   "10006002": {
@@ -70,6 +70,361 @@
    "en": "Etc Tab 5-Slot Coupon",
    "zh": "其他栏5格扩展券",
    "note": "CMS 2430771 其他栏8格扩展券"
+  },
+  "2000009": {
+   "en": "Hollow Extract",
+   "zh": "遗忘空洞药剂",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2000010": {
+   "en": "Sylka's Brew",
+   "zh": "希尔卡的药水",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2000011": {
+   "en": "Elixir (Alt)",
+   "zh": "特殊药水",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2020024": {
+   "en": "Moon Bunny's Rice Cake (Alt)",
+   "zh": "月兔的年糕",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2020025": {
+   "en": "Moon Bunny's Flower Rice Cake",
+   "zh": "月兔的花年糕",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2020026": {
+   "en": "Moon Bunny's Fullmoon Rice Cake",
+   "zh": "月兔的满月年糕",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2020027": {
+   "en": "Pumpkin Pie",
+   "zh": "南瓜派",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2020028": {
+   "en": "Roasted Turkey",
+   "zh": "烤火鸡",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2020029": {
+   "en": "Gravy",
+   "zh": "肉汁",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2020030": {
+   "en": "Turkey Leg",
+   "zh": "火鸡腿",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2020031": {
+   "en": "Cranberry Sauce",
+   "zh": "蔓越莓酱",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2040324": {
+   "en": "Earring Crit. Damage Scroll: Lesser (Alt)",
+   "zh": "耳环暴击伤害卷轴：初级",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2040325": {
+   "en": "Earring Evasion Scroll: Lesser (Alt)",
+   "zh": "耳环回避率卷轴：初级",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2040412": {
+   "en": "Topwear DEF Scroll: Lesser (Alt)",
+   "zh": "上衣防御力卷轴：初级",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2040520": {
+   "en": "Overall Armor STR Scroll: Lesser (Alt)",
+   "zh": "套服力量卷轴：初级",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2040521": {
+   "en": "Overall Armor DEX Scroll: Lesser (Alt)",
+   "zh": "套服敏捷卷轴：初级",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2040522": {
+   "en": "Overall Armor INT Scroll: Lesser (Alt)",
+   "zh": "套服智力卷轴：初级",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2040523": {
+   "en": "Overall Armor LUK Scroll: Lesser (Alt)",
+   "zh": "套服运气卷轴：初级",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2040612": {
+   "en": "Bottomwear DEF Scroll: Lesser (Alt)",
+   "zh": "下装防御力卷轴：初级",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2040816": {
+   "en": "Gloves Attack Scroll: Lesser (Alt)",
+   "zh": "手套武器攻击卷轴：初级",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2040817": {
+   "en": "Gloves Magic Attack Scroll: Lesser (Alt)",
+   "zh": "手套魔法攻击力卷轴：初级",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2100009": {
+   "en": "Turkey Egg",
+   "zh": "火鸡蛋",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2100010": {
+   "en": "Black Sack: Mano",
+   "zh": "黑包：红蜗牛王",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2100011": {
+   "en": "Black Sack: Stumpy",
+   "zh": "黑包：树妖王",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2100012": {
+   "en": "Black Sack: Mushmom",
+   "zh": "黑包：蘑菇王",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2100013": {
+   "en": "Black Sack: Shade",
+   "zh": "黑包：谢尔德",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2100014": {
+   "en": "Black Sack: Zombie Mushmom",
+   "zh": "黑包：僵尸蘑菇王",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2100015": {
+   "en": "Black Sack: Rotten Mushmum",
+   "zh": "黑包：腐烂蘑菇王",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2430066": {
+   "en": "Turkey Exchange Coupon",
+   "zh": "火鸡兑换券",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2430067": {
+   "en": "Baby Turkey Carriage Exchange Coupon",
+   "zh": "火鸡宝宝推车兑换券",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "2430068": {
+   "en": "Roasted Relaxer Exchange Coupon",
+   "zh": "烤火鸡躺椅兑换券",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000064": {
+   "en": "Hollow Bakery Basket",
+   "zh": "空洞面包篮",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000065": {
+   "en": "Glowshroom Planter",
+   "zh": "发光蘑菇花盆",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000066": {
+   "en": "Hollow Oak Dresser",
+   "zh": "空洞橡木衣柜",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000067": {
+   "en": "Hollow Nest Bed",
+   "zh": "空洞鸟巢床",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000068": {
+   "en": "Firefly Lantern",
+   "zh": "萤火虫灯笼",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000069": {
+   "en": "Zelya's Bronze Statue",
+   "zh": "泽莉娅铜像",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000070": {
+   "en": "Zelya's Golden Statue",
+   "zh": "泽莉娅金像",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000071": {
+   "en": "Zelya's Platinum Statue",
+   "zh": "泽莉娅白金像",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000072": {
+   "en": "Glowspore Tree",
+   "zh": "发光孢子树",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000073": {
+   "en": "Wild Glowshroom",
+   "zh": "野生发光蘑菇",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000074": {
+   "en": "Wild Plate Mushrooms",
+   "zh": "野生盘子蘑菇",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000075": {
+   "en": "Short Wild Vine",
+   "zh": "短野藤",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000076": {
+   "en": "Long Wild Vine",
+   "zh": "长野藤",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000077": {
+   "en": "Leaf Garland",
+   "zh": "树叶花环",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000078": {
+   "en": "Fairy Kitchen Rack",
+   "zh": "精灵厨房挂架",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000079": {
+   "en": "Mossy Display Shelf",
+   "zh": "长满苔藓的展示架",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000080": {
+   "en": "Fairy Study Books",
+   "zh": "精灵的书堆",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000081": {
+   "en": "Glowspore Pendant Lights",
+   "zh": "发光孢子吊灯",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000082": {
+   "en": "Fairy Crystal Ball",
+   "zh": "精灵水晶球",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000083": {
+   "en": "Fairy Tapestry",
+   "zh": "精灵挂毯",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000084": {
+   "en": "Standing Glowspore Lamp",
+   "zh": "发光孢子落地灯",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000085": {
+   "en": "Hearthkeeper's Lantern",
+   "zh": "守炉人的灯笼",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000086": {
+   "en": "Roast Turkey Platter",
+   "zh": "烤火鸡拼盘",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000087": {
+   "en": "Autumn Leaf Wreath",
+   "zh": "秋叶花环",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000088": {
+   "en": "Harvest Feast Table",
+   "zh": "丰收宴会桌",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000089": {
+   "en": "Harvest Hay Bale",
+   "zh": "丰收干草捆",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "3000090": {
+   "en": "Pumpkin Harvest Wagon",
+   "zh": "南瓜丰收马车",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "4000159": {
+   "en": "Primrose Seed",
+   "zh": "迎月花种子",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "4001024": {
+   "en": "Glowing Dust",
+   "zh": "发光的粉尘",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "4031143": {
+   "en": "Alston's Ledger Page",
+   "zh": "阿尔斯顿的账本残页",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "4031144": {
+   "en": "Untainted Mushroom Cap",
+   "zh": "未腐烂的蘑菇盖",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "4031145": {
+   "en": "Myen's Ward Scrolls",
+   "zh": "米恩的护符卷轴",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "4031146": {
+   "en": "Character Name Change Coupon",
+   "zh": "角色改名券",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "4031147": {
+   "en": "Pumpkin Piece",
+   "zh": "南瓜块",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "4031148": {
+   "en": "Pie Flour",
+   "zh": "派用面粉",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "4031149": {
+   "en": "Milk Jug",
+   "zh": "牛奶罐",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "4031151": {
+   "en": "Maple Leaf (Alt)",
+   "zh": "枫叶",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "4031250": {
+   "en": "Glowspore Ward",
+   "zh": "发光孢子护符",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "5140006": {
+   "en": "Regular Store Permit",
+   "zh": "营业执照",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
+  },
+  "5222003": {
+   "en": "Black Friday Mystery Fashion Crate",
+   "zh": "黑色星期五神秘时装箱",
+   "note": "added by the 2026-11-18 update; written from CMS terms"
   }
  },
  "quests": {

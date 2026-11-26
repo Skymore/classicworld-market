@@ -32,8 +32,8 @@ export function monthDay(at: string | number | null | undefined) {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
-/** The item icon on DVG's CDN, as the server's `bestiary::catalog::icon_url`. */
-export const itemIcon = (id: number) => `https://mxdgcw.dvg.cn/dbsource/icon/item/${id}.png`;
+/** The item icon: DVG's CDN, or the site's copy for items it lacks (client-icons.ts). */
+export { itemIconUrl as itemIcon } from '../src/components/client-icons';
 
 /** Whole mesos with thousands separators, or "—". */
 export const full = (value: number | null | undefined) => value == null || !Number.isFinite(value) ? '—' : value.toLocaleString('en-US', { useGrouping: language() !== 'zh' });

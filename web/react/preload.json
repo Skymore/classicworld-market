@@ -1,6 +1,6 @@
 {
  "shell": [
-  "chunks/main-Dn5BWFcO.js",
+  "chunks/main-BLb1lhpu.js",
   "chunks/shared-Cwf5YL9D.js",
   "chunks/assistant-icon-hY0GfDkf.js",
   "chunks/shell-DnS7q4el.js",
@@ -10,7 +10,8 @@
   "chunks/user-round-D3OeLOOV.js",
   "chunks/createLucideIcon-tgWCcnX0.js",
   "chunks/item-tip-6-ki30ae.js",
-  "chunks/entity-ref-DP9OMVqU.js",
+  "chunks/entity-ref-B2PxMzLF.js",
+  "chunks/client-icons-DQsbu2fb.js",
   "chunks/toasts-DNO84eON.js",
   "chunks/list-rows-BMkOOil-.js",
   "chunks/equipment-summary-F022Yyuh.js",
@@ -25,8 +26,8 @@
  ],
  "catalogue": {
   "modules": [
-   "chunks/catalogue-DN4uW1XP.js",
-   "chunks/catalogue-kDjaiM0x.js",
+   "chunks/catalogue-DbfFki2C.js",
+   "chunks/catalogue-BS8PSDWF.js",
    "chunks/shop-view-CNv8yTuq.js",
    "chunks/chevron-left-BCOVQaLs.js",
    "chunks/chevron-right-DnaJaJDw.js",
@@ -44,7 +45,7 @@
  },
  "search": {
   "modules": [
-   "chunks/catalogue-search-Dzemnq2l.js",
+   "chunks/catalogue-search-LYZuNCAc.js",
    "chunks/dialog-BG3HsSV-.js",
    "chunks/price-state-CKyuQlo_.js"
   ],

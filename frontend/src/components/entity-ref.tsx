@@ -22,7 +22,8 @@ export function setSiteLinks(Link: Anchor, period: () => string) {
   site = { Link, period };
 }
 
-export const itemIconUrl = (id: number) => `https://mxdgcw.dvg.cn/dbsource/icon/item/${id}.png`;
+import { itemIconUrl } from './client-icons';
+export { itemIconUrl };
 
 /** The item page, over the period the visitor picked. */
 export const itemPath = (id: number, variant?: number | null) =>
