@@ -183,8 +183,8 @@
       "_shared-l3_KInF0.js"
     ]
   },
-  "_main-cLxkw6_s.js": {
-    "file": "chunks/main-cLxkw6_s.js",
+  "_main-B6819SqA.js": {
+    "file": "chunks/main-B6819SqA.js",
     "name": "main",
     "imports": [
       "_shared-l3_KInF0.js",
@@ -456,7 +456,7 @@
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
-      "_main-cLxkw6_s.js"
+      "_main-B6819SqA.js"
     ]
   },
   "src/pages/account.tsx": {
@@ -614,7 +614,7 @@
     ]
   },
   "src/pages/grind.tsx": {
-    "file": "chunks/grind-Gkt3K6NC.js",
+    "file": "chunks/grind-BxaypnMI.js",
     "name": "grind",
     "src": "src/pages/grind.tsx",
     "isDynamicEntry": true,
@@ -781,7 +781,7 @@
     "src": "src/server.tsx",
     "isEntry": true,
     "imports": [
-      "_main-cLxkw6_s.js"
+      "_main-B6819SqA.js"
     ]
   }
 }

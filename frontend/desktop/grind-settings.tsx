@@ -182,6 +182,7 @@ export function SettingsView({ state, settings, save, refresh, site = false }: {
       <NumberField label={tr('连续获得经验后开始', 'Start after EXP gains')} unit={tr('次', 'times')} value={settings.start_events} min={2} max={20} onChange={v => save({ start_events: v })} />
       <NumberField label={tr('没有经验后暂停', 'Pause when idle for')} unit={tr('秒', 's')} value={settings.idle_seconds} min={20} max={900} onChange={v => save({ idle_seconds: v })} />
       <NumberField label={tr('暂停后结束本次', 'End when paused for')} unit={tr('秒', 's')} value={settings.end_after_seconds} min={60} max={7200} onChange={v => save({ end_after_seconds: v })} />
+      <NumberField label={tr('换图后单独成记录至少', 'New record per map after')} unit={tr('秒', 's')} value={settings.min_record_seconds ?? 60} min={0} max={3600} onChange={v => save({ min_record_seconds: v })} />
     </section>
     {state && !site && <section className="well"><div className="well-h"><h3>{tr('协议标定', 'Calibration')}</h3>
       <button className="text-link" disabled={state.calibrating} onClick={() => grind('calibrate').then(refresh)}><RefreshCw size={14} />{state.calibrating ? tr('标定中…', 'Calibrating…') : tr('立即标定', 'Calibrate now')}</button></div>

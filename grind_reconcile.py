@@ -32,7 +32,7 @@ class Rebuild(Tracker):
             super().gain(character, now, exp)
 
     def save_history(self, result):
-        self.results.append(result)
+        self.results = [r for r in self.results if r['id'] != result['id']] + [result]
 
     def persist(self):
         self.last_persist = self.now()
@@ -133,6 +133,8 @@ def prepare(folder, stop=None):
                 continue
             rebuilt = candidates[0]
             rebuilt.id = target['id']
+            for key in ('chain', 'chain_started', 'previous_id'):
+                setattr(rebuilt, key, target.get(key))
             proposal = dict(target=target, cutoff=clock[0], offsets=offsets, retire=sorted(evidence),
                             state=snapshot(tracker, set(tracker.characters)), inventories=encode({s: vars(v) for s, v in inventories.items()}),
                             before=dict(exp=sum(s['exp'] for s in target['segments']), kills=sum(s['kills'] for s in target['segments'])),
@@ -182,8 +184,7 @@ def apply_pending(live):
         before = live.summarize(current.run, live.now(), current)
         previous, current.run = current.run, rebuilt
         live.dirty = True
-        runs = [c.run.to_json() for c in live.characters.values() if c.run] + [r.to_json() for r in live.restored]
-        if not write_json(live.data/'current.json', dict(saved_at=live.now(), runs=runs)):
+        if not write_json(live.data/'current.json', live.current_state()):
             current.run = previous
             raise OSError('Could not persist repaired run')
         with contextlib.closing(sqlite3.connect(live.data/'history.sqlite')) as db, db:

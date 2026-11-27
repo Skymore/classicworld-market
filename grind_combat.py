@@ -172,6 +172,28 @@ class Meter:
     def to_json(self):
         return {str(k): dict(v, events=list(v['events'])) for k, v in self.players.items()}
 
+    def merge(self, other, active=0):
+        """Adds the meter of the record that followed (Run.absorb); `active` is this record's
+        active seconds, where the other one's clock started."""
+        for ident, theirs in other.players.items():
+            row = self.players.get(ident)
+            if row is None:
+                self.players[ident] = dict(theirs, active_start=theirs.get('active_start', 0) + active,
+                                           events=collections.deque(theirs['events'], maxlen=4000))
+                continue
+            for key in ('damage', 'kills', 'hits'):
+                row[key] = row.get(key, 0) + theirs.get(key, 0)
+            row['known'] = row.get('known') or theirs.get('known')
+            row['partial'] = row.get('partial') or theirs.get('partial')
+            row['events'].extend(theirs['events'])
+            if theirs.get('kill_events'):
+                row['kill_events'] = row.get('kill_events', []) + list(theirs['kill_events'])
+            for mob, count in (theirs.get('mobs') or {}).items():
+                counts = row.setdefault('mobs', {})
+                counts[mob] = counts.get(mob, 0) + count
+            if row.get('started_at') is None:
+                row.update(started_at=theirs.get('started_at'), active_start=theirs.get('active_start', 0) + active)
+
     def rows(self, now, active, started, running, self_id=None, self_kills=None, roster=None):
         result = []
         for ident, row in self.players.items():

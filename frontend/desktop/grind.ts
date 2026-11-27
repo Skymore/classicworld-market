@@ -58,6 +58,8 @@ export interface GrindSettings {
   enabled: boolean; record_frames: boolean; upload: boolean; idle_seconds: number; end_after_seconds: number;
   start_events: number; start_window: number; price_basis: 'typical' | 'npc' | 'none'; notable_value: number;
   count_mesos_spent: boolean; min_upload_seconds: number; overlay: OverlaySettings;
+  /** A change of grinding map starts a new record; one shorter than this goes back into the one before. */
+  min_record_seconds?: number;
   buff_warn_seconds: number; buff_warn_version?: number; buff_sound: boolean; hp_warn?: boolean; auto_buff: boolean; auto_potion: boolean; hotkeys: Record<HotkeyAction, string>;
   /** 绩效模式: 积分 = 经验/1万 × exp_per_10k + 收益（金币 + 基础掉落价值）/1万 × income_per_10k. */
   performance?: { enabled: boolean; exp_per_10k: number; income_per_10k: number; cost_per_10k?: number; per_hour?: number; other_per_10k?: number };

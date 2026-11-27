@@ -1,5 +1,6 @@
 """Replay local recordings once per collector version; never sends or uploads."""
 import contextlib
+import hashlib
 import json
 import sqlite3
 import tempfile
@@ -20,7 +21,8 @@ class ReplayTracker(Tracker):
         super().__init__(*args, **kwargs)
 
     def save_history(self, summary):
-        self.results.append(summary)
+        # A record ended at a change of map is saved again when the next one goes back into it.
+        self.results = [r for r in self.results if r['id'] != summary['id']] + [summary]
 
     def persist(self):
         self.last_persist = self.now()
@@ -34,8 +36,9 @@ class ReplayTracker(Tracker):
 # every release replayed 30 days, 5.6 M frames, ~13 min of a CPU core, for nothing).
 # r12: summaries carry 积分's inputs (basic_value, timeline mesos and basic); r13: ores count;
 # r14: the timeline's consumable cost (积分 subtracts it); r15: 南瓜派 at a fixed 750;
-# r16: the timeline's other (non-basic) drops, for 积分's optional term.
-REPLAY_VERSION = 'r16-2026-11-26'
+# r16: the timeline's other (non-basic) drops, for 积分's optional term; r17: a change of
+# grinding map splits the record (apply_results), the wait before the end is idle time.
+REPLAY_VERSION = 'r17-2026-11-27'
 
 
 def file_start(path):
@@ -218,8 +221,9 @@ def replay_group(settings, prices, group, boundaries, now, stop, repair):
                     while boundaries and boundaries[-1][0] <= stamp:
                         end, start, key = boundaries.pop()
                         for character in tracker.characters.values():
-                            if (character.key == key and character.run
-                                    and abs(character.run.started_at - start) <= 5):
+                            run = character.run
+                            if (character.key == key and run
+                                    and min(abs(run.started_at - start), abs((run.chain_started or 0) - start)) <= 5):
                                 clock[0] = end
                                 tracker.end(character, end)
                     clock[0] = max(clock[0], stamp)
@@ -302,6 +306,10 @@ def reprice_history(data, prices, version):
         summary['basic_value'] = round(sum(row.get('value') or 0 for row in summary.get('loot') or [] if basic_drop(row.get('item_id'))))
         summary.update(item_value=round(item_value), consume_cost=round(cost), net=round(net),
                        net_per_hour=net / hours if hours else summary.get('net_per_hour'), repriced=version)
+        home = home_map(summary.get('segments'))
+        if home is not None and home != summary.get('map_id'):
+            # Named after the map with the most grinding time, not the last one (Run.home).
+            summary.update(map_id=home, map_name=(prices.map(home) or {}).get('name'))
         changed.append((json.dumps(summary, ensure_ascii=False), ident))
     if changed:
         with contextlib.closing(sqlite3.connect(path, timeout=30)) as db, db:
@@ -309,13 +317,48 @@ def reprice_history(data, prices, version):
     return len(changed)
 
 
+def piece_id(ident, index):
+    """The ID of a later record split from saved run `ident`: the same on every replay."""
+    return ident if index == 0 else hashlib.md5(f'{ident}:{index}'.encode()).hexdigest()
+
+
+def pieces_of(old, results):
+    """The rebuilt records that make up saved run `old`: the one starting with it and those
+    split from the same continuous grind after it, up to its end. A record that waited out
+    the end now ends where grinding stopped, before the saved end; none ends after it."""
+    char = (old.get('character') or {}).get('key')
+    start, end = old['started_at'], old['ended_at']
+    inside = sorted((r for r in results if r.get('character', {}).get('key') == char
+                     and start - 5 <= r['started_at'] < end - 1 and r.get('ended_at') and r['ended_at'] <= end + 10),
+                    key=lambda r: r['started_at'])
+    heads = [r for r in inside if abs(r['started_at'] - start) <= 5]
+    if len(heads) != 1:
+        return []
+    chain = heads[0].get('chain') or heads[0]['id']
+    later = [r for r in inside if r is not heads[0]]
+    if any(r.get('chain') != chain for r in later):
+        return []   # another grind inside: boundaries changed, don't overwrite
+    return heads + later
+
+
+def home_map(segments):
+    time = {}
+    for s in segments or []:
+        if s.get('map_id') is not None:
+            time[s['map_id']] = time.get(s['map_id'], 0) + (s.get('active_seconds') or 0)
+    return max(time, key=time.get) if time else None
+
+
 def apply_results(data, results, first, last, version):
-    """Only replace fully covered, completed history; keep live runs untouched."""
+    """Only replace fully covered, completed history; keep live runs untouched. A saved run
+    the rebuild splits by map becomes its records: the first keeps the run's ID (and so its
+    share links), the others get IDs derived from it; the run as it was stays in split_runs."""
     path = data / 'history.sqlite'
     if not path.exists():
         return 0
     updated = 0
     with contextlib.closing(sqlite3.connect(path, timeout=30)) as db, db:
+        db.execute('CREATE TABLE IF NOT EXISTS split_runs (id TEXT PRIMARY KEY, summary TEXT, pieces TEXT, version TEXT)')
         originals = db.execute('SELECT id, summary FROM runs').fetchall()
         for ident, raw in originals:
             old = json.loads(raw)
@@ -323,11 +366,19 @@ def apply_results(data, results, first, last, version):
             start, end = old.get('started_at'), old.get('ended_at')
             if not char or not start or not end or first.get(char, float('inf')) > start or last.get(char, 0) < end:
                 continue
-            candidates = [r for r in results if r.get('character', {}).get('key') == char
-                          and abs(r['started_at'] - start) <= 5 and abs(r['ended_at'] - end) <= 10]
-            if len(candidates) != 1:
+            pieces = pieces_of(old, results)
+            if not pieces:
                 continue  # Missing frames or changed session boundaries: don't overwrite.
-            fresh = dict(candidates[0], id=ident, replay_version=version)
-            db.execute('UPDATE runs SET summary=? WHERE id=?', (json.dumps(fresh, ensure_ascii=False), ident))
-            updated += 1
+            ids = [piece_id(ident, n) for n in range(len(pieces))]
+            if len(pieces) > 1:
+                db.execute('INSERT OR IGNORE INTO split_runs VALUES (?,?,?,?)', (ident, raw, json.dumps(ids), version))
+            for n, (piece, new) in enumerate(zip(pieces, ids)):
+                fresh = dict(piece, id=new, replay_version=version, chain=None, chain_started=None, previous_id=None)
+                if len(pieces) > 1 or old.get('chain'):
+                    # The replay's own IDs are new each time: link the records by the saved ones.
+                    fresh.update(chain=old.get('chain') or ident, chain_started=old.get('chain_started') or start,
+                                 previous_id=ids[n - 1] if n else old.get('previous_id'))
+                db.execute('INSERT OR REPLACE INTO runs VALUES (?,?,?,?)',
+                           (new, fresh['started_at'], fresh['ended_at'], json.dumps(fresh, ensure_ascii=False)))
+                updated += 1
     return updated

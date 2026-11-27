@@ -12,7 +12,7 @@ export const KEY = "grind.settings";
 export const GRIND_DEFAULTS: GrindSettings = {
   enabled: true, record_frames: true, upload: true, idle_seconds: 90, end_after_seconds: 600,
   start_events: 3, start_window: 60, price_basis: "typical", notable_value: 500000,
-  count_mesos_spent: true, min_upload_seconds: 300, buff_warn_seconds: 3, buff_sound: true, hp_warn: true,
+  count_mesos_spent: true, min_upload_seconds: 300, min_record_seconds: 60, buff_warn_seconds: 3, buff_sound: true, hp_warn: true,
   auto_buff: false, auto_potion: false, hotkeys: { overlay: "Ctrl+Alt+O", pause: "Ctrl+Alt+P", end: "Ctrl+Alt+E" },
   overlay: { enabled: true, layout: "slim", theme: "dark", opacity: 0.92, scale: 1, hide_in_capture: false, stream: false,
     mouse_through: false, x: null, y: null, fields: ["time", "exp_rate", "profit", "level", "buffs", "potions", "recent"] } as GrindSettings["overlay"],

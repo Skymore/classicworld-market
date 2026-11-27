@@ -9,6 +9,7 @@ import { ErrorState, Loading, usePageReady } from "../components/shared";
 import { SiteLink } from "../components/shell";
 import { RunDetail, Spark, big, clock, signed, span, when, type Comparison, type GrindRun } from "../components/grind-run";
 import { GrindHistory } from "../components/grind-history";
+import { listedRun } from "../components/grind-periods";
 import { GrindShare } from "../components/grind-share";
 import { embeddedHost } from "../lib/embed";
 import { copyCard, drawCard, saveCard } from "../lib/grind-card";
@@ -283,7 +284,7 @@ function EveryoneRuns() {
   if (query.isError) return <ErrorState retry={() => void query.refetch()} />;
   const { live } = query.data!;
   // Under 2 minutes is a map passed through, like everywhere else in the history.
-  const runs = query.data!.runs.filter((run) => (run.active_seconds || 0) >= 120);
+  const runs = query.data!.runs.filter(listedRun);
   return (
     <>
       {live.length > 0 && <div className="grind-live-strip">

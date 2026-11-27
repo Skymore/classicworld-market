@@ -22,6 +22,8 @@ export interface GrindRun {
   level_start?: number | null;
   map_id?: number | null;
   map_name?: string | null;
+  /** Split by a change of grinding map: the first record of that continuous grind. */
+  chain?: string | null;
   exp: number;
   exp_per_hour?: number | null;
   kills: number;

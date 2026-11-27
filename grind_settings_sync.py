@@ -21,7 +21,7 @@ ROUTE = '/api/v1/collector/grind-settings'
 EVERY = 60
 # Shared choices; everything else in settings.json stays on this PC.
 SHARED = ('idle_seconds', 'end_after_seconds', 'start_events', 'start_window', 'price_basis', 'notable_value',
-          'count_mesos_spent', 'min_upload_seconds', 'buff_warn_seconds', 'buff_sound', 'hp_warn')
+          'count_mesos_spent', 'min_upload_seconds', 'min_record_seconds', 'buff_warn_seconds', 'buff_sound', 'hp_warn')
 SHARED_NESTED = dict(overlay=('layout', 'theme', 'opacity', 'scale', 'fields'),
                      performance=tuple(DEFAULTS['performance']))
 CHOICES = dict(price_basis=('typical', 'npc', 'none'),

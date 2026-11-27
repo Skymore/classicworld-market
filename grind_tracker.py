@@ -32,7 +32,7 @@ import grind_pets
 
 DEFAULTS = dict(enabled=True, record_frames=True, upload=True, idle_seconds=90, end_after_seconds=600,
                 start_events=3, start_window=60, price_basis='typical', notable_value=500000,
-                count_mesos_spent=True, min_upload_seconds=300, buff_warn_seconds=3, buff_warn_version=2, buff_sound=True, hp_warn=True, auto_buff=False, auto_potion=False,
+                count_mesos_spent=True, min_upload_seconds=300, min_record_seconds=60, buff_warn_seconds=3, buff_warn_version=2, buff_sound=True, hp_warn=True, auto_buff=False, auto_potion=False,
                 hotkeys=dict(overlay='Ctrl+Alt+O', pause='Ctrl+Alt+P', end='Ctrl+Alt+E'),
                 overlay=dict(enabled=True, layout='slim', theme='dark', opacity=0.92, scale=1.0,
                              hide_in_capture=False, stream=False, mouse_through=False, x=None, y=None,
@@ -272,6 +272,12 @@ class Run:
         # or not), and how much was added across stretches nothing could be read (bridge_exp).
         self.exp_seen = None
         self.exp_bridged = 0
+        self.ended_at = None
+        # Changing grinding maps ends a record and starts the next (Tracker.next_record): the
+        # first record of the continuous grind, when it started, and the record just before.
+        self.chain = None
+        self.chain_started = None
+        self.previous_id = None
 
     def add_exp(self, event):
         self.exp_events.append(event)
@@ -281,6 +287,48 @@ class Run:
     @property
     def segment(self):
         return self.segments[-1] if self.segments else None
+
+    def home(self):
+        """The map this record is named after: the one with the most active time, not the last."""
+        time = collections.Counter()
+        for s in self.segments:
+            time[s.map_id] += s.active_seconds
+        return max(time, key=time.get) if time else None   # a tie goes to the earlier map
+
+    def absorb(self, other):
+        """Takes in the record right after this one (a map too short to stand alone), as if
+        the run had never been split: segments, ledger, counters and the pause between."""
+        offset = len(self.segments)
+        active = sum(s.active_seconds for s in self.segments)
+        end = self.ended_at if self.ended_at is not None else (self.paused_at or self.credited_until)
+        if other.started_at > end:
+            self.pauses.append([end, other.started_at])
+            self.idle_seconds += other.started_at - end
+        self.segments += other.segments
+        for entry in other.ledger:
+            entry = dict(entry)
+            if entry.get('seg') is not None:
+                entry['seg'] += offset
+            self.ledger.append(entry)
+        self.exp_events += other.exp_events
+        self.exp_minutes.update(other.exp_minutes)
+        self.exp_slots.update(other.exp_slots)
+        for key in ('deaths', 'exp_lost', 'hp_lost', 'hp_drops', 'gaps', 'exp_bridged', 'idle_seconds'):
+            setattr(self, key, getattr(self, key) + getattr(other, key))
+        self.pauses += other.pauses
+        self.attacks.update(other.attacks)
+        self.casts.update(other.casts)
+        self.combat.merge(other.combat, active)
+        for mob, counts in other.kill_attacks.items():
+            mine = self.kill_attacks.setdefault(mob, {})
+            for attacks, kills in counts.items():
+                mine[attacks] = mine.get(attacks, 0) + kills
+        self.finds += other.finds
+        for key in ('status', 'pause_reason', 'paused_at', 'last_gain', 'credited_until', 'bags_seen', 'exp_seen', 'ended_at'):
+            setattr(self, key, getattr(other, key))
+        if other.kills_by_exp is not None:
+            self.kills_by_exp = other.kills_by_exp
+        return self
 
     def active_seconds(self, now):
         total = sum(s.active_seconds for s in self.segments)
@@ -314,13 +362,15 @@ class Run:
                                                                    {str(k): v for k, v in self.bags_seen[2].items()},
                                                                    self.bags_seen[3], None],
                     exp_seen=None if self.exp_seen is None else self.exp_seen[:3] + [None],
-                    exp_bridged=self.exp_bridged)
+                    exp_bridged=self.exp_bridged, ended_at=self.ended_at, chain=self.chain,
+                    chain_started=self.chain_started, previous_id=self.previous_id)
 
     @classmethod
     def from_json(cls, data):
         run = cls(data['character'], data['started_at'])
         for key in ('id', 'status', 'pause_reason', 'paused_at', 'idle_seconds', 'last_gain', 'credited_until',
-                    'ledger', 'deaths', 'exp_lost', 'gaps', 'level_start', 'hp_lost', 'hp_drops', 'kills_by_exp', 'finds'):
+                    'ledger', 'deaths', 'exp_lost', 'gaps', 'level_start', 'hp_lost', 'hp_drops', 'kills_by_exp', 'finds',
+                    'ended_at', 'chain', 'chain_started', 'previous_id'):
             setattr(run, key, data.get(key, getattr(run, key)))
         run.exp_events = [tuple(e) for e in data.get('exp_events') or []]
         run.pauses = [[float(a), float(b)] for a, b in data.get('pauses') or []]
@@ -416,6 +466,9 @@ class Tracker:
         self.connections = {}       # session -> captured TCP connection, for the game window
         self.auto_buff = None
         self.finished = []          # summaries of runs ended this process
+        # character key -> the record ended by a change of grinding map, kept until the next
+        # one is long enough to stand alone (else it goes back into this one: next_record).
+        self.pending = {}
         self.settings_path = self.data / 'settings.json'
         self.profile_path = self.data / 'protocol.json'
         self.settings_mtime = self.profile_mtime = None
@@ -1230,6 +1283,7 @@ class Tracker:
         if run is None or run.status == 'ended':
             run = character.run = Run(character.facts(), first)
         else:
+            run = character.run = self.next_record(character, run, first)
             self.resume(run, first)
         if not run.segment or run.segment.map_id != character.map_id:
             run.segments.append(Segment(character.map_id, character.level, character.job, first))
@@ -1263,6 +1317,46 @@ class Tracker:
         character.staged_kills = []
         character.staged_combat = []
         self.dirty = True
+
+    def qualifies(self, run):
+        """Long enough to be a record of its own: grinding time and at least one kill."""
+        return (sum(s.active_seconds for s in run.segments) >= self.settings['min_record_seconds']
+                and sum(s.kills for s in run.segments) > 0)
+
+    def next_record(self, character, run, first):
+        """Grinding starts again (at `first`) after a pause: the record it goes into.
+
+        Another grinding map ends the record there and starts a new one at the first gain on
+        the new map; towns and other maps without kills never start one, so a supply trip
+        stays in the record as idle time. A record too short to stand alone (under
+        min_record_seconds, or no kill) goes back into the one before it, which carries on
+        when this is its map again (A, a few kills on B, back to A: one record); with no
+        record before it, it stays at the head of the next one."""
+        if not run.segment or run.segment.map_id == character.map_id:
+            return run
+        key = run.character.get('key')
+        before = self.pending.get(key) if key else None
+        if before is not None and before.id == run.previous_id and not self.qualifies(run):
+            del self.pending[key]
+            run = before.absorb(run)
+            if run.home() == character.map_id:
+                return run
+        if not self.qualifies(run) or run.home() == character.map_id:
+            return run
+        run.chain = run.chain or run.id
+        run.chain_started = run.chain_started or run.started_at
+        self.finish(run, first, keep=True)
+        record = Run(character.facts(), first)
+        record.chain, record.chain_started = run.chain, run.chain_started
+        record.previous_id = run.id
+        record.exp_seen = run.exp_seen
+        return record
+
+    def release(self, run):
+        """A record that can no longer change: the anonymous map statistics get it now."""
+        summary = self.summarize(run, run.ended_at)
+        if summary['active_seconds'] >= self.settings['min_upload_seconds']:
+            self.queue_upload(run, summary)
 
     def pause(self, run, reason, now):
         if run.status != 'active':
@@ -1400,18 +1494,39 @@ class Tracker:
         for run in list(self.restored):
             self.finish(run, run.paused_at or now)
             self.restored.remove(run)
+        for key in list(self.pending):
+            self.release(self.pending.pop(key))
         self.persist()
 
-    def finish(self, run, now):
+    def finish(self, run, now, keep=False):
+        """Ends a record. `keep`: ended by a change of grinding map; it may still take back the
+        next record, so it is uploaded only when that one is settled."""
         if run.status == 'active':
             self.pause(run, 'end', now)
+        if run.status == 'paused' and run.paused_at is not None:
+            if now - run.paused_at > self.settings['end_after_seconds']:
+                now = run.paused_at   # ended by waiting: the record ends where grinding stopped
+            else:
+                self.resume(run, now)   # the wait until the end is idle time of this record
         run.status = 'ended'
-        summary = self.summarize(run, now)
+        run.ended_at = now
+        key = run.character.get('key')
+        before = self.pending.get(key) if key else None
+        if before is not None and before is not run:
+            del self.pending[key]
+            if before.id == run.previous_id and not self.qualifies(run):
+                run = before.absorb(run)   # too short to stand alone: back into the record before
+            else:
+                self.release(before)
+        summary = self.summarize(run, run.ended_at)
+        self.finished = [s for s in self.finished if s['id'] != run.id]
         self.finished.insert(0, summary)
         del self.finished[20:]
         self.save_history(summary)
         # Parsed results always go to the site (the recorded frames never do).
-        if summary['active_seconds'] >= self.settings['min_upload_seconds']:
+        if keep and key:
+            self.pending[key] = run
+        elif summary['active_seconds'] >= self.settings['min_upload_seconds']:
             self.queue_upload(run, summary)
         self.dirty = True
 
@@ -1571,12 +1686,14 @@ class Tracker:
             rate_history.append(dict(t=run.started_at + offset, clock=clock.wall(offset),
                                      exp=window(exp_index), net=window(cash_index)))
         net_1m = rate_history[-1]['net'] if rate_history and run.status == 'active' else None
+        home = run.home()
         return dict(
             id=run.id, status=run.status, pause_reason=run.pause_reason, character=facts,
             job_name=job_name(facts.get('job')), level=level, level_start=run.level_start,
             exp_now=current, exp_percent=(current / need * 100) if need and current is not None else None,
-            map_id=run.segment.map_id if run.segment else None,
-            map_name=(self.prices.map(run.segment.map_id) or {}).get('name') if run.segment else None, started_at=run.started_at, ended_at=now if run.status == 'ended' else None,
+            map_id=home, map_name=(self.prices.map(home) or {}).get('name') if home is not None else None,
+            chain=run.chain, chain_started=run.chain_started, previous_id=run.previous_id,
+            started_at=run.started_at, ended_at=now if run.status == 'ended' else None,
             active_seconds=round(active), idle_seconds=round(run.idle_seconds + (now - run.paused_at if run.status == 'paused' and run.paused_at else 0)),
             exp=exp, exp_per_hour=avg, exp_per_hour_5m=recent,
             exp_per_hour_1m=rate_history[-1]['exp'] if rate_history and run.status == 'active' else None,
@@ -1876,9 +1993,12 @@ class Tracker:
         self.dirty = False
 
     def persist(self):
-        runs = [c.run.to_json() for c in self.characters.values() if c.run] + [r.to_json() for r in self.restored]
-        write_json(self.data / 'current.json', dict(saved_at=self.now(), runs=runs))
+        write_json(self.data / 'current.json', self.current_state())
         self.last_persist = self.now()
+
+    def current_state(self):
+        runs = [c.run.to_json() for c in self.characters.values() if c.run] + [r.to_json() for r in self.restored]
+        return dict(saved_at=self.now(), runs=runs, previous=[r.to_json() for r in self.pending.values()])
 
     def restore(self):
         """Open runs from before a collector restart (updates keep connections)."""
@@ -1896,6 +2016,15 @@ class Tracker:
             if run.status == 'active':
                 self.pause(run, 'disconnect', saved.get('saved_at', now))
             self.restored.append(run)
+        for data in saved.get('previous') or []:
+            try:
+                run = Run.from_json(data)
+            except (KeyError, TypeError, ValueError):
+                continue
+            if any(r.previous_id == run.id for r in self.restored) and run.character.get('key'):
+                self.pending[run.character['key']] = run
+            else:
+                self.release(run)   # the record after it is gone: nothing can change it now
 
     def save_history(self, summary):
         try:

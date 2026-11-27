@@ -11,9 +11,11 @@ type MapSort = "exp" | "time" | "net";
 type Metric = "time" | "exp" | "rate" | "net";
 /** Ticking runs in the list: the two to compare. */
 export interface Picks { has(id: string): boolean; toggle(id: string): void; full: boolean }
-/** Runs shorter than this are a map passed through, not a grind: never listed or counted. */
+/** Runs shorter than this are a map passed through, not a grind: never listed or counted.
+ * A record split off by a change of grinding map is listed however short (a minute or more). */
 const SHORT = 2 * 60;
-type Run = Pick<GrindRun, "started_at" | "active_seconds" | "exp" | "net" | "kills" | "map_name">;
+export const listedRun = (run: Pick<GrindRun, "active_seconds" | "chain">) => (run.active_seconds || 0) >= SHORT || !!run.chain;
+type Run = Pick<GrindRun, "started_at" | "active_seconds" | "exp" | "net" | "kills" | "map_name" | "chain">;
 
 const day = (at: Date) => new Date(at.getFullYear(), at.getMonth(), at.getDate());
 /** Weeks start on Monday. */
@@ -60,7 +62,7 @@ export function PeriodBoard<T extends Run>({ runs, t, english, filters, keep, re
   idOf?: (run: T) => string;
   children(shown: T[], picks: Picks | null): ReactNode;
 }) {
-  const latest = useMemo(() => runs.reduce((at, run) => (run.active_seconds || 0) >= SHORT ? Math.max(at, run.started_at) : at, 0), [runs]);
+  const latest = useMemo(() => runs.reduce((at, run) => listedRun(run) ? Math.max(at, run.started_at) : at, 0), [runs]);
   const [mode, setMode] = useState<Mode>(() => remembered(remember)?.mode ?? "week");
   // Opens on the period of the latest run, so the first screen is never empty.
   const [anchor, setAnchor] = useState(() => new Date(remembered(remember)?.at ?? (latest ? latest * 1000 : Date.now())));
@@ -80,7 +82,7 @@ export function PeriodBoard<T extends Run>({ runs, t, english, filters, keep, re
   const pair = idOf && picked.length === 2 ? (picked.map(id => runs.find(run => idOf(run) === id)).filter(Boolean) as T[]).sort((x, y) => x.started_at - y.started_at) : [];
   const start = startOf(mode, anchor), end = shift(mode, start, 1);
   const within = (run: Run, from: Date, to: Date) => run.started_at * 1000 >= from.getTime() && run.started_at * 1000 < to.getTime();
-  const listed = useMemo(() => runs.filter(run => (run.active_seconds || 0) >= SHORT), [runs]);
+  const listed = useMemo(() => runs.filter(listedRun), [runs]);
   const inPeriod = useMemo(() => listed.filter(run => within(run, start, end)), [listed, start.getTime(), end.getTime()]);
   const kept = useMemo(() => keep ? listed.filter(keep) : listed, [listed, keep]);
   const period = useMemo(() => keep ? inPeriod.filter(keep) : inPeriod, [inPeriod, keep]);
