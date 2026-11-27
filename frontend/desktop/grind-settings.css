@@ -1,0 +1,34 @@
+/* 刷图 settings (grind-settings.tsx), in the collector and on the site. */
+.grind-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}
+.grind-settings .well{display:flex;flex-direction:column;gap:8px;padding-bottom:10px}.grind-settings .well>*:not(.well-h){margin:0 12px}
+.grind-check{display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer}
+.grind-field{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px}
+.grind-field input[type=number]{width:120px;padding:4px 6px;border:1px solid var(--rule);background:var(--sheet);font:inherit}
+.grind-field input[type=range]{width:160px}
+.grind-radio{display:flex;flex-wrap:wrap;gap:14px;font-size:13px}.grind-radio label{display:flex;align-items:center;gap:5px;cursor:pointer}
+.grind-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.grind-field small.warn{color:var(--maple-ink)}.hotkey-input{width:140px;padding:4px 6px;border:1px solid var(--rule);background:var(--sheet);font:inherit;text-align:center;cursor:pointer}
+.grind-cal{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2)}.grind-cal b{font-weight:600;color:var(--ink-3)}.grind-cal b.ok{color:#2f7d4f}
+/* Grind settings: one look for every control. */
+.grind-settings input[type=checkbox],.grind-settings input[type=range]{accent-color:var(--mark)}
+.grind-settings .grind-field>span:first-child{color:var(--ink-2)}
+.grind-number{display:inline-flex;align-items:center;gap:6px}.grind-number small{min-width:28px;color:var(--ink-3);font-size:12px}
+.grind-field .grind-number input[type=number]{width:96px;text-align:right;font-variant-numeric:tabular-nums}
+.grind-slider{display:inline-flex;align-items:center;gap:8px}.grind-slider b{width:42px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums}
+.grind-seg{display:flex}.grind-seg button{min-height:28px;padding:0 11px;border:1px solid var(--edge);background:var(--sheet-hi);font:inherit;font-size:12px;font-weight:600;color:var(--ink-2);cursor:pointer}
+.grind-seg button+button{margin-left:-1px}.grind-seg button[aria-checked=true]{position:relative;z-index:1;background:var(--bar);border-color:var(--bar-lo);color:var(--bar-ink)}
+.grind-sub{padding-top:8px;border-top:1px solid var(--rule);font-size:12px;font-weight:600;color:var(--ink-3)}.grind-sub:empty{padding:0}
+/* Overlay presets: pick by what it looks like. */
+.grind-presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.grind-preset{display:flex;flex-direction:column;min-width:0;border:2px solid var(--rule);background:var(--sheet-hi);cursor:pointer}
+.grind-preset:hover{border-color:var(--ink-3)}.grind-preset[aria-checked=true]{border-color:var(--bar);box-shadow:0 0 0 1px var(--bar)}
+.grind-preset>b{display:flex;align-items:center;gap:7px;padding:6px 9px;font-size:13px}
+.grind-preset>b::before{content:"";flex:none;width:12px;height:12px;border:2px solid var(--ink-3);border-radius:50%;box-sizing:border-box}
+.grind-preset[aria-checked=true]>b::before{border-color:var(--bar);background:radial-gradient(var(--bar) 42%,transparent 48%)}
+.grind-preview{display:flex;justify-content:center;align-items:flex-start;height:226px;padding:12px;overflow:hidden;pointer-events:none;background:linear-gradient(160deg,#6f90a3,#3f5a6b)}
+.grind-preview>span{display:block;flex:none}
+.grind-preview.wide{height:auto;max-height:300px}
+.grind-preset.wide{grid-column:1/-1}.grind-preset.wide>b svg{margin-left:auto;color:var(--ink-3)}
+.grind-info-h{display:flex;align-items:center;gap:6px}.info-dot{appearance:none;border:0;background:none;padding:0;color:var(--ink-2);cursor:pointer;display:inline-flex}.info-dot[aria-expanded=true]{color:var(--ink)}
+.grind-help{white-space:pre-line;margin:6px 0 8px;line-height:1.6}
+@media (max-width:900px){.grind-settings{grid-template-columns:1fr}}

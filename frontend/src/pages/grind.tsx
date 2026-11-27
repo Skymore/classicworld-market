@@ -16,6 +16,8 @@ import { LiveView as ClientLive } from "../../desktop/grind-live";
 import { setTextLanguage, type Lang } from "../../desktop/i18n";
 import { setGrindIconBase } from "../../desktop/skill-icons";
 import { PAUSE_LABELS, type Live, type RunSummary } from "../../desktop/grind";
+import { SettingsView } from "../../desktop/grind-settings";
+import { pointsRule, useAccountGrindSettings } from "../lib/grind-settings";
 import "../../desktop/grind-live.css";
 import "./grind.css";
 
@@ -67,6 +69,8 @@ function Hub() {
   const tab = new URLSearchParams(route.search).get("tab");
   const board = tab === "board";
   const everyone = tab === "all";
+  const signedIn = !!useAccount().data?.signed_in;
+  const settings = tab === "settings" && signedIn;
   // In the collector (its own 刷图 tabs are the navigation) only the page itself.
   if (embeddedHost) return <section className="stall">{board ? <Leaderboard /> : everyone ? <EveryoneRuns /> : <MyRuns />}</section>;
   return (
@@ -76,12 +80,13 @@ function Hub() {
         <div className="stall-bar grind-site-bar">
           <h1>{words("刷图", "Grind")}</h1>
           <nav>
-            <button aria-pressed={!board && !everyone} onClick={() => navigate("/grind")}>{words("我的记录", "My runs")}</button>
+            <button aria-pressed={!board && !everyone && !settings} onClick={() => navigate("/grind")}>{words("我的记录", "My runs")}</button>
             <button aria-pressed={board} onClick={() => navigate("/grind?tab=board")}>{words("地图效率榜", "Map leaderboard")}</button>
             <button aria-pressed={everyone} onClick={() => navigate("/grind?tab=all")}>{words("全部用户", "Everyone")}</button>
+            {signedIn && <button aria-pressed={settings} onClick={() => navigate("/grind?tab=settings")}>{words("设置", "Settings")}</button>}
           </nav>
         </div>
-        {board ? <Leaderboard /> : everyone ? <EveryoneRuns /> : <MyRuns />}
+        {board ? <Leaderboard /> : everyone ? <EveryoneRuns /> : settings ? <SiteSettings /> : <MyRuns />}
       </section>
     </>
   );
@@ -125,11 +130,26 @@ function LiveStrip({ runs }: { runs: OpenRun[] }) {
 }
 
 /** The client's own live view (desktop/grind-live.tsx) for one open run. */
-function LiveBoard({ run, liveAt }: { run: OpenRun; liveAt: number }) {
+function LiveBoard({ run, liveAt, own = false }: { run: OpenRun; liveAt: number; own?: boolean }) {
   const { language } = usePreferences();
   setTextLanguage(language as Lang);
+  const [settings] = useAccountGrindSettings();
   const live = { runs: [run], alive_at: liveAt, stale: false, finished: [], recording: false, calibration: [], characters: [] } as unknown as Live;
-  return <div className="grind-live-view"><ClientLive run={run as unknown as RunSummary} live={live} warn={10} /></div>;
+  return <div className="grind-live-view"><ClientLive run={run as unknown as RunSummary} live={live} warn={10} rule={own ? pointsRule(settings) : undefined} /></div>;
+}
+
+/** The account's 刷图 settings: the clients signed in to it take them within a minute. */
+function SiteSettings() {
+  const words = useWords(), { language } = usePreferences();
+  setTextLanguage(language as Lang);
+  const [settings, save] = useAccountGrindSettings();
+  return (
+    <div className="grind-site-settings">
+      <p className="note">{words("这些设置跟账号走，登录这个账号的客户端约一分钟内同步；悬浮窗位置、快捷键、录制开关等留在每台电脑上。",
+        "These follow the account: clients signed in to it pick them up within a minute. Overlay position, hotkeys and recording stay on each PC.")}</p>
+      <SettingsView state={null} settings={settings} save={save} site />
+    </div>
+  );
 }
 
 function Ago({ at }: { at: number }) {
@@ -170,7 +190,7 @@ function LiveRun({ id }: { id: string }) {
       {link && <p className="grind-live-link">{words("已复制。拿到链接的人不用登录就能看这一场，这一场结束后链接失效：", "Copied. Anyone with the link can watch this run without signing in until it ends:")}
         <input className="grind-share-url" readOnly value={link} onFocus={(e) => e.currentTarget.select()} /></p>}
       {failed && <p className="grind-live-link">{words("没能生成链接，这一场可能刚结束。", "Couldn't make a link; the run may have just ended.")}</p>}
-      <LiveBoard run={run} liveAt={run.live_at} />
+      <LiveBoard run={run} liveAt={run.live_at} own />
     </section>
   );
 }
@@ -324,6 +344,7 @@ function AdminLive({ id }: { id: string }) {
 
 function MyRun({ row }: { row: string }) {
   const words = useWords(), { language } = usePreferences();
+  const [settings] = useAccountGrindSettings();
   const [sharing, setSharing] = useState(false);
   const query = useQuery<{ run: GrindRun; share_code: string | null; comparison: Comparison | null }>({
     queryKey: ["grind-run", row], queryFn: () => getJson(`/api/v1/grind/runs/${row}`), staleTime: 60_000, retry: false });
@@ -335,7 +356,7 @@ function MyRun({ row }: { row: string }) {
   return (
     <section className="grind-page-run">
       <SiteLink className="grind-back" href="/grind">‹ {words("我的记录", "My runs")}</SiteLink>
-      <RunDetail run={data.run} t={words} english={language === "en"} comparison={data.comparison}
+      <RunDetail run={data.run} t={words} english={language === "en"} comparison={data.comparison} rule={pointsRule(settings)}
         actions={<button className="btn primary" aria-expanded={sharing} onClick={() => setSharing(!sharing)}>{words("分享", "Share")}</button>} />
       {sharing && <SharePanel row={row} run={data.run} />}
     </section>

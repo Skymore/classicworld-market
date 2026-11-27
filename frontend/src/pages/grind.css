@@ -65,3 +65,13 @@
 .grind-live-head .btn{margin-left:auto}
 .grind-live-link{display:flex;flex-direction:column;gap:6px;margin:0 0 10px;font-size:13px}
 .grind-live-view{display:flex;flex-direction:column;gap:10px}
+/* 设置: the account's 刷图 settings (desktop/grind-settings.tsx). */
+.grind-site-settings{padding:12px}.grind-site-settings>.note{margin:0 0 10px;font-size:13px;color:var(--ink-3)}
+@media (max-width:700px){
+  .grind-site-settings{padding:10px 0}
+  .grind-site-settings .grind-presets{grid-template-columns:1fr}
+  .grind-site-settings .grind-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grind-site-settings .grind-field{flex-wrap:wrap}
+  .grind-site-settings input[type=number]{font-size:16px}
+  .grind-site-settings .grind-seg{flex-wrap:wrap}
+}

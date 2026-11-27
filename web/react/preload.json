@@ -1,40 +1,40 @@
 {
  "shell": [
-  "chunks/main-DOBIAi67.js",
-  "chunks/shared-Cwf5YL9D.js",
-  "chunks/assistant-icon-hY0GfDkf.js",
-  "chunks/shell-DnS7q4el.js",
+  "chunks/main-cLxkw6_s.js",
+  "chunks/shared-l3_KInF0.js",
+  "chunks/assistant-icon-CKFnckrS.js",
+  "chunks/shell-kP752aT3.js",
   "chunks/embed-MErqN2al.js",
-  "chunks/watch-ids-D1BfyfvC.js",
+  "chunks/watch-ids-CcjThBHz.js",
   "chunks/item-market-DWTwTHNX.js",
-  "chunks/user-round-D3OeLOOV.js",
-  "chunks/createLucideIcon-tgWCcnX0.js",
-  "chunks/item-tip-6-ki30ae.js",
-  "chunks/entity-ref-E0cjt6Sr.js",
+  "chunks/user-round-8ebSwETE.js",
+  "chunks/createLucideIcon-BkmugFrf.js",
+  "chunks/item-tip-CcbRfhqk.js",
+  "chunks/entity-ref-CcQ305vI.js",
   "chunks/client-icons-Xq9BJSI_.js",
-  "chunks/toasts-DNO84eON.js",
-  "chunks/list-rows-BMkOOil-.js",
+  "chunks/toasts-Bxh35i06.js",
+  "chunks/list-rows-Bi1kQazM.js",
   "chunks/equipment-summary-F022Yyuh.js",
-  "chunks/push-B4Y7dGVV.js",
-  "chunks/account-api-BBft_6am.js",
-  "chunks/watch-alerts-B4Qevqc1.js",
+  "chunks/push-YT_cqH6y.js",
+  "chunks/account-api-BDSqM5kb.js",
+  "chunks/watch-alerts-BVTa6KEn.js",
   "chunks/watchlist-core-CnJpcWvS.js",
   "chunks/item-offer-filters-Bqp-qBXH.js",
   "chunks/watch-reminders-pyT7no6d.js",
-  "chunks/live-BeLEbRYy.js",
-  "chunks/list-copy-C2h7saeH.js"
+  "chunks/live-Uh3y4lKj.js",
+  "chunks/list-copy-B3_EvCRQ.js"
  ],
  "catalogue": {
   "modules": [
-   "chunks/catalogue-Bq57PAKv.js",
-   "chunks/catalogue-BmgrBMgy.js",
-   "chunks/shop-view-CNv8yTuq.js",
-   "chunks/chevron-left-BCOVQaLs.js",
-   "chunks/chevron-right-DnaJaJDw.js",
-   "chunks/maximize-2-AmDEO5kK.js",
-   "chunks/x-D8pr1BE9.js",
+   "chunks/catalogue-DzB3CSqa.js",
+   "chunks/catalogue-DWx5QhMJ.js",
+   "chunks/shop-view-B7koKRcf.js",
+   "chunks/chevron-left-Ft72BfCZ.js",
+   "chunks/chevron-right-CvsqcVHZ.js",
+   "chunks/maximize-2-CnBxEysK.js",
+   "chunks/x-DkACle9J.js",
    "chunks/sweep-labels-CbOZ9kot.js",
-   "chunks/offer-filters-BdJSp6ek.js",
+   "chunks/offer-filters-BX1W3mxX.js",
    "chunks/crafting-CXB4nJ1A.js"
   ],
   "styles": [
@@ -45,9 +45,9 @@
  },
  "search": {
   "modules": [
-   "chunks/catalogue-search-BaWJKpzI.js",
-   "chunks/dialog-BG3HsSV-.js",
-   "chunks/price-state-CKyuQlo_.js"
+   "chunks/catalogue-search-DmpEQd74.js",
+   "chunks/dialog-BJw9BzX5.js",
+   "chunks/price-state-87s14MQ8.js"
   ],
   "styles": []
  },

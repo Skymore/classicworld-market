@@ -30,6 +30,10 @@ pub fn router() -> Router<AppState> {
             get(collector_watch_data).post(collector_save_watch),
         )
         .route(
+            "/api/v1/collector/grind-settings",
+            post(collector_grind_settings),
+        )
+        .route(
             "/api/v1/collector/account-disconnect",
             post(collector_disconnect),
         )
@@ -777,6 +781,7 @@ pub(crate) fn valid_record(r: &Record) -> bool {
             "market.hours",
             "watch.sweepSettings",
             "watch.lists",
+            GRIND_SETTINGS,
         ]
         .contains(&r.key.as_str());
     };
@@ -790,6 +795,7 @@ pub(crate) fn valid_record(r: &Record) -> bool {
         "market.offerSort" | "watch.offerSort" => v == "price" || v == "recent",
         "market.hours" => v == "72" || v == "all",
         "watch.lists" => v.as_str().is_some_and(valid_watch_lists),
+        GRIND_SETTINGS => v.as_str().is_some_and(valid_grind_settings),
         "watch.sweepSettings" => v.as_str().is_some_and(|s| {
             s.len() <= 1024
                 && serde_json::from_str::<Value>(s).ok().is_some_and(|v| {
@@ -807,6 +813,21 @@ pub(crate) fn valid_record(r: &Record) -> bool {
         }),
         _ => false,
     }
+}
+/// The account's 刷图 settings, shared by its clients and the site: a JSON object of the
+/// choices made (absent ones keep each client's own). Each client checks every value again.
+const GRIND_SETTINGS: &str = "grind.settings";
+fn valid_grind_settings(raw: &str) -> bool {
+    raw.len() <= 8192
+        && serde_json::from_str::<Value>(raw).ok().is_some_and(|v| {
+            v.as_object().is_some_and(|o| {
+                o.len() <= 64
+                    && o.iter().all(|(k, v)| {
+                        k.len() <= 64
+                            && v.as_object().is_none_or(|nested| nested.len() <= 64)
+                    })
+            })
+        })
 }
 fn valid_watch_lists(raw: &str) -> bool {
     if raw.len() > 16384 {
@@ -986,6 +1007,86 @@ async fn collector_watch_snapshot(db: &PgPool, collector: i64) -> Response {
         .bind(id).fetch_all(db).await { Ok(v)=>v,Err(e)=>return internal(e) };
     Json(json!({"linked":true,"public_id":public_id,"nickname":nickname,"records":records}))
         .into_response()
+}
+#[derive(Deserialize)]
+struct GrindSettingsWrite {
+    /// The settings to store, written over `version` (0 when the account has none yet).
+    value: Option<Value>,
+    #[serde(default)]
+    version: i64,
+}
+/// The linked account's 刷图 settings for a client: read with `{}`, or write `value` over
+/// `version` (409 sync_conflict when the site or another client wrote first).
+async fn collector_grind_settings(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<GrindSettingsWrite>,
+) -> Response {
+    let c = match identity::collector(&state, &headers).await {
+        Ok(c) => c,
+        Err(e) => return e,
+    };
+    let account: Option<i64> = match sqlx::query_scalar(
+        "SELECT a.id FROM collectors c JOIN accounts a ON a.id=c.account_id WHERE c.id=$1 AND c.active",
+    )
+    .bind(c.id)
+    .fetch_optional(&state.db)
+    .await
+    {
+        Ok(v) => v,
+        Err(e) => return internal(e),
+    };
+    let Some(id) = account else {
+        return Json(json!({"linked": false})).into_response();
+    };
+    if let Some(value) = input.value {
+        let record = Record {
+            kind: "pref".into(),
+            key: GRIND_SETTINGS.into(),
+            value: Some(Value::String(value.to_string())),
+            version: input.version,
+        };
+        if !value.is_object() || !valid_record(&record) {
+            return error(StatusCode::BAD_REQUEST, "invalid_data");
+        }
+        if !state.limiter.allow(&format!("account-data:{id}"), 120) {
+            return error(StatusCode::TOO_MANY_REQUESTS, "rate_limited");
+        }
+        let mut tx = match state.db.begin().await {
+            Ok(t) => t,
+            Err(e) => return internal(e),
+        };
+        if let Err(e) = sqlx::query("SELECT id FROM accounts WHERE id=$1 FOR UPDATE")
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+        {
+            return internal(e);
+        }
+        if let Err(e) = apply(&state.db, &mut tx, id, vec![record], false).await {
+            return e;
+        }
+        if let Err(e) = tx.commit().await {
+            return internal(e);
+        }
+    }
+    let row: Option<(Option<Value>, i64)> = match sqlx::query_as(
+        "SELECT value,version FROM account_data WHERE account_id=$1 AND kind='pref' AND key=$2",
+    )
+    .bind(id)
+    .bind(GRIND_SETTINGS)
+    .fetch_optional(&state.db)
+    .await
+    {
+        Ok(v) => v,
+        Err(e) => return internal(e),
+    };
+    let (value, version) = row.unwrap_or((None, 0));
+    let value = value
+        .as_ref()
+        .and_then(Value::as_str)
+        .and_then(|s| serde_json::from_str::<Value>(s).ok());
+    Json(json!({"linked": true, "value": value, "version": version})).into_response()
 }
 #[derive(Deserialize)]
 struct CollectorChanges {

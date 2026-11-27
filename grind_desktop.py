@@ -127,16 +127,21 @@ class GrindService:
         self.rebuild = None  # grind_rebuild process, while a parser fix is being rebuilt
         from grind_sync import RunSync
         self.sync = RunSync(self.folder)
+        from grind_settings_sync import SettingsSync
+        self.shared = SettingsSync(self)   # the account's settings, shared with the site
 
     # ----- data for the pages -------------------------------------------
     def settings(self):
         return load_settings(self.data / 'settings.json')
 
-    def save_settings(self, changes):
+    def save_settings(self, changes, share=True):
+        """`share`: also send the shared choices to the account (False while taking its own)."""
         if not isinstance(changes, dict):
             raise ValueError('invalid_request')
+        from grind_settings_sync import flat
         with self.lock:
             current = self.settings()
+            before = flat(current)
             for key, value in changes.items():
                 if key in NESTED and isinstance(value, dict):
                     current[key].update({k: v for k, v in value.items() if k in DEFAULTS[key]})
@@ -147,6 +152,8 @@ class GrindService:
         self.apply_overlay(current)
         if 'hotkeys' in changes and self.hotkeys:
             self.hotkeys.reload()
+        if share and flat(current) != before:   # not for the overlay's position and the like
+            self.shared.changed_here()
         return current
 
     def command(self, action):
@@ -289,6 +296,7 @@ class GrindService:
     def start(self):
         threading.Thread(target=self.calibrate_loop, daemon=True, name='grind-calibrate').start()
         threading.Thread(target=self.sync.loop, args=(self.stop,), daemon=True, name='grind-sync').start()
+        self.shared.start(self.stop)
         # Recordings go to the site too (internal testing: always, no option): a parser
         # fix can then be checked against everyone's sessions.
         from grind_frames import upload_loop

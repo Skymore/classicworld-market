@@ -1,0 +1,1 @@
+import{Lt as e}from"./shared-l3_KInF0.js";import{t}from"./entity-ref-CcQ305vI.js";var n=e();function r({id:e,variant:r,className:i,children:a}){return(0,n.jsx)(t,{kind:`item`,id:e,variant:r,className:`item-link`+(i?` `+i:``),children:a})}export{r as t};
