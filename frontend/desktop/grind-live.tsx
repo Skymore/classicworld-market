@@ -41,7 +41,6 @@ export function LiveView({ run, live, warn, rule }: { run: RunSummary | null; li
     <BuffStrip live={live} warn={warn} />
     <div className={'grind-rate-panels' + (rule ? ' three' : '')}><RateMetrics run={run} kind="exp" /><RateMetrics run={run} kind="net" />
       {rule && <RateMetrics run={run} kind="points" rule={rule} />}</div>
-    {rule && <div className="grind-points-detail"><PointsDetail run={run} rule={rule} t={tr} big={big} /></div>}
     <div className="grind-grid grind-accounts">
       <section className="well">
         <div className="well-h"><h3>{tr('本次战利品', 'Loot this run')}</h3><b className="amount money">+{big(run.mesos + run.item_value)} <MesosIcon size={12} /></b></div>
@@ -78,6 +77,7 @@ export function LiveView({ run, live, warn, rule }: { run: RunSummary | null; li
         {!run.mobs.length && <p className="note">{run.kills_estimated ? tr('等待怪物数据。', 'Waiting for monster data.') : tr('还没有击杀。', 'No kills yet.')}</p>}
       </section>
     </div>
+    {rule && <div className="grind-points-detail"><PointsDetail run={run} rule={rule} t={tr} big={big} /></div>}
     <PartyMetrics run={run} />
     {(run.attack_count > 0 || run.casts?.length > 0) && <section className="well">
           <div className="well-h"><h3>{tr('攻击与技能', 'Attacks and skills')}</h3>

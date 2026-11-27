@@ -1,6 +1,6 @@
 // 积分明细 (绩效模式): every part of a run's points, one row each: experience, mesos picked up,
 // each basic drop (its value) and each consumable used (its cost, taken off). Shown on the
-// client's live page and in a run's detail when 绩效模式 is on.
+// client's live page and in a run's detail when 绩效模式 is on. Folds by its heading.
 import { EntityRow } from "./entity-ref";
 import { basicDrop, points, pointsText, type PointsRule } from "./grind-points";
 import "./grind-run.css";
@@ -28,8 +28,8 @@ export function PointsDetail({ run, rule, t, big }: { run: DetailRun; rule: Poin
   const used = (run.consumables || []).filter(row => row.used > 0 && row.cost).sort((a, b) => (b.cost || 0) - (a.cost || 0));
   const otherRate = rule.other_per_10k ?? 0, hourly = rule.per_hour ?? 0, hours = (run.active_seconds || 0) / 3600;
   const others = otherRate ? (run.loot || []).filter(row => !basicDrop(row.item_id) && row.value).sort((a, b) => b.value - a.value) : [];
-  return <section className="gr-well gr-points" aria-label={t("积分明细", "Points breakdown")}>
-    <h3>{t("积分明细", "Points breakdown")}<b className="money">{pointsText(points(run, rule), big)}</b></h3>
+  return <details className="gr-well gr-points" open aria-label={t("积分明细", "Points breakdown")}>
+    <summary><h3>{t("积分明细", "Points breakdown")}<b className="money">{pointsText(points(run, rule), big)}</b></h3></summary>
     <div className="drow"><span className="eicon"><span className="exp-dot" aria-hidden="true">EXP</span></span>
       <span className="t"><b>{t("经验", "EXP")}</b><small> {big(run.exp)} × {t(`每万 ${rule.exp_per_10k}`, `${rule.exp_per_10k} per 10K`)}</small></span>
       <span className="r money">{show(pts(run.exp || 0, rule.exp_per_10k))}</span></div>
@@ -49,5 +49,5 @@ export function PointsDetail({ run, rule, t, big }: { run: DetailRun; rule: Poin
       note={t(`用 ${big(row.used)} · 花费 ${big(row.cost)}`, `used ${big(row.used)} · cost ${big(row.cost)}`)}
       value={show(-pts(row.cost || 0, off))} />)}
     {!drops.length && !used.length && <p className="gr-more">{t("还没有基础掉落和消耗。", "No basic drops or consumables yet.")}</p>}
-  </section>;
+  </details>;
 }

@@ -61,7 +61,7 @@ try {
   await bridge(page);
   await page.goto(base);
   await page.getByRole('button', { name: '刷图', exact: true }).click();
-  const table = page.getByRole('region', { name: '队伍战斗统计' });
+  const table = page.getByRole('group', { name: '队伍战斗统计' });
   await table.getByRole('cell', { name: '900', exact: true }).waitFor();
   assert.equal(await table.locator('tbody tr').count(), 6);
   assert((await table.boundingBox()).height > 150, 'combat region must not shrink away');
@@ -275,6 +275,19 @@ try {
     if (out) await detail.screenshot({ path: path.join(out, 'grind-points-detail.png') });
     assert.match(await detail.innerText(), /积分明细\s*2\.7[\s\S]*经验[\s\S]*\+0\.8[\s\S]*金币[\s\S]*\+1\.1[\s\S]*攻击神水/);
     assert.match(await detail.innerText(), /时长[\s\S]*\+0\.1/);
+    // Both blocks fold by their heading; 积分明细 sits above 同图队伍.
+    const fold = detail.locator('details.gr-points');
+    await fold.locator('summary').click();
+    assert.equal(await fold.evaluate(e => e.open), false);
+    assert.equal(await detail.getByText('攻击神水').isVisible(), false, 'a folded breakdown hides its rows');
+    await fold.locator('summary').click();
+    const party = page.locator('details.party-metrics');
+    if (await party.count()) {
+      assert.ok(await page.evaluate(() => document.querySelector('.grind-points-detail').compareDocumentPosition(document.querySelector('details.party-metrics')) & Node.DOCUMENT_POSITION_FOLLOWING));
+      await party.locator('summary').click();
+      assert.equal(await party.locator('table').isVisible(), false);
+      await party.locator('summary').click();
+    }
     await points.getByRole('button', { name: '积分', exact: true }).click();
     assert.match(await points.innerText(), /平均.*实时.*累计/s);
     assert.equal(await points.locator('svg.rate-chart').count(), 0, 'a folded block is one line');

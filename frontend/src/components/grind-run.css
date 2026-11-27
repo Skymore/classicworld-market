@@ -49,3 +49,5 @@
 /* 积分明细: the experience row's badge, in place of an item icon. */
 .gr-points .exp-dot{font-size:9px;font-weight:800;letter-spacing:.02em;opacity:.75}
 .grind-points-detail{margin:8px 0}
+.gr-points>summary{list-style:none;cursor:pointer}.gr-points>summary::-webkit-details-marker{display:none}
+.gr-points>summary h3::before{content:"▾";margin-right:6px;opacity:.6}.gr-points:not([open])>summary h3::before{content:"▸"}.gr-points:not([open])>summary h3{border-bottom:0}

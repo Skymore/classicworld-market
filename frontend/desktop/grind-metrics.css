@@ -64,3 +64,5 @@ button.ov-stat-label{appearance:none;border:0;background:none;padding:0;margin:0
 .ov-info-text{font-size:.78em;opacity:.8;line-height:1.5;margin:.2em 0 .3em;white-space:normal}
 .ov-stat-top .ov-info{margin-left:auto}
 .rate-title-row{display:flex;align-items:center;justify-content:space-between;gap:6px}
+
+summary.party-heading{list-style:none;cursor:pointer;justify-content:flex-start;gap:6px}summary.party-heading::-webkit-details-marker{display:none}summary.party-heading::before{content:"▾";opacity:.6}details.party-metrics:not([open])>summary.party-heading::before{content:"▸"}summary.party-heading small{margin-left:auto}
